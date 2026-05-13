@@ -1,0 +1,28 @@
+{
+  "name": "@custodian/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@clerk/backend": "^1.13.0",
+    "@custodian/db": "workspace:*",
+    "@custodian/trpc": "workspace:*",
+    "@custodian/validators": "workspace:*",
+    "@hono/node-server": "^1.13.0",
+    "@trpc/server": "^11.0.0-rc.650",
+    "hono": "^4.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.17.0",
+    "typescript": "^5.5.0"
+  }
+}

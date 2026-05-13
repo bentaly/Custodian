@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum ApplicationStatus {
+  RECEIVED
+  UNDER_REVIEW
+  SHORTLISTED
+  AWARDED
+  DECLINED
+}
+
+enum UserRole {
+  ADMIN
+  TRUSTEE
+  MANAGER
+  CONTRIBUTOR
+  OBSERVER
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  role      UserRole @default(OBSERVER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs           ApplicationStatusHistory[]
+
+  @@map("users")
+}
+
+model Fund {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  programmes Programme[]
+
+  @@map("funds")
+}
+
+model Programme {
+  id          String    @id @default(cuid())
+  fundId      String
+  name        String
+  description String?
+  openDate    DateTime?
+  closeDate   DateTime?
+  budgetPence Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fund         Fund          @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@map("programmes")
+}
+
+model Organisation {
+  id                   String   @id @default(cuid())
+  name                 String
+  charityNumber        String?
+  companiesHouseNumber String?
+  website              String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  applications Application[]
+
+  @@map("organisations")
+}
+
+model Application {
+  id             String            @id @default(cuid())
+  programmeId    String
+  organisationId String
+  status         ApplicationStatus @default(RECEIVED)
+  submittedAt    DateTime          @default(now())
+  rawPayload     Json?
+  notes          String?
+  awardedPence   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  programme    Programme                  @relation(fields: [programmeId], references: [id])
+  organisation Organisation               @relation(fields: [organisationId], references: [id])
+  statusHistory ApplicationStatusHistory[]
+
+  @@map("applications")
+}
+
+// Every status change is recorded here — no UI in MVP, surface in Phase 2
+model ApplicationStatusHistory {
+  id            String            @id @default(cuid())
+  applicationId String
+  changedById   String
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus
+  notes         String?
+  createdAt     DateTime          @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy   User        @relation(fields: [changedById], references: [id])
+
+  @@map("application_status_history")
+}

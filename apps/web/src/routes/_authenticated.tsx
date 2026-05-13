@@ -1,0 +1,62 @@
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { useAuth } from '@clerk/clerk-react'
+
+export const Route = createFileRoute('/_authenticated')({
+  beforeLoad: async ({ context: _ }) => {
+    // Clerk handles auth state — redirect to sign-in if not signed in
+    // This is checked at the layout level via useAuth below
+  },
+  component: AuthenticatedLayout,
+})
+
+function AuthenticatedLayout() {
+  const { isLoaded, isSignedIn } = useAuth()
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <span className="text-sm text-gray-500">Loading…</span>
+      </div>
+    )
+  }
+
+  if (!isSignedIn) {
+    // In production use Clerk's <RedirectToSignIn /> or route-level guard
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <span className="text-sm text-gray-500">Redirecting to sign in…</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-screen">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto p-8">
+        <Outlet />
+      </main>
+    </div>
+  )
+}
+
+function Sidebar() {
+  return (
+    <aside className="w-64 border-r border-gray-200 bg-white px-4 py-6">
+      <p className="text-lg font-semibold text-gray-900">Custodian</p>
+      <nav className="mt-6 space-y-1">
+        <a href="/dashboard" className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          Dashboard
+        </a>
+        <a href="/applications" className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          Applications
+        </a>
+        <a href="/funds" className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          Funds
+        </a>
+        <a href="/organisations" className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          Organisations
+        </a>
+      </nav>
+    </aside>
+  )
+}
