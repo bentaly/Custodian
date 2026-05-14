@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import type { Next } from 'hono'
-import { clerkClient } from '../clerk.js'
+import { verifyToken } from '@clerk/backend'
 import { prisma } from '@custodian/db'
 
 export async function clerkAuthMiddleware(c: Context, next: Next) {
@@ -13,7 +13,9 @@ export async function clerkAuthMiddleware(c: Context, next: Next) {
   }
 
   try {
-    const { sub: clerkId } = await clerkClient.verifyToken(token)
+    const { sub: clerkId } = await verifyToken(token, {
+      secretKey: process.env['CLERK_SECRET_KEY']!,
+    })
 
     const user = await prisma.user.findUnique({
       where: { clerkId },

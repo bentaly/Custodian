@@ -11,7 +11,8 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.15.0",
+    "@clerk/react": "^6.6.0",
+    "@custodian/trpc": "workspace:*",
     "@custodian/validators": "workspace:*",
     "@tanstack/react-query": "^5.56.0",
     "@tanstack/react-router": "^1.56.0",

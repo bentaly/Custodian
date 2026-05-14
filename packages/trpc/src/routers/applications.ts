@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Prisma } from '@custodian/db'
 import {
   ApplicationFiltersSchema,
   CreateApplicationSchema,
@@ -43,9 +44,11 @@ export const applicationsRouter = router({
     }),
 
   create: adminProcedure.input(CreateApplicationSchema).mutation(async ({ ctx, input }) => {
+    const { rawPayload, ...rest } = input
     return ctx.db.application.create({
       data: {
-        ...input,
+        ...rest,
+        ...(rawPayload !== undefined && { rawPayload: rawPayload as Prisma.InputJsonValue }),
         statusHistory: {
           create: {
             toStatus: 'RECEIVED',

@@ -1,11 +1,7 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
-import { useAuth } from '@clerk/clerk-react'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { useAuth, useClerk, RedirectToSignIn } from '@clerk/react'
 
 export const Route = createFileRoute('/_authenticated')({
-  beforeLoad: async ({ context: _ }) => {
-    // Clerk handles auth state — redirect to sign-in if not signed in
-    // This is checked at the layout level via useAuth below
-  },
   component: AuthenticatedLayout,
 })
 
@@ -21,12 +17,7 @@ function AuthenticatedLayout() {
   }
 
   if (!isSignedIn) {
-    // In production use Clerk's <RedirectToSignIn /> or route-level guard
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <span className="text-sm text-gray-500">Redirecting to sign in…</span>
-      </div>
-    )
+    return <RedirectToSignIn />
   }
 
   return (
@@ -40,10 +31,12 @@ function AuthenticatedLayout() {
 }
 
 function Sidebar() {
+  const { signOut } = useClerk()
+
   return (
-    <aside className="w-64 border-r border-gray-200 bg-white px-4 py-6">
+    <aside className="w-64 border-r border-gray-200 bg-white px-4 py-6 flex flex-col">
       <p className="text-lg font-semibold text-gray-900">Custodian</p>
-      <nav className="mt-6 space-y-1">
+      <nav className="mt-6 space-y-1 flex-1">
         <a href="/dashboard" className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
           Dashboard
         </a>
@@ -57,6 +50,12 @@ function Sidebar() {
           Organisations
         </a>
       </nav>
+      <button
+        onClick={() => signOut({ redirectUrl: '/sign-in' })}
+        className="mt-4 block w-full rounded px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+      >
+        Sign out
+      </button>
     </aside>
   )
 }
