@@ -1,7 +1,8 @@
 node_modules/
-.turbo/
 dist/
 build/
+.output/
+.vinxi/
 .env
 .env.local
 *.tsbuildinfo
@@ -11,8 +12,5 @@ build/
 prisma/migrations/dev.db
 *.db
 
-# Vite
-apps/web/dist/
-
-# Clerk
-.clerk/
+# TanStack Router (auto-generated, committed but here for reference)
+# app/routeTree.gen.ts
