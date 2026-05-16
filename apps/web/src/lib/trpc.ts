@@ -4,14 +4,13 @@ import type { AppRouter } from '@custodian/trpc'
 
 export const trpc = createTRPCReact<AppRouter>()
 
-export function createTrpcClient(getToken: () => Promise<string | null>) {
+export function createTrpcClient() {
   return trpc.createClient({
     links: [
       httpBatchLink({
         url: `${import.meta.env['VITE_API_URL'] ?? 'http://localhost:3001'}/trpc`,
-        async headers() {
-          const token = await getToken()
-          return token ? { authorization: `Bearer ${token}` } : {}
+        fetch(url, options) {
+          return fetch(url, { ...options, credentials: 'include' })
         },
       }),
     ],

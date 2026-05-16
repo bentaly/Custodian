@@ -1,14 +1,14 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
-import { useAuth, useClerk, RedirectToSignIn } from '@clerk/react'
+import { authClient } from '../lib/auth-client'
 
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
 })
 
 function AuthenticatedLayout() {
-  const { isLoaded, isSignedIn } = useAuth()
+  const { data: session, isPending } = authClient.useSession()
 
-  if (!isLoaded) {
+  if (isPending) {
     return (
       <div className="flex h-screen items-center justify-center">
         <span className="text-sm text-gray-500">Loading…</span>
@@ -16,8 +16,9 @@ function AuthenticatedLayout() {
     )
   }
 
-  if (!isSignedIn) {
-    return <RedirectToSignIn />
+  if (!session) {
+    window.location.replace('/sign-in')
+    return null
   }
 
   return (
@@ -31,8 +32,6 @@ function AuthenticatedLayout() {
 }
 
 function Sidebar() {
-  const { signOut } = useClerk()
-
   return (
     <aside className="w-64 border-r border-gray-200 bg-white px-4 py-6 flex flex-col">
       <p className="text-lg font-semibold text-gray-900">Custodian</p>
@@ -51,7 +50,7 @@ function Sidebar() {
         </a>
       </nav>
       <button
-        onClick={() => signOut({ redirectUrl: '/sign-in' })}
+        onClick={() => authClient.signOut().then(() => window.location.replace('/sign-in'))}
         className="mt-4 block w-full rounded px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
       >
         Sign out

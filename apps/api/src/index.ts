@@ -2,8 +2,9 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { clerkAuthMiddleware } from './middleware/auth.js'
+import { authMiddleware } from './middleware/auth.js'
 import { createTrpcHandler } from './trpc.js'
+import { auth } from './auth.js'
 
 const app = new Hono()
 
@@ -15,7 +16,10 @@ app.use(
     credentials: true,
   }),
 )
-app.use('*', clerkAuthMiddleware)
+
+app.on(['POST', 'GET'], '/api/auth/**', (c) => auth.handler(c.req.raw))
+
+app.use('*', authMiddleware)
 
 app.get('/healthz', (c) => c.json({ ok: true }))
 app.all('/trpc/*', (c) => createTrpcHandler(c))

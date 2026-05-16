@@ -11,7 +11,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@clerk/react": "^6.6.0",
+    "better-auth": "^1.0.0",
     "@custodian/trpc": "workspace:*",
     "@custodian/validators": "workspace:*",
     "@tanstack/react-query": "^5.56.0",

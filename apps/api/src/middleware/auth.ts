@@ -1,29 +1,19 @@
-import type { Context } from 'hono'
-import type { Next } from 'hono'
-import { verifyToken } from '@clerk/backend'
+import type { Context, Next } from 'hono'
 import { prisma } from '@custodian/db'
+import { auth } from '../auth.js'
 
-export async function clerkAuthMiddleware(c: Context, next: Next) {
-  const authHeader = c.req.header('authorization')
-  const token = authHeader?.replace('Bearer ', '')
+export async function authMiddleware(c: Context, next: Next) {
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  })
 
-  if (!token) {
-    c.set('user', null)
-    return next()
-  }
-
-  try {
-    const { sub: clerkId } = await verifyToken(token, {
-      secretKey: process.env['CLERK_SECRET_KEY']!,
-    })
-
+  if (session?.user) {
     const user = await prisma.user.findUnique({
-      where: { clerkId },
-      select: { id: true, clerkId: true, email: true, role: true },
+      where: { id: session.user.id },
+      select: { id: true, email: true, role: true },
     })
-
     c.set('user', user)
-  } catch {
+  } else {
     c.set('user', null)
   }
 
