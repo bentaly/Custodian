@@ -1,33 +1,36 @@
 import { z } from 'zod'
 
 export const ApplicationStatus = z.enum([
-  'RECEIVED',
-  'UNDER_REVIEW',
-  'SHORTLISTED',
-  'AWARDED',
-  'DECLINED',
+  'submitted',
+  'under_review',
+  'shortlisted',
+  'approved',
+  'declined',
+  'withdrawn',
 ])
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
 export const CreateApplicationSchema = z.object({
-  programmeId: z.string().min(1),
-  organisationId: z.string().min(1),
-  submittedAt: z.coerce.date().optional(),
-  rawPayload: z.record(z.string(), z.unknown()).optional(),
-  notes: z.string().max(5000).optional(),
+  roundId: z.string().uuid(),
+  organisationName: z.string().min(1).max(255),
+  charityNumber: z.string().max(50).optional(),
+  contactName: z.string().min(1).max(255),
+  contactEmail: z.string().email(),
+  amountRequested: z.number().positive(),
+  responses: z.record(z.string().uuid(), z.string()),
 })
 export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>
 
 export const UpdateApplicationStatusSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().uuid(),
   status: ApplicationStatus,
-  notes: z.string().max(2000).optional(),
+  amountAwarded: z.number().positive().optional(),
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
 
 export const ApplicationFiltersSchema = z.object({
-  programmeId: z.string().min(1).optional(),
-  fundId: z.string().min(1).optional(),
+  roundId: z.string().uuid().optional(),
+  programmeId: z.string().uuid().optional(),
   status: ApplicationStatus.optional(),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(25),

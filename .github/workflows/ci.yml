@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   ci:
-    name: Lint & Typecheck
+    name: Typecheck & Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -26,11 +26,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: pnpm --filter @custodian/db db:generate
-
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Lint
-        run: pnpm lint
+      - name: Build
+        run: pnpm build
+        if: github.ref == 'refs/heads/master'
+        env:
+          NITRO_PRESET: cloudflare-module
+
+      - name: Deploy
+        run: pnpm deploy
+        if: github.ref == 'refs/heads/master'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

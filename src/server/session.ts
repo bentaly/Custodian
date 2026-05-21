@@ -1,16 +1,25 @@
 import { getRequest } from '@tanstack/react-start/server'
+import { eq } from 'drizzle-orm'
 import { auth } from './auth'
-import { prisma } from './db'
+import { db } from './db'
+import { users } from '../../drizzle/schema'
 
 export async function getAuthUser() {
   const request = getRequest()
   const session = await auth.api.getSession({ headers: request.headers })
   if (!session) return null
 
-  return prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, email: true, name: true, role: true },
-  })
+  const rows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      foundationId: users.foundationId,
+    })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+  return rows[0] ?? null
 }
 
 export async function requireAuthUser() {
@@ -19,10 +28,10 @@ export async function requireAuthUser() {
   return user
 }
 
-export async function requireAdmin() {
+export async function requireRole(
+  ...roles: Array<'superadmin' | 'admin' | 'manager' | 'contributor' | 'observer' | 'trustee'>
+) {
   const user = await requireAuthUser()
-  if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
-    throw new Error('Forbidden')
-  }
+  if (!roles.includes(user.role)) throw new Error('Forbidden')
   return user
 }

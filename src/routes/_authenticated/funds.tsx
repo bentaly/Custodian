@@ -1,18 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { listFunds } from '../../server/fns/funds'
+import { listProgrammes } from '../../server/fns/programmes'
 
 export const Route = createFileRoute('/_authenticated/funds')({
-  loader: () => listFunds(),
-  component: Funds,
+  loader: () => listProgrammes({ data: {} }),
+  component: Programmes,
 })
 
-function Funds() {
-  const funds = Route.useLoaderData()
+function Programmes() {
+  const programmes = Route.useLoaderData()
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900">Funds</h1>
-      <p className="mt-2 text-sm text-gray-500">{funds.length} funds</p>
+      <h1 className="text-2xl font-semibold text-gray-900">Programmes</h1>
+      <p className="mt-2 text-sm text-gray-500">{programmes.length} programmes</p>
     </div>
   )
 }

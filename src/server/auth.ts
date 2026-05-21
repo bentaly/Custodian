@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
-import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { prisma } from './db'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { db } from './db'
+import { users, sessions, accounts, verifications } from '../../drizzle/schema'
 
 if (!process.env['BETTER_AUTH_SECRET']) {
   throw new Error('BETTER_AUTH_SECRET is required')
@@ -9,8 +10,14 @@ if (!process.env['BETTER_AUTH_SECRET']) {
 export const auth = betterAuth({
   secret: process.env['BETTER_AUTH_SECRET'],
   baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
-  database: prismaAdapter(prisma, {
-    provider: 'postgresql',
+  database: drizzleAdapter(db, {
+    provider: 'pg',
+    schema: {
+      user: users,
+      session: sessions,
+      account: accounts,
+      verification: verifications,
+    },
   }),
   emailAndPassword: {
     enabled: true,
