@@ -5,12 +5,12 @@ export const Route = createFileRoute('/api/auth/$')(
     server: {
       handlers: {
         GET: async ({ request }: { request: Request }) => {
-          const { auth } = await import('../../server/auth')
-          return auth.handler(request)
+          const { getAuth } = await import('../../server/auth')
+          return getAuth().handler(request)
         },
         POST: async ({ request }: { request: Request }) => {
-          const { auth } = await import('../../server/auth')
-          return auth.handler(request)
+          const { getAuth } = await import('../../server/auth')
+          return getAuth().handler(request)
         },
       },
     },

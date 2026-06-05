@@ -1,12 +1,12 @@
 import { getRequest } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
-import { auth } from './auth'
+import { getAuth } from './auth'
 import { getDb } from './db'
 import { users } from '../../drizzle/schema'
 
 export async function getAuthUser() {
   const request = getRequest()
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await getAuth().api.getSession({ headers: request.headers })
   if (!session) return null
 
   const rows = await getDb()
