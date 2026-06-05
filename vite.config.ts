@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
   Object.assign(process.env, env)
 
   return {
+    server: {
+      port: 3000,
+      open: true,
+    },
     plugins: [
       tanstackStart(),
       viteReact(),

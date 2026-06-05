@@ -13,10 +13,12 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedOrganisationsRouteImport } from './routes/_authenticated/organisations'
-import { Route as AuthenticatedFundsRouteImport } from './routes/_authenticated/funds'
+import { Route as ApiApplyRouteImport } from './routes/api/apply'
+import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
+import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 
 const SignUpRoute = SignUpRouteImport.update({
@@ -38,15 +40,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedOrganisationsRoute =
-  AuthenticatedOrganisationsRouteImport.update({
-    id: '/organisations',
-    path: '/organisations',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedFundsRoute = AuthenticatedFundsRouteImport.update({
-  id: '/funds',
-  path: '/funds',
+const ApiApplyRoute = ApiApplyRouteImport.update({
+  id: '/api/apply',
+  path: '/api/apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -60,6 +66,11 @@ const AuthenticatedApplicationsRoute =
     path: '/applications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
+  id: '/api/round/$roundId',
+  path: '/api/round/$roundId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -72,9 +83,11 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/applications': typeof AuthenticatedApplicationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/funds': typeof AuthenticatedFundsRoute
-  '/organisations': typeof AuthenticatedOrganisationsRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/users': typeof AuthenticatedUsersRoute
+  '/api/apply': typeof ApiApplyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/round/$roundId': typeof ApiRoundRoundIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,9 +95,11 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/applications': typeof AuthenticatedApplicationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/funds': typeof AuthenticatedFundsRoute
-  '/organisations': typeof AuthenticatedOrganisationsRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/users': typeof AuthenticatedUsersRoute
+  '/api/apply': typeof ApiApplyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/round/$roundId': typeof ApiRoundRoundIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,9 +109,11 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/_authenticated/applications': typeof AuthenticatedApplicationsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/funds': typeof AuthenticatedFundsRoute
-  '/_authenticated/organisations': typeof AuthenticatedOrganisationsRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/users': typeof AuthenticatedUsersRoute
+  '/api/apply': typeof ApiApplyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/round/$roundId': typeof ApiRoundRoundIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,9 +123,11 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/applications'
     | '/dashboard'
-    | '/funds'
-    | '/organisations'
+    | '/profile'
+    | '/users'
+    | '/api/apply'
     | '/api/auth/$'
+    | '/api/round/$roundId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -116,9 +135,11 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/applications'
     | '/dashboard'
-    | '/funds'
-    | '/organisations'
+    | '/profile'
+    | '/users'
+    | '/api/apply'
     | '/api/auth/$'
+    | '/api/round/$roundId'
   id:
     | '__root__'
     | '/'
@@ -127,9 +148,11 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/_authenticated/applications'
     | '/_authenticated/dashboard'
-    | '/_authenticated/funds'
-    | '/_authenticated/organisations'
+    | '/_authenticated/profile'
+    | '/_authenticated/users'
+    | '/api/apply'
     | '/api/auth/$'
+    | '/api/round/$roundId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -137,7 +160,9 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  ApiApplyRoute: typeof ApiApplyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -170,18 +195,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/organisations': {
-      id: '/_authenticated/organisations'
-      path: '/organisations'
-      fullPath: '/organisations'
-      preLoaderRoute: typeof AuthenticatedOrganisationsRouteImport
+    '/api/apply': {
+      id: '/api/apply'
+      path: '/api/apply'
+      fullPath: '/api/apply'
+      preLoaderRoute: typeof ApiApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/users': {
+      id: '/_authenticated/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/funds': {
-      id: '/_authenticated/funds'
-      path: '/funds'
-      fullPath: '/funds'
-      preLoaderRoute: typeof AuthenticatedFundsRouteImport
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -198,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedApplicationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/round/$roundId': {
+      id: '/api/round/$roundId'
+      path: '/api/round/$roundId'
+      fullPath: '/api/round/$roundId'
+      preLoaderRoute: typeof ApiRoundRoundIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -211,15 +250,15 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedFundsRoute: typeof AuthenticatedFundsRoute
-  AuthenticatedOrganisationsRoute: typeof AuthenticatedOrganisationsRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApplicationsRoute: AuthenticatedApplicationsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedFundsRoute: AuthenticatedFundsRoute,
-  AuthenticatedOrganisationsRoute: AuthenticatedOrganisationsRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -231,7 +270,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  ApiApplyRoute: ApiApplyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

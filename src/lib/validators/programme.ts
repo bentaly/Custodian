@@ -4,7 +4,7 @@ export const ProgrammeStatus = z.enum(['active', 'draft', 'closed'])
 export type ProgrammeStatus = z.infer<typeof ProgrammeStatus>
 
 export const CreateProgrammeSchema = z.object({
-  foundationId: z.string().uuid(),
+  roundId: z.string().uuid(),
   name: z.string().min(1).max(255),
   description: z.string().max(2000).optional(),
 })

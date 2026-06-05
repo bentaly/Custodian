@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { db } from './db'
+import { getDb } from './db'
 import { users, sessions, accounts, verifications } from '../../drizzle/schema'
 
 if (!process.env['BETTER_AUTH_SECRET']) {
@@ -10,7 +10,7 @@ if (!process.env['BETTER_AUTH_SECRET']) {
 export const auth = betterAuth({
   secret: process.env['BETTER_AUTH_SECRET'],
   baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
-  database: drizzleAdapter(db, {
+  database: drizzleAdapter(getDb(), {
     provider: 'pg',
     schema: {
       user: users,

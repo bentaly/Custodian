@@ -1,7 +1,7 @@
 import { getRequest } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { auth } from './auth'
-import { db } from './db'
+import { getDb } from './db'
 import { users } from '../../drizzle/schema'
 
 export async function getAuthUser() {
@@ -9,13 +9,13 @@ export async function getAuthUser() {
   const session = await auth.api.getSession({ headers: request.headers })
   if (!session) return null
 
-  const rows = await db
+  const rows = await getDb()
     .select({
       id: users.id,
       email: users.email,
       name: users.name,
       role: users.role,
-      foundationId: users.foundationId,
+      clientId: users.clientId,
     })
     .from(users)
     .where(eq(users.id, session.user.id))

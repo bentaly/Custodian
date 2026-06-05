@@ -22,6 +22,11 @@ export const userRoleEnum = pgEnum('user_role', [
   'trustee',
 ])
 
+export const clientTypeEnum = pgEnum('client_type', [
+  'charitable_foundation',
+  'family_office',
+])
+
 export const programmeStatusEnum = pgEnum('programme_status', ['active', 'draft', 'closed'])
 
 export const roundStatusEnum = pgEnum('round_status', [
@@ -53,9 +58,10 @@ export const applicationStatusEnum = pgEnum('application_status', [
 
 // ─── Business tables ──────────────────────────────────────────────────────────
 
-export const foundations = pgTable('foundations', {
+export const clients = pgTable('clients', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  type: clientTypeEnum('type').notNull().default('charitable_foundation'),
   description: text('description'),
   website: text('website'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -65,7 +71,7 @@ export const foundations = pgTable('foundations', {
 // alongside the business fields from the data model. Auth plumbing only.
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
-  foundationId: uuid('foundation_id').references(() => foundations.id, { onDelete: 'set null' }),
+  clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   role: userRoleEnum('role').notNull().default('observer'),
@@ -76,29 +82,29 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
 })
 
-export const programmes = pgTable('programmes', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  foundationId: uuid('foundation_id')
-    .notNull()
-    .references(() => foundations.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description'),
-  status: programmeStatusEnum('status').notNull().default('draft'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  closedAt: timestamp('closed_at'),
-})
-
 export const rounds = pgTable('rounds', {
   id: uuid('id').primaryKey().defaultRandom(),
-  programmeId: uuid('programme_id')
+  clientId: uuid('client_id')
     .notNull()
-    .references(() => programmes.id, { onDelete: 'cascade' }),
+    .references(() => clients.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   budget: numeric('budget'),
   status: roundStatusEnum('status').notNull().default('upcoming'),
   openedAt: timestamp('opened_at'),
   closedAt: timestamp('closed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+export const programmes = pgTable('programmes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  roundId: uuid('round_id')
+    .notNull()
+    .references(() => rounds.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  status: programmeStatusEnum('status').notNull().default('draft'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  closedAt: timestamp('closed_at'),
 })
 
 export const formFields = pgTable('form_fields', {
@@ -116,9 +122,9 @@ export const formFields = pgTable('form_fields', {
 
 export const applications = pgTable('applications', {
   id: uuid('id').primaryKey().defaultRandom(),
-  roundId: uuid('round_id')
+  programmeId: uuid('programme_id')
     .notNull()
-    .references(() => rounds.id, { onDelete: 'restrict' }),
+    .references(() => programmes.id, { onDelete: 'restrict' }),
   organisationName: text('organisation_name').notNull(),
   charityNumber: text('charity_number'),
   contactName: text('contact_name').notNull(),
@@ -126,6 +132,8 @@ export const applications = pgTable('applications', {
   amountRequested: numeric('amount_requested').notNull(),
   amountAwarded: numeric('amount_awarded'),
   status: applicationStatusEnum('status').notNull().default('submitted'),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dueDiligenceData: jsonb('due_diligence_data').$type<Record<string, any>>(),
   submittedAt: timestamp('submitted_at').notNull().defaultNow(),
   decisionAt: timestamp('decision_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -181,28 +189,50 @@ export const verifications = pgTable('verifications', {
   updatedAt: timestamp('updated_at'),
 })
 
+export const invitations = pgTable('invitations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  role: userRoleEnum('role').notNull().default('observer'),
+  token: text('token').notNull().unique(),
+  invitedBy: text('invited_by')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  acceptedAt: timestamp('accepted_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
-export const foundationsRelations = relations(foundations, ({ many }) => ({
+export const clientsRelations = relations(clients, ({ many }) => ({
   users: many(users),
-  programmes: many(programmes),
+  rounds: many(rounds),
+  invitations: many(invitations),
 }))
 
 export const usersRelations = relations(users, ({ one }) => ({
-  foundation: one(foundations, { fields: [users.foundationId], references: [foundations.id] }),
+  client: one(clients, { fields: [users.clientId], references: [clients.id] }),
 }))
 
-export const programmesRelations = relations(programmes, ({ one, many }) => ({
-  foundation: one(foundations, {
-    fields: [programmes.foundationId],
-    references: [foundations.id],
-  }),
-  rounds: many(rounds),
-  formFields: many(formFields),
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  client: one(clients, { fields: [invitations.clientId], references: [clients.id] }),
+  invitedByUser: one(users, { fields: [invitations.invitedBy], references: [users.id] }),
 }))
 
 export const roundsRelations = relations(rounds, ({ one, many }) => ({
-  programme: one(programmes, { fields: [rounds.programmeId], references: [programmes.id] }),
+  client: one(clients, { fields: [rounds.clientId], references: [clients.id] }),
+  programmes: many(programmes),
+}))
+
+export const programmesRelations = relations(programmes, ({ one, many }) => ({
+  round: one(rounds, {
+    fields: [programmes.roundId],
+    references: [rounds.id],
+  }),
+  formFields: many(formFields),
   applications: many(applications),
 }))
 
@@ -212,7 +242,7 @@ export const formFieldsRelations = relations(formFields, ({ one, many }) => ({
 }))
 
 export const applicationsRelations = relations(applications, ({ one, many }) => ({
-  round: one(rounds, { fields: [applications.roundId], references: [rounds.id] }),
+  programme: one(programmes, { fields: [applications.programmeId], references: [programmes.id] }),
   responses: many(applicationResponses),
 }))
 

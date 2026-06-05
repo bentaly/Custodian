@@ -1,20 +1,20 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
-import { db } from '../db'
+import { getDb } from '../db'
 import { programmes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { CreateProgrammeSchema, UpdateProgrammeSchema } from '../../lib/validators/programme'
 
 export const listProgrammes = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ foundationId: z.string().uuid().optional() }))
+  .inputValidator(z.object({ roundId: z.string().uuid().optional() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
-    return db.query.programmes.findMany({
-      where: data.foundationId
-        ? (p, { eq }) => eq(p.foundationId, data.foundationId!)
+    return getDb().query.programmes.findMany({
+      where: data.roundId
+        ? (p, { eq }) => eq(p.roundId, data.roundId!)
         : undefined,
-      with: { rounds: true },
+      with: { applications: true },
       orderBy: (p, { asc }) => [asc(p.name)],
     })
   })
@@ -23,9 +23,9 @@ export const getProgramme = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
-    const programme = await db.query.programmes.findFirst({
+    const programme = await getDb().query.programmes.findFirst({
       where: (p, { eq }) => eq(p.id, data.id),
-      with: { rounds: true, formFields: { orderBy: (f, { asc }) => [asc(f.displayOrder)] } },
+      with: { applications: true, formFields: { orderBy: (f, { asc }) => [asc(f.displayOrder)] } },
     })
     if (!programme) throw new Error('Not found')
     return programme
@@ -35,7 +35,7 @@ export const createProgramme = createServerFn({ method: 'POST' })
   .inputValidator(CreateProgrammeSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin')
-    const [programme] = await db.insert(programmes).values(data).returning()
+    const [programme] = await getDb().insert(programmes).values(data).returning()
     return programme!
   })
 
@@ -46,7 +46,7 @@ export const updateProgramme = createServerFn({ method: 'POST' })
     const { id, ...rest } = data
     const updates: Partial<typeof rest> & { closedAt?: Date } = { ...rest }
     if (rest.status === 'closed') updates.closedAt = new Date()
-    const [programme] = await db
+    const [programme] = await getDb()
       .update(programmes)
       .set(updates)
       .where(eq(programmes.id, id))

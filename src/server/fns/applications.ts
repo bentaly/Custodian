@@ -1,8 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, inArray, count } from 'drizzle-orm'
-import { db } from '../db'
-import { applications, applicationResponses, rounds } from '../../../drizzle/schema'
+import { and, eq, count, inArray } from 'drizzle-orm'
+import { getDb } from '../db'
+import { applications, applicationResponses, programmes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import {
   ApplicationFiltersSchema,
@@ -16,32 +16,33 @@ export const listApplications = createServerFn({ method: 'GET' })
     await requireAuthUser()
     const { page, pageSize, ...filters } = data
 
-    // programmeId filter requires resolving round IDs
-    let roundIds: string[] | undefined
-    if (filters.programmeId) {
-      const r = await db
-        .select({ id: rounds.id })
-        .from(rounds)
-        .where(eq(rounds.programmeId, filters.programmeId))
-      roundIds = r.map((x) => x.id)
-      if (roundIds.length === 0) return { items: [], total: 0, page, pageSize }
+    let programmeIds: string[] | undefined
+    if (filters.roundId) {
+      const rows = await getDb()
+        .select({ id: programmes.id })
+        .from(programmes)
+        .where(eq(programmes.roundId, filters.roundId))
+      programmeIds = rows.map((r) => r.id)
+      if (programmeIds.length === 0) {
+        return { items: [], total: 0, page, pageSize }
+      }
     }
 
     const where = and(
       filters.status ? eq(applications.status, filters.status) : undefined,
-      filters.roundId ? eq(applications.roundId, filters.roundId) : undefined,
-      roundIds ? inArray(applications.roundId, roundIds) : undefined,
+      filters.programmeId ? eq(applications.programmeId, filters.programmeId) : undefined,
+      programmeIds ? inArray(applications.programmeId, programmeIds) : undefined,
     )
 
     const [items, totals] = await Promise.all([
-      db.query.applications.findMany({
+      getDb().query.applications.findMany({
         where,
-        with: { round: { with: { programme: true } } },
+        with: { programme: { with: { round: { with: { client: true } } } } },
         orderBy: (a, { desc }) => [desc(a.submittedAt)],
         offset: (page - 1) * pageSize,
         limit: pageSize,
       }),
-      db.select({ total: count() }).from(applications).where(where),
+      getDb().select({ total: count() }).from(applications).where(where),
     ])
 
     return { items, total: totals[0]?.total ?? 0, page, pageSize }
@@ -51,10 +52,10 @@ export const getApplication = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
-    const application = await db.query.applications.findFirst({
+    const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
       with: {
-        round: { with: { programme: true } },
+        programme: { with: { round: { with: { client: true } } } },
         responses: { with: { field: true } },
       },
     })
@@ -68,14 +69,14 @@ export const createApplication = createServerFn({ method: 'POST' })
     const { responses, amountRequested, ...rest } = data
     const id = crypto.randomUUID()
 
-    await db.insert(applications).values({
+    await getDb().insert(applications).values({
       id,
       ...rest,
       amountRequested: amountRequested.toString(),
     })
 
     if (Object.keys(responses).length > 0) {
-      await db.insert(applicationResponses).values(
+      await getDb().insert(applicationResponses).values(
         Object.entries(responses).map(([fieldId, value]) => ({
           applicationId: id,
           fieldId,
@@ -84,7 +85,7 @@ export const createApplication = createServerFn({ method: 'POST' })
       )
     }
 
-    const application = await db.query.applications.findFirst({
+    const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, id),
       with: { responses: true },
     })
@@ -100,7 +101,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
     const decisionStatuses = ['approved', 'declined'] as const
     const isDecision = decisionStatuses.includes(status as (typeof decisionStatuses)[number])
 
-    const [application] = await db
+    const [application] = await getDb()
       .update(applications)
       .set({
         status,

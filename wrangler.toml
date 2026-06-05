@@ -1,10 +1,10 @@
 name = "custodian"
-main = ".output/server/index.mjs"
+main = "dist/server/server.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 [assets]
-directory = ".output/public"
+directory = "dist/client"
 
 [env.staging]
 name = "custodian-staging"

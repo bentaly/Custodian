@@ -3,14 +3,14 @@ dist/
 build/
 .output/
 .vinxi/
+.wrangler/
 .env
 .env.local
 *.tsbuildinfo
 .DS_Store
 
-# Prisma
-prisma/migrations/dev.db
-*.db
+# Test / scratch apps
+test-app/
 
 # TanStack Router (auto-generated, committed but here for reference)
 # app/routeTree.gen.ts

@@ -1,17 +1,17 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
-import { db } from '../db'
+import { getDb } from '../db'
 import { rounds } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { CreateRoundSchema, UpdateRoundStatusSchema } from '../../lib/validators/round'
 
 export const listRounds = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ programmeId: z.string().uuid() }))
+  .inputValidator(z.object({ clientId: z.string().uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
-    return db.query.rounds.findMany({
-      where: (r, { eq }) => eq(r.programmeId, data.programmeId),
+    return getDb().query.rounds.findMany({
+      where: (r, { eq }) => eq(r.clientId, data.clientId),
       orderBy: (r, { desc }) => [desc(r.createdAt)],
     })
   })
@@ -20,9 +20,12 @@ export const getRound = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
-    const round = await db.query.rounds.findFirst({
+    const round = await getDb().query.rounds.findFirst({
       where: (r, { eq }) => eq(r.id, data.id),
-      with: { programme: true },
+      with: {
+        client: true,
+        programmes: { orderBy: (p, { asc }) => [asc(p.name)] },
+      },
     })
     if (!round) throw new Error('Not found')
     return round
@@ -33,7 +36,7 @@ export const createRound = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
     const { budget, ...rest } = data
-    const [round] = await db
+    const [round] = await getDb()
       .insert(rounds)
       .values({ ...rest, budget: budget?.toString() })
       .returning()
@@ -50,7 +53,7 @@ export const updateRoundStatus = createServerFn({ method: 'POST' })
     if (status === 'open') timestamps.openedAt = new Date()
     if (status === 'closed') timestamps.closedAt = new Date()
 
-    const [round] = await db
+    const [round] = await getDb()
       .update(rounds)
       .set({ status, ...timestamps })
       .where(eq(rounds.id, id))

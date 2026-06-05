@@ -7,7 +7,7 @@ export const Route = createFileRoute('/_authenticated/applications')({
 })
 
 function Applications() {
-  const data = Route.useLoaderData()
+  const data = Route.useLoaderData() 
 
   return (
     <div>

@@ -99,7 +99,7 @@ function SignInPage() {
 
         <p className="text-center text-sm text-gray-500">
           No account?{' '}
-          <Link to="/sign-up" className="text-gray-900 underline">
+          <Link to="/sign-up" search={{ invite: undefined }} className="text-gray-900 underline">
             Create one
           </Link>
         </p>
