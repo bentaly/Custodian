@@ -2,16 +2,31 @@ import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
 
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  account_not_linked: `This Google account isn't linked to an existing account. Try signing in with your email and password first.`,
+  internal_server_error: 'Something went wrong. Please try again.',
+  access_denied: 'Google sign-in was cancelled.',
+}
+
 export const Route = createFileRoute('/sign-in')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    error: typeof search['error'] === 'string' ? search['error'] : undefined,
+  }),
   component: SignInPage,
 })
 
 function SignInPage() {
   const navigate = useNavigate()
+  const { error: oauthError } = Route.useSearch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(
+    oauthError
+      ? (OAUTH_ERROR_MESSAGES[oauthError] ?? `Sign in failed (${oauthError})`)
+      : ''
+  )
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -27,7 +42,18 @@ function SignInPage() {
   }
 
   async function handleGoogle() {
-    await authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
+    setError('')
+    setGoogleLoading(true)
+    const { error } = await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: '/dashboard',
+      errorCallbackURL: '/sign-in',
+    })
+    if (error) {
+      setGoogleLoading(false)
+      setError(error.message ?? 'Google sign-in failed')
+    }
+    // on success the browser redirects away, so no need to reset loading
   }
 
   return (
@@ -74,7 +100,8 @@ function SignInPage() {
 
         <button
           onClick={handleGoogle}
-          className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          disabled={googleLoading}
+          className="flex w-full items-center justify-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -94,7 +121,7 @@ function SignInPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          Continue with Google
+          {googleLoading ? 'Redirecting to Google…' : 'Continue with Google'}
         </button>
 
         <p className="text-center text-sm text-gray-500">

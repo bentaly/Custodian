@@ -15,6 +15,9 @@ export function getAuth(): ReturnType<typeof betterAuth> {
     _auth = betterAuth({
       secret: process.env['BETTER_AUTH_SECRET'],
       baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
+      onAPIError: {
+        errorURL: '/sign-in',
+      },
       database: drizzleAdapter(getDb(), {
         provider: 'pg',
         schema: {
@@ -24,9 +27,36 @@ export function getAuth(): ReturnType<typeof betterAuth> {
           verification: verifications,
         },
       }),
+      account: {
+        accountLinking: {
+          requireLocalEmailVerified: false,
+        },
+      },
       emailAndPassword: {
         enabled: true,
+        // To require email verification before sign-in, uncomment below and wire up Resend (or similar):
+        // requireEmailVerification: true,
+        // sendResetPassword: async ({ user, url }) => {
+        //   await resend.emails.send({
+        //     from: 'noreply@yourdomain.com',
+        //     to: user.email,
+        //     subject: 'Reset your password',
+        //     html: `<a href="${url}">Reset password</a>`,
+        //   })
+        // },
       },
+      // emailVerification: {
+      //   sendOnSignUp: true,
+      //   autoSignInAfterVerification: true,
+      //   sendVerificationEmail: async ({ user, url }) => {
+      //     await resend.emails.send({
+      //       from: 'noreply@yourdomain.com',
+      //       to: user.email,
+      //       subject: 'Verify your email',
+      //       html: `<a href="${url}">Verify email</a>`,
+      //     })
+      //   },
+      // },
       socialProviders: {
         google: {
           clientId: process.env['GOOGLE_CLIENT_ID'] ?? '',
