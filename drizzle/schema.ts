@@ -205,12 +205,28 @@ export const invitations = pgTable('invitations', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+export const clientProfiles = pgTable('client_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id')
+    .notNull()
+    .unique()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  missionStatement: text('mission_statement'),
+  updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
-export const clientsRelations = relations(clients, ({ many }) => ({
+export const clientsRelations = relations(clients, ({ many, one }) => ({
   users: many(users),
   rounds: many(rounds),
   invitations: many(invitations),
+  profile: one(clientProfiles, { fields: [clients.id], references: [clientProfiles.clientId] }),
+}))
+
+export const clientProfilesRelations = relations(clientProfiles, ({ one }) => ({
+  client: one(clients, { fields: [clientProfiles.clientId], references: [clients.id] }),
 }))
 
 export const usersRelations = relations(users, ({ one }) => ({

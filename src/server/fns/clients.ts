@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { clients } from '../../../drizzle/schema'
+import { clients, clientProfiles } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { CreateClientSchema, UpdateClientSchema } from '../../lib/validators/client'
 
@@ -44,4 +44,29 @@ export const updateClient = createServerFn({ method: 'POST' })
       .where(eq(clients.id, id))
       .returning()
     return client!
+  })
+
+export const getClientProfile = createServerFn({ method: 'GET' }).handler(async () => {
+  const user = await requireAuthUser()
+  if (!user.clientId) return null
+  const profile = await getDb().query.clientProfiles.findFirst({
+    where: (p, { eq }) => eq(p.clientId, user.clientId!),
+  })
+  return profile ?? null
+})
+
+export const upsertClientProfile = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ missionStatement: z.string() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('admin', 'superadmin')
+    if (!user.clientId) throw new Error('No client associated with your account')
+    const [profile] = await getDb()
+      .insert(clientProfiles)
+      .values({ clientId: user.clientId, missionStatement: data.missionStatement })
+      .onConflictDoUpdate({
+        target: clientProfiles.clientId,
+        set: { missionStatement: data.missionStatement, updatedAt: new Date() },
+      })
+      .returning()
+    return profile!
   })
