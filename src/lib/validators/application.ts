@@ -14,7 +14,7 @@ export const CreateApplicationSchema = z.object({
   programmeId: z.string().uuid(),
   organisationName: z.string().min(1).max(255),
   organisationRegistrationNumber: z.string().max(50).optional(),
-  organisationType: z.string().min(1).max(255),
+  organisationType: z.enum(['charity', 'company']),
   bankName: z.string().min(1).max(255),
   bankAccountName: z.string().min(1).max(255),
   bankAccountNumber: z.string().min(1).max(50),

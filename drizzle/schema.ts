@@ -47,6 +47,8 @@ export const fieldTypeEnum = pgEnum('field_type', [
   'checkbox',
 ])
 
+export const organisationTypeEnum = pgEnum('organisation_type', ['charity', 'company'])
+
 export const applicationStatusEnum = pgEnum('application_status', [
   'submitted',
   'under_review',
@@ -129,7 +131,7 @@ export const applications = pgTable('applications', {
     .references(() => programmes.id, { onDelete: 'restrict' }),
   organisationName: text('organisation_name').notNull(),
   organisationRegistrationNumber: text('organisation_registration_number'),
-  organisationType: text('organisation_type'),
+  organisationType: organisationTypeEnum('organisation_type'),
   bankName: text('bank_name'),
   bankAccountName: text('bank_account_name'),
   bankAccountNumber: text('bank_account_number'),

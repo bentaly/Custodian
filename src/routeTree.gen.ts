@@ -20,9 +20,11 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
+import { Route as AuthenticatedApplicationsIndexRouteImport } from './routes/_authenticated/applications.index'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
+import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './routes/_authenticated/applications.$applicationId'
 
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
@@ -80,6 +82,12 @@ const AuthenticatedRoundsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedRoundsRoute,
   } as any)
+const AuthenticatedApplicationsIndexRoute =
+  AuthenticatedApplicationsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedApplicationsRoute,
+  } as any)
 const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
   id: '/api/round/$roundId',
   path: '/api/round/$roundId',
@@ -96,34 +104,43 @@ const AuthenticatedRoundsRoundIdRoute =
     path: '/$roundId',
     getParentRoute: () => AuthenticatedRoundsRoute,
   } as any)
+const AuthenticatedApplicationsApplicationIdRoute =
+  AuthenticatedApplicationsApplicationIdRouteImport.update({
+    id: '/$applicationId',
+    path: '/$applicationId',
+    getParentRoute: () => AuthenticatedApplicationsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/applications': typeof AuthenticatedApplicationsRoute
+  '/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
+  '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/applications': typeof AuthenticatedApplicationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
+  '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
 }
 export interface FileRoutesById {
@@ -132,15 +149,17 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/_authenticated/applications': typeof AuthenticatedApplicationsRoute
+  '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
+  '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
 }
 export interface FileRouteTypes {
@@ -155,23 +174,26 @@ export interface FileRouteTypes {
     | '/rounds'
     | '/users'
     | '/api/apply'
+    | '/applications/$applicationId'
     | '/rounds/$roundId'
     | '/api/auth/$'
     | '/api/round/$roundId'
+    | '/applications/'
     | '/rounds/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/sign-in'
     | '/sign-up'
-    | '/applications'
     | '/dashboard'
     | '/profile'
     | '/users'
     | '/api/apply'
+    | '/applications/$applicationId'
     | '/rounds/$roundId'
     | '/api/auth/$'
     | '/api/round/$roundId'
+    | '/applications'
     | '/rounds'
   id:
     | '__root__'
@@ -185,9 +207,11 @@ export interface FileRouteTypes {
     | '/_authenticated/rounds'
     | '/_authenticated/users'
     | '/api/apply'
+    | '/_authenticated/applications/$applicationId'
     | '/_authenticated/rounds/$roundId'
     | '/api/auth/$'
     | '/api/round/$roundId'
+    | '/_authenticated/applications/'
     | '/_authenticated/rounds/'
   fileRoutesById: FileRoutesById
 }
@@ -280,6 +304,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoundsIndexRouteImport
       parentRoute: typeof AuthenticatedRoundsRoute
     }
+    '/_authenticated/applications/': {
+      id: '/_authenticated/applications/'
+      path: '/'
+      fullPath: '/applications/'
+      preLoaderRoute: typeof AuthenticatedApplicationsIndexRouteImport
+      parentRoute: typeof AuthenticatedApplicationsRoute
+    }
     '/api/round/$roundId': {
       id: '/api/round/$roundId'
       path: '/api/round/$roundId'
@@ -301,8 +332,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoundsRoundIdRouteImport
       parentRoute: typeof AuthenticatedRoundsRoute
     }
+    '/_authenticated/applications/$applicationId': {
+      id: '/_authenticated/applications/$applicationId'
+      path: '/$applicationId'
+      fullPath: '/applications/$applicationId'
+      preLoaderRoute: typeof AuthenticatedApplicationsApplicationIdRouteImport
+      parentRoute: typeof AuthenticatedApplicationsRoute
+    }
   }
 }
+
+interface AuthenticatedApplicationsRouteChildren {
+  AuthenticatedApplicationsApplicationIdRoute: typeof AuthenticatedApplicationsApplicationIdRoute
+  AuthenticatedApplicationsIndexRoute: typeof AuthenticatedApplicationsIndexRoute
+}
+
+const AuthenticatedApplicationsRouteChildren: AuthenticatedApplicationsRouteChildren =
+  {
+    AuthenticatedApplicationsApplicationIdRoute:
+      AuthenticatedApplicationsApplicationIdRoute,
+    AuthenticatedApplicationsIndexRoute: AuthenticatedApplicationsIndexRoute,
+  }
+
+const AuthenticatedApplicationsRouteWithChildren =
+  AuthenticatedApplicationsRoute._addFileChildren(
+    AuthenticatedApplicationsRouteChildren,
+  )
 
 interface AuthenticatedRoundsRouteChildren {
   AuthenticatedRoundsRoundIdRoute: typeof AuthenticatedRoundsRoundIdRoute
@@ -318,7 +373,7 @@ const AuthenticatedRoundsRouteWithChildren =
   AuthenticatedRoundsRoute._addFileChildren(AuthenticatedRoundsRouteChildren)
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRoute
+  AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
@@ -326,7 +381,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedApplicationsRoute: AuthenticatedApplicationsRoute,
+  AuthenticatedApplicationsRoute: AuthenticatedApplicationsRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,

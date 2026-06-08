@@ -29,6 +29,13 @@
       "when": 1749340800000,
       "tag": "0003_applications_banking_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780926828239,
+      "tag": "0004_many_microchip",
+      "breakpoints": true
     }
   ]
 }

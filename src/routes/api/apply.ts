@@ -55,6 +55,57 @@ async function fetchCompaniesHouseData(regNumber: string) {
   }
 }
 
+async function fetchThreeSixtyGivingData(orgId: string) {
+  try {
+    const res = await fetch(`https://api.threesixtygiving.org/api/v1/org/${encodeURIComponent(orgId)}/`)
+    if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
+    return await res.json()
+  } catch (e) {
+    return { _error: String(e) }
+  }
+}
+
+async function fetchUKSanctionsData(orgName: string) {
+  const key = process.env['OPENSANCTIONS_API_KEY']
+  if (!key) return { _note: 'OPENSANCTIONS_API_KEY not set' }
+
+  try {
+    const res = await fetch('https://api.opensanctions.org/match/default', {
+      method: 'POST',
+      headers: {
+        'Authorization': `ApiKey ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        queries: {
+          entity: {
+            schema: 'Organization',
+            properties: { name: [orgName] },
+          },
+        },
+      }),
+    })
+    if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
+    return await res.json()
+  } catch (e) {
+    return { _error: String(e) }
+  }
+}
+
+// async function fetchOSCRData(regNumber: string) {
+//   // OSCR (Scottish Charity Register) — only call for Scottish charities.
+//   // Not yet clear how to determine this from the application data.
+//   try {
+//     const res = await fetch(
+//       `https://www.oscr.org.uk/api/search?charityNumber=${encodeURIComponent(regNumber)}`,
+//     )
+//     if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
+//     return await res.json()
+//   } catch (e) {
+//     return { _error: String(e) }
+//   }
+// }
+
 export const Route = createFileRoute('/api/apply')(
   {
     server: {
@@ -115,15 +166,37 @@ export const Route = createFileRoute('/api/apply')(
           )
 
           let dueDiligenceData: Record<string, unknown> | undefined
-          if (organisationRegistrationNumber?.trim()) {
-            const [charityCommission, companiesHouse] = await Promise.all([
-              fetchCharityCommissionData(organisationRegistrationNumber.trim()),
-              fetchCompaniesHouseData(organisationRegistrationNumber.trim()),
-            ])
-            dueDiligenceData = {
-              charityCommission,
-              companiesHouse,
-              fetchedAt: new Date().toISOString(),
+          {
+            const regNumber = organisationRegistrationNumber?.trim()
+            const checks: Array<Promise<[string, unknown]>> = []
+
+            if (regNumber && organisationType === 'charity') {
+              checks.push(
+                fetchCharityCommissionData(regNumber).then((d) => ['charityCommission', d]),
+              )
+            }
+            if (regNumber && organisationType === 'company') {
+              checks.push(
+                fetchCompaniesHouseData(regNumber).then((d) => ['companiesHouse', d]),
+              )
+            }
+            if (regNumber) {
+              checks.push(
+                fetchThreeSixtyGivingData(regNumber).then((d) => ['threeSixtyGiving', d]),
+              )
+            }
+            if (organisationName?.trim()) {
+              checks.push(
+                fetchUKSanctionsData(organisationName.trim()).then((d) => ['ukSanctions', d]),
+              )
+            }
+
+            if (checks.length > 0) {
+              const results = await Promise.all(checks)
+              dueDiligenceData = Object.fromEntries([
+                ...results,
+                ['fetchedAt', new Date().toISOString()],
+              ])
             }
           }
 
