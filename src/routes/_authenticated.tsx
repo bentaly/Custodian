@@ -42,6 +42,9 @@ function Sidebar() {
         <Link to="/dashboard" className={linkClass}>
           Dashboard
         </Link>
+        <Link to="/rounds" className={linkClass}>
+          Rounds
+        </Link>
         <Link to="/applications" className={linkClass}>
           Applications
         </Link>

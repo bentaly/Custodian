@@ -9,7 +9,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 }
 
 export const Route = createFileRoute('/sign-in')({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { error?: string } => ({
     error: typeof search['error'] === 'string' ? search['error'] : undefined,
   }),
   component: SignInPage,

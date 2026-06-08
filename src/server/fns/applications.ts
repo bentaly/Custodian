@@ -43,7 +43,7 @@ export const listApplications = createServerFn({ method: 'GET' })
         limit: pageSize,
       }),
       getDb().select({ total: count() }).from(applications).where(where),
-    ])
+    ]).catch((err) => { console.error('listApplications DB error:', err?.cause ?? err); throw err })
 
     return { items, total: totals[0]?.total ?? 0, page, pageSize }
   })

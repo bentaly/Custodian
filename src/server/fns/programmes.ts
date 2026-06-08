@@ -53,3 +53,23 @@ export const updateProgramme = createServerFn({ method: 'POST' })
       .returning()
     return programme!
   })
+
+export const listClientTags = createServerFn({ method: 'GET' }).handler(async () => {
+  const user = await requireAuthUser()
+  if (!user.clientId) return []
+
+  const clientRounds = await getDb().query.rounds.findMany({
+    where: (r, { eq }) => eq(r.clientId, user.clientId!),
+    with: { programmes: true },
+  })
+
+  const tagSet = new Set<string>()
+  for (const round of clientRounds) {
+    for (const prog of round.programmes) {
+      for (const tag of (prog.tags ?? []) as string[]) {
+        if (tag) tagSet.add(tag)
+      }
+    }
+  }
+  return Array.from(tagSet).sort()
+})

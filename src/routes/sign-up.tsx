@@ -5,7 +5,7 @@ import { getInvitationByToken } from '../server/fns/invitations'
 import { completeRegistration } from '../server/fns/registrations'
 
 export const Route = createFileRoute('/sign-up')({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { invite?: string } => ({
     invite: typeof search['invite'] === 'string' ? search['invite'] : undefined,
   }),
   loaderDeps: ({ search: { invite } }) => ({ invite }),

@@ -6,20 +6,29 @@ import { users } from '../../drizzle/schema'
 
 export async function getAuthUser() {
   const request = getRequest()
-  const session = await getAuth().api.getSession({ headers: request.headers })
+  let session: Awaited<ReturnType<typeof getAuth>['api']['getSession']>
+  try {
+    session = await getAuth().api.getSession({ headers: request.headers })
+  } catch {
+    return null
+  }
   if (!session) return null
 
-  const rows = await getDb()
-    .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      role: users.role,
-      clientId: users.clientId,
-    })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-  return rows[0] ?? null
+  try {
+    const rows = await getDb()
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+        clientId: users.clientId,
+      })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+    return rows[0] ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function requireAuthUser() {

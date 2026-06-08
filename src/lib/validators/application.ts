@@ -13,9 +13,12 @@ export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 export const CreateApplicationSchema = z.object({
   programmeId: z.string().uuid(),
   organisationName: z.string().min(1).max(255),
-  charityNumber: z.string().max(50).optional(),
-  contactName: z.string().min(1).max(255),
-  contactEmail: z.string().email(),
+  organisationRegistrationNumber: z.string().max(50).optional(),
+  organisationType: z.string().min(1).max(255),
+  bankName: z.string().min(1).max(255),
+  bankAccountName: z.string().min(1).max(255),
+  bankAccountNumber: z.string().min(1).max(50),
+  bankSortCode: z.string().min(1).max(20),
   amountRequested: z.number().positive(),
   responses: z.record(z.string().uuid(), z.string()),
 })

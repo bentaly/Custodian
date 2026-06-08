@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { rounds } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
-import { CreateRoundSchema, UpdateRoundStatusSchema } from '../../lib/validators/round'
+import { CreateRoundSchema, UpdateRoundStatusSchema, UpdateRoundSchema } from '../../lib/validators/round'
 
 export const listRounds = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ clientId: z.string().uuid() }))
@@ -15,6 +15,16 @@ export const listRounds = createServerFn({ method: 'GET' })
       orderBy: (r, { desc }) => [desc(r.createdAt)],
     })
   })
+
+export const listMyRounds = createServerFn({ method: 'GET' }).handler(async () => {
+  const user = await requireAuthUser()
+  if (!user.clientId) return []
+  return getDb().query.rounds.findMany({
+    where: (r, { eq }) => eq(r.clientId, user.clientId!),
+    orderBy: (r, { desc }) => [desc(r.createdAt)],
+    with: { programmes: { orderBy: (p, { asc }) => [asc(p.name)] } },
+  })
+})
 
 export const getRound = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.string().uuid() }))
@@ -35,10 +45,33 @@ export const createRound = createServerFn({ method: 'POST' })
   .inputValidator(CreateRoundSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
-    const { budget, ...rest } = data
+    const { budget, openedAt, closedAt, ...rest } = data
     const [round] = await getDb()
       .insert(rounds)
-      .values({ ...rest, budget: budget?.toString() })
+      .values({
+        ...rest,
+        budget: budget?.toString(),
+        openedAt: openedAt ? new Date(openedAt) : undefined,
+        closedAt: closedAt ? new Date(closedAt) : undefined,
+      })
+      .returning()
+    return round!
+  })
+
+export const updateRound = createServerFn({ method: 'POST' })
+  .inputValidator(UpdateRoundSchema)
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+    const { id, budget, openedAt, closedAt, ...rest } = data
+    const [round] = await getDb()
+      .update(rounds)
+      .set({
+        ...rest,
+        ...(budget !== undefined ? { budget: budget.toString() } : {}),
+        ...(openedAt !== undefined ? { openedAt: openedAt ? new Date(openedAt) : null } : {}),
+        ...(closedAt !== undefined ? { closedAt: closedAt ? new Date(closedAt) : null } : {}),
+      })
+      .where(eq(rounds.id, id))
       .returning()
     return round!
   })
