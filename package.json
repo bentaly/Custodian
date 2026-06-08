@@ -13,7 +13,11 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-push": "pnpm typecheck"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",
@@ -49,6 +53,7 @@
     "pg": "^8.21.0",
     "postcss": "^8.4.0",
     "prettier": "^3.3.0",
+    "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^3.4.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0",

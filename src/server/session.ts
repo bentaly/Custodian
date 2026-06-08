@@ -6,7 +6,7 @@ import { users } from '../../drizzle/schema'
 
 export async function getAuthUser() {
   const request = getRequest()
-  let session: Awaited<ReturnType<typeof getAuth>['api']['getSession']>
+  let session: Awaited<ReturnType<ReturnType<typeof getAuth>['api']['getSession']>>
   try {
     session = await getAuth().api.getSession({ headers: request.headers })
   } catch {
