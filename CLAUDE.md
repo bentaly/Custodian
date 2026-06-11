@@ -30,11 +30,12 @@ pnpm preview      # build + wrangler dev (local Workers simulation)
 ```sh
 pnpm db:generate  # generate migration from schema changes
 pnpm db:migrate   # apply migrations to Neon
-pnpm db:push      # push schema directly (dev only, skips migrations)
 pnpm db:studio    # Drizzle Studio GUI
 pnpm db:seed      # run scripts/seed.ts
 ```
 Schema changes: edit `drizzle/schema.ts` → `pnpm db:generate` → `pnpm db:migrate`.
+
+**Never use `db:push`.** It applies schema changes without recording them in `drizzle.__drizzle_migrations`, which causes `db:migrate` to fail later. The script has been removed from `package.json`.
 
 ## Environment variables
 Local: `.env` file (loaded via `dotenv/config` in drizzle.config.ts and scripts).

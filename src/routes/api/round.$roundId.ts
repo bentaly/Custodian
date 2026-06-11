@@ -20,13 +20,17 @@ export const Route = createFileRoute('/api/round/$roundId')(
             where: eq(rounds.id, params.roundId),
             with: {
               client: true,
-              programmes: {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                orderBy: (p: any, { asc }: any) => [asc(p.name)],
+              roundProgrammes: {
                 with: {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formFields: { orderBy: (f: any, { asc }: any) => [asc(f.displayOrder)] },
+                  programme: {
+                    with: {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formFields: { orderBy: (f: any, { asc }: any) => [asc(f.displayOrder)] },
+                    },
+                  },
                 },
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                orderBy: (rp: any, { asc }: any) => [asc(rp.createdAt)],
               },
             },
           })
@@ -38,7 +42,13 @@ export const Route = createFileRoute('/api/round/$roundId')(
             })
           }
 
-          return new Response(JSON.stringify(round, (_key, val) =>
+          const { roundProgrammes, ...rest } = round
+          const response = {
+            ...rest,
+            programmes: roundProgrammes.map((rp) => rp.programme),
+          }
+
+          return new Response(JSON.stringify(response, (_key, val) =>
             val instanceof Date ? val.toISOString() : val
           ), {
             status: 200,

@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, count, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, applicationResponses, programmes } from '../../../drizzle/schema'
+import { applications, applicationResponses, roundProgrammes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import {
   ApplicationFiltersSchema,
@@ -19,9 +19,9 @@ export const listApplications = createServerFn({ method: 'GET' })
     let programmeIds: string[] | undefined
     if (filters.roundId) {
       const rows = await getDb()
-        .select({ id: programmes.id })
-        .from(programmes)
-        .where(eq(programmes.roundId, filters.roundId))
+        .select({ id: roundProgrammes.programmeId })
+        .from(roundProgrammes)
+        .where(eq(roundProgrammes.roundId, filters.roundId))
       programmeIds = rows.map((r) => r.id)
       if (programmeIds.length === 0) {
         return { items: [], total: 0, page, pageSize }
@@ -37,7 +37,7 @@ export const listApplications = createServerFn({ method: 'GET' })
     const [items, totals] = await Promise.all([
       getDb().query.applications.findMany({
         where,
-        with: { programme: { with: { round: { with: { client: true } } } } },
+        with: { programme: { with: { client: true } } },
         orderBy: (a, { desc }) => [desc(a.submittedAt)],
         offset: (page - 1) * pageSize,
         limit: pageSize,
@@ -55,7 +55,7 @@ export const getApplication = createServerFn({ method: 'GET' })
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
       with: {
-        programme: { with: { round: { with: { client: true } } } },
+        programme: { with: { client: true } },
         responses: { with: { field: true } },
       },
     })

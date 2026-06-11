@@ -16,14 +16,17 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiApplyRouteImport } from './routes/api/apply'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
+import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
+import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
 import { Route as AuthenticatedApplicationsIndexRouteImport } from './routes/_authenticated/applications.index'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
+import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
 import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './routes/_authenticated/applications.$applicationId'
 
 const SignUpRoute = SignUpRouteImport.update({
@@ -60,6 +63,11 @@ const AuthenticatedRoundsRoute = AuthenticatedRoundsRouteImport.update({
   path: '/rounds',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedProgrammesRoute = AuthenticatedProgrammesRouteImport.update({
+  id: '/programmes',
+  path: '/programmes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -81,6 +89,12 @@ const AuthenticatedRoundsIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedRoundsRoute,
+  } as any)
+const AuthenticatedProgrammesIndexRoute =
+  AuthenticatedProgrammesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedProgrammesRoute,
   } as any)
 const AuthenticatedApplicationsIndexRoute =
   AuthenticatedApplicationsIndexRouteImport.update({
@@ -104,6 +118,12 @@ const AuthenticatedRoundsRoundIdRoute =
     path: '/$roundId',
     getParentRoute: () => AuthenticatedRoundsRoute,
   } as any)
+const AuthenticatedProgrammesProgrammeIdRoute =
+  AuthenticatedProgrammesProgrammeIdRouteImport.update({
+    id: '/$programmeId',
+    path: '/$programmeId',
+    getParentRoute: () => AuthenticatedProgrammesRoute,
+  } as any)
 const AuthenticatedApplicationsApplicationIdRoute =
   AuthenticatedApplicationsApplicationIdRouteImport.update({
     id: '/$applicationId',
@@ -118,14 +138,17 @@ export interface FileRoutesByFullPath {
   '/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
+  '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
+  '/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -137,10 +160,12 @@ export interface FileRoutesByTo {
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
+  '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications': typeof AuthenticatedApplicationsIndexRoute
+  '/programmes': typeof AuthenticatedProgrammesIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
 }
 export interface FileRoutesById {
@@ -152,14 +177,17 @@ export interface FileRoutesById {
   '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
+  '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
+  '/_authenticated/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
 }
 export interface FileRouteTypes {
@@ -171,14 +199,17 @@ export interface FileRouteTypes {
     | '/applications'
     | '/dashboard'
     | '/profile'
+    | '/programmes'
     | '/rounds'
     | '/users'
     | '/api/apply'
     | '/applications/$applicationId'
+    | '/programmes/$programmeId'
     | '/rounds/$roundId'
     | '/api/auth/$'
     | '/api/round/$roundId'
     | '/applications/'
+    | '/programmes/'
     | '/rounds/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -190,10 +221,12 @@ export interface FileRouteTypes {
     | '/users'
     | '/api/apply'
     | '/applications/$applicationId'
+    | '/programmes/$programmeId'
     | '/rounds/$roundId'
     | '/api/auth/$'
     | '/api/round/$roundId'
     | '/applications'
+    | '/programmes'
     | '/rounds'
   id:
     | '__root__'
@@ -204,14 +237,17 @@ export interface FileRouteTypes {
     | '/_authenticated/applications'
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
+    | '/_authenticated/programmes'
     | '/_authenticated/rounds'
     | '/_authenticated/users'
     | '/api/apply'
     | '/_authenticated/applications/$applicationId'
+    | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/rounds/$roundId'
     | '/api/auth/$'
     | '/api/round/$roundId'
     | '/_authenticated/applications/'
+    | '/_authenticated/programmes/'
     | '/_authenticated/rounds/'
   fileRoutesById: FileRoutesById
 }
@@ -276,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoundsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/programmes': {
+      id: '/_authenticated/programmes'
+      path: '/programmes'
+      fullPath: '/programmes'
+      preLoaderRoute: typeof AuthenticatedProgrammesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -303,6 +346,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/rounds/'
       preLoaderRoute: typeof AuthenticatedRoundsIndexRouteImport
       parentRoute: typeof AuthenticatedRoundsRoute
+    }
+    '/_authenticated/programmes/': {
+      id: '/_authenticated/programmes/'
+      path: '/'
+      fullPath: '/programmes/'
+      preLoaderRoute: typeof AuthenticatedProgrammesIndexRouteImport
+      parentRoute: typeof AuthenticatedProgrammesRoute
     }
     '/_authenticated/applications/': {
       id: '/_authenticated/applications/'
@@ -332,6 +382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoundsRoundIdRouteImport
       parentRoute: typeof AuthenticatedRoundsRoute
     }
+    '/_authenticated/programmes/$programmeId': {
+      id: '/_authenticated/programmes/$programmeId'
+      path: '/$programmeId'
+      fullPath: '/programmes/$programmeId'
+      preLoaderRoute: typeof AuthenticatedProgrammesProgrammeIdRouteImport
+      parentRoute: typeof AuthenticatedProgrammesRoute
+    }
     '/_authenticated/applications/$applicationId': {
       id: '/_authenticated/applications/$applicationId'
       path: '/$applicationId'
@@ -359,6 +416,23 @@ const AuthenticatedApplicationsRouteWithChildren =
     AuthenticatedApplicationsRouteChildren,
   )
 
+interface AuthenticatedProgrammesRouteChildren {
+  AuthenticatedProgrammesProgrammeIdRoute: typeof AuthenticatedProgrammesProgrammeIdRoute
+  AuthenticatedProgrammesIndexRoute: typeof AuthenticatedProgrammesIndexRoute
+}
+
+const AuthenticatedProgrammesRouteChildren: AuthenticatedProgrammesRouteChildren =
+  {
+    AuthenticatedProgrammesProgrammeIdRoute:
+      AuthenticatedProgrammesProgrammeIdRoute,
+    AuthenticatedProgrammesIndexRoute: AuthenticatedProgrammesIndexRoute,
+  }
+
+const AuthenticatedProgrammesRouteWithChildren =
+  AuthenticatedProgrammesRoute._addFileChildren(
+    AuthenticatedProgrammesRouteChildren,
+  )
+
 interface AuthenticatedRoundsRouteChildren {
   AuthenticatedRoundsRoundIdRoute: typeof AuthenticatedRoundsRoundIdRoute
   AuthenticatedRoundsIndexRoute: typeof AuthenticatedRoundsIndexRoute
@@ -376,6 +450,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
 }
@@ -384,6 +459,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApplicationsRoute: AuthenticatedApplicationsRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
 }

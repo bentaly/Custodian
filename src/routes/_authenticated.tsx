@@ -45,6 +45,9 @@ function Sidebar() {
         <Link to="/rounds" className={linkClass}>
           Rounds
         </Link>
+        <Link to="/programmes" className={linkClass}>
+          Programmes
+        </Link>
         <Link to="/applications" className={linkClass}>
           Applications
         </Link>

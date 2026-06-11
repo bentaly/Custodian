@@ -2,17 +2,19 @@ import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { getRound, updateRound, updateRoundStatus } from '../../server/fns/rounds'
 import { DateRangePicker } from '../../components/DateRangePicker'
-import { createProgramme, updateProgramme, listClientTags } from '../../server/fns/programmes'
-import { TagInput } from '../../components/TagInput'
-import { RichTextEditor } from '../../components/RichTextEditor'
+import {
+  listProgrammes,
+  addProgrammeToRound,
+  removeProgrammeFromRound,
+} from '../../server/fns/programmes'
 
 export const Route = createFileRoute('/_authenticated/rounds/$roundId')({
   loader: async ({ params }) => {
-    const [round, clientTags] = await Promise.all([
+    const [round, clientProgrammes] = await Promise.all([
       getRound({ data: { id: params.roundId } }),
-      listClientTags(),
+      listProgrammes(),
     ])
-    return { round, clientTags }
+    return { round, clientProgrammes }
   },
   component: RoundDetail,
 })
@@ -44,7 +46,7 @@ const PROG_STATUS_COLORS = {
 }
 
 type LoadedRound = Awaited<ReturnType<typeof getRound>>
-type Programme = LoadedRound['programmes'][number]
+type LinkedProgramme = LoadedRound['roundProgrammes'][number]['programme']
 
 function toDateInput(date: Date | string | null | undefined): string {
   if (!date) return ''
@@ -59,7 +61,7 @@ function formatDate(date: Date | string | null | undefined): string | null {
 function RoundDetail() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
-  const { round, clientTags } = Route.useLoaderData()
+  const { round, clientProgrammes } = Route.useLoaderData()
   const canManage = ['superadmin', 'admin', 'manager'].includes(user.role)
 
   const [editingRound, setEditingRound] = useState(false)
@@ -70,8 +72,13 @@ function RoundDetail() {
   const [savingRound, setSavingRound] = useState(false)
   const [roundError, setRoundError] = useState('')
 
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [editingProgrammeId, setEditingProgrammeId] = useState<string | null>(null)
+  const [showAddPicker, setShowAddPicker] = useState(false)
+  const [selectedProgrammeId, setSelectedProgrammeId] = useState('')
+  const [addingProgramme, setAddingProgramme] = useState(false)
+  const [addError, setAddError] = useState('')
+
+  const linkedIds = new Set(round.roundProgrammes.map((rp) => rp.programmeId))
+  const availableProgrammes = clientProgrammes.filter((p) => !linkedIds.has(p.id))
 
   async function handleStatusChange(status: LoadedRound['status']) {
     await updateRoundStatus({ data: { id: round.id, status } })
@@ -99,6 +106,30 @@ function RoundDetail() {
     } finally {
       setSavingRound(false)
     }
+  }
+
+  async function handleAddProgramme(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedProgrammeId) return
+    setAddError('')
+    setAddingProgramme(true)
+    try {
+      await addProgrammeToRound({
+        data: { roundId: round.id, programmeId: selectedProgrammeId },
+      })
+      setShowAddPicker(false)
+      setSelectedProgrammeId('')
+      router.invalidate()
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add programme')
+    } finally {
+      setAddingProgramme(false)
+    }
+  }
+
+  async function handleRemoveProgramme(programmeId: string) {
+    await removeProgrammeFromRound({ data: { roundId: round.id, programmeId } })
+    router.invalidate()
   }
 
   return (
@@ -236,67 +267,94 @@ function RoundDetail() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700">Programmes</h2>
-          {canManage && !showCreateForm && (
-            <button
-              onClick={() => {
-                setShowCreateForm(true)
-                setEditingProgrammeId(null)
-              }}
-              className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800"
-            >
-              Add programme
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {canManage && (
+              <Link
+                to="/programmes"
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                Manage programmes →
+              </Link>
+            )}
+            {canManage && !showAddPicker && availableProgrammes.length > 0 && (
+              <button
+                onClick={() => setShowAddPicker(true)}
+                className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800"
+              >
+                Add programme
+              </button>
+            )}
+          </div>
         </div>
 
-        {showCreateForm && (
-          <ProgrammeForm
-            roundId={round.id}
-            clientTags={clientTags}
-            onSave={() => {
-              setShowCreateForm(false)
-              router.invalidate()
-            }}
-            onCancel={() => setShowCreateForm(false)}
-          />
+        {showAddPicker && (
+          <form
+            onSubmit={handleAddProgramme}
+            className="rounded-lg border border-gray-300 bg-white p-4"
+          >
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Select programme to add
+            </label>
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedProgrammeId}
+                onChange={(e) => setSelectedProgrammeId(e.target.value)}
+                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                required
+                autoFocus
+              >
+                <option value="">Choose a programme…</option>
+                {availableProgrammes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={addingProgramme}
+                className="rounded bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {addingProgramme ? 'Adding…' : 'Add'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddPicker(false)
+                  setSelectedProgrammeId('')
+                  setAddError('')
+                }}
+                className="rounded border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+            {addError && <p className="mt-2 text-sm text-red-500">{addError}</p>}
+          </form>
         )}
 
-        {round.programmes.length === 0 && !showCreateForm ? (
+        {round.roundProgrammes.length === 0 && !showAddPicker ? (
           <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-10 text-center">
-            <p className="text-sm text-gray-500">No programmes yet.</p>
+            <p className="text-sm text-gray-500">No programmes linked to this round.</p>
             {canManage && (
               <p className="mt-1 text-sm text-gray-400">
-                Add a programme to start accepting applications.
+                <Link to="/programmes" className="underline hover:text-gray-600">
+                  Create a programme
+                </Link>
+                {' '}then add it here.
               </p>
             )}
           </div>
         ) : (
           <div className="space-y-2">
-            {round.programmes.map((programme) =>
-              editingProgrammeId === programme.id ? (
-                <ProgrammeForm
-                  key={programme.id}
-                  programme={programme}
-                  roundId={round.id}
-                  clientTags={clientTags}
-                  onSave={() => {
-                    setEditingProgrammeId(null)
-                    router.invalidate()
-                  }}
-                  onCancel={() => setEditingProgrammeId(null)}
-                />
-              ) : (
-                <ProgrammeCard
-                  key={programme.id}
-                  programme={programme}
-                  canManage={canManage}
-                  onEdit={() => {
-                    setEditingProgrammeId(programme.id)
-                    setShowCreateForm(false)
-                  }}
-                />
-              ),
-            )}
+            {round.roundProgrammes.map(({ programme }) => (
+              <ProgrammeCard
+                key={programme.id}
+                programme={programme}
+                canManage={canManage}
+                onRemove={() => handleRemoveProgramme(programme.id)}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -307,11 +365,11 @@ function RoundDetail() {
 function ProgrammeCard({
   programme,
   canManage,
-  onEdit,
+  onRemove,
 }: {
-  programme: Programme
+  programme: LinkedProgramme
   canManage: boolean
-  onEdit: () => void
+  onRemove: () => void
 }) {
   const tags = (programme.tags ?? []) as string[]
 
@@ -320,7 +378,13 @@ function ProgrammeCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">{programme.name}</span>
+            <Link
+              to="/programmes/$programmeId"
+              params={{ programmeId: programme.id }}
+              className="text-sm font-medium text-gray-900 hover:underline"
+            >
+              {programme.name}
+            </Link>
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${PROG_STATUS_COLORS[programme.status]}`}
             >
@@ -347,157 +411,13 @@ function ProgrammeCard({
         </div>
         {canManage && (
           <button
-            onClick={onEdit}
-            className="shrink-0 rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            onClick={onRemove}
+            className="shrink-0 rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
           >
-            Edit
+            Remove
           </button>
         )}
       </div>
-    </div>
-  )
-}
-
-function ProgrammeForm({
-  roundId,
-  programme,
-  clientTags,
-  onSave,
-  onCancel,
-}: {
-  roundId: string
-  programme?: Programme
-  clientTags: string[]
-  onSave: () => void
-  onCancel: () => void
-}) {
-  const isEdit = !!programme
-  const [name, setName] = useState(programme?.name ?? '')
-  const [description, setDescription] = useState(programme?.description ?? '')
-  const [goal, setGoal] = useState(programme?.goal ?? '')
-  const [tags, setTags] = useState<string[]>((programme?.tags ?? []) as string[])
-  const [status, setStatus] = useState<'draft' | 'active' | 'closed'>(
-    programme?.status ?? 'draft',
-  )
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    setSaving(true)
-    try {
-      if (isEdit) {
-        await updateProgramme({
-          data: {
-            id: programme.id,
-            name,
-            description: description || undefined,
-            goal: goal || undefined,
-            tags,
-            status,
-          },
-        })
-      } else {
-        await createProgramme({
-          data: {
-            roundId,
-            name,
-            description: description || undefined,
-            goal: goal || undefined,
-            tags,
-          },
-        })
-      }
-      onSave()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-gray-300 bg-white p-5">
-      <h3 className="mb-4 text-sm font-medium text-gray-700">
-        {isEdit ? 'Edit programme' : 'New programme'}
-      </h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              required
-              autoFocus
-            />
-          </div>
-          {isEdit && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as typeof status)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              >
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="closed">Closed</option>
-              </select>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">
-            Description <span className="text-gray-400">(optional)</span>
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="w-full resize-none rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Themes</label>
-          <TagInput value={tags} onChange={setTags} suggestions={clientTags} />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">
-            Goal{' '}
-            <span className="font-normal text-gray-400">— used by AI to score applications</span>
-          </label>
-          <RichTextEditor
-            key={programme?.id ?? 'create'}
-            defaultValue={goal}
-            onChange={setGoal}
-          />
-        </div>
-
-        {error && <p className="text-sm text-red-500">{error}</p>}
-
-        <div className="flex gap-2 pt-1">
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add programme'}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
     </div>
   )
 }

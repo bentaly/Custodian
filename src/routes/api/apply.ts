@@ -28,7 +28,7 @@ async function fetchCharityCommissionData(regNumber: string) {
 
   try {
     const res = await fetch(
-      `https://api.charitycommission.gov.uk/register/api/allcharitydetails/${regNumber}/0`,
+      `https://api.charitycommission.gov.uk/register/api/allcharitydetailsV2/${regNumber}/0`,
       { headers: { 'Ocp-Apim-Subscription-Key': key } },
     )
     if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
@@ -65,46 +65,22 @@ async function fetchThreeSixtyGivingData(orgId: string) {
   }
 }
 
-async function fetchUKSanctionsData(orgName: string) {
-  const key = process.env['OPENSANCTIONS_API_KEY']
-  if (!key) return { _note: 'OPENSANCTIONS_API_KEY not set' }
+
+async function fetchOSCRData(regNumber: string) {
+  const key = process.env['OSCR_API_KEY']
+  if (!key) return { _note: 'OSCR_API_KEY not set' }
 
   try {
-    const res = await fetch('https://api.opensanctions.org/match/default', {
-      method: 'POST',
-      headers: {
-        'Authorization': `ApiKey ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        queries: {
-          entity: {
-            schema: 'Organization',
-            properties: { name: [orgName] },
-          },
-        },
-      }),
-    })
+    const res = await fetch(
+      `https://oscrapi.azurewebsites.net/api/all_charities?charitynumber=${encodeURIComponent(regNumber)}`,
+      { headers: { 'x-functions-key': key } },
+    )
     if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
     return await res.json()
   } catch (e) {
     return { _error: String(e) }
   }
 }
-
-// async function fetchOSCRData(regNumber: string) {
-//   // OSCR (Scottish Charity Register) — only call for Scottish charities.
-//   // Not yet clear how to determine this from the application data.
-//   try {
-//     const res = await fetch(
-//       `https://www.oscr.org.uk/api/search?charityNumber=${encodeURIComponent(regNumber)}`,
-//     )
-//     if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
-//     return await res.json()
-//   } catch (e) {
-//     return { _error: String(e) }
-//   }
-// }
 
 export const Route = createFileRoute('/api/apply')(
   {
@@ -145,14 +121,17 @@ export const Route = createFileRoute('/api/apply')(
 
           const programme = await getDb().query.programmes.findFirst({
             where: eq(programmes.id, programmeId),
-            with: { round: true },
+            with: {
+              roundProgrammes: { with: { round: true } },
+            },
           })
           if (!programme) {
             return jsonResponse({ error: 'Programme not found' }, 404)
           }
-          if (programme.round.status !== 'open') {
+          const hasOpenRound = programme.roundProgrammes.some((rp) => rp.round.status === 'open')
+          if (!hasOpenRound) {
             return jsonResponse(
-              { error: `Round is not open (status: ${programme.round.status})` },
+              { error: 'Programme is not currently open for applications' },
               409,
             )
           }
@@ -171,9 +150,13 @@ export const Route = createFileRoute('/api/apply')(
             const checks: Array<Promise<[string, unknown]>> = []
 
             if (regNumber && organisationType === 'charity') {
-              checks.push(
-                fetchCharityCommissionData(regNumber).then((d) => ['charityCommission', d]),
-              )
+              if (regNumber.toUpperCase().startsWith('SC')) {
+                checks.push(fetchOSCRData(regNumber).then((d) => ['oscr', d]))
+              } else {
+                checks.push(
+                  fetchCharityCommissionData(regNumber).then((d) => ['charityCommission', d]),
+                )
+              }
             }
             if (regNumber && organisationType === 'company') {
               checks.push(
@@ -183,11 +166,6 @@ export const Route = createFileRoute('/api/apply')(
             if (regNumber) {
               checks.push(
                 fetchThreeSixtyGivingData(regNumber).then((d) => ['threeSixtyGiving', d]),
-              )
-            }
-            if (organisationName?.trim()) {
-              checks.push(
-                fetchUKSanctionsData(organisationName.trim()).then((d) => ['ukSanctions', d]),
               )
             }
 

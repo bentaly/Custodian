@@ -8,6 +8,7 @@ import {
   jsonb,
   uuid,
   numeric,
+  unique,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -99,9 +100,9 @@ export const rounds = pgTable('rounds', {
 
 export const programmes = pgTable('programmes', {
   id: uuid('id').primaryKey().defaultRandom(),
-  roundId: uuid('round_id')
+  clientId: uuid('client_id')
     .notNull()
-    .references(() => rounds.id, { onDelete: 'cascade' }),
+    .references(() => clients.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description'),
   goal: text('goal'),
@@ -110,6 +111,21 @@ export const programmes = pgTable('programmes', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   closedAt: timestamp('closed_at'),
 })
+
+export const roundProgrammes = pgTable(
+  'round_programmes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roundId: uuid('round_id')
+      .notNull()
+      .references(() => rounds.id, { onDelete: 'cascade' }),
+    programmeId: uuid('programme_id')
+      .notNull()
+      .references(() => programmes.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [unique('round_programmes_uniq').on(t.roundId, t.programmeId)],
+)
 
 export const formFields = pgTable('form_fields', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -228,6 +244,7 @@ export const clientProfiles = pgTable('client_profiles', {
 export const clientsRelations = relations(clients, ({ many, one }) => ({
   users: many(users),
   rounds: many(rounds),
+  programmes: many(programmes),
   invitations: many(invitations),
   profile: one(clientProfiles, { fields: [clients.id], references: [clientProfiles.clientId] }),
 }))
@@ -247,16 +264,19 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
 
 export const roundsRelations = relations(rounds, ({ one, many }) => ({
   client: one(clients, { fields: [rounds.clientId], references: [clients.id] }),
-  programmes: many(programmes),
+  roundProgrammes: many(roundProgrammes),
 }))
 
 export const programmesRelations = relations(programmes, ({ one, many }) => ({
-  round: one(rounds, {
-    fields: [programmes.roundId],
-    references: [rounds.id],
-  }),
+  client: one(clients, { fields: [programmes.clientId], references: [clients.id] }),
+  roundProgrammes: many(roundProgrammes),
   formFields: many(formFields),
   applications: many(applications),
+}))
+
+export const roundProgrammesRelations = relations(roundProgrammes, ({ one }) => ({
+  round: one(rounds, { fields: [roundProgrammes.roundId], references: [rounds.id] }),
+  programme: one(programmes, { fields: [roundProgrammes.programmeId], references: [programmes.id] }),
 }))
 
 export const formFieldsRelations = relations(formFields, ({ one, many }) => ({

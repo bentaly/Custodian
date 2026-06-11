@@ -180,8 +180,8 @@ function Rounds() {
                         <span>£{parseFloat(round.budget).toLocaleString()}</span>
                       )}
                       <span>
-                        {round.programmes.length}{' '}
-                        {round.programmes.length === 1 ? 'programme' : 'programmes'}
+                        {round.roundProgrammes.length}{' '}
+                        {round.roundProgrammes.length === 1 ? 'programme' : 'programmes'}
                       </span>
                       {(start || end) && (
                         <span>

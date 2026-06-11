@@ -22,7 +22,12 @@ export const listMyRounds = createServerFn({ method: 'GET' }).handler(async () =
   return getDb().query.rounds.findMany({
     where: (r, { eq }) => eq(r.clientId, user.clientId!),
     orderBy: (r, { desc }) => [desc(r.createdAt)],
-    with: { programmes: { orderBy: (p, { asc }) => [asc(p.name)] } },
+    with: {
+      roundProgrammes: {
+        with: { programme: true },
+        orderBy: (rp, { asc }) => [asc(rp.createdAt)],
+      },
+    },
   })
 })
 
@@ -34,7 +39,10 @@ export const getRound = createServerFn({ method: 'GET' })
       where: (r, { eq }) => eq(r.id, data.id),
       with: {
         client: true,
-        programmes: { orderBy: (p, { asc }) => [asc(p.name)] },
+        roundProgrammes: {
+          with: { programme: true },
+          orderBy: (rp, { asc }) => [asc(rp.createdAt)],
+        },
       },
     })
     if (!round) throw new Error('Not found')

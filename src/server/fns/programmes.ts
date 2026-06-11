@@ -1,23 +1,20 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { programmes } from '../../../drizzle/schema'
+import { programmes, roundProgrammes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { CreateProgrammeSchema, UpdateProgrammeSchema } from '../../lib/validators/programme'
 
-export const listProgrammes = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ roundId: z.string().uuid().optional() }))
-  .handler(async ({ data }) => {
-    await requireAuthUser()
-    return getDb().query.programmes.findMany({
-      where: data.roundId
-        ? (p, { eq }) => eq(p.roundId, data.roundId!)
-        : undefined,
-      with: { applications: true },
-      orderBy: (p, { asc }) => [asc(p.name)],
-    })
+export const listProgrammes = createServerFn({ method: 'GET' }).handler(async () => {
+  const user = await requireAuthUser()
+  if (!user.clientId) return []
+  return getDb().query.programmes.findMany({
+    where: (p, { eq }) => eq(p.clientId, user.clientId!),
+    with: { applications: true },
+    orderBy: (p, { asc }) => [asc(p.name)],
   })
+})
 
 export const getProgramme = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.string().uuid() }))
@@ -54,21 +51,40 @@ export const updateProgramme = createServerFn({ method: 'POST' })
     return programme!
   })
 
+export const addProgrammeToRound = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ roundId: z.string().uuid(), programmeId: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+    const [link] = await getDb().insert(roundProgrammes).values(data).returning()
+    return link!
+  })
+
+export const removeProgrammeFromRound = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ roundId: z.string().uuid(), programmeId: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+    await getDb()
+      .delete(roundProgrammes)
+      .where(
+        and(
+          eq(roundProgrammes.roundId, data.roundId),
+          eq(roundProgrammes.programmeId, data.programmeId),
+        ),
+      )
+  })
+
 export const listClientTags = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
   if (!user.clientId) return []
 
-  const clientRounds = await getDb().query.rounds.findMany({
-    where: (r, { eq }) => eq(r.clientId, user.clientId!),
-    with: { programmes: true },
+  const clientProgrammes = await getDb().query.programmes.findMany({
+    where: (p, { eq }) => eq(p.clientId, user.clientId!),
   })
 
   const tagSet = new Set<string>()
-  for (const round of clientRounds) {
-    for (const prog of round.programmes) {
-      for (const tag of (prog.tags ?? []) as string[]) {
-        if (tag) tagSet.add(tag)
-      }
+  for (const prog of clientProgrammes) {
+    for (const tag of (prog.tags ?? []) as string[]) {
+      if (tag) tagSet.add(tag)
     }
   }
   return Array.from(tagSet).sort()

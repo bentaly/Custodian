@@ -11,7 +11,7 @@ export const ApplicationStatus = z.enum([
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
 export const CreateApplicationSchema = z.object({
-  programmeId: z.string().uuid(),
+  programmeId: z.uuid(),
   organisationName: z.string().min(1).max(255),
   organisationRegistrationNumber: z.string().max(50).optional(),
   organisationType: z.enum(['charity', 'company']),

@@ -36,6 +36,13 @@
       "when": 1780926828239,
       "tag": "0004_many_microchip",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1749600000000,
+      "tag": "0005_round_programmes",
+      "breakpoints": true
     }
   ]
 }
