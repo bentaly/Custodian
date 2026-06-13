@@ -4,6 +4,7 @@ import { applications, roundProgrammes } from '../../../drizzle/schema'
 import { eq } from 'drizzle-orm'
 import { CreateApplicationSchema } from '../../lib/validators/application'
 import { runDueDiligence } from '../../server/dueDiligence/run'
+import { runCustodianScore } from '../../server/custodianScore/run'
 import { getRoundStatus } from '../../lib/roundStatus'
 
 const CORS_HEADERS = {
@@ -58,7 +59,10 @@ export const Route = createFileRoute('/api/apply')(
 
           const roundProgramme = await getDb().query.roundProgrammes.findFirst({
             where: eq(roundProgrammes.id, roundProgrammeId),
-            with: { round: true },
+            with: {
+              round: true,
+              programme: { with: { client: { with: { profile: true } } } },
+            },
           })
           if (!roundProgramme) {
             return jsonResponse({ error: 'Not found' }, 404)
@@ -67,11 +71,23 @@ export const Route = createFileRoute('/api/apply')(
             return jsonResponse({ error: 'This round is not currently open for applications' }, 409)
           }
 
-          const dueDiligence = await runDueDiligence({
-            charityNumber,
-            companyNumber,
-            amountRequested,
-          })
+          // Due diligence (external registers) and AI scoring (the funder's
+          // mission + programme goal) are independent — run them concurrently so
+          // scoring doesn't add serial latency to the submission. Both never
+          // throw; a failure surfaces as a status, never a blocked submission.
+          const programme = roundProgramme.programme
+          const [dueDiligence, custodian] = await Promise.all([
+            runDueDiligence({ charityNumber, companyNumber, amountRequested }),
+            runCustodianScore({
+              missionStatement: programme.client.profile?.missionStatement,
+              programmeName: programme.name,
+              programmeGoal: programme.goal,
+              programmeDescription: programme.description,
+              organisationName,
+              amountRequested,
+              responses,
+            }),
+          ])
 
           const id = crypto.randomUUID()
           await getDb().insert(applications).values({
@@ -89,13 +105,17 @@ export const Route = createFileRoute('/api/apply')(
             dueDiligenceStatus: dueDiligence.status,
             dueDiligenceChecks: dueDiligence.checks,
             dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
+            custodianScoreStatus: custodian.status,
+            custodianScore: custodian.score,
+            custodianScoreDetail: custodian.detail,
+            custodianScoredAt: new Date(custodian.scoredAt),
           })
 
           const application = await getDb().query.applications.findFirst({
             where: (a, { eq }) => eq(a.id, id),
           })
 
-          return jsonResponse({ application, dueDiligence }, 201)
+          return jsonResponse({ application, dueDiligence, custodian }, 201)
         },
       },
     },

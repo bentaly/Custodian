@@ -10,6 +10,7 @@ import {
   UpdateApplicationStatusSchema,
 } from '../../lib/validators/application'
 import { runDueDiligence } from '../dueDiligence/run'
+import { runCustodianScore } from '../custodianScore/run'
 
 export const listApplications = createServerFn({ method: 'GET' })
   .inputValidator(ApplicationFiltersSchema)
@@ -111,6 +112,43 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
         dueDiligenceStatus: result.status,
         dueDiligenceChecks: result.checks,
         dueDiligenceCheckedAt: new Date(result.checkedAt),
+      })
+      .where(eq(applications.id, data.id))
+      .returning()
+    return updated!
+  })
+
+export const rerunCustodianScore = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+
+    const application = await getDb().query.applications.findFirst({
+      where: (a, { eq }) => eq(a.id, data.id),
+      with: {
+        roundProgramme: { with: { programme: { with: { client: { with: { profile: true } } } } } },
+      },
+    })
+    if (!application) throw new Error('Not found')
+
+    const programme = application.roundProgramme.programme
+    const result = await runCustodianScore({
+      missionStatement: programme.client.profile?.missionStatement,
+      programmeName: programme.name,
+      programmeGoal: programme.goal,
+      programmeDescription: programme.description,
+      organisationName: application.organisationName,
+      amountRequested: Number(application.amountRequested),
+      responses: application.responses,
+    })
+
+    const [updated] = await getDb()
+      .update(applications)
+      .set({
+        custodianScoreStatus: result.status,
+        custodianScore: result.score,
+        custodianScoreDetail: result.detail,
+        custodianScoredAt: new Date(result.scoredAt),
       })
       .where(eq(applications.id, data.id))
       .returning()

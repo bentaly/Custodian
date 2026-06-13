@@ -41,7 +41,7 @@ Schema changes: edit `drizzle/schema.ts` → `pnpm db:generate` → `pnpm db:mig
 Local: `.env` file (loaded via `dotenv/config` in drizzle.config.ts and scripts).
 Production: Cloudflare secrets — verify with `npx wrangler secret list`.
 
-Required secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `CHARITY_COMMISSION_KEY`, `COMPANIES_HOUSE_KEY`.
+Required secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `CHARITY_COMMISSION_KEY`, `COMPANIES_HOUSE_KEY`, `ANTHROPIC_API_KEY` (AI "Custodian score" scoring; scoring degrades gracefully to `pending` if absent).
 
 `BETTER_AUTH_URL` must be `https://custodian.bental.workers.dev` in production — if wrong, Google OAuth returns "Account not linked".
 

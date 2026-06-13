@@ -7,10 +7,12 @@ import {
   jsonb,
   uuid,
   numeric,
+  integer,
   unique,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import type { DueDiligenceCheckRecord } from '../src/lib/dueDiligence/types'
+import type { CustodianScoreDetail } from '../src/lib/custodianScore/types'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +53,16 @@ export const dueDiligenceStatusEnum = pgEnum('due_diligence_status', [
   'warning',
   'blocked',
   'review',
+])
+
+// State of the AI "Custodian score" assessment for an application.
+//   pending — not yet scored (scoring not configured, or never run)
+//   scored  — assessment completed successfully
+//   error   — scoring was attempted but failed (API/validation error); re-runnable
+export const custodianScoreStatusEnum = pgEnum('custodian_score_status', [
+  'pending',
+  'scored',
+  'error',
 ])
 
 // ─── Business tables ──────────────────────────────────────────────────────────
@@ -145,6 +157,13 @@ export const applications = pgTable('applications', {
   // src/lib/dueDiligence. We persist only what was actually checked and its outcome.
   dueDiligenceChecks: jsonb('due_diligence_checks').$type<DueDiligenceCheckRecord[]>(),
   dueDiligenceCheckedAt: timestamp('due_diligence_checked_at'),
+  // AI "Custodian score" assessment. `custodianScore` is the denormalised
+  // composite (0–100) kept in its own column for cheap list reads and sorting;
+  // the per-criterion breakdown, summary, and flags live in `custodianScoreDetail`.
+  custodianScoreStatus: custodianScoreStatusEnum('custodian_score_status').notNull().default('pending'),
+  custodianScore: integer('custodian_score'),
+  custodianScoreDetail: jsonb('custodian_score_detail').$type<CustodianScoreDetail>(),
+  custodianScoredAt: timestamp('custodian_scored_at'),
   submittedAt: timestamp('submitted_at').notNull().defaultNow(),
   decisionAt: timestamp('decision_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

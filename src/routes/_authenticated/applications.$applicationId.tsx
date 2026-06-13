@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { getApplication, rerunDueDiligence } from '../../server/fns/applications'
+import { getApplication, rerunDueDiligence, rerunCustodianScore } from '../../server/fns/applications'
 import { DueDiligencePanel } from '../../components/dueDiligence'
+import { CustodianScorePanel } from '../../components/custodianScore'
 import { ApplicationDrawer } from '../../components/ApplicationDrawer'
 import type { DueDiligenceCheckRecord, DueDiligenceStatus } from '../../lib/dueDiligence'
+import type { CustodianScoreDetail, CustodianScoreStatus } from '../../lib/custodianScore'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => getApplication({ data: { id: params.applicationId } }),
@@ -14,6 +16,7 @@ function ApplicationDetail() {
   const application = Route.useLoaderData()
   const router = useRouter()
   const [rerunning, setRerunning] = useState(false)
+  const [rescoring, setRescoring] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   async function handleRerun() {
@@ -23,6 +26,16 @@ function ApplicationDetail() {
       await router.invalidate()
     } finally {
       setRerunning(false)
+    }
+  }
+
+  async function handleRescore() {
+    setRescoring(true)
+    try {
+      await rerunCustodianScore({ data: { id: application.id } })
+      await router.invalidate()
+    } finally {
+      setRescoring(false)
     }
   }
 
@@ -52,6 +65,22 @@ function ApplicationDetail() {
           View application
         </button>
       </div>
+
+      <CustodianScorePanel
+        status={(application.custodianScoreStatus ?? 'pending') as CustodianScoreStatus}
+        score={application.custodianScore}
+        detail={application.custodianScoreDetail as CustodianScoreDetail | null}
+        scoredAt={application.custodianScoredAt}
+        action={
+          <button
+            onClick={handleRescore}
+            disabled={rescoring}
+            className="rounded border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {rescoring ? 'Scoring…' : 'Re-score'}
+          </button>
+        }
+      />
 
       <DueDiligencePanel
         status={(application.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus}
