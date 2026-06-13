@@ -72,13 +72,17 @@ async function seed() {
     ;[programme] = await db
       .insert(schema.programmes)
       .values({
-        roundId: round!.id,
+        clientId: client!.id,
         name: 'Community Impact Grants',
         description:
           'Open grants of up to £25,000 for registered charities delivering measurable community impact.',
         status: 'active',
       })
       .returning()
+    await db.insert(schema.roundProgrammes).values({
+      roundId: round!.id,
+      programmeId: programme!.id,
+    })
     console.log('Created programme:', programme!.id)
   } else {
     console.log('Found existing programme:', programme.id)
@@ -91,76 +95,12 @@ async function seed() {
 
   if (existingFields.length === 0) {
     const fields = [
-      {
-        programmeId: programme!.id,
-        label: 'Organisation location (region)',
-        fieldType: 'select' as const,
-        displayOrder: 1,
-        required: true,
-        options: [
-          'London',
-          'South East',
-          'South West',
-          'East of England',
-          'West Midlands',
-          'East Midlands',
-          'Yorkshire and the Humber',
-          'North West',
-          'North East',
-          'Wales',
-          'Scotland',
-          'Northern Ireland',
-        ],
-      },
-      {
-        programmeId: programme!.id,
-        label: 'Primary cause area',
-        fieldType: 'select' as const,
-        displayOrder: 2,
-        required: true,
-        options: [
-          'Arts, culture and heritage',
-          'Children and young people',
-          'Community development',
-          'Education and training',
-          'Environment and conservation',
-          'Health and wellbeing',
-          'Homelessness and housing',
-          'Mental health',
-          'Older people',
-          'Sport and recreation',
-          'Other',
-        ],
-      },
-      {
-        programmeId: programme!.id,
-        label: 'Brief project description',
-        fieldType: 'textarea' as const,
-        displayOrder: 3,
-        required: true,
-      },
-      {
-        programmeId: programme!.id,
-        label: 'Number of direct beneficiaries',
-        fieldType: 'number' as const,
-        displayOrder: 4,
-        required: true,
-      },
-      {
-        programmeId: programme!.id,
-        label: 'Have you received funding from this foundation before?',
-        fieldType: 'select' as const,
-        displayOrder: 5,
-        required: true,
-        options: ['Yes', 'No'],
-      },
-      {
-        programmeId: programme!.id,
-        label: 'Project start date',
-        fieldType: 'date' as const,
-        displayOrder: 6,
-        required: false,
-      },
+      { programmeId: programme!.id, label: 'Organisation location (region)', displayOrder: 1 },
+      { programmeId: programme!.id, label: 'Primary cause area', displayOrder: 2 },
+      { programmeId: programme!.id, label: 'Brief project description', displayOrder: 3 },
+      { programmeId: programme!.id, label: 'Number of direct beneficiaries', displayOrder: 4 },
+      { programmeId: programme!.id, label: 'Have you received funding from this foundation before?', displayOrder: 5 },
+      { programmeId: programme!.id, label: 'Project start date', displayOrder: 6 },
     ]
 
     await db.insert(schema.formFields).values(fields)
