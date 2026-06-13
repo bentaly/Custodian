@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { rounds } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
-import { CreateRoundSchema, UpdateRoundStatusSchema, UpdateRoundSchema } from '../../lib/validators/round'
+import { CreateRoundSchema, UpdateRoundSchema } from '../../lib/validators/round'
 
 export const listRounds = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ clientId: z.string().uuid() }))
@@ -84,20 +84,3 @@ export const updateRound = createServerFn({ method: 'POST' })
     return round!
   })
 
-export const updateRoundStatus = createServerFn({ method: 'POST' })
-  .inputValidator(UpdateRoundStatusSchema)
-  .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
-    const { id, status } = data
-
-    const timestamps: { openedAt?: Date; closedAt?: Date } = {}
-    if (status === 'open') timestamps.openedAt = new Date()
-    if (status === 'closed') timestamps.closedAt = new Date()
-
-    const [round] = await getDb()
-      .update(rounds)
-      .set({ status, ...timestamps })
-      .where(eq(rounds.id, id))
-      .returning()
-    return round!
-  })

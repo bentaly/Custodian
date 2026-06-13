@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { getRound, updateRound, updateRoundStatus } from '../../server/fns/rounds'
+import { getRound, updateRound } from '../../server/fns/rounds'
+import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import {
   listProgrammes,
@@ -19,31 +20,6 @@ export const Route = createFileRoute('/_authenticated/rounds/$roundId')({
   component: RoundDetail,
 })
 
-const ROUND_STATUS_LABELS = {
-  upcoming: 'Upcoming',
-  open: 'Open',
-  reviewing: 'Reviewing',
-  closed: 'Closed',
-}
-
-const ROUND_STATUS_COLORS = {
-  upcoming: 'bg-gray-100 text-gray-600',
-  open: 'bg-green-100 text-green-700',
-  reviewing: 'bg-yellow-100 text-yellow-700',
-  closed: 'bg-red-100 text-red-600',
-}
-
-const PROG_STATUS_LABELS = {
-  draft: 'Draft',
-  active: 'Active',
-  closed: 'Closed',
-}
-
-const PROG_STATUS_COLORS = {
-  draft: 'bg-gray-100 text-gray-500',
-  active: 'bg-green-100 text-green-700',
-  closed: 'bg-red-100 text-red-600',
-}
 
 type LoadedRound = Awaited<ReturnType<typeof getRound>>
 type LinkedProgramme = LoadedRound['roundProgrammes'][number]['programme']
@@ -79,11 +55,6 @@ function RoundDetail() {
 
   const linkedIds = new Set(round.roundProgrammes.map((rp) => rp.programmeId))
   const availableProgrammes = clientProgrammes.filter((p) => !linkedIds.has(p.id))
-
-  async function handleStatusChange(status: LoadedRound['status']) {
-    await updateRoundStatus({ data: { id: round.id, status } })
-    router.invalidate()
-  }
 
   async function handleSaveRound(e: React.FormEvent) {
     e.preventDefault()
@@ -208,11 +179,14 @@ function RoundDetail() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-semibold text-gray-900">{round.name}</h1>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[round.status]}`}
-                >
-                  {ROUND_STATUS_LABELS[round.status]}
-                </span>
+                {(() => {
+                  const s = getRoundStatus(round)
+                  return (
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[s]}`}>
+                      {ROUND_STATUS_LABELS[s]}
+                    </span>
+                  )
+                })()}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-gray-500">
                 {round.budget && (
@@ -226,30 +200,6 @@ function RoundDetail() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {round.status === 'upcoming' && canManage && (
-                <button
-                  onClick={() => handleStatusChange('open')}
-                  className="rounded border border-green-200 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50"
-                >
-                  Open round
-                </button>
-              )}
-              {round.status === 'open' && canManage && (
-                <button
-                  onClick={() => handleStatusChange('reviewing')}
-                  className="rounded border border-yellow-200 px-3 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-50"
-                >
-                  Move to review
-                </button>
-              )}
-              {round.status === 'reviewing' && canManage && (
-                <button
-                  onClick={() => handleStatusChange('closed')}
-                  className="rounded border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                >
-                  Close round
-                </button>
-              )}
               {canManage && (
                 <button
                   onClick={() => setEditingRound(true)}
@@ -385,11 +335,6 @@ function ProgrammeCard({
             >
               {programme.name}
             </Link>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${PROG_STATUS_COLORS[programme.status]}`}
-            >
-              {PROG_STATUS_LABELS[programme.status]}
-            </span>
           </div>
           {tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">

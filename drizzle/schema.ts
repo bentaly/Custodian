@@ -4,13 +4,13 @@ import {
   text,
   boolean,
   timestamp,
-  integer,
   jsonb,
   uuid,
   numeric,
   unique,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
+import type { DueDiligenceCheckRecord } from '../src/lib/dueDiligence/types'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -28,27 +28,7 @@ export const clientTypeEnum = pgEnum('client_type', [
   'family_office',
 ])
 
-export const programmeStatusEnum = pgEnum('programme_status', ['active', 'draft', 'closed'])
 
-export const roundStatusEnum = pgEnum('round_status', [
-  'upcoming',
-  'open',
-  'reviewing',
-  'closed',
-])
-
-export const fieldTypeEnum = pgEnum('field_type', [
-  'text',
-  'textarea',
-  'number',
-  'select',
-  'multi_select',
-  'date',
-  'file',
-  'checkbox',
-])
-
-export const organisationTypeEnum = pgEnum('organisation_type', ['charity', 'company'])
 
 export const applicationStatusEnum = pgEnum('application_status', [
   'submitted',
@@ -57,6 +37,20 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'approved',
   'declined',
   'withdrawn',
+])
+
+// Overall outcome of the automated due diligence screening for an application.
+//   pending  — not yet run
+//   clear    — all checks passed
+//   warning  — one or more soft flags, no hard blocks
+//   blocked  — at least one hard block (e.g. charity removed from register)
+//   review   — could not screen automatically (API error, or org type with no API); needs manual review
+export const dueDiligenceStatusEnum = pgEnum('due_diligence_status', [
+  'pending',
+  'clear',
+  'warning',
+  'blocked',
+  'review',
 ])
 
 // ─── Business tables ──────────────────────────────────────────────────────────
@@ -92,7 +86,6 @@ export const rounds = pgTable('rounds', {
     .references(() => clients.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   budget: numeric('budget'),
-  status: roundStatusEnum('status').notNull().default('upcoming'),
   openedAt: timestamp('opened_at'),
   closedAt: timestamp('closed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -107,9 +100,7 @@ export const programmes = pgTable('programmes', {
   description: text('description'),
   goal: text('goal'),
   tags: jsonb('tags').$type<string[]>(),
-  status: programmeStatusEnum('status').notNull().default('draft'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  closedAt: timestamp('closed_at'),
 })
 
 export const roundProgrammes = pgTable(
@@ -127,50 +118,35 @@ export const roundProgrammes = pgTable(
   (t) => [unique('round_programmes_uniq').on(t.roundId, t.programmeId)],
 )
 
-export const formFields = pgTable('form_fields', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  programmeId: uuid('programme_id')
-    .notNull()
-    .references(() => programmes.id, { onDelete: 'cascade' }),
-  label: text('label').notNull(),
-  fieldType: fieldTypeEnum('field_type').notNull(),
-  displayOrder: integer('display_order').notNull().default(0),
-  required: boolean('required').notNull().default(false),
-  options: jsonb('options').$type<string[]>(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
-
 export const applications = pgTable('applications', {
   id: uuid('id').primaryKey().defaultRandom(),
-  programmeId: uuid('programme_id')
+  roundProgrammeId: uuid('round_programme_id')
     .notNull()
-    .references(() => programmes.id, { onDelete: 'restrict' }),
+    .references(() => roundProgrammes.id, { onDelete: 'restrict' }),
   organisationName: text('organisation_name').notNull(),
-  organisationRegistrationNumber: text('organisation_registration_number'),
-  organisationType: organisationTypeEnum('organisation_type'),
+  // Registration numbers drive due diligence routing. Both nullable: a CIO has
+  // only a charity number, a CIC only a company number, and some entities are
+  // dual-registered and have both.
+  charityNumber: text('charity_number'),
+  companyNumber: text('company_number'),
   bankName: text('bank_name'),
   bankAccountName: text('bank_account_name'),
   bankAccountNumber: text('bank_account_number'),
   bankSortCode: text('bank_sort_code'),
   amountRequested: numeric('amount_requested').notNull(),
   amountAwarded: numeric('amount_awarded'),
+  responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
   status: applicationStatusEnum('status').notNull().default('submitted'),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dueDiligenceData: jsonb('due_diligence_data').$type<Record<string, any>>(),
+  // Summary outcome of the automated due diligence screening — cheap to read for
+  // the applications list/detail indicator without parsing the checks array.
+  dueDiligenceStatus: dueDiligenceStatusEnum('due_diligence_status').notNull().default('pending'),
+  // Individual check results. `level` and `label` are intentionally NOT stored —
+  // they are UI concerns derived from `key` via the definitions registry in
+  // src/lib/dueDiligence. We persist only what was actually checked and its outcome.
+  dueDiligenceChecks: jsonb('due_diligence_checks').$type<DueDiligenceCheckRecord[]>(),
+  dueDiligenceCheckedAt: timestamp('due_diligence_checked_at'),
   submittedAt: timestamp('submitted_at').notNull().defaultNow(),
   decisionAt: timestamp('decision_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
-
-export const applicationResponses = pgTable('application_responses', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id')
-    .notNull()
-    .references(() => applications.id, { onDelete: 'cascade' }),
-  fieldId: uuid('field_id')
-    .notNull()
-    .references(() => formFields.id, { onDelete: 'restrict' }),
-  value: text('value').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -270,33 +246,18 @@ export const roundsRelations = relations(rounds, ({ one, many }) => ({
 export const programmesRelations = relations(programmes, ({ one, many }) => ({
   client: one(clients, { fields: [programmes.clientId], references: [clients.id] }),
   roundProgrammes: many(roundProgrammes),
-  formFields: many(formFields),
+}))
+
+export const roundProgrammesRelations = relations(roundProgrammes, ({ one, many }) => ({
+  round: one(rounds, { fields: [roundProgrammes.roundId], references: [rounds.id] }),
+  programme: one(programmes, { fields: [roundProgrammes.programmeId], references: [programmes.id] }),
   applications: many(applications),
 }))
 
-export const roundProgrammesRelations = relations(roundProgrammes, ({ one }) => ({
-  round: one(rounds, { fields: [roundProgrammes.roundId], references: [rounds.id] }),
-  programme: one(programmes, { fields: [roundProgrammes.programmeId], references: [programmes.id] }),
-}))
-
-export const formFieldsRelations = relations(formFields, ({ one, many }) => ({
-  programme: one(programmes, { fields: [formFields.programmeId], references: [programmes.id] }),
-  responses: many(applicationResponses),
-}))
-
-export const applicationsRelations = relations(applications, ({ one, many }) => ({
-  programme: one(programmes, { fields: [applications.programmeId], references: [programmes.id] }),
-  responses: many(applicationResponses),
-}))
-
-export const applicationResponsesRelations = relations(applicationResponses, ({ one }) => ({
-  application: one(applications, {
-    fields: [applicationResponses.applicationId],
-    references: [applications.id],
-  }),
-  field: one(formFields, {
-    fields: [applicationResponses.fieldId],
-    references: [formFields.id],
+export const applicationsRelations = relations(applications, ({ one }) => ({
+  roundProgramme: one(roundProgrammes, {
+    fields: [applications.roundProgrammeId],
+    references: [roundProgrammes.id],
   }),
 }))
 

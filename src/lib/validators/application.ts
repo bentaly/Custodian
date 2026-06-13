@@ -11,16 +11,18 @@ export const ApplicationStatus = z.enum([
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
 export const CreateApplicationSchema = z.object({
-  programmeId: z.uuid(),
+  roundProgrammeId: z.string().uuid(),
   organisationName: z.string().min(1).max(255),
-  organisationRegistrationNumber: z.string().max(50).optional(),
-  organisationType: z.enum(['charity', 'company']),
+  // Both optional — an applicant may hold a charity number, a company number,
+  // or both. Due diligence routing keys off whichever are present.
+  charityNumber: z.string().max(50).optional(),
+  companyNumber: z.string().max(50).optional(),
   bankName: z.string().min(1).max(255),
   bankAccountName: z.string().min(1).max(255),
   bankAccountNumber: z.string().min(1).max(50),
   bankSortCode: z.string().min(1).max(20),
   amountRequested: z.number().positive(),
-  responses: z.record(z.string().uuid(), z.string()),
+  responses: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
 })
 export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>
 

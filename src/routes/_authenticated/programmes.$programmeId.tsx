@@ -1,57 +1,36 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { getProgramme, updateProgramme, listClientTags } from '../../server/fns/programmes'
 import {
-  listFormFields,
-  createFormField,
-  updateFormField,
-  deleteFormField,
-} from '../../server/fns/form-fields'
+  getProgramme,
+  updateProgramme,
+  listClientTags,
+  addProgrammeToRound,
+  removeProgrammeFromRound,
+} from '../../server/fns/programmes'
+import { listMyRounds } from '../../server/fns/rounds'
+import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
 
 export const Route = createFileRoute('/_authenticated/programmes/$programmeId')({
   loader: async ({ params }) => {
-    const [programme, formFields, clientTags] = await Promise.all([
+    const [programme, clientTags, allRounds] = await Promise.all([
       getProgramme({ data: { id: params.programmeId } }),
-      listFormFields({ data: { programmeId: params.programmeId } }),
       listClientTags(),
+      listMyRounds(),
     ])
-    return { programme, formFields, clientTags }
+    return { programme, clientTags, allRounds }
   },
   component: ProgrammeDetail,
 })
 
-const PROG_STATUS_LABELS = {
-  draft: 'Draft',
-  active: 'Active',
-  closed: 'Closed',
-}
-
-const PROG_STATUS_COLORS = {
-  draft: 'bg-gray-100 text-gray-500',
-  active: 'bg-green-100 text-green-700',
-  closed: 'bg-red-100 text-red-600',
-}
-
-const FIELD_TYPE_LABELS: Record<string, string> = {
-  text: 'Text',
-  textarea: 'Long text',
-  number: 'Number',
-  select: 'Select',
-  multi_select: 'Multi-select',
-  date: 'Date',
-  file: 'File',
-  checkbox: 'Checkbox',
-}
 
 type LoadedProgramme = Awaited<ReturnType<typeof getProgramme>>
-type FormField = LoadedProgramme['formFields'][number]
 
 function ProgrammeDetail() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
-  const { programme, formFields, clientTags } = Route.useLoaderData()
+  const { programme, clientTags, allRounds } = Route.useLoaderData()
   const canManage = ['superadmin', 'admin', 'manager'].includes(user.role)
 
   const [editing, setEditing] = useState(false)
@@ -59,17 +38,16 @@ function ProgrammeDetail() {
   const [description, setDescription] = useState(programme.description ?? '')
   const [goal, setGoal] = useState(programme.goal ?? '')
   const [tags, setTags] = useState<string[]>((programme.tags ?? []) as string[])
-  const [status, setStatus] = useState(programme.status)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
-  const [showAddField, setShowAddField] = useState(false)
-  const [fieldLabel, setFieldLabel] = useState('')
-  const [fieldType, setFieldType] = useState<FormField['fieldType']>('text')
-  const [fieldRequired, setFieldRequired] = useState(false)
-  const [fieldOptions, setFieldOptions] = useState('')
-  const [addingField, setAddingField] = useState(false)
-  const [fieldError, setFieldError] = useState('')
+  const [showAddRound, setShowAddRound] = useState(false)
+  const [selectedRoundId, setSelectedRoundId] = useState('')
+  const [addingRound, setAddingRound] = useState(false)
+  const [addRoundError, setAddRoundError] = useState('')
+
+  const linkedRoundIds = new Set(programme.roundProgrammes.map((rp) => rp.roundId))
+  const availableRounds = allRounds.filter((r) => !linkedRoundIds.has(r.id))
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -83,7 +61,6 @@ function ProgrammeDetail() {
           description: description || undefined,
           goal: goal || undefined,
           tags,
-          status,
         },
       })
       setEditing(false)
@@ -95,48 +72,25 @@ function ProgrammeDetail() {
     }
   }
 
-  async function handleAddField(e: React.FormEvent) {
+  async function handleAddToRound(e: React.FormEvent) {
     e.preventDefault()
-    setFieldError('')
-    setAddingField(true)
+    if (!selectedRoundId) return
+    setAddRoundError('')
+    setAddingRound(true)
     try {
-      const options =
-        fieldType === 'select' || fieldType === 'multi_select'
-          ? fieldOptions
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : undefined
-      await createFormField({
-        data: {
-          programmeId: programme.id,
-          label: fieldLabel,
-          fieldType,
-          required: fieldRequired,
-          displayOrder: formFields.length,
-          options,
-        },
-      })
-      setShowAddField(false)
-      setFieldLabel('')
-      setFieldType('text')
-      setFieldRequired(false)
-      setFieldOptions('')
+      await addProgrammeToRound({ data: { roundId: selectedRoundId, programmeId: programme.id } })
+      setShowAddRound(false)
+      setSelectedRoundId('')
       router.invalidate()
     } catch (err) {
-      setFieldError(err instanceof Error ? err.message : 'Failed to add field')
+      setAddRoundError(err instanceof Error ? err.message : 'Failed to add to round')
     } finally {
-      setAddingField(false)
+      setAddingRound(false)
     }
   }
 
-  async function handleDeleteField(id: string) {
-    await deleteFormField({ data: { id } })
-    router.invalidate()
-  }
-
-  async function handleToggleRequired(field: FormField) {
-    await updateFormField({ data: { id: field.id, required: !field.required } })
+  async function handleRemoveFromRound(roundId: string) {
+    await removeProgrammeFromRound({ data: { roundId, programmeId: programme.id } })
     router.invalidate()
   }
 
@@ -155,30 +109,16 @@ function ProgrammeDetail() {
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         {editing ? (
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as typeof status)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                required
+                autoFocus
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">
@@ -219,7 +159,6 @@ function ProgrammeDetail() {
                   setDescription(programme.description ?? '')
                   setGoal(programme.goal ?? '')
                   setTags((programme.tags ?? []) as string[])
-                  setStatus(programme.status)
                   setSaveError('')
                 }}
                 className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
@@ -233,11 +172,6 @@ function ProgrammeDetail() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-semibold text-gray-900">{programme.name}</h1>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${PROG_STATUS_COLORS[programme.status]}`}
-                >
-                  {PROG_STATUS_LABELS[programme.status]}
-                </span>
               </div>
               {programme.description && (
                 <p className="mt-1 text-sm text-gray-500">{programme.description}</p>
@@ -267,91 +201,56 @@ function ProgrammeDetail() {
         )}
       </div>
 
-      {/* Application form fields */}
+      {/* Rounds */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">Application form fields</h2>
-          {canManage && !showAddField && (
+          <h2 className="text-sm font-semibold text-gray-700">Rounds</h2>
+          {canManage && !showAddRound && availableRounds.length > 0 && (
             <button
-              onClick={() => setShowAddField(true)}
+              onClick={() => setShowAddRound(true)}
               className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800"
             >
-              Add field
+              Add to round
             </button>
           )}
         </div>
 
-        {showAddField && (
+        {showAddRound && (
           <form
-            onSubmit={handleAddField}
+            onSubmit={handleAddToRound}
             className="rounded-lg border border-gray-300 bg-white p-4 space-y-3"
           >
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Label</label>
-                <input
-                  type="text"
-                  value={fieldLabel}
-                  onChange={(e) => setFieldLabel(e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Type</label>
-                <select
-                  value={fieldType}
-                  onChange={(e) => setFieldType(e.target.value as FormField['fieldType'])}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                >
-                  {Object.entries(FIELD_TYPE_LABELS).map(([val, label]) => (
-                    <option key={val} value={val}>{label}</option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Round</label>
+              <select
+                value={selectedRoundId}
+                onChange={(e) => setSelectedRoundId(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                required
+              >
+                <option value="">Choose a round…</option>
+                {availableRounds.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            {(fieldType === 'select' || fieldType === 'multi_select') && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">
-                  Options <span className="text-gray-400">(comma-separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={fieldOptions}
-                  onChange={(e) => setFieldOptions(e.target.value)}
-                  placeholder="Option A, Option B, Option C"
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
-            )}
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={fieldRequired}
-                onChange={(e) => setFieldRequired(e.target.checked)}
-                className="rounded"
-              />
-              Required
-            </label>
-            {fieldError && <p className="text-sm text-red-500">{fieldError}</p>}
+            {addRoundError && <p className="text-sm text-red-500">{addRoundError}</p>}
             <div className="flex gap-2">
               <button
                 type="submit"
-                disabled={addingField}
+                disabled={addingRound}
                 className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
               >
-                {addingField ? 'Adding…' : 'Add field'}
+                {addingRound ? 'Adding…' : 'Add to round'}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setShowAddField(false)
-                  setFieldLabel('')
-                  setFieldType('text')
-                  setFieldRequired(false)
-                  setFieldOptions('')
-                  setFieldError('')
+                  setShowAddRound(false)
+                  setSelectedRoundId('')
+                  setAddRoundError('')
                 }}
                 className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
               >
@@ -361,49 +260,43 @@ function ProgrammeDetail() {
           </form>
         )}
 
-        {formFields.length === 0 && !showAddField ? (
+        {programme.roundProgrammes.length === 0 && !showAddRound ? (
           <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-8 text-center">
-            <p className="text-sm text-gray-500">No form fields yet.</p>
-            {canManage && (
+            <p className="text-sm text-gray-500">Not in any round.</p>
+            {canManage && availableRounds.length > 0 && (
               <p className="mt-1 text-sm text-gray-400">
-                Add fields to define the application form for this programme.
+                Add this programme to a round to start accepting applications.
               </p>
             )}
           </div>
         ) : (
           <div className="space-y-1">
-            {formFields.map((field, i) => (
+            {programme.roundProgrammes.map(({ round }) => (
               <div
-                key={field.id}
+                key={round.id}
                 className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3"
               >
-                <div className="flex items-center gap-3">
-                  <span className="w-5 text-center text-xs text-gray-400">{i + 1}</span>
-                  <div>
-                    <span className="text-sm text-gray-900">{field.label}</span>
-                    {field.required && (
-                      <span className="ml-1.5 text-xs text-gray-400">*</span>
-                    )}
-                  </div>
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                    {FIELD_TYPE_LABELS[field.fieldType] ?? field.fieldType}
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/rounds/$roundId"
+                    params={{ roundId: round.id }}
+                    className="text-sm font-medium text-gray-900 hover:underline"
+                  >
+                    {round.name}
+                  </Link>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[getRoundStatus(round)]}`}
+                  >
+                    {ROUND_STATUS_LABELS[getRoundStatus(round)]}
                   </span>
                 </div>
                 {canManage && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleRequired(field)}
-                      className="text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      {field.required ? 'Make optional' : 'Make required'}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteField(field.id)}
-                      className="text-xs text-gray-400 hover:text-red-500"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleRemoveFromRound(round.id)}
+                    className="text-xs text-gray-400 hover:text-red-500"
+                  >
+                    Remove
+                  </button>
                 )}
               </div>
             ))}

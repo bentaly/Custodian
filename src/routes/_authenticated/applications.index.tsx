@@ -1,6 +1,9 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { listApplications } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
+import { DueDiligenceBadge } from '../../components/dueDiligence'
+import type { DueDiligenceStatus } from '../../lib/dueDiligence'
+import { getRoundStatus } from '../../lib/roundStatus'
 
 export const Route = createFileRoute('/_authenticated/applications/')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -48,7 +51,7 @@ function ApplicationsList() {
   const { items, total, rounds } = Route.useLoaderData()
 
   const visibleRounds = rounds
-    .filter((r) => r.status !== 'upcoming')
+    .filter((r) => getRoundStatus(r) !== 'upcoming')
     .sort((a, b) => {
       const aDate = a.closedAt ? new Date(a.closedAt).getTime() : Infinity
       const bDate = b.closedAt ? new Date(b.closedAt).getTime() : Infinity
@@ -75,7 +78,7 @@ function ApplicationsList() {
             <option value="">All rounds</option>
             {visibleRounds.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}{r.status === 'open' ? ' (current)' : r.status === 'closed' ? ' (closed)' : ''}
+                {r.name}{getRoundStatus(r) === 'open' ? ' (current)' : getRoundStatus(r) === 'closed' ? ' (closed)' : ''}
               </option>
             ))}
           </select>
@@ -95,28 +98,28 @@ function ApplicationsList() {
                 <th className="px-5 py-3">Amount</th>
                 <th className="px-5 py-3">Programme</th>
                 <th className="px-5 py-3">Tags</th>
+                <th className="px-5 py-3">Due diligence</th>
                 <th className="px-5 py-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {items.map((app) => (
-                <tr
-                  key={app.id}
-                  onClick={() =>
-                    navigate({
-                      to: '/applications/$applicationId',
-                      params: { applicationId: app.id },
-                    })
-                  }
-                  className="cursor-pointer transition-colors hover:bg-gray-50"
-                >
-                  <td className="px-5 py-3 font-medium text-gray-900">{app.organisationName}</td>
+                <tr key={app.id} className="relative transition-colors hover:bg-gray-50">
+                  <td className="px-5 py-3 font-medium text-gray-900">
+                    <Link
+                      to="/applications/$applicationId"
+                      params={{ applicationId: app.id }}
+                      className="after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded focus-visible:after:ring-2 focus-visible:after:ring-gray-400"
+                    >
+                      {app.organisationName}
+                    </Link>
+                  </td>
                   <td className="px-5 py-3 text-gray-600">{formatAmount(app.amountRequested)}</td>
-                  <td className="px-5 py-3 text-gray-600">{app.programme?.name ?? '—'}</td>
+                  <td className="px-5 py-3 text-gray-600">{app.roundProgramme?.programme?.name ?? '—'}</td>
                   <td className="px-5 py-3">
-                    {app.programme?.tags && app.programme.tags.length > 0 ? (
+                    {app.roundProgramme?.programme?.tags && (app.roundProgramme.programme.tags as string[]).length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {app.programme.tags.map((tag) => (
+                        {(app.roundProgramme.programme.tags as string[]).map((tag) => (
                           <span
                             key={tag}
                             className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500"
@@ -128,6 +131,9 @@ function ApplicationsList() {
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
+                  </td>
+                  <td className="px-5 py-3">
+                    <DueDiligenceBadge status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />
                   </td>
                   <td className="px-5 py-3">
                     <span
@@ -142,6 +148,7 @@ function ApplicationsList() {
           </table>
         </div>
       )}
+
     </div>
   )
 }

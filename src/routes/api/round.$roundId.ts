@@ -21,14 +21,7 @@ export const Route = createFileRoute('/api/round/$roundId')(
             with: {
               client: true,
               roundProgrammes: {
-                with: {
-                  programme: {
-                    with: {
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      formFields: { orderBy: (f: any, { asc }: any) => [asc(f.displayOrder)] },
-                    },
-                  },
-                },
+                with: { programme: true },
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 orderBy: (rp: any, { asc }: any) => [asc(rp.createdAt)],
               },

@@ -1,13 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getDb } from '../../server/db'
-import {
-  applications,
-  applicationResponses,
-  programmes,
-  formFields,
-} from '../../../drizzle/schema'
+import { applications, roundProgrammes } from '../../../drizzle/schema'
 import { eq } from 'drizzle-orm'
 import { CreateApplicationSchema } from '../../lib/validators/application'
+import { runDueDiligence } from '../../server/dueDiligence/run'
+import { getRoundStatus } from '../../lib/roundStatus'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -20,66 +17,6 @@ function jsonResponse(data: unknown, status: number) {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
-}
-
-async function fetchCharityCommissionData(regNumber: string) {
-  const key = process.env['CHARITY_COMMISSION_KEY']
-  if (!key) return { _note: 'CHARITY_COMMISSION_KEY not set' }
-
-  try {
-    const res = await fetch(
-      `https://api.charitycommission.gov.uk/register/api/allcharitydetailsV2/${regNumber}/0`,
-      { headers: { 'Ocp-Apim-Subscription-Key': key } },
-    )
-    if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
-    return await res.json()
-  } catch (e) {
-    return { _error: String(e) }
-  }
-}
-
-async function fetchCompaniesHouseData(regNumber: string) {
-  const key = process.env['COMPANIES_HOUSE_KEY']
-  if (!key) return { _note: 'COMPANIES_HOUSE_KEY not set' }
-
-  try {
-    const basicAuth = Buffer.from(`${key}:`).toString('base64')
-    const res = await fetch(
-      `https://api.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(regNumber)}&items_per_page=3`,
-      { headers: { Authorization: `Basic ${basicAuth}` } },
-    )
-    if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
-    return await res.json()
-  } catch (e) {
-    return { _error: String(e) }
-  }
-}
-
-async function fetchThreeSixtyGivingData(orgId: string) {
-  try {
-    const res = await fetch(`https://api.threesixtygiving.org/api/v1/org/${encodeURIComponent(orgId)}/`)
-    if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
-    return await res.json()
-  } catch (e) {
-    return { _error: String(e) }
-  }
-}
-
-
-async function fetchOSCRData(regNumber: string) {
-  const key = process.env['OSCR_API_KEY']
-  if (!key) return { _note: 'OSCR_API_KEY not set' }
-
-  try {
-    const res = await fetch(
-      `https://oscrapi.azurewebsites.net/api/all_charities?charitynumber=${encodeURIComponent(regNumber)}`,
-      { headers: { 'x-functions-key': key } },
-    )
-    if (!res.ok) return { _error: `HTTP ${res.status}`, _body: await res.text() }
-    return await res.json()
-  } catch (e) {
-    return { _error: String(e) }
-  }
 }
 
 export const Route = createFileRoute('/api/apply')(
@@ -107,108 +44,58 @@ export const Route = createFileRoute('/api/apply')(
           }
 
           const {
-            programmeId,
+            roundProgrammeId,
             organisationName,
-            organisationRegistrationNumber,
-            organisationType,
+            charityNumber,
+            companyNumber,
             bankName,
             bankAccountName,
             bankAccountNumber,
             bankSortCode,
             amountRequested,
-            responses = {},
+            responses,
           } = parsed.data
 
-          const programme = await getDb().query.programmes.findFirst({
-            where: eq(programmes.id, programmeId),
-            with: {
-              roundProgrammes: { with: { round: true } },
-            },
+          const roundProgramme = await getDb().query.roundProgrammes.findFirst({
+            where: eq(roundProgrammes.id, roundProgrammeId),
+            with: { round: true },
           })
-          if (!programme) {
-            return jsonResponse({ error: 'Programme not found' }, 404)
+          if (!roundProgramme) {
+            return jsonResponse({ error: 'Not found' }, 404)
           }
-          const hasOpenRound = programme.roundProgrammes.some((rp) => rp.round.status === 'open')
-          if (!hasOpenRound) {
-            return jsonResponse(
-              { error: 'Programme is not currently open for applications' },
-              409,
-            )
+          if (getRoundStatus(roundProgramme.round) !== 'open') {
+            return jsonResponse({ error: 'This round is not currently open for applications' }, 409)
           }
 
-          const fields = await getDb().query.formFields.findMany({
-            where: eq(formFields.programmeId, programmeId),
+          const dueDiligence = await runDueDiligence({
+            charityNumber,
+            companyNumber,
+            amountRequested,
           })
-          const validFieldIds = new Set(fields.map((f) => f.id))
-          const responseEntries = Object.entries(responses).filter(([fieldId]) =>
-            validFieldIds.has(fieldId),
-          )
-
-          let dueDiligenceData: Record<string, unknown> | undefined
-          {
-            const regNumber = organisationRegistrationNumber?.trim()
-            const checks: Array<Promise<[string, unknown]>> = []
-
-            if (regNumber && organisationType === 'charity') {
-              if (regNumber.toUpperCase().startsWith('SC')) {
-                checks.push(fetchOSCRData(regNumber).then((d) => ['oscr', d]))
-              } else {
-                checks.push(
-                  fetchCharityCommissionData(regNumber).then((d) => ['charityCommission', d]),
-                )
-              }
-            }
-            if (regNumber && organisationType === 'company') {
-              checks.push(
-                fetchCompaniesHouseData(regNumber).then((d) => ['companiesHouse', d]),
-              )
-            }
-            if (regNumber) {
-              checks.push(
-                fetchThreeSixtyGivingData(regNumber).then((d) => ['threeSixtyGiving', d]),
-              )
-            }
-
-            if (checks.length > 0) {
-              const results = await Promise.all(checks)
-              dueDiligenceData = Object.fromEntries([
-                ...results,
-                ['fetchedAt', new Date().toISOString()],
-              ])
-            }
-          }
 
           const id = crypto.randomUUID()
           await getDb().insert(applications).values({
             id,
-            programmeId,
+            roundProgrammeId,
             organisationName,
-            organisationRegistrationNumber,
-            organisationType,
+            charityNumber,
+            companyNumber,
             bankName,
             bankAccountName,
             bankAccountNumber,
             bankSortCode,
             amountRequested: String(amountRequested),
-            dueDiligenceData,
+            responses,
+            dueDiligenceStatus: dueDiligence.status,
+            dueDiligenceChecks: dueDiligence.checks,
+            dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
           })
-
-          if (responseEntries.length > 0) {
-            await getDb().insert(applicationResponses).values(
-              responseEntries.map(([fieldId, value]) => ({
-                applicationId: id,
-                fieldId,
-                value,
-              })),
-            )
-          }
 
           const application = await getDb().query.applications.findFirst({
             where: (a, { eq }) => eq(a.id, id),
-            with: { responses: { with: { field: true } } },
           })
 
-          return jsonResponse({ application, dueDiligenceData }, 201)
+          return jsonResponse({ application, dueDiligence }, 201)
         },
       },
     },

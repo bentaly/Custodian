@@ -2,25 +2,12 @@ import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { listMyRounds, createRound } from '../../server/fns/rounds'
 import { DateRangePicker } from '../../components/DateRangePicker'
+import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
   loader: () => listMyRounds(),
   component: Rounds,
 })
-
-const STATUS_LABELS: Record<string, string> = {
-  upcoming: 'Upcoming',
-  open: 'Open',
-  reviewing: 'Reviewing',
-  closed: 'Closed',
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  upcoming: 'bg-gray-100 text-gray-600',
-  open: 'bg-green-100 text-green-700',
-  reviewing: 'bg-yellow-100 text-yellow-700',
-  closed: 'bg-red-100 text-red-600',
-}
 
 function formatDate(date: Date | string | null | undefined) {
   if (!date) return null
@@ -169,11 +156,14 @@ function Rounds() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900">{round.name}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[round.status] ?? 'bg-gray-100 text-gray-600'}`}
-                      >
-                        {STATUS_LABELS[round.status] ?? round.status}
-                      </span>
+                      {(() => {
+                        const s = getRoundStatus(round)
+                        return (
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[s]}`}>
+                            {ROUND_STATUS_LABELS[s]}
+                          </span>
+                        )
+                      })()}
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
                       {round.budget && (

@@ -3,6 +3,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { listProgrammes, createProgramme, listClientTags } from '../../server/fns/programmes'
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
+import { getRoundStatus } from '../../lib/roundStatus'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
@@ -12,16 +13,15 @@ export const Route = createFileRoute('/_authenticated/programmes/')({
   component: Programmes,
 })
 
-const PROG_STATUS_LABELS = {
-  draft: 'Draft',
-  active: 'Active',
-  closed: 'Closed',
-}
-
-const PROG_STATUS_COLORS = {
-  draft: 'bg-gray-100 text-gray-500',
-  active: 'bg-green-100 text-green-700',
-  closed: 'bg-red-100 text-red-600',
+function getProgrammeRoundStatus(roundProgrammes: Array<{ round: { openedAt: Date | string | null | undefined, closedAt: Date | string | null | undefined } }>) {
+  if (roundProgrammes.some((rp) => getRoundStatus(rp.round) === 'open'))
+    return { label: 'In open round', color: 'bg-green-100 text-green-700' }
+  if (roundProgrammes.length > 0)
+    return {
+      label: `${roundProgrammes.length} round${roundProgrammes.length > 1 ? 's' : ''}`,
+      color: 'bg-gray-100 text-gray-500',
+    }
+  return { label: 'No round', color: 'bg-amber-50 text-amber-600' }
 }
 
 function Programmes() {
@@ -160,11 +160,14 @@ function Programmes() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900">{programme.name}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${PROG_STATUS_COLORS[programme.status]}`}
-                      >
-                        {PROG_STATUS_LABELS[programme.status]}
-                      </span>
+                      {(() => {
+                        const { label, color } = getProgrammeRoundStatus(programme.roundProgrammes)
+                        return (
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+                            {label}
+                          </span>
+                        )
+                      })()}
                     </div>
                     {progTags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -178,10 +181,6 @@ function Programmes() {
                         ))}
                       </div>
                     )}
-                    <div className="mt-1 text-xs text-gray-400">
-                      {programme.applications.length}{' '}
-                      {programme.applications.length === 1 ? 'application' : 'applications'}
-                    </div>
                   </div>
                   <span className="text-xs text-gray-400">→</span>
                 </div>

@@ -43,6 +43,55 @@
       "when": 1749600000000,
       "tag": "0005_round_programmes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781358693835,
+      "tag": "0006_good_ink",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781359941767,
+      "tag": "0007_black_spirit",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781383594279,
+      "tag": "0008_freezing_mysterio",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781384989946,
+      "tag": "0009_tranquil_daimon_hellstrom",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781386330824,
+      "tag": "0010_wonderful_princess_powerful",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781387231104,
+      "tag": "0011_unusual_bloodscream",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781387640817,
+      "tag": "0012_special_piledriver",
+      "breakpoints": true
     }
   ]
 }

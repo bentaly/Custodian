@@ -2,13 +2,14 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, count, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, applicationResponses, roundProgrammes } from '../../../drizzle/schema'
+import { applications, roundProgrammes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import {
   ApplicationFiltersSchema,
   CreateApplicationSchema,
   UpdateApplicationStatusSchema,
 } from '../../lib/validators/application'
+import { runDueDiligence } from '../dueDiligence/run'
 
 export const listApplications = createServerFn({ method: 'GET' })
   .inputValidator(ApplicationFiltersSchema)
@@ -16,28 +17,36 @@ export const listApplications = createServerFn({ method: 'GET' })
     await requireAuthUser()
     const { page, pageSize, ...filters } = data
 
-    let programmeIds: string[] | undefined
+    let roundProgrammeIds: string[] | undefined
     if (filters.roundId) {
       const rows = await getDb()
-        .select({ id: roundProgrammes.programmeId })
+        .select({ id: roundProgrammes.id })
         .from(roundProgrammes)
         .where(eq(roundProgrammes.roundId, filters.roundId))
-      programmeIds = rows.map((r) => r.id)
-      if (programmeIds.length === 0) {
+      roundProgrammeIds = rows.map((r) => r.id)
+      if (roundProgrammeIds.length === 0) {
+        return { items: [], total: 0, page, pageSize }
+      }
+    } else if (filters.programmeId) {
+      const rows = await getDb()
+        .select({ id: roundProgrammes.id })
+        .from(roundProgrammes)
+        .where(eq(roundProgrammes.programmeId, filters.programmeId))
+      roundProgrammeIds = rows.map((r) => r.id)
+      if (roundProgrammeIds.length === 0) {
         return { items: [], total: 0, page, pageSize }
       }
     }
 
     const where = and(
       filters.status ? eq(applications.status, filters.status) : undefined,
-      filters.programmeId ? eq(applications.programmeId, filters.programmeId) : undefined,
-      programmeIds ? inArray(applications.programmeId, programmeIds) : undefined,
+      roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
     )
 
     const [items, totals] = await Promise.all([
       getDb().query.applications.findMany({
         where,
-        with: { programme: { with: { client: true } } },
+        with: { roundProgramme: { with: { programme: { with: { client: true } } } } },
         orderBy: (a, { desc }) => [desc(a.submittedAt)],
         offset: (page - 1) * pageSize,
         limit: pageSize,
@@ -55,8 +64,7 @@ export const getApplication = createServerFn({ method: 'GET' })
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
       with: {
-        programme: { with: { client: true } },
-        responses: { with: { field: true } },
+        roundProgramme: { with: { programme: { with: { client: true } }, round: true } },
       },
     })
     if (!application) throw new Error('Not found')
@@ -66,7 +74,7 @@ export const getApplication = createServerFn({ method: 'GET' })
 export const createApplication = createServerFn({ method: 'POST' })
   .inputValidator(CreateApplicationSchema)
   .handler(async ({ data }) => {
-    const { responses, amountRequested, ...rest } = data
+    const { amountRequested, ...rest } = data
     const id = crypto.randomUUID()
 
     await getDb().insert(applications).values({
@@ -75,21 +83,38 @@ export const createApplication = createServerFn({ method: 'POST' })
       amountRequested: amountRequested.toString(),
     })
 
-    if (Object.keys(responses).length > 0) {
-      await getDb().insert(applicationResponses).values(
-        Object.entries(responses).map(([fieldId, value]) => ({
-          applicationId: id,
-          fieldId,
-          value,
-        })),
-      )
-    }
-
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, id),
-      with: { responses: true },
     })
     return application!
+  })
+
+export const rerunDueDiligence = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+
+    const application = await getDb().query.applications.findFirst({
+      where: (a, { eq }) => eq(a.id, data.id),
+    })
+    if (!application) throw new Error('Not found')
+
+    const result = await runDueDiligence({
+      charityNumber: application.charityNumber,
+      companyNumber: application.companyNumber,
+      amountRequested: Number(application.amountRequested),
+    })
+
+    const [updated] = await getDb()
+      .update(applications)
+      .set({
+        dueDiligenceStatus: result.status,
+        dueDiligenceChecks: result.checks,
+        dueDiligenceCheckedAt: new Date(result.checkedAt),
+      })
+      .where(eq(applications.id, data.id))
+      .returning()
+    return updated!
   })
 
 export const updateApplicationStatus = createServerFn({ method: 'POST' })

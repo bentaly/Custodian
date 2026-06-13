@@ -11,7 +11,9 @@ export const listProgrammes = createServerFn({ method: 'GET' }).handler(async ()
   if (!user.clientId) return []
   return getDb().query.programmes.findMany({
     where: (p, { eq }) => eq(p.clientId, user.clientId!),
-    with: { applications: true },
+    with: {
+      roundProgrammes: { with: { round: true } },
+    },
     orderBy: (p, { asc }) => [asc(p.name)],
   })
 })
@@ -22,7 +24,9 @@ export const getProgramme = createServerFn({ method: 'GET' })
     await requireAuthUser()
     const programme = await getDb().query.programmes.findFirst({
       where: (p, { eq }) => eq(p.id, data.id),
-      with: { applications: true, formFields: { orderBy: (f, { asc }) => [asc(f.displayOrder)] } },
+      with: {
+        roundProgrammes: { with: { round: true } },
+      },
     })
     if (!programme) throw new Error('Not found')
     return programme
@@ -41,11 +45,9 @@ export const updateProgramme = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
     const { id, ...rest } = data
-    const updates: Partial<typeof rest> & { closedAt?: Date } = { ...rest }
-    if (rest.status === 'closed') updates.closedAt = new Date()
     const [programme] = await getDb()
       .update(programmes)
-      .set(updates)
+      .set(rest)
       .where(eq(programmes.id, id))
       .returning()
     return programme!

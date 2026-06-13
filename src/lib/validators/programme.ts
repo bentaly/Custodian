@@ -1,8 +1,5 @@
 import { z } from 'zod'
 
-export const ProgrammeStatus = z.enum(['active', 'draft', 'closed'])
-export type ProgrammeStatus = z.infer<typeof ProgrammeStatus>
-
 export const CreateProgrammeSchema = z.object({
   clientId: z.string().uuid(),
   name: z.string().min(1).max(255),
@@ -18,6 +15,5 @@ export const UpdateProgrammeSchema = z.object({
   description: z.string().max(2000).optional(),
   goal: z.string().optional(),
   tags: z.array(z.string().min(1).max(100)).optional(),
-  status: ProgrammeStatus.optional(),
 })
 export type UpdateProgrammeInput = z.infer<typeof UpdateProgrammeSchema>
