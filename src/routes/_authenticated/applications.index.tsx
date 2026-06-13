@@ -1,8 +1,19 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { listApplications } from '../../server/fns/applications'
+import { listMyRounds } from '../../server/fns/rounds'
 
 export const Route = createFileRoute('/_authenticated/applications/')({
-  loader: () => listApplications({ data: { page: 1, pageSize: 25 } }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    roundId: typeof search.roundId === 'string' ? search.roundId : undefined as string | undefined,
+  }),
+  loaderDeps: ({ search }) => ({ roundId: search.roundId }),
+  loader: async ({ deps }) => {
+    const [applicationsData, rounds] = await Promise.all([
+      listApplications({ data: { page: 1, pageSize: 25, roundId: deps.roundId } }),
+      listMyRounds(),
+    ])
+    return { ...applicationsData, rounds }
+  },
   component: ApplicationsList,
 })
 
@@ -32,14 +43,43 @@ function formatAmount(amount: string | null | undefined) {
 }
 
 function ApplicationsList() {
-  const router = useRouter()
-  const { items, total } = Route.useLoaderData()
+  const navigate = useNavigate({ from: '/applications/' })
+  const { roundId } = Route.useSearch()
+  const { items, total, rounds } = Route.useLoaderData()
+
+  const visibleRounds = rounds
+    .filter((r) => r.status !== 'upcoming')
+    .sort((a, b) => {
+      const aDate = a.closedAt ? new Date(a.closedAt).getTime() : Infinity
+      const bDate = b.closedAt ? new Date(b.closedAt).getTime() : Infinity
+      return bDate - aDate
+    })
+
+  function handleRoundChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    navigate({ search: { roundId: e.target.value || undefined } })
+  }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Applications</h1>
-        <p className="mt-1 text-sm text-gray-500">{total} application{total !== 1 ? 's' : ''}</p>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Applications</h1>
+          <p className="mt-1 text-sm text-gray-500">{total} application{total !== 1 ? 's' : ''}</p>
+        </div>
+        {visibleRounds.length > 0 && (
+          <select
+            value={roundId ?? ''}
+            onChange={handleRoundChange}
+            className="rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          >
+            <option value="">All rounds</option>
+            {visibleRounds.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}{r.status === 'open' ? ' (current)' : r.status === 'closed' ? ' (closed)' : ''}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {items.length === 0 ? (
@@ -63,7 +103,7 @@ function ApplicationsList() {
                 <tr
                   key={app.id}
                   onClick={() =>
-                    router.navigate({
+                    navigate({
                       to: '/applications/$applicationId',
                       params: { applicationId: app.id },
                     })

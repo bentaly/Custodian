@@ -48,7 +48,7 @@ function Sidebar() {
         <Link to="/programmes" className={linkClass}>
           Programmes
         </Link>
-        <Link to="/applications" className={linkClass}>
+        <Link to="/applications" search={{ roundId: undefined }} className={linkClass}>
           Applications
         </Link>
         {isAdmin && (

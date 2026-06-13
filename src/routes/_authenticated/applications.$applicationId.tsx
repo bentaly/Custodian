@@ -12,7 +12,7 @@ function ApplicationDetail() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Link to="/applications" className="hover:text-gray-600">Applications</Link>
+        <Link to="/applications" search={{ roundId: undefined }} className="hover:text-gray-600">Applications</Link>
         <span>›</span>
         <span className="text-gray-600">{application.organisationName}</span>
       </div>
