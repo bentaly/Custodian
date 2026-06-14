@@ -38,6 +38,11 @@ function ProgrammeDetail() {
   const [description, setDescription] = useState(programme.description ?? '')
   const [goal, setGoal] = useState(programme.goal ?? '')
   const [tags, setTags] = useState<string[]>((programme.tags ?? []) as string[])
+  const [budget, setBudget] = useState(programme.budget ?? '')
+  const [maxGrantAmount, setMaxGrantAmount] = useState(programme.maxGrantAmount ?? '')
+  const [grantDurationYears, setGrantDurationYears] = useState(
+    programme.grantDurationYears?.toString() ?? '',
+  )
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -61,6 +66,9 @@ function ProgrammeDetail() {
           description: description || undefined,
           goal: goal || undefined,
           tags,
+          budget: budget ? parseFloat(budget.toString()) : undefined,
+          maxGrantAmount: maxGrantAmount ? parseFloat(maxGrantAmount.toString()) : undefined,
+          grantDurationYears: grantDurationYears ? parseInt(grantDurationYears, 10) : undefined,
         },
       })
       setEditing(false)
@@ -142,6 +150,68 @@ function ProgrammeDetail() {
               </label>
               <RichTextEditor key={programme.id} defaultValue={goal} onChange={setGoal} />
             </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Grant terms</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">
+                    Total budget <span className="font-normal text-gray-400">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+                    <input
+                      type="number"
+                      value={budget}
+                      onChange={(e) => setBudget(e.target.value)}
+                      min="0"
+                      step="1"
+                      placeholder="0"
+                      className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">The total pot available across all grants in this programme</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">
+                    Max per award <span className="font-normal text-gray-400">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+                    <input
+                      type="number"
+                      value={maxGrantAmount}
+                      onChange={(e) => setMaxGrantAmount(e.target.value)}
+                      min="0"
+                      step="1"
+                      placeholder="0"
+                      className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">The maximum any single grantee can receive in total</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">
+                    Grant duration <span className="font-normal text-gray-400">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={grantDurationYears}
+                      onChange={(e) => setGrantDurationYears(e.target.value)}
+                      min="1"
+                      max="20"
+                      step="1"
+                      placeholder="1"
+                      className="w-full rounded border border-gray-300 py-2 pl-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">How many years grants under this programme typically run</p>
+                </div>
+              </div>
+            </div>
+
             {saveError && <p className="text-sm text-red-500">{saveError}</p>}
             <div className="flex gap-2">
               <button
@@ -159,6 +229,9 @@ function ProgrammeDetail() {
                   setDescription(programme.description ?? '')
                   setGoal(programme.goal ?? '')
                   setTags((programme.tags ?? []) as string[])
+                  setBudget(programme.budget ?? '')
+                  setMaxGrantAmount(programme.maxGrantAmount ?? '')
+                  setGrantDurationYears(programme.grantDurationYears?.toString() ?? '')
                   setSaveError('')
                 }}
                 className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
@@ -186,6 +259,39 @@ function ProgrammeDetail() {
                       {tag}
                     </span>
                   ))}
+                </div>
+              )}
+              {(programme.budget || programme.maxGrantAmount || programme.grantDurationYears) && (
+                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-4">
+                  {programme.budget && (
+                    <div>
+                      <p className="text-xs text-gray-400">Total budget</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        £{parseFloat(programme.budget).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {programme.maxGrantAmount && (
+                    <div>
+                      <p className="text-xs text-gray-400">Max per award</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        £{parseFloat(programme.maxGrantAmount).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {programme.grantDurationYears && (
+                    <div>
+                      <p className="text-xs text-gray-400">Grant duration</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {programme.grantDurationYears} {programme.grantDurationYears === 1 ? 'year' : 'years'}
+                        {programme.maxGrantAmount && programme.grantDurationYears > 1 && (
+                          <span className="ml-1.5 font-normal text-gray-400">
+                            (£{(parseFloat(programme.maxGrantAmount) / programme.grantDurationYears).toLocaleString()}/yr)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

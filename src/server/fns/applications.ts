@@ -59,7 +59,7 @@ export const listApplications = createServerFn({ method: 'GET' })
   })
 
 export const getApplication = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.string().uuid() }))
+  .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
     const application = await getDb().query.applications.findFirst({
@@ -91,7 +91,7 @@ export const createApplication = createServerFn({ method: 'POST' })
   })
 
 export const rerunDueDiligence = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.string().uuid() }))
+  .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
 
@@ -119,7 +119,7 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
   })
 
 export const rerunCustodianScore = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.string().uuid() }))
+  .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
 

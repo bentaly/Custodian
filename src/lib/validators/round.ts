@@ -1,18 +1,16 @@
 import { z } from 'zod'
 
 export const CreateRoundSchema = z.object({
-  clientId: z.string().uuid(),
+  clientId: z.uuid(),
   name: z.string().min(1).max(255),
-  budget: z.number().positive().optional(),
   openedAt: z.string().optional(),
   closedAt: z.string().optional(),
 })
 export type CreateRoundInput = z.infer<typeof CreateRoundSchema>
 
 export const UpdateRoundSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string().min(1).max(255).optional(),
-  budget: z.number().positive().optional(),
   openedAt: z.string().optional(),
   closedAt: z.string().optional(),
 })

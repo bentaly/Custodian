@@ -42,7 +42,6 @@ function RoundDetail() {
 
   const [editingRound, setEditingRound] = useState(false)
   const [roundName, setRoundName] = useState(round.name)
-  const [roundBudget, setRoundBudget] = useState(round.budget ?? '')
   const [roundOpenedAt, setRoundOpenedAt] = useState(toDateInput(round.openedAt))
   const [roundClosedAt, setRoundClosedAt] = useState(toDateInput(round.closedAt))
   const [savingRound, setSavingRound] = useState(false)
@@ -65,7 +64,6 @@ function RoundDetail() {
         data: {
           id: round.id,
           name: roundName,
-          budget: roundBudget ? parseFloat(roundBudget.toString()) : undefined,
           openedAt: roundOpenedAt || undefined,
           closedAt: roundClosedAt || undefined,
         },
@@ -116,29 +114,16 @@ function RoundDetail() {
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         {editingRound ? (
           <form onSubmit={handleSaveRound} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Round name</label>
-                <input
-                  type="text"
-                  value={roundName}
-                  onChange={(e) => setRoundName(e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Budget</label>
-                <input
-                  type="number"
-                  value={roundBudget}
-                  onChange={(e) => setRoundBudget(e.target.value)}
-                  min="0"
-                  step="1"
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Round name</label>
+              <input
+                type="text"
+                value={roundName}
+                onChange={(e) => setRoundName(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                required
+                autoFocus
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">Date range</label>
@@ -163,7 +148,6 @@ function RoundDetail() {
                 onClick={() => {
                   setEditingRound(false)
                   setRoundName(round.name)
-                  setRoundBudget(round.budget ?? '')
                   setRoundOpenedAt(toDateInput(round.openedAt))
                   setRoundClosedAt(toDateInput(round.closedAt))
                   setRoundError('')
@@ -189,9 +173,6 @@ function RoundDetail() {
                 })()}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-gray-500">
-                {round.budget && (
-                  <span>£{parseFloat(round.budget).toLocaleString()}</span>
-                )}
                 {(round.openedAt || round.closedAt) && (
                   <span>
                     {formatDate(round.openedAt) ?? '—'} → {formatDate(round.closedAt) ?? '—'}

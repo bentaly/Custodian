@@ -7,7 +7,7 @@ import { requireAuthUser, requireRole } from '../session'
 import { CreateRoundSchema, UpdateRoundSchema } from '../../lib/validators/round'
 
 export const listRounds = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ clientId: z.string().uuid() }))
+  .inputValidator(z.object({ clientId: z.uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
     return getDb().query.rounds.findMany({
@@ -32,7 +32,7 @@ export const listMyRounds = createServerFn({ method: 'GET' }).handler(async () =
 })
 
 export const getRound = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.string().uuid() }))
+  .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
     const round = await getDb().query.rounds.findFirst({
@@ -53,12 +53,11 @@ export const createRound = createServerFn({ method: 'POST' })
   .inputValidator(CreateRoundSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
-    const { budget, openedAt, closedAt, ...rest } = data
+    const { openedAt, closedAt, ...rest } = data
     const [round] = await getDb()
       .insert(rounds)
       .values({
         ...rest,
-        budget: budget?.toString(),
         openedAt: openedAt ? new Date(openedAt) : undefined,
         closedAt: closedAt ? new Date(closedAt) : undefined,
       })
@@ -70,12 +69,11 @@ export const updateRound = createServerFn({ method: 'POST' })
   .inputValidator(UpdateRoundSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
-    const { id, budget, openedAt, closedAt, ...rest } = data
+    const { id, openedAt, closedAt, ...rest } = data
     const [round] = await getDb()
       .update(rounds)
       .set({
         ...rest,
-        ...(budget !== undefined ? { budget: budget.toString() } : {}),
         ...(openedAt !== undefined ? { openedAt: openedAt ? new Date(openedAt) : null } : {}),
         ...(closedAt !== undefined ? { closedAt: closedAt ? new Date(closedAt) : null } : {}),
       })

@@ -14,7 +14,7 @@ export const listClients = createServerFn({ method: 'GET' }).handler(async () =>
 })
 
 export const getClient = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.string().uuid() }))
+  .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
     const client = await getDb().query.clients.findFirst({

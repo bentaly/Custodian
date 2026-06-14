@@ -12,6 +12,6 @@ export const CreateClientSchema = z.object({
 export type CreateClientInput = z.infer<typeof CreateClientSchema>
 
 export const UpdateClientSchema = CreateClientSchema.partial().extend({
-  id: z.string().uuid(),
+  id: z.uuid(),
 })
 export type UpdateClientInput = z.infer<typeof UpdateClientSchema>

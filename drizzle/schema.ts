@@ -97,7 +97,6 @@ export const rounds = pgTable('rounds', {
     .notNull()
     .references(() => clients.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  budget: numeric('budget'),
   openedAt: timestamp('opened_at'),
   closedAt: timestamp('closed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -112,6 +111,10 @@ export const programmes = pgTable('programmes', {
   description: text('description'),
   goal: text('goal'),
   tags: jsonb('tags').$type<string[]>(),
+  // Grant terms
+  budget: numeric('budget'),
+  maxGrantAmount: numeric('max_grant_amount'),
+  grantDurationYears: integer('grant_duration_years'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 

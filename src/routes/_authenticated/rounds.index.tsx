@@ -22,7 +22,6 @@ function Rounds() {
 
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
-  const [budget, setBudget] = useState('')
   const [openedAt, setOpenedAt] = useState('')
   const [closedAt, setClosedAt] = useState('')
   const [creating, setCreating] = useState(false)
@@ -38,7 +37,6 @@ function Rounds() {
         data: {
           clientId: user.clientId,
           name,
-          budget: budget ? parseFloat(budget) : undefined,
           openedAt: openedAt || undefined,
           closedAt: closedAt || undefined,
         },
@@ -73,33 +71,17 @@ function Rounds() {
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-sm font-medium text-gray-700">Create funding round</h2>
           <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Round name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Spring Grants 2025"
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">
-                  Budget <span className="text-gray-400">(optional)</span>
-                </label>
-                <input
-                  type="number"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  placeholder="0"
-                  min="0"
-                  step="1"
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Round name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Spring Grants 2025"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                required
+                autoFocus
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">
@@ -166,9 +148,6 @@ function Rounds() {
                       })()}
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
-                      {round.budget && (
-                        <span>£{parseFloat(round.budget).toLocaleString()}</span>
-                      )}
                       <span>
                         {round.roundProgrammes.length}{' '}
                         {round.roundProgrammes.length === 1 ? 'programme' : 'programmes'}

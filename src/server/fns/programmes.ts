@@ -19,7 +19,7 @@ export const listProgrammes = createServerFn({ method: 'GET' }).handler(async ()
 })
 
 export const getProgramme = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.string().uuid() }))
+  .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     await requireAuthUser()
     const programme = await getDb().query.programmes.findFirst({
@@ -36,7 +36,15 @@ export const createProgramme = createServerFn({ method: 'POST' })
   .inputValidator(CreateProgrammeSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin')
-    const [programme] = await getDb().insert(programmes).values(data).returning()
+    const { budget, maxGrantAmount, ...rest } = data
+    const [programme] = await getDb()
+      .insert(programmes)
+      .values({
+        ...rest,
+        budget: budget?.toString(),
+        maxGrantAmount: maxGrantAmount?.toString(),
+      })
+      .returning()
     return programme!
   })
 
@@ -44,17 +52,21 @@ export const updateProgramme = createServerFn({ method: 'POST' })
   .inputValidator(UpdateProgrammeSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
-    const { id, ...rest } = data
+    const { id, budget, maxGrantAmount, ...rest } = data
     const [programme] = await getDb()
       .update(programmes)
-      .set(rest)
+      .set({
+        ...rest,
+        ...(budget !== undefined ? { budget: budget.toString() } : {}),
+        ...(maxGrantAmount !== undefined ? { maxGrantAmount: maxGrantAmount.toString() } : {}),
+      })
       .where(eq(programmes.id, id))
       .returning()
     return programme!
   })
 
 export const addProgrammeToRound = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ roundId: z.string().uuid(), programmeId: z.string().uuid() }))
+  .inputValidator(z.object({ roundId: z.uuid(), programmeId: z.uuid() }))
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
     const [link] = await getDb().insert(roundProgrammes).values(data).returning()
@@ -62,7 +74,7 @@ export const addProgrammeToRound = createServerFn({ method: 'POST' })
   })
 
 export const removeProgrammeFromRound = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ roundId: z.string().uuid(), programmeId: z.string().uuid() }))
+  .inputValidator(z.object({ roundId: z.uuid(), programmeId: z.uuid() }))
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
     await getDb()
