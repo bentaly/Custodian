@@ -257,29 +257,27 @@ export default function App() {
       )}
       <div className={`mb-8 ${result ? 'hidden' : ''}`}>
         <div className="flex flex-wrap gap-4">
-          {clients.length > 1 && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
-                Client
-              </label>
-              <select
-                value={clientId ?? ''}
-                onChange={(e) => {
-                  const newClientId = e.target.value
-                  setClientId(newClientId)
-                  const firstRound = allRounds.find((r) => r.client.id === newClientId)
-                  setRoundId(firstRound?.id ?? null)
-                  setResponses({})
-                  setResult(null)
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-              >
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Client
+            </label>
+            <select
+              value={clientId ?? ''}
+              onChange={(e) => {
+                const newClientId = e.target.value
+                setClientId(newClientId)
+                const firstRound = allRounds.find((r) => r.client.id === newClientId)
+                setRoundId(firstRound?.id ?? null)
+                setResponses({})
+                setResult(null)
+              }}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            >
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
               Round
