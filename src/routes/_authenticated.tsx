@@ -37,7 +37,7 @@ function Sidebar() {
 
   return (
     <aside className="flex w-56 flex-col border-r border-gray-200 bg-white px-4 py-6">
-      <p className="text-lg font-semibold text-gray-900">Custodian</p>
+      <p style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, letterSpacing: '-0.3px' }} className="text-gray-900">Custodian<span style={{ color: '#1D9E75' }}>.</span></p>
       <nav className="mt-6 flex-1 space-y-1">
         <Link to="/dashboard" className={linkClass}>
           Dashboard
@@ -51,9 +51,12 @@ function Sidebar() {
         <Link to="/applications" search={{ roundId: undefined }} className={linkClass}>
           Applications
         </Link>
+        <Link to="/shortlist" search={{ roundId: undefined }} className={linkClass}>
+          Shortlist
+        </Link>
         {isAdmin && (
           <Link to="/users" className={linkClass}>
-            People
+            Organization
           </Link>
         )}
       </nav>
