@@ -26,6 +26,8 @@ export const Route = createFileRoute('/_authenticated/programmes/$programmeId')(
 
 
 type LoadedProgramme = Awaited<ReturnType<typeof getProgramme>>
+type RoundProgrammeRow = LoadedProgramme['roundProgrammes'][number]
+type MyRound = Awaited<ReturnType<typeof listMyRounds>>[number]
 
 function ProgrammeDetail() {
   const router = useRouter()
@@ -38,21 +40,19 @@ function ProgrammeDetail() {
   const [description, setDescription] = useState(programme.description ?? '')
   const [goal, setGoal] = useState(programme.goal ?? '')
   const [tags, setTags] = useState<string[]>((programme.tags ?? []) as string[])
-  const [budget, setBudget] = useState(programme.budget ?? '')
-  const [maxGrantAmount, setMaxGrantAmount] = useState(programme.maxGrantAmount ?? '')
-  const [grantDurationYears, setGrantDurationYears] = useState(
-    programme.grantDurationYears?.toString() ?? '',
-  )
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
   const [showAddRound, setShowAddRound] = useState(false)
   const [selectedRoundId, setSelectedRoundId] = useState('')
+  const [addBudget, setAddBudget] = useState('')
+  const [addMaxGrantAmount, setAddMaxGrantAmount] = useState('')
+  const [addGrantDurationYears, setAddGrantDurationYears] = useState('')
   const [addingRound, setAddingRound] = useState(false)
   const [addRoundError, setAddRoundError] = useState('')
 
-  const linkedRoundIds = new Set(programme.roundProgrammes.map((rp) => rp.roundId))
-  const availableRounds = allRounds.filter((r) => !linkedRoundIds.has(r.id))
+  const linkedRoundIds = new Set(programme.roundProgrammes.map((rp: RoundProgrammeRow) => rp.roundId))
+  const availableRounds = allRounds.filter((r: MyRound) => !linkedRoundIds.has(r.id))
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -66,9 +66,6 @@ function ProgrammeDetail() {
           description: description || undefined,
           goal: goal || undefined,
           tags,
-          budget: budget ? parseFloat(budget.toString()) : undefined,
-          maxGrantAmount: maxGrantAmount ? parseFloat(maxGrantAmount.toString()) : undefined,
-          grantDurationYears: grantDurationYears ? parseInt(grantDurationYears, 10) : undefined,
         },
       })
       setEditing(false)
@@ -86,9 +83,20 @@ function ProgrammeDetail() {
     setAddRoundError('')
     setAddingRound(true)
     try {
-      await addProgrammeToRound({ data: { roundId: selectedRoundId, programmeId: programme.id } })
+      await addProgrammeToRound({
+        data: {
+          roundId: selectedRoundId,
+          programmeId: programme.id,
+          budget: parseFloat(addBudget),
+          maxGrantAmount: addMaxGrantAmount ? parseFloat(addMaxGrantAmount) : undefined,
+          grantDurationYears: addGrantDurationYears ? parseInt(addGrantDurationYears, 10) : undefined,
+        },
+      })
       setShowAddRound(false)
       setSelectedRoundId('')
+      setAddBudget('')
+      setAddMaxGrantAmount('')
+      setAddGrantDurationYears('')
       router.invalidate()
     } catch (err) {
       setAddRoundError(err instanceof Error ? err.message : 'Failed to add to round')
@@ -151,67 +159,6 @@ function ProgrammeDetail() {
               <RichTextEditor key={programme.id} defaultValue={goal} onChange={setGoal} />
             </div>
 
-            <div className="border-t border-gray-100 pt-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Grant terms</p>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">
-                    Total budget <span className="font-normal text-gray-400">(optional)</span>
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
-                    <input
-                      type="number"
-                      value={budget}
-                      onChange={(e) => setBudget(e.target.value)}
-                      min="0"
-                      step="1"
-                      placeholder="0"
-                      className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-400">The total pot available across all grants in this programme</p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">
-                    Max per award <span className="font-normal text-gray-400">(optional)</span>
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
-                    <input
-                      type="number"
-                      value={maxGrantAmount}
-                      onChange={(e) => setMaxGrantAmount(e.target.value)}
-                      min="0"
-                      step="1"
-                      placeholder="0"
-                      className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-400">The maximum any single grantee can receive in total</p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">
-                    Grant duration <span className="font-normal text-gray-400">(optional)</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={grantDurationYears}
-                      onChange={(e) => setGrantDurationYears(e.target.value)}
-                      min="1"
-                      max="20"
-                      step="1"
-                      placeholder="1"
-                      className="w-full rounded border border-gray-300 py-2 pl-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-400">How many years grants under this programme typically run</p>
-                </div>
-              </div>
-            </div>
-
             {saveError && <p className="text-sm text-red-500">{saveError}</p>}
             <div className="flex gap-2">
               <button
@@ -229,9 +176,6 @@ function ProgrammeDetail() {
                   setDescription(programme.description ?? '')
                   setGoal(programme.goal ?? '')
                   setTags((programme.tags ?? []) as string[])
-                  setBudget(programme.budget ?? '')
-                  setMaxGrantAmount(programme.maxGrantAmount ?? '')
-                  setGrantDurationYears(programme.grantDurationYears?.toString() ?? '')
                   setSaveError('')
                 }}
                 className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
@@ -259,39 +203,6 @@ function ProgrammeDetail() {
                       {tag}
                     </span>
                   ))}
-                </div>
-              )}
-              {(programme.budget || programme.maxGrantAmount || programme.grantDurationYears) && (
-                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-4">
-                  {programme.budget && (
-                    <div>
-                      <p className="text-xs text-gray-400">Total budget</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        £{parseFloat(programme.budget).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                  {programme.maxGrantAmount && (
-                    <div>
-                      <p className="text-xs text-gray-400">Max per award</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        £{parseFloat(programme.maxGrantAmount).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                  {programme.grantDurationYears && (
-                    <div>
-                      <p className="text-xs text-gray-400">Grant duration</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {programme.grantDurationYears} {programme.grantDurationYears === 1 ? 'year' : 'years'}
-                        {programme.maxGrantAmount && programme.grantDurationYears > 1 && (
-                          <span className="ml-1.5 font-normal text-gray-400">
-                            (£{(parseFloat(programme.maxGrantAmount) / programme.grantDurationYears).toLocaleString()}/yr)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -324,7 +235,7 @@ function ProgrammeDetail() {
         {showAddRound && (
           <form
             onSubmit={handleAddToRound}
-            className="rounded-lg border border-gray-300 bg-white p-4 space-y-3"
+            className="rounded-lg border border-gray-300 bg-white p-4 space-y-4"
           >
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">Round</label>
@@ -335,12 +246,60 @@ function ProgrammeDetail() {
                 required
               >
                 <option value="">Choose a round…</option>
-                {availableRounds.map((r) => (
+                {availableRounds.map((r: MyRound) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Total budget</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+                  <input
+                    type="number"
+                    value={addBudget}
+                    onChange={(e) => setAddBudget(e.target.value)}
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                    className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Max per award</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+                  <input
+                    type="number"
+                    value={addMaxGrantAmount}
+                    onChange={(e) => setAddMaxGrantAmount(e.target.value)}
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                    className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Duration</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={addGrantDurationYears}
+                    onChange={(e) => setAddGrantDurationYears(e.target.value)}
+                    min="1"
+                    max="20"
+                    step="1"
+                    placeholder="1"
+                    className="w-full rounded border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
+                </div>
+              </div>
             </div>
             {addRoundError && <p className="text-sm text-red-500">{addRoundError}</p>}
             <div className="flex gap-2">
@@ -356,6 +315,9 @@ function ProgrammeDetail() {
                 onClick={() => {
                   setShowAddRound(false)
                   setSelectedRoundId('')
+                  setAddBudget('')
+                  setAddMaxGrantAmount('')
+                  setAddGrantDurationYears('')
                   setAddRoundError('')
                 }}
                 className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
@@ -377,7 +339,7 @@ function ProgrammeDetail() {
           </div>
         ) : (
           <div className="space-y-1">
-            {programme.roundProgrammes.map(({ round }) => (
+            {programme.roundProgrammes.map(({ round }: RoundProgrammeRow) => (
               <div
                 key={round.id}
                 className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3"

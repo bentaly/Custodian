@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { programmes, roundProgrammes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
-import { CreateProgrammeSchema, UpdateProgrammeSchema } from '../../lib/validators/programme'
+import { CreateProgrammeSchema, UpdateProgrammeSchema, AddProgrammeToRoundSchema, UpdateRoundProgrammeSchema } from '../../lib/validators/programme'
 
 export const listProgrammes = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
@@ -36,15 +36,7 @@ export const createProgramme = createServerFn({ method: 'POST' })
   .inputValidator(CreateProgrammeSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin')
-    const { budget, maxGrantAmount, ...rest } = data
-    const [programme] = await getDb()
-      .insert(programmes)
-      .values({
-        ...rest,
-        budget: budget?.toString(),
-        maxGrantAmount: maxGrantAmount?.toString(),
-      })
-      .returning()
+    const [programme] = await getDb().insert(programmes).values(data).returning()
     return programme!
   })
 
@@ -52,24 +44,45 @@ export const updateProgramme = createServerFn({ method: 'POST' })
   .inputValidator(UpdateProgrammeSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
-    const { id, budget, maxGrantAmount, ...rest } = data
+    const { id, ...rest } = data
     const [programme] = await getDb()
       .update(programmes)
-      .set({
-        ...rest,
-        ...(budget !== undefined ? { budget: budget.toString() } : {}),
-        ...(maxGrantAmount !== undefined ? { maxGrantAmount: maxGrantAmount.toString() } : {}),
-      })
+      .set(rest)
       .where(eq(programmes.id, id))
       .returning()
     return programme!
   })
 
 export const addProgrammeToRound = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ roundId: z.uuid(), programmeId: z.uuid() }))
+  .inputValidator(AddProgrammeToRoundSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
-    const [link] = await getDb().insert(roundProgrammes).values(data).returning()
+    const { budget, maxGrantAmount, ...rest } = data
+    const [link] = await getDb()
+      .insert(roundProgrammes)
+      .values({
+        ...rest,
+        budget: budget.toString(),
+        maxGrantAmount: maxGrantAmount?.toString(),
+      })
+      .returning()
+    return link!
+  })
+
+export const updateRoundProgramme = createServerFn({ method: 'POST' })
+  .inputValidator(UpdateRoundProgrammeSchema)
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+    const { id, budget, maxGrantAmount, ...rest } = data
+    const [link] = await getDb()
+      .update(roundProgrammes)
+      .set({
+        ...rest,
+        budget: budget.toString(),
+        ...(maxGrantAmount !== undefined ? { maxGrantAmount: maxGrantAmount.toString() } : { maxGrantAmount: null }),
+      })
+      .where(eq(roundProgrammes.id, id))
+      .returning()
     return link!
   })
 

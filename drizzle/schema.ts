@@ -111,10 +111,6 @@ export const programmes = pgTable('programmes', {
   description: text('description'),
   goal: text('goal'),
   tags: jsonb('tags').$type<string[]>(),
-  // Grant terms
-  budget: numeric('budget'),
-  maxGrantAmount: numeric('max_grant_amount'),
-  grantDurationYears: integer('grant_duration_years'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -128,6 +124,15 @@ export const roundProgrammes = pgTable(
     programmeId: uuid('programme_id')
       .notNull()
       .references(() => programmes.id, { onDelete: 'cascade' }),
+    // Total pot available for this programme in this specific round, e.g. £500,000.
+    // Tracked against shortlisted application amounts to show budget utilisation.
+    budget: numeric('budget').notNull(),
+    // The most any single applicant can be awarded, e.g. £50,000.
+    // Shown to reviewers and used as a guardrail when assessing applications.
+    maxGrantAmount: numeric('max_grant_amount'),
+    // How many years grants from this round programme typically run, e.g. 3.
+    // Used to show an annualised figure (max_grant_amount / years) alongside the total.
+    grantDurationYears: integer('grant_duration_years'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [unique('round_programmes_uniq').on(t.roundId, t.programmeId)],

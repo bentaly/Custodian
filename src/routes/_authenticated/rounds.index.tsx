@@ -37,8 +37,8 @@ function Rounds() {
         data: {
           clientId: user.clientId,
           name,
-          openedAt: openedAt || undefined,
-          closedAt: closedAt || undefined,
+          openedAt,
+          closedAt,
         },
       })
       router.navigate({ to: '/rounds/$roundId', params: { roundId: round.id } })
@@ -84,14 +84,13 @@ function Rounds() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
-                Date range <span className="text-gray-400">(optional)</span>
-              </label>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Date range</label>
               <DateRangePicker
                 startDate={openedAt}
                 endDate={closedAt}
                 onStartChange={setOpenedAt}
                 onEndChange={setClosedAt}
+                required
               />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}

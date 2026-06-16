@@ -6,6 +6,7 @@ import { DateRangePicker } from '../../components/DateRangePicker'
 import {
   listProgrammes,
   addProgrammeToRound,
+  updateRoundProgramme,
   removeProgrammeFromRound,
 } from '../../server/fns/programmes'
 
@@ -20,9 +21,9 @@ export const Route = createFileRoute('/_authenticated/rounds/$roundId')({
   component: RoundDetail,
 })
 
-
 type LoadedRound = Awaited<ReturnType<typeof getRound>>
-type LinkedProgramme = LoadedRound['roundProgrammes'][number]['programme']
+type RoundProgrammeRow = LoadedRound['roundProgrammes'][number]
+type LinkedProgramme = RoundProgrammeRow['programme']
 
 function toDateInput(date: Date | string | null | undefined): string {
   if (!date) return ''
@@ -32,6 +33,75 @@ function toDateInput(date: Date | string | null | undefined): string {
 function formatDate(date: Date | string | null | undefined): string | null {
   if (!date) return null
   return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function GrantTermsFields({
+  budget, onBudget,
+  maxGrantAmount, onMaxGrantAmount,
+  grantDurationYears, onGrantDurationYears,
+  budgetRequired,
+}: {
+  budget: string
+  onBudget: (v: string) => void
+  maxGrantAmount: string
+  onMaxGrantAmount: (v: string) => void
+  grantDurationYears: string
+  onGrantDurationYears: (v: string) => void
+  budgetRequired?: boolean
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-gray-500">
+          Total budget{budgetRequired && <span className="ml-0.5 text-red-400">*</span>}
+        </label>
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+          <input
+            type="number"
+            value={budget}
+            onChange={(e) => onBudget(e.target.value)}
+            min="1"
+            step="1"
+            placeholder="0"
+            required={budgetRequired}
+            className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-gray-500">Max per award</label>
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+          <input
+            type="number"
+            value={maxGrantAmount}
+            onChange={(e) => onMaxGrantAmount(e.target.value)}
+            min="1"
+            step="1"
+            placeholder="0"
+            className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-gray-500">Duration</label>
+        <div className="relative">
+          <input
+            type="number"
+            value={grantDurationYears}
+            onChange={(e) => onGrantDurationYears(e.target.value)}
+            min="1"
+            max="20"
+            step="1"
+            placeholder="1"
+            className="w-full rounded border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+          />
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function RoundDetail() {
@@ -49,6 +119,9 @@ function RoundDetail() {
 
   const [showAddPicker, setShowAddPicker] = useState(false)
   const [selectedProgrammeId, setSelectedProgrammeId] = useState('')
+  const [addBudget, setAddBudget] = useState('')
+  const [addMaxGrantAmount, setAddMaxGrantAmount] = useState('')
+  const [addGrantDurationYears, setAddGrantDurationYears] = useState('')
   const [addingProgramme, setAddingProgramme] = useState(false)
   const [addError, setAddError] = useState('')
 
@@ -84,10 +157,19 @@ function RoundDetail() {
     setAddingProgramme(true)
     try {
       await addProgrammeToRound({
-        data: { roundId: round.id, programmeId: selectedProgrammeId },
+        data: {
+          roundId: round.id,
+          programmeId: selectedProgrammeId,
+          budget: parseFloat(addBudget),
+          maxGrantAmount: addMaxGrantAmount ? parseFloat(addMaxGrantAmount) : undefined,
+          grantDurationYears: addGrantDurationYears ? parseInt(addGrantDurationYears, 10) : undefined,
+        },
       })
       setShowAddPicker(false)
       setSelectedProgrammeId('')
+      setAddBudget('')
+      setAddMaxGrantAmount('')
+      setAddGrantDurationYears('')
       router.invalidate()
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Failed to add programme')
@@ -132,6 +214,7 @@ function RoundDetail() {
                 endDate={roundClosedAt}
                 onStartChange={setRoundOpenedAt}
                 onEndChange={setRoundClosedAt}
+                required
               />
             </div>
             {roundError && <p className="text-sm text-red-500">{roundError}</p>}
@@ -200,10 +283,7 @@ function RoundDetail() {
           <h2 className="text-sm font-semibold text-gray-700">Programmes</h2>
           <div className="flex items-center gap-2">
             {canManage && (
-              <Link
-                to="/programmes"
-                className="text-xs text-gray-500 hover:text-gray-700"
-              >
+              <Link to="/programmes" className="text-xs text-gray-500 hover:text-gray-700">
                 Manage programmes →
               </Link>
             )}
@@ -221,38 +301,46 @@ function RoundDetail() {
         {showAddPicker && (
           <form
             onSubmit={handleAddProgramme}
-            className="rounded-lg border border-gray-300 bg-white p-4"
+            className="rounded-lg border border-gray-300 bg-white p-4 space-y-4"
           >
-            <label className="mb-1 block text-xs font-medium text-gray-500">
-              Select programme to add
-            </label>
-            <div className="flex items-center gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Programme</label>
               <select
                 value={selectedProgrammeId}
                 onChange={(e) => setSelectedProgrammeId(e.target.value)}
-                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                 required
                 autoFocus
               >
                 <option value="">Choose a programme…</option>
                 {availableProgrammes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+            </div>
+            <GrantTermsFields
+              budget={addBudget} onBudget={setAddBudget}
+              maxGrantAmount={addMaxGrantAmount} onMaxGrantAmount={setAddMaxGrantAmount}
+              grantDurationYears={addGrantDurationYears} onGrantDurationYears={setAddGrantDurationYears}
+              budgetRequired
+            />
+            {addError && <p className="text-sm text-red-500">{addError}</p>}
+            <div className="flex gap-2">
               <button
                 type="submit"
                 disabled={addingProgramme}
                 className="rounded bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
               >
-                {addingProgramme ? 'Adding…' : 'Add'}
+                {addingProgramme ? 'Adding…' : 'Add programme'}
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setShowAddPicker(false)
                   setSelectedProgrammeId('')
+                  setAddBudget('')
+                  setAddMaxGrantAmount('')
+                  setAddGrantDurationYears('')
                   setAddError('')
                 }}
                 className="rounded border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
@@ -260,7 +348,6 @@ function RoundDetail() {
                 Cancel
               </button>
             </div>
-            {addError && <p className="mt-2 text-sm text-red-500">{addError}</p>}
           </form>
         )}
 
@@ -278,12 +365,14 @@ function RoundDetail() {
           </div>
         ) : (
           <div className="space-y-2">
-            {round.roundProgrammes.map(({ programme }) => (
+            {round.roundProgrammes.map((rp) => (
               <ProgrammeCard
-                key={programme.id}
-                programme={programme}
+                key={rp.programme.id}
+                programme={rp.programme}
+                roundProgramme={rp}
                 canManage={canManage}
-                onRemove={() => handleRemoveProgramme(programme.id)}
+                onRemove={() => handleRemoveProgramme(rp.programme.id)}
+                onSaved={() => router.invalidate()}
               />
             ))}
           </div>
@@ -295,20 +384,91 @@ function RoundDetail() {
 
 function ProgrammeCard({
   programme,
+  roundProgramme,
   canManage,
   onRemove,
+  onSaved,
 }: {
   programme: LinkedProgramme
+  roundProgramme: RoundProgrammeRow
   canManage: boolean
   onRemove: () => void
+  onSaved: () => void
 }) {
   const tags = (programme.tags ?? []) as string[]
+  const budget = parseFloat(roundProgramme.budget)
+  const maxGrant = roundProgramme.maxGrantAmount ? parseFloat(roundProgramme.maxGrantAmount) : null
+  const duration = roundProgramme.grantDurationYears ?? null
+
+  const [editing, setEditing] = useState(false)
+  const [editBudget, setEditBudget] = useState(roundProgramme.budget)
+  const [editMaxGrantAmount, setEditMaxGrantAmount] = useState(roundProgramme.maxGrantAmount ?? '')
+  const [editGrantDurationYears, setEditGrantDurationYears] = useState(
+    roundProgramme.grantDurationYears?.toString() ?? '',
+  )
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaveError('')
+    setSaving(true)
+    try {
+      await updateRoundProgramme({
+        data: {
+          id: roundProgramme.id,
+          budget: parseFloat(editBudget),
+          maxGrantAmount: editMaxGrantAmount ? parseFloat(editMaxGrantAmount) : undefined,
+          grantDurationYears: editGrantDurationYears ? parseInt(editGrantDurationYears, 10) : undefined,
+        },
+      })
+      setEditing(false)
+      onSaved()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+      {editing ? (
+        <form onSubmit={handleSave} className="space-y-3">
+          <p className="text-sm font-medium text-gray-700">{programme.name}</p>
+          <GrantTermsFields
+            budget={editBudget} onBudget={setEditBudget}
+            maxGrantAmount={editMaxGrantAmount} onMaxGrantAmount={setEditMaxGrantAmount}
+            grantDurationYears={editGrantDurationYears} onGrantDurationYears={setEditGrantDurationYears}
+            budgetRequired
+          />
+          {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false)
+                setEditBudget(roundProgramme.budget)
+                setEditMaxGrantAmount(roundProgramme.maxGrantAmount ?? '')
+                setEditGrantDurationYears(roundProgramme.grantDurationYears?.toString() ?? '')
+                setSaveError('')
+              }}
+              className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <Link
               to="/programmes/$programmeId"
               params={{ programmeId: programme.id }}
@@ -316,34 +476,62 @@ function ProgrammeCard({
             >
               {programme.name}
             </Link>
+            {tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {tags.map((tag) => (
+                  <span key={tag} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            {programme.goal && (
+              <p className="mt-2 line-clamp-2 text-xs text-gray-400">
+                {programme.goal.replace(/[#*_~`[\]]/g, '').trim()}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-gray-100 pt-3">
+              <div>
+                <span className="text-xs text-gray-400">Budget </span>
+                <span className="text-xs font-medium text-gray-700">£{budget.toLocaleString()}</span>
+              </div>
+              {maxGrant !== null && (
+                <div>
+                  <span className="text-xs text-gray-400">Max award </span>
+                  <span className="text-xs font-medium text-gray-700">£{maxGrant.toLocaleString()}</span>
+                </div>
+              )}
+              {duration !== null && (
+                <div>
+                  <span className="text-xs text-gray-400">Duration </span>
+                  <span className="text-xs font-medium text-gray-700">
+                    {duration} {duration === 1 ? 'yr' : 'yrs'}
+                  </span>
+                  {maxGrant !== null && duration > 1 && (
+                    <span className="text-xs text-gray-400"> (£{(maxGrant / duration).toLocaleString()}/yr)</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          {tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
-                >
-                  {tag}
-                </span>
-              ))}
+          {canManage && (
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={() => setEditing(true)}
+                className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={onRemove}
+                className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              >
+                Remove
+              </button>
             </div>
           )}
-          {programme.goal && (
-            <p className="mt-2 line-clamp-2 text-xs text-gray-400">
-              {programme.goal.replace(/[#*_~`[\]]/g, '').trim()}
-            </p>
-          )}
         </div>
-        {canManage && (
-          <button
-            onClick={onRemove}
-            className="shrink-0 rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-          >
-            Remove
-          </button>
-        )}
-      </div>
+      )}
     </div>
   )
 }

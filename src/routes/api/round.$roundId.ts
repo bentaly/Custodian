@@ -38,7 +38,7 @@ export const Route = createFileRoute('/api/round/$roundId')(
           const { roundProgrammes, ...rest } = round
           const response = {
             ...rest,
-            programmes: roundProgrammes.map((rp) => rp.programme),
+            programmes: roundProgrammes.map((rp) => ({ ...rp.programme, roundProgrammeId: rp.id })),
           }
 
           return new Response(JSON.stringify(response, (_key, val) =>

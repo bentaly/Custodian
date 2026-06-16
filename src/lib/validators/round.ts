@@ -3,8 +3,8 @@ import { z } from 'zod'
 export const CreateRoundSchema = z.object({
   clientId: z.uuid(),
   name: z.string().min(1).max(255),
-  openedAt: z.string().optional(),
-  closedAt: z.string().optional(),
+  openedAt: z.string().min(1),
+  closedAt: z.string().min(1),
 })
 export type CreateRoundInput = z.infer<typeof CreateRoundSchema>
 
