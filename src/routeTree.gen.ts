@@ -13,6 +13,7 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiRoundsRouteImport } from './routes/api/rounds'
 import { Route as ApiApplyRouteImport } from './routes/api/apply'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
@@ -47,6 +48,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRoundsRoute = ApiRoundsRouteImport.update({
+  id: '/api/rounds',
+  path: '/api/rounds',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiApplyRoute = ApiApplyRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/api/rounds': typeof ApiRoundsRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/api/rounds': typeof ApiRoundsRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/_authenticated/shortlist': typeof AuthenticatedShortlistRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/api/rounds': typeof ApiRoundsRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/shortlist'
     | '/users'
     | '/api/apply'
+    | '/api/rounds'
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
     | '/rounds/$roundId'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/shortlist'
     | '/users'
     | '/api/apply'
+    | '/api/rounds'
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
     | '/rounds/$roundId'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shortlist'
     | '/_authenticated/users'
     | '/api/apply'
+    | '/api/rounds'
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/rounds/$roundId'
@@ -269,6 +281,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
+  ApiRoundsRoute: typeof ApiRoundsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
 }
@@ -301,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/rounds': {
+      id: '/api/rounds'
+      path: '/api/rounds'
+      fullPath: '/api/rounds'
+      preLoaderRoute: typeof ApiRoundsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/apply': {
@@ -495,6 +515,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
+  ApiRoundsRoute: ApiRoundsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
 }
