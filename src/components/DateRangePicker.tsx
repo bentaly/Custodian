@@ -5,6 +5,7 @@ export function DateRangePicker({
   onEndChange,
   startLabel = 'Opens',
   endLabel = 'Closes',
+  required = false,
 }: {
   startDate: string
   endDate: string
@@ -12,6 +13,7 @@ export function DateRangePicker({
   onEndChange: (date: string) => void
   startLabel?: string
   endLabel?: string
+  required?: boolean
 }) {
   return (
     <div className="flex overflow-hidden rounded border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400 divide-x divide-gray-200">
@@ -20,6 +22,7 @@ export function DateRangePicker({
         <input
           type="date"
           value={startDate}
+          required={required}
           onChange={(e) => onStartChange(e.target.value)}
           className="w-full bg-transparent text-sm text-gray-900 focus:outline-none"
         />
@@ -30,6 +33,7 @@ export function DateRangePicker({
           type="date"
           value={endDate}
           min={startDate || undefined}
+          required={required}
           onChange={(e) => onEndChange(e.target.value)}
           className="w-full bg-transparent text-sm text-gray-900 focus:outline-none"
         />
