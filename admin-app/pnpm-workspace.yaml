@@ -1,2 +1,8 @@
+# Single-package project (not a real monorepo). `packages` is listed so pnpm
+# treats this directory as its own workspace root and doesn't error with
+# "packages field missing". `allowBuilds` approves esbuild's build script, which
+# pnpm 10+ blocks by default (without this, vite's esbuild binary won't install).
+packages:
+  - .
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
