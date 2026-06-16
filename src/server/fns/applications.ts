@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, count, inArray } from 'drizzle-orm'
+import { and, eq, count, inArray, sql, ne } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applications, roundProgrammes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
@@ -69,7 +69,19 @@ export const getApplication = createServerFn({ method: 'GET' })
       },
     })
     if (!application) throw new Error('Not found')
-    return application
+
+    const committedRows = await getDb()
+      .select({
+        committed: sql<string | null>`SUM(COALESCE(${applications.amountAwarded}, ${applications.amountRequested}))`,
+      })
+      .from(applications)
+      .where(and(
+        eq(applications.roundProgrammeId, application.roundProgrammeId),
+        inArray(applications.status, ['shortlisted', 'approved']),
+      ))
+    const committed = committedRows[0]?.committed
+
+    return { ...application, roundProgrammeCommitted: committed ? parseFloat(committed) : 0 }
   })
 
 export const createApplication = createServerFn({ method: 'POST' })
@@ -155,11 +167,84 @@ export const rerunCustodianScore = createServerFn({ method: 'POST' })
     return updated!
   })
 
+export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ roundId: z.uuid() }))
+  .handler(async ({ data }) => {
+    await requireAuthUser()
+
+    const rps = await getDb().query.roundProgrammes.findMany({
+      where: (rp, { eq }) => eq(rp.roundId, data.roundId),
+      with: { programme: true },
+      orderBy: (rp, { asc }) => [asc(rp.createdAt)],
+    })
+    if (rps.length === 0) return []
+
+    const rpIds = rps.map((rp) => rp.id)
+
+    const committedRows = await getDb()
+      .select({
+        roundProgrammeId: applications.roundProgrammeId,
+        committed: sql<string>`COALESCE(SUM(COALESCE(${applications.amountAwarded}, ${applications.amountRequested})), '0')`,
+        shortlistedCount: count(),
+      })
+      .from(applications)
+      .where(and(
+        inArray(applications.roundProgrammeId, rpIds),
+        inArray(applications.status, ['shortlisted', 'approved']),
+      ))
+      .groupBy(applications.roundProgrammeId)
+
+    const byRpId = new Map(committedRows.map((r) => [r.roundProgrammeId, r]))
+
+    return rps.map((rp) => {
+      const row = byRpId.get(rp.id)
+      return {
+        roundProgrammeId: rp.id,
+        programmeName: rp.programme.name,
+        budget: rp.budget ? parseFloat(rp.budget) : null,
+        committed: row ? parseFloat(row.committed) : 0,
+        shortlistedCount: row?.shortlistedCount ?? 0,
+      }
+    })
+  })
+
 export const updateApplicationStatus = createServerFn({ method: 'POST' })
   .inputValidator(UpdateApplicationStatusSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
     const { id, status, amountAwarded } = data
+
+    if (status === 'shortlisted') {
+      const app = await getDb().query.applications.findFirst({
+        where: (a, { eq }) => eq(a.id, id),
+        with: { roundProgramme: true },
+      })
+      if (!app) throw new Error('Not found')
+
+      const budget = app.roundProgramme.budget ? parseFloat(app.roundProgramme.budget) : null
+      if (budget !== null) {
+        const currentRows = await getDb()
+          .select({
+            current: sql<string | null>`SUM(COALESCE(${applications.amountAwarded}, ${applications.amountRequested}))`,
+          })
+          .from(applications)
+          .where(and(
+            eq(applications.roundProgrammeId, app.roundProgrammeId),
+            inArray(applications.status, ['shortlisted', 'approved']),
+            ne(applications.id, id),
+          ))
+
+        const committed = currentRows[0]?.current ? parseFloat(currentRows[0].current) : 0
+        const requested = parseFloat(app.amountRequested)
+        if (committed + requested > budget) {
+          const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
+          const remaining = budget - committed
+          throw new Error(
+            `Budget limit reached — ${fmt(remaining > 0 ? remaining : 0)} remaining, this application requests ${fmt(requested)}`
+          )
+        }
+      }
+    }
 
     const decisionStatuses = ['approved', 'declined'] as const
     const isDecision = decisionStatuses.includes(status as (typeof decisionStatuses)[number])
