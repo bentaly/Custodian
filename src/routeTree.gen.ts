@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiApplyRouteImport } from './routes/api/apply'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
+import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
 import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
@@ -56,6 +57,11 @@ const ApiApplyRoute = ApiApplyRouteImport.update({
 const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedShortlistRoute = AuthenticatedShortlistRouteImport.update({
+  id: '/shortlist',
+  path: '/shortlist',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRoundsRoute = AuthenticatedRoundsRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
+  '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
+  '/_authenticated/shortlist': typeof AuthenticatedShortlistRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/programmes'
     | '/rounds'
+    | '/shortlist'
     | '/users'
     | '/api/apply'
     | '/applications/$applicationId'
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/dashboard'
     | '/profile'
+    | '/shortlist'
     | '/users'
     | '/api/apply'
     | '/applications/$applicationId'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/programmes'
     | '/_authenticated/rounds'
+    | '/_authenticated/shortlist'
     | '/_authenticated/users'
     | '/api/apply'
     | '/_authenticated/applications/$applicationId'
@@ -303,6 +315,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/shortlist': {
+      id: '/_authenticated/shortlist'
+      path: '/shortlist'
+      fullPath: '/shortlist'
+      preLoaderRoute: typeof AuthenticatedShortlistRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/rounds': {
@@ -452,6 +471,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
+  AuthenticatedShortlistRoute: typeof AuthenticatedShortlistRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
 }
 
@@ -461,6 +481,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,
+  AuthenticatedShortlistRoute: AuthenticatedShortlistRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
 }
 
