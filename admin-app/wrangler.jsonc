@@ -1,0 +1,12 @@
+{
+  // Custodian Admin — static SPA served via Cloudflare Workers Static Assets.
+  // Built with `pnpm run build` (outputs ./dist), deployed with `npx wrangler deploy`.
+  // Gated behind Cloudflare Access; VITE_API_BASE is injected at build time.
+  "name": "custodian-admin",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./dist",
+    // SPA fallback: unknown paths return index.html so client-side routing works.
+    "not_found_handling": "single-page-application"
+  }
+}
