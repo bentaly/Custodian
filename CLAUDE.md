@@ -37,6 +37,29 @@ Schema changes: edit `drizzle/schema.ts` → `pnpm db:generate` → `pnpm db:mig
 
 **Never use `db:push`.** It applies schema changes without recording them in `drizzle.__drizzle_migrations`, which causes `db:migrate` to fail later. The script has been removed from `package.json`.
 
+## Staging & migration workflow
+Two deployed environments, both fed from `master`:
+- **prod** — `custodian` Worker (`custodian.bental.workers.dev`), prod Neon branch.
+- **staging** — `custodian-staging` Worker (`custodian-staging.bental.workers.dev`), Neon `staging` branch. Mirrors prod (same code, own per-env secrets); not behind Cloudflare Access.
+
+**Local dev runs against the staging branch** — `.env`'s active `DATABASE_URL` is the staging branch (the prod string is commented out). So `pnpm dev` / `db:migrate` / `db:seed` / `db:studio` all act on staging; prod is never touched locally.
+
+A push to `master` runs CI (`.github/workflows/ci.yml`) which **migrates then deploys staging, then migrates then deploys prod** — schema always lands before the code that needs it. **Do not run `db:migrate` against prod manually; CI owns prod migrations.**
+
+### Default migration procedure (follow this by default)
+1. Edit `drizzle/schema.ts`.
+2. `pnpm db:generate`. For a **rename**, drizzle asks whether a column was renamed vs dropped+added — answer *rename* so it emits `ALTER ... RENAME COLUMN` (drop+add loses data). `generate` is local-only; CI never runs it.
+3. `pnpm db:migrate` to apply to **staging**; verify the app still works. Staging holds real prod-snapshot data, so failures (e.g. adding `NOT NULL` to a populated table, bad type casts) surface here, not on prod.
+4. **Commit the generated migration `.sql` + the `meta/` snapshot & journal together with the schema and code.** CI only applies migrations present in the repo — a missing file means prod code ships against a schema it doesn't have.
+5. Push → CI migrates + deploys prod.
+
+### Destructive changes (drop / rename / add NOT NULL / type change)
+Because `master` deploys both Workers at once, for a few seconds old code runs against the new schema. Additive changes are safe. For destructive ones use **expand/contract** across separate pushes, so prod code and prod schema never disagree:
+- **Rename** `a`→`b`: push 1 add `b` + write both + backfill; push 2 move reads to `b`; push 3 drop `a`.
+- **Drop**: stop using the column in one push, drop it in a later push.
+
+Only skip expand/contract for a deliberately-accepted brief blip on this low-traffic app (prefer off-hours).
+
 ## Environment variables
 Local: `.env` file (loaded via `dotenv/config` in drizzle.config.ts and scripts).
 Production: Cloudflare secrets — verify with `npx wrangler secret list`.
