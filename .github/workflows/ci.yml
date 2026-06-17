@@ -31,6 +31,28 @@ jobs:
         run: pnpm build
         if: github.ref == 'refs/heads/master'
 
+      # Migrate before deploy in each environment so the schema is always in
+      # place before the code that depends on it goes live. Staging first (acts
+      # as a canary), then prod. db:migrate is idempotent — already-applied
+      # migrations are skipped.
+      - name: Migrate (staging)
+        run: pnpm db:migrate
+        if: github.ref == 'refs/heads/master'
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Deploy (staging)
+        run: pnpm run deploy:staging
+        if: github.ref == 'refs/heads/master'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Migrate (prod)
+        run: pnpm db:migrate
+        if: github.ref == 'refs/heads/master'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Deploy
         run: pnpm run deploy
         if: github.ref == 'refs/heads/master'

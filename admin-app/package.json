@@ -6,6 +6,7 @@
   "packageManager": "pnpm@11.1.2",
   "scripts": {
     "dev": "vite --port 3001 --open",
+    "dev:staging": "VITE_API_BASE=https://custodian-staging.bental.workers.dev vite --port 3001 --open",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

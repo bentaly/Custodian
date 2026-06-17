@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "pnpm build && wrangler dev",
     "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
