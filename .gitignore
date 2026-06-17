@@ -16,3 +16,6 @@ drizzle.config.js
 
 # TanStack Router (auto-generated, committed but here for reference)
 # app/routeTree.gen.ts
+
+# Local secrets (admin API token etc.)
+.secrets.local*

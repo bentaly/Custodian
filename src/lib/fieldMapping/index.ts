@@ -1,3 +1,5 @@
 export * from './canonical'
 export * from './types'
 export * from './match'
+export * from './schema'
+export * from './prompt'

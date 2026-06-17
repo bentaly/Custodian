@@ -19,3 +19,12 @@ export const ResolveSchema = z.object({
   resolvedBy: z.string().optional(),
 })
 export type ResolveInput = z.infer<typeof ResolveSchema>
+
+// Manually add/edit a single lookup-table entry from the admin app.
+export const MappingSchema = z.object({
+  clientId: z.uuid(),
+  sourceKey: z.string().min(1),
+  canonicalField: z.string().min(1),
+  addedBy: z.string().optional(),
+})
+export type MappingInput = z.infer<typeof MappingSchema>
