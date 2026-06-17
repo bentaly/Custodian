@@ -1,10 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { getDb } from '../../server/db'
-import { applications, roundProgrammes } from '../../../drizzle/schema'
-import { eq } from 'drizzle-orm'
 import { CreateApplicationSchema } from '../../lib/validators/application'
-import { runDueDiligence } from '../../server/dueDiligence/run'
-import { runCustodianScore } from '../../server/custodianScore/run'
+import {
+  createApplicationFromCanonical,
+  fetchRoundProgrammeForApplication,
+} from '../../server/applications/create'
 import { getRoundStatus } from '../../lib/roundStatus'
 
 const CORS_HEADERS = {
@@ -44,26 +43,9 @@ export const Route = createFileRoute('/api/apply')(
             return jsonResponse({ error: 'Missing or invalid fields', fields: missing }, 400)
           }
 
-          const {
-            roundProgrammeId,
-            organisationName,
-            charityNumber,
-            companyNumber,
-            bankName,
-            bankAccountName,
-            bankAccountNumber,
-            bankSortCode,
-            amountRequested,
-            responses,
-          } = parsed.data
-
-          const roundProgramme = await getDb().query.roundProgrammes.findFirst({
-            where: eq(roundProgrammes.id, roundProgrammeId),
-            with: {
-              round: true,
-              programme: { with: { client: { with: { profile: true } } } },
-            },
-          })
+          const roundProgramme = await fetchRoundProgrammeForApplication(
+            parsed.data.roundProgrammeId,
+          )
           if (!roundProgramme) {
             return jsonResponse({ error: 'Not found' }, 404)
           }
@@ -71,49 +53,8 @@ export const Route = createFileRoute('/api/apply')(
             return jsonResponse({ error: 'This round is not currently open for applications' }, 409)
           }
 
-          // Due diligence (external registers) and AI scoring (the funder's
-          // mission + programme goal) are independent — run them concurrently so
-          // scoring doesn't add serial latency to the submission. Both never
-          // throw; a failure surfaces as a status, never a blocked submission.
-          const programme = roundProgramme.programme
-          const [dueDiligence, custodian] = await Promise.all([
-            runDueDiligence({ charityNumber, companyNumber, amountRequested }),
-            runCustodianScore({
-              missionStatement: programme.client.profile?.missionStatement,
-              programmeName: programme.name,
-              programmeGoal: programme.goal,
-              programmeDescription: programme.description,
-              organisationName,
-              amountRequested,
-              responses,
-            }),
-          ])
-
-          const id = crypto.randomUUID()
-          await getDb().insert(applications).values({
-            id,
-            roundProgrammeId,
-            organisationName,
-            charityNumber,
-            companyNumber,
-            bankName,
-            bankAccountName,
-            bankAccountNumber,
-            bankSortCode,
-            amountRequested: String(amountRequested),
-            responses,
-            dueDiligenceStatus: dueDiligence.status,
-            dueDiligenceChecks: dueDiligence.checks,
-            dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
-            custodianScoreStatus: custodian.status,
-            custodianScore: custodian.score,
-            custodianScoreDetail: custodian.detail,
-            custodianScoredAt: new Date(custodian.scoredAt),
-          })
-
-          const application = await getDb().query.applications.findFirst({
-            where: (a, { eq }) => eq(a.id, id),
-          })
+          const { application, dueDiligence, custodian } =
+            await createApplicationFromCanonical(roundProgramme, parsed.data)
 
           return jsonResponse({ application, dueDiligence, custodian }, 201)
         },

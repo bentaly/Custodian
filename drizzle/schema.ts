@@ -65,6 +65,20 @@ export const custodianScoreStatusEnum = pgEnum('custodian_score_status', [
   'error',
 ])
 
+// State of an incoming application payload as it moves through field mapping.
+//   needs_review — at least one required canonical field could not be confidently
+//                  mapped (no lookup match, and AI either absent or below the
+//                  confidence threshold); held in the admin review queue.
+//   ai_proposed  — all required fields resolved, but at least one came from an AI
+//                  proposal (above threshold). Promoted to a real application, and
+//                  surfaced for a human to confirm + optionally persist the mapping.
+//   complete     — all required fields resolved from the human-curated lookup table.
+export const ingestStatusEnum = pgEnum('ingest_status', [
+  'needs_review',
+  'ai_proposed',
+  'complete',
+])
+
 // ─── Business tables ──────────────────────────────────────────────────────────
 
 export const clients = pgTable('clients', {
@@ -143,6 +157,10 @@ export const applications = pgTable('applications', {
   roundProgrammeId: uuid('round_programme_id')
     .notNull()
     .references(() => roundProgrammes.id, { onDelete: 'restrict' }),
+  // The foundation's OWN application reference (distinct from our `id`). Set when
+  // an application arrives via the field-mapping ingest path; nullable because
+  // applications submitted directly (canonical form) have no external reference.
+  externalApplicationId: text('external_application_id'),
   organisationName: text('organisation_name').notNull(),
   // Registration numbers drive due diligence routing. Both nullable: a CIO has
   // only a charity number, a CIC only a company number, and some entities are
@@ -242,6 +260,59 @@ export const clientProfiles = pgTable('client_profiles', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// ─── Field mapping (application ingest) ─────────────────────────────────────────
+
+// Per-foundation lookup of an incoming form's field name (`sourceKey`) to one of
+// our canonical fields. Only human-confirmed mappings live here — AI proposals are
+// never auto-persisted; an admin confirms one before it joins the table.
+export const fieldMappings = pgTable(
+  'field_mappings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    sourceKey: text('source_key').notNull(),
+    canonicalField: text('canonical_field').notNull(),
+    // Email of the admin who confirmed the mapping (from the admin app). Nullable
+    // for seeded/system mappings.
+    addedBy: text('added_by'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [unique('field_mappings_client_source_uniq').on(t.clientId, t.sourceKey)],
+)
+
+// An incoming application payload, held while its fields are mapped to canonical
+// form. `needs_review` rows wait in the admin queue; `complete`/`ai_proposed` rows
+// are promoted to a real `applications` row (linked via `applicationId`). The raw
+// payload is always retained for audit and re-mapping.
+export const applicationIngests = pgTable(
+  'application_ingests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    roundProgrammeId: uuid('round_programme_id')
+      .notNull()
+      .references(() => roundProgrammes.id, { onDelete: 'restrict' }),
+    externalApplicationId: text('external_application_id'),
+    rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+    status: ingestStatusEnum('status').notNull().default('needs_review'),
+    // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
+    proposed: jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
+    // The final mapping applied: sourceKey → canonicalField.
+    resolved: jsonb('resolved').$type<Record<string, string>>(),
+    // Set once promoted to a real application.
+    applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'set null' }),
+    note: text('note'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at'),
+    resolvedBy: text('resolved_by'),
+  },
+  (t) => [unique('application_ingests_client_external_uniq').on(t.clientId, t.externalApplicationId)],
+)
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -249,6 +320,8 @@ export const clientsRelations = relations(clients, ({ many, one }) => ({
   rounds: many(rounds),
   programmes: many(programmes),
   invitations: many(invitations),
+  fieldMappings: many(fieldMappings),
+  applicationIngests: many(applicationIngests),
   profile: one(clientProfiles, { fields: [clients.id], references: [clientProfiles.clientId] }),
 }))
 
@@ -285,6 +358,22 @@ export const applicationsRelations = relations(applications, ({ one }) => ({
   roundProgramme: one(roundProgrammes, {
     fields: [applications.roundProgrammeId],
     references: [roundProgrammes.id],
+  }),
+}))
+
+export const fieldMappingsRelations = relations(fieldMappings, ({ one }) => ({
+  client: one(clients, { fields: [fieldMappings.clientId], references: [clients.id] }),
+}))
+
+export const applicationIngestsRelations = relations(applicationIngests, ({ one }) => ({
+  client: one(clients, { fields: [applicationIngests.clientId], references: [clients.id] }),
+  roundProgramme: one(roundProgrammes, {
+    fields: [applicationIngests.roundProgrammeId],
+    references: [roundProgrammes.id],
+  }),
+  application: one(applications, {
+    fields: [applicationIngests.applicationId],
+    references: [applications.id],
   }),
 }))
 

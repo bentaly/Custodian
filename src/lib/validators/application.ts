@@ -12,6 +12,10 @@ export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
 export const CreateApplicationSchema = z.object({
   roundProgrammeId: z.uuid(),
+  // The foundation's own application reference, when the application arrives via
+  // the field-mapping ingest path. Optional so direct (canonical) submissions
+  // still validate without one.
+  externalApplicationId: z.string().min(1).max(255).optional(),
   organisationName: z.string().min(1).max(255),
   // Both optional — an applicant may hold a charity number, a company number,
   // or both. Due diligence routing keys off whichever are present.
