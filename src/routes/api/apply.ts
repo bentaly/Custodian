@@ -51,11 +51,10 @@ export const Route = createFileRoute('/api/apply')(
               status: result.status,
               ingestId: result.ingestId,
               applicationId: result.applicationId,
-              duplicate: result.duplicate,
               // application / dueDiligence / custodian, present when one was created.
               ...(result.created ?? {}),
             },
-            result.duplicate ? 200 : 201,
+            201,
           )
         },
       },

@@ -14,7 +14,7 @@
 // a null roundProgrammeId — a submission is never dropped. The only hard failure is
 // an unknown `clientId`.
 
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applicationIngests, clients, fieldMappings } from '../../../drizzle/schema'
 import {
@@ -59,7 +59,6 @@ export type IngestResult =
       status: IngestStatus
       ingestId: string
       applicationId: string | null
-      duplicate: boolean
       /** Present when this ingest created an application (complete / ai_proposed). */
       created?: CreatedApplication
     }
@@ -137,27 +136,7 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
   const externalApplicationId =
     resolved.externalApplicationId?.value ?? params.externalApplicationId ?? null
 
-  // 6. Idempotency: a re-sent payload returns the existing record.
-  if (externalApplicationId) {
-    const existing = await getDb().query.applicationIngests.findFirst({
-      where: and(
-        eq(applicationIngests.clientId, clientId),
-        eq(applicationIngests.externalApplicationId, externalApplicationId),
-      ),
-      columns: { id: true, status: true, applicationId: true },
-    })
-    if (existing) {
-      return {
-        ok: true,
-        status: existing.status,
-        ingestId: existing.id,
-        applicationId: existing.applicationId,
-        duplicate: true,
-      }
-    }
-  }
-
-  // 7. Decide status, validating the assembled canonical input. A required field
+  // 6. Decide status, validating the assembled canonical input. A required field
   //    that resolved to an invalid value (e.g. an amount that won't parse) is
   //    treated as unresolved → needs_review. We can only attempt validation when
   //    the round programme is known.
@@ -173,7 +152,7 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     status = 'needs_review'
   }
 
-  // 8. Promote (create the application) or hold for review.
+  // 7. Promote (create the application) or hold for review.
   let applicationId: string | null = null
   let created: CreatedApplication | undefined
   if (status !== 'needs_review' && validInput?.success && resolvedRoundProgramme) {
@@ -196,5 +175,5 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     })
     .returning({ id: applicationIngests.id })
 
-  return { ok: true, status, ingestId: ingest!.id, applicationId, duplicate: false, created }
+  return { ok: true, status, ingestId: ingest!.id, applicationId, created }
 }

@@ -307,7 +307,6 @@ export const applicationIngests = pgTable(
     resolvedAt: timestamp('resolved_at'),
     resolvedBy: text('resolved_by'),
   },
-  (t) => [unique('application_ingests_client_external_uniq').on(t.clientId, t.externalApplicationId)],
 )
 
 // ─── Relations ────────────────────────────────────────────────────────────────

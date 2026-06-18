@@ -89,7 +89,6 @@ interface SubmitResult {
   status: 'complete' | 'ai_proposed' | 'needs_review'
   ingestId: string
   applicationId: string | null
-  duplicate: boolean
   // Present when the ingest created an application (complete / ai_proposed).
   application?: {
     id: string
@@ -581,13 +580,12 @@ const INGEST_STATUS_STYLES: Record<SubmitResult['status'], string> = {
 }
 
 function SuccessView({ result }: { result: SubmitResult }) {
-  const { application, dueDiligence, status, ingestId, duplicate } = result
+  const { application, dueDiligence, status, ingestId } = result
   return (
     <div className="space-y-6">
       <div className={`rounded-lg border px-5 py-4 ${INGEST_STATUS_STYLES[status]}`}>
         <h2 className="text-sm font-semibold">
           Ingested — {status.replace('_', ' ')}
-          {duplicate && ' (duplicate — existing record returned)'}
         </h2>
         <p className="mt-1 text-xs opacity-80">Ingest ID: {ingestId}</p>
         {application ? (
