@@ -188,10 +188,10 @@ export function Submitter() {
     try {
       if (!round || !programme || !clientId) throw new Error('No client, round or programme selected')
       const selectedProgramme = programme
-      // Posts to /api/ingest — the same path a real foundation submission takes.
-      // The programme is identified by name; fields go in as a raw payload (here
-      // under their canonical names, which resolve by exact-match).
-      const res = await fetch(`${API_BASE}/api/ingest`, {
+      // Posts to /api/apply — the single public submission path a real foundation
+      // submission takes. The programme is identified by name; fields go in as a raw
+      // payload (here under their canonical names, which resolve by exact-match).
+      const res = await fetch(`${API_BASE}/api/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

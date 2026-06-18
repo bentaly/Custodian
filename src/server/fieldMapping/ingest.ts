@@ -9,13 +9,14 @@
 // input → promote or hold. `externalApplicationId` gives idempotency: a re-sent
 // payload returns the existing record instead of creating a duplicate.
 //
-// If `programmeName` resolves but no active round contains that programme the
-// request is rejected (caller should return 4XX). If `programmeName` is
-// unresolved the ingest is held for human review with a null roundProgrammeId.
+// If `programmeName` can't be matched to a programme in an active round (no match,
+// or the round is closed), the ingest is still saved and held for human review with
+// a null roundProgrammeId — a submission is never dropped. The only hard failure is
+// an unknown `clientId`.
 
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applicationIngests, fieldMappings } from '../../../drizzle/schema'
+import { applicationIngests, clients, fieldMappings } from '../../../drizzle/schema'
 import {
   applyLookup,
   toStringValue,
@@ -52,7 +53,7 @@ export type IngestStatus = 'complete' | 'ai_proposed' | 'needs_review'
 type CreatedApplication = Awaited<ReturnType<typeof createApplicationFromCanonical>>
 
 export type IngestResult =
-  | { ok: false; error: 'programme_not_in_active_round' }
+  | { ok: false; error: 'client_not_found' }
   | {
       ok: true
       status: IngestStatus
@@ -65,6 +66,13 @@ export type IngestResult =
 
 export async function ingestApplication(params: IngestParams): Promise<IngestResult> {
   const { clientId, payload } = params
+
+  // 0. The client (foundation) must exist — the only hard rejection.
+  const client = await getDb().query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { id: true },
+  })
+  if (!client) return { ok: false, error: 'client_not_found' }
 
   // 1. Lookup-table match.
   const mappings = await getDb().query.fieldMappings.findMany({
@@ -117,10 +125,9 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
 
   if (resolvedProgrammeName) {
     resolvedRoundProgramme = await findActiveRoundProgrammeByName(clientId, resolvedProgrammeName)
-    if (!resolvedRoundProgramme) {
-      return { ok: false, error: 'programme_not_in_active_round' }
-    }
-    roundProgrammeId = resolvedRoundProgramme.id
+    // No active round for that programme name → hold for review (roundProgrammeId
+    // stays null) rather than reject, so the submission is never dropped.
+    roundProgrammeId = resolvedRoundProgramme?.id ?? null
   }
 
   // 5. Build responses (leftover payload) and the stored resolved map.

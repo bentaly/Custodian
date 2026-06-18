@@ -14,7 +14,6 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiRoundsRouteImport } from './routes/api/rounds'
-import { Route as ApiIngestRouteImport } from './routes/api/ingest'
 import { Route as ApiApplyRouteImport } from './routes/api/apply'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
@@ -58,11 +57,6 @@ const IndexRoute = IndexRouteImport.update({
 const ApiRoundsRoute = ApiRoundsRouteImport.update({
   id: '/api/rounds',
   path: '/api/rounds',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiIngestRoute = ApiIngestRouteImport.update({
-  id: '/api/ingest',
-  path: '/api/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiApplyRoute = ApiApplyRouteImport.update({
@@ -186,7 +180,6 @@ export interface FileRoutesByFullPath {
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
-  '/api/ingest': typeof ApiIngestRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
@@ -210,7 +203,6 @@ export interface FileRoutesByTo {
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
-  '/api/ingest': typeof ApiIngestRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
@@ -239,7 +231,6 @@ export interface FileRoutesById {
   '/_authenticated/shortlist': typeof AuthenticatedShortlistRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
-  '/api/ingest': typeof ApiIngestRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
@@ -268,7 +259,6 @@ export interface FileRouteTypes {
     | '/shortlist'
     | '/users'
     | '/api/apply'
-    | '/api/ingest'
     | '/api/rounds'
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
@@ -292,7 +282,6 @@ export interface FileRouteTypes {
     | '/shortlist'
     | '/users'
     | '/api/apply'
-    | '/api/ingest'
     | '/api/rounds'
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
@@ -320,7 +309,6 @@ export interface FileRouteTypes {
     | '/_authenticated/shortlist'
     | '/_authenticated/users'
     | '/api/apply'
-    | '/api/ingest'
     | '/api/rounds'
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/programmes/$programmeId'
@@ -342,7 +330,6 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
-  ApiIngestRoute: typeof ApiIngestRoute
   ApiRoundsRoute: typeof ApiRoundsRoute
   ApiAdminIngestsRoute: typeof ApiAdminIngestsRouteWithChildren
   ApiAdminMappingsRoute: typeof ApiAdminMappingsRouteWithChildren
@@ -385,13 +372,6 @@ declare module '@tanstack/react-router' {
       path: '/api/rounds'
       fullPath: '/api/rounds'
       preLoaderRoute: typeof ApiRoundsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ingest': {
-      id: '/api/ingest'
-      path: '/api/ingest'
-      fullPath: '/api/ingest'
-      preLoaderRoute: typeof ApiIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/apply': {
@@ -637,7 +617,6 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
-  ApiIngestRoute: ApiIngestRoute,
   ApiRoundsRoute: ApiRoundsRoute,
   ApiAdminIngestsRoute: ApiAdminIngestsRouteWithChildren,
   ApiAdminMappingsRoute: ApiAdminMappingsRouteWithChildren,

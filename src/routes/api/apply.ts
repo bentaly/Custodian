@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CreateApplicationSchema } from '../../lib/validators/application'
-import {
-  createApplicationFromCanonical,
-  fetchRoundProgrammeForApplication,
-} from '../../server/applications/create'
-import { getRoundStatus } from '../../lib/roundStatus'
+import { IngestSchema } from '../../lib/validators/ingest'
+import { ingestApplication } from '../../server/fieldMapping/ingest'
 
+// The single public submission entry. A foundation's intake form (a form on their
+// own website, or any external integration) posts the raw payload here; it is mapped
+// to canonical fields and either creates an application or is held for review. The
+// response includes the created application + screening results when one was made.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -23,9 +23,7 @@ export const Route = createFileRoute('/api/apply')(
   {
     server: {
       handlers: {
-        OPTIONS: async () => {
-          return new Response(null, { status: 204, headers: CORS_HEADERS })
-        },
+        OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
         POST: async ({ request }: { request: Request }) => {
           let rawBody: unknown
           try {
@@ -34,29 +32,31 @@ export const Route = createFileRoute('/api/apply')(
             return jsonResponse({ error: 'Invalid JSON' }, 400)
           }
 
-          const parsed = CreateApplicationSchema.safeParse(rawBody)
+          const parsed = IngestSchema.safeParse(rawBody)
           if (!parsed.success) {
-            const missing = parsed.error.issues.map((i) => ({
+            const fields = parsed.error.issues.map((i) => ({
               field: i.path.join('.'),
               message: i.message,
             }))
-            return jsonResponse({ error: 'Missing or invalid fields', fields: missing }, 400)
+            return jsonResponse({ error: 'Missing or invalid fields', fields }, 400)
           }
 
-          const roundProgramme = await fetchRoundProgrammeForApplication(
-            parsed.data.roundProgrammeId,
+          const result = await ingestApplication(parsed.data)
+          if (!result.ok) {
+            return jsonResponse({ error: 'Unknown client' }, 404)
+          }
+
+          return jsonResponse(
+            {
+              status: result.status,
+              ingestId: result.ingestId,
+              applicationId: result.applicationId,
+              duplicate: result.duplicate,
+              // application / dueDiligence / custodian, present when one was created.
+              ...(result.created ?? {}),
+            },
+            result.duplicate ? 200 : 201,
           )
-          if (!roundProgramme) {
-            return jsonResponse({ error: 'Not found' }, 404)
-          }
-          if (getRoundStatus(roundProgramme.round) !== 'open') {
-            return jsonResponse({ error: 'This round is not currently open for applications' }, 409)
-          }
-
-          const { application, dueDiligence, custodian } =
-            await createApplicationFromCanonical(roundProgramme, parsed.data)
-
-          return jsonResponse({ application, dueDiligence, custodian }, 201)
         },
       },
     },
