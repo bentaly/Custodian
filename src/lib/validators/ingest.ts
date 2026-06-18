@@ -4,7 +4,7 @@ import { z } from 'zod'
 // `payload` is the raw form data with the foundation's own field names; the values
 // arrive as arbitrary JSON (usually strings).
 export const IngestSchema = z.object({
-  roundProgrammeId: z.uuid(),
+  clientId: z.uuid(),
   externalApplicationId: z.string().min(1).optional(),
   payload: z.record(z.string(), z.unknown()),
 })

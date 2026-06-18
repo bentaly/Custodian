@@ -17,6 +17,7 @@ import {
 import {
   createApplicationFromCanonical,
   fetchRoundProgrammeForApplication,
+  findActiveRoundProgrammeByName,
 } from '../applications/create'
 import { CreateApplicationSchema } from '../../lib/validators/application'
 import type { ResolveInput } from '../../lib/validators/ingest'
@@ -33,13 +34,26 @@ export async function resolveIngest(ingestId: string, input: ResolveInput): Prom
   if (!ingest) return { ok: false, error: 'not_found' }
   if (ingest.applicationId) return { ok: false, error: 'already_resolved' }
 
-  const roundProgramme = await fetchRoundProgrammeForApplication(ingest.roundProgrammeId)
-  if (!roundProgramme) return { ok: false, error: 'round_programme_missing' }
-
   const payload = ingest.rawPayload
   const resolved = resolvedFromMapping(payload, input.mapping)
+
+  // Resolve round programme: use the stored ID if we have it; otherwise derive it
+  // from the programme name the reviewer supplied in their mapping.
+  let roundProgrammeId = ingest.roundProgrammeId
+  if (!roundProgrammeId) {
+    const programmeName = resolved.programmeName?.value ?? null
+    if (!programmeName) return { ok: false, error: 'round_programme_missing' }
+    const found = await findActiveRoundProgrammeByName(ingest.clientId, programmeName)
+    if (!found) return { ok: false, error: 'round_programme_missing' }
+    roundProgrammeId = found.id
+  }
+
+  const roundProgramme =
+    await fetchRoundProgrammeForApplication(roundProgrammeId)
+  if (!roundProgramme) return { ok: false, error: 'round_programme_missing' }
+
   const responses = computeResponses(payload, resolved)
-  const candidate = buildCanonicalInput(ingest.roundProgrammeId, resolved, responses)
+  const candidate = buildCanonicalInput(roundProgrammeId, resolved, responses)
 
   const parsed = CreateApplicationSchema.safeParse(candidate)
   if (!parsed.success) {
@@ -77,6 +91,7 @@ export async function resolveIngest(ingestId: string, input: ResolveInput): Prom
     .set({
       status: 'complete',
       applicationId,
+      roundProgrammeId,
       resolved: resolvedMapFor(resolved),
       externalApplicationId:
         ingest.externalApplicationId ?? resolved.externalApplicationId?.value ?? null,

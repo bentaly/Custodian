@@ -8,6 +8,7 @@
 // the human review queue. Everything not mapped here flows into `responses`.
 
 export type CanonicalFieldKey =
+  | 'programmeName'
   | 'externalApplicationId'
   | 'organisationName'
   | 'amountRequested'
@@ -36,6 +37,13 @@ export function coerceAmount(raw: string): string {
 }
 
 export const CANONICAL_FIELDS: CanonicalField[] = [
+  {
+    key: 'programmeName',
+    label: 'Programme name',
+    required: true,
+    description:
+      "The name of the programme the applicant is applying to (must match an active programme in an open round).",
+  },
   {
     key: 'externalApplicationId',
     label: 'External application ID',

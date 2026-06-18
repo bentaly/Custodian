@@ -1,0 +1,1 @@
+ALTER TABLE "application_ingests" ALTER COLUMN "round_programme_id" DROP NOT NULL;

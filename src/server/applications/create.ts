@@ -8,9 +8,9 @@
 // points (a submission is rejected if the round is closed, but an already-ingested
 // application may be promoted by a reviewer after the round has closed).
 
-import { eq } from 'drizzle-orm'
+import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, roundProgrammes } from '../../../drizzle/schema'
+import { applications, programmes, roundProgrammes, rounds } from '../../../drizzle/schema'
 import { runDueDiligence } from '../dueDiligence/run'
 import { runCustodianScore } from '../custodianScore/run'
 import type { CreateApplicationInput } from '../../lib/validators/application'
@@ -30,6 +30,33 @@ export async function fetchRoundProgrammeForApplication(roundProgrammeId: string
 export type RoundProgrammeForApplication = NonNullable<
   Awaited<ReturnType<typeof fetchRoundProgrammeForApplication>>
 >
+
+/** Find the open roundProgramme for a client where the programme name matches (case-insensitive).
+ *  Returns null when no active round contains a programme with that name. */
+export async function findActiveRoundProgrammeByName(
+  clientId: string,
+  programmeName: string,
+): Promise<RoundProgrammeForApplication | null> {
+  const now = new Date()
+  const rows = await getDb()
+    .select({ id: roundProgrammes.id })
+    .from(roundProgrammes)
+    .innerJoin(rounds, eq(roundProgrammes.roundId, rounds.id))
+    .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
+    .where(
+      and(
+        eq(programmes.clientId, clientId),
+        sql`lower(${programmes.name}) = lower(${programmeName})`,
+        lte(rounds.openedAt, now),
+        or(isNull(rounds.closedAt), gt(rounds.closedAt, now)),
+      ),
+    )
+    .orderBy(sql`${rounds.openedAt} desc`)
+    .limit(1)
+
+  if (!rows.length) return null
+  return (await fetchRoundProgrammeForApplication(rows[0]!.id)) ?? null
+}
 
 export async function createApplicationFromCanonical(
   roundProgramme: RoundProgrammeForApplication,

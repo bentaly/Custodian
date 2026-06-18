@@ -3,11 +3,15 @@
 // Turns a raw foundation payload into either a real application (when all required
 // canonical fields resolve) or a held `application_ingests` row for human review.
 //
-// Flow: resolve client + open-check → lookup-table match → AI fallback for any
-// unresolved required fields (proposals above the confidence threshold are
-// applied) → decide status → validate the assembled canonical input → promote or
-// hold. `externalApplicationId` gives idempotency: a re-sent payload returns the
-// existing record instead of creating a duplicate.
+// Flow: resolve programme name → find active round → lookup-table match → AI
+// fallback for any unresolved required fields (proposals above the confidence
+// threshold are applied) → decide status → validate the assembled canonical
+// input → promote or hold. `externalApplicationId` gives idempotency: a re-sent
+// payload returns the existing record instead of creating a duplicate.
+//
+// If `programmeName` resolves but no active round contains that programme the
+// request is rejected (caller should return 4XX). If `programmeName` is
+// unresolved the ingest is held for human review with a null roundProgrammeId.
 
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
@@ -28,15 +32,15 @@ import {
 } from './assemble'
 import {
   createApplicationFromCanonical,
-  fetchRoundProgrammeForApplication,
+  findActiveRoundProgrammeByName,
+  type RoundProgrammeForApplication,
 } from '../applications/create'
 import { CreateApplicationSchema } from '../../lib/validators/application'
-import { getRoundStatus } from '../../lib/roundStatus'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
 
 export interface IngestParams {
-  roundProgrammeId: string
+  clientId: string
   externalApplicationId?: string
   payload: Record<string, unknown>
   /** Injectable AI assessor for tests. */
@@ -46,7 +50,7 @@ export interface IngestParams {
 export type IngestStatus = 'complete' | 'ai_proposed' | 'needs_review'
 
 export type IngestResult =
-  | { ok: false; error: 'not_found' | 'round_closed' }
+  | { ok: false; error: 'programme_not_in_active_round' }
   | {
       ok: true
       status: IngestStatus
@@ -56,12 +60,7 @@ export type IngestResult =
     }
 
 export async function ingestApplication(params: IngestParams): Promise<IngestResult> {
-  const roundProgramme = await fetchRoundProgrammeForApplication(params.roundProgrammeId)
-  if (!roundProgramme) return { ok: false, error: 'not_found' }
-  if (getRoundStatus(roundProgramme.round) !== 'open') return { ok: false, error: 'round_closed' }
-
-  const clientId = roundProgramme.programme.client.id
-  const { payload } = params
+  const { clientId, payload } = params
 
   // 1. Lookup-table match.
   const mappings = await getDb().query.fieldMappings.findMany({
@@ -105,7 +104,22 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     unresolvedRequired = REQUIRED_CANONICAL_KEYS.filter((k) => !resolved[k])
   }
 
-  // 4. Build responses (leftover payload) and the stored resolved map.
+  // 4. Resolve programme → active round. If the programme name resolved but no
+  //    active round exists for it, reject immediately. If it didn't resolve, hold
+  //    for human review (roundProgrammeId stays null until a reviewer picks it).
+  let roundProgrammeId: string | null = null
+  let resolvedRoundProgramme: RoundProgrammeForApplication | null = null
+  const resolvedProgrammeName = resolved.programmeName?.value ?? null
+
+  if (resolvedProgrammeName) {
+    resolvedRoundProgramme = await findActiveRoundProgrammeByName(clientId, resolvedProgrammeName)
+    if (!resolvedRoundProgramme) {
+      return { ok: false, error: 'programme_not_in_active_round' }
+    }
+    roundProgrammeId = resolvedRoundProgramme.id
+  }
+
+  // 5. Build responses (leftover payload) and the stored resolved map.
   const responses = computeResponses(payload, resolved)
   const resolvedMap = resolvedMapFor(resolved)
 
@@ -133,14 +147,15 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
   }
 
   // 7. Decide status, validating the assembled canonical input. A required field
-  // that resolved to an invalid value (e.g. an amount that won't parse) is treated
-  // as unresolved → needs_review.
+  //    that resolved to an invalid value (e.g. an amount that won't parse) is
+  //    treated as unresolved → needs_review. We can only attempt validation when
+  //    the round programme is known.
   let status: IngestStatus
   let validInput: ReturnType<typeof CreateApplicationSchema.safeParse> | null = null
 
-  if (unresolvedRequired.length === 0) {
+  if (unresolvedRequired.length === 0 && roundProgrammeId) {
     validInput = CreateApplicationSchema.safeParse(
-      buildCanonicalInput(params.roundProgrammeId, resolved, responses),
+      buildCanonicalInput(roundProgrammeId, resolved, responses),
     )
     status = validInput.success ? (aiUsed ? 'ai_proposed' : 'complete') : 'needs_review'
   } else {
@@ -149,8 +164,8 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
 
   // 8. Promote (create the application) or hold for review.
   let applicationId: string | null = null
-  if (status !== 'needs_review' && validInput?.success) {
-    const created = await createApplicationFromCanonical(roundProgramme, validInput.data)
+  if (status !== 'needs_review' && validInput?.success && resolvedRoundProgramme) {
+    const created = await createApplicationFromCanonical(resolvedRoundProgramme, validInput.data)
     applicationId = created.application?.id ?? null
   }
 
@@ -158,7 +173,7 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     .insert(applicationIngests)
     .values({
       clientId,
-      roundProgrammeId: params.roundProgrammeId,
+      roundProgrammeId,
       externalApplicationId,
       rawPayload: payload,
       status,

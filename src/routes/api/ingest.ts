@@ -42,11 +42,7 @@ export const Route = createFileRoute('/api/ingest')(
 
           const result = await ingestApplication(parsed.data)
           if (!result.ok) {
-            if (result.error === 'not_found') return jsonResponse({ error: 'Not found' }, 404)
-            return jsonResponse(
-              { error: 'This round is not currently open for applications' },
-              409,
-            )
+            return jsonResponse({ error: 'No active round found for this programme' }, 422)
           }
 
           return jsonResponse(

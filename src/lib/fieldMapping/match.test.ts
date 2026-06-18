@@ -3,6 +3,7 @@ import { applyLookup, toStringValue } from './match'
 import type { FieldMappingEntry } from './types'
 
 const FULL_MAPPINGS: FieldMappingEntry[] = [
+  { sourceKey: 'programme', canonicalField: 'programmeName' },
   { sourceKey: 'app_ref', canonicalField: 'externalApplicationId' },
   { sourceKey: 'org', canonicalField: 'organisationName' },
   { sourceKey: 'amount', canonicalField: 'amountRequested' },
@@ -13,6 +14,7 @@ const FULL_MAPPINGS: FieldMappingEntry[] = [
 ]
 
 const FULL_PAYLOAD = {
+  programme: 'Youth Employment Fund',
   app_ref: 'EXT-123',
   org: 'Test Charity',
   amount: '£15,000',
