@@ -33,12 +33,10 @@ export const clientTypeEnum = pgEnum('client_type', [
 
 
 export const applicationStatusEnum = pgEnum('application_status', [
-  'submitted',
-  'under_review',
+  'for_review',
   'shortlisted',
-  'approved',
+  'awarded',
   'declined',
-  'withdrawn',
 ])
 
 // Overall outcome of the automated due diligence screening for an application.
@@ -174,7 +172,7 @@ export const applications = pgTable('applications', {
   amountRequested: numeric('amount_requested').notNull(),
   amountAwarded: numeric('amount_awarded'),
   responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
-  status: applicationStatusEnum('status').notNull().default('submitted'),
+  status: applicationStatusEnum('status').notNull().default('for_review'),
   // Summary outcome of the automated due diligence screening — cheap to read for
   // the applications list/detail indicator without parsing the checks array.
   dueDiligenceStatus: dueDiligenceStatusEnum('due_diligence_status').notNull().default('pending'),

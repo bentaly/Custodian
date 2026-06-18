@@ -73,7 +73,7 @@ function ShortlistCard({
   async function handleRemove() {
     setRemoving(true)
     try {
-      await updateApplicationStatus({ data: { id: app.id, status: 'submitted' } })
+      await updateApplicationStatus({ data: { id: app.id, status: 'for_review' } })
       onRemove()
     } finally {
       setRemoving(false)

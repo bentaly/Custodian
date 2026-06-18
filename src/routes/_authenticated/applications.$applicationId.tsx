@@ -51,10 +51,12 @@ function ApplicationDetail() {
   const [rerunning, setRerunning] = useState(false)
   const [rescoring, setRescoring] = useState(false)
   const [shortlisting, setShortlisting] = useState(false)
+  const [declining, setDeclining] = useState(false)
   const [shortlistError, setShortlistError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const isShortlisted = application.status === 'shortlisted'
+  const isDeclined = application.status === 'declined'
 
   const rp = application.roundProgramme
   const budget = rp.budget ? parseFloat(rp.budget) : null
@@ -74,13 +76,28 @@ function ApplicationDetail() {
     setShortlisting(true)
     try {
       await updateApplicationStatus({
-        data: { id: application.id, status: isShortlisted ? 'submitted' : 'shortlisted' },
+        data: { id: application.id, status: isShortlisted ? 'for_review' : 'shortlisted' },
       })
       await router.invalidate()
     } catch (err) {
       setShortlistError(err instanceof Error ? err.message : 'Failed to update status')
     } finally {
       setShortlisting(false)
+    }
+  }
+
+  async function handleDecline() {
+    setShortlistError(null)
+    setDeclining(true)
+    try {
+      await updateApplicationStatus({
+        data: { id: application.id, status: isDeclined ? 'for_review' : 'declined' },
+      })
+      await router.invalidate()
+    } catch (err) {
+      setShortlistError(err instanceof Error ? err.message : 'Failed to update status')
+    } finally {
+      setDeclining(false)
     }
   }
 
@@ -118,25 +135,38 @@ function ApplicationDetail() {
         <h1 className="text-2xl font-semibold text-gray-900">{application.organisationName}</h1>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
+            {!isDeclined && (
+              <button
+                onClick={handleShortlist}
+                disabled={shortlisting || isBudgetFull}
+                title={isBudgetFull ? 'Budget committed — no funds remaining in this programme' : undefined}
+                className={`rounded border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
+                  isShortlisted
+                    ? 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    : isBudgetFull
+                      ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                      : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                {shortlisting
+                  ? '…'
+                  : isShortlisted
+                    ? '✓ Shortlisted'
+                    : isBudgetFull
+                      ? 'Budget full'
+                      : 'Add to shortlist'}
+              </button>
+            )}
             <button
-              onClick={handleShortlist}
-              disabled={shortlisting || isBudgetFull}
-              title={isBudgetFull ? 'Budget committed — no funds remaining in this programme' : undefined}
+              onClick={handleDecline}
+              disabled={declining}
               className={`rounded border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
-                isShortlisted
-                  ? 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                  : isBudgetFull
-                    ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-                    : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
+                isDeclined
+                  ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {shortlisting
-                ? '…'
-                : isShortlisted
-                  ? '✓ Shortlisted'
-                  : isBudgetFull
-                    ? 'Budget full'
-                    : 'Add to shortlist'}
+              {declining ? '…' : isDeclined ? '✓ Declined · Reinstate' : 'Decline'}
             </button>
             <button
               onClick={() => setDrawerOpen(true)}

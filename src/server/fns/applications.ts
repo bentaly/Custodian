@@ -1,8 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, count, inArray, sql, ne } from 'drizzle-orm'
+import { and, eq, count, inArray, sql, ne, ilike, gte, lt, isNotNull } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, roundProgrammes } from '../../../drizzle/schema'
+import { applications, roundProgrammes, programmes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import {
   ApplicationFiltersSchema,
@@ -19,32 +19,55 @@ export const listApplications = createServerFn({ method: 'GET' })
     const { page, pageSize, ...filters } = data
 
     let roundProgrammeIds: string[] | undefined
-    if (filters.roundId) {
-      const rows = await getDb()
-        .select({ id: roundProgrammes.id })
-        .from(roundProgrammes)
-        .where(eq(roundProgrammes.roundId, filters.roundId))
+    if (filters.roundId || filters.programmeId || filters.tag) {
+      // Tag lives on the programme (jsonb array), so resolve it by joining programmes.
+      const conds = and(
+        filters.roundId ? eq(roundProgrammes.roundId, filters.roundId) : undefined,
+        filters.programmeId ? eq(roundProgrammes.programmeId, filters.programmeId) : undefined,
+        filters.tag ? sql`${programmes.tags} @> ${JSON.stringify([filters.tag])}::jsonb` : undefined,
+      )
+      const rows = filters.tag
+        ? await getDb()
+            .select({ id: roundProgrammes.id })
+            .from(roundProgrammes)
+            .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
+            .where(conds)
+        : await getDb().select({ id: roundProgrammes.id }).from(roundProgrammes).where(conds)
       roundProgrammeIds = rows.map((r) => r.id)
       if (roundProgrammeIds.length === 0) {
-        return { items: [], total: 0, page, pageSize }
-      }
-    } else if (filters.programmeId) {
-      const rows = await getDb()
-        .select({ id: roundProgrammes.id })
-        .from(roundProgrammes)
-        .where(eq(roundProgrammes.programmeId, filters.programmeId))
-      roundProgrammeIds = rows.map((r) => r.id)
-      if (roundProgrammeIds.length === 0) {
-        return { items: [], total: 0, page, pageSize }
+        return { items: [], total: 0, page, pageSize, statusCounts: {}, allCount: 0 }
       }
     }
 
-    const where = and(
-      filters.status ? eq(applications.status, filters.status) : undefined,
+    const scoreBandFilter = (() => {
+      switch (filters.scoreBand) {
+        case '90plus':
+          return gte(applications.custodianScore, 90)
+        case '80to89':
+          return and(gte(applications.custodianScore, 80), lt(applications.custodianScore, 90))
+        case '70to79':
+          return and(gte(applications.custodianScore, 70), lt(applications.custodianScore, 80))
+        case 'below70':
+          return and(isNotNull(applications.custodianScore), lt(applications.custodianScore, 70))
+        default:
+          return undefined
+      }
+    })()
+
+    // Everything except the status filter — used both for the status-tab counts
+    // (so each tab reflects the other active filters) and as the base of `where`.
+    const baseWhere = and(
       roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
+      filters.q ? ilike(applications.organisationName, `%${filters.q}%`) : undefined,
+      scoreBandFilter,
     )
 
-    const [items, totals] = await Promise.all([
+    const where = and(
+      baseWhere,
+      filters.status ? eq(applications.status, filters.status) : undefined,
+    )
+
+    const [items, totals, statusRows] = await Promise.all([
       getDb().query.applications.findMany({
         where,
         with: { roundProgramme: { with: { programme: { with: { client: true } } } } },
@@ -53,9 +76,17 @@ export const listApplications = createServerFn({ method: 'GET' })
         limit: pageSize,
       }),
       getDb().select({ total: count() }).from(applications).where(where),
+      getDb()
+        .select({ status: applications.status, count: count() })
+        .from(applications)
+        .where(baseWhere)
+        .groupBy(applications.status),
     ]).catch((err) => { console.error('listApplications DB error:', err?.cause ?? err); throw err })
 
-    return { items, total: totals[0]?.total ?? 0, page, pageSize }
+    const statusCounts = Object.fromEntries(statusRows.map((r) => [r.status, r.count]))
+    const allCount = statusRows.reduce((s, r) => s + r.count, 0)
+
+    return { items, total: totals[0]?.total ?? 0, page, pageSize, statusCounts, allCount }
   })
 
 export const getApplication = createServerFn({ method: 'GET' })
@@ -77,7 +108,7 @@ export const getApplication = createServerFn({ method: 'GET' })
       .from(applications)
       .where(and(
         eq(applications.roundProgrammeId, application.roundProgrammeId),
-        inArray(applications.status, ['shortlisted', 'approved']),
+        inArray(applications.status, ['shortlisted', 'awarded']),
       ))
     const committed = committedRows[0]?.committed
 
@@ -190,7 +221,7 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
       .from(applications)
       .where(and(
         inArray(applications.roundProgrammeId, rpIds),
-        inArray(applications.status, ['shortlisted', 'approved']),
+        inArray(applications.status, ['shortlisted', 'awarded']),
       ))
       .groupBy(applications.roundProgrammeId)
 
@@ -230,7 +261,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
           .from(applications)
           .where(and(
             eq(applications.roundProgrammeId, app.roundProgrammeId),
-            inArray(applications.status, ['shortlisted', 'approved']),
+            inArray(applications.status, ['shortlisted', 'awarded']),
             ne(applications.id, id),
           ))
 
@@ -246,7 +277,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       }
     }
 
-    const decisionStatuses = ['approved', 'declined'] as const
+    const decisionStatuses = ['awarded', 'declined'] as const
     const isDecision = decisionStatuses.includes(status as (typeof decisionStatuses)[number])
 
     const [application] = await getDb()

@@ -1,12 +1,10 @@
 import { z } from 'zod'
 
 export const ApplicationStatus = z.enum([
-  'submitted',
-  'under_review',
+  'for_review',
   'shortlisted',
-  'approved',
+  'awarded',
   'declined',
-  'withdrawn',
 ])
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
@@ -37,10 +35,19 @@ export const UpdateApplicationStatusSchema = z.object({
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
 
+export const ScoreBand = z.enum(['90plus', '80to89', '70to79', 'below70'])
+export type ScoreBand = z.infer<typeof ScoreBand>
+
 export const ApplicationFiltersSchema = z.object({
   programmeId: z.uuid().optional(),
   roundId: z.uuid().optional(),
   status: ApplicationStatus.optional(),
+  // Free-text search over the organisation name.
+  q: z.string().trim().min(1).max(255).optional(),
+  // AI ("Custodian") composite score band; only matches scored applications.
+  scoreBand: ScoreBand.optional(),
+  // Programme tag/theme — matches applications whose programme carries the tag.
+  tag: z.string().min(1).max(100).optional(),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(25),
 })

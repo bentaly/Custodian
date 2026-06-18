@@ -1,15 +1,48 @@
+import { useEffect, useState } from 'react'
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { listApplications, getRoundBudgetSummary } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import { DueDiligenceBadge } from '../../components/dueDiligence'
+import { CustodianScoreBadge } from '../../components/custodianScore'
+import type { CustodianScoreStatus } from '../../lib/custodianScore'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
-import { getRoundStatus } from '../../lib/roundStatus'
+import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
+import { ApplicationStatus, ScoreBand } from '../../lib/validators/application'
+
+const PAGE_SIZE = 25
+
+type ApplicationsSearch = {
+  roundId?: string
+  programmeId?: string
+  status?: ApplicationStatus
+  scoreBand?: ScoreBand
+  tag?: string
+  q?: string
+  page?: number
+}
 
 export const Route = createFileRoute('/_authenticated/applications/')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    roundId: typeof search.roundId === 'string' ? search.roundId : undefined as string | undefined,
+  validateSearch: (search: Record<string, unknown>): ApplicationsSearch => {
+    const page = Number(search.page)
+    return {
+      roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
+      programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
+      status: ApplicationStatus.optional().catch(undefined).parse(search.status),
+      scoreBand: ScoreBand.optional().catch(undefined).parse(search.scoreBand),
+      tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
+      q: typeof search.q === 'string' && search.q ? search.q : undefined,
+      page: Number.isInteger(page) && page > 1 ? page : undefined,
+    }
+  },
+  loaderDeps: ({ search }) => ({
+    roundId: search.roundId,
+    programmeId: search.programmeId,
+    status: search.status,
+    scoreBand: search.scoreBand,
+    tag: search.tag,
+    q: search.q,
+    page: search.page,
   }),
-  loaderDeps: ({ search }) => ({ roundId: search.roundId }),
   loader: async ({ deps }) => {
     const rounds = await listMyRounds()
 
@@ -27,7 +60,18 @@ export const Route = createFileRoute('/_authenticated/applications/')({
     }
 
     const [applicationsData, budgetSummary] = await Promise.all([
-      listApplications({ data: { page: 1, pageSize: 25, roundId } }),
+      listApplications({
+        data: {
+          page: deps.page ?? 1,
+          pageSize: PAGE_SIZE,
+          roundId,
+          programmeId: deps.programmeId,
+          status: deps.status,
+          scoreBand: deps.scoreBand,
+          tag: deps.tag,
+          q: deps.q,
+        },
+      }),
       roundId ? getRoundBudgetSummary({ data: { roundId } }) : Promise.resolve([]),
     ])
     return { ...applicationsData, rounds, budgetSummary }
@@ -35,22 +79,38 @@ export const Route = createFileRoute('/_authenticated/applications/')({
   component: ApplicationsList,
 })
 
+function formatDate(date: Date | string | null | undefined) {
+  if (!date) return null
+  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const STATUS_TABS: Array<{ value: ApplicationStatus | undefined; label: string }> = [
+  { value: undefined, label: 'All' },
+  { value: 'for_review', label: 'For review' },
+  { value: 'shortlisted', label: 'Shortlisted' },
+  { value: 'awarded', label: 'Awarded' },
+  { value: 'declined', label: 'Declined' },
+]
+
+const SCORE_BANDS: Array<{ value: ScoreBand; label: string }> = [
+  { value: '90plus', label: '90+' },
+  { value: '80to89', label: '80–89' },
+  { value: '70to79', label: '70–79' },
+  { value: 'below70', label: '<70' },
+]
+
 const STATUS_LABELS: Record<string, string> = {
-  submitted: 'Submitted',
-  under_review: 'Under review',
+  for_review: 'For review',
   shortlisted: 'Shortlisted',
-  approved: 'Approved',
+  awarded: 'Awarded',
   declined: 'Declined',
-  withdrawn: 'Withdrawn',
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  submitted: 'bg-blue-50 text-blue-700',
-  under_review: 'bg-yellow-50 text-yellow-700',
+  for_review: 'bg-blue-50 text-blue-700',
   shortlisted: 'bg-purple-50 text-purple-700',
-  approved: 'bg-green-50 text-green-700',
+  awarded: 'bg-green-50 text-green-700',
   declined: 'bg-red-50 text-red-600',
-  withdrawn: 'bg-gray-100 text-gray-500',
 }
 
 function fmtAmount(amount: string | null | undefined) {
@@ -151,8 +211,27 @@ function BudgetPanel({ rows }: { rows: BudgetRow[] }) {
 
 function ApplicationsList() {
   const navigate = useNavigate({ from: '/applications/' })
-  const { roundId } = Route.useSearch()
-  const { items, total, rounds, budgetSummary } = Route.useLoaderData()
+  const search = Route.useSearch()
+  const { roundId, programmeId, status, scoreBand, tag, q, page } = search
+  const { items, total, rounds, budgetSummary, statusCounts, allCount } = Route.useLoaderData()
+
+  const currentPage = page ?? 1
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Local, debounced state for the organisation-name search box so typing
+  // doesn't fire a loader request (and lose input focus) on every keystroke.
+  const [searchTerm, setSearchTerm] = useState(q ?? '')
+  useEffect(() => {
+    setSearchTerm(q ?? '')
+  }, [q])
+  useEffect(() => {
+    const next = searchTerm.trim() || undefined
+    if (next === (q ?? undefined)) return
+    const t = setTimeout(() => {
+      navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [searchTerm]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleRounds = rounds
     .filter((r) => getRoundStatus(r) !== 'upcoming')
@@ -162,16 +241,66 @@ function ApplicationsList() {
       return bT - aT
     })
 
+  const selectedRound = rounds.find((r) => r.id === roundId)
+  const roundStatus = selectedRound ? getRoundStatus(selectedRound) : null
+  const programmes = selectedRound
+    ? selectedRound.roundProgrammes.map((rp) => rp.programme)
+    : []
+  // Distinct tags across the round's programmes, for the tag/theme filter.
+  const tags = [
+    ...new Set(programmes.flatMap((p) => (p.tags as string[] | null) ?? [])),
+  ].sort()
+
   function handleRoundChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    navigate({ search: { roundId: e.target.value || undefined } })
+    // Changing round invalidates the programme + tag filters (both are per-round).
+    navigate({ search: (prev) => ({ ...prev, roundId: e.target.value || undefined, programmeId: undefined, tag: undefined, page: undefined }) })
   }
+
+  function setProgramme(id: string | undefined) {
+    navigate({ search: (prev) => ({ ...prev, programmeId: prev.programmeId === id ? undefined : id, page: undefined }) })
+  }
+
+  function setStatus(value: ApplicationStatus | undefined) {
+    navigate({ search: (prev) => ({ ...prev, status: value, page: undefined }) })
+  }
+
+  function setScoreBand(value: ScoreBand) {
+    navigate({ search: (prev) => ({ ...prev, scoreBand: prev.scoreBand === value ? undefined : value, page: undefined }) })
+  }
+
+  function setTag(value: string) {
+    navigate({ search: (prev) => ({ ...prev, tag: prev.tag === value ? undefined : value, page: undefined }) })
+  }
+
+  function goToPage(p: number) {
+    navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
+  }
+
+  const pillBase = 'rounded-full border px-3 py-1 text-xs transition-colors'
+  const pillOn = 'border-emerald-600 bg-emerald-50 font-medium text-emerald-700'
+  const pillOff = 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
 
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Applications</h1>
-          <p className="mt-1 text-sm text-gray-500">{total} application{total !== 1 ? 's' : ''}</p>
+          <p className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+            <span>{total} application{total !== 1 ? 's' : ''}</span>
+            {selectedRound && roundStatus && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[roundStatus]}`}>
+                  {ROUND_STATUS_LABELS[roundStatus]}
+                </span>
+                <span className="text-gray-500">
+                  {roundStatus === 'upcoming' ? 'Opens' : 'Opened'} {formatDate(selectedRound.openedAt) ?? '—'}
+                  {' · '}
+                  {roundStatus === 'closed' ? 'Closed' : 'Closes'} {formatDate(selectedRound.closedAt) ?? '—'}
+                </span>
+              </>
+            )}
+          </p>
         </div>
         {visibleRounds.length > 0 && (
           <select
@@ -190,9 +319,91 @@ function ApplicationsList() {
 
       {budgetSummary.length > 0 && <BudgetPanel rows={budgetSummary} />}
 
+      {/* Status tabs */}
+      <div className="flex flex-wrap items-center gap-1 border-b border-gray-100">
+        {STATUS_TABS.map((tab) => {
+          const cnt = tab.value === undefined ? allCount : (statusCounts[tab.value] ?? 0)
+          const on = status === tab.value
+          return (
+            <button
+              key={tab.label}
+              onClick={() => setStatus(tab.value)}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
+                on
+                  ? 'border-gray-900 font-medium text-gray-900'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+              {cnt > 0 && <span className="ml-1 text-xs text-gray-400">({cnt})</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Filters: search, programme, AI score */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search organisation…"
+          className="w-56 rounded border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+        />
+
+        {programmes.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Programme</span>
+            <button
+              onClick={() => setProgramme(undefined)}
+              className={`${pillBase} ${programmeId === undefined ? pillOn : pillOff}`}
+            >
+              All
+            </button>
+            {programmes.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setProgramme(p.id)}
+                className={`${pillBase} ${programmeId === p.id ? pillOn : pillOff}`}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">AI score</span>
+          {SCORE_BANDS.map((b) => (
+            <button
+              key={b.value}
+              onClick={() => setScoreBand(b.value)}
+              className={`${pillBase} ${scoreBand === b.value ? pillOn : pillOff}`}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+
+        {tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Tag</span>
+            {tags.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTag(t)}
+                className={`${pillBase} ${tag === t ? pillOn : pillOff}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
-          <p className="text-sm text-gray-500">No applications yet.</p>
+          <p className="text-sm text-gray-500">No applications match these filters.</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -202,6 +413,7 @@ function ApplicationsList() {
                 <th className="px-5 py-3">Organisation</th>
                 <th className="px-5 py-3">Amount</th>
                 <th className="px-5 py-3">Programme</th>
+                <th className="px-5 py-3">AI score</th>
                 <th className="px-5 py-3">Tags</th>
                 <th className="px-5 py-3">Due diligence</th>
                 <th className="px-5 py-3">Status</th>
@@ -222,14 +434,22 @@ function ApplicationsList() {
                   <td className="px-5 py-3 text-gray-600">{fmtAmount(app.amountRequested)}</td>
                   <td className="px-5 py-3 text-gray-600">{app.roundProgramme?.programme?.name ?? '—'}</td>
                   <td className="px-5 py-3">
+                    <CustodianScoreBadge
+                      status={(app.custodianScoreStatus ?? 'pending') as CustodianScoreStatus}
+                      score={app.custodianScore}
+                    />
+                  </td>
+                  <td className="px-5 py-3">
                     {app.roundProgramme?.programme?.tags && (app.roundProgramme.programme.tags as string[]).length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {(app.roundProgramme.programme.tags as string[]).map((tag) => (
+                        {(app.roundProgramme.programme.tags as string[]).map((t) => (
                           <span
-                            key={tag}
-                            className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500"
+                            key={t}
+                            className={`rounded-full px-2 py-0.5 text-xs ${
+                              tag === t ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}
                           >
-                            {tag}
+                            {t}
                           </span>
                         ))}
                       </div>
@@ -254,6 +474,32 @@ function ApplicationsList() {
         </div>
       )}
 
+      {total > 0 && pageCount > 1 && (
+        <div className="flex items-center justify-between text-sm text-gray-500">
+          <span>
+            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)} of {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="tabular-nums text-gray-400">
+              Page {currentPage} of {pageCount}
+            </span>
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage >= pageCount}
+              className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
