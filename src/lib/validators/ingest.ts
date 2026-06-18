@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-// Payload posted to /api/ingest by a foundation's form integration (Zapier etc.).
-// `payload` is the raw form data with the foundation's own field names; the values
-// arrive as arbitrary JSON (usually strings).
+// Payload posted to /api/ingest by a foundation's intake form (a form on their own
+// website, or any external integration). `payload` is the raw form data with the
+// foundation's own field names; the values arrive as arbitrary JSON (usually strings).
 export const IngestSchema = z.object({
   clientId: z.uuid(),
   externalApplicationId: z.string().min(1).optional(),

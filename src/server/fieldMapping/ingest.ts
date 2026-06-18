@@ -49,6 +49,8 @@ export interface IngestParams {
 
 export type IngestStatus = 'complete' | 'ai_proposed' | 'needs_review'
 
+type CreatedApplication = Awaited<ReturnType<typeof createApplicationFromCanonical>>
+
 export type IngestResult =
   | { ok: false; error: 'programme_not_in_active_round' }
   | {
@@ -57,6 +59,8 @@ export type IngestResult =
       ingestId: string
       applicationId: string | null
       duplicate: boolean
+      /** Present when this ingest created an application (complete / ai_proposed). */
+      created?: CreatedApplication
     }
 
 export async function ingestApplication(params: IngestParams): Promise<IngestResult> {
@@ -164,8 +168,9 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
 
   // 8. Promote (create the application) or hold for review.
   let applicationId: string | null = null
+  let created: CreatedApplication | undefined
   if (status !== 'needs_review' && validInput?.success && resolvedRoundProgramme) {
-    const created = await createApplicationFromCanonical(resolvedRoundProgramme, validInput.data)
+    created = await createApplicationFromCanonical(resolvedRoundProgramme, validInput.data)
     applicationId = created.application?.id ?? null
   }
 
@@ -184,5 +189,5 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     })
     .returning({ id: applicationIngests.id })
 
-  return { ok: true, status, ingestId: ingest!.id, applicationId, duplicate: false }
+  return { ok: true, status, ingestId: ingest!.id, applicationId, duplicate: false, created }
 }

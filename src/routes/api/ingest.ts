@@ -2,9 +2,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { IngestSchema } from '../../lib/validators/ingest'
 import { ingestApplication } from '../../server/fieldMapping/ingest'
 
-// Public entry for foundation form integrations (Zapier etc.) — same exposure as
-// /api/apply. The raw payload is mapped to canonical fields; the response reports
-// whether an application was created or the submission is awaiting review.
+// Public entry for a foundation's intake form (a form on their own website, or any
+// external integration) — same exposure as /api/apply. The raw payload is mapped to
+// canonical fields; the response reports whether an application was created or the
+// submission is awaiting review, and includes the created application + screening
+// results when one was made.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -51,6 +53,8 @@ export const Route = createFileRoute('/api/ingest')(
               ingestId: result.ingestId,
               applicationId: result.applicationId,
               duplicate: result.duplicate,
+              // application / dueDiligence / custodian, present when one was created.
+              ...(result.created ?? {}),
             },
             result.duplicate ? 200 : 201,
           )

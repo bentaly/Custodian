@@ -86,7 +86,12 @@ interface DueDiligence {
 }
 
 interface SubmitResult {
-  application: {
+  status: 'complete' | 'ai_proposed' | 'needs_review'
+  ingestId: string
+  applicationId: string | null
+  duplicate: boolean
+  // Present when the ingest created an application (complete / ai_proposed).
+  application?: {
     id: string
     organisationName: string
     charityNumber: string | null
@@ -98,8 +103,8 @@ interface SubmitResult {
     amountRequested: string
     status: string
     submittedAt: string
-  }
-  dueDiligence: DueDiligence | null
+  } | null
+  dueDiligence?: DueDiligence | null
 }
 
 interface RoundSummary {
@@ -181,29 +186,40 @@ export function Submitter() {
     setResult(null)
 
     try {
-      if (!round || !programme) throw new Error('No round or programme selected')
+      if (!round || !programme || !clientId) throw new Error('No client, round or programme selected')
       const selectedProgramme = programme
-      const res = await fetch(`${API_BASE}/api/apply`, {
+      // Posts to /api/ingest — the same path a real foundation submission takes.
+      // The programme is identified by name; fields go in as a raw payload (here
+      // under their canonical names, which resolve by exact-match).
+      const res = await fetch(`${API_BASE}/api/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          roundProgrammeId: selectedProgramme.roundProgrammeId,
-          organisationName: form.organisationName,
-          charityNumber: form.charityNumber || undefined,
-          companyNumber: form.companyNumber || undefined,
-          bankName: form.bankName,
-          bankAccountName: form.bankAccountName,
-          bankAccountNumber: form.bankAccountNumber,
-          bankSortCode: form.bankSortCode,
-          amountRequested: Number(form.amountRequested),
-          responses: [
-            ...(selectedProgramme.formFields ?? [])
-              .filter((f) => responses[f.id] !== undefined && responses[f.id] !== '')
-              .map((f) => ({ label: f.label, value: responses[f.id]! })),
-            ...extraFields
-              .filter((f) => f.label.trim() && f.value.trim())
-              .map((f) => ({ label: f.label.trim(), value: f.value.trim() })),
-          ],
+          clientId,
+          externalApplicationId: `TEST-${Date.now()}`,
+          payload: {
+            programmeName: selectedProgramme.name,
+            organisationName: form.organisationName,
+            charityNumber: form.charityNumber || undefined,
+            companyNumber: form.companyNumber || undefined,
+            bankName: form.bankName,
+            bankAccountName: form.bankAccountName,
+            bankAccountNumber: form.bankAccountNumber,
+            bankSortCode: form.bankSortCode,
+            amountRequested: form.amountRequested,
+            'How did you hear about us?': form.referralSource,
+            'Previous funding received': form.previousFunding,
+            ...Object.fromEntries(
+              (selectedProgramme.formFields ?? [])
+                .filter((f) => responses[f.id] !== undefined && responses[f.id] !== '')
+                .map((f) => [f.label, responses[f.id]!]),
+            ),
+            ...Object.fromEntries(
+              extraFields
+                .filter((f) => f.label.trim() && f.value.trim())
+                .map((f) => [f.label.trim(), f.value.trim()]),
+            ),
+          },
         }),
       })
       const data = await res.json()
@@ -558,57 +574,75 @@ const DD_OUTCOME_STYLES: Record<DueDiligenceCheck['result'], { symbol: string; c
   unverified: { symbol: '–', className: 'text-gray-400' },
 }
 
+const INGEST_STATUS_STYLES: Record<SubmitResult['status'], string> = {
+  complete: 'border-green-200 bg-green-50 text-green-800',
+  ai_proposed: 'border-blue-200 bg-blue-50 text-blue-800',
+  needs_review: 'border-amber-200 bg-amber-50 text-amber-800',
+}
+
 function SuccessView({ result }: { result: SubmitResult }) {
-  const { application, dueDiligence } = result
+  const { application, dueDiligence, status, ingestId, duplicate } = result
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4">
-        <h2 className="text-sm font-semibold text-green-800">Application submitted</h2>
-        <p className="mt-1 text-xs text-green-700">ID: {application.id}</p>
-        <p className="mt-0.5 text-xs text-green-700">Status: {application.status}</p>
+      <div className={`rounded-lg border px-5 py-4 ${INGEST_STATUS_STYLES[status]}`}>
+        <h2 className="text-sm font-semibold">
+          Ingested — {status.replace('_', ' ')}
+          {duplicate && ' (duplicate — existing record returned)'}
+        </h2>
+        <p className="mt-1 text-xs opacity-80">Ingest ID: {ingestId}</p>
+        {application ? (
+          <p className="mt-0.5 text-xs opacity-80">Application: {application.id} · {application.status}</p>
+        ) : (
+          <p className="mt-0.5 text-xs opacity-80">
+            Held for review — resolve it in the Review queue to create the application.
+          </p>
+        )}
       </div>
 
-      {dueDiligence ? (
-        <div>
-          <div className="mb-3 flex items-center gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Due diligence
+      {application && (
+        <>
+          {dueDiligence ? (
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                  Due diligence
+                </h3>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-xs font-medium ${DD_STATUS_STYLES[dueDiligence.status]}`}
+                >
+                  {dueDiligence.status}
+                </span>
+              </div>
+              <ul className="space-y-1.5 rounded-lg border border-gray-200 bg-white p-4">
+                {dueDiligence.checks.map((c) => {
+                  const o = DD_OUTCOME_STYLES[c.result]
+                  return (
+                    <li key={c.key} className="flex items-start gap-2 text-sm">
+                      <span className={`mt-0.5 w-3 shrink-0 font-semibold ${o.className}`}>{o.symbol}</span>
+                      <span className="text-gray-700">{c.key}</span>
+                      <span className="text-xs text-gray-400">[{c.source}]</span>
+                      {c.detail && <span className="text-gray-400">— {c.detail}</span>}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ) : (
+            <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              No due diligence returned (no charity or company number supplied).
+            </div>
+          )}
+
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+              Application data
             </h3>
-            <span
-              className={`rounded-full border px-2 py-0.5 text-xs font-medium ${DD_STATUS_STYLES[dueDiligence.status]}`}
-            >
-              {dueDiligence.status}
-            </span>
+            <pre className="overflow-auto rounded-lg bg-gray-950 p-4 text-xs text-green-400">
+              {JSON.stringify(application, null, 2)}
+            </pre>
           </div>
-          <ul className="space-y-1.5 rounded-lg border border-gray-200 bg-white p-4">
-            {dueDiligence.checks.map((c) => {
-              const o = DD_OUTCOME_STYLES[c.result]
-              return (
-                <li key={c.key} className="flex items-start gap-2 text-sm">
-                  <span className={`mt-0.5 w-3 shrink-0 font-semibold ${o.className}`}>{o.symbol}</span>
-                  <span className="text-gray-700">{c.key}</span>
-                  <span className="text-xs text-gray-400">[{c.source}]</span>
-                  {c.detail && <span className="text-gray-400">— {c.detail}</span>}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ) : (
-        <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No due diligence returned (no charity or company number supplied).
-        </div>
+        </>
       )}
-
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
-          Application data
-        </h3>
-        <pre className="overflow-auto rounded-lg bg-gray-950 p-4 text-xs text-green-400">
-          {JSON.stringify(application, null, 2)}
-        </pre>
-      </div>
-
     </div>
   )
 }
