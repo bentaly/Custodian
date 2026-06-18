@@ -8,5 +8,13 @@
     "directory": "./dist",
     // SPA fallback: unknown paths return index.html so client-side routing works.
     "not_found_handling": "single-page-application"
+  },
+  // Staging variant, deployed manually with `wrangler deploy --env staging` after a
+  // build that points VITE_API_BASE at the staging main app. (Prod custodian-admin
+  // is built/deployed by its own Cloudflare Git integration, not from here.)
+  "env": {
+    "staging": {
+      "name": "custodian-admin-staging"
+    }
   }
 }
