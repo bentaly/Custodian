@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Submitter } from './Submitter'
 import { ReviewQueue } from './ReviewQueue'
+import { OutOfRound } from './OutOfRound'
 import { Mappings } from './Mappings'
 
-type View = 'review' | 'mappings' | 'submit'
+type View = 'review' | 'unrouted' | 'mappings' | 'submit'
 
 const TABS: Array<{ key: View; label: string }> = [
   { key: 'review', label: 'Review queue' },
+  { key: 'unrouted', label: 'Out of round' },
   { key: 'mappings', label: 'Mappings' },
   { key: 'submit', label: 'Submit test' },
 ]
@@ -39,6 +41,7 @@ export default function App() {
 
       <main className="px-4 py-8">
         {view === 'review' && <ReviewQueue />}
+        {view === 'unrouted' && <OutOfRound />}
         {view === 'mappings' && <Mappings />}
         {view === 'submit' && <Submitter />}
       </main>

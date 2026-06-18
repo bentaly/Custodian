@@ -33,6 +33,7 @@ import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authen
 import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
 import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './routes/_authenticated/applications.$applicationId'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
+import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminIngestsIdResolveRouteImport } from './routes/api/admin.ingests.$id.resolve'
 
 const SignUpRoute = SignUpRouteImport.update({
@@ -161,11 +162,16 @@ const ApiAdminMappingsIdRoute = ApiAdminMappingsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAdminMappingsRoute,
 } as any)
+const ApiAdminIngestsIdRoute = ApiAdminIngestsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminIngestsRoute,
+} as any)
 const ApiAdminIngestsIdResolveRoute =
   ApiAdminIngestsIdResolveRouteImport.update({
-    id: '/$id/resolve',
-    path: '/$id/resolve',
-    getParentRoute: () => ApiAdminIngestsRoute,
+    id: '/resolve',
+    path: '/resolve',
+    getParentRoute: () => ApiAdminIngestsIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
+  '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
 }
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/programmes': typeof AuthenticatedProgrammesIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
+  '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
 }
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
+  '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
 }
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/applications/'
     | '/programmes/'
     | '/rounds/'
+    | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/ingests/$id/resolve'
   fileRoutesByTo: FileRoutesByTo
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
     | '/applications'
     | '/programmes'
     | '/rounds'
+    | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/ingests/$id/resolve'
   id:
@@ -320,6 +331,7 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/'
     | '/_authenticated/programmes/'
     | '/_authenticated/rounds/'
+    | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/ingests/$id/resolve'
   fileRoutesById: FileRoutesById
@@ -507,12 +519,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminMappingsIdRouteImport
       parentRoute: typeof ApiAdminMappingsRoute
     }
+    '/api/admin/ingests/$id': {
+      id: '/api/admin/ingests/$id'
+      path: '/$id'
+      fullPath: '/api/admin/ingests/$id'
+      preLoaderRoute: typeof ApiAdminIngestsIdRouteImport
+      parentRoute: typeof ApiAdminIngestsRoute
+    }
     '/api/admin/ingests/$id/resolve': {
       id: '/api/admin/ingests/$id/resolve'
-      path: '/$id/resolve'
+      path: '/resolve'
       fullPath: '/api/admin/ingests/$id/resolve'
       preLoaderRoute: typeof ApiAdminIngestsIdResolveRouteImport
-      parentRoute: typeof ApiAdminIngestsRoute
+      parentRoute: typeof ApiAdminIngestsIdRoute
     }
   }
 }
@@ -588,12 +607,23 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
-interface ApiAdminIngestsRouteChildren {
+interface ApiAdminIngestsIdRouteChildren {
   ApiAdminIngestsIdResolveRoute: typeof ApiAdminIngestsIdResolveRoute
 }
 
-const ApiAdminIngestsRouteChildren: ApiAdminIngestsRouteChildren = {
+const ApiAdminIngestsIdRouteChildren: ApiAdminIngestsIdRouteChildren = {
   ApiAdminIngestsIdResolveRoute: ApiAdminIngestsIdResolveRoute,
+}
+
+const ApiAdminIngestsIdRouteWithChildren =
+  ApiAdminIngestsIdRoute._addFileChildren(ApiAdminIngestsIdRouteChildren)
+
+interface ApiAdminIngestsRouteChildren {
+  ApiAdminIngestsIdRoute: typeof ApiAdminIngestsIdRouteWithChildren
+}
+
+const ApiAdminIngestsRouteChildren: ApiAdminIngestsRouteChildren = {
+  ApiAdminIngestsIdRoute: ApiAdminIngestsIdRouteWithChildren,
 }
 
 const ApiAdminIngestsRouteWithChildren = ApiAdminIngestsRoute._addFileChildren(

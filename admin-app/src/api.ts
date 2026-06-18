@@ -57,7 +57,7 @@ export interface IngestRow {
   proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
   resolved: Record<string, string> | null
   applicationId: string | null
-  roundProgrammeId: string
+  roundProgrammeId: string | null
   createdAt: string
   client: { id: string; name: string }
 }
