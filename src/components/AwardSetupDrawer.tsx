@@ -47,10 +47,13 @@ export function AwardSetupDrawer({
   onClose: () => void
   onAwarded: () => void
 }) {
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [amount, setAmount] = useState(() => application.amountRequested)
   const [instalments, setInstalments] = useState(1)
   const [firstDate, setFirstDate] = useState('')
+  const [reportingRows, setReportingRows] = useState<Array<{ label: string; date: string }>>([
+    { label: '', date: '' },
+  ])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,6 +63,7 @@ export function AwardSetupDrawer({
     setAmount(application.amountRequested)
     setInstalments(1)
     setFirstDate('')
+    setReportingRows([{ label: '', date: '' }])
     setError(null)
   }, [application.id])
 
@@ -78,6 +82,8 @@ export function AwardSetupDrawer({
     [amountNum, instalments, firstDate],
   )
 
+  const filledReportingRows = reportingRows.filter((r) => r.label.trim() && r.date)
+
   async function handleConfirm() {
     setError(null)
     setSaving(true)
@@ -91,6 +97,7 @@ export function AwardSetupDrawer({
             amount: s.amount,
             date: s.date,
           })),
+          reportingDates: filledReportingRows,
         },
       })
       onAwarded()
@@ -99,6 +106,18 @@ export function AwardSetupDrawer({
     } finally {
       setSaving(false)
     }
+  }
+
+  function updateReportingRow(i: number, field: 'label' | 'date', value: string) {
+    setReportingRows((rows) => rows.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)))
+  }
+
+  function addReportingRow() {
+    setReportingRows((rows) => [...rows, { label: '', date: '' }])
+  }
+
+  function removeReportingRow(i: number) {
+    setReportingRows((rows) => rows.filter((_, idx) => idx !== i))
   }
 
   return (
@@ -144,6 +163,7 @@ export function AwardSetupDrawer({
           {[
             { n: 1 as const, l: 'Details' },
             { n: 2 as const, l: 'Schedule' },
+            { n: 3 as const, l: 'Reporting' },
           ].map((s) => (
             <button
               key={s.n}
@@ -248,6 +268,63 @@ export function AwardSetupDrawer({
               </div>
             </div>
           )}
+
+          {step === 3 && (
+            <div className="space-y-4">
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Set reporting dates manually. These will appear in the reporting hub once the grant
+                is activated.
+              </p>
+
+              <div className="space-y-2">
+                {reportingRows.map((row, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Milestone label"
+                      value={row.label}
+                      onChange={(e) => updateReportingRow(i, 'label', e.target.value)}
+                      className="flex-1 rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    />
+                    <input
+                      type="date"
+                      value={row.date}
+                      onChange={(e) => updateReportingRow(i, 'date', e.target.value)}
+                      className="w-36 rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    />
+                    {reportingRows.length > 1 && (
+                      <button
+                        onClick={() => removeReportingRow(i)}
+                        className="shrink-0 rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+                        aria-label="Remove row"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={addReportingRow}
+                className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
+              >
+                + Add reporting milestone
+              </button>
+
+              {filledReportingRows.length === 0 && (
+                <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+                  No reporting milestones added. At least one is recommended.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -260,9 +337,9 @@ export function AwardSetupDrawer({
             >
               Cancel
             </button>
-            {step === 1 ? (
+            {step < 3 ? (
               <button
-                onClick={() => setStep(2)}
+                onClick={() => setStep((step + 1) as 2 | 3)}
                 disabled={amountNum <= 0}
                 className="flex-[2] rounded bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >

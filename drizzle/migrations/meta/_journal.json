@@ -162,6 +162,13 @@
       "when": 1781987751446,
       "tag": "0022_clean_giant_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1781989085630,
+      "tag": "0023_massive_songbird",
+      "breakpoints": true
     }
   ]
 }

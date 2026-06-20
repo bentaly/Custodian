@@ -180,6 +180,10 @@ export const applications = pgTable('applications', {
   paymentSchedule: jsonb('payment_schedule').$type<
     Array<{ instalment: number; amount: string; date: string | null }>
   >(),
+  // Reporting milestones set during award setup. ISO yyyy-mm-dd dates.
+  reportingSchedule: jsonb('reporting_schedule').$type<
+    Array<{ label: string; date: string }>
+  >(),
   responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
   status: applicationStatusEnum('status').notNull().default('for_review'),
   // Summary outcome of the automated due diligence screening — cheap to read for

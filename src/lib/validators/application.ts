@@ -48,6 +48,12 @@ export const GenerateAwardSchema = z.object({
       }),
     )
     .min(1),
+  reportingDates: z.array(
+    z.object({
+      label: z.string().min(1),
+      date: z.string().min(1),
+    }),
+  ),
 })
 export type GenerateAwardInput = z.infer<typeof GenerateAwardSchema>
 

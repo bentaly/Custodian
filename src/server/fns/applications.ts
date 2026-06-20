@@ -249,6 +249,7 @@ export const generateAward = createServerFn({ method: 'POST' })
         status: 'awarded',
         amountAwarded: data.amountAwarded.toString(),
         paymentSchedule: schedule,
+        reportingSchedule: data.reportingDates,
         decisionAt: new Date(),
       })
       .where(eq(applications.id, data.id))
