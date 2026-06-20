@@ -21,6 +21,7 @@ import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
 import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
@@ -93,6 +94,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAwardsRoute = AuthenticatedAwardsRouteImport.update({
+  id: '/awards',
+  path: '/awards',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedApplicationsRoute =
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/applications': typeof AuthenticatedApplicationsRouteWithChildren
+  '/awards': typeof AuthenticatedAwardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/awards': typeof AuthenticatedAwardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/shortlist': typeof AuthenticatedShortlistRoute
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
+  '/_authenticated/awards': typeof AuthenticatedAwardsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
@@ -261,6 +270,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/applications'
+    | '/awards'
     | '/dashboard'
     | '/profile'
     | '/programmes'
@@ -287,6 +297,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/sign-up'
+    | '/awards'
     | '/dashboard'
     | '/profile'
     | '/shortlist'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/_authenticated/applications'
+    | '/_authenticated/awards'
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
     | '/_authenticated/programmes'
@@ -433,6 +445,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/awards': {
+      id: '/_authenticated/awards'
+      path: '/awards'
+      fullPath: '/awards'
+      preLoaderRoute: typeof AuthenticatedAwardsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/applications': {
@@ -585,6 +604,7 @@ const AuthenticatedRoundsRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
+  AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
@@ -595,6 +615,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApplicationsRoute: AuthenticatedApplicationsRouteWithChildren,
+  AuthenticatedAwardsRoute: AuthenticatedAwardsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,

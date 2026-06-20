@@ -38,7 +38,7 @@ export async function requireAuthUser() {
 }
 
 export async function requireRole(
-  ...roles: Array<'superadmin' | 'admin' | 'manager' | 'contributor' | 'observer' | 'trustee'>
+  ...roles: Array<'superadmin' | 'admin' | 'manager' | 'contributor' | 'observer' | 'trustee' | 'finance'>
 ) {
   const user = await requireAuthUser()
   if (!roles.includes(user.role)) throw new Error('Forbidden')

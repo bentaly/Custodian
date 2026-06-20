@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { listShortlist } from '../../server/fns/shortlist'
 import { listMyRounds } from '../../server/fns/rounds'
 import { updateApplicationStatus } from '../../server/fns/applications'
+import { ApplicationDrawer } from '../../components/ApplicationDrawer'
+import { BriefingDrawer } from '../../components/BriefingDrawer'
 import { getRoundStatus } from '../../lib/roundStatus'
 import type { CustodianScoreDetail } from '../../lib/custodianScore'
 
@@ -59,9 +61,13 @@ function OrgInitials({ name, score }: { name: string; score: number | null }) {
 function ShortlistCard({
   app,
   onRemove,
+  onView,
+  onBriefing,
 }: {
   app: ReturnType<typeof Route.useLoaderData>['items'][number]
   onRemove: () => void
+  onView: () => void
+  onBriefing: () => void
 }) {
   const [removing, setRemoving] = useState(false)
   const score = app.custodianScore
@@ -182,9 +188,25 @@ function ShortlistCard({
 
       {/* Actions */}
       <div style={{ padding: '11px 14px', display: 'flex', gap: 6 }}>
-        <Link
-          to="/applications/$applicationId"
-          params={{ applicationId: app.id }}
+        <button
+          onClick={onBriefing}
+          style={{
+            flex: 1,
+            textAlign: 'center',
+            fontSize: 11,
+            padding: '6px 0',
+            borderRadius: 5,
+            border: '0.5px solid #1D9E75',
+            background: '#F0FAF6',
+            color: '#0F6E56',
+            cursor: 'pointer',
+            fontWeight: 500,
+          }}
+        >
+          Briefing
+        </button>
+        <button
+          onClick={onView}
           style={{
             flex: 1,
             textAlign: 'center',
@@ -195,11 +217,10 @@ function ShortlistCard({
             background: '#fff',
             color: '#555',
             cursor: 'pointer',
-            textDecoration: 'none',
           }}
         >
-          View details →
-        </Link>
+          Application
+        </button>
         <button
           onClick={handleRemove}
           disabled={removing}
@@ -214,7 +235,7 @@ function ShortlistCard({
             cursor: 'pointer',
           }}
         >
-          {removing ? 'Removing…' : '× Remove'}
+          {removing ? '…' : '× Remove'}
         </button>
       </div>
     </div>
@@ -226,6 +247,26 @@ function ShortlistPage() {
   const router = useRouter()
   const { roundId } = Route.useSearch()
   const { items, rounds } = Route.useLoaderData()
+  const { user } = Route.useRouteContext()
+
+  type ShortlistItem = ReturnType<typeof Route.useLoaderData>['items'][number]
+
+  // `viewApp` / `briefingApp` stay set through the close transition so drawers
+  // can animate out; the `Open` flags drive the slide.
+  const [viewApp, setViewApp] = useState<ShortlistItem | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [briefingApp, setBriefingApp] = useState<ShortlistItem | null>(null)
+  const [briefingOpen, setBriefingOpen] = useState(false)
+
+  function openView(app: ShortlistItem) {
+    setViewApp(app)
+    requestAnimationFrame(() => setDrawerOpen(true))
+  }
+
+  function openBriefing(app: ShortlistItem) {
+    setBriefingApp(app)
+    requestAnimationFrame(() => setBriefingOpen(true))
+  }
 
   const visibleRounds = rounds
     .filter((r) => getRoundStatus(r) !== 'upcoming')
@@ -457,11 +498,32 @@ function ShortlistPage() {
           {/* Application cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {items.map((app) => (
-              <ShortlistCard key={app.id} app={app} onRemove={handleRemoved} />
+              <ShortlistCard
+                key={app.id}
+                app={app}
+                onRemove={handleRemoved}
+                onView={() => openView(app)}
+                onBriefing={() => openBriefing(app)}
+              />
             ))}
           </div>
         </>
       )}
+
+      {viewApp && (
+        <ApplicationDrawer
+          application={viewApp}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
+
+      <BriefingDrawer
+        application={briefingApp}
+        open={briefingOpen}
+        onClose={() => setBriefingOpen(false)}
+        user={{ id: user.id, role: user.role }}
+      />
     </div>
   )
 }

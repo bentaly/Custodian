@@ -1,14 +1,18 @@
 import { useEffect } from 'react'
-import type { getApplication } from '../server/fns/applications'
+import { ApplicationFields, type ApplicationFieldsData } from './ApplicationFields'
 
-type Application = Awaited<ReturnType<typeof getApplication>>
+// The drawer needs the organisation name for its header on top of the fields the
+// shared renderer shows.
+type DrawerApplication = ApplicationFieldsData & {
+  organisationName: string
+}
 
 export function ApplicationDrawer({
   application,
   open,
   onClose,
 }: {
-  application: Application
+  application: DrawerApplication
   open: boolean
   onClose: () => void
 }) {
@@ -20,8 +24,6 @@ export function ApplicationDrawer({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
-
-  const responses = application.responses ?? []
 
   return (
     <>
@@ -61,20 +63,7 @@ export function ApplicationDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {responses.length === 0 ? (
-            <p className="text-sm text-gray-500">No form responses recorded.</p>
-          ) : (
-            <dl className="space-y-6">
-              {responses.map((r, i) => (
-                <div key={i}>
-                  <dt className="text-sm font-medium text-gray-700">{r.label}</dt>
-                  <dd className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
-                    {r.value || '—'}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
+          <ApplicationFields application={application} />
         </div>
       </div>
     </>

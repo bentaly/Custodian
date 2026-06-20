@@ -54,6 +54,9 @@ function Sidebar() {
         <Link to="/shortlist" search={{ roundId: undefined }} className={linkClass}>
           Shortlist
         </Link>
+        <Link to="/awards" search={{ roundId: undefined }} className={linkClass}>
+          Awards
+        </Link>
         {isAdmin && (
           <Link to="/users" className={linkClass}>
             Organization

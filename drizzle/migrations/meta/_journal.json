@@ -148,6 +148,20 @@
       "when": 1781823479332,
       "tag": "0020_green_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1781953719808,
+      "tag": "0021_adorable_rockslide",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1781987751446,
+      "tag": "0022_clean_giant_girl",
+      "breakpoints": true
     }
   ]
 }

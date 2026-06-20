@@ -7,6 +7,7 @@ import { requireAuthUser, requireRole } from '../session'
 import {
   ApplicationFiltersSchema,
   CreateApplicationSchema,
+  GenerateAwardSchema,
   UpdateApplicationStatusSchema,
 } from '../../lib/validators/application'
 import { runDueDiligence } from '../dueDiligence/run'
@@ -196,6 +197,64 @@ export const rerunCustodianScore = createServerFn({ method: 'POST' })
       .where(eq(applications.id, data.id))
       .returning()
     return updated!
+  })
+
+// Awards screen: shortlisted applications awaiting setup ("pending") and those
+// already awarded ("active"), optionally scoped to a round.
+export const listAwards = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ roundId: z.uuid().optional() }))
+  .handler(async ({ data }) => {
+    await requireAuthUser()
+
+    let roundProgrammeIds: string[] | undefined
+    if (data.roundId) {
+      const rows = await getDb()
+        .select({ id: roundProgrammes.id })
+        .from(roundProgrammes)
+        .where(eq(roundProgrammes.roundId, data.roundId))
+      roundProgrammeIds = rows.map((r) => r.id)
+      if (roundProgrammeIds.length === 0) return { pending: [], active: [] }
+    }
+
+    const rows = await getDb().query.applications.findMany({
+      where: (a, { and, inArray: inArr }) =>
+        and(
+          inArr(a.status, ['shortlisted', 'awarded']),
+          roundProgrammeIds ? inArr(a.roundProgrammeId, roundProgrammeIds) : undefined,
+        ),
+      with: { roundProgramme: { with: { programme: true, round: true } } },
+      orderBy: (a, { desc, asc }) => [desc(a.custodianScore), asc(a.organisationName)],
+    })
+
+    return {
+      pending: rows.filter((a) => a.status === 'shortlisted'),
+      active: rows.filter((a) => a.status === 'awarded'),
+    }
+  })
+
+export const generateAward = createServerFn({ method: 'POST' })
+  .inputValidator(GenerateAwardSchema)
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+
+    const schedule = data.schedule.map((s) => ({
+      instalment: s.instalment,
+      amount: s.amount.toString(),
+      date: s.date,
+    }))
+
+    const [application] = await getDb()
+      .update(applications)
+      .set({
+        status: 'awarded',
+        amountAwarded: data.amountAwarded.toString(),
+        paymentSchedule: schedule,
+        decisionAt: new Date(),
+      })
+      .where(eq(applications.id, data.id))
+      .returning()
+    if (!application) throw new Error('Not found')
+    return application
   })
 
 export const getRoundBudgetSummary = createServerFn({ method: 'GET' })

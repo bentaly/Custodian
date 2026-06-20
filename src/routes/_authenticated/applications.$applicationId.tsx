@@ -4,6 +4,9 @@ import { getApplication, rerunDueDiligence, rerunCustodianScore, updateApplicati
 import { DueDiligencePanel } from '../../components/dueDiligence'
 import { CustodianScorePanel } from '../../components/custodianScore'
 import { ApplicationDrawer } from '../../components/ApplicationDrawer'
+import { AwardSetupDrawer } from '../../components/AwardSetupDrawer'
+import { CommentsSection } from '../../components/CommentsSection'
+import { VotingSection } from '../../components/VotingSection'
 import type { DueDiligenceCheckRecord, DueDiligenceStatus } from '../../lib/dueDiligence'
 import type { CustodianScoreDetail, CustodianScoreStatus } from '../../lib/custodianScore'
 
@@ -47,6 +50,7 @@ function RoundProgrammeBudgetBar({
 
 function ApplicationDetail() {
   const application = Route.useLoaderData()
+  const { user } = Route.useRouteContext()
   const router = useRouter()
   const [rerunning, setRerunning] = useState(false)
   const [rescoring, setRescoring] = useState(false)
@@ -54,9 +58,11 @@ function ApplicationDetail() {
   const [declining, setDeclining] = useState(false)
   const [shortlistError, setShortlistError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [awardOpen, setAwardOpen] = useState(false)
 
   const isShortlisted = application.status === 'shortlisted'
   const isDeclined = application.status === 'declined'
+  const isAwarded = application.status === 'awarded'
 
   const rp = application.roundProgramme
   const budget = rp.budget ? parseFloat(rp.budget) : null
@@ -135,7 +141,20 @@ function ApplicationDetail() {
         <h1 className="text-2xl font-semibold text-gray-900">{application.organisationName}</h1>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
-            {!isDeclined && (
+            {isShortlisted && (
+              <button
+                onClick={() => setAwardOpen(true)}
+                className="rounded border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                Generate award
+              </button>
+            )}
+            {isAwarded && (
+              <span className="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
+                ✓ Awarded
+              </span>
+            )}
+            {!isDeclined && !isAwarded && (
               <button
                 onClick={handleShortlist}
                 disabled={shortlisting || isBudgetFull}
@@ -225,10 +244,32 @@ function ApplicationDetail() {
         }
       />
 
+      <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-6">
+        <VotingSection
+          applicationId={application.id}
+          userId={user.id}
+          userRole={user.role}
+        />
+        <CommentsSection
+          applicationId={application.id}
+          userRole={user.role}
+        />
+      </div>
+
       <ApplicationDrawer
         application={application}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+      />
+
+      <AwardSetupDrawer
+        application={application}
+        open={awardOpen}
+        onClose={() => setAwardOpen(false)}
+        onAwarded={async () => {
+          setAwardOpen(false)
+          await router.invalidate()
+        }}
       />
     </div>
   )

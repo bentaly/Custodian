@@ -35,6 +35,22 @@ export const UpdateApplicationStatusSchema = z.object({
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
 
+export const GenerateAwardSchema = z.object({
+  id: z.uuid(),
+  amountAwarded: z.number().positive(),
+  schedule: z
+    .array(
+      z.object({
+        instalment: z.number().int().positive(),
+        amount: z.number().positive(),
+        // ISO yyyy-mm-dd, or null for "date TBC".
+        date: z.string().min(1).nullable(),
+      }),
+    )
+    .min(1),
+})
+export type GenerateAwardInput = z.infer<typeof GenerateAwardSchema>
+
 export const ScoreBand = z.enum(['90plus', '80to89', '70to79', 'below70'])
 export type ScoreBand = z.infer<typeof ScoreBand>
 

@@ -23,7 +23,10 @@ export const userRoleEnum = pgEnum('user_role', [
   'contributor',
   'observer',
   'trustee',
+  'finance',
 ])
+
+export const applicationVoteEnum = pgEnum('application_vote', ['yes', 'no'])
 
 export const clientTypeEnum = pgEnum('client_type', [
   'charitable_foundation',
@@ -171,6 +174,12 @@ export const applications = pgTable('applications', {
   bankSortCode: text('bank_sort_code'),
   amountRequested: numeric('amount_requested').notNull(),
   amountAwarded: numeric('amount_awarded'),
+  // Instalment plan for an awarded grant. Null until the award is set up via the
+  // "Set up award" drawer. Amounts are stored as strings to match numeric handling
+  // elsewhere; `date` is an ISO yyyy-mm-dd string (null when left as "date TBC").
+  paymentSchedule: jsonb('payment_schedule').$type<
+    Array<{ instalment: number; amount: string; date: string | null }>
+  >(),
   responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
   status: applicationStatusEnum('status').notNull().default('for_review'),
   // Summary outcome of the automated due diligence screening — cheap to read for
@@ -309,6 +318,34 @@ export const applicationIngests = pgTable(
   },
 )
 
+export const applicationComments = pgTable('application_comments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  applicationId: uuid('application_id')
+    .notNull()
+    .references(() => applications.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+export const applicationVotes = pgTable(
+  'application_votes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    applicationId: uuid('application_id')
+      .notNull()
+      .references(() => applications.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    vote: applicationVoteEnum('vote').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [unique('application_votes_uniq').on(t.applicationId, t.userId)],
+)
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -325,8 +362,10 @@ export const clientProfilesRelations = relations(clientProfiles, ({ one }) => ({
   client: one(clients, { fields: [clientProfiles.clientId], references: [clients.id] }),
 }))
 
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   client: one(clients, { fields: [users.clientId], references: [clients.id] }),
+  comments: many(applicationComments),
+  votes: many(applicationVotes),
 }))
 
 export const invitationsRelations = relations(invitations, ({ one }) => ({
@@ -350,11 +389,13 @@ export const roundProgrammesRelations = relations(roundProgrammes, ({ one, many 
   applications: many(applications),
 }))
 
-export const applicationsRelations = relations(applications, ({ one }) => ({
+export const applicationsRelations = relations(applications, ({ one, many }) => ({
   roundProgramme: one(roundProgrammes, {
     fields: [applications.roundProgrammeId],
     references: [roundProgrammes.id],
   }),
+  comments: many(applicationComments),
+  votes: many(applicationVotes),
 }))
 
 export const fieldMappingsRelations = relations(fieldMappings, ({ one }) => ({
@@ -371,6 +412,22 @@ export const applicationIngestsRelations = relations(applicationIngests, ({ one 
     fields: [applicationIngests.applicationId],
     references: [applications.id],
   }),
+}))
+
+export const applicationCommentsRelations = relations(applicationComments, ({ one }) => ({
+  application: one(applications, {
+    fields: [applicationComments.applicationId],
+    references: [applications.id],
+  }),
+  user: one(users, { fields: [applicationComments.userId], references: [users.id] }),
+}))
+
+export const applicationVotesRelations = relations(applicationVotes, ({ one }) => ({
+  application: one(applications, {
+    fields: [applicationVotes.applicationId],
+    references: [applications.id],
+  }),
+  user: one(users, { fields: [applicationVotes.userId], references: [users.id] }),
 }))
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
