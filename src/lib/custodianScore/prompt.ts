@@ -53,6 +53,17 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
     .map((r) => `### ${r.label}\n${r.value.trim()}`)
     .join('\n\n')
 
+  // Structured application fields, each shown only when present. Bank details are
+  // deliberately excluded — they carry no scoring signal and are sensitive.
+  const fields = [
+    ['Geography / location', input.geography],
+    ['Registered charity number', input.charityNumber],
+    ['Companies House number', input.companyNumber],
+  ]
+    .filter(([, v]) => typeof v === 'string' && v.trim())
+    .map(([label, v]) => `${label}: ${(v as string).trim()}`)
+    .join('\n')
+
   return `# Funder mission
 ${mission}
 
@@ -61,9 +72,7 @@ Goal: ${goal}${description ? `\nDescription: ${description}` : ''}
 
 # Application
 Organisation: ${input.organisationName}
-Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${
-    input.geography?.trim() ? `\nGeography / location: ${input.geography.trim()}` : ''
-  }
+Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}
 
 ## Application responses
 ${responses || '(no responses provided)'}`

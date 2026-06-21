@@ -47,7 +47,7 @@ export const CRITERION_DEFINITIONS: Record<CriterionKey, CriterionDefinition> = 
     label: 'Budget quality',
     weight: 1.5,
     description:
-      'Whether the budget is clear, itemised, proportionate to the outcomes sought, and represents good value for money. Penalise vague, padded, or poorly justified costs.',
+      'Whether the amount requested is proportionate to the outcomes sought and represents good value for money. Weigh the requested amount against the scale and ambition of the work — a disproportionately large ask for the outcomes described is a weakness. Penalise vague, padded, or poorly justified costs.',
   },
   delivery_risk: {
     label: 'Delivery risk',

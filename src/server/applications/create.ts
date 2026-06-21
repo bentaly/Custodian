@@ -81,6 +81,8 @@ export async function createApplicationFromCanonical(
       organisationName: input.organisationName,
       amountRequested: input.amountRequested,
       geography: input.geography,
+      charityNumber: input.charityNumber,
+      companyNumber: input.companyNumber,
       responses: input.responses,
     }),
   ])

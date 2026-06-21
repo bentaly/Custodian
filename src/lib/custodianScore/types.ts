@@ -78,6 +78,12 @@ export interface CustodianScoreInput {
   /** Geographic area the applicant covers — relevant when a programme has a
    *  geographic eligibility/priority. */
   geography: string | null | undefined
+  /** Registered charity number, if any — an indicator of registration status.
+   *  Bank details are intentionally NOT part of this input: they carry no scoring
+   *  signal and are sensitive, so they are never sent to the model. */
+  charityNumber: string | null | undefined
+  /** Companies House number, if any. */
+  companyNumber: string | null | undefined
   /** The applicant's answers to the dynamic form questions. */
   responses: Array<{ label: string; value: string }> | null | undefined
 }
