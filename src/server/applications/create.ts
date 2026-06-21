@@ -92,6 +92,7 @@ export async function createApplicationFromCanonical(
     organisationName: input.organisationName,
     charityNumber: input.charityNumber,
     companyNumber: input.companyNumber,
+    geography: input.geography,
     bankName: input.bankName,
     bankAccountName: input.bankAccountName,
     bankAccountNumber: input.bankAccountNumber,

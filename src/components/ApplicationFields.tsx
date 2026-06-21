@@ -8,6 +8,7 @@
 export type ApplicationFieldsData = {
   charityNumber?: string | null
   companyNumber?: string | null
+  geography?: string | null
   amountRequested: string
   bankName?: string | null
   bankAccountName?: string | null
@@ -52,6 +53,7 @@ function KeyValueCard({ rows }: { rows: FieldRow[] }) {
 export function ApplicationFields({ application }: { application: ApplicationFieldsData }) {
   const detailRows = [
     { label: 'Amount requested', value: fmtAmount(application.amountRequested) },
+    { label: 'Geography / location', value: application.geography ?? null },
     { label: 'Charity number', value: application.charityNumber ?? null },
     { label: 'Company number', value: application.companyNumber ?? null },
   ].filter((r) => r.value)

@@ -169,6 +169,13 @@
       "when": 1781989085630,
       "tag": "0023_massive_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782037918628,
+      "tag": "0024_perpetual_hex",
+      "breakpoints": true
     }
   ]
 }

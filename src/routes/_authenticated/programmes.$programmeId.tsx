@@ -153,7 +153,7 @@ function ProgrammeDetail() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">
-                Goal{' '}
+                Programme priorities{' '}
                 <span className="font-normal text-gray-400">— used by AI to score applications</span>
               </label>
               <RichTextEditor key={programme.id} defaultValue={goal} onChange={setGoal} />

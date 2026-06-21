@@ -34,6 +34,41 @@ export const addComment = createServerFn({ method: 'POST' })
     return comment!
   })
 
+export const updateComment = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.uuid(), body: z.string().min(1).max(2000) }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
+    const comment = await getDb().query.applicationComments.findFirst({
+      where: (c, { eq }) => eq(c.id, data.id),
+    })
+    if (!comment) throw new Error('Not found')
+    // Only the author can edit their own comment.
+    if (comment.userId !== user.id) throw new Error('Not authorised')
+
+    const [updated] = await getDb()
+      .update(applicationComments)
+      .set({ body: data.body, updatedAt: new Date() })
+      .where(eq(applicationComments.id, data.id))
+      .returning()
+    return updated!
+  })
+
+export const deleteComment = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
+    const comment = await getDb().query.applicationComments.findFirst({
+      where: (c, { eq }) => eq(c.id, data.id),
+    })
+    if (!comment) throw new Error('Not found')
+    // The author can delete their own comment; admins can delete any.
+    const isAdmin = user.role === 'superadmin' || user.role === 'admin'
+    if (comment.userId !== user.id && !isAdmin) throw new Error('Not authorised')
+
+    await getDb().delete(applicationComments).where(eq(applicationComments.id, data.id))
+    return { ok: true }
+  })
+
 export const listVotes = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ applicationId: z.uuid() }))
   .handler(async ({ data }) => {

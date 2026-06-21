@@ -136,7 +136,27 @@ function ApplicationDetail() {
       </div>
 
       <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-gray-900">{application.organisationName}</h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">{application.organisationName}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+            <span>
+              <span className="text-gray-400">Requested </span>
+              <span className="font-semibold text-gray-900">
+                £{Math.round(amountRequested).toLocaleString('en-GB')}
+              </span>
+            </span>
+            {application.geography && (
+              <span>
+                <span className="text-gray-400">Geography </span>
+                <span className="font-medium text-gray-700">{application.geography}</span>
+              </span>
+            )}
+            <span>
+              <span className="text-gray-400">Programme </span>
+              <span className="font-medium text-gray-700">{rp.programme.name}</span>
+            </span>
+          </div>
+        </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
             {isAwarded && (
@@ -242,6 +262,7 @@ function ApplicationDetail() {
         />
         <CommentsSection
           applicationId={application.id}
+          userId={user.id}
           userRole={user.role}
         />
       </div>

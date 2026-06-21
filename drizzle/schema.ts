@@ -174,6 +174,10 @@ export const applications = pgTable('applications', {
   bankSortCode: text('bank_sort_code'),
   amountRequested: numeric('amount_requested').notNull(),
   amountAwarded: numeric('amount_awarded'),
+  // Free-text geography / location the applicant's work covers (e.g. "Yorkshire",
+  // "UK-wide"). Captured from the incoming application; nullable as not every
+  // foundation collects it.
+  geography: text('geography'),
   // Instalment plan for an awarded grant. Null until the award is set up via the
   // "Set up award" drawer. Amounts are stored as strings to match numeric handling
   // elsewhere; `date` is an ISO yyyy-mm-dd string (null when left as "date TBC").
@@ -332,6 +336,9 @@ export const applicationComments = pgTable('application_comments', {
     .references(() => users.id, { onDelete: 'cascade' }),
   body: text('body').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // Set when a comment is edited in place; null for never-edited comments. Drives
+  // the "(edited)" marker in the UI.
+  updatedAt: timestamp('updated_at'),
 })
 
 export const applicationVotes = pgTable(

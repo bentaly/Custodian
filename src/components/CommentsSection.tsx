@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { listComments, addComment } from '../server/fns/comments'
+import { listComments, addComment, updateComment, deleteComment } from '../server/fns/comments'
 
 type Comment = {
   id: string
   body: string
   createdAt: string | Date
+  updatedAt?: string | Date | null
   user: { id: string; name: string; role: string }
 }
 
@@ -21,17 +22,23 @@ function roleLabel(role: string) {
 
 export function CommentsSection({
   applicationId,
+  userId,
   userRole,
 }: {
   applicationId: string
+  userId: string
   userRole: string
 }) {
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editBody, setEditBody] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   const canComment = CAN_COMMENT.has(userRole)
+  const isAdmin = userRole === 'superadmin' || userRole === 'admin'
 
   const load = useCallback(async () => {
     const data = await listComments({ data: { applicationId } })
@@ -57,6 +64,35 @@ export function CommentsSection({
     }
   }
 
+  function startEdit(c: Comment) {
+    setEditingId(c.id)
+    setEditBody(c.body)
+  }
+
+  async function handleSaveEdit(id: string) {
+    if (!editBody.trim()) return
+    setBusyId(id)
+    try {
+      await updateComment({ data: { id, body: editBody.trim() } })
+      setEditingId(null)
+      setEditBody('')
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this comment?')) return
+    setBusyId(id)
+    try {
+      await deleteComment({ data: { id } })
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div>
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -71,31 +107,90 @@ export function CommentsSection({
             <p className="text-sm text-gray-400">No comments yet.</p>
           )}
 
-          {comments.map((c) => (
-            <div
-              key={c.id}
-              className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2.5"
-            >
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <span className="text-xs font-medium text-gray-800">{c.user.name}</span>
-                <span
-                  style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: '#f0f0ec', color: '#777' }}
-                >
-                  {roleLabel(c.user.role)}
-                </span>
-                <span className="ml-auto text-[10px] text-gray-400">
-                  {new Date(c.createdAt).toLocaleString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+          {comments.map((c) => {
+            const canEdit = c.user.id === userId
+            const canDelete = c.user.id === userId || isAdmin
+            const isEditing = editingId === c.id
+            const busy = busyId === c.id
+            return (
+              <div
+                key={c.id}
+                className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2.5"
+              >
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-gray-800">{c.user.name}</span>
+                  <span
+                    style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: '#f0f0ec', color: '#777' }}
+                  >
+                    {roleLabel(c.user.role)}
+                  </span>
+                  <span className="ml-auto text-[10px] text-gray-400">
+                    {new Date(c.createdAt).toLocaleString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {c.updatedAt && ' · edited'}
+                  </span>
+                </div>
+
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editBody}
+                      onChange={(e) => setEditBody(e.target.value)}
+                      rows={2}
+                      className="w-full resize-none rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-gray-400 focus:outline-none"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setEditingId(null)}
+                        disabled={busy}
+                        className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveEdit(c.id)}
+                        disabled={busy || !editBody.trim()}
+                        className="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {busy ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{c.body}</p>
+                    {(canEdit || canDelete) && (
+                      <div className="mt-1.5 flex gap-3">
+                        {canEdit && (
+                          <button
+                            onClick={() => startEdit(c)}
+                            disabled={busy}
+                            className="text-[11px] font-medium text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(c.id)}
+                            disabled={busy}
+                            className="text-[11px] font-medium text-gray-400 hover:text-red-600 disabled:opacity-50"
+                          >
+                            {busy ? 'Deleting…' : 'Delete'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{c.body}</p>
-            </div>
-          ))}
+            )
+          })}
 
           {canComment && (
             <form onSubmit={handleSubmit} className="mt-1 space-y-2">

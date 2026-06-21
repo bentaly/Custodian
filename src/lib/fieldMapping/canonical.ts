@@ -18,6 +18,7 @@ export type CanonicalFieldKey =
   | 'bankSortCode'
   | 'charityNumber'
   | 'companyNumber'
+  | 'geography'
 
 export interface CanonicalField {
   key: CanonicalFieldKey
@@ -98,6 +99,13 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Company number',
     required: false,
     description: 'Companies House registration number.',
+  },
+  {
+    key: 'geography',
+    label: 'Geography / location',
+    required: false,
+    description:
+      'The geographic area the applicant works in or that the funding covers (e.g. a region, city, or "UK-wide").',
   },
 ]
 

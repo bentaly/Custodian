@@ -52,6 +52,7 @@ export function buildCanonicalInput(
     organisationName: get('organisationName'),
     charityNumber: get('charityNumber'),
     companyNumber: get('companyNumber'),
+    geography: get('geography'),
     bankName: get('bankName'),
     bankAccountName: get('bankAccountName'),
     bankAccountNumber: get('bankAccountNumber'),

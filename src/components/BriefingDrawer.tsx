@@ -97,6 +97,7 @@ export function BriefingDrawer({
             <section>
               <CommentsSection
                 applicationId={application.id}
+                userId={user.id}
                 userRole={user.role}
               />
             </section>

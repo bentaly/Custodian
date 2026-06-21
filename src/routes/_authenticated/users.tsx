@@ -212,11 +212,11 @@ function Organization() {
         <p className="mt-1 text-sm text-gray-500">Manage your team and organisation settings</p>
       </div>
 
-      {/* Mission statement — admin only */}
+      {/* Giving strategy — admin only */}
       {isAdmin && user.clientId && (
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-medium text-gray-700">Mission statement</h2>
+            <h2 className="text-sm font-medium text-gray-700">Giving strategy</h2>
             <p className="mt-0.5 text-sm text-gray-500">
               Describe your organisation's goals and funding priorities. This will be used to score
               incoming applications.
