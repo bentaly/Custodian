@@ -75,6 +75,9 @@ export interface CustodianScoreInput {
   organisationName: string
   /** Amount requested, in whole pounds. */
   amountRequested: number
+  /** Geographic area the applicant covers — relevant when a programme has a
+   *  geographic eligibility/priority. */
+  geography: string | null | undefined
   /** The applicant's answers to the dynamic form questions. */
   responses: Array<{ label: string; value: string }> | null | undefined
 }

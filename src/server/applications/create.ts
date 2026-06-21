@@ -80,6 +80,7 @@ export async function createApplicationFromCanonical(
       programmeDescription: programme.description,
       organisationName: input.organisationName,
       amountRequested: input.amountRequested,
+      geography: input.geography,
       responses: input.responses,
     }),
   ])

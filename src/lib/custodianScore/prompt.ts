@@ -61,7 +61,9 @@ Goal: ${goal}${description ? `\nDescription: ${description}` : ''}
 
 # Application
 Organisation: ${input.organisationName}
-Amount requested: £${input.amountRequested.toLocaleString('en-GB')}
+Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${
+    input.geography?.trim() ? `\nGeography / location: ${input.geography.trim()}` : ''
+  }
 
 ## Application responses
 ${responses || '(no responses provided)'}`

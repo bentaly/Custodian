@@ -183,6 +183,7 @@ export const rerunCustodianScore = createServerFn({ method: 'POST' })
       programmeDescription: programme.description,
       organisationName: application.organisationName,
       amountRequested: Number(application.amountRequested),
+      geography: application.geography,
       responses: application.responses,
     })
 
