@@ -4,7 +4,6 @@ import { getApplication, rerunDueDiligence, rerunCustodianScore, updateApplicati
 import { DueDiligencePanel } from '../../components/dueDiligence'
 import { CustodianScorePanel } from '../../components/custodianScore'
 import { ApplicationDrawer } from '../../components/ApplicationDrawer'
-import { AwardSetupDrawer } from '../../components/AwardSetupDrawer'
 import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import type { DueDiligenceCheckRecord, DueDiligenceStatus } from '../../lib/dueDiligence'
@@ -58,7 +57,6 @@ function ApplicationDetail() {
   const [declining, setDeclining] = useState(false)
   const [shortlistError, setShortlistError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [awardOpen, setAwardOpen] = useState(false)
 
   const isShortlisted = application.status === 'shortlisted'
   const isDeclined = application.status === 'declined'
@@ -141,14 +139,6 @@ function ApplicationDetail() {
         <h1 className="text-2xl font-semibold text-gray-900">{application.organisationName}</h1>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
-            {isShortlisted && (
-              <button
-                onClick={() => setAwardOpen(true)}
-                className="rounded border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-              >
-                Generate award
-              </button>
-            )}
             {isAwarded && (
               <span className="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
                 ✓ Awarded
@@ -260,16 +250,6 @@ function ApplicationDetail() {
         application={application}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-      />
-
-      <AwardSetupDrawer
-        application={application}
-        open={awardOpen}
-        onClose={() => setAwardOpen(false)}
-        onAwarded={async () => {
-          setAwardOpen(false)
-          await router.invalidate()
-        }}
       />
     </div>
   )

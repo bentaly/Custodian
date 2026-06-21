@@ -186,6 +186,51 @@ function ShortlistCard({
         </div>
       </div>
 
+      {/* Trustee votes → award readiness */}
+      {app.hasMajority ? (
+        <Link
+          to="/awards"
+          search={{ roundId: undefined }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            padding: '10px 14px',
+            borderBottom: '0.5px solid #f0f0ec',
+            background: '#F0FAF6',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ fontSize: 11, color: '#0F6E56', fontWeight: 600 }}>
+            ✓ {app.yesVotes}/{app.trusteeCount} trustees in favour — enough votes
+          </span>
+          <span style={{ fontSize: 11, color: '#0F6E56', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            Go to Awards to set up →
+          </span>
+        </Link>
+      ) : (
+        <div
+          style={{
+            padding: '10px 14px',
+            borderBottom: '0.5px solid #f0f0ec',
+            fontSize: 11,
+            color: '#888',
+          }}
+        >
+          {app.trusteeCount === 0 ? (
+            'No trustees to vote'
+          ) : (
+            <>
+              <span style={{ fontWeight: 600, color: '#555' }}>
+                {app.yesVotes}/{app.trusteeCount}
+              </span>{' '}
+              trustees in favour · majority needed to award
+            </>
+          )}
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ padding: '11px 14px', display: 'flex', gap: 6 }}>
         <button

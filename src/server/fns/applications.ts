@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, count, inArray, sql, ne, ilike, gte, lt, isNotNull } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, roundProgrammes, programmes } from '../../../drizzle/schema'
+import { applications, roundProgrammes, programmes, applicationVotes, users } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import {
   ApplicationFiltersSchema,
@@ -226,16 +226,76 @@ export const listAwards = createServerFn({ method: 'GET' })
       orderBy: (a, { desc, asc }) => [desc(a.custodianScore), asc(a.organisationName)],
     })
 
-    return {
-      pending: rows.filter((a) => a.status === 'shortlisted'),
-      active: rows.filter((a) => a.status === 'awarded'),
+    const active = rows.filter((a) => a.status === 'awarded')
+    const shortlisted = rows.filter((a) => a.status === 'shortlisted')
+
+    // A shortlisted application is only ready for award setup ("pending") once a
+    // majority (> 50%) of its client's trustees have voted yes.
+    let pending = [] as typeof shortlisted
+    if (shortlisted.length > 0) {
+      const appIds = shortlisted.map((a) => a.id)
+      const clientIds = [...new Set(shortlisted.map((a) => a.roundProgramme.programme.clientId))]
+
+      const [yesRows, trusteeRows] = await Promise.all([
+        getDb()
+          .select({ applicationId: applicationVotes.applicationId, yes: count() })
+          .from(applicationVotes)
+          .where(and(inArray(applicationVotes.applicationId, appIds), eq(applicationVotes.vote, 'yes')))
+          .groupBy(applicationVotes.applicationId),
+        getDb()
+          .select({ clientId: users.clientId, trustees: count() })
+          .from(users)
+          .where(and(eq(users.role, 'trustee'), inArray(users.clientId, clientIds)))
+          .groupBy(users.clientId),
+      ])
+
+      const yesByApp = new Map(yesRows.map((r) => [r.applicationId, r.yes]))
+      const trusteesByClient = new Map(trusteeRows.map((r) => [r.clientId, r.trustees]))
+
+      pending = shortlisted.filter((a) => {
+        const yes = yesByApp.get(a.id) ?? 0
+        const trustees = trusteesByClient.get(a.roundProgramme.programme.clientId) ?? 0
+        return trustees > 0 && yes * 2 > trustees
+      })
     }
+
+    return { pending, active }
   })
 
 export const generateAward = createServerFn({ method: 'POST' })
   .inputValidator(GenerateAwardSchema)
   .handler(async ({ data }) => {
     await requireRole('superadmin', 'admin', 'manager')
+
+    // An award can only be generated for a shortlisted application that has secured
+    // a majority (> 50%) of its client's trustees voting in favour.
+    const existing = await getDb().query.applications.findFirst({
+      where: (a, { eq }) => eq(a.id, data.id),
+      with: { roundProgramme: { with: { programme: true } } },
+    })
+    if (!existing) throw new Error('Not found')
+    if (existing.status !== 'shortlisted') {
+      throw new Error('Only shortlisted applications can be awarded')
+    }
+
+    const clientId = existing.roundProgramme.programme.clientId
+    const [trusteeRows, yesRows] = await Promise.all([
+      getDb()
+        .select({ count: count() })
+        .from(users)
+        .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId))),
+      getDb()
+        .select({ count: count() })
+        .from(applicationVotes)
+        .where(and(eq(applicationVotes.applicationId, data.id), eq(applicationVotes.vote, 'yes'))),
+    ])
+    const trusteeCount = trusteeRows[0]?.count ?? 0
+    const yesCount = yesRows[0]?.count ?? 0
+    if (trusteeCount === 0 || yesCount * 2 <= trusteeCount) {
+      throw new Error(
+        'A majority of trustees must vote in favour before an award can be generated',
+      )
+    }
 
     const schedule = data.schedule.map((s) => ({
       instalment: s.instalment,
