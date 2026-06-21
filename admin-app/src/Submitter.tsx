@@ -123,6 +123,9 @@ interface ExtraField {
 export function Submitter() {
   const [allRounds, setAllRounds] = useState<RoundSummary[]>([])
   const [clientId, setClientId] = useState<string | null>(null)
+  // The client is now resolved from the API key (Authorization: Bearer …), not the
+  // body. Persisted locally so it survives reloads of this dev tool.
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('apply_api_key') ?? '')
   const [roundId, setRoundId] = useState<string | null>(null)
   const [round, setRound] = useState<Round | null>(null)
   const [programmeId, setProgrammeId] = useState<string | null>(null)
@@ -185,16 +188,20 @@ export function Submitter() {
     setResult(null)
 
     try {
-      if (!round || !programme || !clientId) throw new Error('No client, round or programme selected')
+      if (!round || !programme) throw new Error('No round or programme selected')
+      if (!apiKey.trim()) throw new Error('Enter an API key (generate one on the Organisation screen)')
       const selectedProgramme = programme
       // Posts to /api/apply — the single public submission path a real foundation
-      // submission takes. The programme is identified by name; fields go in as a raw
-      // payload (here under their canonical names, which resolve by exact-match).
+      // submission takes. The client is resolved from the API key in the Authorization
+      // header; the programme is identified by name; fields go in as a raw payload (here
+      // under their canonical names, which resolve by exact-match).
       const res = await fetch(`${API_BASE}/api/apply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey.trim()}`,
+        },
         body: JSON.stringify({
-          clientId,
           externalApplicationId: `TEST-${Date.now()}`,
           payload: {
             programmeName: selectedProgramme.name,
@@ -270,10 +277,29 @@ export function Submitter() {
         </button>
       )}
       <div className={`mb-8 ${result ? 'hidden' : ''}`}>
+        <div className="mb-4">
+          <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
+            API key
+          </label>
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => {
+              setApiKey(e.target.value)
+              localStorage.setItem('apply_api_key', e.target.value)
+            }}
+            placeholder="cust_sk_…  (generate on the Organisation screen)"
+            className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Sent as <code>Authorization: Bearer …</code>. Determines which client the submission
+            belongs to.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
-              Client
+              Client (display only — client is set by the API key)
             </label>
             <select
               value={clientId ?? ''}

@@ -357,6 +357,25 @@ export const applicationVotes = pgTable(
   (t) => [unique('application_votes_uniq').on(t.applicationId, t.userId)],
 )
 
+// Per-client API keys for the public /api/apply endpoint. A foundation's intake
+// integration authenticates with `Authorization: Bearer <key>`; the key resolves to
+// the owning client (replacing the old `clientId` body field). Only a SHA-256 hash of
+// the key is stored — the plaintext is shown once at creation and never again. `last4`
+// is kept purely for display (e.g. cust_sk_••••a1b2). Revoking sets `revokedAt`.
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  keyHash: text('key_hash').notNull().unique(),
+  last4: text('last4').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  createdBy: text('created_by'),
+  lastUsedAt: timestamp('last_used_at'),
+  revokedAt: timestamp('revoked_at'),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -366,7 +385,12 @@ export const clientsRelations = relations(clients, ({ many, one }) => ({
   invitations: many(invitations),
   fieldMappings: many(fieldMappings),
   applicationIngests: many(applicationIngests),
+  apiKeys: many(apiKeys),
   profile: one(clientProfiles, { fields: [clients.id], references: [clientProfiles.clientId] }),
+}))
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  client: one(clients, { fields: [apiKeys.clientId], references: [clients.id] }),
 }))
 
 export const clientProfilesRelations = relations(clientProfiles, ({ one }) => ({

@@ -83,7 +83,24 @@ The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the 
 - **rounds** → **programmes** → **formFields** — funding rounds contain programmes which have dynamic application forms
 - **applications** + **applicationResponses** — submitted grant applications with per-field responses
 - **invitations** — token-based invitation flow; users are invited to a client with a role
+- **apiKeys** — per-client secret keys gating `/api/apply` (see below)
 - BetterAuth tables: `sessions`, `accounts`, `verifications` (do not modify these manually)
+
+## Public submission auth (`/api/apply`)
+A foundation's intake integration posts applications to `POST /api/apply` authenticated with
+`Authorization: Bearer <api key>`. The key resolves to the owning client — there is **no
+`clientId` in the request body** (the old design; a key both names the client and proves the
+caller may submit as it). Body is `{ payload, externalApplicationId? }`.
+- Keys live in the `api_keys` table: only a **SHA-256 hash** is stored (plus `last4` for display);
+  plaintext is shown once at creation, never again. Format `cust_sk_…`.
+- Auth helpers: `src/server/apiKeys.ts` (`generateApiKey`, `hashApiKey`, `authenticateApiKey`).
+  Management server fns: `src/server/fns/apiKeys.ts` (`listApiKeys`/`createApiKey`/`revokeApiKey`,
+  admin-only, scoped to the caller's client).
+- UI: **Organisation screen** (`/users` route → `Organisation` component), admin-only section.
+- Test/dev submitter: `admin-app/src/Submitter.tsx` has an API key field (stored in localStorage).
+- Missing/invalid/revoked key → 401. Keys are the intended rate-limit key for the backlogged
+  per-key rate limiting on `/api/apply` (Cloudflare Workers rate-limit binding); not yet wired.
+- British English in all copy/identifiers (e.g. "Organisation", not "Organization").
 
 ## Route structure
 - `src/routes/_authenticated.tsx` — layout + auth guard for all protected routes

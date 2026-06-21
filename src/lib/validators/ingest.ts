@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
-// Payload posted to /api/ingest by a foundation's intake form (a form on their own
-// website, or any external integration). `payload` is the raw form data with the
+// Payload posted to /api/apply by a foundation's intake integration. The owning
+// client is identified by the `Authorization: Bearer <api key>` header (see
+// src/server/apiKeys.ts), not the body. `payload` is the raw form data with the
 // foundation's own field names; the values arrive as arbitrary JSON (usually strings).
 export const IngestSchema = z.object({
-  clientId: z.uuid(),
   externalApplicationId: z.string().min(1).optional(),
   payload: z.record(z.string(), z.unknown()),
 })

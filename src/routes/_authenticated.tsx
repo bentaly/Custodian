@@ -59,7 +59,7 @@ function Sidebar() {
         </Link>
         {isAdmin && (
           <Link to="/users" className={linkClass}>
-            Organization
+            Organisation
           </Link>
         )}
       </nav>

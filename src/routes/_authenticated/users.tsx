@@ -8,15 +8,17 @@ import { Markdown } from 'tiptap-markdown'
 import { listClientUsers } from '../../server/fns/users'
 import { listInvitations, createInvitation } from '../../server/fns/invitations'
 import { getClientProfile, upsertClientProfile } from '../../server/fns/clients'
+import { listApiKeys, createApiKey, revokeApiKey } from '../../server/fns/apiKeys'
 
 export const Route = createFileRoute('/_authenticated/users')({
   loader: async () => {
     const members = await listClientUsers()
     const invites = await listInvitations()
     const profile = await getClientProfile()
-    return { members, invites, profile }
+    const apiKeys = await listApiKeys()
+    return { members, invites, profile, apiKeys }
   },
-  component: Organization,
+  component: Organisation,
 })
 
 const ROLE_LABELS: Record<string, string> = {
@@ -174,10 +176,10 @@ function MissionStatementEditor({ initialContent }: { initialContent: string }) 
   )
 }
 
-function Organization() {
+function Organisation() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
-  const { members, invites, profile } = Route.useLoaderData()
+  const { members, invites, profile, apiKeys } = Route.useLoaderData()
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
   const [inviteEmail, setInviteEmail] = useState('')
@@ -208,7 +210,7 @@ function Organization() {
   return (
     <div className="max-w-3xl space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Organization</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Organisation</h1>
         <p className="mt-1 text-sm text-gray-500">Manage your team and organisation settings</p>
       </div>
 
@@ -347,6 +349,168 @@ function Organization() {
           </div>
         </section>
       )}
+
+      {/* API keys — admin only */}
+      {isAdmin && <ApiKeysSection apiKeys={apiKeys} />}
     </div>
+  )
+}
+
+function maskKey(last4: string) {
+  return `cust_sk_••••${last4}`
+}
+
+type ApiKeyRow = ReturnType<typeof Route.useLoaderData>['apiKeys'][number]
+
+function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
+  const router = useRouter()
+  const [name, setName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
+  const [newKey, setNewKey] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setNewKey(null)
+    setCreating(true)
+    try {
+      const created = await createApiKey({ data: { name } })
+      setNewKey(created.key)
+      setName('')
+      router.invalidate()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create key')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    if (!confirm('Revoke this key? Any integration using it will stop working immediately.')) return
+    try {
+      await revokeApiKey({ data: { id } })
+      router.invalidate()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to revoke key')
+    }
+  }
+
+  async function copyKey() {
+    if (!newKey) return
+    await navigator.clipboard.writeText(newKey)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <section>
+      <h2 className="text-sm font-medium text-gray-700 mb-1">API keys</h2>
+      <p className="mb-3 text-sm text-gray-500">
+        Keys authenticate your intake integration when it posts applications to{' '}
+        <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">/api/apply</code>. Send the key in
+        the <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">Authorization: Bearer …</code>{' '}
+        header from your server — never expose it in browser code.
+      </p>
+
+      {newKey && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
+          <p className="text-sm font-medium text-green-800">
+            Key created — copy it now. You won't be able to see it again.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="flex-1 overflow-x-auto rounded border border-green-300 bg-white px-3 py-2 text-xs text-gray-900">
+              {newKey}
+            </code>
+            <button
+              type="button"
+              onClick={copyKey}
+              className="shrink-0 rounded bg-green-700 px-3 py-2 text-xs font-medium text-white hover:bg-green-800"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {apiKeys.length > 0 && (
+        <div className="mb-4 overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                {['Name', 'Key', 'Created', 'Last used', 'Status', ''].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {apiKeys.map((k) => {
+                const revoked = Boolean(k.revokedAt)
+                return (
+                  <tr key={k.id} className={`hover:bg-gray-50 ${revoked ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3 text-sm text-gray-900">{k.name}</td>
+                    <td className="px-4 py-3 font-mono text-sm text-gray-500">{maskKey(k.last4)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {new Date(k.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          revoked ? 'bg-gray-100 text-gray-500' : 'bg-green-50 text-green-700'
+                        }`}
+                      >
+                        {revoked ? 'Revoked' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {!revoked && (
+                        <button
+                          onClick={() => handleRevoke(k.id)}
+                          className="text-xs text-red-600 hover:text-red-800"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
+          <div className="min-w-48 flex-1">
+            <label className="mb-1 block text-xs font-medium text-gray-500">Key name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Website intake form"
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={creating}
+            className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {creating ? 'Generating…' : 'Generate key'}
+          </button>
+        </form>
+        {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+      </div>
+    </section>
   )
 }
