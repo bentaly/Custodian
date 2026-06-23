@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { getRound, updateRound } from '../../server/fns/rounds'
+import { getRound, updateRound, deleteRound } from '../../server/fns/rounds'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import {
@@ -109,8 +109,12 @@ function RoundDetail() {
   const { user } = Route.useRouteContext()
   const { round, clientProgrammes } = Route.useLoaderData()
   const canManage = ['superadmin', 'admin', 'manager'].includes(user.role)
+  const canDelete = ['superadmin', 'admin'].includes(user.role)
 
   const [editingRound, setEditingRound] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deletingRound, setDeletingRound] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const [roundName, setRoundName] = useState(round.name)
   const [roundOpenedAt, setRoundOpenedAt] = useState(toDateInput(round.openedAt))
   const [roundClosedAt, setRoundClosedAt] = useState(toDateInput(round.closedAt))
@@ -181,6 +185,18 @@ function RoundDetail() {
   async function handleRemoveProgramme(programmeId: string) {
     await removeProgrammeFromRound({ data: { roundId: round.id, programmeId } })
     router.invalidate()
+  }
+
+  async function handleDeleteRound() {
+    setDeleteError('')
+    setDeletingRound(true)
+    try {
+      await deleteRound({ data: { id: round.id } })
+      router.navigate({ to: '/rounds' })
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete round')
+      setDeletingRound(false)
+    }
   }
 
   return (
@@ -270,6 +286,17 @@ function RoundDetail() {
                   className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                 >
                   Edit
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => {
+                    setDeleteError('')
+                    setConfirmingDelete(true)
+                  }}
+                  className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                >
+                  Delete
                 </button>
               )}
             </div>
@@ -378,6 +405,43 @@ function RoundDetail() {
           </div>
         )}
       </div>
+
+      {confirmingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !deletingRound && setConfirmingDelete(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-sm font-semibold text-gray-900">Delete round</h2>
+            <p className="mt-2 text-sm text-gray-500">
+              Delete <span className="font-medium text-gray-700">{round.name}</span>? This also
+              removes its linked programmes from the round. This cannot be undone.
+            </p>
+            {deleteError && <p className="mt-3 text-sm text-red-500">{deleteError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deletingRound}
+                className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteRound}
+                disabled={deletingRound}
+                className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deletingRound ? 'Deleting…' : 'Delete round'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

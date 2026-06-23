@@ -82,3 +82,28 @@ export const updateRound = createServerFn({ method: 'POST' })
     return round!
   })
 
+export const deleteRound = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    const round = await getDb().query.rounds.findFirst({
+      where: (r, { eq }) => eq(r.id, data.id),
+      with: {
+        roundProgrammes: {
+          with: { applications: { columns: { id: true }, limit: 1 } },
+        },
+      },
+    })
+    if (!round) throw new Error('Not found')
+    // Scope non-superadmins to their own client.
+    if (user.clientId && round.clientId !== user.clientId) throw new Error('Forbidden')
+    // applications.roundProgrammeId is ON DELETE RESTRICT, so deleting a round that
+    // has applications would fail at the DB; surface a clear message instead.
+    const hasApplications = round.roundProgrammes.some((rp) => rp.applications.length > 0)
+    if (hasApplications) {
+      throw new Error('This round has applications and cannot be deleted.')
+    }
+    await getDb().delete(rounds).where(eq(rounds.id, data.id))
+    return { ok: true }
+  })
+
