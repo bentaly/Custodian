@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
+import { listClients } from '../../server/fns/platform'
 
 export const Route = createFileRoute('/_authenticated/profile')({
+  // Impersonation targets are only needed for platform superadmins; everyone
+  // else skips the (superadmin-gated) query entirely.
+  loader: async ({ context }) =>
+    context.user.role === 'superadmin' ? { clients: await listClients() } : { clients: [] },
   component: Profile,
 })
 
@@ -17,10 +22,22 @@ const ROLE_LABELS: Record<string, string> = {
 
 function Profile() {
   const { user } = Route.useRouteContext()
+  const { clients } = Route.useLoaderData()
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [impersonateError, setImpersonateError] = useState('')
+
+  async function handleImpersonate(userId: string) {
+    const { error: impError } = await authClient.admin.impersonateUser({ userId })
+    if (impError) {
+      setImpersonateError(impError.message ?? 'Could not start impersonation')
+      return
+    }
+    // Full reload so server-side session/context is re-read as the impersonated user.
+    window.location.href = '/dashboard'
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -83,6 +100,42 @@ function Profile() {
             </span>
           </div>
         </div>
+
+        {user.role === 'superadmin' && (
+          <div className="border-t border-gray-100 pt-6">
+            <h2 className="text-sm font-semibold text-gray-900">Log in as a foundation</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              See a foundation's data as one of its members. Create foundations from the admin app.
+            </p>
+            {impersonateError && <p className="mt-2 text-sm text-red-500">{impersonateError}</p>}
+            <div className="mt-3 space-y-3">
+              {clients.length === 0 && <p className="text-sm text-gray-500">No foundations yet.</p>}
+              {clients.map((client) => (
+                <div key={client.id} className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-sm font-medium text-gray-900">{client.name}</p>
+                  <div className="mt-2 space-y-1">
+                    {client.users.length === 0 && (
+                      <p className="text-xs text-gray-400">No members yet — admin invite pending.</p>
+                    )}
+                    {client.users.map((u) => (
+                      <div key={u.id} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">
+                          {u.name} · <span className="text-gray-400">{u.email}</span>
+                        </span>
+                        <button
+                          onClick={() => handleImpersonate(u.id)}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                        >
+                          Log in as
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -36,7 +36,7 @@ function ImpersonationBanner() {
 
   async function handleStop() {
     await authClient.admin.stopImpersonating()
-    window.location.href = '/platform'
+    window.location.href = '/profile'
   }
 
   return (
@@ -58,7 +58,6 @@ function Sidebar() {
   const navigate = useNavigate()
   const { user } = Route.useRouteContext()
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
-  const isSuperadmin = user.role === 'superadmin'
 
   async function handleSignOut() {
     await authClient.signOut()
@@ -93,11 +92,6 @@ function Sidebar() {
         {isAdmin && (
           <Link to="/users" className={linkClass}>
             Organisation
-          </Link>
-        )}
-        {isSuperadmin && (
-          <Link to="/platform" className={linkClass}>
-            Platform
           </Link>
         )}
       </nav>

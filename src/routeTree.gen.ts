@@ -21,7 +21,6 @@ import { Route as AuthenticatedShortlistRouteImport } from './routes/_authentica
 import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedPlatformRouteImport } from './routes/_authenticated/platform'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
@@ -97,11 +96,6 @@ const AuthenticatedProgrammesRoute = AuthenticatedProgrammesRouteImport.update({
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedPlatformRoute = AuthenticatedPlatformRouteImport.update({
-  id: '/platform',
-  path: '/platform',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -206,7 +200,6 @@ export interface FileRoutesByFullPath {
   '/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/awards': typeof AuthenticatedAwardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/platform': typeof AuthenticatedPlatformRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
@@ -236,7 +229,6 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/platform': typeof AuthenticatedPlatformRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -267,7 +259,6 @@ export interface FileRoutesById {
   '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/_authenticated/awards': typeof AuthenticatedAwardsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/platform': typeof AuthenticatedPlatformRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
@@ -300,7 +291,6 @@ export interface FileRouteTypes {
     | '/applications'
     | '/awards'
     | '/dashboard'
-    | '/platform'
     | '/profile'
     | '/programmes'
     | '/rounds'
@@ -330,7 +320,6 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/awards'
     | '/dashboard'
-    | '/platform'
     | '/profile'
     | '/shortlist'
     | '/users'
@@ -360,7 +349,6 @@ export interface FileRouteTypes {
     | '/_authenticated/applications'
     | '/_authenticated/awards'
     | '/_authenticated/dashboard'
-    | '/_authenticated/platform'
     | '/_authenticated/profile'
     | '/_authenticated/programmes'
     | '/_authenticated/rounds'
@@ -483,13 +471,6 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/platform': {
-      id: '/_authenticated/platform'
-      path: '/platform'
-      fullPath: '/platform'
-      preLoaderRoute: typeof AuthenticatedPlatformRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -665,7 +646,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
   AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedPlatformRoute: typeof AuthenticatedPlatformRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
@@ -677,7 +657,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApplicationsRoute: AuthenticatedApplicationsRouteWithChildren,
   AuthenticatedAwardsRoute: AuthenticatedAwardsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedPlatformRoute: AuthenticatedPlatformRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,
