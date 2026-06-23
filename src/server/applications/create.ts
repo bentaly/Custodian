@@ -13,6 +13,8 @@ import { getDb } from '../db'
 import { applications, programmes, roundProgrammes, rounds } from '../../../drizzle/schema'
 import { runDueDiligence } from '../dueDiligence/run'
 import { runCustodianScore } from '../custodianScore/run'
+import { resolveDeprivation } from '../deprivation/run'
+import { deliveryGeoFromResult } from '../../lib/deprivation/types'
 import type { CreateApplicationInput } from '../../lib/validators/application'
 
 /** Fetch a round programme with everything the create pipeline needs (round for
@@ -67,7 +69,7 @@ export async function createApplicationFromCanonical(
   // Due diligence (external registers) and AI scoring are independent — run them
   // concurrently. Both never throw; a failure surfaces as a status, never a
   // blocked submission.
-  const [dueDiligence, custodian] = await Promise.all([
+  const [dueDiligence, custodian, deprivation] = await Promise.all([
     runDueDiligence({
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
@@ -80,12 +82,15 @@ export async function createApplicationFromCanonical(
       programmeDescription: programme.description,
       organisationName: input.organisationName,
       amountRequested: input.amountRequested,
-      geography: input.geography,
+      deliveryArea: input.deliveryArea,
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
       responses: input.responses,
     }),
+    resolveDeprivation(input.deliveryArea),
   ])
+  const deprivationAttempted = deprivation.status !== 'pending'
+  const deprivationGeo = deliveryGeoFromResult(deprivation)
 
   const id = crypto.randomUUID()
   await getDb().insert(applications).values({
@@ -95,7 +100,7 @@ export async function createApplicationFromCanonical(
     organisationName: input.organisationName,
     charityNumber: input.charityNumber,
     companyNumber: input.companyNumber,
-    geography: input.geography,
+    deliveryArea: input.deliveryArea,
     bankName: input.bankName,
     bankAccountName: input.bankAccountName,
     bankAccountNumber: input.bankAccountNumber,
@@ -109,6 +114,13 @@ export async function createApplicationFromCanonical(
     custodianScore: custodian.score,
     custodianScoreDetail: custodian.detail,
     custodianScoredAt: new Date(custodian.scoredAt),
+    deprivationStatus: deprivation.status,
+    deprivationContext: deprivationAttempted ? deprivation : null,
+    deprivationResolvedAt: deprivationAttempted ? new Date() : null,
+    deliveryNation: deprivationGeo.nation,
+    deliveryRegion: deprivationGeo.region,
+    deliveryLadCode: deprivationGeo.ladCode,
+    deliveryLadName: deprivationGeo.ladName,
   })
 
   const application = await getDb().query.applications.findFirst({

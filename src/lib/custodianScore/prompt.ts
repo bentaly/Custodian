@@ -56,7 +56,7 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
   // Structured application fields, each shown only when present. Bank details are
   // deliberately excluded — they carry no scoring signal and are sensitive.
   const fields = [
-    ['Geography / location', input.geography],
+    ['Project delivery area', input.deliveryArea],
     ['Registered charity number', input.charityNumber],
     ['Companies House number', input.companyNumber],
   ]

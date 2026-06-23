@@ -75,9 +75,9 @@ export interface CustodianScoreInput {
   organisationName: string
   /** Amount requested, in whole pounds. */
   amountRequested: number
-  /** Geographic area the applicant covers — relevant when a programme has a
-   *  geographic eligibility/priority. */
-  geography: string | null | undefined
+  /** Area where the project is delivered (community served) — relevant when a
+   *  programme has a geographic eligibility/priority. */
+  deliveryArea: string | null | undefined
   /** Registered charity number, if any — an indicator of registration status.
    *  Bank details are intentionally NOT part of this input: they carry no scoring
    *  signal and are sensitive, so they are never sent to the model. */

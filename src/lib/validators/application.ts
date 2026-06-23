@@ -19,8 +19,8 @@ export const CreateApplicationSchema = z.object({
   // or both. Due diligence routing keys off whichever are present.
   charityNumber: z.string().max(50).optional(),
   companyNumber: z.string().max(50).optional(),
-  // Free-text geography / location the applicant covers. Optional.
-  geography: z.string().max(255).optional(),
+  // Free-text area where the project is delivered (community served). Optional.
+  deliveryArea: z.string().max(255).optional(),
   bankName: z.string().min(1).max(255),
   bankAccountName: z.string().min(1).max(255),
   bankAccountNumber: z.string().min(1).max(50),

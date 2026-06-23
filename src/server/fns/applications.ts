@@ -12,6 +12,8 @@ import {
 } from '../../lib/validators/application'
 import { runDueDiligence } from '../dueDiligence/run'
 import { runCustodianScore } from '../custodianScore/run'
+import { resolveDeprivation } from '../deprivation/run'
+import { deliveryGeoFromResult } from '../../lib/deprivation/types'
 
 export const listApplications = createServerFn({ method: 'GET' })
   .inputValidator(ApplicationFiltersSchema)
@@ -183,7 +185,7 @@ export const rerunCustodianScore = createServerFn({ method: 'POST' })
       programmeDescription: programme.description,
       organisationName: application.organisationName,
       amountRequested: Number(application.amountRequested),
-      geography: application.geography,
+      deliveryArea: application.deliveryArea,
       charityNumber: application.charityNumber,
       companyNumber: application.companyNumber,
       responses: application.responses,
@@ -196,6 +198,43 @@ export const rerunCustodianScore = createServerFn({ method: 'POST' })
         custodianScore: result.score,
         custodianScoreDetail: result.detail,
         custodianScoredAt: new Date(result.scoredAt),
+      })
+      .where(eq(applications.id, data.id))
+      .returning()
+    return updated!
+  })
+
+// Re-resolve the deprivation context from the application's delivery area. Used by the
+// details-page "Re-run" button (e.g. after a staff member corrects the location) and by
+// the backfill script for applications created before this existed.
+export const rerunDeprivation = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.uuid(), deliveryArea: z.string().max(255).optional() }))
+  .handler(async ({ data }) => {
+    await requireRole('superadmin', 'admin', 'manager')
+
+    const application = await getDb().query.applications.findFirst({
+      where: (a, { eq }) => eq(a.id, data.id),
+    })
+    if (!application) throw new Error('Not found')
+
+    // An optional override lets staff correct a mis-stated location in place.
+    const location = data.deliveryArea ?? application.deliveryArea
+    const result = await resolveDeprivation(location)
+    const attempted = result.status !== 'pending'
+    const geo = deliveryGeoFromResult(result)
+
+    const [updated] = await getDb()
+      .update(applications)
+      .set({
+        // Persist the corrected location too, when one was supplied.
+        ...(data.deliveryArea !== undefined ? { deliveryArea: data.deliveryArea } : {}),
+        deprivationStatus: result.status,
+        deprivationContext: attempted ? result : null,
+        deprivationResolvedAt: attempted ? new Date() : null,
+        deliveryNation: geo.nation,
+        deliveryRegion: geo.region,
+        deliveryLadCode: geo.ladCode,
+        deliveryLadName: geo.ladName,
       })
       .where(eq(applications.id, data.id))
       .returning()

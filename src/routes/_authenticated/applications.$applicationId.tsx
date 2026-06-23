@@ -1,13 +1,15 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { getApplication, rerunDueDiligence, rerunCustodianScore, updateApplicationStatus } from '../../server/fns/applications'
+import { getApplication, rerunDueDiligence, rerunCustodianScore, rerunDeprivation, updateApplicationStatus } from '../../server/fns/applications'
 import { DueDiligencePanel } from '../../components/dueDiligence'
 import { CustodianScorePanel } from '../../components/custodianScore'
+import { DeprivationPanel } from '../../components/deprivation'
 import { ApplicationDrawer } from '../../components/ApplicationDrawer'
 import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import type { DueDiligenceCheckRecord, DueDiligenceStatus } from '../../lib/dueDiligence'
 import type { CustodianScoreDetail, CustodianScoreStatus } from '../../lib/custodianScore'
+import type { DeprivationResult, DeprivationStatus } from '../../lib/deprivation/types'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => getApplication({ data: { id: params.applicationId } }),
@@ -53,6 +55,7 @@ function ApplicationDetail() {
   const router = useRouter()
   const [rerunning, setRerunning] = useState(false)
   const [rescoring, setRescoring] = useState(false)
+  const [rederiving, setRederiving] = useState(false)
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
   const [shortlistError, setShortlistError] = useState<string | null>(null)
@@ -125,6 +128,16 @@ function ApplicationDetail() {
     }
   }
 
+  async function handleRederive() {
+    setRederiving(true)
+    try {
+      await rerunDeprivation({ data: { id: application.id } })
+      await router.invalidate()
+    } finally {
+      setRederiving(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -145,10 +158,10 @@ function ApplicationDetail() {
                 £{Math.round(amountRequested).toLocaleString('en-GB')}
               </span>
             </span>
-            {application.geography && (
+            {application.deliveryArea && (
               <span>
-                <span className="text-gray-400">Geography </span>
-                <span className="font-medium text-gray-700">{application.geography}</span>
+                <span className="text-gray-400">Delivery area </span>
+                <span className="font-medium text-gray-700">{application.deliveryArea}</span>
               </span>
             )}
             <span>
@@ -250,6 +263,21 @@ function ApplicationDetail() {
             className="rounded border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
           >
             {rerunning ? 'Re-running…' : 'Re-run'}
+          </button>
+        }
+      />
+
+      <DeprivationPanel
+        status={(application.deprivationStatus ?? 'pending') as DeprivationStatus}
+        context={application.deprivationContext as DeprivationResult | null}
+        resolvedAt={application.deprivationResolvedAt}
+        action={
+          <button
+            onClick={handleRederive}
+            disabled={rederiving}
+            className="rounded border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {rederiving ? 'Resolving…' : 'Re-run'}
           </button>
         }
       />

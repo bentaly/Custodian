@@ -9,7 +9,7 @@ const INPUT: CustodianScoreInput = {
   programmeDescription: null,
   organisationName: 'Nature Learning Network',
   amountRequested: 35000,
-  geography: 'Yorkshire',
+  deliveryArea: 'Yorkshire',
   charityNumber: '1234567',
   companyNumber: null,
   responses: [{ label: 'What will you do?', value: 'Run outdoor ecology sessions in 12 schools.' }],

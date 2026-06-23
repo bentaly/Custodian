@@ -9,10 +9,12 @@ import {
   numeric,
   integer,
   unique,
+  index,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import type { DueDiligenceCheckRecord } from '../src/lib/dueDiligence/types'
 import type { CustodianScoreDetail } from '../src/lib/custodianScore/types'
+import type { DeprivationResult } from '../src/lib/deprivation/types'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +80,27 @@ export const ingestStatusEnum = pgEnum('ingest_status', [
   'needs_review',
   'ai_proposed',
   'complete',
+])
+
+// State of deprivation-context resolution for an application's free-text location.
+//   pending      — no location on the application, or not yet resolved
+//   resolved     — mapped to a small-area set; a decile range is available
+//   too_broad    — matched a place too large to give a meaningful decile (e.g. "London")
+//   unresolvable — no place matched (typo / unsupported area)
+export const deprivationStatusEnum = pgEnum('deprivation_status', [
+  'pending',
+  'resolved',
+  'too_broad',
+  'unresolvable',
+])
+
+// Which nation's Index of Multiple Deprivation a reference row belongs to. Deciles are
+// only comparable WITHIN a nation, so every reading is labelled with this.
+export const deprivationNationEnum = pgEnum('deprivation_nation', [
+  'england',
+  'scotland',
+  'wales',
+  'northern_ireland',
 ])
 
 // ─── Business tables ──────────────────────────────────────────────────────────
@@ -174,10 +197,13 @@ export const applications = pgTable('applications', {
   bankSortCode: text('bank_sort_code'),
   amountRequested: numeric('amount_requested').notNull(),
   amountAwarded: numeric('amount_awarded'),
-  // Free-text geography / location the applicant's work covers (e.g. "Yorkshire",
-  // "UK-wide"). Captured from the incoming application; nullable as not every
-  // foundation collects it.
-  geography: text('geography'),
+  // Free-text area where the funded PROJECT is delivered — the community served (e.g.
+  // "Bradford", "BD1 1AA", "Yorkshire"), NOT where the organisation is based. Captured
+  // from the incoming application; nullable as not every foundation collects it. Drives
+  // the deprivation context below.
+  // NB: the physical column keeps its original name `geography` (a logical-only rename,
+  // to avoid a data-losing column rename migration); the app refers to it as deliveryArea.
+  deliveryArea: text('geography'),
   // Instalment plan for an awarded grant. Null until the award is set up via the
   // "Set up award" drawer. Amounts are stored as strings to match numeric handling
   // elsewhere; `date` is an ISO yyyy-mm-dd string (null when left as "date TBC").
@@ -205,6 +231,23 @@ export const applications = pgTable('applications', {
   custodianScore: integer('custodian_score'),
   custodianScoreDetail: jsonb('custodian_score_detail').$type<CustodianScoreDetail>(),
   custodianScoredAt: timestamp('custodian_scored_at'),
+  // Deprivation context derived from `deliveryArea`. `deprivationStatus` is the
+  // denormalised outcome for cheap list reads; `deprivationContext` holds the full
+  // result (decile range, nation, vintage, matched area — or the reason it could not
+  // be resolved). Decile data itself comes from our own `deprivation_areas` table
+  // (latest per-nation index), NOT from the geocoding API.
+  deprivationStatus: deprivationStatusEnum('deprivation_status').notNull().default('pending'),
+  deprivationContext: jsonb('deprivation_context').$type<DeprivationResult>(),
+  deprivationResolvedAt: timestamp('deprivation_resolved_at'),
+  // Administrative location of the delivery area, captured during deprivation
+  // resolution (from the matched small area / reverse geocode) — independent of the
+  // decile, for portfolio breakdowns like "funding by region / district". Region is
+  // England's 9 regions ("Wales" for Welsh areas); null for Scotland/NI (group those
+  // by nation). District (LAD) is null for region-level matches that span many LADs.
+  deliveryNation: deprivationNationEnum('delivery_nation'),
+  deliveryRegion: text('delivery_region'),
+  deliveryLadCode: text('delivery_lad_code'),
+  deliveryLadName: text('delivery_lad_name'),
   submittedAt: timestamp('submitted_at').notNull().defaultNow(),
   decisionAt: timestamp('decision_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -324,6 +367,42 @@ export const applicationIngests = pgTable(
     resolvedAt: timestamp('resolved_at'),
     resolvedBy: text('resolved_by'),
   },
+)
+
+// ─── Deprivation reference data ─────────────────────────────────────────────────
+//
+// One row per small area in the UK: LSOA (England/Wales), Data Zone (Scotland) or
+// SOA (Northern Ireland), each carrying its nation's LATEST Index of Multiple
+// Deprivation decile. Seeded once from the official files (IoD2025 / WIMD2025 /
+// SIMD2020 / NIMDM2017) by scripts/seed-deprivation.ts and refreshed only when a
+// nation republishes (every ~5 years) — this is static reference data, ~43k rows.
+//
+// Lookups: by `code` (a postcode's LSOA → one decile), by `wardCode` (a town → its
+// ward's spread) or by `ladCode` (a city → its LAD-wide spread). Codes use the 2021
+// statistical geographies, matching what postcodes.io now returns.
+export const deprivationAreas = pgTable(
+  'deprivation_areas',
+  {
+    code: text('code').primaryKey(),
+    name: text('name').notNull(),
+    // Best-fit parent ward — null where a nation has no ward mapping in our source.
+    wardCode: text('ward_code'),
+    ladCode: text('lad_code').notNull(),
+    ladName: text('lad_name').notNull(),
+    // Statistical region — England only (the 9 regions, e.g. "London"); null elsewhere.
+    // Lets a large place like "London" resolve to a region-wide decile range.
+    regionName: text('region_name'),
+    nation: deprivationNationEnum('nation').notNull(),
+    // 1 = most deprived 10% in this nation … 10 = least. Within-nation only.
+    decile: integer('decile').notNull(),
+    rank: integer('rank'),
+    vintage: text('vintage').notNull(), // 'IoD2025' | 'WIMD2025' | 'SIMD2020' | 'NIMDM2017'
+  },
+  (t) => [
+    index('deprivation_areas_ward_idx').on(t.wardCode),
+    index('deprivation_areas_lad_idx').on(t.ladCode),
+    index('deprivation_areas_region_idx').on(t.regionName),
+  ],
 )
 
 export const applicationComments = pgTable('application_comments', {

@@ -18,7 +18,7 @@ export type CanonicalFieldKey =
   | 'bankSortCode'
   | 'charityNumber'
   | 'companyNumber'
-  | 'geography'
+  | 'deliveryArea'
 
 export interface CanonicalField {
   key: CanonicalFieldKey
@@ -101,11 +101,16 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     description: 'Companies House registration number.',
   },
   {
-    key: 'geography',
-    label: 'Geography / location',
+    key: 'deliveryArea',
+    label: 'Project delivery area',
     required: false,
     description:
-      'The geographic area the applicant works in or that the funding covers (e.g. a region, city, or "UK-wide").',
+      'WHERE THE FUNDED PROJECT IS DELIVERED — the place or community that will benefit from the work. ' +
+      'Prefer the most specific delivery location available: a delivery/project postcode if asked, ' +
+      'otherwise the delivery region, town or area (e.g. "Bradford", "BD1 1AA", "London"). ' +
+      'This is used to look up the deprivation of the area served. ' +
+      'Do NOT map a field about where the ORGANISATION is based, registered, or has its office/headquarters — ' +
+      'that is the applicant\'s own location, not the area they serve, and must be left unmapped.',
   },
 ]
 

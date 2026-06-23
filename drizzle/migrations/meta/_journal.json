@@ -183,6 +183,20 @@
       "when": 1782052615074,
       "tag": "0025_skinny_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782167864631,
+      "tag": "0026_friendly_sentry",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1782247089518,
+      "tag": "0027_colossal_roughhouse",
+      "breakpoints": true
     }
   ]
 }

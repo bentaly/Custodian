@@ -1,0 +1,4 @@
+# Source data files are public/open but large — don't commit them. Keep the docs.
+*
+!.gitignore
+!README.md
