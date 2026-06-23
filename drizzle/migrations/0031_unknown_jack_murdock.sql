@@ -1,0 +1,1 @@
+ALTER TABLE "client_profiles" ADD COLUMN "allow_admin_voting" boolean DEFAULT false NOT NULL;

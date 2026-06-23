@@ -56,16 +56,26 @@ export const getClientProfile = createServerFn({ method: 'GET' }).handler(async 
 })
 
 export const upsertClientProfile = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ missionStatement: z.string() }))
+  .inputValidator(
+    z.object({
+      missionStatement: z.string().optional(),
+      allowAdminVoting: z.boolean().optional(),
+    }),
+  )
   .handler(async ({ data }) => {
     const user = await requireRole('admin', 'superadmin')
     if (!user.clientId) throw new Error('No client associated with your account')
+    // Only set the fields the caller actually provided, so updating one setting
+    // (e.g. the admin-voting toggle) never clobbers another (the mission statement).
+    const fields: Partial<typeof clientProfiles.$inferInsert> = {}
+    if (data.missionStatement !== undefined) fields.missionStatement = data.missionStatement
+    if (data.allowAdminVoting !== undefined) fields.allowAdminVoting = data.allowAdminVoting
     const [profile] = await getDb()
       .insert(clientProfiles)
-      .values({ clientId: user.clientId, missionStatement: data.missionStatement })
+      .values({ clientId: user.clientId, ...fields })
       .onConflictDoUpdate({
         target: clientProfiles.clientId,
-        set: { missionStatement: data.missionStatement, updatedAt: new Date() },
+        set: { ...fields, updatedAt: new Date() },
       })
       .returning()
     return profile!

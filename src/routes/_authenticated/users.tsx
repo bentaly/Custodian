@@ -176,6 +176,56 @@ function MissionStatementEditor({ initialContent }: { initialContent: string }) 
   )
 }
 
+function AdminVotingToggle({ initialEnabled }: { initialEnabled: boolean }) {
+  const [enabled, setEnabled] = useState(initialEnabled)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleToggle() {
+    const next = !enabled
+    setEnabled(next)
+    setSaving(true)
+    setError('')
+    try {
+      await upsertClientProfile({ data: { allowAdminVoting: next } })
+    } catch {
+      setEnabled(!next) // revert on failure
+      setError('Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4">
+      <div className="pr-4">
+        <p className="text-sm font-medium text-gray-700">Allow admins to vote on behalf of trustees</p>
+        <p className="mt-0.5 text-sm text-gray-500">
+          When enabled, admins can record yes/no votes for any trustee on an application — useful
+          when a trustee sends their decision outside the platform.
+        </p>
+        {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={handleToggle}
+        disabled={saving}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+          enabled ? 'bg-gray-900' : 'bg-gray-300'
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            enabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
+  )
+}
+
 function Organisation() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
@@ -225,6 +275,14 @@ function Organisation() {
             </p>
           </div>
           <MissionStatementEditor initialContent={profile?.missionStatement ?? ''} />
+        </section>
+      )}
+
+      {/* Voting — admin only */}
+      {isAdmin && user.clientId && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-gray-700">Voting</h2>
+          <AdminVotingToggle initialEnabled={profile?.allowAdminVoting ?? false} />
         </section>
       )}
 

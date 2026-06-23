@@ -6,6 +6,7 @@ import {
   applicationComments,
   applicationVotes,
   applications,
+  clientProfiles,
   roundProgrammes,
   programmes,
   users,
@@ -78,11 +79,11 @@ export const listVotes = createServerFn({ method: 'GET' })
       where: (a, { eq }) => eq(a.id, data.applicationId),
       with: { roundProgramme: { with: { programme: true } } },
     })
-    if (!app) return { trustees: [] as Array<{ id: string; name: string }>, votes: [] as Array<{ userId: string; vote: 'yes' | 'no'; createdAt: Date }> }
+    if (!app) return { trustees: [] as Array<{ id: string; name: string }>, votes: [] as Array<{ userId: string; vote: 'yes' | 'no'; createdAt: Date }>, allowAdminVoting: false }
 
     const clientId = app.roundProgramme.programme.clientId
 
-    const [trustees, votes] = await Promise.all([
+    const [trustees, votes, profile] = await Promise.all([
       getDb()
         .select({ id: users.id, name: users.name })
         .from(users)
@@ -90,21 +91,67 @@ export const listVotes = createServerFn({ method: 'GET' })
       getDb().query.applicationVotes.findMany({
         where: (v, { eq }) => eq(v.applicationId, data.applicationId),
       }),
+      getDb().query.clientProfiles.findFirst({
+        where: (p, { eq }) => eq(p.clientId, clientId),
+      }),
     ])
 
     return {
       trustees,
       votes: votes.map((v) => ({ userId: v.userId, vote: v.vote, createdAt: v.createdAt })),
+      allowAdminVoting: profile?.allowAdminVoting ?? false,
     }
   })
 
 export const castVote = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ applicationId: z.uuid(), vote: z.enum(['yes', 'no']) }))
+  .inputValidator(
+    z.object({
+      applicationId: z.uuid(),
+      vote: z.enum(['yes', 'no']),
+      // Trustee to record the vote for. Admins only; omitted, a trustee votes as themselves.
+      onBehalfOf: z.string().optional(),
+    }),
+  )
   .handler(async ({ data }) => {
-    const user = await requireRole('trustee')
+    const user = await requireRole('superadmin', 'admin', 'trustee')
+    const isAdmin = user.role === 'superadmin' || user.role === 'admin'
+
+    let targetUserId: string
+    if (isAdmin) {
+      // Admins don't have a vote of their own — they may only record one on
+      // behalf of a trustee, and only when the client has enabled it.
+      if (!data.onBehalfOf) throw new Error('Select a trustee to vote on behalf of')
+
+      const app = await getDb().query.applications.findFirst({
+        where: (a, { eq }) => eq(a.id, data.applicationId),
+        with: { roundProgramme: { with: { programme: true } } },
+      })
+      if (!app) throw new Error('Not found')
+      const clientId = app.roundProgramme.programme.clientId
+
+      // A (non-super) admin may only act within their own client.
+      if (user.role === 'admin' && user.clientId !== clientId) throw new Error('Not authorised')
+
+      const profile = await getDb().query.clientProfiles.findFirst({
+        where: (p, { eq }) => eq(p.clientId, clientId),
+      })
+      if (!profile?.allowAdminVoting) throw new Error('Admin voting is not enabled for this organisation')
+
+      // The target must be a trustee of the same client.
+      const target = await getDb().query.users.findFirst({
+        where: (u, { eq, and: andOp }) =>
+          andOp(eq(u.id, data.onBehalfOf!), eq(u.clientId, clientId), eq(u.role, 'trustee')),
+      })
+      if (!target) throw new Error('Not a trustee of this organisation')
+      targetUserId = target.id
+    } else {
+      // Trustees vote as themselves.
+      targetUserId = user.id
+    }
+
     await getDb()
       .insert(applicationVotes)
-      .values({ applicationId: data.applicationId, userId: user.id, vote: data.vote })
+      .values({ applicationId: data.applicationId, userId: targetUserId, vote: data.vote })
       .onConflictDoUpdate({
         target: [applicationVotes.applicationId, applicationVotes.userId],
         set: { vote: data.vote },

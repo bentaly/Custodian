@@ -218,6 +218,13 @@
       "when": 1782250787971,
       "tag": "0030_great_sunspot",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1782254349440,
+      "tag": "0031_unknown_jack_murdock",
+      "breakpoints": true
     }
   ]
 }

@@ -325,6 +325,8 @@ export const clientProfiles = pgTable('client_profiles', {
     .unique()
     .references(() => clients.id, { onDelete: 'cascade' }),
   missionStatement: text('mission_statement'),
+  // When true, admins may record votes on behalf of trustees (see castVote).
+  allowAdminVoting: boolean('allow_admin_voting').notNull().default(false),
   updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })

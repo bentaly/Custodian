@@ -4,6 +4,7 @@ import { listVotes, castVote } from '../server/fns/comments'
 type VoteData = {
   trustees: Array<{ id: string; name: string }>
   votes: Array<{ userId: string; vote: 'yes' | 'no'; createdAt: Date }>
+  allowAdminVoting: boolean
 }
 
 export function VotingSection({
@@ -18,6 +19,7 @@ export function VotingSection({
   const [data, setData] = useState<VoteData | null>(null)
   const [voting, setVoting] = useState(false)
   const isTrustee = userRole === 'trustee'
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin'
 
   const load = useCallback(async () => {
     const result = await listVotes({ data: { applicationId } })
@@ -28,10 +30,12 @@ export function VotingSection({
     load()
   }, [load])
 
-  async function handleVote(vote: 'yes' | 'no') {
+  // Trustees vote as themselves (onBehalfOf omitted); admins record a vote for a
+  // specific trustee when the organisation has enabled admin voting.
+  async function handleVote(vote: 'yes' | 'no', onBehalfOf?: string) {
     setVoting(true)
     try {
-      await castVote({ data: { applicationId, vote } })
+      await castVote({ data: { applicationId, vote, onBehalfOf } })
       await load()
     } finally {
       setVoting(false)
@@ -42,9 +46,9 @@ export function VotingSection({
   if (data.trustees.length === 0) return null
 
   const voteMap = new Map(data.votes.map((v) => [v.userId, v.vote]))
-  const myVote = voteMap.get(userId)
   const yesCount = data.votes.filter((v) => v.vote === 'yes').length
   const noCount = data.votes.filter((v) => v.vote === 'no').length
+  const canAdminVote = isAdmin && data.allowAdminVoting
 
   return (
     <div>
@@ -61,10 +65,17 @@ export function VotingSection({
         )}
       </div>
 
+      {canAdminVote && (
+        <p className="mb-2 text-xs text-gray-400">You can record votes on behalf of trustees.</p>
+      )}
+
       <div className="overflow-hidden rounded-lg border border-gray-100">
         {data.trustees.map((trustee, i) => {
           const vote = voteMap.get(trustee.id)
           const isMe = trustee.id === userId
+          // The current trustee votes for themselves; an admin (when enabled) may
+          // record a vote for any trustee.
+          const canSetThisVote = (isMe && isTrustee) || canAdminVote
           return (
             <div
               key={trustee.id}
@@ -79,13 +90,13 @@ export function VotingSection({
                 )}
               </span>
 
-              {isMe && isTrustee ? (
+              {canSetThisVote ? (
                 <div className="flex gap-1.5">
                   <button
-                    onClick={() => handleVote('yes')}
+                    onClick={() => handleVote('yes', isMe ? undefined : trustee.id)}
                     disabled={voting}
                     className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                      myVote === 'yes'
+                      vote === 'yes'
                         ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
                         : 'border border-gray-200 text-gray-500 hover:border-emerald-200 hover:text-emerald-700'
                     }`}
@@ -93,10 +104,10 @@ export function VotingSection({
                     Yes
                   </button>
                   <button
-                    onClick={() => handleVote('no')}
+                    onClick={() => handleVote('no', isMe ? undefined : trustee.id)}
                     disabled={voting}
                     className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                      myVote === 'no'
+                      vote === 'no'
                         ? 'border border-red-200 bg-red-50 text-red-600'
                         : 'border border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600'
                     }`}
