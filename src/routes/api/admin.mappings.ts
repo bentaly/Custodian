@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../../server/db'
 import { fieldMappings } from '../../../drizzle/schema'
 import { MappingSchema } from '../../lib/validators/ingest'
-import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
+import { adminActor, adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 
 export const Route = createFileRoute('/api/admin/mappings')(
   {
@@ -46,13 +46,14 @@ export const Route = createFileRoute('/api/admin/mappings')(
             )
           }
 
-          const { clientId, sourceKey, canonicalField, addedBy } = parsed.data
+          const { clientId, sourceKey, canonicalField } = parsed.data
+          const addedBy = adminActor(request)
           const [row] = await getDb()
             .insert(fieldMappings)
-            .values({ clientId, sourceKey, canonicalField, addedBy: addedBy ?? null })
+            .values({ clientId, sourceKey, canonicalField, addedBy })
             .onConflictDoUpdate({
               target: [fieldMappings.clientId, fieldMappings.sourceKey],
-              set: { canonicalField, addedBy: addedBy ?? null },
+              set: { canonicalField, addedBy },
             })
             .returning()
           return adminJson(row, 200)

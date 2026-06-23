@@ -12,19 +12,19 @@ export type IngestInput = z.infer<typeof IngestSchema>
 
 // Admin resolves a needs_review ingest: `mapping` is canonicalField → sourceKey as
 // chosen by the reviewer; `addToLookup` lists the canonical fields whose chosen
-// mapping should be persisted to the foundation's lookup table.
+// mapping should be persisted to the foundation's lookup table. The resolving
+// operator is taken from the Cloudflare Access identity header, not the body.
 export const ResolveSchema = z.object({
   mapping: z.record(z.string(), z.string()),
   addToLookup: z.array(z.string()).default([]),
-  resolvedBy: z.string().optional(),
 })
 export type ResolveInput = z.infer<typeof ResolveSchema>
 
-// Manually add/edit a single lookup-table entry from the admin app.
+// Manually add/edit a single lookup-table entry from the admin app. The operator is
+// taken from the Cloudflare Access identity header, not the body.
 export const MappingSchema = z.object({
   clientId: z.uuid(),
   sourceKey: z.string().min(1),
   canonicalField: z.string().min(1),
-  addedBy: z.string().optional(),
 })
 export type MappingInput = z.infer<typeof MappingSchema>

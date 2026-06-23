@@ -31,3 +31,13 @@ export function requireAdminToken(request: Request): Response | null {
   }
   return null
 }
+
+/**
+ * The signed-in operator's email, forwarded by the Cloudflare Access-gated admin app
+ * as `x-admin-actor` (sourced from `/cdn-cgi/access/get-identity`). Null off-Cloudflare
+ * (e.g. localhost) or when no identity is available. Used to attribute admin actions.
+ */
+export function adminActor(request: Request): string | null {
+  const actor = request.headers.get('x-admin-actor')?.trim()
+  return actor ? actor : null
+}

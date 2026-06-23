@@ -27,7 +27,11 @@ export type ResolveResult =
   | { ok: false; error: 'invalid'; fields: Array<{ field: string; message: string }> }
   | { ok: true; applicationId: string }
 
-export async function resolveIngest(ingestId: string, input: ResolveInput): Promise<ResolveResult> {
+export async function resolveIngest(
+  ingestId: string,
+  input: ResolveInput,
+  actor: string | null,
+): Promise<ResolveResult> {
   const ingest = await getDb().query.applicationIngests.findFirst({
     where: eq(applicationIngests.id, ingestId),
   })
@@ -74,11 +78,11 @@ export async function resolveIngest(ingestId: string, input: ResolveInput): Prom
         clientId: ingest.clientId,
         sourceKey,
         canonicalField: canonical,
-        addedBy: input.resolvedBy ?? null,
+        addedBy: actor,
       })
       .onConflictDoUpdate({
         target: [fieldMappings.clientId, fieldMappings.sourceKey],
-        set: { canonicalField: canonical, addedBy: input.resolvedBy ?? null },
+        set: { canonicalField: canonical, addedBy: actor },
       })
   }
 
@@ -96,7 +100,7 @@ export async function resolveIngest(ingestId: string, input: ResolveInput): Prom
       externalApplicationId:
         ingest.externalApplicationId ?? resolved.externalApplicationId?.value ?? null,
       resolvedAt: new Date(),
-      resolvedBy: input.resolvedBy ?? null,
+      resolvedBy: actor,
     })
     .where(eq(applicationIngests.id, ingestId))
 

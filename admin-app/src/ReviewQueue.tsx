@@ -14,7 +14,6 @@ export function ReviewQueue() {
   const [rows, setRows] = useState<IngestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [reviewer, setReviewer] = useState('')
 
   function load() {
     setLoading(true)
@@ -30,7 +29,7 @@ export function ReviewQueue() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1">
           {(['needs_review', 'ai_proposed', 'complete', 'all'] as StatusFilter[]).map((s) => (
             <button
@@ -44,12 +43,6 @@ export function ReviewQueue() {
             </button>
           ))}
         </div>
-        <input
-          placeholder="your email (recorded on resolve)"
-          value={reviewer}
-          onChange={(e) => setReviewer(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
-        />
       </div>
 
       {loading && <p className="text-sm text-gray-500">Loading…</p>}
@@ -61,7 +54,7 @@ export function ReviewQueue() {
       )}
 
       {rows.map((row) => (
-        <IngestCard key={row.id} row={row} reviewer={reviewer} onResolved={load} />
+        <IngestCard key={row.id} row={row} onResolved={load} />
       ))}
     </div>
   )
@@ -69,11 +62,9 @@ export function ReviewQueue() {
 
 function IngestCard({
   row,
-  reviewer,
   onResolved,
 }: {
   row: IngestRow
-  reviewer: string
   onResolved: () => void
 }) {
   const [open, setOpen] = useState(row.status === 'needs_review')
@@ -107,7 +98,6 @@ function IngestCard({
       await adminPost(`/api/admin/ingests/${row.id}/resolve`, {
         mapping: cleanMapping,
         addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && mapping[k]),
-        resolvedBy: reviewer || undefined,
       })
       onResolved()
     } catch (e) {

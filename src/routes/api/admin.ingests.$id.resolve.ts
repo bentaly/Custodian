@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ResolveSchema } from '../../lib/validators/ingest'
 import { resolveIngest } from '../../server/fieldMapping/resolve'
-import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
+import { adminActor, adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 
 export const Route = createFileRoute('/api/admin/ingests/$id/resolve')(
   {
@@ -39,7 +39,7 @@ export const Route = createFileRoute('/api/admin/ingests/$id/resolve')(
             )
           }
 
-          const result = await resolveIngest(params.id, parsed.data)
+          const result = await resolveIngest(params.id, parsed.data, adminActor(request))
           if (!result.ok) {
             if (result.error === 'not_found') return adminJson({ error: 'Not found' }, 404)
             if (result.error === 'already_resolved')
