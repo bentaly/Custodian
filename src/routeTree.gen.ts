@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as NoAccessRouteImport } from './routes/no-access'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiRoundsRouteImport } from './routes/api/rounds'
@@ -20,6 +21,7 @@ import { Route as AuthenticatedShortlistRouteImport } from './routes/_authentica
 import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPlatformRouteImport } from './routes/_authenticated/platform'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
@@ -30,6 +32,7 @@ import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiAdminMappingsRouteImport } from './routes/api/admin.mappings'
 import { Route as ApiAdminIngestsRouteImport } from './routes/api/admin.ingests'
+import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
 import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
 import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './routes/_authenticated/applications.$applicationId'
@@ -45,6 +48,11 @@ const SignUpRoute = SignUpRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NoAccessRoute = NoAccessRouteImport.update({
+  id: '/no-access',
+  path: '/no-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -89,6 +97,11 @@ const AuthenticatedProgrammesRoute = AuthenticatedProgrammesRouteImport.update({
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPlatformRoute = AuthenticatedPlatformRouteImport.update({
+  id: '/platform',
+  path: '/platform',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -145,6 +158,11 @@ const ApiAdminIngestsRoute = ApiAdminIngestsRouteImport.update({
   path: '/api/admin/ingests',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminClientsRoute = ApiAdminClientsRouteImport.update({
+  id: '/api/admin/clients',
+  path: '/api/admin/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRoundsRoundIdRoute =
   AuthenticatedRoundsRoundIdRouteImport.update({
     id: '/$roundId',
@@ -182,11 +200,13 @@ const ApiAdminIngestsIdResolveRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/no-access': typeof NoAccessRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/awards': typeof AuthenticatedAwardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/platform': typeof AuthenticatedPlatformRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
@@ -197,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/clients': typeof ApiAdminClientsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -210,10 +231,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/no-access': typeof NoAccessRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/platform': typeof AuthenticatedPlatformRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -222,6 +245,7 @@ export interface FileRoutesByTo {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/clients': typeof ApiAdminClientsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -237,11 +261,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/no-access': typeof NoAccessRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
   '/_authenticated/awards': typeof AuthenticatedAwardsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/platform': typeof AuthenticatedPlatformRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
@@ -252,6 +278,7 @@ export interface FileRoutesById {
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/clients': typeof ApiAdminClientsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -267,11 +294,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/no-access'
     | '/sign-in'
     | '/sign-up'
     | '/applications'
     | '/awards'
     | '/dashboard'
+    | '/platform'
     | '/profile'
     | '/programmes'
     | '/rounds'
@@ -282,6 +311,7 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
     | '/rounds/$roundId'
+    | '/api/admin/clients'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/auth/$'
@@ -295,10 +325,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/no-access'
     | '/sign-in'
     | '/sign-up'
     | '/awards'
     | '/dashboard'
+    | '/platform'
     | '/profile'
     | '/shortlist'
     | '/users'
@@ -307,6 +339,7 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
     | '/rounds/$roundId'
+    | '/api/admin/clients'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/auth/$'
@@ -321,11 +354,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/no-access'
     | '/sign-in'
     | '/sign-up'
     | '/_authenticated/applications'
     | '/_authenticated/awards'
     | '/_authenticated/dashboard'
+    | '/_authenticated/platform'
     | '/_authenticated/profile'
     | '/_authenticated/programmes'
     | '/_authenticated/rounds'
@@ -336,6 +371,7 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/rounds/$roundId'
+    | '/api/admin/clients'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/auth/$'
@@ -351,10 +387,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  NoAccessRoute: typeof NoAccessRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
   ApiRoundsRoute: typeof ApiRoundsRoute
+  ApiAdminClientsRoute: typeof ApiAdminClientsRoute
   ApiAdminIngestsRoute: typeof ApiAdminIngestsRouteWithChildren
   ApiAdminMappingsRoute: typeof ApiAdminMappingsRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -375,6 +413,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/no-access': {
+      id: '/no-access'
+      path: '/no-access'
+      fullPath: '/no-access'
+      preLoaderRoute: typeof NoAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -438,6 +483,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/platform': {
+      id: '/_authenticated/platform'
+      path: '/platform'
+      fullPath: '/platform'
+      preLoaderRoute: typeof AuthenticatedPlatformRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -508,6 +560,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/ingests'
       fullPath: '/api/admin/ingests'
       preLoaderRoute: typeof ApiAdminIngestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/clients': {
+      id: '/api/admin/clients'
+      path: '/api/admin/clients'
+      fullPath: '/api/admin/clients'
+      preLoaderRoute: typeof ApiAdminClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/rounds/$roundId': {
@@ -606,6 +665,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
   AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedPlatformRoute: typeof AuthenticatedPlatformRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
@@ -617,6 +677,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApplicationsRoute: AuthenticatedApplicationsRouteWithChildren,
   AuthenticatedAwardsRoute: AuthenticatedAwardsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedPlatformRoute: AuthenticatedPlatformRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,
@@ -665,10 +726,12 @@ const ApiAdminMappingsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  NoAccessRoute: NoAccessRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
   ApiRoundsRoute: ApiRoundsRoute,
+  ApiAdminClientsRoute: ApiAdminClientsRoute,
   ApiAdminIngestsRoute: ApiAdminIngestsRouteWithChildren,
   ApiAdminMappingsRoute: ApiAdminMappingsRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

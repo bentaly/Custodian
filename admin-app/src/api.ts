@@ -19,6 +19,32 @@ export const CANONICAL_FIELDS: Array<{ key: string; label: string; required: boo
   { key: 'companyNumber', label: 'Company number', required: false },
 ]
 
+// The admin app sits behind Cloudflare Access, which exposes the signed-in operator's
+// identity at this edge endpoint. We forward the email to the main app (x-admin-actor)
+// so provisioning can be attributed. Cached; null off-Cloudflare (e.g. localhost 404).
+let _actor: string | null | undefined
+async function actorEmail(): Promise<string | null> {
+  if (_actor !== undefined) return _actor
+  let email: string | null = null
+  try {
+    const res = await fetch('/cdn-cgi/access/get-identity')
+    if (res.ok) email = (await res.json())?.email ?? null
+  } catch {
+    email = null
+  }
+  _actor = email
+  return email
+}
+
+async function adminHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+  const email = await actorEmail()
+  return {
+    'x-admin-token': ADMIN_TOKEN,
+    ...(email ? { 'x-admin-actor': email } : {}),
+    ...extra,
+  }
+}
+
 async function parse(res: Response) {
   const data = await res.json().catch(() => null)
   if (!res.ok) {
@@ -30,22 +56,22 @@ async function parse(res: Response) {
   return data
 }
 
-export function adminGet<T = unknown>(path: string): Promise<T> {
-  return fetch(`${API_BASE}${path}`, { headers: { 'x-admin-token': ADMIN_TOKEN } }).then(parse)
+export async function adminGet<T = unknown>(path: string): Promise<T> {
+  return fetch(`${API_BASE}${path}`, { headers: await adminHeaders() }).then(parse)
 }
 
-export function adminPost<T = unknown>(path: string, body: unknown): Promise<T> {
+export async function adminPost<T = unknown>(path: string, body: unknown): Promise<T> {
   return fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_TOKEN },
+    headers: await adminHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   }).then(parse)
 }
 
-export function adminDelete<T = unknown>(path: string): Promise<T> {
+export async function adminDelete<T = unknown>(path: string): Promise<T> {
   return fetch(`${API_BASE}${path}`, {
     method: 'DELETE',
-    headers: { 'x-admin-token': ADMIN_TOKEN },
+    headers: await adminHeaders(),
   }).then(parse)
 }
 

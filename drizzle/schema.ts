@@ -111,6 +111,9 @@ export const clients = pgTable('clients', {
   type: clientTypeEnum('type').notNull().default('charitable_foundation'),
   description: text('description'),
   website: text('website'),
+  // Cloudflare Access email of the Canvas operator who provisioned this foundation
+  // from the admin app (forwarded via x-admin-actor). Null for any other origin.
+  createdByEmail: text('created_by_email'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -123,6 +126,10 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   role: userRoleEnum('role').notNull().default('observer'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // BetterAuth admin plugin — ban controls (unused for now, required by plugin schema)
+  banned: boolean('banned').notNull().default(false),
+  banReason: text('ban_reason'),
+  banExpires: timestamp('ban_expires'),
   // BetterAuth required
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
@@ -264,6 +271,8 @@ export const sessions = pgTable('sessions', {
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // BetterAuth admin plugin — set to the admin's user id while impersonating
+  impersonatedBy: text('impersonated_by'),
 })
 
 export const accounts = pgTable('accounts', {
@@ -299,9 +308,11 @@ export const invitations = pgTable('invitations', {
   email: text('email').notNull(),
   role: userRoleEnum('role').notNull().default('observer'),
   token: text('token').notNull().unique(),
-  invitedBy: text('invited_by')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
+  // Nullable: invites created from the (token-gated) admin app have no main-app
+  // user to attribute. In-app invites still set this to the inviting user.
+  invitedBy: text('invited_by').references(() => users.id, { onDelete: 'cascade' }),
+  // Cloudflare Access email of the admin-app operator, when invitedBy is null.
+  invitedByEmail: text('invited_by_email'),
   expiresAt: timestamp('expires_at').notNull(),
   acceptedAt: timestamp('accepted_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

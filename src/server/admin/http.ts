@@ -8,7 +8,7 @@
 const ADMIN_CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-admin-token',
+  'Access-Control-Allow-Headers': 'Content-Type, x-admin-token, x-admin-actor',
 }
 
 export function adminOptions(): Response {

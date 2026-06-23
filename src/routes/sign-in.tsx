@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
@@ -124,12 +124,6 @@ function SignInPage() {
           {googleLoading ? 'Redirecting to Google…' : 'Continue with Google'}
         </button>
 
-        <p className="text-center text-sm text-gray-500">
-          No account?{' '}
-          <Link to="/sign-up" search={{ invite: undefined }} className="text-gray-900 underline">
-            Create one
-          </Link>
-        </p>
       </div>
     </div>
   )

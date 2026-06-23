@@ -6,6 +6,10 @@ export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async () => {
     const user = await getMe()
     if (!user) throw redirect({ to: '/sign-in' })
+    // Invite-only: a signed-in user with no tenant (and not a platform superadmin)
+    // has no foundation to see. getMe already tried to auto-claim a pending invite
+    // by email, so reaching here means there genuinely isn't one.
+    if (!user.clientId && user.role !== 'superadmin') throw redirect({ to: '/no-access' })
     return { user }
   },
   component: AuthenticatedLayout,
@@ -13,11 +17,39 @@ export const Route = createFileRoute('/_authenticated')({
 
 function AuthenticatedLayout() {
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <Outlet />
-      </main>
+    <div className="flex h-screen flex-col">
+      <ImpersonationBanner />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto p-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  )
+}
+
+function ImpersonationBanner() {
+  const { data } = authClient.useSession()
+  const impersonating = !!data?.session?.impersonatedBy
+  if (!impersonating) return null
+
+  async function handleStop() {
+    await authClient.admin.stopImpersonating()
+    window.location.href = '/platform'
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm text-white">
+      <span>
+        Impersonating <span className="font-medium">{data?.user?.email}</span>
+      </span>
+      <button
+        onClick={handleStop}
+        className="rounded bg-amber-600 px-2 py-0.5 text-xs font-medium hover:bg-amber-700"
+      >
+        Stop impersonating
+      </button>
     </div>
   )
 }
@@ -26,6 +58,7 @@ function Sidebar() {
   const navigate = useNavigate()
   const { user } = Route.useRouteContext()
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
+  const isSuperadmin = user.role === 'superadmin'
 
   async function handleSignOut() {
     await authClient.signOut()
@@ -60,6 +93,11 @@ function Sidebar() {
         {isAdmin && (
           <Link to="/users" className={linkClass}>
             Organisation
+          </Link>
+        )}
+        {isSuperadmin && (
+          <Link to="/platform" className={linkClass}>
+            Platform
           </Link>
         )}
       </nav>

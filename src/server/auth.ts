@@ -1,19 +1,42 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { admin } from 'better-auth/plugins'
+import { createAccessControl } from 'better-auth/plugins/access'
+import { defaultStatements } from 'better-auth/plugins/admin/access'
 import { getDb } from './db'
 import { users, sessions, accounts, verifications } from '../../drizzle/schema'
+
+// The admin plugin validates `adminRoles` against its access-control `roles` map
+// (which otherwise only knows "admin"/"user"). Register our platform `superadmin`
+// role with the full set of user/session admin permissions so it may impersonate.
+const ac = createAccessControl(defaultStatements)
+const superadminRole = ac.newRole({
+  user: [
+    'create', 'list', 'set-role', 'ban', 'impersonate', 'impersonate-admins',
+    'delete', 'set-password', 'get', 'update',
+  ],
+  session: ['list', 'revoke', 'delete'],
+})
 
 // Lazy so the module can be imported without throwing on missing env vars —
 // env is only read (and validated) the first time a request needs auth.
 // This prevents Cloudflare Workers' esbuild __esm module from being
 // permanently poisoned if the secret is absent on first load.
-let _auth: ReturnType<typeof betterAuth> | undefined
+// The type is inferred from `createAuth` (not the bare `betterAuth`) so the
+// plugin-augmented API (admin plugin: impersonate, banned fields, …) is preserved.
+let _auth: ReturnType<typeof createAuth> | undefined
 
-export function getAuth(): ReturnType<typeof betterAuth> {
+export function getAuth(): ReturnType<typeof createAuth> {
   if (!_auth) {
     if (!process.env['BETTER_AUTH_SECRET']) throw new Error('BETTER_AUTH_SECRET is required')
-    _auth = betterAuth({
-      secret: process.env['BETTER_AUTH_SECRET'],
+    _auth = createAuth()
+  }
+  return _auth
+}
+
+function createAuth() {
+  return betterAuth({
+      secret: process.env['BETTER_AUTH_SECRET']!,
       baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
       onAPIError: {
         errorURL: '/sign-in',
@@ -63,7 +86,17 @@ export function getAuth(): ReturnType<typeof betterAuth> {
           clientSecret: process.env['GOOGLE_CLIENT_SECRET'] ?? '',
         },
       },
-    }) as ReturnType<typeof betterAuth>
-  }
-  return _auth
+      plugins: [
+        admin({
+          ac,
+          roles: { superadmin: superadminRole },
+          // Only platform superadmins may use admin endpoints (e.g. impersonation).
+          // Foundation `admin`s are tenant-scoped and must NOT get these powers.
+          adminRoles: ['superadmin'],
+          // Match our pgEnum — the plugin otherwise defaults new users to "user",
+          // which is not a valid `user_role` value and would break signup inserts.
+          defaultRole: 'observer',
+        }),
+      ],
+    })
 }

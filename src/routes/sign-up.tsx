@@ -27,7 +27,6 @@ function SignUpPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState(invitation?.email ?? '')
   const [password, setPassword] = useState('')
-  const [clientName, setClientName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -44,9 +43,7 @@ function SignUpPage() {
     }
 
     try {
-      await completeRegistration({
-        data: isInvite ? { inviteToken: invite } : { clientName },
-      })
+      await completeRegistration({ data: { inviteToken: invite } })
     } catch (err) {
       await authClient.signOut()
       setError(err instanceof Error ? err.message : 'Registration failed')
@@ -70,16 +67,32 @@ function SignUpPage() {
     )
   }
 
+  // Invite-only onboarding: with no invitation there is no usable sign-up form.
+  if (!isInvite) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="w-full max-w-sm space-y-4 rounded-lg bg-white p-8 shadow text-center">
+          <h1 className="text-lg font-semibold text-gray-900">Invitation required</h1>
+          <p className="text-sm text-gray-500">
+            Custodian is invite-only. Ask your administrator to send you an invitation to join your
+            organisation.
+          </p>
+          <Link to="/sign-in" className="block text-sm text-gray-900 underline">
+            Sign in
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm space-y-5 rounded-lg bg-white p-8 shadow">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Create an account</h1>
-          {isInvite && (
-            <p className="mt-1 text-sm text-gray-500">
-              You've been invited to join <span className="font-medium text-gray-700">{invitation.clientName}</span>
-            </p>
-          )}
+          <p className="mt-1 text-sm text-gray-500">
+            You've been invited to join <span className="font-medium text-gray-700">{invitation.clientName}</span>
+          </p>
         </div>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
@@ -97,9 +110,8 @@ function SignUpPage() {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={isInvite ? undefined : (e) => setEmail(e.target.value)}
-            readOnly={isInvite}
-            className={`w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 ${isInvite ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+            readOnly
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-400"
             required
           />
           <input
@@ -110,21 +122,6 @@ function SignUpPage() {
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
             required
           />
-          {!isInvite && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
-                Foundation name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. The Smith Foundation"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                required
-              />
-            </div>
-          )}
           <button
             type="submit"
             disabled={loading}

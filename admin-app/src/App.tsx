@@ -3,13 +3,15 @@ import { Submitter } from './Submitter'
 import { ReviewQueue } from './ReviewQueue'
 import { OutOfRound } from './OutOfRound'
 import { Mappings } from './Mappings'
+import { Clients } from './Clients'
 
-type View = 'review' | 'unrouted' | 'mappings' | 'submit'
+type View = 'review' | 'unrouted' | 'mappings' | 'clients' | 'submit'
 
 const TABS: Array<{ key: View; label: string }> = [
   { key: 'review', label: 'Review queue' },
   { key: 'unrouted', label: 'Out of round' },
   { key: 'mappings', label: 'Mappings' },
+  { key: 'clients', label: 'Foundations' },
   { key: 'submit', label: 'Submit test' },
 ]
 
@@ -43,6 +45,7 @@ export default function App() {
         {view === 'review' && <ReviewQueue />}
         {view === 'unrouted' && <OutOfRound />}
         {view === 'mappings' && <Mappings />}
+        {view === 'clients' && <Clients />}
         {view === 'submit' && <Submitter />}
       </main>
     </div>
