@@ -6,5 +6,39 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = "dist/client"
 
+# Rate limiters for /api/apply. `simple.limit` is requests per `period` (seconds; must
+# be 10 or 60). namespace_id is an arbitrary unique id per limiter. Used in
+# src/server/rateLimit.ts via the stashed env (see worker-entry.js).
+#
+# The IP limiter runs before auth, so it also sees authenticated traffic — its ceiling
+# is therefore kept ABOVE the per-client limit so a legit client batch-submitting from
+# one IP is bounded by their (strong) per-client limit, never tripped by IP first. The
+# IP limit is purely a volumetric backstop for the unauthenticated path; the per-client
+# limit is the real per-tenant fairness control.
+[[unsafe.bindings]]
+name = "APPLY_IP_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
+[[unsafe.bindings]]
+name = "APPLY_KEY_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
+
 [env.staging]
 name = "custodian-staging"
+
+# Unsafe bindings are not inherited by named environments — repeat them for staging.
+[[env.staging.unsafe.bindings]]
+name = "APPLY_IP_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
+[[env.staging.unsafe.bindings]]
+name = "APPLY_KEY_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }

@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { IngestSchema } from '../../lib/validators/ingest'
 import { ingestApplication } from '../../server/fieldMapping/ingest'
 import { authenticateApiKey } from '../../server/apiKeys'
+import { checkRateLimit } from '../../server/rateLimit'
 
 // The single public submission entry. A foundation's intake integration posts the raw
 // payload here, authenticated with `Authorization: Bearer <api key>` (generated on the
@@ -21,17 +22,37 @@ function jsonResponse(data: unknown, status: number) {
   })
 }
 
+function tooManyRequests() {
+  return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again shortly.' }), {
+    status: 429,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', 'Retry-After': '60' },
+  })
+}
+
 export const Route = createFileRoute('/api/apply')(
   {
     server: {
       handlers: {
         OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
         POST: async ({ request }: { request: Request }) => {
-          // Authenticate first — the API key both names the client and proves the
-          // caller may submit as them.
+          // 1. Per-IP backstop on every request — a volumetric guard for the
+          //    unauthenticated path (its ceiling sits above the per-client limit, so a
+          //    legit single-IP client is bounded by step 3, never tripped here first).
+          const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
+          if (!(await checkRateLimit('APPLY_IP_LIMITER', ip))) {
+            return tooManyRequests()
+          }
+
+          // 2. Authenticate — the API key both names the client and proves the caller
+          //    may submit as them.
           const auth = await authenticateApiKey(request)
           if (!auth) {
             return jsonResponse({ error: 'Invalid or missing API key' }, 401)
+          }
+
+          // 3. Per-client limit — the real per-tenant fairness control for legit traffic.
+          if (!(await checkRateLimit('APPLY_KEY_LIMITER', auth.clientId))) {
+            return tooManyRequests()
           }
 
           let rawBody: unknown

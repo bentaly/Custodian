@@ -16,6 +16,9 @@ export default {
         }
       }
     }
+    // Non-string bindings (rate limiters, KV, etc.) can't go through process.env,
+    // so stash the live env for server code that needs them (see src/server/rateLimit.ts).
+    globalThis.__cfEnv = env
     return handler.fetch(request, env, ctx)
   },
 }
