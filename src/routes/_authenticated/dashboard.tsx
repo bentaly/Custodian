@@ -2,9 +2,12 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
   beforeLoad: ({ context }) => {
-    // A platform superadmin has no tenant data — send them to Profile, which hosts
-    // the impersonation console.
-    if (context.user.role === 'superadmin') throw redirect({ to: '/profile' })
+    // A platform superadmin with no tenant has no dashboard data — send them to
+    // Profile (which hosts the impersonation console). A superadmin who also belongs
+    // to a client keeps a normal dashboard.
+    if (context.user.role === 'superadmin' && !context.user.clientId) {
+      throw redirect({ to: '/profile' })
+    }
   },
   component: Dashboard,
 })
