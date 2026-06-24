@@ -12,6 +12,7 @@ build/
 src/**/*.js
 drizzle/schema.js
 drizzle.config.js
+/vite.config.js
 .DS_Store
 
 # TanStack Router (auto-generated, committed but here for reference)

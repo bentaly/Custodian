@@ -7,6 +7,9 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
+    // Type-checking only — the app is built by Vite, never by tsc. Prevents a bare
+    // `tsc` (without --noEmit) from littering compiled .js next to the .ts sources.
+    "noEmit": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
