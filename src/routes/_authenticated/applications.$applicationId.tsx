@@ -168,6 +168,12 @@ function ApplicationDetail() {
               <span className="text-gray-400">Programme </span>
               <span className="font-medium text-gray-700">{rp.programme.name}</span>
             </span>
+            {application.externalApplicationId && (
+              <span>
+                <span className="text-gray-400">Ref </span>
+                <span className="font-mono text-gray-700">{application.externalApplicationId}</span>
+              </span>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">

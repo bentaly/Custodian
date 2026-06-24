@@ -4,7 +4,7 @@ import {
   adminGet,
   adminPost,
   API_BASE,
-  CANONICAL_FIELDS,
+  useCanonicalFields,
   type MappingRow,
 } from './api'
 
@@ -19,7 +19,13 @@ export function Mappings() {
   const [rows, setRows] = useState<MappingRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [sourceKey, setSourceKey] = useState('')
-  const [canonicalField, setCanonicalField] = useState(CANONICAL_FIELDS[0]!.key)
+  const canonicalFields = useCanonicalFields()
+  const [canonicalField, setCanonicalField] = useState('')
+
+  // Default the select to the first canonical field once they've loaded.
+  useEffect(() => {
+    if (!canonicalField && canonicalFields.length) setCanonicalField(canonicalFields[0]!.key)
+  }, [canonicalFields, canonicalField])
 
   // Client list comes from the public rounds endpoint (no admin token needed).
   useEffect(() => {
@@ -143,7 +149,7 @@ export function Mappings() {
             onChange={(e) => setCanonicalField(e.target.value)}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
-            {CANONICAL_FIELDS.map((f) => (
+            {canonicalFields.map((f) => (
               <option key={f.key} value={f.key}>
                 {f.label}
               </option>

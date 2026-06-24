@@ -32,6 +32,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiAdminMappingsRouteImport } from './routes/api/admin.mappings'
 import { Route as ApiAdminIngestsRouteImport } from './routes/api/admin.ingests'
 import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
+import { Route as ApiAdminCanonicalFieldsRouteImport } from './routes/api/admin.canonical-fields'
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
 import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
 import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './routes/_authenticated/applications.$applicationId'
@@ -157,6 +158,11 @@ const ApiAdminClientsRoute = ApiAdminClientsRouteImport.update({
   path: '/api/admin/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminCanonicalFieldsRoute = ApiAdminCanonicalFieldsRouteImport.update({
+  id: '/api/admin/canonical-fields',
+  path: '/api/admin/canonical-fields',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRoundsRoundIdRoute =
   AuthenticatedRoundsRoundIdRouteImport.update({
     id: '/$roundId',
@@ -210,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
@@ -301,6 +310,7 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
     | '/rounds/$roundId'
+    | '/api/admin/canonical-fields'
     | '/api/admin/clients'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
@@ -328,6 +338,7 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/programmes/$programmeId'
     | '/rounds/$roundId'
+    | '/api/admin/canonical-fields'
     | '/api/admin/clients'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/rounds/$roundId'
+    | '/api/admin/canonical-fields'
     | '/api/admin/clients'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
@@ -380,6 +392,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
   ApiRoundsRoute: typeof ApiRoundsRoute
+  ApiAdminCanonicalFieldsRoute: typeof ApiAdminCanonicalFieldsRoute
   ApiAdminClientsRoute: typeof ApiAdminClientsRoute
   ApiAdminIngestsRoute: typeof ApiAdminIngestsRouteWithChildren
   ApiAdminMappingsRoute: typeof ApiAdminMappingsRouteWithChildren
@@ -550,6 +563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/canonical-fields': {
+      id: '/api/admin/canonical-fields'
+      path: '/api/admin/canonical-fields'
+      fullPath: '/api/admin/canonical-fields'
+      preLoaderRoute: typeof ApiAdminCanonicalFieldsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/rounds/$roundId': {
       id: '/_authenticated/rounds/$roundId'
       path: '/$roundId'
@@ -710,6 +730,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
   ApiRoundsRoute: ApiRoundsRoute,
+  ApiAdminCanonicalFieldsRoute: ApiAdminCanonicalFieldsRoute,
   ApiAdminClientsRoute: ApiAdminClientsRoute,
   ApiAdminIngestsRoute: ApiAdminIngestsRouteWithChildren,
   ApiAdminMappingsRoute: ApiAdminMappingsRouteWithChildren,

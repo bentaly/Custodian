@@ -2,22 +2,54 @@
 // are gated by a shared token sent in the `x-admin-token` header (VITE_ADMIN_TOKEN,
 // injected at build time). API_BASE points at the main app (staging or prod).
 
+import { useEffect, useState } from 'react'
+
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:5174'
 export const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN ?? ''
 
-// Mirror of the main app's canonical field registry (src/lib/fieldMapping/canonical.ts).
-// Kept in sync by hand — the admin app can't import from the main app's source.
-export const CANONICAL_FIELDS: Array<{ key: string; label: string; required: boolean }> = [
-  { key: 'externalApplicationId', label: 'External application ID', required: true },
-  { key: 'organisationName', label: 'Organisation name', required: true },
-  { key: 'amountRequested', label: 'Amount requested', required: true },
-  { key: 'bankName', label: 'Bank name', required: true },
-  { key: 'bankAccountName', label: 'Bank account name', required: true },
-  { key: 'bankAccountNumber', label: 'Bank account number', required: true },
-  { key: 'bankSortCode', label: 'Bank sort code', required: true },
-  { key: 'charityNumber', label: 'Charity number', required: false },
-  { key: 'companyNumber', label: 'Company number', required: false },
-]
+// The canonical field registry is the main app's source of truth
+// (src/lib/fieldMapping/canonical.ts). Rather than copy it here and let it drift, we
+// fetch it from /api/admin/canonical-fields. Cached at module scope so it's loaded once.
+export interface CanonicalField {
+  key: string
+  label: string
+  required: boolean
+  description?: string
+}
+
+let _canonicalCache: CanonicalField[] | null = null
+let _canonicalPromise: Promise<CanonicalField[]> | null = null
+
+export function fetchCanonicalFields(): Promise<CanonicalField[]> {
+  if (_canonicalCache) return Promise.resolve(_canonicalCache)
+  if (!_canonicalPromise) {
+    _canonicalPromise = adminGet<CanonicalField[]>('/api/admin/canonical-fields')
+      .then((fields) => {
+        _canonicalCache = fields
+        return fields
+      })
+      .catch((e) => {
+        _canonicalPromise = null // let a later call retry
+        throw e
+      })
+  }
+  return _canonicalPromise
+}
+
+/** Canonical fields, or `[]` until the fetch resolves (synchronous on a warm cache). */
+export function useCanonicalFields(): CanonicalField[] {
+  const [fields, setFields] = useState<CanonicalField[]>(_canonicalCache ?? [])
+  useEffect(() => {
+    let active = true
+    fetchCanonicalFields()
+      .then((f) => active && setFields(f))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+  return fields
+}
 
 // The admin app sits behind Cloudflare Access, which exposes the signed-in operator's
 // identity at this edge endpoint. We forward the email to the main app (x-admin-actor)
@@ -78,7 +110,6 @@ export async function adminDelete<T = unknown>(path: string): Promise<T> {
 export interface IngestRow {
   id: string
   status: 'needs_review' | 'ai_proposed' | 'complete'
-  externalApplicationId: string | null
   rawPayload: Record<string, unknown>
   proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
   resolved: Record<string, string> | null
@@ -86,6 +117,18 @@ export interface IngestRow {
   roundProgrammeId: string | null
   createdAt: string
   client: { id: string; name: string }
+}
+
+// The foundation's application reference is just the `externalApplicationId` canonical
+// field — no dedicated column. Derive it from the stored mapping (sourceKey → canonical)
+// and the raw payload, for display.
+export function externalIdOf(row: IngestRow): string | null {
+  const entry = Object.entries(row.resolved ?? {}).find(
+    ([, canonical]) => canonical === 'externalApplicationId',
+  )
+  if (!entry) return null
+  const value = row.rawPayload[entry[0]]
+  return value == null || value === '' ? null : String(value)
 }
 
 export interface MappingRow {

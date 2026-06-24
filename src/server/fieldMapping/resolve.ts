@@ -97,8 +97,6 @@ export async function resolveIngest(
       applicationId,
       roundProgrammeId,
       resolved: resolvedMapFor(resolved),
-      externalApplicationId:
-        ingest.externalApplicationId ?? resolved.externalApplicationId?.value ?? null,
       resolvedAt: new Date(),
       resolvedBy: actor,
     })

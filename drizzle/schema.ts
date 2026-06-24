@@ -366,7 +366,6 @@ export const applicationIngests = pgTable(
       .references(() => clients.id, { onDelete: 'cascade' }),
     roundProgrammeId: uuid('round_programme_id')
       .references(() => roundProgrammes.id, { onDelete: 'restrict' }),
-    externalApplicationId: text('external_application_id'),
     rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
     status: ingestStatusEnum('status').notNull().default('needs_review'),
     // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.

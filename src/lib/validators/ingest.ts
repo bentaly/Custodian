@@ -1,14 +1,10 @@
 import { z } from 'zod'
 
-// Payload posted to /api/apply by a foundation's intake integration. The owning
-// client is identified by the `Authorization: Bearer <api key>` header (see
-// src/server/apiKeys.ts), not the body. `payload` is the raw form data with the
-// foundation's own field names; the values arrive as arbitrary JSON (usually strings).
-export const IngestSchema = z.object({
-  externalApplicationId: z.string().min(1).optional(),
-  payload: z.record(z.string(), z.unknown()),
-})
-export type IngestInput = z.infer<typeof IngestSchema>
+// Note: /api/apply has no envelope schema — the whole request body IS the payload (a
+// flat object of the foundation's own field names → values, JSON or form-encoded), so
+// there's nothing to validate at the door beyond "is it a non-empty object" (handled in
+// the route). Meaningful validation happens downstream on the mapped canonical fields
+// via CreateApplicationSchema.
 
 // Admin resolves a needs_review ingest: `mapping` is canonicalField → sourceKey as
 // chosen by the reviewer; `addToLookup` lists the canonical fields whose chosen

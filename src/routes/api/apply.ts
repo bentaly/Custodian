@@ -1,18 +1,46 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { IngestSchema } from '../../lib/validators/ingest'
 import { ingestApplication } from '../../server/fieldMapping/ingest'
 import { authenticateApiKey } from '../../server/apiKeys'
 import { checkRateLimit } from '../../server/rateLimit'
 
 // The single public submission entry. A foundation's intake integration posts the raw
-// payload here, authenticated with `Authorization: Bearer <api key>` (generated on the
-// Organisation screen). The key resolves to the owning client; the payload is mapped to
+// application here, authenticated with `Authorization: Bearer <api key>` (generated on the
+// Organisation screen). The key resolves to the owning client; the fields are mapped to
 // canonical fields and either creates an application or is held for review. The response
 // includes the created application + screening results when one was made.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+// The submission body IS the payload — a flat object of the foundation's own field
+// names → values. There are no reserved top-level keys (the client comes from the API
+// key, and every field including the foundation's application reference is mapped). A
+// foundation may post JSON or a form encoding (urlencoded / multipart); form values
+// arrive as strings, which the mapper handles natively. Returns null for a body that
+// isn't a usable, non-empty object.
+async function parsePayload(request: Request): Promise<Record<string, unknown> | null> {
+  const contentType = request.headers.get('content-type') ?? ''
+  let payload: Record<string, unknown>
+  if (contentType.includes('application/json')) {
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return null
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return null
+    payload = body as Record<string, unknown>
+  } else {
+    // application/x-www-form-urlencoded or multipart/form-data.
+    try {
+      payload = Object.fromEntries(await request.formData())
+    } catch {
+      return null
+    }
+  }
+  return Object.keys(payload).length > 0 ? payload : null
 }
 
 function jsonResponse(data: unknown, status: number) {
@@ -55,23 +83,12 @@ export const Route = createFileRoute('/api/apply')(
             return tooManyRequests()
           }
 
-          let rawBody: unknown
-          try {
-            rawBody = await request.json()
-          } catch {
-            return jsonResponse({ error: 'Invalid JSON' }, 400)
+          const payload = await parsePayload(request)
+          if (!payload) {
+            return jsonResponse({ error: 'Request body must contain application fields' }, 400)
           }
 
-          const parsed = IngestSchema.safeParse(rawBody)
-          if (!parsed.success) {
-            const fields = parsed.error.issues.map((i) => ({
-              field: i.path.join('.'),
-              message: i.message,
-            }))
-            return jsonResponse({ error: 'Missing or invalid fields', fields }, 400)
-          }
-
-          const result = await ingestApplication({ ...parsed.data, clientId: auth.clientId })
+          const result = await ingestApplication({ payload, clientId: auth.clientId })
           if (!result.ok) {
             return jsonResponse({ error: 'Unknown client' }, 404)
           }

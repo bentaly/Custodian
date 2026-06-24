@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { adminDelete, adminGet, API_BASE, type IngestRow } from './api'
+import { adminDelete, adminGet, API_BASE, externalIdOf, type IngestRow } from './api'
 
 // Ingests held because their programme name didn't match a programme in any open
 // round (roundProgrammeId is null). Staff can edit the raw data — typically fix the
@@ -62,11 +62,7 @@ function UnroutedCard({ row, onChanged }: { row: IngestRow; onChanged: () => voi
       const res = await fetch(`${API_BASE}/api/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: row.client.id,
-          externalApplicationId: row.externalApplicationId ?? undefined,
-          payload,
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -98,7 +94,7 @@ function UnroutedCard({ row, onChanged }: { row: IngestRow; onChanged: () => voi
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-gray-900">
           {row.client.name}
-          <span className="ml-2 text-gray-400">{row.externalApplicationId ?? '(no ext id)'}</span>
+          <span className="ml-2 text-gray-400">{externalIdOf(row) ?? '(no ext id)'}</span>
         </p>
         <span className="text-xs text-gray-400">{new Date(row.createdAt).toLocaleString('en-GB')}</span>
       </div>

@@ -201,31 +201,30 @@ export function Submitter() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey.trim()}`,
         },
+        // The body IS the payload — flat fields, no envelope.
         body: JSON.stringify({
           externalApplicationId: `TEST-${Date.now()}`,
-          payload: {
-            programmeName: selectedProgramme.name,
-            organisationName: form.organisationName,
-            charityNumber: form.charityNumber || undefined,
-            companyNumber: form.companyNumber || undefined,
-            bankName: form.bankName,
-            bankAccountName: form.bankAccountName,
-            bankAccountNumber: form.bankAccountNumber,
-            bankSortCode: form.bankSortCode,
-            amountRequested: form.amountRequested,
-            'How did you hear about us?': form.referralSource,
-            'Previous funding received': form.previousFunding,
-            ...Object.fromEntries(
-              (selectedProgramme.formFields ?? [])
-                .filter((f) => responses[f.id] !== undefined && responses[f.id] !== '')
-                .map((f) => [f.label, responses[f.id]!]),
-            ),
-            ...Object.fromEntries(
-              extraFields
-                .filter((f) => f.label.trim() && f.value.trim())
-                .map((f) => [f.label.trim(), f.value.trim()]),
-            ),
-          },
+          programmeName: selectedProgramme.name,
+          organisationName: form.organisationName,
+          charityNumber: form.charityNumber || undefined,
+          companyNumber: form.companyNumber || undefined,
+          bankName: form.bankName,
+          bankAccountName: form.bankAccountName,
+          bankAccountNumber: form.bankAccountNumber,
+          bankSortCode: form.bankSortCode,
+          amountRequested: form.amountRequested,
+          'How did you hear about us?': form.referralSource,
+          'Previous funding received': form.previousFunding,
+          ...Object.fromEntries(
+            (selectedProgramme.formFields ?? [])
+              .filter((f) => responses[f.id] !== undefined && responses[f.id] !== '')
+              .map((f) => [f.label, responses[f.id]!]),
+          ),
+          ...Object.fromEntries(
+            extraFields
+              .filter((f) => f.label.trim() && f.value.trim())
+              .map((f) => [f.label.trim(), f.value.trim()]),
+          ),
         }),
       })
       const data = await res.json()

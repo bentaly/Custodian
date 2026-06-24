@@ -6,8 +6,8 @@
 // Flow: resolve programme name → find active round → lookup-table match → AI
 // fallback for any unresolved required fields (proposals above the confidence
 // threshold are applied) → decide status → validate the assembled canonical
-// input → promote or hold. `externalApplicationId` gives idempotency: a re-sent
-// payload returns the existing record instead of creating a duplicate.
+// input → promote or hold. The foundation's own application reference is just the
+// `externalApplicationId` canonical field, resolved by mapping like any other.
 //
 // If `programmeName` can't be matched to a programme in an active round (no match,
 // or the round is closed), the ingest is still saved and held for human review with
@@ -25,12 +25,7 @@ import {
   type LookupResult,
 } from '../../lib/fieldMapping'
 import { runFieldMapping, type FieldMappingAssessor } from './run'
-import {
-  buildCanonicalInput,
-  computeResponses,
-  resolvedMapFor,
-  PROVIDED,
-} from './assemble'
+import { buildCanonicalInput, computeResponses, resolvedMapFor } from './assemble'
 import {
   createApplicationFromCanonical,
   findActiveRoundProgrammeByName,
@@ -42,7 +37,6 @@ const AI_CONFIDENCE_THRESHOLD = 0.85
 
 export interface IngestParams {
   clientId: string
-  externalApplicationId?: string
   payload: Record<string, unknown>
   /** Injectable AI assessor for tests. */
   assess?: FieldMappingAssessor
@@ -81,12 +75,7 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
   const lookup = applyLookup(payload, mappings)
   const resolved: LookupResult['resolved'] = { ...lookup.resolved }
 
-  // 2. A caller-provided external id pre-resolves that field.
-  if (params.externalApplicationId && !resolved.externalApplicationId) {
-    resolved.externalApplicationId = { sourceKey: PROVIDED, value: params.externalApplicationId }
-  }
-
-  // 3. AI fallback for any required field still unresolved.
+  // 2. AI fallback for any required field still unresolved.
   let unresolvedRequired = REQUIRED_CANONICAL_KEYS.filter((k) => !resolved[k])
   let aiUsed = false
   let proposed: Record<string, { sourceKey: string | null; confidence: number }> | null = null
@@ -115,7 +104,7 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     unresolvedRequired = REQUIRED_CANONICAL_KEYS.filter((k) => !resolved[k])
   }
 
-  // 4. Resolve programme → active round. If the programme name resolved but no
+  // 3. Resolve programme → active round. If the programme name resolved but no
   //    active round exists for it, reject immediately. If it didn't resolve, hold
   //    for human review (roundProgrammeId stays null until a reviewer picks it).
   let roundProgrammeId: string | null = null
@@ -129,14 +118,11 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     roundProgrammeId = resolvedRoundProgramme?.id ?? null
   }
 
-  // 5. Build responses (leftover payload) and the stored resolved map.
+  // 4. Build responses (leftover payload) and the stored resolved map.
   const responses = computeResponses(payload, resolved)
   const resolvedMap = resolvedMapFor(resolved)
 
-  const externalApplicationId =
-    resolved.externalApplicationId?.value ?? params.externalApplicationId ?? null
-
-  // 6. Decide status, validating the assembled canonical input. A required field
+  // 5. Decide status, validating the assembled canonical input. A required field
   //    that resolved to an invalid value (e.g. an amount that won't parse) is
   //    treated as unresolved → needs_review. We can only attempt validation when
   //    the round programme is known.
@@ -152,7 +138,7 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     status = 'needs_review'
   }
 
-  // 7. Promote (create the application) or hold for review.
+  // 6. Promote (create the application) or hold for review.
   let applicationId: string | null = null
   let created: CreatedApplication | undefined
   if (status !== 'needs_review' && validInput?.success && resolvedRoundProgramme) {
@@ -165,7 +151,6 @@ export async function ingestApplication(params: IngestParams): Promise<IngestRes
     .values({
       clientId,
       roundProgrammeId,
-      externalApplicationId,
       rawPayload: payload,
       status,
       proposed,

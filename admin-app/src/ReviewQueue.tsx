@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { adminGet, adminPost, CANONICAL_FIELDS, type IngestRow } from './api'
+import {
+  adminGet,
+  adminPost,
+  externalIdOf,
+  useCanonicalFields,
+  type CanonicalField,
+  type IngestRow,
+} from './api'
 
 type StatusFilter = 'needs_review' | 'ai_proposed' | 'complete' | 'all'
 
@@ -14,6 +21,7 @@ export function ReviewQueue() {
   const [rows, setRows] = useState<IngestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const canonicalFields = useCanonicalFields()
 
   function load() {
     setLoading(true)
@@ -54,7 +62,7 @@ export function ReviewQueue() {
       )}
 
       {rows.map((row) => (
-        <IngestCard key={row.id} row={row} onResolved={load} />
+        <IngestCard key={row.id} row={row} canonicalFields={canonicalFields} onResolved={load} />
       ))}
     </div>
   )
@@ -62,9 +70,11 @@ export function ReviewQueue() {
 
 function IngestCard({
   row,
+  canonicalFields,
   onResolved,
 }: {
   row: IngestRow
+  canonicalFields: CanonicalField[]
   onResolved: () => void
 }) {
   const [open, setOpen] = useState(row.status === 'needs_review')
@@ -77,14 +87,22 @@ function IngestCard({
     return m
   }, [row.resolved])
 
-  // Initial chosen source key per canonical field: stored resolution, else AI proposal.
-  const [mapping, setMapping] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {}
-    for (const f of CANONICAL_FIELDS) {
-      init[f.key] = resolvedByCanonical[f.key] ?? row.proposed?.[f.key]?.sourceKey ?? ''
-    }
-    return init
-  })
+  // Chosen source key per canonical field: stored resolution, else AI proposal. Seeded
+  // here and topped up when the canonical registry arrives (it may load after mount).
+  const [mapping, setMapping] = useState<Record<string, string>>({})
+  useEffect(() => {
+    setMapping((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const f of canonicalFields) {
+        if (next[f.key] === undefined) {
+          next[f.key] = resolvedByCanonical[f.key] ?? row.proposed?.[f.key]?.sourceKey ?? ''
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [canonicalFields, resolvedByCanonical, row.proposed])
   const [addToLookup, setAddToLookup] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -121,7 +139,7 @@ function IngestCard({
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-gray-900">
             {row.client.name}
-            <span className="ml-2 text-gray-400">{row.externalApplicationId ?? '(no ext id)'}</span>
+            <span className="ml-2 text-gray-400">{externalIdOf(row) ?? '(no ext id)'}</span>
           </p>
           <p className="text-xs text-gray-400">{new Date(row.createdAt).toLocaleString('en-GB')}</p>
         </div>
@@ -144,7 +162,7 @@ function IngestCard({
           )}
 
           <div className="space-y-2">
-            {CANONICAL_FIELDS.map((f) => {
+            {canonicalFields.map((f) => {
               const chosen = mapping[f.key] ?? ''
               const proposal = row.proposed?.[f.key]
               const preview = chosen ? String(row.rawPayload[chosen] ?? '') : ''

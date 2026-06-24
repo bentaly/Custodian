@@ -90,7 +90,13 @@ The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the 
 A foundation's intake integration posts applications to `POST /api/apply` authenticated with
 `Authorization: Bearer <api key>`. The key resolves to the owning client — there is **no
 `clientId` in the request body** (the old design; a key both names the client and proves the
-caller may submit as it). Body is `{ payload, externalApplicationId? }`.
+caller may submit as it). **The request body IS the payload** — a flat object of the
+foundation's own field names → values, with no reserved top-level keys. JSON or form-encoded
+(`application/x-www-form-urlencoded` / `multipart/form-data`) are both accepted. Every field,
+including the foundation's own application reference, is mapped to canonical fields; the ref
+maps to the `externalApplicationId` canonical field (no special top-level key). The only
+door-level check is "non-empty object"; real validation runs downstream on the mapped
+canonical fields (`CreateApplicationSchema`).
 - Keys live in the `api_keys` table: only a **SHA-256 hash** is stored (plus `last4` for display);
   plaintext is shown once at creation, never again. Format `cust_sk_…`.
 - Auth helpers: `src/server/apiKeys.ts` (`generateApiKey`, `hashApiKey`, `authenticateApiKey`).

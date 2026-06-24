@@ -1,0 +1,1 @@
+ALTER TABLE "application_ingests" DROP COLUMN "external_application_id";
