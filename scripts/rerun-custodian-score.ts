@@ -35,6 +35,9 @@ async function main() {
       id: true,
       organisationName: true,
       amountRequested: true,
+      deliveryArea: true,
+      charityNumber: true,
+      companyNumber: true,
       responses: true,
       custodianScoreStatus: true,
     },
@@ -57,6 +60,9 @@ async function main() {
       programmeDescription: programme.description,
       organisationName: app.organisationName,
       amountRequested: Number(app.amountRequested),
+      deliveryArea: app.deliveryArea,
+      charityNumber: app.charityNumber,
+      companyNumber: app.companyNumber,
       responses: app.responses,
     })
     await db

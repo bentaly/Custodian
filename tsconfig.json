@@ -14,5 +14,5 @@
       "~/*": ["./src/*"]
     }
   },
-  "include": ["src", "drizzle", "vite.config.ts", "drizzle.config.ts"]
+  "include": ["src", "drizzle", "scripts", "vite.config.ts", "drizzle.config.ts"]
 }
