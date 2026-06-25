@@ -1,0 +1,58 @@
+name: Admin App
+
+# The admin app (admin-app/) is a separate Cloudflare Worker (static SPA) with its
+# own pnpm workspace, deployed independently of the main app's CI. This workflow
+# only runs when something under admin-app/ changes, so unrelated pushes don't
+# rebuild/redeploy it. Prod admin (custodian-admin) deploys via its own Cloudflare
+# Git integration — this workflow handles the staging variant only.
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'admin-app/**'
+      - '.github/workflows/admin.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'admin-app/**'
+      - '.github/workflows/admin.yml'
+
+jobs:
+  admin:
+    name: Build & Deploy (staging)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # admin-app pins its own pnpm version (differs from the root project),
+          # so resolve it from admin-app/package.json, not the repo root.
+          package_json_file: admin-app/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: admin-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Build runs on PRs too (catch breakage before merge). VITE_* are baked in
+      # at build time: API base points at the staging main app; the admin token
+      # must equal the staging main app's ADMIN_API_TOKEN.
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_API_BASE: https://custodian-staging.bental.workers.dev
+          VITE_ADMIN_TOKEN: ${{ secrets.STAGING_ADMIN_TOKEN }}
+
+      - name: Deploy (staging)
+        if: github.ref == 'refs/heads/master'
+        run: npx wrangler deploy --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
