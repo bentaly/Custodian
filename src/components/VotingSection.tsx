@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from '@tanstack/react-router'
 import { listVotes, castVote } from '../server/fns/comments'
 
 type VoteData = {
@@ -16,6 +17,7 @@ export function VotingSection({
   userId: string
   userRole: string
 }) {
+  const router = useRouter()
   const [data, setData] = useState<VoteData | null>(null)
   const [voting, setVoting] = useState(false)
   const isTrustee = userRole === 'trustee'
@@ -37,6 +39,9 @@ export function VotingSection({
     try {
       await castVote({ data: { applicationId, vote, onBehalfOf } })
       await load()
+      // Refresh route loaders (e.g. the shortlist's vote counts / majority
+      // indicator) so they reflect the new vote, not just this local list.
+      await router.invalidate()
     } finally {
       setVoting(false)
     }
