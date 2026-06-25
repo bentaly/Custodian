@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { clients, clientProfiles } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { assertClientAccess } from '../scope'
 import { CreateClientSchema, UpdateClientSchema } from '../../lib/validators/client'
 
 export const listClients = createServerFn({ method: 'GET' }).handler(async () => {
@@ -16,12 +17,13 @@ export const listClients = createServerFn({ method: 'GET' }).handler(async () =>
 export const getClient = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
     const client = await getDb().query.clients.findFirst({
       where: (c, { eq }) => eq(c.id, data.id),
       with: { rounds: true },
     })
     if (!client) throw new Error('Not found')
+    assertClientAccess(user, client.id)
     return client
   })
 
