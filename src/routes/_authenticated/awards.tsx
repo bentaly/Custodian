@@ -225,6 +225,7 @@ function AwardsPage() {
       {setupApp && (
         <AwardSetupDrawer
           application={setupApp}
+          defaultInstalments={setupApp.roundProgramme?.grantDurationYears ?? undefined}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           onAwarded={handleAwarded}
