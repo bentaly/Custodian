@@ -4,12 +4,15 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { rounds } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { assertClientAccess } from '../scope'
 import { CreateRoundSchema, UpdateRoundSchema } from '../../lib/validators/round'
 
 export const listRounds = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ clientId: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
+    // Non-superadmins may only list their own client's rounds.
+    assertClientAccess(user, data.clientId)
     return getDb().query.rounds.findMany({
       where: (r, { eq }) => eq(r.clientId, data.clientId),
       orderBy: (r, { desc }) => [desc(r.createdAt)],
@@ -34,7 +37,7 @@ export const listMyRounds = createServerFn({ method: 'GET' }).handler(async () =
 export const getRound = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
     const round = await getDb().query.rounds.findFirst({
       where: (r, { eq }) => eq(r.id, data.id),
       with: {
@@ -46,13 +49,15 @@ export const getRound = createServerFn({ method: 'GET' })
       },
     })
     if (!round) throw new Error('Not found')
+    assertClientAccess(user, round.clientId)
     return round
   })
 
 export const createRound = createServerFn({ method: 'POST' })
   .inputValidator(CreateRoundSchema)
   .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    assertClientAccess(user, data.clientId)
     const { openedAt, closedAt, ...rest } = data
     const [round] = await getDb()
       .insert(rounds)
@@ -68,8 +73,14 @@ export const createRound = createServerFn({ method: 'POST' })
 export const updateRound = createServerFn({ method: 'POST' })
   .inputValidator(UpdateRoundSchema)
   .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'manager')
     const { id, openedAt, closedAt, ...rest } = data
+    const existing = await getDb().query.rounds.findFirst({
+      where: (r, { eq }) => eq(r.id, id),
+      columns: { clientId: true },
+    })
+    if (!existing) throw new Error('Not found')
+    assertClientAccess(user, existing.clientId)
     const [round] = await getDb()
       .update(rounds)
       .set({

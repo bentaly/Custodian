@@ -4,21 +4,26 @@ import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applications, applicationVotes, roundProgrammes, users } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
+import { intersectScope, visibleRoundProgrammeIds } from '../scope'
 
 export const listShortlist = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ roundId: z.uuid().optional() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
 
-    let roundProgrammeIds: string[] | undefined
+    let filterIds: string[] | undefined
     if (data.roundId) {
       const rows = await getDb()
         .select({ id: roundProgrammes.id })
         .from(roundProgrammes)
         .where(eq(roundProgrammes.roundId, data.roundId))
-      roundProgrammeIds = rows.map((r) => r.id)
-      if (roundProgrammeIds.length === 0) return []
+      filterIds = rows.map((r) => r.id)
     }
+
+    // Tenant scope (null = superadmin, unrestricted) intersected with the round filter,
+    // so a roundId from another client can't widen what's returned.
+    const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
+    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) return []
 
     const items = await getDb().query.applications.findMany({
       where: (a, { and }) =>

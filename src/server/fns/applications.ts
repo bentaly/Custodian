@@ -4,6 +4,7 @@ import { and, eq, count, inArray, sql, ne, ilike, gte, lt, isNotNull } from 'dri
 import { getDb } from '../db'
 import { applications, roundProgrammes, programmes, applicationVotes, users } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { assertApplicationAccess, assertClientAccess, intersectScope, visibleRoundProgrammeIds } from '../scope'
 import {
   ApplicationFiltersSchema,
   CreateApplicationSchema,
@@ -18,10 +19,10 @@ import { deliveryGeoFromResult } from '../../lib/deprivation/types'
 export const listApplications = createServerFn({ method: 'GET' })
   .inputValidator(ApplicationFiltersSchema)
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
     const { page, pageSize, ...filters } = data
 
-    let roundProgrammeIds: string[] | undefined
+    let filterIds: string[] | undefined
     if (filters.roundId || filters.programmeId || filters.tag) {
       // Tag lives on the programme (jsonb array), so resolve it by joining programmes.
       const conds = and(
@@ -36,10 +37,15 @@ export const listApplications = createServerFn({ method: 'GET' })
             .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
             .where(conds)
         : await getDb().select({ id: roundProgrammes.id }).from(roundProgrammes).where(conds)
-      roundProgrammeIds = rows.map((r) => r.id)
-      if (roundProgrammeIds.length === 0) {
-        return { items: [], total: 0, page, pageSize, statusCounts: {}, allCount: 0 }
-      }
+      filterIds = rows.map((r) => r.id)
+    }
+
+    // Tenant scope: restrict to the caller's client (null = superadmin, unrestricted),
+    // then intersect with any round/programme/tag filter. An empty set means nothing
+    // matches — including a crafted roundId belonging to another client.
+    const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
+    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) {
+      return { items: [], total: 0, page, pageSize, statusCounts: {}, allCount: 0 }
     }
 
     const scoreBandFilter = (() => {
@@ -95,7 +101,7 @@ export const listApplications = createServerFn({ method: 'GET' })
 export const getApplication = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
       with: {
@@ -103,6 +109,7 @@ export const getApplication = createServerFn({ method: 'GET' })
       },
     })
     if (!application) throw new Error('Not found')
+    assertClientAccess(user, application.roundProgramme.programme.clientId)
 
     const committedRows = await getDb()
       .select({
@@ -121,7 +128,17 @@ export const getApplication = createServerFn({ method: 'GET' })
 export const createApplication = createServerFn({ method: 'POST' })
   .inputValidator(CreateApplicationSchema)
   .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager')
     const { amountRequested, ...rest } = data
+
+    // The roundProgramme determines the owning client; reject one outside it.
+    const rp = await getDb().query.roundProgrammes.findFirst({
+      where: (r, { eq }) => eq(r.id, rest.roundProgrammeId),
+      with: { programme: { columns: { clientId: true } } },
+    })
+    if (!rp) throw new Error('Not found')
+    assertClientAccess(user, rp.programme.clientId)
+
     const id = crypto.randomUUID()
 
     await getDb().insert(applications).values({
@@ -139,7 +156,8 @@ export const createApplication = createServerFn({ method: 'POST' })
 export const rerunDueDiligence = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    await assertApplicationAccess(user, data.id)
 
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
@@ -167,7 +185,8 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
 export const rerunCustodianScore = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    await assertApplicationAccess(user, data.id)
 
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
@@ -210,7 +229,8 @@ export const rerunCustodianScore = createServerFn({ method: 'POST' })
 export const rerunDeprivation = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.uuid(), deliveryArea: z.string().max(255).optional() }))
   .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    await assertApplicationAccess(user, data.id)
 
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
@@ -246,16 +266,21 @@ export const rerunDeprivation = createServerFn({ method: 'POST' })
 export const listAwards = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ roundId: z.uuid().optional() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
 
-    let roundProgrammeIds: string[] | undefined
+    let filterIds: string[] | undefined
     if (data.roundId) {
       const rows = await getDb()
         .select({ id: roundProgrammes.id })
         .from(roundProgrammes)
         .where(eq(roundProgrammes.roundId, data.roundId))
-      roundProgrammeIds = rows.map((r) => r.id)
-      if (roundProgrammeIds.length === 0) return { pending: [], active: [] }
+      filterIds = rows.map((r) => r.id)
+    }
+
+    // Tenant scope (null = superadmin) intersected with the optional round filter.
+    const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
+    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) {
+      return { pending: [], active: [] }
     }
 
     const rows = await getDb().query.applications.findMany({
@@ -307,7 +332,8 @@ export const listAwards = createServerFn({ method: 'GET' })
 export const generateAward = createServerFn({ method: 'POST' })
   .inputValidator(GenerateAwardSchema)
   .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    await assertApplicationAccess(user, data.id)
 
     // An award can only be generated for a shortlisted application that has secured
     // a majority (> 50%) of its client's trustees voting in favour.
@@ -363,7 +389,7 @@ export const generateAward = createServerFn({ method: 'POST' })
 export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ roundId: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
 
     const rps = await getDb().query.roundProgrammes.findMany({
       where: (rp, { eq }) => eq(rp.roundId, data.roundId),
@@ -371,6 +397,8 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
       orderBy: (rp, { asc }) => [asc(rp.createdAt)],
     })
     if (rps.length === 0) return []
+    // All round-programmes in a round share a client; gate on the first.
+    assertClientAccess(user, rps[0]!.programme.clientId)
 
     const rpIds = rps.map((rp) => rp.id)
 
@@ -404,8 +432,9 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
 export const updateApplicationStatus = createServerFn({ method: 'POST' })
   .inputValidator(UpdateApplicationStatusSchema)
   .handler(async ({ data }) => {
-    await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'manager')
     const { id, status, amountAwarded } = data
+    await assertApplicationAccess(user, id)
 
     if (status === 'shortlisted') {
       const app = await getDb().query.applications.findFirst({

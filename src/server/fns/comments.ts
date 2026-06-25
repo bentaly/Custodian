@@ -12,11 +12,13 @@ import {
   users,
 } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { assertApplicationAccess, assertClientAccess } from '../scope'
 
 export const listComments = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ applicationId: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
+    await assertApplicationAccess(user, data.applicationId)
     return getDb().query.applicationComments.findMany({
       where: (c, { eq }) => eq(c.applicationId, data.applicationId),
       with: { user: { columns: { id: true, name: true, role: true } } },
@@ -28,6 +30,7 @@ export const addComment = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ applicationId: z.uuid(), body: z.string().min(1).max(2000) }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
+    await assertApplicationAccess(user, data.applicationId)
     const [comment] = await getDb()
       .insert(applicationComments)
       .values({ applicationId: data.applicationId, userId: user.id, body: data.body })
@@ -43,6 +46,7 @@ export const updateComment = createServerFn({ method: 'POST' })
       where: (c, { eq }) => eq(c.id, data.id),
     })
     if (!comment) throw new Error('Not found')
+    await assertApplicationAccess(user, comment.applicationId)
     // Only the author can edit their own comment.
     if (comment.userId !== user.id) throw new Error('Not authorised')
 
@@ -62,6 +66,7 @@ export const deleteComment = createServerFn({ method: 'POST' })
       where: (c, { eq }) => eq(c.id, data.id),
     })
     if (!comment) throw new Error('Not found')
+    await assertApplicationAccess(user, comment.applicationId)
     // The author can delete their own comment; admins can delete any.
     const isAdmin = user.role === 'superadmin' || user.role === 'admin'
     if (comment.userId !== user.id && !isAdmin) throw new Error('Not authorised')
@@ -73,7 +78,7 @@ export const deleteComment = createServerFn({ method: 'POST' })
 export const listVotes = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ applicationId: z.uuid() }))
   .handler(async ({ data }) => {
-    await requireAuthUser()
+    const user = await requireAuthUser()
 
     const app = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.applicationId),
@@ -82,6 +87,7 @@ export const listVotes = createServerFn({ method: 'GET' })
     if (!app) return { trustees: [] as Array<{ id: string; name: string }>, votes: [] as Array<{ userId: string; vote: 'yes' | 'no'; createdAt: Date }>, allowAdminVoting: false }
 
     const clientId = app.roundProgramme.programme.clientId
+    assertClientAccess(user, clientId)
 
     const [trustees, votes, profile] = await Promise.all([
       getDb()
@@ -114,6 +120,8 @@ export const castVote = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'trustee')
+    // Applies to every role: you can only vote on applications in your own client.
+    await assertApplicationAccess(user, data.applicationId)
     const isAdmin = user.role === 'superadmin' || user.role === 'admin'
 
     let targetUserId: string
@@ -128,9 +136,6 @@ export const castVote = createServerFn({ method: 'POST' })
       })
       if (!app) throw new Error('Not found')
       const clientId = app.roundProgramme.programme.clientId
-
-      // A (non-super) admin may only act within their own client.
-      if (user.role === 'admin' && user.clientId !== clientId) throw new Error('Not authorised')
 
       const profile = await getDb().query.clientProfiles.findFirst({
         where: (p, { eq }) => eq(p.clientId, clientId),
