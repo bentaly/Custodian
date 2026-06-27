@@ -5,6 +5,7 @@ import { listMyRounds } from '../../server/fns/rounds'
 import { updateApplicationStatus } from '../../server/fns/applications'
 import { ApplicationDrawer } from '../../components/ApplicationDrawer'
 import { BriefingDrawer } from '../../components/BriefingDrawer'
+import { AwardSetupDrawer } from '../../components/AwardSetupDrawer'
 import { getRoundStatus } from '../../lib/roundStatus'
 import type { CustodianScoreDetail } from '../../lib/custodianScore'
 
@@ -63,11 +64,13 @@ function ShortlistCard({
   onRemove,
   onView,
   onBriefing,
+  onSetUpAward,
 }: {
   app: ReturnType<typeof Route.useLoaderData>['items'][number]
   onRemove: () => void
   onView: () => void
   onBriefing: () => void
+  onSetUpAward: () => void
 }) {
   const [removing, setRemoving] = useState(false)
   const score = app.custodianScore
@@ -188,10 +191,10 @@ function ShortlistCard({
 
       {/* Trustee votes → award readiness */}
       {app.hasMajority ? (
-        <Link
-          to="/awards"
-          search={{ roundId: undefined }}
+        <button
+          onClick={onSetUpAward}
           style={{
+            width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -199,16 +202,17 @@ function ShortlistCard({
             padding: '10px 14px',
             borderBottom: '0.5px solid #f0f0ec',
             background: '#F0FAF6',
-            textDecoration: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
           }}
         >
           <span style={{ fontSize: 11, color: '#0F6E56', fontWeight: 600 }}>
             ✓ {app.yesVotes}/{app.trusteeCount} trustees in favour — enough votes
           </span>
           <span style={{ fontSize: 11, color: '#0F6E56', fontWeight: 500, whiteSpace: 'nowrap' }}>
-            Go to Awards to set up →
+            Set up award →
           </span>
-        </Link>
+        </button>
       ) : (
         <div
           style={{
@@ -302,6 +306,8 @@ function ShortlistPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [briefingApp, setBriefingApp] = useState<ShortlistItem | null>(null)
   const [briefingOpen, setBriefingOpen] = useState(false)
+  const [awardApp, setAwardApp] = useState<ShortlistItem | null>(null)
+  const [awardOpen, setAwardOpen] = useState(false)
 
   function openView(app: ShortlistItem) {
     setViewApp(app)
@@ -311,6 +317,18 @@ function ShortlistPage() {
   function openBriefing(app: ShortlistItem) {
     setBriefingApp(app)
     requestAnimationFrame(() => setBriefingOpen(true))
+  }
+
+  function openAward(app: ShortlistItem) {
+    setAwardApp(app)
+    requestAnimationFrame(() => setAwardOpen(true))
+  }
+
+  // Once awarded, the application leaves 'shortlisted' status and drops off this
+  // list; refresh the loader so the card disappears.
+  async function handleAwarded() {
+    setAwardOpen(false)
+    await router.invalidate()
   }
 
   const visibleRounds = rounds
@@ -549,6 +567,7 @@ function ShortlistPage() {
                 onRemove={handleRemoved}
                 onView={() => openView(app)}
                 onBriefing={() => openBriefing(app)}
+                onSetUpAward={() => openAward(app)}
               />
             ))}
           </div>
@@ -569,6 +588,16 @@ function ShortlistPage() {
         onClose={() => setBriefingOpen(false)}
         user={{ id: user.id, role: user.role }}
       />
+
+      {awardApp && (
+        <AwardSetupDrawer
+          application={awardApp}
+          defaultInstalments={awardApp.roundProgramme?.grantDurationYears ?? undefined}
+          open={awardOpen}
+          onClose={() => setAwardOpen(false)}
+          onAwarded={handleAwarded}
+        />
+      )}
     </div>
   )
 }

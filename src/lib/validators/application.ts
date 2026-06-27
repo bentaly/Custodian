@@ -33,7 +33,6 @@ export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>
 export const UpdateApplicationStatusSchema = z.object({
   id: z.uuid(),
   status: ApplicationStatus,
-  amountAwarded: z.number().positive().optional(),
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
 

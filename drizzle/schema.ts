@@ -44,6 +44,18 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'declined',
 ])
 
+// Lifecycle of a grant (the live funding relationship that begins once an award is
+// generated). Distinct from the application's status: an application is terminal at
+// the decision, whereas a grant runs on — money is paid out over time.
+//   active     — award generated; instalments outstanding or in progress
+//   completed  — all instalments paid / the grant has run its course
+//   cancelled  — the award was withdrawn after being generated
+export const grantStatusEnum = pgEnum('grant_status', [
+  'active',
+  'completed',
+  'cancelled',
+])
+
 // Overall outcome of the automated due diligence screening for an application.
 //   pending  — not yet run
 //   clear    — all checks passed
@@ -203,7 +215,6 @@ export const applications = pgTable('applications', {
   bankAccountNumber: text('bank_account_number'),
   bankSortCode: text('bank_sort_code'),
   amountRequested: numeric('amount_requested').notNull(),
-  amountAwarded: numeric('amount_awarded'),
   // Free-text area where the funded PROJECT is delivered — the community served (e.g.
   // "Bradford", "BD1 1AA", "Yorkshire"), NOT where the organisation is based. Captured
   // from the incoming application; nullable as not every foundation collects it. Drives
@@ -211,13 +222,8 @@ export const applications = pgTable('applications', {
   // NB: the physical column keeps its original name `geography` (a logical-only rename,
   // to avoid a data-losing column rename migration); the app refers to it as deliveryArea.
   deliveryArea: text('geography'),
-  // Instalment plan for an awarded grant. Null until the award is set up via the
-  // "Set up award" drawer. Amounts are stored as strings to match numeric handling
-  // elsewhere; `date` is an ISO yyyy-mm-dd string (null when left as "date TBC").
-  paymentSchedule: jsonb('payment_schedule').$type<
-    Array<{ instalment: number; amount: string; date: string | null }>
-  >(),
-  // Reporting milestones set during award setup. ISO yyyy-mm-dd dates.
+  // LEGACY: reporting milestones now live on `grant_reports`. No longer written; kept
+  // until backfilled (scripts/backfill-grant-reports.ts), then dropped in a later push.
   reportingSchedule: jsonb('reporting_schedule').$type<
     Array<{ label: string; date: string }>
   >(),
@@ -467,6 +473,65 @@ export const apiKeys = pgTable('api_keys', {
   revokedAt: timestamp('revoked_at'),
 })
 
+// A grant is the live funding relationship created when an award is generated for a
+// successful application (after the trustee-majority vote). It is deliberately a
+// separate entity from `applications`: the application is the *request* (terminal at
+// the decision), the grant is the *outcome* that runs on — paid out via instalments.
+//   - `applicationId` is nullable so a family-office client can record a direct grant
+//     that never went through a formal application intake.
+//   - `clientId` is denormalised (not derived via the application) because (a) it is
+//     the only owner signal when `applicationId` is null, and (b) it keeps tenant
+//     scoping a single-column filter on the hottest read path. It never changes, so
+//     there is no drift risk.
+export const grants = pgTable('grants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  applicationId: uuid('application_id').references(() => applications.id, {
+    onDelete: 'set null',
+  }),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  amountAwarded: numeric('amount_awarded').notNull(),
+  status: grantStatusEnum('status').notNull().default('active'),
+  // When the award was generated (the grant's start). Mirrors the application's
+  // decisionAt for application-derived grants.
+  decisionAt: timestamp('decision_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// One scheduled instalment of a grant. Promoted out of the old
+// `applications.payment_schedule` jsonb so payments are first-class rows: each can be
+// marked paid independently and aggregated across the portfolio (paid-to-date,
+// outstanding). `dueDate`/`paidDate` are ISO yyyy-mm-dd strings; `dueDate` is null for
+// "date TBC", `paidDate` is null until the instalment is paid.
+export const grantPayments = pgTable('grant_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grantId: uuid('grant_id')
+    .notNull()
+    .references(() => grants.id, { onDelete: 'cascade' }),
+  instalmentNo: integer('instalment_no').notNull(),
+  amount: numeric('amount').notNull(),
+  dueDate: text('due_date'),
+  paidDate: text('paid_date'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// One reporting milestone of a grant. Promoted out of the old
+// `applications.reporting_schedule` jsonb so each milestone is a first-class row that can
+// be tracked and marked received independently (mirrors `grant_payments`). `dueDate` is
+// an ISO yyyy-mm-dd string (null = "date TBC"); `submittedDate` is null until the report
+// is received.
+export const grantReports = pgTable('grant_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grantId: uuid('grant_id')
+    .notNull()
+    .references(() => grants.id, { onDelete: 'cascade' }),
+  label: text('label').notNull(),
+  dueDate: text('due_date'),
+  submittedDate: text('submitted_date'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -477,6 +542,7 @@ export const clientsRelations = relations(clients, ({ many, one }) => ({
   fieldMappings: many(fieldMappings),
   applicationIngests: many(applicationIngests),
   apiKeys: many(apiKeys),
+  grants: many(grants),
   profile: one(clientProfiles, { fields: [clients.id], references: [clientProfiles.clientId] }),
 }))
 
@@ -522,6 +588,26 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
   }),
   comments: many(applicationComments),
   votes: many(applicationVotes),
+  // 1:1 in practice (one award per application), modelled as a to-one relation.
+  grant: one(grants, { fields: [applications.id], references: [grants.applicationId] }),
+}))
+
+export const grantsRelations = relations(grants, ({ one, many }) => ({
+  application: one(applications, {
+    fields: [grants.applicationId],
+    references: [applications.id],
+  }),
+  client: one(clients, { fields: [grants.clientId], references: [clients.id] }),
+  payments: many(grantPayments),
+  reports: many(grantReports),
+}))
+
+export const grantPaymentsRelations = relations(grantPayments, ({ one }) => ({
+  grant: one(grants, { fields: [grantPayments.grantId], references: [grants.id] }),
+}))
+
+export const grantReportsRelations = relations(grantReports, ({ one }) => ({
+  grant: one(grants, { fields: [grantReports.grantId], references: [grants.id] }),
 }))
 
 export const fieldMappingsRelations = relations(fieldMappings, ({ one }) => ({
