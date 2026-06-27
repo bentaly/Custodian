@@ -222,11 +222,6 @@ export const applications = pgTable('applications', {
   // NB: the physical column keeps its original name `geography` (a logical-only rename,
   // to avoid a data-losing column rename migration); the app refers to it as deliveryArea.
   deliveryArea: text('geography'),
-  // LEGACY: reporting milestones now live on `grant_reports`. No longer written; kept
-  // until backfilled (scripts/backfill-grant-reports.ts), then dropped in a later push.
-  reportingSchedule: jsonb('reporting_schedule').$type<
-    Array<{ label: string; date: string }>
-  >(),
   responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
   status: applicationStatusEnum('status').notNull().default('for_review'),
   // Summary outcome of the automated due diligence screening — cheap to read for

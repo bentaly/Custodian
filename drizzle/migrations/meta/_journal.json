@@ -253,6 +253,13 @@
       "when": 1782599515308,
       "tag": "0035_clean_the_hand",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782600104926,
+      "tag": "0036_thankful_the_captain",
+      "breakpoints": true
     }
   ]
 }
