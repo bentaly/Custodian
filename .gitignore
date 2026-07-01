@@ -20,3 +20,6 @@ drizzle.config.js
 
 # Local secrets (admin API token etc.)
 .secrets.local*
+
+# One-off form-header harvesting helper (see file header)
+scripts/extract-form-headers.py
