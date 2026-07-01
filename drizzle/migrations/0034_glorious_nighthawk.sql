@@ -13,7 +13,7 @@ WHERE a."status" = 'awarded'
   AND NOT EXISTS (SELECT 1 FROM "grants" g WHERE g."application_id" = a."id");
 --> statement-breakpoint
 INSERT INTO "grant_payments" ("grant_id", "instalment_no", "amount", "due_date")
-SELECT g."id", (elem->>'instalment')::int, elem->>'amount', elem->>'date'
+SELECT g."id", (elem->>'instalment')::int, (elem->>'amount')::numeric, elem->>'date'
 FROM "grants" g
 JOIN "applications" a ON g."application_id" = a."id"
 CROSS JOIN LATERAL jsonb_array_elements(a."payment_schedule") elem
