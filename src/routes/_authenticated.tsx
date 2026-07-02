@@ -19,12 +19,10 @@ function AuthenticatedLayout() {
   return (
     <div className="flex h-screen flex-col">
       <ImpersonationBanner />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto p-8">
-          <Outlet />
-        </main>
-      </div>
+      <TopNav />
+      <main className="flex-1 overflow-y-auto p-8">
+        <Outlet />
+      </main>
     </div>
   )
 }
@@ -54,7 +52,7 @@ function ImpersonationBanner() {
   )
 }
 
-function Sidebar() {
+function TopNav() {
   const navigate = useNavigate()
   const { user } = Route.useRouteContext()
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
@@ -65,12 +63,12 @@ function Sidebar() {
   }
 
   const linkClass =
-    'block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 [&.active]:bg-gray-100 [&.active]:font-medium'
+    'rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 [&.active]:bg-gray-100 [&.active]:font-medium'
 
   return (
-    <aside className="flex w-56 flex-col border-r border-gray-200 bg-white px-4 py-6">
+    <header className="flex items-center gap-6 border-b border-gray-200 bg-white px-6 py-3">
       <p style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, letterSpacing: '-0.3px' }} className="text-gray-900">Custodian<span style={{ color: '#1D9E75' }}>.</span></p>
-      <nav className="mt-6 flex-1 space-y-1">
+      <nav className="flex flex-1 items-center gap-1">
         <Link to="/dashboard" className={linkClass}>
           Dashboard
         </Link>
@@ -95,17 +93,17 @@ function Sidebar() {
           </Link>
         )}
       </nav>
-      <div className="space-y-1 border-t border-gray-100 pt-4">
+      <div className="flex items-center gap-1">
         <Link to="/profile" className={linkClass}>
           Profile
         </Link>
         <button
           onClick={handleSignOut}
-          className="block w-full rounded px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+          className="rounded px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
         >
           Sign out
         </button>
       </div>
-    </aside>
+    </header>
   )
 }
