@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Submitter } from './Submitter'
+import { Submitter7Stars } from './Submitter7Stars'
 import { ReviewQueue } from './ReviewQueue'
 import { OutOfRound } from './OutOfRound'
 import { Mappings } from './Mappings'
 import { Clients } from './Clients'
 
-type View = 'review' | 'unrouted' | 'mappings' | 'clients' | 'submit'
+type View = 'review' | 'unrouted' | 'mappings' | 'clients' | 'submit' | 'submit7stars'
 
 const TABS: Array<{ key: View; label: string }> = [
   { key: 'review', label: 'Review queue' },
@@ -13,6 +14,7 @@ const TABS: Array<{ key: View; label: string }> = [
   { key: 'mappings', label: 'Mappings' },
   { key: 'clients', label: 'Foundations' },
   { key: 'submit', label: 'Submit test' },
+  { key: 'submit7stars', label: '7stars test' },
 ]
 
 export default function App() {
@@ -47,6 +49,7 @@ export default function App() {
         {view === 'mappings' && <Mappings />}
         {view === 'clients' && <Clients />}
         {view === 'submit' && <Submitter />}
+        {view === 'submit7stars' && <Submitter7Stars />}
       </main>
     </div>
   )
