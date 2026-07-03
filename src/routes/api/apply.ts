@@ -1,13 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ingestApplication } from '../../server/fieldMapping/ingest'
+import { saveIngest, processIngest } from '../../server/fieldMapping/ingest'
+import { runInBackground } from '../../server/background'
 import { authenticateApiKey } from '../../server/apiKeys'
 import { checkRateLimit } from '../../server/rateLimit'
 
 // The single public submission entry. A foundation's intake integration posts the raw
 // application here, authenticated with `Authorization: Bearer <api key>` (generated on the
-// Organisation screen). The key resolves to the owning client; the fields are mapped to
-// canonical fields and either creates an application or is held for review. The response
-// includes the created application + screening results when one was made.
+// Organisation screen). The key resolves to the owning client. The raw payload is persisted
+// immediately and acknowledged with 202 — field mapping, scoring and due diligence then run
+// in the background (they involve LLM and external-register calls that take tens of seconds,
+// far longer than a sender's webhook timeout). Senders learn only that the submission was
+// accepted; outcomes live in the admin review queue and the app.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -88,21 +91,13 @@ export const Route = createFileRoute('/api/apply')(
             return jsonResponse({ error: 'Request body must contain application fields' }, 400)
           }
 
-          const result = await ingestApplication({ payload, clientId: auth.clientId })
-          if (!result.ok) {
-            return jsonResponse({ error: 'Unknown client' }, 404)
-          }
+          // Persist first — once the row exists the submission can never be lost —
+          // then acknowledge. The pipeline (mapping → AI fallback → scoring + due
+          // diligence) runs after the response; its outcome lands on the ingest row.
+          const ingestId = await saveIngest({ clientId: auth.clientId, payload })
+          runInBackground(`processIngest ${ingestId}`, () => processIngest(ingestId))
 
-          return jsonResponse(
-            {
-              status: result.status,
-              ingestId: result.ingestId,
-              applicationId: result.applicationId,
-              // application / dueDiligence / custodian, present when one was created.
-              ...(result.created ?? {}),
-            },
-            201,
-          )
+          return jsonResponse({ status: 'received', ingestId }, 202)
         },
       },
     },

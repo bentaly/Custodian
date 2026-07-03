@@ -123,12 +123,16 @@ const SECTIONS: SevenStarsSection[] = [
   },
 ]
 
-// A deliberately decent-but-not-outstanding fictional applicant: well aligned
-// with the Online Abuse focus area and financially eligible, but with a modest
-// track record (pilot not yet evaluated), partly anecdotal evidence of need,
-// and a budget with a vague contingency line. Registration number 219279 is a
-// real register entry that returns a due diligence WARNING once mapped.
-const PREFILL: Record<string, string> = {
+// Three fictional applicants pitched at different Custodian-score bands, so the
+// scorer's discrimination can be tested from one form. Each also carries a real
+// charity register number giving a different due diligence outcome once the
+// registration-number field is mapped (WARNING / BLOCKED / CLEAR respectively).
+
+// Decent (~mid band): well aligned with the Online Abuse focus area and
+// financially eligible, but a modest track record (pilot not yet evaluated),
+// partly anecdotal evidence of need, and a vague contingency budget line.
+// Registration number 219279 → due diligence WARNING (accounts overdue).
+const PREFILL_DECENT: Record<string, string> = {
   'Contact name': 'Priya Shah',
   'Contact email': 'priya.shah@brightnetyouth.org.uk',
   'Contact phone no': '020 7946 0301',
@@ -184,35 +188,174 @@ const PREFILL: Record<string, string> = {
   'Budget total': '10000',
 }
 
-interface DueDiligenceCheck {
+// Weak (~low band): a well-meaning community group whose application barely
+// engages with the focus area — adult-skewed audience, no evidence of need, no
+// relevant track record, a vague events budget, unrestricted reserves at ~43%
+// of income (breaching the foundation's 30% rule), and a personal-looking bank
+// account name. Registration number 1068298 (Kids Company) → due diligence
+// BLOCKED (removed from register) once mapped.
+const PREFILL_WEAK: Record<string, string> = {
+  'Contact name': 'Dave Prendergast',
+  'Contact email': 'dave.p.communitygroup@gmail.com',
+  'Contact phone no': '07700 900123',
+  'Organisation type': 'Charity',
+  'Organisation name': 'Positive Vibes Community Group',
+  'Organisation website': 'https://www.facebook.com/positivevibescg',
+  'Organisation registration number': '1068298',
+  'Organisation registration date': '2019-08-01',
+  "Your organisation's regulator": 'Charity Commission',
+  'Please give details on your organisation’s main activities and services.':
+    'We run activities for young people in the local area including football, music nights and day trips. We also put on other community events during the year which are open to everyone in the community.',
+  'In what region will your work be delivered?': 'North West',
+  'What is the post code of the delivery of your work?': 'M14 4PX',
+  'In what region is your organisation based?': 'North West',
+  "What is your organisation's specific location?": 'Manchester',
+  'Your organisation’s total income in the last year.': '985000',
+  'Your organisation’s total expenditure in the last year.': '610000',
+  'Your organisation’s total salaries in the last year.': '180000',
+  'Your current unrestricted funding reserves.': '420000',
+  'Please provide narrative on your unrestricted funding reserve sources.':
+    'General savings built up over the years.',
+  'Your current restricted funding reserves.': '15000',
+  'Please provide narrative on your restricted funding reserve sources.':
+    'A grant we have not spent yet.',
+  'Your balance at the time of application.': '435000',
+  "Your bank's name": 'Barclays',
+  'Your bank account name': 'D Prendergast',
+  'Your bank account number': '87654321',
+  'Your bank sort code': '20-00-00',
+  'Full-time': '1',
+  'Part-time': '0',
+  'Volunteers': '3',
+  'Trustees': '3',
+  'Which fund focus area does your funding request primarily relate to?': 'Anti-Racism',
+  'Funding title': 'Community Fun Days',
+  'Does your funding request seek support for a solution or a cause (please provide narrative)?':
+    'We want to run fun days to bring the community together. Racism is a problem so events like this help everyone get along better.',
+  'Why is this funding needed and how has the need been identified?':
+    'Everyone knows racism is an issue these days. We have not done a survey but we think there is a need for more community events in the area.',
+  'How many young people will benefit from our funding?': '5000',
+  'Please give ages or age ranges of the young people who will benefit.':
+    'All ages welcome, mostly adults and some young people',
+  'Please give details on your organisation’s expertise in this application’s subject matter.':
+    'We have run events before and the committee has lived in the area a long time so we know the community well.',
+  'Have you delivered work similar in nature to this application before?': 'No',
+  'Please describe the challenges you encountered and your plans to address them if your application is successful.':
+    'We do not expect any challenges.',
+  'How much funding are you requesting from the7stars foundation?': '10000',
+  'Do you have any other funding secured to date?': 'No',
+  'If you have secured other funding, who was it from and for how much?': '',
+  'Please use the below to outline your budget for the funding you are requesting:':
+    'Stage and PA hire — £3,000\nFood and refreshments — £2,500\nEntertainment — £2,500\nMiscellaneous — £2,000',
+  'Any additional notes': '',
+  'Budget total': '10000',
+}
+
+// Strong (~high band): a long-established Glasgow anti-racism youth charity —
+// tight strategic fit (under-18s, root causes, co-designed with young people),
+// externally evaluated track record, evidenced need, healthy finances (~15%
+// unrestricted reserves), secured match funding, and a budget split per year to
+// match the £5,000-per-year grant structure. Registration number SC003558 →
+// due diligence CLEAR (OSCR path) once mapped.
+const PREFILL_STRONG: Record<string, string> = {
+  'Contact name': 'Dr Nia Okafor',
+  'Contact email': 'nia.okafor@amplifyyouth.org.uk',
+  'Contact phone no': '0141 496 0072',
+  'Organisation type': 'Charity',
+  'Organisation name': 'Amplify Youth Trust',
+  'Organisation website': 'https://www.amplifyyouth.org.uk',
+  'Organisation registration number': 'SC003558',
+  'Organisation registration date': '2011-05-16',
+  "Your organisation's regulator": 'OSCR (Scottish Charity Regulator)',
+  'Please give details on your organisation’s main activities and services.':
+    'Amplify Youth Trust has worked with young people aged 12–18 experiencing racism in Glasgow since 2011. We deliver school-based anti-racism workshops, a youth-led ambassador programme, one-to-one mentoring for young people affected by racist incidents, and training for teachers and youth workers. All programmes are co-designed with our young advisory panel, and our work targets both individual support and the school policies and cultures that allow racism to persist.',
+  'In what region will your work be delivered?': 'Scotland',
+  'What is the post code of the delivery of your work?': 'G31 4EB',
+  'In what region is your organisation based?': 'Scotland',
+  "What is your organisation's specific location?": 'Glasgow',
+  'Your organisation’s total income in the last year.': '780000',
+  'Your organisation’s total expenditure in the last year.': '745000',
+  'Your organisation’s total salaries in the last year.': '460000',
+  'Your current unrestricted funding reserves.': '120000',
+  'Please provide narrative on your unrestricted funding reserve sources.':
+    'Unrestricted reserves stand at roughly 15% of annual income, built from individual giving and unrestricted trust grants. Trustees review the reserves policy annually against a target of two months’ operating costs.',
+  'Your current restricted funding reserves.': '210000',
+  'Please provide narrative on your restricted funding reserve sources.':
+    'Restricted reserves relate to multi-year grants from The Robertson Trust and National Lottery Young Start, committed to named delivery staff and programmes through to 2028.',
+  'Your balance at the time of application.': '165000',
+  "Your bank's name": 'Royal Bank of Scotland',
+  'Your bank account name': 'Amplify Youth Trust',
+  'Your bank account number': '11223344',
+  'Your bank sort code': '83-06-08',
+  'Full-time': '12',
+  'Part-time': '7',
+  'Volunteers': '35',
+  'Trustees': '9',
+  'Which fund focus area does your funding request primarily relate to?': 'Anti-Racism',
+  'Funding title': 'Speak Up: youth-led anti-racism ambassadors in Glasgow schools',
+  'Does your funding request seek support for a solution or a cause (please provide narrative)?':
+    'Both. Speak Up trains young people as anti-racism ambassadors who deliver peer-led sessions in their own schools — a direct solution for the young people they reach. Each cohort also works with school leadership to review incident-reporting and behaviour policies, addressing the systemic conditions that let racism go unchallenged. Learning is shared across our partner-school network and published annually.',
+  'Why is this funding needed and how has the need been identified?':
+    'Racist incidents recorded in Glasgow schools rose 28% between 2022 and 2025, and our own referral data shows a 60% increase in young people seeking support after racist incidents over the same period. In 2025 we consulted 240 young people across eight partner schools: 64% had witnessed racist behaviour at school in the past term, and the strongest preference expressed was for support led by other young people rather than adults. The programme design responds directly to that consultation, and an independent needs assessment commissioned in 2025 confirmed unmet demand in the east of the city.',
+  'How many young people will benefit from our funding?': '320',
+  'Please give ages or age ranges of the young people who will benefit.': '12–18',
+  'Please give details on your organisation’s expertise in this application’s subject matter.':
+    'We have delivered anti-racism youth work for 14 years. Our 2024 independent evaluation by the University of Strathclyde found significant improvements in reported school belonging and bystander confidence among participants. Our programme leads hold accredited anti-racist practice and trauma-informed training, we are Keeping Children Safe certified, and our youth advisory panel has co-designed every programme since 2019.',
+  'Have you delivered work similar in nature to this application before?': 'Yes',
+  'Please describe the challenges you encountered and your plans to address them if your application is successful.':
+    'Two challenges from previous cohorts: school staff turnover disrupted delivery in three schools, which we now mitigate with signed memoranda of understanding and termly review meetings with each school; and ambassadors supporting peers through distressing incidents needed more support themselves, so all ambassadors now receive monthly group supervision from our clinical associate, costed into this budget.',
+  'How much funding are you requesting from the7stars foundation?': '10000',
+  'Do you have any other funding secured to date?': 'Yes',
+  'If you have secured other funding, who was it from and for how much?':
+    'The Robertson Trust — £30,000 over three years (core costs); National Lottery Young Start — £48,000 (delivery staff)',
+  'Please use the below to outline your budget for the funding you are requesting:':
+    'Year 1: Ambassador training programme, 24 young people — £2,600\nYear 1: Sessional youth worker support and group supervision — £1,900\nYear 1: Materials, travel and accessible venues — £500\nYear 2: Ambassador training programme, second cohort — £2,600\nYear 2: Sessional youth worker support and group supervision — £1,900\nYear 2: Evaluation and learning-share event with partner schools — £500',
+  'Any additional notes':
+    'The budget is £5,000 per year, matching the grant structure. Our 2024 independent evaluation and safeguarding policy are available on request.',
+  'Budget total': '10000',
+}
+
+interface ApplicantPreset {
   key: string
-  source: string
-  result: 'pass' | 'fail' | 'unverified'
-  detail: string | null
+  label: string
+  note: string
+  values: Record<string, string>
 }
 
-interface DueDiligence {
-  status: 'pending' | 'clear' | 'warning' | 'blocked' | 'review'
-  checks: DueDiligenceCheck[]
-  checkedAt: string
-}
+const PRESETS: ApplicantPreset[] = [
+  {
+    key: 'decent',
+    label: 'Decent — BrightNet Youth (Online Abuse)',
+    note: 'Solid alignment, young unevaluated pilot, partly anecdotal need. Expect a mid-band score.',
+    values: PREFILL_DECENT,
+  },
+  {
+    key: 'weak',
+    label: 'Weak — Positive Vibes Community Group (Anti-Racism)',
+    note: 'Adult-skewed events, no evidence or track record, reserves breach the 30% rule. Expect a low score.',
+    values: PREFILL_WEAK,
+  },
+  {
+    key: 'strong',
+    label: 'Strong — Amplify Youth Trust (Anti-Racism)',
+    note: 'Co-designed, externally evaluated, evidenced need, per-year budget. Expect a high score.',
+    values: PREFILL_STRONG,
+  },
+]
 
+// /api/apply acknowledges with 202 as soon as the raw payload is stored; mapping,
+// scoring and due diligence run in the background. Outcomes live in the Review queue.
 interface SubmitResult {
-  status: 'complete' | 'ai_proposed' | 'needs_review'
+  status: 'received'
   ingestId: string
-  applicationId: string | null
-  application?: {
-    id: string
-    organisationName: string
-    status: string
-  } | null
-  dueDiligence?: DueDiligence | null
 }
 
 export function Submitter7Stars() {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('apply_api_key') ?? '')
   const [programmeName, setProgrammeName] = useState('Social Impact Funding')
-  const [values, setValues] = useState<Record<string, string>>(() => ({ ...PREFILL }))
+  const [presetKey, setPresetKey] = useState(PRESETS[0]!.key)
+  const [values, setValues] = useState<Record<string, string>>(() => ({ ...PRESETS[0]!.values }))
+  const preset = PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0]!
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<SubmitResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -311,6 +454,28 @@ export function Submitter7Stars() {
                 className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Applicant preset
+              </label>
+              <select
+                value={presetKey}
+                onChange={(e) => {
+                  const next = PRESETS.find((p) => p.key === e.target.value)
+                  if (!next) return
+                  setPresetKey(next.key)
+                  setValues({ ...next.values })
+                }}
+                className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
+              >
+                {PRESETS.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">{preset.note} Switching replaces all form values.</p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -400,71 +565,15 @@ function SevenStarsInput({
   )
 }
 
-const DD_STATUS_STYLES: Record<DueDiligence['status'], string> = {
-  pending: 'border-gray-200 bg-gray-50 text-gray-600',
-  clear: 'border-green-200 bg-green-50 text-green-800',
-  warning: 'border-amber-200 bg-amber-50 text-amber-800',
-  blocked: 'border-red-200 bg-red-50 text-red-700',
-  review: 'border-blue-200 bg-blue-50 text-blue-700',
-}
-
-const DD_OUTCOME_STYLES: Record<DueDiligenceCheck['result'], { symbol: string; className: string }> = {
-  pass: { symbol: '✓', className: 'text-green-600' },
-  fail: { symbol: '✕', className: 'text-red-600' },
-  unverified: { symbol: '–', className: 'text-gray-400' },
-}
-
-const INGEST_STATUS_STYLES: Record<SubmitResult['status'], string> = {
-  complete: 'border-green-200 bg-green-50 text-green-800',
-  ai_proposed: 'border-blue-200 bg-blue-50 text-blue-800',
-  needs_review: 'border-amber-200 bg-amber-50 text-amber-800',
-}
-
 function SuccessView({ result }: { result: SubmitResult }) {
-  const { application, dueDiligence, status, ingestId } = result
   return (
-    <div className="space-y-6">
-      <div className={`rounded-lg border px-5 py-4 ${INGEST_STATUS_STYLES[status]}`}>
-        <h2 className="text-sm font-semibold">
-          Ingested — {status.replace('_', ' ')}
-        </h2>
-        <p className="mt-1 text-xs opacity-80">Ingest ID: {ingestId}</p>
-        {application ? (
-          <p className="mt-0.5 text-xs opacity-80">Application: {application.id} · {application.status}</p>
-        ) : (
-          <p className="mt-0.5 text-xs opacity-80">
-            Held for review — resolve it in the Review queue to create the application.
-          </p>
-        )}
-      </div>
-
-      {application && dueDiligence && (
-        <div>
-          <div className="mb-3 flex items-center gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Due diligence
-            </h3>
-            <span
-              className={`rounded-full border px-2 py-0.5 text-xs font-medium ${DD_STATUS_STYLES[dueDiligence.status]}`}
-            >
-              {dueDiligence.status}
-            </span>
-          </div>
-          <ul className="space-y-1.5 rounded-lg border border-gray-200 bg-white p-4">
-            {dueDiligence.checks.map((c) => {
-              const o = DD_OUTCOME_STYLES[c.result]
-              return (
-                <li key={c.key} className="flex items-start gap-2 text-sm">
-                  <span className={`mt-0.5 w-3 shrink-0 font-semibold ${o.className}`}>{o.symbol}</span>
-                  <span className="text-gray-700">{c.key}</span>
-                  <span className="text-xs text-gray-400">[{c.source}]</span>
-                  {c.detail && <span className="text-gray-400">— {c.detail}</span>}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
+    <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4 text-green-800">
+      <h2 className="text-sm font-semibold">Accepted (202)</h2>
+      <p className="mt-1 text-xs opacity-80">Ingest ID: {result.ingestId}</p>
+      <p className="mt-0.5 text-xs opacity-80">
+        Mapping, scoring and due diligence run in the background — check the Review queue
+        for the outcome.
+      </p>
     </div>
   )
 }

@@ -81,6 +81,10 @@ export const custodianScoreStatusEnum = pgEnum('custodian_score_status', [
 ])
 
 // State of an incoming application payload as it moves through field mapping.
+//   received     — raw payload persisted, mapping/scoring not yet run. The sender
+//                  gets its 202 as soon as this row exists; the pipeline then runs
+//                  in the background and moves the row to one of the states below.
+//                  A row stuck here is a crashed pipeline — reprocessable, never lost.
 //   needs_review — at least one required canonical field could not be confidently
 //                  mapped (no lookup match, and AI either absent or below the
 //                  confidence threshold); held in the admin review queue.
@@ -92,6 +96,7 @@ export const ingestStatusEnum = pgEnum('ingest_status', [
   'needs_review',
   'ai_proposed',
   'complete',
+  'received',
 ])
 
 // State of deprivation-context resolution for an application's free-text location.

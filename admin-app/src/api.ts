@@ -109,7 +109,7 @@ export async function adminDelete<T = unknown>(path: string): Promise<T> {
 
 export interface IngestRow {
   id: string
-  status: 'needs_review' | 'ai_proposed' | 'complete'
+  status: 'received' | 'needs_review' | 'ai_proposed' | 'complete'
   rawPayload: Record<string, unknown>
   proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
   resolved: Record<string, string> | null

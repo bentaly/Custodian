@@ -19,6 +19,10 @@ export default {
     // Non-string bindings (rate limiters, KV, etc.) can't go through process.env,
     // so stash the live env for server code that needs them (see src/server/rateLimit.ts).
     globalThis.__cfEnv = env
+    // Execution context, for post-response work via ctx.waitUntil (see
+    // src/server/background.ts). Like __cfEnv this is overwritten per request;
+    // registering on a concurrent request's ctx still keeps the work alive.
+    globalThis.__cfCtx = ctx
     return handler.fetch(request, env, ctx)
   },
 }

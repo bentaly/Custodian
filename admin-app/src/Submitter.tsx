@@ -72,38 +72,11 @@ interface Round {
   programmes: Programme[]
 }
 
-interface DueDiligenceCheck {
-  key: string
-  source: string
-  result: 'pass' | 'fail' | 'unverified'
-  detail: string | null
-}
-
-interface DueDiligence {
-  status: 'pending' | 'clear' | 'warning' | 'blocked' | 'review'
-  checks: DueDiligenceCheck[]
-  checkedAt: string
-}
-
+// /api/apply acknowledges with 202 as soon as the raw payload is stored; mapping,
+// scoring and due diligence run in the background. Outcomes live in the Review queue.
 interface SubmitResult {
-  status: 'complete' | 'ai_proposed' | 'needs_review'
+  status: 'received'
   ingestId: string
-  applicationId: string | null
-  // Present when the ingest created an application (complete / ai_proposed).
-  application?: {
-    id: string
-    organisationName: string
-    charityNumber: string | null
-    companyNumber: string | null
-    bankName: string
-    bankAccountName: string
-    bankAccountNumber: string
-    bankSortCode: string
-    amountRequested: string
-    status: string
-    submittedAt: string
-  } | null
-  dueDiligence?: DueDiligence | null
 }
 
 interface RoundSummary {
@@ -584,88 +557,15 @@ export function Submitter() {
   )
 }
 
-const DD_STATUS_STYLES: Record<DueDiligence['status'], string> = {
-  pending: 'border-gray-200 bg-gray-50 text-gray-600',
-  clear: 'border-green-200 bg-green-50 text-green-800',
-  warning: 'border-amber-200 bg-amber-50 text-amber-800',
-  blocked: 'border-red-200 bg-red-50 text-red-700',
-  review: 'border-blue-200 bg-blue-50 text-blue-700',
-}
-
-const DD_OUTCOME_STYLES: Record<DueDiligenceCheck['result'], { symbol: string; className: string }> = {
-  pass: { symbol: '✓', className: 'text-green-600' },
-  fail: { symbol: '✕', className: 'text-red-600' },
-  unverified: { symbol: '–', className: 'text-gray-400' },
-}
-
-const INGEST_STATUS_STYLES: Record<SubmitResult['status'], string> = {
-  complete: 'border-green-200 bg-green-50 text-green-800',
-  ai_proposed: 'border-blue-200 bg-blue-50 text-blue-800',
-  needs_review: 'border-amber-200 bg-amber-50 text-amber-800',
-}
-
 function SuccessView({ result }: { result: SubmitResult }) {
-  const { application, dueDiligence, status, ingestId } = result
   return (
-    <div className="space-y-6">
-      <div className={`rounded-lg border px-5 py-4 ${INGEST_STATUS_STYLES[status]}`}>
-        <h2 className="text-sm font-semibold">
-          Ingested — {status.replace('_', ' ')}
-        </h2>
-        <p className="mt-1 text-xs opacity-80">Ingest ID: {ingestId}</p>
-        {application ? (
-          <p className="mt-0.5 text-xs opacity-80">Application: {application.id} · {application.status}</p>
-        ) : (
-          <p className="mt-0.5 text-xs opacity-80">
-            Held for review — resolve it in the Review queue to create the application.
-          </p>
-        )}
-      </div>
-
-      {application && (
-        <>
-          {dueDiligence ? (
-            <div>
-              <div className="mb-3 flex items-center gap-3">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                  Due diligence
-                </h3>
-                <span
-                  className={`rounded-full border px-2 py-0.5 text-xs font-medium ${DD_STATUS_STYLES[dueDiligence.status]}`}
-                >
-                  {dueDiligence.status}
-                </span>
-              </div>
-              <ul className="space-y-1.5 rounded-lg border border-gray-200 bg-white p-4">
-                {dueDiligence.checks.map((c) => {
-                  const o = DD_OUTCOME_STYLES[c.result]
-                  return (
-                    <li key={c.key} className="flex items-start gap-2 text-sm">
-                      <span className={`mt-0.5 w-3 shrink-0 font-semibold ${o.className}`}>{o.symbol}</span>
-                      <span className="text-gray-700">{c.key}</span>
-                      <span className="text-xs text-gray-400">[{c.source}]</span>
-                      {c.detail && <span className="text-gray-400">— {c.detail}</span>}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          ) : (
-            <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              No due diligence returned (no charity or company number supplied).
-            </div>
-          )}
-
-          <div>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Application data
-            </h3>
-            <pre className="overflow-auto rounded-lg bg-gray-950 p-4 text-xs text-green-400">
-              {JSON.stringify(application, null, 2)}
-            </pre>
-          </div>
-        </>
-      )}
+    <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4 text-green-800">
+      <h2 className="text-sm font-semibold">Accepted (202)</h2>
+      <p className="mt-1 text-xs opacity-80">Ingest ID: {result.ingestId}</p>
+      <p className="mt-0.5 text-xs opacity-80">
+        Mapping, scoring and due diligence run in the background — check the Review queue
+        for the outcome.
+      </p>
     </div>
   )
 }

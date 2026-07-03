@@ -4,6 +4,10 @@
 // is validated into a real application, the application is created, the ingest is
 // marked complete, and any fields flagged `addToLookup` are persisted to the
 // foundation's lookup table so the same source key resolves automatically next time.
+//
+// An `ai_proposed` ingest already has its application (the pipeline created it when
+// the AI proposal cleared the confidence threshold) — resolving one is a *confirm*:
+// persist any chosen lookups and mark the ingest complete, no second application.
 
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
@@ -23,9 +27,29 @@ import { CreateApplicationSchema } from '../../lib/validators/application'
 import type { ResolveInput } from '../../lib/validators/ingest'
 
 export type ResolveResult =
-  | { ok: false; error: 'not_found' | 'already_resolved' | 'round_programme_missing' }
+  | { ok: false; error: 'not_found' | 'already_resolved' | 'processing' | 'round_programme_missing' }
   | { ok: false; error: 'invalid'; fields: Array<{ field: string; message: string }> }
   | { ok: true; applicationId: string }
+
+/** Persist reviewer-confirmed mappings to the foundation's lookup table. */
+async function persistLookups(clientId: string, input: ResolveInput, actor: string | null) {
+  for (const canonical of input.addToLookup) {
+    const sourceKey = input.mapping[canonical]
+    if (!sourceKey) continue
+    await getDb()
+      .insert(fieldMappings)
+      .values({
+        clientId,
+        sourceKey,
+        canonicalField: canonical,
+        addedBy: actor,
+      })
+      .onConflictDoUpdate({
+        target: [fieldMappings.clientId, fieldMappings.sourceKey],
+        set: { canonicalField: canonical, addedBy: actor },
+      })
+  }
+}
 
 export async function resolveIngest(
   ingestId: string,
@@ -36,7 +60,21 @@ export async function resolveIngest(
     where: eq(applicationIngests.id, ingestId),
   })
   if (!ingest) return { ok: false, error: 'not_found' }
-  if (ingest.applicationId) return { ok: false, error: 'already_resolved' }
+  // The background pipeline hasn't finished with this row yet — resolving now
+  // would race it into a duplicate application.
+  if (ingest.status === 'received') return { ok: false, error: 'processing' }
+
+  // Already promoted: confirm rather than re-create. The stored `resolved` map
+  // stays as-is — it records what the pipeline actually applied to the application.
+  if (ingest.applicationId) {
+    if (ingest.status === 'complete') return { ok: false, error: 'already_resolved' }
+    await persistLookups(ingest.clientId, input, actor)
+    await getDb()
+      .update(applicationIngests)
+      .set({ status: 'complete', resolvedAt: new Date(), resolvedBy: actor })
+      .where(eq(applicationIngests.id, ingestId))
+    return { ok: true, applicationId: ingest.applicationId }
+  }
 
   const payload = ingest.rawPayload
   const resolved = resolvedFromMapping(payload, input.mapping)
@@ -69,22 +107,7 @@ export async function resolveIngest(
   }
 
   // Persist confirmed mappings to the foundation's lookup table.
-  for (const canonical of input.addToLookup) {
-    const sourceKey = input.mapping[canonical]
-    if (!sourceKey) continue
-    await getDb()
-      .insert(fieldMappings)
-      .values({
-        clientId: ingest.clientId,
-        sourceKey,
-        canonicalField: canonical,
-        addedBy: actor,
-      })
-      .onConflictDoUpdate({
-        target: [fieldMappings.clientId, fieldMappings.sourceKey],
-        set: { canonicalField: canonical, addedBy: actor },
-      })
-  }
+  await persistLookups(ingest.clientId, input, actor)
 
   const created = await createApplicationFromCanonical(roundProgramme, parsed.data)
   const applicationId = created.application?.id

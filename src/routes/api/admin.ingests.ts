@@ -4,7 +4,7 @@ import { getDb } from '../../server/db'
 import { applicationIngests } from '../../../drizzle/schema'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 
-const STATUSES = new Set(['needs_review', 'ai_proposed', 'complete'])
+const STATUSES = new Set(['received', 'needs_review', 'ai_proposed', 'complete'])
 
 export const Route = createFileRoute('/api/admin/ingests')(
   {
@@ -20,7 +20,10 @@ export const Route = createFileRoute('/api/admin/ingests')(
 
           const rows = await getDb().query.applicationIngests.findMany({
             where: status
-              ? eq(applicationIngests.status, status as 'needs_review' | 'ai_proposed' | 'complete')
+              ? eq(
+                  applicationIngests.status,
+                  status as 'received' | 'needs_review' | 'ai_proposed' | 'complete',
+                )
               : undefined,
             orderBy: (i, { desc }) => [desc(i.createdAt)],
             with: { client: { columns: { id: true, name: true } } },

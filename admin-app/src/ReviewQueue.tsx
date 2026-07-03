@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  adminDelete,
   adminGet,
   adminPost,
   externalIdOf,
@@ -8,9 +9,10 @@ import {
   type IngestRow,
 } from './api'
 
-type StatusFilter = 'needs_review' | 'ai_proposed' | 'complete' | 'all'
+type StatusFilter = 'needs_review' | 'ai_proposed' | 'complete' | 'received' | 'all'
 
 const STATUS_STYLES: Record<IngestRow['status'], string> = {
+  received: 'border-gray-200 bg-gray-50 text-gray-500',
   needs_review: 'border-amber-200 bg-amber-50 text-amber-800',
   ai_proposed: 'border-blue-200 bg-blue-50 text-blue-700',
   complete: 'border-green-200 bg-green-50 text-green-800',
@@ -39,7 +41,7 @@ export function ReviewQueue() {
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1">
-          {(['needs_review', 'ai_proposed', 'complete', 'all'] as StatusFilter[]).map((s) => (
+          {(['needs_review', 'ai_proposed', 'complete', 'received', 'all'] as StatusFilter[]).map((s) => (
             <button
               key={s}
               onClick={() => setStatus(s)}
@@ -105,7 +107,35 @@ function IngestCard({
   }, [canonicalFields, resolvedByCanonical, row.proposed])
   const [addToLookup, setAddToLookup] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // "Select all" for the lookup ticks: every canonical field with a chosen source.
+  const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => mapping[k])
+  const allTicked = mappedKeys.length > 0 && mappedKeys.every((k) => addToLookup[k])
+  function toggleAllLookups() {
+    setAddToLookup(Object.fromEntries(mappedKeys.map((k) => [k, !allTicked])))
+  }
+
+  async function remove() {
+    const msg =
+      row.status === 'received'
+        ? 'This row may still be processing — deleting now can leave an orphaned application. Delete anyway?'
+        : row.applicationId
+          ? 'Delete this ingest AND its application (including any comments and votes)?'
+          : 'Delete this ingest?'
+    if (!window.confirm(msg)) return
+    setDeleting(true)
+    setErr(null)
+    try {
+      await adminDelete(`/api/admin/ingests/${row.id}`)
+      onResolved()
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function resolve() {
     setSaving(true)
@@ -148,17 +178,43 @@ function IngestCard({
         </span>
       </button>
 
-      {open && (
+      {open && row.status === 'received' && (
+        <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-4 py-4">
+          <p className="text-xs text-gray-500">
+            Processing — mapping, scoring and due diligence are running in the background.
+            Refresh in a minute; a row stuck here means the pipeline crashed.
+          </p>
+          <DeleteButton onClick={remove} deleting={deleting} />
+        </div>
+      )}
+
+      {open && row.status !== 'received' && (
         <div className="space-y-4 border-t border-gray-100 px-4 py-4">
           {row.status === 'complete' ? (
             <p className="text-xs text-gray-500">
               Resolved → application {row.applicationId}. Mapping shown for reference.
+            </p>
+          ) : row.applicationId ? (
+            <p className="text-xs text-gray-500">
+              The application was already created from the AI-proposed mapping (application{' '}
+              {row.applicationId}). Review the mapping below, tick “lookup” for anything worth
+              teaching, then confirm.
             </p>
           ) : (
             <p className="text-xs text-gray-500">
               Map each required field to an incoming value, then resolve to create the application.
               Tick “add to lookup” to teach the foundation’s table.
             </p>
+          )}
+
+          {row.status !== 'complete' && mappedKeys.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleAllLookups}
+              className="text-xs text-indigo-600 hover:text-indigo-800"
+            >
+              {allTicked ? 'Untick all lookups' : 'Tick all lookups'}
+            </button>
           )}
 
           <div className="space-y-2">
@@ -217,17 +273,41 @@ function IngestCard({
 
           {err && <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{err}</p>}
 
-          {row.status !== 'complete' && (
-            <button
-              onClick={resolve}
-              disabled={saving}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-            >
-              {saving ? 'Resolving…' : 'Resolve → create application'}
-            </button>
-          )}
+          <div className="flex items-center justify-between gap-3">
+            {row.status !== 'complete' ? (
+              <button
+                onClick={resolve}
+                disabled={saving}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {saving
+                  ? row.applicationId
+                    ? 'Confirming…'
+                    : 'Resolving…'
+                  : row.applicationId
+                    ? 'Confirm mapping'
+                    : 'Resolve → create application'}
+              </button>
+            ) : (
+              <span />
+            )}
+            <DeleteButton onClick={remove} deleting={deleting} />
+          </div>
         </div>
       )}
     </div>
+  )
+}
+
+function DeleteButton({ onClick, deleting }: { onClick: () => void; deleting: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={deleting}
+      className="shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-xs text-gray-500 hover:border-red-300 hover:text-red-600 disabled:opacity-60"
+    >
+      {deleting ? 'Deleting…' : 'Delete'}
+    </button>
   )
 }

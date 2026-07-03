@@ -44,6 +44,8 @@ export const Route = createFileRoute('/api/admin/ingests/$id/resolve')(
             if (result.error === 'not_found') return adminJson({ error: 'Not found' }, 404)
             if (result.error === 'already_resolved')
               return adminJson({ error: 'Already resolved' }, 409)
+            if (result.error === 'processing')
+              return adminJson({ error: 'Still processing — try again shortly' }, 409)
             if (result.error === 'invalid')
               return adminJson(
                 { error: 'Mapping does not produce a valid application', fields: result.fields },
