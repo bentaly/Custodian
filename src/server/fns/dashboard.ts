@@ -11,6 +11,7 @@ import {
   grants,
   grantPayments,
   grantReports,
+  reportSubmissions,
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
@@ -72,6 +73,8 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     reviewRows,
     recentSubmittedRows,
     recentDecidedRows,
+    recentReportRows,
+    recentReviewedRows,
     reportRows,
     paymentRows,
     paymentTotalsRows,
@@ -185,6 +188,38 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .from(applications)
       .where(and(inScope, isNotNull(applications.decisionAt)))
       .orderBy(desc(applications.decisionAt))
+      .limit(8),
+
+    // Recent report submissions (for the activity feed).
+    getDb()
+      .select({
+        id: reportSubmissions.id,
+        grantReportId: reportSubmissions.grantReportId,
+        organisationName: applications.organisationName,
+        at: reportSubmissions.submittedAt,
+      })
+      .from(reportSubmissions)
+      .innerJoin(grants, eq(reportSubmissions.grantId, grants.id))
+      .leftJoin(applications, eq(grants.applicationId, applications.id))
+      .where(grantScope)
+      .orderBy(desc(reportSubmissions.submittedAt))
+      .limit(8),
+
+    // Recent report reviews (activity feed). Derived from reviewedAt, so an
+    // undone review simply drops out of the feed.
+    getDb()
+      .select({
+        id: reportSubmissions.id,
+        grantReportId: reportSubmissions.grantReportId,
+        organisationName: applications.organisationName,
+        at: reportSubmissions.reviewedAt,
+        by: reportSubmissions.reviewedBy,
+      })
+      .from(reportSubmissions)
+      .innerJoin(grants, eq(reportSubmissions.grantId, grants.id))
+      .leftJoin(applications, eq(grants.applicationId, applications.id))
+      .where(and(grantScope, isNotNull(reportSubmissions.reviewedAt)))
+      .orderBy(desc(reportSubmissions.reviewedAt))
       .limit(8),
 
     // Outstanding grant reports, soonest first.
@@ -379,7 +414,11 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     (r) => r.dueDiligenceStatus === 'blocked' || r.dueDiligenceStatus === 'review',
   ).length
 
-  // ── Recent activity (merge submissions + decisions) ──────────────────────────
+  // ── Recent activity (merge submissions + decisions + report events) ──────────
+  // Report events are derived (submittedAt / reviewedAt), never logged: undoing a
+  // review removes its feed item, re-reviewing re-dates it. `reportKey` is what
+  // /reports/$reportKey accepts — the milestone id, or the submission id for
+  // unscheduled reports.
   const activity = [
     ...recentSubmittedRows.map((r) => ({
       type: 'submitted' as const,
@@ -391,6 +430,19 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       type: r.status === 'awarded' ? ('awarded' as const) : ('declined' as const),
       applicationId: r.id,
       organisationName: r.organisationName,
+      at: r.at!,
+    })),
+    ...recentReportRows.map((r) => ({
+      type: 'report_received' as const,
+      reportKey: r.grantReportId ?? r.id,
+      organisationName: r.organisationName ?? '(direct grant)',
+      at: r.at,
+    })),
+    ...recentReviewedRows.map((r) => ({
+      type: 'report_reviewed' as const,
+      reportKey: r.grantReportId ?? r.id,
+      organisationName: r.organisationName ?? '(direct grant)',
+      by: r.by,
       at: r.at!,
     })),
   ]

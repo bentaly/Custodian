@@ -483,20 +483,38 @@ function Dashboard() {
             <p className="py-4 text-sm text-gray-400">No recent activity.</p>
           ) : (
             <div className="space-y-2.5">
-              {d.activity.map((ev) => (
-                <Link
-                  key={`${ev.type}-${ev.applicationId}`}
-                  to="/applications/$applicationId"
-                  params={{ applicationId: ev.applicationId }}
-                  className="flex items-center gap-2.5 text-sm hover:opacity-80"
-                >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ev.type === 'awarded' ? '#1D9E75' : ev.type === 'declined' ? '#C46B6B' : '#9CA3AF' }} />
-                  <span className="min-w-0 flex-1 truncate text-gray-700">{ev.organisationName}</span>
-                  <span className="shrink-0 text-[11px] text-gray-400">
-                    {ev.type === 'submitted' ? 'submitted' : ev.type === 'awarded' ? 'awarded' : 'declined'} · {relativeTime(ev.at)}
-                  </span>
-                </Link>
-              ))}
+              {d.activity.map((ev) =>
+                ev.type === 'report_received' || ev.type === 'report_reviewed' ? (
+                  <Link
+                    key={`${ev.type}-${ev.reportKey}`}
+                    to="/reports/$reportKey"
+                    params={{ reportKey: ev.reportKey }}
+                    className="flex items-center gap-2.5 text-sm hover:opacity-80"
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ev.type === 'report_reviewed' ? '#1D9E75' : '#5B8DEF' }} />
+                    <span className="min-w-0 flex-1 truncate text-gray-700">{ev.organisationName}</span>
+                    <span
+                      className="shrink-0 text-[11px] text-gray-400"
+                      title={ev.type === 'report_reviewed' && ev.by ? `Reviewed by ${ev.by}` : undefined}
+                    >
+                      {ev.type === 'report_reviewed' ? 'report reviewed' : 'report received'} · {relativeTime(ev.at)}
+                    </span>
+                  </Link>
+                ) : (
+                  <Link
+                    key={`${ev.type}-${ev.applicationId}`}
+                    to="/applications/$applicationId"
+                    params={{ applicationId: ev.applicationId }}
+                    className="flex items-center gap-2.5 text-sm hover:opacity-80"
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ev.type === 'awarded' ? '#1D9E75' : ev.type === 'declined' ? '#C46B6B' : '#9CA3AF' }} />
+                    <span className="min-w-0 flex-1 truncate text-gray-700">{ev.organisationName}</span>
+                    <span className="shrink-0 text-[11px] text-gray-400">
+                      {ev.type === 'submitted' ? 'submitted' : ev.type === 'awarded' ? 'awarded' : 'declined'} · {relativeTime(ev.at)}
+                    </span>
+                  </Link>
+                ),
+              )}
             </div>
           )}
         </Card>
