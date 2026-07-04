@@ -80,6 +80,29 @@ export const custodianScoreStatusEnum = pgEnum('custodian_score_status', [
   'error',
 ])
 
+// How a submitted grant report was tied to its grant.
+//   external_id — the report carried an externalApplicationId that exactly matched
+//                 an application with a grant; linked automatically.
+//   manual      — an admin picked the grant in the review queue (report arrived
+//                 without a usable ID; heuristic candidates only ever suggest).
+//   import      — created by the historical data-import flow (client-supplied link).
+export const reportMatchMethodEnum = pgEnum('report_match_method', [
+  'external_id',
+  'manual',
+  'import',
+])
+
+// State of the AI analysis of a submitted grant report (summary, alignment against
+// the application's promises and the programme's goal, impact-quantity extraction).
+//   pending  — not yet analysed (AI not configured, or never run); re-runnable
+//   analysed — analysis completed successfully
+//   error    — attempted but failed (API/validation error); re-runnable
+export const reportAnalysisStatusEnum = pgEnum('report_analysis_status', [
+  'pending',
+  'analysed',
+  'error',
+])
+
 // State of an incoming application payload as it moves through field mapping.
 //   received     — raw payload persisted, mapping/scoring not yet run. The sender
 //                  gets its 202 as soon as this row exists; the pipeline then runs
@@ -173,6 +196,13 @@ export const programmes = pgTable('programmes', {
   description: text('description'),
   goal: text('goal'),
   tags: jsonb('tags').$type<string[]>(),
+  // Unit this programme measures impact in (key from IMPACT_UNITS, e.g. 'people',
+  // 'hectares'). Drives Insights aggregation and the report-analysis extraction
+  // prompt ("how many {unit} does this report evidence").
+  impactUnit: text('impact_unit').notNull().default('people'),
+  // Free-text PLURAL noun phrase when impactUnit = 'other', e.g. "hectares of
+  // peatland restored". Used verbatim for display and extraction; never inflected.
+  impactUnitLabel: text('impact_unit_label'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -351,12 +381,17 @@ export const fieldMappings = pgTable(
       .references(() => clients.id, { onDelete: 'cascade' }),
     sourceKey: text('source_key').notNull(),
     canonicalField: text('canonical_field').notNull(),
+    // Which form's canonical vocabulary this mapping targets: 'application' or
+    // 'report'. The same sourceKey can legitimately map differently per form —
+    // e.g. "Funding amount" is amountRequested on an application but
+    // amountAwarded on a report.
+    formType: text('form_type').notNull().default('application'),
     // Email of the admin who confirmed the mapping (from the admin app). Nullable
     // for seeded/system mappings.
     addedBy: text('added_by'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [unique('field_mappings_client_source_uniq').on(t.clientId, t.sourceKey)],
+  (t) => [unique('field_mappings_client_form_source_uniq').on(t.clientId, t.formType, t.sourceKey)],
 )
 
 // An incoming application payload, held while its fields are mapped to canonical
@@ -532,6 +567,133 @@ export const grantReports = pgTable('grant_reports', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// ─── Grant report submissions (report ingest) ───────────────────────────────────
+
+// An incoming grant-report payload from a charity, held while its fields are mapped
+// to the report canonical vocabulary and the report is matched to a grant. Mirrors
+// `application_ingests`. A row leaves `needs_review` only when BOTH gates pass:
+// every required canonical field resolved AND a grant identified (exact
+// externalApplicationId match, or an admin pick). The raw payload is always
+// retained for audit and re-mapping.
+export const reportIngests = pgTable('report_ingests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+  status: ingestStatusEnum('status').notNull().default('needs_review'),
+  // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
+  proposed: jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
+  // The final mapping applied: sourceKey → canonicalField.
+  resolved: jsonb('resolved').$type<Record<string, string>>(),
+  // Ranked grant suggestions computed by the matching heuristics (charity number,
+  // normalised organisation name, programme, amount, award-date fit). Heuristics
+  // NEVER auto-link — an admin confirms one of these in the review queue. Kept on
+  // the row so a future client-facing match UI can render the same suggestions.
+  matchCandidates: jsonb('match_candidates').$type<
+    Array<{ grantId: string; score: number; reasons: string[] }>
+  >(),
+  // Set once promoted to a real report submission.
+  reportSubmissionId: uuid('report_submission_id').references(() => reportSubmissions.id, {
+    onDelete: 'set null',
+  }),
+  note: text('note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  resolvedAt: timestamp('resolved_at'),
+  resolvedBy: text('resolved_by'),
+})
+
+// A charity's submitted grant report, mapped to canonical fields and linked to its
+// grant. Created only once mapping + matching both succeed (unresolved reports wait
+// in `report_ingests`). Carries the AI analysis: summary, alignment against the
+// application's promises and the programme's goal, and the extracted impact
+// quantity in the programme's impact unit (which feeds Insights).
+export const reportSubmissions = pgTable('report_submissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  grantId: uuid('grant_id')
+    .notNull()
+    .references(() => grants.id, { onDelete: 'cascade' }),
+  // The reporting milestone this submission satisfied (earliest open one at the
+  // time of linking); null when the grant had no open milestones left.
+  grantReportId: uuid('grant_report_id').references(() => grantReports.id, {
+    onDelete: 'set null',
+  }),
+  matchMethod: reportMatchMethodEnum('match_method').notNull(),
+
+  // ── Canonical report fields (see src/lib/fieldMapping/reportCanonical.ts) ──
+  externalApplicationId: text('external_application_id'),
+  organisationName: text('organisation_name').notNull(),
+  charityNumber: text('charity_number'),
+  companyNumber: text('company_number'),
+  programmeName: text('programme_name'),
+  // Amount as stated on the report — kept for cross-checking against the grant's
+  // amountAwarded (a mismatch is a wrong-link signal), not a source of truth.
+  amountAwarded: numeric('amount_awarded'),
+  awardDate: text('award_date'),
+  awardEndDate: text('award_end_date'),
+  contactName: text('contact_name'),
+  contactEmail: text('contact_email'),
+  contactPhone: text('contact_phone'),
+  grantTitle: text('grant_title'),
+  grantPurpose: text('grant_purpose'),
+  impactSummary: text('impact_summary').notNull(),
+  challenges: text('challenges'),
+  lessons: text('lessons'),
+  caseStudies: text('case_studies'),
+  testimonials: text('testimonials'),
+  otherComments: text('other_comments'),
+  // Directly-asked beneficiary count ("How many young people benefited?"). When the
+  // programme measures impact in people, this charity-typed number beats AI extraction.
+  beneficiaryCount: integer('beneficiary_count'),
+  deliveryArea: text('delivery_area'),
+  // Everything from the payload that didn't map to a canonical field. All of it is
+  // still fed to the AI analysis. Same shape as applications.responses.
+  responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
+
+  // ── AI analysis ──
+  analysisStatus: reportAnalysisStatusEnum('analysis_status').notNull().default('pending'),
+  aiSummary: text('ai_summary'),
+  applicationAlignment: jsonb('application_alignment').$type<{
+    score: number
+    narrative: string
+    promisesKept: string[]
+    promisesUnmet: string[]
+  }>(),
+  programmeAlignment: jsonb('programme_alignment').$type<{
+    score: number
+    narrative: string
+  }>(),
+  // AI summaries of challenges faced and lessons learned, drawn from anywhere in
+  // the report (not just the dedicated fields — foundations' forms scatter these).
+  // Null = the report genuinely mentions none.
+  aiChallenges: text('ai_challenges'),
+  aiLessons: text('ai_lessons'),
+  // The resolved impact quantity in the programme's unit; null = no quantity found
+  // (surfaced as such — never coerced to zero, so Insights isn't dragged down).
+  impactQuantity: numeric('impact_quantity'),
+  // 'reported' (charity-typed beneficiaryCount) or 'ai' (extracted from narrative).
+  impactQuantitySource: text('impact_quantity_source'),
+  // Verbatim supporting quote from the report so a human can verify at a glance.
+  impactQuantityQuote: text('impact_quantity_quote'),
+  // Programme's impact unit label at analysis time, denormalised so the figure
+  // stays interpretable even if the programme's unit is changed later.
+  impactUnitLabel: text('impact_unit_label'),
+  // Flags and error detail from the analysis run (mirrors custodianScoreDetail).
+  analysisDetail: jsonb('analysis_detail').$type<Record<string, unknown>>(),
+  analysedAt: timestamp('analysed_at'),
+
+  // Human sign-off: an admin marking the report as reviewed. Null = awaiting
+  // review. Drives the 'reviewed' status on the Reports screen.
+  reviewedAt: timestamp('reviewed_at'),
+  reviewedBy: text('reviewed_by'),
+
+  submittedAt: timestamp('submitted_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -600,14 +762,33 @@ export const grantsRelations = relations(grants, ({ one, many }) => ({
   client: one(clients, { fields: [grants.clientId], references: [clients.id] }),
   payments: many(grantPayments),
   reports: many(grantReports),
+  reportSubmissions: many(reportSubmissions),
 }))
 
 export const grantPaymentsRelations = relations(grantPayments, ({ one }) => ({
   grant: one(grants, { fields: [grantPayments.grantId], references: [grants.id] }),
 }))
 
-export const grantReportsRelations = relations(grantReports, ({ one }) => ({
+export const grantReportsRelations = relations(grantReports, ({ one, many }) => ({
   grant: one(grants, { fields: [grantReports.grantId], references: [grants.id] }),
+  submissions: many(reportSubmissions),
+}))
+
+export const reportIngestsRelations = relations(reportIngests, ({ one }) => ({
+  client: one(clients, { fields: [reportIngests.clientId], references: [clients.id] }),
+  reportSubmission: one(reportSubmissions, {
+    fields: [reportIngests.reportSubmissionId],
+    references: [reportSubmissions.id],
+  }),
+}))
+
+export const reportSubmissionsRelations = relations(reportSubmissions, ({ one }) => ({
+  client: one(clients, { fields: [reportSubmissions.clientId], references: [clients.id] }),
+  grant: one(grants, { fields: [reportSubmissions.grantId], references: [grants.id] }),
+  grantReport: one(grantReports, {
+    fields: [reportSubmissions.grantReportId],
+    references: [grantReports.id],
+  }),
 }))
 
 export const fieldMappingsRelations = relations(fieldMappings, ({ one }) => ({

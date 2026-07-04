@@ -136,6 +136,71 @@ export interface MappingRow {
   clientId: string
   sourceKey: string
   canonicalField: string
+  formType: 'application' | 'report'
   addedBy: string | null
   createdAt: string
+}
+
+// ─── Report ingest (grant reports) ───────────────────────────────────────────
+
+// The report canonical registry, fetched from the main app like the application
+// one (source of truth: src/lib/fieldMapping/reportCanonical.ts).
+let _reportCanonicalCache: CanonicalField[] | null = null
+let _reportCanonicalPromise: Promise<CanonicalField[]> | null = null
+
+export function fetchReportCanonicalFields(): Promise<CanonicalField[]> {
+  if (_reportCanonicalCache) return Promise.resolve(_reportCanonicalCache)
+  if (!_reportCanonicalPromise) {
+    _reportCanonicalPromise = adminGet<CanonicalField[]>('/api/admin/report-canonical-fields')
+      .then((fields) => {
+        _reportCanonicalCache = fields
+        return fields
+      })
+      .catch((e) => {
+        _reportCanonicalPromise = null // let a later call retry
+        throw e
+      })
+  }
+  return _reportCanonicalPromise
+}
+
+/** Report canonical fields, or `[]` until the fetch resolves. */
+export function useReportCanonicalFields(): CanonicalField[] {
+  const [fields, setFields] = useState<CanonicalField[]>(_reportCanonicalCache ?? [])
+  useEffect(() => {
+    let active = true
+    fetchReportCanonicalFields()
+      .then((f) => active && setFields(f))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+  return fields
+}
+
+export interface ReportIngestRow {
+  id: string
+  status: 'received' | 'needs_review' | 'ai_proposed' | 'complete'
+  rawPayload: Record<string, unknown>
+  proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
+  resolved: Record<string, string> | null
+  matchCandidates: Array<{ grantId: string; score: number; reasons: string[] }> | null
+  reportSubmissionId: string | null
+  createdAt: string
+  client: { id: string; name: string }
+}
+
+/** A client's grant, flattened for the report match picker. */
+export interface GrantOption {
+  id: string
+  amountAwarded: string
+  status: string
+  decisionAt: string
+  organisationName: string | null
+  charityNumber: string | null
+  externalApplicationId: string | null
+  programmeName: string | null
+  openMilestones: number
+  totalMilestones: number
 }

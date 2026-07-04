@@ -46,13 +46,13 @@ export const Route = createFileRoute('/api/admin/mappings')(
             )
           }
 
-          const { clientId, sourceKey, canonicalField } = parsed.data
+          const { clientId, sourceKey, canonicalField, formType } = parsed.data
           const addedBy = adminActor(request)
           const [row] = await getDb()
             .insert(fieldMappings)
-            .values({ clientId, sourceKey, canonicalField, addedBy })
+            .values({ clientId, sourceKey, canonicalField, formType, addedBy })
             .onConflictDoUpdate({
-              target: [fieldMappings.clientId, fieldMappings.sourceKey],
+              target: [fieldMappings.clientId, fieldMappings.formType, fieldMappings.sourceKey],
               set: { canonicalField, addedBy },
             })
             .returning()

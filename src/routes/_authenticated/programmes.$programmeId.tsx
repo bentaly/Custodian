@@ -11,6 +11,7 @@ import { listMyRounds } from '../../server/fns/rounds'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
+import { IMPACT_UNITS, DEFAULT_IMPACT_UNIT, impactUnitLabel } from '../../lib/impactUnits'
 
 export const Route = createFileRoute('/_authenticated/programmes/$programmeId')({
   loader: async ({ params }) => {
@@ -40,6 +41,8 @@ function ProgrammeDetail() {
   const [description, setDescription] = useState(programme.description ?? '')
   const [goal, setGoal] = useState(programme.goal ?? '')
   const [tags, setTags] = useState<string[]>((programme.tags ?? []) as string[])
+  const [impactUnit, setImpactUnit] = useState(programme.impactUnit ?? DEFAULT_IMPACT_UNIT)
+  const [impactUnitCustom, setImpactUnitCustom] = useState(programme.impactUnitLabel ?? '')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -66,6 +69,8 @@ function ProgrammeDetail() {
           description: description || undefined,
           goal: goal || undefined,
           tags,
+          impactUnit,
+          impactUnitLabel: impactUnit === 'other' ? impactUnitCustom.trim() || null : null,
         },
       })
       setEditing(false)
@@ -153,6 +158,47 @@ function ProgrammeDetail() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500">
+                Impact measured in{' '}
+                <span className="font-normal text-gray-400">
+                  — used to count what this programme's grants achieve
+                </span>
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={impactUnit}
+                  onChange={(e) => setImpactUnit(e.target.value)}
+                  className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                >
+                  {IMPACT_UNITS.map((u) => (
+                    <option key={u.key} value={u.key}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+                {impactUnit === 'other' ? (
+                  <input
+                    type="text"
+                    value={impactUnitCustom}
+                    onChange={(e) => setImpactUnitCustom(e.target.value)}
+                    placeholder="e.g. hectares of peatland restored"
+                    className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    required
+                  />
+                ) : (
+                  <span className="self-center text-xs text-gray-400">
+                    {IMPACT_UNITS.find((u) => u.key === impactUnit)?.hint}
+                  </span>
+                )}
+              </div>
+              {impactUnit === 'other' && (
+                <p className="mt-1 text-xs text-gray-400">
+                  Use a plural phrase that reads as "number of…" — it appears on Insights and guides
+                  how grant reports are read.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">
                 Programme priorities{' '}
                 <span className="font-normal text-gray-400">— used by AI to score applications</span>
               </label>
@@ -176,6 +222,8 @@ function ProgrammeDetail() {
                   setDescription(programme.description ?? '')
                   setGoal(programme.goal ?? '')
                   setTags((programme.tags ?? []) as string[])
+                  setImpactUnit(programme.impactUnit ?? DEFAULT_IMPACT_UNIT)
+                  setImpactUnitCustom(programme.impactUnitLabel ?? '')
                   setSaveError('')
                 }}
                 className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
@@ -205,6 +253,12 @@ function ProgrammeDetail() {
                   ))}
                 </div>
               )}
+              <p className="mt-2 text-xs text-gray-400">
+                Impact measured in{' '}
+                <span className="font-medium text-gray-500">
+                  {impactUnitLabel(programme.impactUnit, programme.impactUnitLabel).toLowerCase()}
+                </span>
+              </p>
             </div>
             {canManage && (
               <button

@@ -17,13 +17,15 @@ export type ApplicationFieldsData = {
   responses?: Array<{ label: string; value: string }> | null
 }
 
-type FieldRow = { label: string; value: string | null }
+export type FieldRow = { label: string; value: string | null }
 
 function fmtAmount(v: string | null) {
   return v != null && v !== '' ? `£${Math.round(parseFloat(v)).toLocaleString('en-GB')}` : null
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// Section + KeyValueCard are shared with ReportFields so both drawers render
+// submitted content identically.
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -34,7 +36,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function KeyValueCard({ rows }: { rows: FieldRow[] }) {
+export function KeyValueCard({ rows }: { rows: FieldRow[] }) {
   return (
     <div className="rounded-lg border border-gray-200">
       {rows.map((r) => (

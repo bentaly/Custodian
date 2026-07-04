@@ -1,20 +1,32 @@
 import { useState } from 'react'
 import { Submitter } from './Submitter'
 import { Submitter7Stars } from './Submitter7Stars'
+import { SubmitterReport } from './SubmitterReport'
 import { ReviewQueue } from './ReviewQueue'
+import { ReportQueue } from './ReportQueue'
 import { OutOfRound } from './OutOfRound'
 import { Mappings } from './Mappings'
 import { Clients } from './Clients'
 
-type View = 'review' | 'unrouted' | 'mappings' | 'clients' | 'submit' | 'submit7stars'
+type View =
+  | 'review'
+  | 'reports'
+  | 'unrouted'
+  | 'mappings'
+  | 'clients'
+  | 'submit'
+  | 'submit7stars'
+  | 'submitReport'
 
 const TABS: Array<{ key: View; label: string }> = [
   { key: 'review', label: 'Review queue' },
+  { key: 'reports', label: 'Report queue' },
   { key: 'unrouted', label: 'Out of round' },
   { key: 'mappings', label: 'Mappings' },
   { key: 'clients', label: 'Foundations' },
   { key: 'submit', label: 'Submit test' },
   { key: 'submit7stars', label: '7stars test' },
+  { key: 'submitReport', label: 'Report test' },
 ]
 
 export default function App() {
@@ -45,11 +57,13 @@ export default function App() {
 
       <main className="px-4 py-8">
         {view === 'review' && <ReviewQueue />}
+        {view === 'reports' && <ReportQueue />}
         {view === 'unrouted' && <OutOfRound />}
         {view === 'mappings' && <Mappings />}
         {view === 'clients' && <Clients />}
         {view === 'submit' && <Submitter />}
         {view === 'submit7stars' && <Submitter7Stars />}
+        {view === 'submitReport' && <SubmitterReport />}
       </main>
     </div>
   )

@@ -106,6 +106,14 @@ canonical fields (`CreateApplicationSchema`).
 - Test/dev submitter: `admin-app/src/Submitter.tsx` has an API key field (stored in localStorage).
 - Missing/invalid/revoked key → 401. Keys are the intended rate-limit key for the backlogged
   per-key rate limiting on `/api/apply` (Cloudflare Workers rate-limit binding); not yet wired.
+- **`POST /api/submit-report`** is the report-side twin: same key auth + 202 + background
+  pipeline, its own canonical registry (`src/lib/fieldMapping/reportCanonical.ts`) and holding
+  table (`report_ingests`). Auto-links to a grant only on an exact `externalApplicationId`
+  match; everything else is held for the admin Report queue (heuristic grant candidates are
+  suggestions only). Promoted submissions live in `report_submissions` (AI analysis: summary,
+  application/programme alignment, challenges/lessons, impact quantity in the programme's
+  `impactUnit`), tick the earliest open `grant_reports` milestone, and surface on the
+  in-app Reports screen (`/reports`).
 - British English in all copy/identifiers (e.g. "Organisation", not "Organization").
 
 ## Route structure

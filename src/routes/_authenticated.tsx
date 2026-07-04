@@ -84,6 +84,9 @@ function TopNav() {
         <Link to="/shortlist" search={{ roundId: undefined }} className={linkClass}>
           Shortlist
         </Link>
+        <Link to="/reports" className={linkClass}>
+          Reports
+        </Link>
         <Link to="/record" search={{ roundId: undefined }} className={linkClass}>
           Record
         </Link>

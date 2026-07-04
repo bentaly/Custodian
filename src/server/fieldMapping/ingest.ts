@@ -21,7 +21,7 @@
 // matched to a programme in an active round (no match, or the round is closed), the
 // ingest is held for human review with a null roundProgrammeId.
 
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applicationIngests, fieldMappings } from '../../../drizzle/schema'
 import {
@@ -84,7 +84,7 @@ export async function processIngest(
 
   // 1. Lookup-table match.
   const mappings = await getDb().query.fieldMappings.findMany({
-    where: eq(fieldMappings.clientId, clientId),
+    where: and(eq(fieldMappings.clientId, clientId), eq(fieldMappings.formType, 'application')),
     columns: { sourceKey: true, canonicalField: true },
   })
   const lookup = applyLookup(payload, mappings)

@@ -5,14 +5,8 @@
 // entry or by being an exact canonical key itself (identity match). Required
 // canonical fields left without a value gate promotion (→ review / AI fallback).
 
-import {
-  CANONICAL_KEYS,
-  REQUIRED_CANONICAL_KEYS,
-  type CanonicalFieldKey,
-} from './canonical'
-import type { FieldMappingEntry, LookupResult } from './types'
-
-const CANONICAL_KEY_SET = new Set<string>(CANONICAL_KEYS)
+import { CANONICAL_KEYS, REQUIRED_CANONICAL_KEYS } from './canonical'
+import type { FieldMappingEntry, LookupResult, ResolvedField } from './types'
 
 /** Normalise an arbitrary JSON payload value to a trimmed string. */
 export function toStringValue(v: unknown): string {
@@ -22,24 +16,34 @@ export function toStringValue(v: unknown): string {
   return JSON.stringify(v)
 }
 
-export function applyLookup(
+export interface GenericLookupResult<K extends string> {
+  resolved: Partial<Record<K, ResolvedField>>
+  unresolvedRequired: K[]
+  leftoverKeys: string[]
+}
+
+/** The lookup matcher over an arbitrary canonical vocabulary — shared by the
+ *  application and report pipelines, which differ only in their key sets. */
+export function applyLookupOver<K extends string>(
   payload: Record<string, unknown>,
   mappings: FieldMappingEntry[],
-): LookupResult {
-  const sourceToCanonical = new Map<string, CanonicalFieldKey>()
+  keys: readonly K[],
+  requiredKeys: readonly K[],
+): GenericLookupResult<K> {
+  const keySet = new Set<string>(keys)
+  const sourceToCanonical = new Map<string, K>()
   for (const m of mappings) {
-    if (CANONICAL_KEY_SET.has(m.canonicalField)) {
-      sourceToCanonical.set(m.sourceKey, m.canonicalField as CanonicalFieldKey)
+    if (keySet.has(m.canonicalField)) {
+      sourceToCanonical.set(m.sourceKey, m.canonicalField as K)
     }
   }
 
-  const resolved: LookupResult['resolved'] = {}
+  const resolved: GenericLookupResult<K>['resolved'] = {}
   const leftoverKeys: string[] = []
 
   for (const [key, rawValue] of Object.entries(payload)) {
     const canonical =
-      sourceToCanonical.get(key) ??
-      (CANONICAL_KEY_SET.has(key) ? (key as CanonicalFieldKey) : undefined)
+      sourceToCanonical.get(key) ?? (keySet.has(key) ? (key as K) : undefined)
 
     if (!canonical) {
       leftoverKeys.push(key)
@@ -54,6 +58,13 @@ export function applyLookup(
     }
   }
 
-  const unresolvedRequired = REQUIRED_CANONICAL_KEYS.filter((k) => !resolved[k])
+  const unresolvedRequired = requiredKeys.filter((k) => !resolved[k])
   return { resolved, unresolvedRequired, leftoverKeys }
+}
+
+export function applyLookup(
+  payload: Record<string, unknown>,
+  mappings: FieldMappingEntry[],
+): LookupResult {
+  return applyLookupOver(payload, mappings, CANONICAL_KEYS, REQUIRED_CANONICAL_KEYS)
 }

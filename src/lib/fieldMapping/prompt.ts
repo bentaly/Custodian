@@ -4,17 +4,15 @@
 //   • buildSystemPrompt() — the task + rules, identical every call → cached.
 //   • buildUserPrompt()   — the specific unresolved fields + payload → volatile.
 
-import type { CanonicalField } from './canonical'
-
 export interface FieldMappingPromptInput {
-  /** The unresolved required canonical fields to find source keys for. */
-  fields: Array<Pick<CanonicalField, 'key' | 'label' | 'description'>>
+  /** The unresolved required canonical fields (application or report vocabulary). */
+  fields: Array<{ key: string; label: string; description: string }>
   /** The still-unmapped payload entries (key + value). */
   payload: Array<{ key: string; value: string }>
 }
 
-export function buildSystemPrompt(): string {
-  return `You map fields from a grant application form onto a fixed set of canonical fields.
+export function buildSystemPrompt(formKind: 'grant application' | 'grant report' = 'grant application'): string {
+  return `You map fields from a ${formKind} form onto a fixed set of canonical fields.
 
 You will be given:
 - a list of CANONICAL FIELDS that still need a value (each with a key and a description), and

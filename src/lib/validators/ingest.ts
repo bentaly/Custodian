@@ -22,5 +22,17 @@ export const MappingSchema = z.object({
   clientId: z.uuid(),
   sourceKey: z.string().min(1),
   canonicalField: z.string().min(1),
+  formType: z.enum(['application', 'report']).default('application'),
 })
 export type MappingInput = z.infer<typeof MappingSchema>
+
+// Admin resolves a held report ingest: same shape as ResolveSchema plus the grant
+// the reviewer matched the report to. Required when the resolve creates the
+// submission (a submission cannot exist unlinked); omitted when confirming an
+// ai_proposed row whose submission (and grant link) already exists.
+export const ResolveReportSchema = z.object({
+  mapping: z.record(z.string(), z.string()),
+  addToLookup: z.array(z.string()).default([]),
+  grantId: z.uuid().optional(),
+})
+export type ResolveReportInput = z.infer<typeof ResolveReportSchema>

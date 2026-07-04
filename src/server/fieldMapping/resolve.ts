@@ -42,10 +42,11 @@ async function persistLookups(clientId: string, input: ResolveInput, actor: stri
         clientId,
         sourceKey,
         canonicalField: canonical,
+        formType: 'application',
         addedBy: actor,
       })
       .onConflictDoUpdate({
-        target: [fieldMappings.clientId, fieldMappings.sourceKey],
+        target: [fieldMappings.clientId, fieldMappings.formType, fieldMappings.sourceKey],
         set: { canonicalField: canonical, addedBy: actor },
       })
   }
