@@ -23,3 +23,6 @@ drizzle.config.js
 
 # One-off form-header harvesting helper (see file header)
 scripts/extract-form-headers.py
+
+# TanStack Router scratch dir (temp routeTree copies during regeneration)
+.tanstack/
