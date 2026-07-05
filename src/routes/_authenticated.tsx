@@ -90,6 +90,9 @@ function TopNav() {
         <Link to="/record" search={{ roundId: undefined }} className={linkClass}>
           Record
         </Link>
+        <Link to="/insights" className={linkClass}>
+          Insights
+        </Link>
         {isAdmin && (
           <Link to="/users" className={linkClass}>
             Organisation
