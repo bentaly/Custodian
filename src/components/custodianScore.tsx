@@ -12,6 +12,7 @@ import {
   type CustodianScoreDetail,
   type CustodianScoreStatus,
 } from '../lib/custodianScore'
+import { Badge, Card } from './ui'
 
 const STATUS_META: Record<CustodianScoreStatus, { label: string; className: string }> = {
   pending: { label: 'Not scored', className: 'bg-gray-100 text-gray-500' },
@@ -51,11 +52,7 @@ export function CustodianScoreBadge({
     )
   }
   const meta = STATUS_META[status] ?? STATUS_META.pending
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}`}>
-      {meta.label}
-    </span>
-  )
+  return <Badge className={meta.className}>{meta.label}</Badge>
 }
 
 export function CustodianScorePanel({
@@ -75,13 +72,11 @@ export function CustodianScorePanel({
   const meta = STATUS_META[status] ?? STATUS_META.pending
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <Card>
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-gray-900">Custodian score</h2>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}`}>
-            {meta.label}
-          </span>
+          <Badge className={meta.className}>{meta.label}</Badge>
         </div>
         <div className="flex items-center gap-3">
           {scoredAt && (
@@ -175,6 +170,6 @@ export function CustodianScorePanel({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

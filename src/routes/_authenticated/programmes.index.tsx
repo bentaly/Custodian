@@ -4,6 +4,7 @@ import { listProgrammes, createProgramme, listClientTags } from '../../server/fn
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { getRoundStatus } from '../../lib/roundStatus'
+import { Badge, Button, Card, EmptyState, Input, Label, Textarea } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
@@ -70,81 +71,69 @@ function Programmes() {
           </p>
         </div>
         {canManage && (
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800"
-          >
+          <Button onClick={() => setShowCreate(!showCreate)}>
             New programme
-          </button>
+          </Button>
         )}
       </div>
 
       {showCreate && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <Card className="p-5">
           <h2 className="mb-4 text-sm font-medium text-gray-700">Create programme</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Name</label>
-              <input
+              <Label>Name</Label>
+              <Input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Community Arts Fund"
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                 required
                 autoFocus
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <Label>
                 Description <span className="text-gray-400">(optional)</span>
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
-                className="w-full resize-none rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="resize-none"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Themes</label>
+              <Label>Themes</Label>
               <TagInput value={tags} onChange={setTags} suggestions={clientTags} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <Label>
                 Programme priorities{' '}
                 <span className="font-normal text-gray-400">— used by AI to score applications</span>
-              </label>
+              </Label>
               <RichTextEditor key="create" defaultValue={goal} onChange={setGoal} />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={creating}
-                className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button type="submit" disabled={creating}>
                 {creating ? 'Creating…' : 'Create programme'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-              >
+              </Button>
+              <Button variant="secondary" onClick={() => setShowCreate(false)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       )}
 
       {programmes.length === 0 && !showCreate ? (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+        <EmptyState>
           <p className="text-sm text-gray-500">No programmes yet.</p>
           {canManage && (
             <p className="mt-1 text-sm text-gray-400">Create your first programme to get started.</p>
           )}
-        </div>
+        </EmptyState>
       ) : (
         <div className="space-y-2">
           {programmes.map((programme) => {
@@ -163,9 +152,9 @@ function Programmes() {
                       {(() => {
                         const { label, color } = getProgrammeRoundStatus(programme.roundProgrammes)
                         return (
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+                          <Badge className={color}>
                             {label}
-                          </span>
+                          </Badge>
                         )
                       })()}
                     </div>

@@ -12,6 +12,7 @@ import {
   type DeprivationResult,
   type DeprivationStatus,
 } from '../lib/deprivation/types'
+import { Badge, Card } from './ui'
 
 const STATUS_META: Record<DeprivationStatus, { label: string; className: string }> = {
   pending: { label: 'Not assessed', className: 'bg-gray-100 text-gray-500' },
@@ -78,13 +79,11 @@ export function DeprivationPanel({
   const resolved = context && context.status === 'resolved' ? context : null
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <Card>
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold text-gray-900">Deprivation context</h2>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}`}>
-            {meta.label}
-          </span>
+          <Badge className={meta.className}>{meta.label}</Badge>
           {resolved && (
             <span className="text-xs text-gray-400">
               Index of Multiple Deprivation · {resolved.vintage}
@@ -134,6 +133,6 @@ export function DeprivationPanel({
           </p>
         )}
       </div>
-    </div>
+    </Card>
   )
 }

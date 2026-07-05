@@ -12,6 +12,7 @@ import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { IMPACT_UNITS, DEFAULT_IMPACT_UNIT, impactUnitLabel } from '../../lib/impactUnits'
+import { Badge, Button, Card, Input, Label, Textarea } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/programmes/$programmeId')({
   loader: async ({ params }) => {
@@ -127,42 +128,41 @@ function ProgrammeDetail() {
       </Link>
 
       {/* Programme header */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <Card className="p-5">
         {editing ? (
           <form onSubmit={handleSave} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Name</label>
-              <input
+              <Label>Name</Label>
+              <Input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                 required
                 autoFocus
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <Label>
                 Description <span className="text-gray-400">(optional)</span>
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
-                className="w-full resize-none rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="resize-none"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Themes</label>
+              <Label>Themes</Label>
               <TagInput value={tags} onChange={setTags} suggestions={clientTags} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <Label>
                 Impact measured in{' '}
                 <span className="font-normal text-gray-400">
                   — used to count what this programme's grants achieve
                 </span>
-              </label>
+              </Label>
               <div className="flex gap-2">
                 <select
                   value={impactUnit}
@@ -198,24 +198,21 @@ function ProgrammeDetail() {
               )}
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <Label>
                 Programme priorities{' '}
                 <span className="font-normal text-gray-400">— used by AI to score applications</span>
-              </label>
+              </Label>
               <RichTextEditor key={programme.id} defaultValue={goal} onChange={setGoal} />
             </div>
 
             {saveError && <p className="text-sm text-red-500">{saveError}</p>}
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button type="submit" size="sm" disabled={saving}>
                 {saving ? 'Saving…' : 'Save'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   setEditing(false)
                   setName(programme.name)
@@ -226,10 +223,9 @@ function ProgrammeDetail() {
                   setImpactUnitCustom(programme.impactUnitLabel ?? '')
                   setSaveError('')
                 }}
-                className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -270,19 +266,16 @@ function ProgrammeDetail() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Rounds */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700">Rounds</h2>
           {canManage && !showAddRound && availableRounds.length > 0 && (
-            <button
-              onClick={() => setShowAddRound(true)}
-              className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800"
-            >
+            <Button size="sm" onClick={() => setShowAddRound(true)}>
               Add to round
-            </button>
+            </Button>
           )}
         </div>
 
@@ -292,7 +285,7 @@ function ProgrammeDetail() {
             className="rounded-lg border border-gray-300 bg-white p-4 space-y-4"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Round</label>
+              <Label>Round</Label>
               <select
                 value={selectedRoundId}
                 onChange={(e) => setSelectedRoundId(e.target.value)}
@@ -309,7 +302,7 @@ function ProgrammeDetail() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Total budget</label>
+                <Label>Total budget</Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
                   <input
@@ -324,7 +317,7 @@ function ProgrammeDetail() {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Max per award</label>
+                <Label>Max per award</Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
                   <input
@@ -339,7 +332,7 @@ function ProgrammeDetail() {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">Duration</label>
+                <Label>Duration</Label>
                 <div className="relative">
                   <input
                     type="number"
@@ -357,15 +350,12 @@ function ProgrammeDetail() {
             </div>
             {addRoundError && <p className="text-sm text-red-500">{addRoundError}</p>}
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={addingRound}
-                className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button type="submit" size="sm" disabled={addingRound}>
                 {addingRound ? 'Adding…' : 'Add to round'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   setShowAddRound(false)
                   setSelectedRoundId('')
@@ -374,10 +364,9 @@ function ProgrammeDetail() {
                   setAddGrantDurationYears('')
                   setAddRoundError('')
                 }}
-                className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}
@@ -394,9 +383,9 @@ function ProgrammeDetail() {
         ) : (
           <div className="space-y-1">
             {programme.roundProgrammes.map(({ round }: RoundProgrammeRow) => (
-              <div
+              <Card
                 key={round.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3"
+                className="flex items-center justify-between px-4 py-3"
               >
                 <div className="flex items-center gap-2">
                   <Link
@@ -406,11 +395,9 @@ function ProgrammeDetail() {
                   >
                     {round.name}
                   </Link>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[getRoundStatus(round)]}`}
-                  >
+                  <Badge className={ROUND_STATUS_COLORS[getRoundStatus(round)]}>
                     {ROUND_STATUS_LABELS[getRoundStatus(round)]}
-                  </span>
+                  </Badge>
                 </div>
                 {canManage && (
                   <button
@@ -420,7 +407,7 @@ function ProgrammeDetail() {
                     Remove
                   </button>
                 )}
-              </div>
+              </Card>
             ))}
           </div>
         )}

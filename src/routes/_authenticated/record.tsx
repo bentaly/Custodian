@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { Badge, Card, EmptyState, Select } from '../../components/ui'
 import { listGrantRecord } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import { getRoundStatus } from '../../lib/roundStatus'
@@ -76,24 +77,24 @@ function StatCards({ totals }: { totals: Totals }) {
   const topTotal = top.reduce((s: number, p: ProgrammeShare) => s + p.amount, 0)
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+      <Card className="px-4 py-3">
         <p className="text-[11px] uppercase tracking-wide text-gray-400">Total awarded</p>
         <p className="mt-1 text-xl font-semibold text-gray-900">{fmt(totals.totalAwarded)}</p>
         <p className="mt-0.5 text-xs text-gray-400">
           {totals.count} grant{totals.count !== 1 ? 's' : ''}
         </p>
-      </div>
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+      </Card>
+      <Card className="px-4 py-3">
         <p className="text-[11px] uppercase tracking-wide text-gray-400">Paid to date</p>
         <p className="mt-1 text-xl font-semibold text-gray-900">{fmt(totals.paidToDate)}</p>
         <p className="mt-0.5 text-xs text-gray-400">{fmt(totals.outstanding)} outstanding</p>
-      </div>
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+      </Card>
+      <Card className="px-4 py-3">
         <p className="text-[11px] uppercase tracking-wide text-gray-400">Multi-year</p>
         <p className="mt-1 text-xl font-semibold text-gray-900">{totals.multiYearCount}</p>
         <p className="mt-0.5 text-xs text-gray-400">Grants over 1 year</p>
-      </div>
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+      </Card>
+      <Card className="px-4 py-3">
         <p className="mb-1.5 text-[11px] uppercase tracking-wide text-gray-400">By programme</p>
         {top.length === 0 ? (
           <p className="text-xs text-gray-400">—</p>
@@ -117,7 +118,7 @@ function StatCards({ totals }: { totals: Totals }) {
             })}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }
@@ -185,11 +186,7 @@ function RecordPage() {
           <p className="mt-0.5 text-sm text-gray-400">Every grant awarded, across all rounds</p>
         </div>
         {visibleRounds.length > 0 && (
-          <select
-            value={roundId ?? ''}
-            onChange={handleRoundChange}
-            className="rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
-          >
+          <Select value={roundId ?? ''} onChange={handleRoundChange}>
             <option value="">All rounds</option>
             {visibleRounds.map((r) => (
               <option key={r.id} value={r.id}>
@@ -197,7 +194,7 @@ function RecordPage() {
                 {getRoundStatus(r) === 'open' ? ' (current)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       </div>
 
@@ -247,14 +244,14 @@ function RecordPage() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+        <EmptyState>
           <p className="text-sm text-gray-500">No grants match these filters.</p>
           <p className="mt-1 text-xs text-gray-400">
             Grants appear here as soon as an award is generated after the trustee vote.
           </p>
-        </div>
+        </EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -300,17 +297,15 @@ function RecordPage() {
                   </td>
                   <td className="px-5 py-3 whitespace-nowrap text-gray-600">{g.deliveryArea ?? '—'}</td>
                   <td className="px-5 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${GRANT_STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-600'}`}
-                    >
+                    <Badge className={GRANT_STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-600'}>
                       {GRANT_STATUS_LABELS[g.status] ?? g.status}
-                    </span>
+                    </Badge>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   )

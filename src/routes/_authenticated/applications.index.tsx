@@ -8,6 +8,7 @@ import type { CustodianScoreStatus } from '../../lib/custodianScore'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { ApplicationStatus, ScoreBand } from '../../lib/validators/application'
+import { Badge, Card, EmptyState, Select } from '../../components/ui'
 
 const PAGE_SIZE = 25
 
@@ -182,7 +183,7 @@ function BudgetPanel({ rows }: { rows: BudgetRow[] }) {
   const totalBarColor = totalPct >= 100 ? 'bg-red-500' : totalPct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-5 py-4 space-y-3">
+    <Card className="px-5 py-4 space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Budget</p>
 
       {hasBudgets && (
@@ -205,7 +206,7 @@ function BudgetPanel({ rows }: { rows: BudgetRow[] }) {
           <ProgrammeBudgetRow key={row.roundProgrammeId} row={row} />
         ))}
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -290,9 +291,9 @@ function ApplicationsList() {
             {selectedRound && roundStatus && (
               <>
                 <span className="text-gray-300">·</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[roundStatus]}`}>
+                <Badge className={ROUND_STATUS_COLORS[roundStatus]}>
                   {ROUND_STATUS_LABELS[roundStatus]}
-                </span>
+                </Badge>
                 <span className="text-gray-500">
                   {roundStatus === 'upcoming' ? 'Opens' : 'Opened'} {formatDate(selectedRound.openedAt) ?? '—'}
                   {' · '}
@@ -303,17 +304,13 @@ function ApplicationsList() {
           </p>
         </div>
         {visibleRounds.length > 0 && (
-          <select
-            value={roundId ?? ''}
-            onChange={handleRoundChange}
-            className="rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
-          >
+          <Select value={roundId ?? ''} onChange={handleRoundChange}>
             {visibleRounds.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}{getRoundStatus(r) === 'open' ? ' (current)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       </div>
 
@@ -402,11 +399,11 @@ function ApplicationsList() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+        <EmptyState>
           <p className="text-sm text-gray-500">No applications match these filters.</p>
-        </div>
+        </EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -461,17 +458,15 @@ function ApplicationsList() {
                     <DueDiligenceBadge status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />
                   </td>
                   <td className="px-5 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[app.status] ?? 'bg-gray-100 text-gray-600'}`}
-                    >
+                    <Badge className={STATUS_COLORS[app.status] ?? 'bg-gray-100 text-gray-600'}>
                       {STATUS_LABELS[app.status] ?? app.status}
-                    </span>
+                    </Badge>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
 
       {total > 0 && pageCount > 1 && (

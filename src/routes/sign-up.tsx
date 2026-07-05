@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
 import { getInvitationByToken } from '../server/fns/invitations'
 import { completeRegistration } from '../server/fns/registrations'
+import { Button, Input } from '../components/ui'
 
 export const Route = createFileRoute('/sign-up')({
   validateSearch: (search: Record<string, unknown>): { invite?: string } => ({
@@ -98,37 +99,31 @@ function SignUpPage() {
         {error && <p className="text-sm text-red-500">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <input
+          <Input
             type="text"
             placeholder="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
             required
           />
-          <input
+          <Input
             type="email"
             placeholder="Email"
             value={email}
             readOnly
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="bg-gray-50 text-gray-500 cursor-not-allowed"
             required
           />
-          <input
+          <Input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
             required
           />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Creating account…' : 'Create account'}
-          </button>
+          </Button>
         </form>
 
         <p className="text-center text-sm text-gray-500">

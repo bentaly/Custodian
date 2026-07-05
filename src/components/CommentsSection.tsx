@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { listComments, addComment, updateComment, deleteComment } from '../server/fns/comments'
+import { Button } from './ui'
 
 type Comment = {
   id: string
@@ -202,13 +203,9 @@ export function CommentsSection({
                 className="w-full resize-none rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-gray-400 focus:outline-none"
               />
               <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={submitting || !body.trim()}
-                  className="rounded border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
+                <Button type="submit" variant="secondary" size="sm" disabled={submitting || !body.trim()}>
                   {submitting ? 'Posting…' : 'Post comment'}
-                </button>
+                </Button>
               </div>
             </form>
           )}

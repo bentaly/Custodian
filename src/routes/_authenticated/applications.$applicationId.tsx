@@ -10,6 +10,7 @@ import { VotingSection } from '../../components/VotingSection'
 import type { DueDiligenceCheckRecord, DueDiligenceStatus } from '../../lib/dueDiligence'
 import type { CustodianScoreDetail, CustodianScoreStatus } from '../../lib/custodianScore'
 import type { DeprivationResult, DeprivationStatus } from '../../lib/deprivation/types'
+import { Button, Card } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => getApplication({ data: { id: params.applicationId } }),
@@ -216,9 +217,11 @@ function ApplicationDetail() {
             >
               {declining ? '…' : isDeclined ? '✓ Declined · Reinstate' : 'Decline'}
             </button>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-1.5 rounded border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1.5"
             >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path
@@ -228,7 +231,7 @@ function ApplicationDetail() {
                 />
               </svg>
               View application
-            </button>
+            </Button>
           </div>
           {shortlistError && (
             <p className="text-xs text-red-500">{shortlistError}</p>
@@ -248,13 +251,9 @@ function ApplicationDetail() {
         detail={application.custodianScoreDetail as CustodianScoreDetail | null}
         scoredAt={application.custodianScoredAt}
         action={
-          <button
-            onClick={handleRescore}
-            disabled={rescoring}
-            className="rounded border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-          >
+          <Button variant="secondary" size="xs" onClick={handleRescore} disabled={rescoring}>
             {rescoring ? 'Scoring…' : 'Re-score'}
-          </button>
+          </Button>
         }
       />
 
@@ -263,13 +262,9 @@ function ApplicationDetail() {
         checks={application.dueDiligenceChecks as DueDiligenceCheckRecord[] | null}
         checkedAt={application.dueDiligenceCheckedAt}
         action={
-          <button
-            onClick={handleRerun}
-            disabled={rerunning}
-            className="rounded border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-          >
+          <Button variant="secondary" size="xs" onClick={handleRerun} disabled={rerunning}>
             {rerunning ? 'Re-running…' : 'Re-run'}
-          </button>
+          </Button>
         }
       />
 
@@ -278,17 +273,13 @@ function ApplicationDetail() {
         context={application.deprivationContext as DeprivationResult | null}
         resolvedAt={application.deprivationResolvedAt}
         action={
-          <button
-            onClick={handleRederive}
-            disabled={rederiving}
-            className="rounded border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-          >
+          <Button variant="secondary" size="xs" onClick={handleRederive} disabled={rederiving}>
             {rederiving ? 'Resolving…' : 'Re-run'}
-          </button>
+          </Button>
         }
       />
 
-      <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-6">
+      <Card className="p-5 space-y-6">
         <VotingSection
           applicationId={application.id}
           userId={user.id}
@@ -299,7 +290,7 @@ function ApplicationDetail() {
           userId={user.id}
           userRole={user.role}
         />
-      </div>
+      </Card>
 
       <ApplicationDrawer
         application={application}

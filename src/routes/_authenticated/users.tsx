@@ -9,6 +9,7 @@ import { listClientUsers } from '../../server/fns/users'
 import { listInvitations, createInvitation } from '../../server/fns/invitations'
 import { getClientProfile, upsertClientProfile } from '../../server/fns/clients'
 import { listApiKeys, createApiKey, revokeApiKey } from '../../server/fns/apiKeys'
+import { Badge, Button, Card, Input, Label } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/users')({
   loader: async () => {
@@ -164,14 +165,9 @@ function MissionStatementEditor({ initialContent }: { initialContent: string }) 
         <EditorContent editor={editor} />
       </div>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving}
-        className="mt-3 rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-      >
+      <Button onClick={handleSave} disabled={saving} className="mt-3">
         {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -197,7 +193,7 @@ function AdminVotingToggle({ initialEnabled }: { initialEnabled: boolean }) {
   }
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4">
+    <Card className="flex items-center justify-between p-4">
       <div className="pr-4">
         <p className="text-sm font-medium text-gray-700">Allow admins to vote on behalf of trustees</p>
         <p className="mt-0.5 text-sm text-gray-500">
@@ -222,7 +218,7 @@ function AdminVotingToggle({ initialEnabled }: { initialEnabled: boolean }) {
           }`}
         />
       </button>
-    </div>
+    </Card>
   )
 }
 
@@ -289,7 +285,7 @@ function Organisation() {
       {/* Team members */}
       <section>
         <h2 className="text-sm font-medium text-gray-700 mb-3">Team members</h2>
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <Card className="overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -321,28 +317,27 @@ function Organisation() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       </section>
 
       {/* Invite form — admin only */}
       {isAdmin && (
         <section>
           <h2 className="text-sm font-medium text-gray-700 mb-3">Invite someone</h2>
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <Card className="p-5">
             <form onSubmit={handleInvite} className="flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-48">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Email address</label>
-                <input
+                <Label>Email address</Label>
+                <Input
                   type="email"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="colleague@example.com"
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                   required
                 />
               </div>
               <div className="w-40">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Role</label>
+                <Label>Role</Label>
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as InviteRole)}
@@ -355,19 +350,15 @@ function Organisation() {
                   ))}
                 </select>
               </div>
-              <button
-                type="submit"
-                disabled={inviting}
-                className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button type="submit" disabled={inviting}>
                 {inviting ? 'Sending…' : 'Send invite'}
-              </button>
+              </Button>
             </form>
             {inviteError && <p className="mt-2 text-sm text-red-500">{inviteError}</p>}
             {inviteSent && (
               <p className="mt-2 text-sm text-green-600">Invitation sent successfully.</p>
             )}
-          </div>
+          </Card>
         </section>
       )}
 
@@ -375,7 +366,7 @@ function Organisation() {
       {isAdmin && invites.length > 0 && (
         <section>
           <h2 className="text-sm font-medium text-gray-700 mb-3">Pending invitations</h2>
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <Card className="overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -404,7 +395,7 @@ function Organisation() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         </section>
       )}
 
@@ -493,7 +484,7 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
       )}
 
       {apiKeys.length > 0 && (
-        <div className="mb-4 overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <Card className="mb-4 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -521,13 +512,11 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
                       {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          revoked ? 'bg-gray-100 text-gray-500' : 'bg-green-50 text-green-700'
-                        }`}
+                      <Badge
+                        className={revoked ? 'bg-gray-100 text-gray-500' : 'bg-green-50 text-green-700'}
                       >
                         {revoked ? 'Revoked' : 'Active'}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {!revoked && (
@@ -544,31 +533,26 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
               })}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
 
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <Card className="p-5">
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
           <div className="min-w-48 flex-1">
-            <label className="mb-1 block text-xs font-medium text-gray-500">Key name</label>
-            <input
+            <Label>Key name</Label>
+            <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Website intake form"
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               required
             />
           </div>
-          <button
-            type="submit"
-            disabled={creating}
-            className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={creating}>
             {creating ? 'Generating…' : 'Generate key'}
-          </button>
+          </Button>
         </form>
         {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
-      </div>
+      </Card>
     </section>
   )
 }

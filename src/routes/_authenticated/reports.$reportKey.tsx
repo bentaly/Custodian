@@ -4,6 +4,7 @@ import { getReport, markReportReviewed, type ReportRowStatus } from '../../serve
 import { Drawer } from '../../components/Drawer'
 import { ReportFields } from '../../components/ReportFields'
 import { ReportAnalysisPanel, type ReportAnalysisStatus } from '../../components/reportAnalysis'
+import { Button, EmptyState } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
   loader: ({ params }) => getReport({ data: { key: params.reportKey } }),
@@ -118,9 +119,11 @@ function ReportDetail() {
             </button>
           )}
           {s && (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-1.5 rounded border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1.5"
             >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path
@@ -130,7 +133,7 @@ function ReportDetail() {
                 />
               </svg>
               View report
-            </button>
+            </Button>
           )}
           {report.applicationId && (
             <Link
@@ -145,7 +148,7 @@ function ReportDetail() {
       </div>
 
       {!s ? (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+        <EmptyState>
           <p className="text-sm text-gray-500">
             {report.status === 'overdue'
               ? 'This report is overdue — no submission has been received.'
@@ -154,7 +157,7 @@ function ReportDetail() {
           <p className="mt-1 text-xs text-gray-400">
             Submitted reports are matched to this grant automatically and will appear here.
           </p>
-        </div>
+        </EmptyState>
       ) : (
         <>
           <ReportAnalysisPanel

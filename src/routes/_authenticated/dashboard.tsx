@@ -1,4 +1,5 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { Card as UiCard } from '../../components/ui'
 import { getDashboard } from '../../server/fns/dashboard'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 
@@ -56,7 +57,7 @@ const PALETTE = ['#1D9E75', '#3B82C4', '#C2843B', '#8B5C9E', '#C44B6E', '#4F9E8C
 
 function Card({ title, action, children }: { title?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col rounded-lg border border-gray-200 bg-white">
+    <UiCard className="flex flex-col">
       {title && (
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{title}</h2>
@@ -64,7 +65,7 @@ function Card({ title, action, children }: { title?: string; action?: React.Reac
         </div>
       )}
       <div className="flex-1 px-5 py-4">{children}</div>
-    </div>
+    </UiCard>
   )
 }
 
@@ -539,7 +540,7 @@ function Onboarding({ name }: { name: string }) {
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         {steps.map((s) => (
-          <div key={s.n} className="rounded-lg border border-gray-200 bg-white p-5">
+          <UiCard key={s.n} className="p-5">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-700">{s.n}</span>
             <p className="mt-3 text-sm font-medium text-gray-900">{s.title}</p>
             <p className="mt-1 text-xs text-gray-500">{s.body}</p>
@@ -549,7 +550,7 @@ function Onboarding({ name }: { name: string }) {
             >
               {s.cta} →
             </Link>
-          </div>
+          </UiCard>
         ))}
       </div>
     </div>

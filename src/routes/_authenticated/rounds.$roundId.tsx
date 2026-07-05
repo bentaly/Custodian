@@ -9,6 +9,7 @@ import {
   updateRoundProgramme,
   removeProgrammeFromRound,
 } from '../../server/fns/programmes'
+import { Button, Card, Input, Label } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/rounds/$roundId')({
   loader: async ({ params }) => {
@@ -52,9 +53,9 @@ function GrantTermsFields({
   return (
     <div className="grid grid-cols-3 gap-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">
+        <Label>
           Total budget{budgetRequired && <span className="ml-0.5 text-red-400">*</span>}
-        </label>
+        </Label>
         <div className="relative">
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
           <input
@@ -70,7 +71,7 @@ function GrantTermsFields({
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">Max per award</label>
+        <Label>Max per award</Label>
         <div className="relative">
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
           <input
@@ -85,7 +86,7 @@ function GrantTermsFields({
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">Duration</label>
+        <Label>Duration</Label>
         <div className="relative">
           <input
             type="number"
@@ -209,22 +210,21 @@ function RoundDetail() {
       </Link>
 
       {/* Round header */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <Card className="p-5">
         {editingRound ? (
           <form onSubmit={handleSaveRound} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Round name</label>
-              <input
+              <Label>Round name</Label>
+              <Input
                 type="text"
                 value={roundName}
                 onChange={(e) => setRoundName(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                 required
                 autoFocus
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Date range</label>
+              <Label>Date range</Label>
               <DateRangePicker
                 startDate={roundOpenedAt}
                 endDate={roundClosedAt}
@@ -235,15 +235,12 @@ function RoundDetail() {
             </div>
             {roundError && <p className="text-sm text-red-500">{roundError}</p>}
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={savingRound}
-                className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button type="submit" size="sm" disabled={savingRound}>
                 {savingRound ? 'Saving…' : 'Save'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   setEditingRound(false)
                   setRoundName(round.name)
@@ -251,10 +248,9 @@ function RoundDetail() {
                   setRoundClosedAt(toDateInput(round.closedAt))
                   setRoundError('')
                 }}
-                className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -302,7 +298,7 @@ function RoundDetail() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Programmes */}
       <div className="space-y-3">
@@ -315,12 +311,9 @@ function RoundDetail() {
               </Link>
             )}
             {canManage && !showAddPicker && availableProgrammes.length > 0 && (
-              <button
-                onClick={() => setShowAddPicker(true)}
-                className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800"
-              >
+              <Button size="sm" onClick={() => setShowAddPicker(true)}>
                 Add programme
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -331,7 +324,7 @@ function RoundDetail() {
             className="rounded-lg border border-gray-300 bg-white p-4 space-y-4"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Programme</label>
+              <Label>Programme</Label>
               <select
                 value={selectedProgrammeId}
                 onChange={(e) => setSelectedProgrammeId(e.target.value)}
@@ -422,22 +415,17 @@ function RoundDetail() {
             </p>
             {deleteError && <p className="mt-3 text-sm text-red-500">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => setConfirmingDelete(false)}
                 disabled={deletingRound}
-                className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteRound}
-                disabled={deletingRound}
-                className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
+              </Button>
+              <Button variant="danger" size="sm" onClick={handleDeleteRound} disabled={deletingRound}>
                 {deletingRound ? 'Deleting…' : 'Delete round'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -496,7 +484,7 @@ function ProgrammeCard({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
+    <Card className="px-5 py-4">
       {editing ? (
         <form onSubmit={handleSave} className="space-y-3">
           <p className="text-sm font-medium text-gray-700">{programme.name}</p>
@@ -508,15 +496,12 @@ function ProgrammeCard({
           />
           {saveError && <p className="text-sm text-red-500">{saveError}</p>}
           <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-            >
+            <Button type="submit" size="sm" disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 setEditing(false)
                 setEditBudget(roundProgramme.budget)
@@ -524,10 +509,9 @@ function ProgrammeCard({
                 setEditGrantDurationYears(roundProgramme.grantDurationYears?.toString() ?? '')
                 setSaveError('')
               }}
-              className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
@@ -596,6 +580,6 @@ function ProgrammeCard({
           )}
         </div>
       )}
-    </div>
+    </Card>
   )
 }

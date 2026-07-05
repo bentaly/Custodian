@@ -4,6 +4,7 @@ import { CustodianScorePanel } from './custodianScore'
 import { CommentsSection } from './CommentsSection'
 import { VotingSection } from './VotingSection'
 import { ApplicationFields, type ApplicationFieldsData } from './ApplicationFields'
+import { Button } from './ui'
 
 type BriefingApplication = ApplicationFieldsData & {
   id: string
@@ -57,10 +58,7 @@ export function BriefingDrawer({
             <h2 className="text-base font-semibold text-gray-900">Briefing</h2>
             <p className="mt-0.5 text-sm text-gray-500">{application?.organisationName ?? ''}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
+          <Button variant="icon" onClick={onClose}>
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
@@ -68,7 +66,7 @@ export function BriefingDrawer({
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {application && (

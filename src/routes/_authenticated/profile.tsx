@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
 import { listClients } from '../../server/fns/platform'
+import { Button, Input } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/profile')({
   // Impersonation targets are only needed for platform superadmins; everyone
@@ -65,11 +66,11 @@ function Profile() {
         <form onSubmit={handleSave} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Name</label>
-            <input
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="mt-1"
               required
             />
           </div>
@@ -83,13 +84,9 @@ function Profile() {
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <button
-            type="submit"
-            disabled={saving || name === user.name}
-            className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={saving || name === user.name}>
             {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
-          </button>
+          </Button>
         </form>
 
         <div className="border-t border-gray-100 pt-6 space-y-3">

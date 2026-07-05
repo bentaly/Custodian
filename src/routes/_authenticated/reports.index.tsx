@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { listReports, type ReportRowStatus } from '../../server/fns/reports'
+import { Badge, Card, EmptyState } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/reports/')({
   loader: async () => listReports(),
@@ -77,15 +78,15 @@ function ReportsPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+        <EmptyState>
           <p className="text-sm text-gray-500">No reports here.</p>
           <p className="mt-1 text-xs text-gray-400">
             Reporting milestones are set when an award is generated; submitted reports land against
             them automatically.
           </p>
-        </div>
+        </EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -118,17 +119,15 @@ function ReportsPage() {
                     {fmtDate(item.dueDate)}
                   </td>
                   <td className="px-5 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status]}`}
-                    >
+                    <Badge className={STATUS_COLORS[item.status]}>
                       {STATUS_LABELS[item.status]}
-                    </span>
+                    </Badge>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   )
@@ -146,10 +145,10 @@ function StatCard({
   valueClass?: string
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+    <Card className="px-4 py-3">
       <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
       <p className={`mt-1 text-xl font-semibold ${valueClass ?? 'text-gray-900'}`}>{value}</p>
       <p className="mt-0.5 text-xs text-gray-400">{sub}</p>
-    </div>
+    </Card>
   )
 }

@@ -12,6 +12,7 @@ import {
   type DueDiligenceSource,
   type DueDiligenceStatus,
 } from '../lib/dueDiligence'
+import { Badge, Card } from './ui'
 
 const STATUS_META: Record<DueDiligenceStatus, { label: string; className: string }> = {
   pending: { label: 'Not screened', className: 'bg-gray-100 text-gray-500' },
@@ -36,11 +37,7 @@ const OUTCOME_META: Record<CheckOutcome, { symbol: string; className: string }> 
 
 export function DueDiligenceBadge({ status }: { status: DueDiligenceStatus }) {
   const meta = STATUS_META[status] ?? STATUS_META.pending
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}`}>
-      {meta.label}
-    </span>
-  )
+  return <Badge className={meta.className}>{meta.label}</Badge>
 }
 
 export function DueDiligencePanel({
@@ -66,7 +63,7 @@ export function DueDiligencePanel({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <Card>
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-gray-900">Due diligence</h2>
@@ -127,6 +124,6 @@ export function DueDiligencePanel({
           ))}
         </div>
       )}
-    </div>
+    </Card>
   )
 }

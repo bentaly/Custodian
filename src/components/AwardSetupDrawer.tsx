@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { generateAward } from '../server/fns/applications'
+import { Button } from './ui'
 
 type AwardableApplication = {
   id: string
@@ -218,10 +219,7 @@ export function AwardSetupDrawer({
             <h2 className="text-base font-semibold text-gray-900">Set up award</h2>
             <p className="mt-0.5 text-sm text-gray-500">{application.organisationName}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
+          <Button variant="icon" onClick={onClose}>
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
@@ -229,7 +227,7 @@ export function AwardSetupDrawer({
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* Step tabs */}
@@ -363,12 +361,9 @@ export function AwardSetupDrawer({
                     </div>
                   </div>
 
-                  <button
-                    onClick={enterCustom}
-                    className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-                  >
+                  <Button variant="link" onClick={enterCustom}>
                     Need a custom split? →
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
@@ -428,12 +423,9 @@ export function AwardSetupDrawer({
                   </div>
 
                   <div className="flex gap-4">
-                    <button
-                      onClick={addRow}
-                      className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-                    >
+                    <Button variant="link" onClick={addRow}>
                       + Add instalment
-                    </button>
+                    </Button>
                     <button
                       onClick={splitEvenly}
                       className="text-sm font-medium text-gray-500 hover:text-gray-700"
@@ -513,12 +505,9 @@ export function AwardSetupDrawer({
                 ))}
               </div>
 
-              <button
-                onClick={addReportingRow}
-                className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
-              >
+              <Button variant="link" onClick={addReportingRow}>
                 + Add reporting milestone
-              </button>
+              </Button>
 
               {filledReportingRows.length === 0 && (
                 <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-700">

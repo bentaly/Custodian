@@ -3,6 +3,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { listMyRounds, createRound } from '../../server/fns/rounds'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
+import { Badge, Button, Card, EmptyState, Input, Label } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
   loader: () => listMyRounds(),
@@ -58,33 +59,27 @@ function Rounds() {
           </p>
         </div>
         {canManage && (
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800"
-          >
-            New round
-          </button>
+          <Button onClick={() => setShowCreate(!showCreate)}>New round</Button>
         )}
       </div>
 
       {showCreate && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <Card className="p-5">
           <h2 className="mb-4 text-sm font-medium text-gray-700">Create funding round</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Round name</label>
-              <input
+              <Label>Round name</Label>
+              <Input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Spring Grants 2025"
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                 required
                 autoFocus
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">Date range</label>
+              <Label>Date range</Label>
               <DateRangePicker
                 startDate={openedAt}
                 endDate={closedAt}
@@ -95,32 +90,24 @@ function Rounds() {
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={creating}
-                className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button type="submit" disabled={creating}>
                 {creating ? 'Creating…' : 'Create round'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-              >
+              </Button>
+              <Button variant="secondary" onClick={() => setShowCreate(false)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       )}
 
       {rounds.length === 0 && !showCreate ? (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+        <EmptyState>
           <p className="text-sm text-gray-500">No funding rounds yet.</p>
           {canManage && (
             <p className="mt-1 text-sm text-gray-400">Create your first round to get started.</p>
           )}
-        </div>
+        </EmptyState>
       ) : (
         <div className="space-y-2">
           {rounds.map((round) => {
@@ -140,9 +127,7 @@ function Rounds() {
                       {(() => {
                         const s = getRoundStatus(round)
                         return (
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[s]}`}>
-                            {ROUND_STATUS_LABELS[s]}
-                          </span>
+                          <Badge className={ROUND_STATUS_COLORS[s]}>{ROUND_STATUS_LABELS[s]}</Badge>
                         )
                       })()}
                     </div>

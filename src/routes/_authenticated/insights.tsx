@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { Card, EmptyState } from '../../components/ui'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
@@ -76,11 +77,11 @@ function StatCard({
   accent?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+    <Card className="px-4 py-3">
       <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
       <p className={`mt-1 text-2xl font-semibold ${accent ? 'text-emerald-700' : 'text-gray-900'}`}>{value}</p>
       <p className="mt-0.5 text-xs text-gray-400">{sub}</p>
-    </div>
+    </Card>
   )
 }
 
@@ -320,12 +321,12 @@ function InsightsPage() {
       </div>
 
       {fil.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+        <EmptyState>
           <p className="text-sm text-gray-500">No grants match these filters.</p>
           <p className="mt-1 text-xs text-gray-400">
             Insights build up as awards are made and grant reports are analysed.
           </p>
-        </div>
+        </EmptyState>
       ) : (
         <>
           {/* Headline stats */}
@@ -359,7 +360,7 @@ function InsightsPage() {
 
           {/* Deprivation distribution + impact by programme */}
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900">Funding by deprivation decile</h2>
               <p className="mt-0.5 text-xs text-gray-400">
                 Awarded funding weighted across the IMD deciles of each grant's delivery area · decile 1 is the most
@@ -377,9 +378,9 @@ function InsightsPage() {
                   {unlocatedCount} grant{unlocatedCount !== 1 ? 's' : ''} without a resolvable location excluded.
                 </p>
               )}
-            </div>
+            </Card>
 
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900">Impact by programme</h2>
               <p className="mt-0.5 text-xs text-gray-400">
                 Each programme measures impact in its own unit — figures come from analysed grant reports
@@ -414,12 +415,12 @@ function InsightsPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           </div>
 
           {/* Geography + themes */}
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900">Geographic reach</h2>
               <p className="mt-0.5 text-xs text-gray-400">Awarded funding by delivery region</p>
               {byRegion.length === 0 ? (
@@ -460,9 +461,9 @@ function InsightsPage() {
                   )}
                 </div>
               )}
-            </div>
+            </Card>
 
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900">Themes</h2>
               <p className="mt-0.5 text-xs text-gray-400">Giving by programme tag, with what grantees reported</p>
               {themes.length === 0 ? (
@@ -495,7 +496,7 @@ function InsightsPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           </div>
 
           {/* Grantee performance */}
@@ -528,7 +529,7 @@ function InsightsPage() {
           </div>
 
           {/* Timeline */}
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <Card className="p-5">
             <h2 className="text-sm font-semibold text-gray-900">Impact timeline</h2>
             <p className="mt-0.5 text-xs text-gray-400">
               Grants by round — reported outcomes shown where a grant report has been analysed
@@ -566,7 +567,7 @@ function InsightsPage() {
                 </div>
               )}
             </div>
-          </div>
+          </Card>
         </>
       )}
     </div>
