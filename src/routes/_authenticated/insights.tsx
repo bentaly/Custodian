@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { Card, EmptyState } from '../../components/ui'
+import { Button, Card, EmptyState } from '../../components/ui'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
+import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
@@ -248,6 +249,42 @@ function InsightsPage() {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
 
+  // ── PDF export: a screengrab of the current, filtered state ──
+  const exportRef = useRef<HTMLDivElement>(null)
+  const [exporting, setExporting] = useState(false)
+
+  const periodLabel =
+    !range || range === 'all'
+      ? 'All time'
+      : range === '12m'
+        ? 'Last 12 months'
+        : range === '24m'
+          ? 'Last 2 years'
+          : (rounds.find((r) => r.id === range)?.name ?? 'Selected round')
+  const programmeLabel = programmeId
+    ? (programmes.find((p) => p.id === programmeId)?.name ?? 'Selected programme')
+    : 'All programmes'
+  const regionLabel = region ?? 'All regions'
+
+  async function handleExport() {
+    if (!exportRef.current) return
+    setExporting(true)
+    try {
+      await exportInsightsPdf(exportRef.current, {
+        title: 'Insights',
+        filters: `${periodLabel} · ${programmeLabel} · ${regionLabel}`,
+        summary: `${fil.length} grant${fil.length !== 1 ? 's' : ''} · ${fmtCompact(committed)} committed`,
+        generatedAt: new Date().toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const pillBase = 'rounded-full border px-3 py-1 text-xs transition-colors'
   const pillOn = 'border-emerald-600 bg-emerald-50 font-medium text-emerald-700'
   const pillOff = 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
@@ -255,14 +292,21 @@ function InsightsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1
-          style={{ fontFamily: "'DM Serif Display', serif", fontSize: 21, fontWeight: 400 }}
-          className="text-gray-900"
-        >
-          Insights
-        </h1>
-        <p className="mt-0.5 text-sm text-gray-400">Portfolio analysis across every grant awarded</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1
+            style={{ fontFamily: "'DM Serif Display', serif", fontSize: 21, fontWeight: 400 }}
+            className="text-gray-900"
+          >
+            Insights
+          </h1>
+          <p className="mt-0.5 text-sm text-gray-400">Portfolio analysis across every grant awarded</p>
+        </div>
+        {fil.length > 0 && (
+          <Button variant="secondary" size="sm" onClick={handleExport} disabled={exporting}>
+            {exporting ? 'Preparing…' : 'Export PDF'}
+          </Button>
+        )}
       </div>
 
       {/* One filter row scoping every panel below. */}
@@ -328,9 +372,9 @@ function InsightsPage() {
           </p>
         </EmptyState>
       ) : (
-        <>
+        <div ref={exportRef} className="space-y-4">
           {/* Headline stats */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div data-export-block className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Total committed"
               value={fmtCompact(committedUp)}
@@ -359,7 +403,7 @@ function InsightsPage() {
           </div>
 
           {/* Deprivation distribution + impact by programme */}
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div data-export-block className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900">Funding by deprivation decile</h2>
               <p className="mt-0.5 text-xs text-gray-400">
@@ -419,7 +463,7 @@ function InsightsPage() {
           </div>
 
           {/* Geography + themes */}
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div data-export-block className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900">Geographic reach</h2>
               <p className="mt-0.5 text-xs text-gray-400">Awarded funding by delivery region</p>
@@ -500,7 +544,7 @@ function InsightsPage() {
           </div>
 
           {/* Grantee performance */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div data-export-block className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatCard
               label="Promises kept"
               value={avgAlignment !== null ? `${(Math.round(avgAlignment * 10) / 10).toLocaleString('en-GB')}/10` : '—'}
@@ -529,7 +573,7 @@ function InsightsPage() {
           </div>
 
           {/* Timeline */}
-          <Card className="p-5">
+          <Card data-export-block className="p-5">
             <h2 className="text-sm font-semibold text-gray-900">Impact timeline</h2>
             <p className="mt-0.5 text-xs text-gray-400">
               Grants by round — reported outcomes shown where a grant report has been analysed
@@ -568,7 +612,7 @@ function InsightsPage() {
               )}
             </div>
           </Card>
-        </>
+        </div>
       )}
     </div>
   )

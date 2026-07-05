@@ -33,6 +33,8 @@
     "@tiptap/starter-kit": "^3.26.0",
     "better-auth": "^1.2.0",
     "drizzle-orm": "^0.45.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.53.0",
