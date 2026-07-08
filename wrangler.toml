@@ -3,6 +3,13 @@ main = "worker-entry.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Production custom domain. Cloudflare reconciles this on deploy (idempotent with the
+# domain already attached via the dashboard). Apex only — `www` redirects to apex via a
+# Cloudflare Redirect Rule, so the app runs on a single hostname.
+routes = [
+  { pattern = "custodian.fund", custom_domain = true },
+]
+
 [assets]
 directory = "dist/client"
 
