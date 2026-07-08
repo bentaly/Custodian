@@ -33,6 +33,20 @@ export async function sendInvitationEmail({
     from,
     to,
     subject: `You've been invited to join ${clientName} on Custodian`,
+    // Plain-text alternative sent alongside the HTML (multipart/alternative). Modern
+    // clients render the HTML; the text part is a fallback and, importantly, a
+    // deliverability signal — HTML-only mail scores as spammy (notably at Outlook/Hotmail).
+    text: [
+      `You've been invited to Custodian.`,
+      ``,
+      `${inviterName} has invited you to join ${clientName}.`,
+      `This invitation expires in 7 days.`,
+      ``,
+      `Accept your invitation:`,
+      inviteUrl,
+      ``,
+      `If you weren't expecting this invitation, you can safely ignore this email.`,
+    ].join('\n'),
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 12px;">
