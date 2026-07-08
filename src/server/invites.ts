@@ -31,16 +31,19 @@ export async function claimPendingInvite(
   })
   if (!invite) return null
 
-  await db.transaction(async (tx) => {
-    await tx
+  // neon-http can't do interactive transactions (db.transaction), but it supports
+  // db.batch(): these two writes are sent together and applied atomically server-side,
+  // so a user is never attached to a client without the invite also being consumed.
+  await db.batch([
+    db
       .update(users)
       .set({ clientId: invite.clientId, role: invite.role })
-      .where(eq(users.id, user.id))
-    await tx
+      .where(eq(users.id, user.id)),
+    db
       .update(invitations)
       .set({ acceptedAt: new Date() })
-      .where(eq(invitations.id, invite.id))
-  })
+      .where(eq(invitations.id, invite.id)),
+  ])
 
   return { clientId: invite.clientId, role: invite.role }
 }
