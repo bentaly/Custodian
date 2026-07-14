@@ -34,6 +34,18 @@ export const listMyRounds = createServerFn({ method: 'GET' }).handler(async () =
   })
 })
 
+// Lightweight feed for the app-shell header's round-status line ("Spring 2026
+// closed · Summer 2027 opens in 11 days") — names and dates only, no programmes.
+export const listRoundDates = createServerFn({ method: 'GET' }).handler(async () => {
+  const user = await requireAuthUser()
+  if (!user.clientId) return []
+  return getDb().query.rounds.findMany({
+    columns: { id: true, name: true, openedAt: true, closedAt: true },
+    where: (r, { eq }) => eq(r.clientId, user.clientId!),
+    orderBy: (r, { desc }) => [desc(r.createdAt)],
+  })
+})
+
 export const getRound = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {

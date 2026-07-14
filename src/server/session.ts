@@ -2,7 +2,7 @@ import { getRequest } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { getAuth } from './auth'
 import { getDb } from './db'
-import { users } from '../../drizzle/schema'
+import { clients, users } from '../../drizzle/schema'
 
 export async function getAuthUser() {
   const request = getRequest()
@@ -22,8 +22,10 @@ export async function getAuthUser() {
         name: users.name,
         role: users.role,
         clientId: users.clientId,
+        clientName: clients.name,
       })
       .from(users)
+      .leftJoin(clients, eq(users.clientId, clients.id))
       .where(eq(users.id, session.user.id))
     return rows[0] ?? null
   } catch {

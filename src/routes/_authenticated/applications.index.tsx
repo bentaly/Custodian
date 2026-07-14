@@ -57,7 +57,9 @@ export const Route = createFileRoute('/_authenticated/applications/')({
           const bT = b.openedAt ? new Date(b.openedAt).getTime() : 0
           return bT - aT
         })[0]
-      if (candidate) throw redirect({ to: '/applications', search: { roundId: candidate.id } })
+      // Preserve any other filters (q from the header search, status, etc.) —
+      // only the missing roundId is being filled in.
+      if (candidate) throw redirect({ to: '/applications', search: { ...deps, roundId: candidate.id, page: undefined } })
     }
 
     const [applicationsData, budgetSummary] = await Promise.all([
