@@ -1,9 +1,10 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { admin } from 'better-auth/plugins'
+import { admin, emailOTP } from 'better-auth/plugins'
 import { createAccessControl } from 'better-auth/plugins/access'
 import { defaultStatements } from 'better-auth/plugins/admin/access'
 import { getDb } from './db'
+import { sendSignInCodeEmail, sendPasswordResetCodeEmail } from '../lib/email'
 import { users, sessions, accounts, verifications } from '../../drizzle/schema'
 
 // The admin plugin validates `adminRoles` against its access-control `roles` map
@@ -96,6 +97,31 @@ function createAuth() {
           // Match our pgEnum — the plugin otherwise defaults new users to "user",
           // which is not a valid `user_role` value and would break signup inserts.
           defaultRole: 'observer',
+        }),
+        emailOTP({
+          // Custodian is invitation-only. Without this the plugin signs up any
+          // unknown email on the spot — and because `users.client_id` is nullable
+          // that insert *succeeds*, minting a clientless `observer` with a live
+          // session and no invitation. Unknown emails must fail instead.
+          disableSignUp: true,
+          otpLength: 6,
+          expiresIn: 300,
+          // A stolen code is a live credential until it expires, so cap guesses
+          // and keep only a hash of it in `verifications`.
+          allowedAttempts: 3,
+          storeOTP: 'hashed',
+          // These endpoints send mail to an attacker-chosen address, so they're the
+          // one place an unauthenticated caller can make us emit email. Cap it.
+          rateLimit: { window: 60, max: 3 },
+          sendVerificationOTP: async ({ email, otp, type }) => {
+            // `forget-password` also covers "Google user who never had a password":
+            // /email-otp/reset-password creates a `credential` account when the user
+            // has none, which is the only way onto email+password for an OAuth-only
+            // account. `email-verification` is unused — Google's is trusted and local
+            // sign-up doesn't require it (see requireLocalEmailVerified).
+            if (type === 'sign-in') await sendSignInCodeEmail({ to: email, otp })
+            else if (type === 'forget-password') await sendPasswordResetCodeEmail({ to: email, otp })
+          },
         }),
       ],
     })

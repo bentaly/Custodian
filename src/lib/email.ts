@@ -12,6 +12,95 @@ function getResend(): Resend | null {
   return _resend
 }
 
+/**
+ * Resend reports API failures in the returned `{ error }` rather than throwing, so a
+ * rejected send (bad domain, suppressed address, quota) otherwise looks identical to a
+ * delivered one and vanishes silently. Callers are best-effort — a failed send must not
+ * take down the invite/sign-in request — so log loudly and carry on.
+ */
+async function send(what: string, payload: Parameters<Resend['emails']['send']>[0]) {
+  const resend = getResend()
+  if (!resend) {
+    console.warn(`RESEND_API_KEY not set — skipping ${what}`)
+    return
+  }
+  const { error } = await resend.emails.send(payload)
+  if (error) console.error(`Resend rejected ${what} to ${String(payload.to)}:`, error)
+}
+
+function fromAddress() {
+  return process.env['FROM_EMAIL'] ?? 'Custodian <onboarding@resend.dev>'
+}
+
+export async function sendSignInCodeEmail({ to, otp }: { to: string; otp: string }) {
+  await send('sign-in code email', {
+    from: fromAddress(),
+    to,
+    subject: `${otp} is your Custodian sign-in code`,
+    text: [
+      `Your Custodian sign-in code is ${otp}`,
+      ``,
+      `Enter it on the sign-in page. It expires in 5 minutes.`,
+      ``,
+      `If you didn't try to sign in, you can safely ignore this email — nobody can`,
+      `access your account without this code.`,
+    ].join('\n'),
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 12px;">
+          Your sign-in code
+        </h2>
+        <p style="color: #6b7280; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">
+          Enter this code on the sign-in page. It expires in 5 minutes.
+        </p>
+        <p style="font-size: 32px; font-weight: 600; letter-spacing: 6px; color: #111827;
+                  margin: 0 0 24px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">
+          ${otp}
+        </p>
+        <p style="color: #9ca3af; font-size: 13px; margin: 0;">
+          If you didn't try to sign in, you can safely ignore this email — nobody can access
+          your account without this code.
+        </p>
+      </div>
+    `,
+  })
+}
+
+export async function sendPasswordResetCodeEmail({ to, otp }: { to: string; otp: string }) {
+  await send('password reset email', {
+    from: fromAddress(),
+    to,
+    subject: `${otp} is your Custodian password reset code`,
+    text: [
+      `Your Custodian password reset code is ${otp}`,
+      ``,
+      `Enter it on the password reset page to choose a new password.`,
+      `It expires in 5 minutes.`,
+      ``,
+      `If you didn't ask to reset your password, you can safely ignore this email —`,
+      `your password will not change.`,
+    ].join('\n'),
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 12px;">
+          Reset your password
+        </h2>
+        <p style="color: #6b7280; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">
+          Enter this code to choose a new password. It expires in 5 minutes.
+        </p>
+        <p style="font-size: 32px; font-weight: 600; letter-spacing: 6px; color: #111827;
+                  margin: 0 0 24px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">
+          ${otp}
+        </p>
+        <p style="color: #9ca3af; font-size: 13px; margin: 0;">
+          If you didn't ask to reset your password, you can safely ignore this email — your
+          password will not change.
+        </p>
+      </div>
+    `,
+  })
+}
+
 export async function sendInvitationEmail({
   to,
   inviteUrl,
@@ -23,14 +112,8 @@ export async function sendInvitationEmail({
   clientName: string
   inviterName: string
 }) {
-  const resend = getResend()
-  if (!resend) {
-    console.warn('RESEND_API_KEY not set — skipping invitation email')
-    return
-  }
-  const from = process.env['FROM_EMAIL'] ?? 'Custodian <onboarding@resend.dev>'
-  await resend.emails.send({
-    from,
+  await send('invitation email', {
+    from: fromAddress(),
     to,
     subject: `You've been invited to join ${clientName} on Custodian`,
     // Plain-text alternative sent alongside the HTML (multipart/alternative). Modern

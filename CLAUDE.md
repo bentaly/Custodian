@@ -73,9 +73,54 @@ The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the 
 ## Auth notes
 - BetterAuth lazy-initialised in `src/server/auth.ts` (prevents Cloudflare Workers module poisoning on missing env vars)
 - `worker-entry.js` bridges Cloudflare env bindings into `process.env` before delegating to the app server
-- `requireLocalEmailVerified: false` — Google's email verification is trusted; no need for separate local verification
-- Account linking is enabled: a user can sign up via Google then later add email/password (via password reset flow), or vice versa
+- Three ways in, all on `/sign-in`: **email + password**, **Google OAuth**, and an emailed
+  **6-digit code** (`emailOTP` plugin). Plus a code-based **password reset**.
+- `requireLocalEmailVerified: false` — Google's email verification is trusted; no need for separate
+  local verification. This is load-bearing, not cosmetic: BetterAuth's default is `true`, and local
+  sign-up leaves `email_verified = false` (no verification email is wired), so on the default an
+  existing email+password user clicking "Continue with Google" would be **refused** with
+  `account_not_linked` instead of linking.
+- Account linking: a password user who later uses Google is auto-linked (see above). The reverse —
+  a Google-only user adding a password — goes through the **code-based reset** on `/sign-in`
+  ("Forgot your password?"): `/email-otp/reset-password` creates a `credential` account when the
+  user has none. There is no link-based reset; `emailAndPassword.sendResetPassword` is deliberately
+  not configured, so `/request-password-reset` returns `RESET_PASSWORD_DISABLED`.
+- **`emailOTP` runs with `disableSignUp: true`** — without it the plugin signs up any unknown email
+  on the spot, and since `users.client_id` is nullable that insert *succeeds*, minting a clientless
+  `observer` with a live session and no invitation. Both OTP flows therefore only work for users who
+  already exist; a code is **not** a way to accept an invite.
+- Codes: 6 digits, 5-minute expiry, 3 attempts, stored **hashed** in `verifications`. An unknown
+  email gets `{success: true}` and **no email** — BetterAuth deliberately won't confirm whether an
+  account exists (anti-enumeration), so sign-in copy must stay "if an account exists…".
+- OTP sign-in resolves by **email only** — no provider check — so a code works regardless of whether
+  the user registered via Google or password. It also sets `email_verified = true` as a side effect.
 - Google OAuth authorized redirect URI in Google Console: `https://custodian.bental.workers.dev/api/auth/callback/google`
+
+## Invite-only onboarding
+An invitation creates **no user row** — only an `invitations` row (email, token, `clientId`, role,
+7-day expiry). The `users` row appears when the invitee registers, with `client_id = null`; a user is
+attached to a tenant only by `claimPendingInvite` (`src/server/invites.ts`), which is the sole path
+granting tenant access. Two routes in:
+- **Invite link** → `/sign-up?invite=<token>` — password sign-up *or* "Continue with Google". Claiming
+  by token also sets `email_verified = true`: possessing a token mailed to that address is the same
+  proof a verification email would give, which is why no verification email is wired.
+- **Google** → the invitee ignores the link and hits "Continue with Google" on `/sign-in`. OAuth
+  never calls `completeRegistration`, so `getMe` (`src/server/fns/auth.ts`) auto-claims a pending
+  invite **by email** for any tenant-less non-superadmin. This is why `claimPendingInvite` matches on
+  email when no token is given.
+
+**The tokenless email match requires `emailVerified`** (`invites.ts`) — do not remove it, and see
+`invites.test.ts`. `/api/auth/sign-up/email` is a public endpoint that accepts any address without
+proving it, so without the gate anyone who knew an invited address (staff emails are often public)
+could sign up as it, let `getMe` hand them the invite, and land inside the tenant at the invited
+role — no token, no mailbox access. Google-proved addresses are unaffected; token claims skip the
+check because the token *is* the proof.
+
+No valid invite → `client_id` stays null → `_authenticated`'s guard redirects to `/no-access`.
+Superadmins legitimately have no `client_id` and are exempt. Signups without an invite still create
+an inert account (no tenant, bounced to `/no-access`); closing that off entirely would mean creating
+users server-side and setting `emailAndPassword.disableSignUp`, which the invite page's
+`authClient.signUp.email` call currently depends on.
 
 ## Data model summary
 - **clients** — tenant (charitable_foundation | family_office); users and rounds belong to a client
