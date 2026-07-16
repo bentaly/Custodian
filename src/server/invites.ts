@@ -16,9 +16,18 @@ type ClaimedTenant = { clientId: string; role: typeof invitations.$inferSelect.r
  * creation has been removed (invite-only onboarding).
  */
 export async function claimPendingInvite(
-  user: { id: string; email: string },
+  user: { id: string; email: string; emailVerified: boolean },
   token?: string,
 ): Promise<ClaimedTenant | null> {
+  // Matching on email alone is only safe when the address was *proven*. Google proves
+  // it; a `/api/auth/sign-up/email` caller can type any address it likes and lands here
+  // with emailVerified=false. Without this gate, anyone who knows an invited address
+  // (staff emails are often public) could sign up as it and have getMe hand them the
+  // invite — tenant access, at the invited role, without ever seeing the invite email.
+  // The token path needs no such check: possessing a token mailed to that address IS
+  // the proof.
+  if (!token && !user.emailVerified) return null
+
   const db = getDb()
 
   const invite = await db.query.invitations.findFirst({
@@ -37,7 +46,14 @@ export async function claimPendingInvite(
   await db.batch([
     db
       .update(users)
-      .set({ clientId: invite.clientId, role: invite.role })
+      .set({
+        clientId: invite.clientId,
+        role: invite.role,
+        // Claiming by token proves the user read a mailbox only that address receives,
+        // which is exactly what a verification email would establish — so onboarding
+        // needs no separate verification step. (Google users arrive already verified.)
+        ...(token ? { emailVerified: true } : {}),
+      })
       .where(eq(users.id, user.id)),
     db
       .update(invitations)

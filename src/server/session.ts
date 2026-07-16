@@ -19,6 +19,9 @@ export async function getAuthUser() {
       .select({
         id: users.id,
         email: users.email,
+        // Whether the address was *proven* (Google, or an emailed invite token) rather
+        // than merely typed. `claimPendingInvite` gates tenant attachment on this.
+        emailVerified: users.emailVerified,
         name: users.name,
         role: users.role,
         clientId: users.clientId,
