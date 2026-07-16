@@ -372,7 +372,7 @@ function Dashboard() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, fontWeight: 400 }} className="text-gray-900">
+        <h1 className="font-display text-2xl font-semibold text-gray-900">
           {greeting()}, {firstName(d.name)}.
         </h1>
         <p className="mt-0.5 text-sm text-gray-400">
@@ -533,7 +533,7 @@ function Onboarding({ name }: { name: string }) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, fontWeight: 400 }} className="text-gray-900">
+        <h1 className="font-display text-2xl font-semibold text-gray-900">
           {greeting()}, {firstName(name)}.
         </h1>
         <p className="mt-0.5 text-sm text-gray-400">Let’s get your foundation set up</p>

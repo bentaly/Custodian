@@ -105,8 +105,7 @@ function ShortlistCard({
             <Link
               to="/applications/$applicationId"
               params={{ applicationId: app.id }}
-              style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15 }}
-              className="leading-tight text-gray-900 hover:underline"
+              className="text-[15px] font-medium leading-tight text-gray-900 hover:underline"
             >
               {app.organisationName}
             </Link>
@@ -375,8 +374,7 @@ function ShortlistPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1
-            style={{ fontFamily: "'DM Serif Display', serif", fontSize: 21, fontWeight: 400 }}
-            className="text-gray-900"
+            className="font-display text-[21px] font-semibold text-gray-900"
           >
             {roundLabel}
           </h1>

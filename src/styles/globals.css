@@ -1,3 +1,45 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    /* Let Inter's opsz axis track font-size: body copy gets the Text cut, large
+       headings drift toward Display without loading a second font file. */
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  /* Inter Display, explicitly: pin the optical size to the display end rather than
+     letting it interpolate. Headings only — at body sizes this cut is too tight. */
+  .font-display {
+    font-variation-settings: 'opsz' 32;
+    letter-spacing: -0.025em;
+  }
+}
+
+/* Sign-in brand art: ticks rise once on load, echoing a round-budget meter filling.
+   One orchestrated moment, then still. */
+@keyframes tick-rise {
+  from {
+    transform: scaleY(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.tick {
+  transform-origin: bottom;
+  animation: tick-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick {
+    animation: none;
+  }
+}

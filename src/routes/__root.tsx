@@ -26,8 +26,12 @@ export const Route = createRootRoute({
         crossOrigin: 'anonymous',
       },
       {
+        // `opsz` is Inter's optical-size axis: 14 is the Text cut, 32 is Inter Display.
+        // Requesting the full range lets one file serve body copy and headings; the
+        // browser interpolates by size (font-optical-sizing: auto), and `.font-display`
+        // pins opsz 32 where the design calls for Display explicitly.
         rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap',
+        href: 'https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap',
       },
     ],
   }),

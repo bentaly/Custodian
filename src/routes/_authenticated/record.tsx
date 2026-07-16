@@ -178,8 +178,7 @@ function RecordPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1
-            style={{ fontFamily: "'DM Serif Display', serif", fontSize: 21, fontWeight: 400 }}
-            className="text-gray-900"
+            className="font-display text-[21px] font-semibold text-gray-900"
           >
             Record
           </h1>
