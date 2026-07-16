@@ -6,6 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 # Production custom domain. Cloudflare reconciles this on deploy (idempotent with the
 # domain already attached via the dashboard). Apex only — `www` redirects to apex via a
 # Cloudflare Redirect Rule, so the app runs on a single hostname.
+#
+# workers_dev must stay explicitly true: wrangler defaults it to false once `routes`
+# exist, which disables custodian.bental.workers.dev — still needed by BETTER_AUTH_URL,
+# the Google OAuth redirect URI, and the admin app's VITE_API_BASE.
+workers_dev = true
 routes = [
   { pattern = "custodian.fund", custom_domain = true },
 ]
@@ -36,6 +41,10 @@ simple = { limit = 60, period = 60 }
 
 [env.staging]
 name = "custodian-staging"
+# `routes` is an inheritable key — without this override, staging inherits the
+# custodian.fund custom domain and tries to claim it on every deploy.
+routes = []
+workers_dev = true
 
 # Unsafe bindings are not inherited by named environments — repeat them for staging.
 [[env.staging.unsafe.bindings]]
