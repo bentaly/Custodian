@@ -11,6 +11,7 @@ import {
   awards,
   awardInstalments,
   reportSchedule,
+  reports,
 } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertApplicationAccess, assertClientAccess, intersectScope, visibleRoundProgrammeIds } from '../scope'
@@ -455,11 +456,11 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
     return application!
   })
 
-// Record screen: the register of every grant ever awarded for the caller's client —
+// Awards screen: the register of every grant ever awarded for the caller's client —
 // across all rounds and programmes, regardless of payment progress. Reads `awards`
 // (via the awarded application that produced each), with instalments rolled up for
 // paid-to-date. Filters mirror the Applications list (round / programme / tag / search).
-export const listGrantRecord = createServerFn({ method: 'GET' })
+export const listAwards = createServerFn({ method: 'GET' })
   .inputValidator(
     z.object({
       roundId: z.uuid().optional(),
@@ -567,3 +568,263 @@ function emptyGrantTotals() {
     byProgramme: [] as Array<{ name: string; amount: number }>,
   }
 }
+
+// ─── Award detail (drill-down) ──────────────────────────────────────────────────
+
+const DUE_SOON_DAYS = 30
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Timeline status of a dated milestone/instalment (payment or report). */
+export type ScheduleStatus = 'tbc' | 'overdue' | 'due_soon' | 'upcoming'
+
+function dueStatus(dueDate: string | null): ScheduleStatus {
+  if (!dueDate) return 'tbc'
+  const due = new Date(dueDate).getTime()
+  const now = Date.now()
+  if (due < now) return 'overdue'
+  if (due - now <= DUE_SOON_DAYS * 24 * 60 * 60 * 1000) return 'due_soon'
+  return 'upcoming'
+}
+
+// The full picture of one award for its detail screen: the money (instalments,
+// paid-to-date, outstanding), the reporting schedule and every report received, an
+// aggregated impact figure, and a compact view of the source application. Everything
+// is shaped into an explicitly serializable payload — raw rows carry loosely-typed
+// jsonb the server-fn serializer rejects.
+export const getAward = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireAuthUser()
+
+    const award = await getDb().query.awards.findFirst({
+      where: eq(awards.id, data.id),
+      with: {
+        application: {
+          with: { roundProgramme: { with: { programme: true, round: true } } },
+        },
+        instalments: true,
+        schedule: true,
+        reports: true,
+      },
+    })
+    if (!award) throw new Error('Not found')
+    assertClientAccess(user, award.clientId)
+
+    const app = award.application
+    const programme = app.roundProgramme?.programme ?? null
+    const amountAwarded = parseFloat(award.amountAwarded)
+
+    const instalments = [...award.instalments]
+      .sort((a, b) => a.instalmentNo - b.instalmentNo)
+      .map((p) => ({
+        id: p.id,
+        instalmentNo: p.instalmentNo,
+        amount: parseFloat(p.amount),
+        dueDate: p.dueDate,
+        paidDate: p.paidDate,
+        status: (p.paidDate ? 'paid' : dueStatus(p.dueDate)) as 'paid' | ScheduleStatus,
+      }))
+    const paidToDate = instalments.filter((p) => p.paidDate).reduce((s, p) => s + p.amount, 0)
+    const scheduledTotal = instalments.reduce((s, p) => s + p.amount, 0)
+
+    const reportingMilestones = [...award.schedule]
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .map((m) => ({
+        id: m.id,
+        label: m.label,
+        dueDate: m.dueDate,
+        submittedDate: m.submittedDate,
+        status: (m.submittedDate ? 'submitted' : dueStatus(m.dueDate)) as 'submitted' | ScheduleStatus,
+      }))
+
+    const scheduleById = new Map(award.schedule.map((m) => [m.id, m]))
+    const reportViews = [...award.reports]
+      .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())
+      .map((r) => ({
+        id: r.id,
+        label: (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
+        submittedAt: r.submittedAt.toISOString(),
+        status: (r.reviewedAt ? 'reviewed' : 'received') as 'received' | 'reviewed',
+        impactSummary: r.impactSummary,
+        aiSummary: r.aiSummary,
+        applicationAlignment: r.applicationAlignment,
+        programmeAlignment: r.programmeAlignment,
+        impactQuantity: r.impactQuantity,
+        impactUnitLabel: r.impactUnitLabel,
+      }))
+
+    // Aggregate impact across this award's reports, in the programme's unit. Only
+    // reports that actually evidenced a quantity contribute (never coerced to zero).
+    const quantified = reportViews.filter((r) => r.impactQuantity != null)
+    const impact = {
+      total: quantified.length
+        ? quantified.reduce((s, r) => s + Number(r.impactQuantity), 0)
+        : null,
+      unitLabel: programme?.impactUnitLabel ?? quantified[0]?.impactUnitLabel ?? null,
+      reportCount: quantified.length,
+    }
+
+    const canEdit = user.role === 'superadmin' || user.role === 'admin' || user.role === 'manager'
+
+    return {
+      id: award.id,
+      status: award.status,
+      amountAwarded,
+      decisionAt: award.decisionAt.toISOString(),
+      durationYears: app.roundProgramme?.grantDurationYears ?? null,
+      organisationName: app.organisationName,
+      programmeName: programme?.name ?? null,
+      roundName: app.roundProgramme?.round?.name ?? null,
+      deliveryArea: app.deliveryRegion ?? app.deliveryArea ?? null,
+      impactUnitLabel: programme?.impactUnitLabel ?? null,
+      instalments,
+      paidToDate,
+      outstanding: amountAwarded - paidToDate,
+      scheduledTotal,
+      instalmentCount: instalments.length,
+      paidCount: instalments.filter((p) => p.paidDate).length,
+      reportingMilestones,
+      reports: reportViews,
+      impact,
+      application: {
+        id: app.id,
+        amountRequested: parseFloat(app.amountRequested),
+        custodianScore: app.custodianScore,
+        custodianScoreStatus: app.custodianScoreStatus,
+        charityNumber: app.charityNumber,
+        companyNumber: app.companyNumber,
+        externalApplicationId: app.externalApplicationId,
+        deliveryArea: app.deliveryArea,
+      },
+      canEdit,
+    }
+  })
+
+// Resolve an award by one of its child rows (instalment / report milestone), asserting
+// the caller may manage it. Returns the owning award's id + clientId.
+async function requireAwardForSchedule(
+  user: Awaited<ReturnType<typeof requireRole>>,
+  scheduleId: string,
+) {
+  const row = await getDb().query.reportSchedule.findFirst({
+    where: eq(reportSchedule.id, scheduleId),
+    with: { award: { columns: { id: true, clientId: true } } },
+  })
+  if (!row) throw new Error('Not found')
+  assertClientAccess(user, row.award.clientId)
+  return row
+}
+
+const ReportMilestoneSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  dueDate: z.string().regex(ISO_DATE, 'Expected yyyy-mm-dd'),
+})
+
+// Add a reporting milestone to an award.
+export const addReportMilestone = createServerFn({ method: 'POST' })
+  .inputValidator(ReportMilestoneSchema.extend({ awardId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    const award = await getDb().query.awards.findFirst({
+      where: eq(awards.id, data.awardId),
+      columns: { id: true, clientId: true },
+    })
+    if (!award) throw new Error('Not found')
+    assertClientAccess(user, award.clientId)
+    await getDb()
+      .insert(reportSchedule)
+      .values({ awardId: data.awardId, label: data.label, dueDate: data.dueDate })
+  })
+
+// Edit a reporting milestone's label and/or due date.
+export const updateReportMilestone = createServerFn({ method: 'POST' })
+  .inputValidator(ReportMilestoneSchema.extend({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    await requireAwardForSchedule(user, data.id)
+    await getDb()
+      .update(reportSchedule)
+      .set({ label: data.label, dueDate: data.dueDate })
+      .where(eq(reportSchedule.id, data.id))
+  })
+
+// Remove a reporting milestone. Refused once a report has been logged against it —
+// that would orphan a received document's schedule link.
+export const deleteReportMilestone = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    const row = await requireAwardForSchedule(user, data.id)
+    if (row.submittedDate) {
+      throw new Error('This report has already been received and cannot be removed')
+    }
+    await getDb().delete(reportSchedule).where(eq(reportSchedule.id, data.id))
+  })
+
+// Edit an instalment's amount and/or due date (null dueDate = date TBC).
+export const updateInstalment = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      id: z.uuid(),
+      amount: z.number().positive().optional(),
+      dueDate: z.string().regex(ISO_DATE).nullable().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    const row = await getDb().query.awardInstalments.findFirst({
+      where: eq(awardInstalments.id, data.id),
+      with: { award: { columns: { clientId: true } } },
+    })
+    if (!row) throw new Error('Not found')
+    assertClientAccess(user, row.award.clientId)
+    await getDb()
+      .update(awardInstalments)
+      .set({
+        ...(data.amount !== undefined ? { amount: data.amount.toString() } : {}),
+        ...(data.dueDate !== undefined ? { dueDate: data.dueDate } : {}),
+      })
+      .where(eq(awardInstalments.id, data.id))
+  })
+
+// Mark an instalment paid (records today, or an explicit date) or clear it back to
+// outstanding. Paying the final instalment auto-completes the award ("Done");
+// reopening a paid instalment on a completed award flips it back to active. A
+// cancelled award is never touched. (Until a dedicated Finance section owns this,
+// the award's lifecycle simply tracks whether the money is fully out the door.)
+export const setInstalmentPaid = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      id: z.uuid(),
+      paid: z.boolean(),
+      paidDate: z.string().regex(ISO_DATE).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'manager')
+    const row = await getDb().query.awardInstalments.findFirst({
+      where: eq(awardInstalments.id, data.id),
+      with: { award: { columns: { id: true, clientId: true, status: true } } },
+    })
+    if (!row) throw new Error('Not found')
+    assertClientAccess(user, row.award.clientId)
+    const paidDate = data.paid ? (data.paidDate ?? new Date().toISOString().slice(0, 10)) : null
+    await getDb()
+      .update(awardInstalments)
+      .set({ paidDate })
+      .where(eq(awardInstalments.id, data.id))
+
+    // Re-derive the award's lifecycle from its instalments. Only 'active' ⇄
+    // 'completed' is automated here; 'cancelled' is a deliberate manual state.
+    if (row.award.status !== 'cancelled') {
+      const siblings = await getDb()
+        .select({ paidDate: awardInstalments.paidDate })
+        .from(awardInstalments)
+        .where(eq(awardInstalments.awardId, row.award.id))
+      const allPaid = siblings.length > 0 && siblings.every((s) => s.paidDate)
+      const nextStatus = allPaid ? 'completed' : 'active'
+      if (nextStatus !== row.award.status) {
+        await getDb().update(awards).set({ status: nextStatus }).where(eq(awards.id, row.award.id))
+      }
+    }
+  })

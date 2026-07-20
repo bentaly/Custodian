@@ -21,15 +21,16 @@ import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
 import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedRecordRouteImport } from './routes/_authenticated/record'
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
 import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
+import { Route as AuthenticatedAwardsIndexRouteImport } from './routes/_authenticated/awards.index'
 import { Route as AuthenticatedApplicationsIndexRouteImport } from './routes/_authenticated/applications.index'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
@@ -43,6 +44,7 @@ import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
 import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
+import { Route as AuthenticatedAwardsAwardIdRouteImport } from './routes/_authenticated/awards.$awardId'
 import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './routes/_authenticated/applications.$applicationId'
 import { Route as ApiAdminReportIngestsIdRouteImport } from './routes/api/admin.report-ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
@@ -109,11 +111,6 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedRecordRoute = AuthenticatedRecordRouteImport.update({
-  id: '/record',
-  path: '/record',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedProgrammesRoute = AuthenticatedProgrammesRouteImport.update({
   id: '/programmes',
   path: '/programmes',
@@ -132,6 +129,11 @@ const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAwardsRoute = AuthenticatedAwardsRouteImport.update({
+  id: '/awards',
+  path: '/awards',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedApplicationsRoute =
@@ -157,6 +159,12 @@ const AuthenticatedProgrammesIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedProgrammesRoute,
+  } as any)
+const AuthenticatedAwardsIndexRoute =
+  AuthenticatedAwardsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAwardsRoute,
   } as any)
 const AuthenticatedApplicationsIndexRoute =
   AuthenticatedApplicationsIndexRouteImport.update({
@@ -228,6 +236,12 @@ const AuthenticatedProgrammesProgrammeIdRoute =
     path: '/$programmeId',
     getParentRoute: () => AuthenticatedProgrammesRoute,
   } as any)
+const AuthenticatedAwardsAwardIdRoute =
+  AuthenticatedAwardsAwardIdRouteImport.update({
+    id: '/$awardId',
+    path: '/$awardId',
+    getParentRoute: () => AuthenticatedAwardsRoute,
+  } as any)
 const AuthenticatedApplicationsApplicationIdRoute =
   AuthenticatedApplicationsApplicationIdRouteImport.update({
     id: '/$applicationId',
@@ -268,11 +282,11 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/applications': typeof AuthenticatedApplicationsRouteWithChildren
+  '/awards': typeof AuthenticatedAwardsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/insights': typeof AuthenticatedInsightsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
-  '/record': typeof AuthenticatedRecordRoute
   '/reports': typeof AuthenticatedReportsRouteWithChildren
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/shortlist': typeof AuthenticatedShortlistRoute
@@ -281,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
+  '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
@@ -294,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
+  '/awards/': typeof AuthenticatedAwardsIndexRoute
   '/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
@@ -311,13 +327,13 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/insights': typeof AuthenticatedInsightsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/record': typeof AuthenticatedRecordRoute
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
+  '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
@@ -331,6 +347,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications': typeof AuthenticatedApplicationsIndexRoute
+  '/awards': typeof AuthenticatedAwardsIndexRoute
   '/programmes': typeof AuthenticatedProgrammesIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
@@ -348,11 +365,11 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
+  '/_authenticated/awards': typeof AuthenticatedAwardsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
-  '/_authenticated/record': typeof AuthenticatedRecordRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/_authenticated/shortlist': typeof AuthenticatedShortlistRoute
@@ -361,6 +378,7 @@ export interface FileRoutesById {
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
+  '/_authenticated/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
@@ -374,6 +392,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
+  '/_authenticated/awards/': typeof AuthenticatedAwardsIndexRoute
   '/_authenticated/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
@@ -391,11 +410,11 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/applications'
+    | '/awards'
     | '/dashboard'
     | '/insights'
     | '/profile'
     | '/programmes'
-    | '/record'
     | '/reports'
     | '/rounds'
     | '/shortlist'
@@ -404,6 +423,7 @@ export interface FileRouteTypes {
     | '/api/rounds'
     | '/api/submit-report'
     | '/applications/$applicationId'
+    | '/awards/$awardId'
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/rounds/$roundId'
@@ -417,6 +437,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/round/$roundId'
     | '/applications/'
+    | '/awards/'
     | '/programmes/'
     | '/reports/'
     | '/rounds/'
@@ -434,13 +455,13 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/insights'
     | '/profile'
-    | '/record'
     | '/shortlist'
     | '/users'
     | '/api/apply'
     | '/api/rounds'
     | '/api/submit-report'
     | '/applications/$applicationId'
+    | '/awards/$awardId'
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/rounds/$roundId'
@@ -454,6 +475,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/round/$roundId'
     | '/applications'
+    | '/awards'
     | '/programmes'
     | '/reports'
     | '/rounds'
@@ -470,11 +492,11 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/_authenticated/applications'
+    | '/_authenticated/awards'
     | '/_authenticated/dashboard'
     | '/_authenticated/insights'
     | '/_authenticated/profile'
     | '/_authenticated/programmes'
-    | '/_authenticated/record'
     | '/_authenticated/reports'
     | '/_authenticated/rounds'
     | '/_authenticated/shortlist'
@@ -483,6 +505,7 @@ export interface FileRouteTypes {
     | '/api/rounds'
     | '/api/submit-report'
     | '/_authenticated/applications/$applicationId'
+    | '/_authenticated/awards/$awardId'
     | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/rounds/$roundId'
@@ -496,6 +519,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/round/$roundId'
     | '/_authenticated/applications/'
+    | '/_authenticated/awards/'
     | '/_authenticated/programmes/'
     | '/_authenticated/reports/'
     | '/_authenticated/rounds/'
@@ -612,13 +636,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/record': {
-      id: '/_authenticated/record'
-      path: '/record'
-      fullPath: '/record'
-      preLoaderRoute: typeof AuthenticatedRecordRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/programmes': {
       id: '/_authenticated/programmes'
       path: '/programmes'
@@ -645,6 +662,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/awards': {
+      id: '/_authenticated/awards'
+      path: '/awards'
+      fullPath: '/awards'
+      preLoaderRoute: typeof AuthenticatedAwardsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/applications': {
@@ -674,6 +698,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/programmes/'
       preLoaderRoute: typeof AuthenticatedProgrammesIndexRouteImport
       parentRoute: typeof AuthenticatedProgrammesRoute
+    }
+    '/_authenticated/awards/': {
+      id: '/_authenticated/awards/'
+      path: '/'
+      fullPath: '/awards/'
+      preLoaderRoute: typeof AuthenticatedAwardsIndexRouteImport
+      parentRoute: typeof AuthenticatedAwardsRoute
     }
     '/_authenticated/applications/': {
       id: '/_authenticated/applications/'
@@ -766,6 +797,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProgrammesProgrammeIdRouteImport
       parentRoute: typeof AuthenticatedProgrammesRoute
     }
+    '/_authenticated/awards/$awardId': {
+      id: '/_authenticated/awards/$awardId'
+      path: '/$awardId'
+      fullPath: '/awards/$awardId'
+      preLoaderRoute: typeof AuthenticatedAwardsAwardIdRouteImport
+      parentRoute: typeof AuthenticatedAwardsRoute
+    }
     '/_authenticated/applications/$applicationId': {
       id: '/_authenticated/applications/$applicationId'
       path: '/$applicationId'
@@ -828,6 +866,19 @@ const AuthenticatedApplicationsRouteWithChildren =
     AuthenticatedApplicationsRouteChildren,
   )
 
+interface AuthenticatedAwardsRouteChildren {
+  AuthenticatedAwardsAwardIdRoute: typeof AuthenticatedAwardsAwardIdRoute
+  AuthenticatedAwardsIndexRoute: typeof AuthenticatedAwardsIndexRoute
+}
+
+const AuthenticatedAwardsRouteChildren: AuthenticatedAwardsRouteChildren = {
+  AuthenticatedAwardsAwardIdRoute: AuthenticatedAwardsAwardIdRoute,
+  AuthenticatedAwardsIndexRoute: AuthenticatedAwardsIndexRoute,
+}
+
+const AuthenticatedAwardsRouteWithChildren =
+  AuthenticatedAwardsRoute._addFileChildren(AuthenticatedAwardsRouteChildren)
+
 interface AuthenticatedProgrammesRouteChildren {
   AuthenticatedProgrammesProgrammeIdRoute: typeof AuthenticatedProgrammesProgrammeIdRoute
   AuthenticatedProgrammesIndexRoute: typeof AuthenticatedProgrammesIndexRoute
@@ -873,11 +924,11 @@ const AuthenticatedRoundsRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
+  AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
-  AuthenticatedRecordRoute: typeof AuthenticatedRecordRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
   AuthenticatedShortlistRoute: typeof AuthenticatedShortlistRoute
@@ -886,11 +937,11 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApplicationsRoute: AuthenticatedApplicationsRouteWithChildren,
+  AuthenticatedAwardsRoute: AuthenticatedAwardsRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
-  AuthenticatedRecordRoute: AuthenticatedRecordRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,
   AuthenticatedShortlistRoute: AuthenticatedShortlistRoute,

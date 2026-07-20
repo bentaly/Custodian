@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import {
+  Award,
   Building2,
-  BookText,
   CalendarRange,
   Files,
   FileText,
@@ -64,9 +64,9 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
           <FileText className="h-5 w-5" strokeWidth={1.75} />
           Reports
         </Link>
-        <Link to="/record" search={{ roundId: undefined }} className={itemClass}>
-          <BookText className="h-5 w-5" strokeWidth={1.75} />
-          Record
+        <Link to="/awards" search={{ roundId: undefined }} className={itemClass}>
+          <Award className="h-5 w-5" strokeWidth={1.75} />
+          Awards
         </Link>
         <Link to="/insights" className={itemClass}>
           <TrendingUp className="h-5 w-5" strokeWidth={1.75} />

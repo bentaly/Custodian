@@ -335,9 +335,9 @@ function Dashboard() {
   const lanes: Lane[] = []
   const plural = (n: number) => (n !== 1 ? 's' : '')
   if (a.reportsOverdue.count > 0)
-    lanes.push({ key: 'rep-od', sev: 'red', priority: isFinance ? 0 : 3, to: '/record', search: { roundId: undefined }, cta: 'View', title: `${a.reportsOverdue.count} grant report${plural(a.reportsOverdue.count)} overdue`, detail: names(a.reportsOverdue.items) })
+    lanes.push({ key: 'rep-od', sev: 'red', priority: isFinance ? 0 : 3, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.reportsOverdue.count} grant report${plural(a.reportsOverdue.count)} overdue`, detail: names(a.reportsOverdue.items) })
   if (a.paymentsOverdue.count > 0)
-    lanes.push({ key: 'pay-od', sev: 'red', priority: isFinance ? 1 : 4, to: '/record', search: { roundId: undefined }, cta: 'View', title: `${a.paymentsOverdue.count} payment${plural(a.paymentsOverdue.count)} overdue`, detail: names(a.paymentsOverdue.items) })
+    lanes.push({ key: 'pay-od', sev: 'red', priority: isFinance ? 1 : 4, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.paymentsOverdue.count} payment${plural(a.paymentsOverdue.count)} overdue`, detail: names(a.paymentsOverdue.items) })
   if (a.dueDiligenceFlags > 0)
     lanes.push({ key: 'dd', sev: 'red', priority: 5, to: '/applications', search: { roundId: undefined, status: 'for_review' }, cta: 'Resolve', title: `${a.dueDiligenceFlags} due-diligence flag${plural(a.dueDiligenceFlags)} to resolve` })
   if (isTrustee && a.awaitingMyVote.count > 0)
@@ -345,9 +345,9 @@ function Dashboard() {
   if (a.readyToAward.count > 0)
     lanes.push({ key: 'award', sev: 'green', priority: 2, to: '/shortlist', search: { roundId: undefined }, cta: 'Set up', title: `${a.readyToAward.count} approved — ready to award`, detail: names(a.readyToAward.items) })
   if (a.reportsDueSoon.count > 0)
-    lanes.push({ key: 'rep-soon', sev: 'amber', priority: isFinance ? 2 : 6, to: '/record', search: { roundId: undefined }, cta: 'View', title: `${a.reportsDueSoon.count} report${plural(a.reportsDueSoon.count)} due within 30 days` })
+    lanes.push({ key: 'rep-soon', sev: 'amber', priority: isFinance ? 2 : 6, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.reportsDueSoon.count} report${plural(a.reportsDueSoon.count)} due within 30 days` })
   if (a.paymentsDueSoon.count > 0)
-    lanes.push({ key: 'pay-soon', sev: 'amber', priority: isFinance ? 3 : 7, to: '/record', search: { roundId: undefined }, cta: 'View', title: `${a.paymentsDueSoon.count} payment${plural(a.paymentsDueSoon.count)} due within 30 days` })
+    lanes.push({ key: 'pay-soon', sev: 'amber', priority: isFinance ? 3 : 7, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.paymentsDueSoon.count} payment${plural(a.paymentsDueSoon.count)} due within 30 days` })
   if (a.toReview.count > 0 && !isTrustee)
     lanes.push({ key: 'review', sev: 'neutral', priority: 1, to: '/applications', search: { roundId: undefined, status: 'for_review' }, cta: 'Review', title: `${a.toReview.count} application${plural(a.toReview.count)} awaiting review`, detail: names(a.toReview.items) })
   if (a.scoringPending > 0 && !isTrustee)
@@ -390,8 +390,8 @@ function Dashboard() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi {...firstKpi} />
         <Kpi label="Shortlisted" value={String(a.shortlist.count)} sub={`${fmtCompact(a.shortlist.proposed)} proposed`} to="/shortlist" search={{ roundId: undefined }} />
-        <Kpi label="Total awarded" value={fmtCompact(d.money.totalAwarded)} sub={`${d.money.activeGrants} active grant${plural(d.money.activeGrants)}`} to="/record" search={{ roundId: undefined }} />
-        <Kpi label="Outstanding to pay" value={fmtCompact(d.money.outstanding)} sub={`${fmtCompact(d.money.paidToDate)} paid to date`} to="/record" search={{ roundId: undefined }} />
+        <Kpi label="Total awarded" value={fmtCompact(d.money.totalAwarded)} sub={`${d.money.activeGrants} active grant${plural(d.money.activeGrants)}`} to="/awards" search={{ roundId: undefined }} />
+        <Kpi label="Outstanding to pay" value={fmtCompact(d.money.outstanding)} sub={`${fmtCompact(d.money.paidToDate)} paid to date`} to="/awards" search={{ roundId: undefined }} />
       </div>
 
       {/* Attention + Rounds */}

@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { Badge, Card, EmptyState, Select } from '../../components/ui'
-import { listGrantRecord } from '../../server/fns/applications'
+import { listAwards } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import { getRoundStatus } from '../../lib/roundStatus'
 
-type RecordSearch = {
+type AwardsSearch = {
   roundId?: string
   programmeId?: string
   tag?: string
   q?: string
 }
 
-export const Route = createFileRoute('/_authenticated/record')({
-  validateSearch: (search: Record<string, unknown>): RecordSearch => ({
+export const Route = createFileRoute('/_authenticated/awards/')({
+  validateSearch: (search: Record<string, unknown>): AwardsSearch => ({
     roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
     programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
     tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
@@ -26,8 +26,8 @@ export const Route = createFileRoute('/_authenticated/record')({
     q: search.q,
   }),
   loader: async ({ deps }) => {
-    const [record, rounds] = await Promise.all([
-      listGrantRecord({
+    const [awardsData, rounds] = await Promise.all([
+      listAwards({
         data: {
           roundId: deps.roundId,
           programmeId: deps.programmeId,
@@ -37,9 +37,9 @@ export const Route = createFileRoute('/_authenticated/record')({
       }),
       listMyRounds(),
     ])
-    return { ...record, rounds }
+    return { ...awardsData, rounds }
   },
-  component: RecordPage,
+  component: AwardsPage,
 })
 
 function fmt(n: number) {
@@ -59,7 +59,7 @@ function fmtDate(date: Date | string | null | undefined) {
 
 const GRANT_STATUS_LABELS: Record<string, string> = {
   active: 'Active',
-  completed: 'Complete',
+  completed: 'Done',
   cancelled: 'Cancelled',
 }
 
@@ -123,8 +123,8 @@ function StatCards({ totals }: { totals: Totals }) {
   )
 }
 
-function RecordPage() {
-  const navigate = useNavigate({ from: '/record' })
+function AwardsPage() {
+  const navigate = Route.useNavigate()
   const search = Route.useSearch()
   const { roundId, programmeId, tag, q } = search
   const { items, totals, rounds } = Route.useLoaderData()
@@ -180,7 +180,7 @@ function RecordPage() {
           <h1
             className="font-display text-[21px] font-semibold text-gray-900"
           >
-            Record
+            Awards
           </h1>
           <p className="mt-0.5 text-sm text-gray-400">Every award made, across all rounds</p>
         </div>
@@ -270,8 +270,8 @@ function RecordPage() {
                 <tr key={g.awardId} className="relative transition-colors hover:bg-gray-50">
                   <td className="px-5 py-3 font-medium text-gray-900">
                     <Link
-                      to="/applications/$applicationId"
-                      params={{ applicationId: g.applicationId }}
+                      to="/awards/$awardId"
+                      params={{ awardId: g.awardId }}
                       className="after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded focus-visible:after:ring-2 focus-visible:after:ring-gray-400"
                     >
                       {g.organisationName}
