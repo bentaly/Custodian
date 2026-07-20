@@ -70,6 +70,13 @@ export function ReviewQueue() {
   )
 }
 
+/** Render a raw payload value for the reviewer. Structured values (a budget
+ *  breakdown's line items) are JSON — `String()` would show "[object Object]". */
+function previewValue(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  return typeof v === 'object' ? JSON.stringify(v) : String(v)
+}
+
 function IngestCard({
   row,
   canonicalFields,
@@ -221,7 +228,7 @@ function IngestCard({
             {canonicalFields.map((f) => {
               const chosen = mapping[f.key] ?? ''
               const proposal = row.proposed?.[f.key]
-              const preview = chosen ? String(row.rawPayload[chosen] ?? '') : ''
+              const preview = chosen ? previewValue(row.rawPayload[chosen]) : ''
               return (
                 <div key={f.key} className="grid grid-cols-12 items-center gap-2">
                   <label className="col-span-3 text-xs font-medium text-gray-700">

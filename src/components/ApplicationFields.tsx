@@ -3,6 +3,8 @@
 // shows an application's contents — the detail-page "View application" drawer and
 // the shortlist "Briefing" drawer — so the layout stays consistent.
 
+import { budgetTotal, formatPounds, type BudgetLine } from '../lib/budget'
+
 // Accepts any application-shaped row; fields are optional so callers can pass
 // whatever their query returned.
 export type ApplicationFieldsData = {
@@ -10,6 +12,7 @@ export type ApplicationFieldsData = {
   companyNumber?: string | null
   deliveryArea?: string | null
   amountRequested: string
+  budgetBreakdown?: BudgetLine[] | null
   bankName?: string | null
   bankAccountName?: string | null
   bankAccountNumber?: string | null
@@ -68,12 +71,53 @@ export function ApplicationFields({ application }: { application: ApplicationFie
   ].filter((r) => r.value)
 
   const responses = application.responses ?? []
+  const budget = application.budgetBreakdown ?? []
 
   return (
     <div className="space-y-6">
       <Section title="Application details">
         <KeyValueCard rows={detailRows} />
       </Section>
+
+      {budget.length > 0 && (
+        <Section title="Project budget">
+          <div className="rounded-lg border border-gray-200">
+            {budget.map((l, i) => (
+              <div key={i} className="border-b border-gray-100 px-4 py-2.5">
+                <div className="flex justify-between gap-4 text-sm">
+                  <span className="text-gray-500">{l.item}</span>
+                  <span className="text-right font-medium tabular-nums text-gray-900">
+                    {formatPounds(l.amount)}
+                  </span>
+                </div>
+                {/* Extra fields the applicant entered on this line (a description, a
+                    cost type…). Shown, but not part of the item/amount breakdown. */}
+                {l.details && l.details.length > 0 && (
+                  <dl className="mt-1.5 space-y-0.5">
+                    {l.details.map((d, j) => (
+                      <div key={j} className="flex gap-2 text-xs text-gray-400">
+                        <dt className="shrink-0">{d.label}:</dt>
+                        <dd className="whitespace-pre-wrap text-gray-500">{d.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-between gap-4 px-4 py-2.5 text-sm">
+              <span className="font-medium text-gray-900">Total project budget</span>
+              <span className="text-right font-semibold tabular-nums text-gray-900">
+                {formatPounds(budgetTotal(budget))}
+              </span>
+            </div>
+          </div>
+          {/* The budget covers the whole project; the ask may be a part of it. Said
+              plainly so a total above "Amount requested" doesn't read as an error. */}
+          <p className="mt-2 text-xs text-gray-400">
+            The cost of the whole project — this need not match the amount requested.
+          </p>
+        </Section>
+      )}
 
       {bankRows.length > 0 && (
         <Section title="Bank details">

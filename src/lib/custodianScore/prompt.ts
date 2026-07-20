@@ -12,6 +12,7 @@
 
 import { CRITERION_DEFINITIONS, CRITERION_ORDER } from './definitions'
 import type { CustodianScoreInput } from './types'
+import { budgetTotal, formatPounds } from '../budget'
 
 /**
  * The scoring rubric and instructions. Stable across all applications — change
@@ -64,6 +65,27 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
     .map(([label, v]) => `${label}: ${(v as string).trim()}`)
     .join('\n')
 
+  // The project budget, when captured. The total is stated alongside the ask
+  // rather than left for the model to add up, and the prompt is explicit that a
+  // mismatch is not a defect — otherwise the model reads "budget > ask" as an
+  // inconsistency and marks the application down for it.
+  const lines = input.budgetBreakdown ?? []
+  const budget = lines.length
+    ? `\n\n## Project budget\n${lines
+        .map(
+          (l) =>
+            `- ${l.item}: ${formatPounds(l.amount)}` +
+            (l.details?.length
+              ? ` (${l.details.map((d) => `${d.label}: ${d.value}`).join('; ')})`
+              : ''),
+        )
+        .join('\n')}\nTotal project budget: ${formatPounds(
+        budgetTotal(lines),
+      )}\n(This is the cost of the whole project. It need not equal the amount requested — ` +
+      `the applicant may be asking this funder to fund only part of it, with the remainder matched ` +
+      `or secured elsewhere. Do not treat a difference between the two as an error or inconsistency.)`
+    : ''
+
   return `# Funder mission
 ${mission}
 
@@ -72,7 +94,7 @@ Goal: ${goal}${description ? `\nDescription: ${description}` : ''}
 
 # Application
 Organisation: ${input.organisationName}
-Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}
+Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}${budget}
 
 ## Application responses
 ${responses || '(no responses provided)'}`

@@ -129,6 +129,27 @@ export const COMMON_MAPPINGS: Partial<Record<CanonicalFieldKey, string[]>> = {
     'in what area will your project be delivered',
     'which area will your project be delivered',
   ],
+  // Only names that unambiguously mean an ITEMISED breakdown. Bare "budget" /
+  // "project budget" / "total project cost" are deliberately absent: they usually
+  // hold a single total, which belongs to `amountRequested` or nowhere — mapping
+  // them here without review would silently produce a one-line breakdown.
+  budgetBreakdown: [
+    'budget breakdown',
+    'breakdown of budget',
+    'project budget breakdown',
+    'project breakdown',
+    'breakdown of project budget',
+    'budget line items',
+    'budget lines',
+    'budget items',
+    'cost breakdown',
+    'breakdown of costs',
+    'breakdown of project costs',
+    'costs breakdown',
+    'itemised budget',
+    'itemised costs',
+    'line item budget',
+  ],
 }
 
 // Build the normalised lookup: normalised alias → canonical key. Guard against an

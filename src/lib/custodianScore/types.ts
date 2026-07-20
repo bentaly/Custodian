@@ -5,6 +5,8 @@
 // These types are pure (no server/runtime dependencies) so they can be shared
 // between the scoring logic, the database schema, and the UI.
 
+import type { BudgetLine } from '../budget/types'
+
 /**
  * The criteria the model scores each application against. Adding a criterion
  * means adding a key here and an entry in definitions.ts — the type system then
@@ -75,6 +77,10 @@ export interface CustodianScoreInput {
   organisationName: string
   /** Amount requested, in whole pounds. */
   amountRequested: number
+  /** The project budget as line items, when the foundation captured one. Signals
+   *  whether the ask is costed credibly — and, where the lines exceed the ask, that
+   *  this funder is being asked for part of a larger budget. */
+  budgetBreakdown: BudgetLine[] | null | undefined
   /** Area where the project is delivered (community served) — relevant when a
    *  programme has a geographic eligibility/priority. */
   deliveryArea: string | null | undefined

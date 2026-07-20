@@ -19,6 +19,7 @@ export type CanonicalFieldKey =
   | 'charityNumber'
   | 'companyNumber'
   | 'deliveryArea'
+  | 'budgetBreakdown'
 
 export interface CanonicalField {
   key: CanonicalFieldKey
@@ -111,6 +112,19 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'This is used to look up the deprivation of the area served. ' +
       'Do NOT map a field about where the ORGANISATION is based, registered, or has its office/headquarters — ' +
       'that is the applicant\'s own location, not the area they serve, and must be left unmapped.',
+  },
+  {
+    key: 'budgetBreakdown',
+    label: 'Budget breakdown',
+    required: false,
+    description:
+      'THE PROJECT BUDGET BROKEN INTO LINE ITEMS — what the money will be spent on and how much ' +
+      'per item (e.g. staff costs, materials, venue hire, evaluation). Map a field holding a ' +
+      'STRUCTURED breakdown: a repeated/tabular set of cost lines, or a set of category→amount ' +
+      'pairs. ' +
+      'Do NOT map a single total figure — the overall ask is `amountRequested`, a separate field. ' +
+      'Do NOT map a free-text narrative describing spending in prose; leave that unmapped so it ' +
+      'is kept as a form response.',
   },
 ]
 

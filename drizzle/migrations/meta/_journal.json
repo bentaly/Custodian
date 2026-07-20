@@ -295,6 +295,13 @@
       "when": 1784500243493,
       "tag": "0041_award_vocabulary",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1784576261858,
+      "tag": "0042_broad_angel",
+      "breakpoints": true
     }
   ]
 }

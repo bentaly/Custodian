@@ -315,11 +315,44 @@ const PREFILL_STRONG: Record<string, string> = {
   'Budget total': '10000',
 }
 
+// A structured budget line for the preset. `costType` rides along as an extra
+// field per line so the parser's `details` preservation is exercised. These
+// mirror the free-text budget narrative in each preset's `values` — the real
+// form only collects the narrative, so sending a structured breakdown too is a
+// deliberate divergence to demo the budget UI end to end.
+type PresetBudgetLine = { item: string; amount: number; costType: 'revenue' | 'capital' }
+
+const BUDGET_DECENT: PresetBudgetLine[] = [
+  { item: 'Peer mentor training weekends (two per year)', amount: 3200, costType: 'revenue' },
+  { item: 'Youth worker sessional hours (mentor supervision)', amount: 4400, costType: 'revenue' },
+  { item: 'Mentor recognition and expenses', amount: 1100, costType: 'revenue' },
+  { item: 'Materials, room hire and refreshments', amount: 800, costType: 'revenue' },
+  { item: 'Contingency', amount: 500, costType: 'revenue' },
+]
+
+const BUDGET_WEAK: PresetBudgetLine[] = [
+  { item: 'Stage and PA hire', amount: 3000, costType: 'revenue' },
+  { item: 'Food and refreshments', amount: 2500, costType: 'revenue' },
+  { item: 'Entertainment', amount: 2500, costType: 'revenue' },
+  { item: 'Miscellaneous', amount: 2000, costType: 'revenue' },
+]
+
+const BUDGET_STRONG: PresetBudgetLine[] = [
+  { item: 'Year 1: Ambassador training programme, 24 young people', amount: 2600, costType: 'revenue' },
+  { item: 'Year 1: Sessional youth worker support and group supervision', amount: 1900, costType: 'revenue' },
+  { item: 'Year 1: Materials, travel and accessible venues', amount: 500, costType: 'revenue' },
+  { item: 'Year 2: Ambassador training programme, second cohort', amount: 2600, costType: 'revenue' },
+  { item: 'Year 2: Sessional youth worker support and group supervision', amount: 1900, costType: 'revenue' },
+  { item: 'Year 2: Evaluation and learning-share event with partner schools', amount: 500, costType: 'revenue' },
+]
+
 interface ApplicantPreset {
   key: string
   label: string
   note: string
   values: Record<string, string>
+  /** Structured budget sent as `budgetBreakdown` — mirrors the narrative in `values`. */
+  budget: PresetBudgetLine[]
 }
 
 const PRESETS: ApplicantPreset[] = [
@@ -328,18 +361,21 @@ const PRESETS: ApplicantPreset[] = [
     label: 'Decent — BrightNet Youth (Online Abuse)',
     note: 'Solid alignment, young unevaluated pilot, partly anecdotal need. Expect a mid-band score.',
     values: PREFILL_DECENT,
+    budget: BUDGET_DECENT,
   },
   {
     key: 'weak',
     label: 'Weak — Positive Vibes Community Group (Anti-Racism)',
     note: 'Adult-skewed events, no evidence or track record, reserves breach the 30% rule. Expect a low score.',
     values: PREFILL_WEAK,
+    budget: BUDGET_WEAK,
   },
   {
     key: 'strong',
     label: 'Strong — Amplify Youth Trust (Anti-Racism)',
     note: 'Co-designed, externally evaluated, evidenced need, per-year budget. Expect a high score.',
     values: PREFILL_STRONG,
+    budget: BUDGET_STRONG,
   },
 ]
 
@@ -371,7 +407,7 @@ export function Submitter7Stars() {
       // The payload mirrors a Gravity Forms webhook export: the form's own
       // labels as keys, plus the numeric Entry Id Gravity assigns. Only
       // programmeName is integration config rather than a form field.
-      const payload: Record<string, string> = {
+      const payload: Record<string, unknown> = {
         programmeName: programmeName.trim(),
         'Entry Id': String(Date.now() % 1000000),
       }
@@ -381,6 +417,9 @@ export function Submitter7Stars() {
           if (v) payload[field.key] = v
         }
       }
+      // Structured budget alongside the free-text narrative: identity-resolves to
+      // the `budgetBreakdown` canonical field; `costType` is preserved per line.
+      if (preset.budget.length) payload.budgetBreakdown = preset.budget
       const res = await fetch(`${API_BASE}/api/apply`, {
         method: 'POST',
         headers: {
@@ -425,7 +464,9 @@ export function Submitter7Stars() {
           <p className="mt-2 text-sm text-gray-600">
             Posts the real form's field labels as raw payload keys, the way a Gravity Forms
             webhook would. Some fields auto-map via the common dictionary; the amount, registration
-            number and delivery postcode are expected to land in the Review queue.
+            number and delivery postcode are expected to land in the Review queue. A structured{' '}
+            <code>budgetBreakdown</code> is also sent (mirroring the budget narrative) to exercise
+            the budget UI — a deliberate divergence from the real form, which collects only free text.
           </p>
 
           <div className="mt-6 mb-8 space-y-4">

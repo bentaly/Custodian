@@ -11,6 +11,7 @@ import {
   type CanonicalFieldKey,
   type LookupResult,
 } from '../../lib/fieldMapping'
+import { parseBudgetBreakdown } from '../../lib/budget'
 
 const CANONICAL_KEY_SET = new Set<string>(CANONICAL_KEYS)
 
@@ -46,6 +47,26 @@ export function buildCanonicalInput(
   const amount =
     amountRaw != null ? Number(CANONICAL_FIELD_BY_KEY.amountRequested.coerce!(amountRaw)) : undefined
 
+  // The breakdown reaches us as a JSON string (`toStringValue` stringifies any
+  // structured payload value). A value that isn't actually structured — a prose
+  // budget narrative someone mapped here — must not be silently dropped: fall back
+  // to keeping it as a response under its original field name.
+  const budgetRaw = get('budgetBreakdown')
+  const budgetBreakdown = budgetRaw != null ? parseBudgetBreakdown(budgetRaw) : null
+  const allResponses =
+    budgetRaw != null && budgetBreakdown === null
+      ? [
+          ...responses,
+          {
+            label:
+              resolved.budgetBreakdown!.sourceKey === PROVIDED
+                ? 'Budget breakdown'
+                : resolved.budgetBreakdown!.sourceKey,
+            value: budgetRaw,
+          },
+        ]
+      : responses
+
   return {
     roundProgrammeId,
     externalApplicationId: get('externalApplicationId'),
@@ -58,7 +79,8 @@ export function buildCanonicalInput(
     bankAccountNumber: get('bankAccountNumber'),
     bankSortCode: get('bankSortCode'),
     amountRequested: amount,
-    responses,
+    budgetBreakdown: budgetBreakdown ?? undefined,
+    responses: allResponses,
   }
 }
 

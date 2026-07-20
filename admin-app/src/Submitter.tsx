@@ -93,6 +93,16 @@ interface ExtraField {
   value: string
 }
 
+// A budget line for the test submitter. `costType` is an optional EXTRA field on
+// the line (not item/amount) — sent as-is so we can exercise the `details`
+// preservation path in the parser end to end.
+interface BudgetLineInput {
+  id: string
+  item: string
+  amount: string
+  costType: '' | 'revenue' | 'capital'
+}
+
 export function Submitter() {
   const [allRounds, setAllRounds] = useState<RoundSummary[]>([])
   const [clientId, setClientId] = useState<string | null>(null)
@@ -121,6 +131,10 @@ export function Submitter() {
 
   const [responses, setResponses] = useState<Record<string, string>>({})
   const [extraFields, setExtraFields] = useState<ExtraField[]>([])
+  const [budgetLines, setBudgetLines] = useState<BudgetLineInput[]>([
+    { id: crypto.randomUUID(), item: 'Staff costs', amount: '12000', costType: 'revenue' },
+    { id: crypto.randomUUID(), item: 'Equipment', amount: '3000.50', costType: 'capital' },
+  ])
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<SubmitResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -164,6 +178,17 @@ export function Submitter() {
       if (!round || !programme) throw new Error('No round or programme selected')
       if (!apiKey.trim()) throw new Error('Enter an API key (generate one on the Organisation screen)')
       const selectedProgramme = programme
+
+      // Structured budget breakdown, sent as a real array under the canonical key
+      // (identity-resolves on the way in). Each line is {item, amount, …extras};
+      // costType rides along as an extra field, preserved as a line `detail`.
+      const budgetPayload = budgetLines
+        .filter((l) => l.item.trim() && l.amount.trim())
+        .map((l) => ({
+          item: l.item.trim(),
+          amount: Number(l.amount),
+          ...(l.costType ? { costType: l.costType } : {}),
+        }))
       // Posts to /api/apply — the single public submission path a real foundation
       // submission takes. The client is resolved from the API key in the Authorization
       // header; the programme is identified by name; fields go in as a raw payload (here
@@ -186,6 +211,7 @@ export function Submitter() {
           bankAccountNumber: form.bankAccountNumber,
           bankSortCode: form.bankSortCode,
           amountRequested: form.amountRequested,
+          ...(budgetPayload.length ? { budgetBreakdown: budgetPayload } : {}),
           'How did you hear about us?': form.referralSource,
           'Previous funding received': form.previousFunding,
           ...Object.fromEntries(
@@ -237,6 +263,20 @@ export function Submitter() {
   function updateExtraField(id: string, key: 'label' | 'value', val: string) {
     setExtraFields((fs) => fs.map((f) => f.id === id ? { ...f, [key]: val } : f))
   }
+
+  function addBudgetLine() {
+    setBudgetLines((ls) => [
+      ...ls,
+      { id: crypto.randomUUID(), item: '', amount: '', costType: '' },
+    ])
+  }
+  function removeBudgetLine(id: string) {
+    setBudgetLines((ls) => ls.filter((l) => l.id !== id))
+  }
+  function updateBudgetLine(id: string, patch: Partial<Omit<BudgetLineInput, 'id'>>) {
+    setBudgetLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)))
+  }
+  const budgetTotalPreview = budgetLines.reduce((s, l) => s + (Number(l.amount) || 0), 0)
 
   return (
     <Card>
@@ -457,6 +497,69 @@ export function Submitter() {
                   placeholder="e.g. 20-00-00"
                 />
               </Field>
+            </div>
+          </Section>
+
+          {/* Structured budget breakdown → applications.budgetBreakdown */}
+          <Section title="Budget breakdown">
+            <p className="mb-3 text-xs text-gray-400">
+              The project budget as line items. Sent as a structured{' '}
+              <code>budgetBreakdown</code> array. Need not sum to the amount requested —
+              the ask may fund only part of the project. Cost type rides along as an extra
+              field per line.
+            </p>
+            <div className="space-y-3">
+              {budgetLines.map((l) => (
+                <div key={l.id} className="flex items-start gap-2">
+                  <input
+                    placeholder="Item (e.g. Staff costs)"
+                    value={l.item}
+                    onChange={(e) => updateBudgetLine(l.id, { item: e.target.value })}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="Amount (£)"
+                    value={l.amount}
+                    onChange={(e) => updateBudgetLine(l.id, { amount: e.target.value })}
+                    className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <select
+                    value={l.costType}
+                    onChange={(e) =>
+                      updateBudgetLine(l.id, {
+                        costType: e.target.value as BudgetLineInput['costType'],
+                      })
+                    }
+                    className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">Cost type…</option>
+                    <option value="revenue">Revenue</option>
+                    <option value="capital">Capital</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeBudgetLine(l.id)}
+                    className="mt-0.5 rounded-md border border-gray-300 px-2.5 py-2 text-sm text-gray-500 hover:border-red-300 hover:text-red-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={addBudgetLine}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                >
+                  + Add line
+                </button>
+                <span className="text-xs text-gray-500">
+                  Total: £{budgetTotalPreview.toLocaleString('en-GB', { maximumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
           </Section>
 

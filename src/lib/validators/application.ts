@@ -8,6 +8,20 @@ export const ApplicationStatus = z.enum([
 ])
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
+// A single project-budget line. `amount` is in pounds (GBP) to the penny —
+// decimals allowed — consistent with `amountRequested`/`amountAwarded`, which are
+// `numeric`, not minor units. `details` preserves any further fields the
+// foundation captured on the line beyond item and amount (we keep but don't
+// interpret them — see budget/types.ts).
+export const BudgetLineSchema = z.object({
+  item: z.string().min(1).max(255),
+  amount: z.number().positive(),
+  details: z
+    .array(z.object({ label: z.string(), value: z.string() }))
+    .max(50)
+    .optional(),
+})
+
 export const CreateApplicationSchema = z.object({
   roundProgrammeId: z.uuid(),
   // The foundation's own application reference, when the application arrives via
@@ -26,6 +40,11 @@ export const CreateApplicationSchema = z.object({
   bankAccountNumber: z.string().min(1).max(50),
   bankSortCode: z.string().min(1).max(20),
   amountRequested: z.number().positive(),
+  // The project budget as line items. Optional — not every foundation collects
+  // one. Deliberately NOT reconciled against `amountRequested`: the applicant may
+  // be asking this funder for only part of the budget, so the lines legitimately
+  // sum to more (or less) than the ask.
+  budgetBreakdown: z.array(BudgetLineSchema).max(100).optional(),
   responses: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
 })
 export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>

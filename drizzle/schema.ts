@@ -15,6 +15,7 @@ import { relations } from 'drizzle-orm'
 import type { DueDiligenceCheckRecord } from '../src/lib/dueDiligence/types'
 import type { CustodianScoreDetail } from '../src/lib/custodianScore/types'
 import type { DeprivationResult } from '../src/lib/deprivation/types'
+import type { BudgetLine } from '../src/lib/budget/types'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -250,6 +251,13 @@ export const applications = pgTable('applications', {
   bankAccountNumber: text('bank_account_number'),
   bankSortCode: text('bank_sort_code'),
   amountRequested: numeric('amount_requested').notNull(),
+  // The PROJECT budget as line items, in whole pounds. Nullable — not every
+  // foundation collects one, and it is captured only when the incoming form has a
+  // structured breakdown (a prose budget narrative stays in `responses`).
+  // NB: these lines are NOT a decomposition of `amountRequested` and need not sum
+  // to it — the applicant may be asking this funder to fund only part of the
+  // budget. Never derive one from the other.
+  budgetBreakdown: jsonb('budget_breakdown').$type<BudgetLine[]>(),
   // Free-text area where the funded PROJECT is delivered — the community served (e.g.
   // "Bradford", "BD1 1AA", "Yorkshire"), NOT where the organisation is based. Captured
   // from the incoming application; nullable as not every foundation collects it. Drives

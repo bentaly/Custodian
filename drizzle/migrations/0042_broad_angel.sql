@@ -1,0 +1,1 @@
+ALTER TABLE "applications" ADD COLUMN "budget_breakdown" jsonb;
