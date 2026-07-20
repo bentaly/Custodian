@@ -8,9 +8,9 @@ import {
   programmes,
   applicationVotes,
   users,
-  grants,
-  grantPayments,
-  grantReports,
+  awards,
+  awardInstalments,
+  reportSchedule,
 } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertApplicationAccess, assertClientAccess, intersectScope, visibleRoundProgrammeIds } from '../scope'
@@ -120,13 +120,13 @@ export const getApplication = createServerFn({ method: 'GET' })
     if (!application) throw new Error('Not found')
     assertClientAccess(user, application.roundProgramme.programme.clientId)
 
-    // Committed = awarded grants at their grant amount + shortlisted at requested.
+    // Committed = awarded awards at their grant amount + shortlisted at requested.
     const committedRows = await getDb()
       .select({
-        committed: sql<string | null>`SUM(COALESCE(${grants.amountAwarded}, ${applications.amountRequested}))`,
+        committed: sql<string | null>`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
       })
       .from(applications)
-      .leftJoin(grants, eq(grants.applicationId, applications.id))
+      .leftJoin(awards, eq(awards.applicationId, applications.id))
       .where(and(
         eq(applications.roundProgrammeId, application.roundProgrammeId),
         inArray(applications.status, ['shortlisted', 'awarded']),
@@ -310,12 +310,12 @@ export const generateAward = createServerFn({ method: 'POST' })
 
     const decisionAt = new Date()
 
-    // Promote the award to a first-class grant: the money/schedule live on `grants` /
+    // Promote the award to a first-class grant: the money/schedule live on `awards` /
     // `grant_payments` and the reporting milestones on `grant_reports`. The application
     // stays the request record and only flips status.
-    const grantId = crypto.randomUUID()
-    await getDb().insert(grants).values({
-      id: grantId,
+    const awardId = crypto.randomUUID()
+    await getDb().insert(awards).values({
+      id: awardId,
       applicationId: data.id,
       clientId,
       amountAwarded: data.amountAwarded.toString(),
@@ -323,10 +323,10 @@ export const generateAward = createServerFn({ method: 'POST' })
       decisionAt,
     })
     await getDb()
-      .insert(grantPayments)
+      .insert(awardInstalments)
       .values(
         data.schedule.map((s) => ({
-          grantId,
+          awardId,
           instalmentNo: s.instalment,
           amount: s.amount.toString(),
           dueDate: s.date,
@@ -334,10 +334,10 @@ export const generateAward = createServerFn({ method: 'POST' })
       )
     if (data.reportingDates.length > 0) {
       await getDb()
-        .insert(grantReports)
+        .insert(reportSchedule)
         .values(
           data.reportingDates.map((r) => ({
-            grantId,
+            awardId,
             label: r.label,
             dueDate: r.date,
           })),
@@ -375,11 +375,11 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
     const committedRows = await getDb()
       .select({
         roundProgrammeId: applications.roundProgrammeId,
-        committed: sql<string>`COALESCE(SUM(COALESCE(${grants.amountAwarded}, ${applications.amountRequested})), '0')`,
+        committed: sql<string>`COALESCE(SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested})), '0')`,
         shortlistedCount: count(),
       })
       .from(applications)
-      .leftJoin(grants, eq(grants.applicationId, applications.id))
+      .leftJoin(awards, eq(awards.applicationId, applications.id))
       .where(and(
         inArray(applications.roundProgrammeId, rpIds),
         inArray(applications.status, ['shortlisted', 'awarded']),
@@ -418,10 +418,10 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       if (budget !== null) {
         const currentRows = await getDb()
           .select({
-            current: sql<string | null>`SUM(COALESCE(${grants.amountAwarded}, ${applications.amountRequested}))`,
+            current: sql<string | null>`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
           })
           .from(applications)
-          .leftJoin(grants, eq(grants.applicationId, applications.id))
+          .leftJoin(awards, eq(awards.applicationId, applications.id))
           .where(and(
             eq(applications.roundProgrammeId, app.roundProgrammeId),
             inArray(applications.status, ['shortlisted', 'awarded']),
@@ -455,7 +455,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
   })
 
 // Record screen: the register of every grant ever awarded for the caller's client —
-// across all rounds and programmes, regardless of payment progress. Reads `grants`
+// across all rounds and programmes, regardless of payment progress. Reads `awards`
 // (via the awarded application that produced each), with instalments rolled up for
 // paid-to-date. Filters mirror the Applications list (round / programme / tag / search).
 export const listGrantRecord = createServerFn({ method: 'GET' })
@@ -502,23 +502,23 @@ export const listGrantRecord = createServerFn({ method: 'GET' })
       ),
       with: {
         roundProgramme: { with: { programme: true, round: true } },
-        grant: { with: { payments: true } },
+        award: { with: { instalments: true } },
       },
       orderBy: (a, { desc }) => [desc(a.decisionAt)],
     })
 
-    // An awarded application without a grant row hasn't been backfilled yet; skip it
+    // An awarded application without an award row hasn't been backfilled yet; skip it
     // rather than guess an amount.
     const items = apps
-      .filter((a) => a.grant)
+      .filter((a) => a.award)
       .map((a) => {
-        const grant = a.grant!
-        const amountAwarded = parseFloat(grant.amountAwarded)
-        const paidToDate = grant.payments
+        const award = a.award!
+        const amountAwarded = parseFloat(award.amountAwarded)
+        const paidToDate = award.instalments
           .filter((p) => p.paidDate)
           .reduce((s, p) => s + parseFloat(p.amount), 0)
         return {
-          grantId: grant.id,
+          awardId: award.id,
           applicationId: a.id,
           organisationName: a.organisationName,
           programmeName: a.roundProgramme?.programme?.name ?? null,
@@ -526,11 +526,11 @@ export const listGrantRecord = createServerFn({ method: 'GET' })
           tags: (a.roundProgramme?.programme?.tags as string[] | null) ?? [],
           durationYears: a.roundProgramme?.grantDurationYears ?? null,
           deliveryArea: a.deliveryRegion ?? a.deliveryArea ?? null,
-          status: grant.status,
-          decisionAt: grant.decisionAt,
+          status: award.status,
+          decisionAt: award.decisionAt,
           amountAwarded,
-          instalmentCount: grant.payments.length,
-          paidCount: grant.payments.filter((p) => p.paidDate).length,
+          instalmentCount: award.instalments.length,
+          paidCount: award.instalments.filter((p) => p.paidDate).length,
           paidToDate,
           outstanding: amountAwarded - paidToDate,
         }

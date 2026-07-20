@@ -273,7 +273,7 @@ function InsightsPage() {
       await exportInsightsPdf(exportRef.current, {
         title: 'Insights',
         filters: `${periodLabel} · ${programmeLabel} · ${regionLabel}`,
-        summary: `${fil.length} grant${fil.length !== 1 ? 's' : ''} · ${fmtCompact(committed)} committed`,
+        summary: `${fil.length} award${fil.length !== 1 ? 's' : ''} · ${fmtCompact(committed)} committed`,
         generatedAt: new Date().toLocaleDateString('en-GB', {
           day: 'numeric',
           month: 'long',
@@ -299,7 +299,7 @@ function InsightsPage() {
           >
             Insights
           </h1>
-          <p className="mt-0.5 text-sm text-gray-400">Portfolio analysis across every grant awarded</p>
+          <p className="mt-0.5 text-sm text-gray-400">Portfolio analysis across every award made</p>
         </div>
         {fil.length > 0 && (
           <Button variant="secondary" size="sm" onClick={handleExport} disabled={exporting}>
@@ -365,7 +365,7 @@ function InsightsPage() {
 
       {fil.length === 0 ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No grants match these filters.</p>
+          <p className="text-sm text-gray-500">No awards match these filters.</p>
           <p className="mt-1 text-xs text-gray-400">
             Insights build up as awards are made and grant reports are analysed.
           </p>
@@ -377,7 +377,7 @@ function InsightsPage() {
             <StatCard
               label="Total committed"
               value={fmtCompact(committedUp)}
-              sub={`${fil.length} grant${fil.length !== 1 ? 's' : ''}${selectedProgramme ? ` · ${selectedProgramme.programmeName}` : ''}`}
+              sub={`${fil.length} award${fil.length !== 1 ? 's' : ''}${selectedProgramme ? ` · ${selectedProgramme.programmeName}` : ''}`}
             />
             <StatCard
               label={impactLabel}
@@ -385,7 +385,7 @@ function InsightsPage() {
               sub={
                 impactPool.length === 0
                   ? 'No people-measured programmes in this slice'
-                  : `Reported by ${impactReported.length} of ${impactPool.length} grant${impactPool.length !== 1 ? 's' : ''}`
+                  : `Reported by ${impactReported.length} of ${impactPool.length} award${impactPool.length !== 1 ? 's' : ''}`
               }
             />
             <StatCard
@@ -394,11 +394,11 @@ function InsightsPage() {
               sub={
                 locatedAmt > 0
                   ? `Funding reaching the most deprived 40% of areas · location known for ${locatedPct}% of funding`
-                  : 'No grants with a resolved location yet'
+                  : 'No awards with a resolved location yet'
               }
               accent
             />
-            <StatCard label="Average grant" value={fmt(avgUp)} sub="Across filtered grants" />
+            <StatCard label="Average award" value={fmt(avgUp)} sub="Across filtered awards" />
           </div>
 
           {/* Deprivation distribution + impact by programme */}
@@ -406,7 +406,7 @@ function InsightsPage() {
             <Card className="p-5">
               <h2 className="text-sm font-semibold text-gray-900">Funding by deprivation decile</h2>
               <p className="mt-0.5 text-xs text-gray-400">
-                Awarded funding weighted across the IMD deciles of each grant's delivery area · decile 1 is the most
+                Awarded funding weighted across the IMD deciles of each award's delivery area · decile 1 is the most
                 deprived 10% of areas in its nation{vintages.length > 0 ? ` (${vintages.join(', ')})` : ''}
               </p>
               {locatedAmt === 0 ? (
@@ -418,7 +418,7 @@ function InsightsPage() {
               )}
               {unlocatedCount > 0 && locatedAmt > 0 && (
                 <p className="mt-2 text-[11px] text-gray-400">
-                  {unlocatedCount} grant{unlocatedCount !== 1 ? 's' : ''} without a resolvable location excluded.
+                  {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable location excluded.
                 </p>
               )}
             </Card>
@@ -437,7 +437,7 @@ function InsightsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-gray-700">{p.name}</p>
                         <p className="text-[11px] text-gray-400">
-                          {fmtCompact(p.committed)} · {p.grants} grant{p.grants !== 1 ? 's' : ''}
+                          {fmtCompact(p.committed)} · {p.grants} award{p.grants !== 1 ? 's' : ''}
                           {p.reported > 0 && p.reported < p.grants ? ` · ${p.reported} reporting` : ''}
                         </p>
                       </div>
@@ -485,7 +485,7 @@ function InsightsPage() {
                         <span className="ml-3 shrink-0 text-gray-700">
                           {fmtCompact(r.amount)}
                           <span className="ml-1.5 text-[11px] text-gray-400">
-                            {r.count} grant{r.count !== 1 ? 's' : ''}
+                            {r.count} award{r.count !== 1 ? 's' : ''}
                           </span>
                         </span>
                       </div>
@@ -499,7 +499,7 @@ function InsightsPage() {
                   ))}
                   {unlocatedCount > 0 && (
                     <p className="text-[11px] text-gray-400">
-                      {unlocatedCount} grant{unlocatedCount !== 1 ? 's' : ''} with no resolvable delivery location.
+                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable delivery location.
                     </p>
                   )}
                 </div>
@@ -527,7 +527,7 @@ function InsightsPage() {
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-400">
-                        {t.count} grant{t.count !== 1 ? 's' : ''}
+                        {t.count} award{t.count !== 1 ? 's' : ''}
                       </p>
                       {t.quote && (
                         <blockquote className="mt-2 border-l-2 border-emerald-200 pl-2.5 text-xs italic text-gray-500">
@@ -567,7 +567,7 @@ function InsightsPage() {
             <StatCard
               label="Reports analysed"
               value={reportsAnalysed > 0 ? String(reportsAnalysed) : '—'}
-              sub={`Across ${fil.filter((g) => g.reportsAnalysed > 0).length} of ${fil.length} grants`}
+              sub={`Across ${fil.filter((g) => g.reportsAnalysed > 0).length} of ${fil.length} awards`}
             />
           </div>
 
@@ -575,7 +575,7 @@ function InsightsPage() {
           <Card data-export-block className="p-5">
             <h2 className="text-sm font-semibold text-gray-900">Impact timeline</h2>
             <p className="mt-0.5 text-xs text-gray-400">
-              Grants by round — reported outcomes shown where a grant report has been analysed
+              Awards by round — reported outcomes shown where a grant report has been analysed
             </p>
             <div className="mt-4 space-y-5">
               {timelineRounds.map((r) => (
@@ -584,13 +584,13 @@ function InsightsPage() {
                     <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
                     <span className="text-xs font-semibold text-gray-700">{r.name}</span>
                     <span className="text-[11px] text-gray-400">
-                      {r.grants.length} grant{r.grants.length !== 1 ? 's' : ''} · {fmtCompact(r.total)}
+                      {r.grants.length} award{r.grants.length !== 1 ? 's' : ''} · {fmtCompact(r.total)}
                     </span>
                     <span className="h-px flex-1 bg-gray-100" />
                   </div>
                   <div className="mt-2.5 grid grid-cols-1 gap-2 pl-4 sm:grid-cols-2 lg:grid-cols-3">
                     {r.grants.map((g) => (
-                      <TimelineGrantCard key={g.grantId} grant={g} />
+                      <TimelineGrantCard key={g.awardId} grant={g} />
                     ))}
                   </div>
                 </div>
@@ -599,12 +599,12 @@ function InsightsPage() {
                 <div>
                   <div className="flex items-center gap-2.5">
                     <span className="h-2 w-2 shrink-0 rounded-full bg-gray-300" />
-                    <span className="text-xs font-semibold text-gray-700">Direct grants</span>
+                    <span className="text-xs font-semibold text-gray-700">Direct awards</span>
                     <span className="h-px flex-1 bg-gray-100" />
                   </div>
                   <div className="mt-2.5 grid grid-cols-1 gap-2 pl-4 sm:grid-cols-2 lg:grid-cols-3">
                     {undatedGrants.map((g) => (
-                      <TimelineGrantCard key={g.grantId} grant={g} />
+                      <TimelineGrantCard key={g.awardId} grant={g} />
                     ))}
                   </div>
                 </div>

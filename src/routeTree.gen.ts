@@ -37,9 +37,9 @@ import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.re
 import { Route as ApiAdminReportCanonicalFieldsRouteImport } from './routes/api/admin.report-canonical-fields'
 import { Route as ApiAdminMappingsRouteImport } from './routes/api/admin.mappings'
 import { Route as ApiAdminIngestsRouteImport } from './routes/api/admin.ingests'
-import { Route as ApiAdminGrantsRouteImport } from './routes/api/admin.grants'
 import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
 import { Route as ApiAdminCanonicalFieldsRouteImport } from './routes/api/admin.canonical-fields'
+import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
 import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
@@ -195,11 +195,6 @@ const ApiAdminIngestsRoute = ApiAdminIngestsRouteImport.update({
   path: '/api/admin/ingests',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminGrantsRoute = ApiAdminGrantsRouteImport.update({
-  id: '/api/admin/grants',
-  path: '/api/admin/grants',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiAdminClientsRoute = ApiAdminClientsRouteImport.update({
   id: '/api/admin/clients',
   path: '/api/admin/clients',
@@ -208,6 +203,11 @@ const ApiAdminClientsRoute = ApiAdminClientsRouteImport.update({
 const ApiAdminCanonicalFieldsRoute = ApiAdminCanonicalFieldsRouteImport.update({
   id: '/api/admin/canonical-fields',
   path: '/api/admin/canonical-fields',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminAwardsRoute = ApiAdminAwardsRouteImport.update({
+  id: '/api/admin/awards',
+  path: '/api/admin/awards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoundsRoundIdRoute =
@@ -284,9 +284,9 @@ export interface FileRoutesByFullPath {
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
-  '/api/admin/grants': typeof ApiAdminGrantsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
@@ -321,9 +321,9 @@ export interface FileRoutesByTo {
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
-  '/api/admin/grants': typeof ApiAdminGrantsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
@@ -364,9 +364,9 @@ export interface FileRoutesById {
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
-  '/api/admin/grants': typeof ApiAdminGrantsRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
@@ -407,9 +407,9 @@ export interface FileRouteTypes {
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/rounds/$roundId'
+    | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
-    | '/api/admin/grants'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/admin/report-canonical-fields'
@@ -444,9 +444,9 @@ export interface FileRouteTypes {
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/rounds/$roundId'
+    | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
-    | '/api/admin/grants'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/admin/report-canonical-fields'
@@ -486,9 +486,9 @@ export interface FileRouteTypes {
     | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/rounds/$roundId'
+    | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
-    | '/api/admin/grants'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/admin/report-canonical-fields'
@@ -515,9 +515,9 @@ export interface RootRouteChildren {
   ApiApplyRoute: typeof ApiApplyRoute
   ApiRoundsRoute: typeof ApiRoundsRoute
   ApiSubmitReportRoute: typeof ApiSubmitReportRoute
+  ApiAdminAwardsRoute: typeof ApiAdminAwardsRoute
   ApiAdminCanonicalFieldsRoute: typeof ApiAdminCanonicalFieldsRoute
   ApiAdminClientsRoute: typeof ApiAdminClientsRoute
-  ApiAdminGrantsRoute: typeof ApiAdminGrantsRoute
   ApiAdminIngestsRoute: typeof ApiAdminIngestsRouteWithChildren
   ApiAdminMappingsRoute: typeof ApiAdminMappingsRouteWithChildren
   ApiAdminReportCanonicalFieldsRoute: typeof ApiAdminReportCanonicalFieldsRoute
@@ -724,13 +724,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminIngestsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/grants': {
-      id: '/api/admin/grants'
-      path: '/api/admin/grants'
-      fullPath: '/api/admin/grants'
-      preLoaderRoute: typeof ApiAdminGrantsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/admin/clients': {
       id: '/api/admin/clients'
       path: '/api/admin/clients'
@@ -743,6 +736,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/canonical-fields'
       fullPath: '/api/admin/canonical-fields'
       preLoaderRoute: typeof ApiAdminCanonicalFieldsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/awards': {
+      id: '/api/admin/awards'
+      path: '/api/admin/awards'
+      fullPath: '/api/admin/awards'
+      preLoaderRoute: typeof ApiAdminAwardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/rounds/$roundId': {
@@ -971,9 +971,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiApplyRoute: ApiApplyRoute,
   ApiRoundsRoute: ApiRoundsRoute,
   ApiSubmitReportRoute: ApiSubmitReportRoute,
+  ApiAdminAwardsRoute: ApiAdminAwardsRoute,
   ApiAdminCanonicalFieldsRoute: ApiAdminCanonicalFieldsRoute,
   ApiAdminClientsRoute: ApiAdminClientsRoute,
-  ApiAdminGrantsRoute: ApiAdminGrantsRoute,
   ApiAdminIngestsRoute: ApiAdminIngestsRouteWithChildren,
   ApiAdminMappingsRoute: ApiAdminMappingsRouteWithChildren,
   ApiAdminReportCanonicalFieldsRoute: ApiAdminReportCanonicalFieldsRoute,

@@ -18,7 +18,7 @@ export interface ReportAnalysisInput {
     amountAwarded: number | null
     awardedAt: string | null
   }
-  /** The original application, when the grant has one (null for direct grants). */
+  /** The original application, when the grant has one (null for direct awards). */
   application: {
     organisationName: string | null
     amountRequested: number | null

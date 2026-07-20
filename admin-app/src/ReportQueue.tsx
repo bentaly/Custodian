@@ -125,10 +125,10 @@ function ReportCard({
   // the top-ranked candidate.
   const [grants, setGrants] = useState<GrantOption[] | null>(null)
   const [grantId, setGrantId] = useState<string>(row.matchCandidates?.[0]?.grantId ?? '')
-  const needsMatch = row.status !== 'complete' && !row.reportSubmissionId
+  const needsMatch = row.status !== 'complete' && !row.reportId
   useEffect(() => {
     if (!open || !needsMatch || grants) return
-    adminGet<GrantOption[]>(`/api/admin/grants?clientId=${row.client.id}`)
+    adminGet<GrantOption[]>(`/api/admin/awards?clientId=${row.client.id}`)
       .then(setGrants)
       .catch((e: Error) => setErr(e.message))
   }, [open, needsMatch, grants, row.client.id])
@@ -159,7 +159,7 @@ function ReportCard({
     const msg =
       row.status === 'received'
         ? 'This row may still be processing — deleting now can leave an orphaned report. Delete anyway?'
-        : row.reportSubmissionId
+        : row.reportId
           ? 'Delete this report AND its submission (the reporting milestone it ticked will reopen)?'
           : 'Delete this report?'
     if (!window.confirm(msg)) return
@@ -232,12 +232,12 @@ function ReportCard({
         <div className="space-y-4 border-t border-gray-100 px-4 py-4">
           {row.status === 'complete' ? (
             <p className="text-xs text-gray-500">
-              Resolved → report submission {row.reportSubmissionId}. Mapping shown for reference.
+              Resolved → report submission {row.reportId}. Mapping shown for reference.
             </p>
-          ) : row.reportSubmissionId ? (
+          ) : row.reportId ? (
             <p className="text-xs text-gray-500">
               The report was already created from the AI-proposed mapping (submission{' '}
-              {row.reportSubmissionId}). Review the mapping below, tick “lookup” for anything worth
+              {row.reportId}). Review the mapping below, tick “lookup” for anything worth
               teaching, then confirm.
             </p>
           ) : (
@@ -376,10 +376,10 @@ function ReportCard({
                 className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
               >
                 {saving
-                  ? row.reportSubmissionId
+                  ? row.reportId
                     ? 'Confirming…'
                     : 'Resolving…'
-                  : row.reportSubmissionId
+                  : row.reportId
                     ? 'Confirm mapping'
                     : 'Resolve → create report'}
               </button>

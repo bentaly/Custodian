@@ -61,7 +61,7 @@ export async function saveReportIngest(params: {
 
 export type ProcessReportIngestResult =
   | { ok: false; error: 'not_found' | 'not_received' }
-  | { ok: true; status: ReportIngestStatus; reportSubmissionId: string | null }
+  | { ok: true; status: ReportIngestStatus; reportId: string | null }
 
 export async function processReportIngest(
   ingestId: string,
@@ -137,7 +137,7 @@ export async function processReportIngest(
   let grantId: string | null = null
   if (externalId) {
     const match = await findGrantByExternalApplicationId(clientId, externalId)
-    if (match.kind === 'matched') grantId = match.grantId
+    if (match.kind === 'matched') grantId = match.awardId
   }
 
   // 5. Assemble + validate.
@@ -155,17 +155,17 @@ export async function processReportIngest(
       : 'needs_review'
 
   // 7. Promote, or hold with advisory candidates for the review queue.
-  let reportSubmissionId: string | null = null
+  let reportId: string | null = null
   let matchCandidates: Awaited<ReturnType<typeof computeGrantCandidates>> | null = null
 
   if (status !== 'needs_review' && parsed.success && grantId) {
     const grant = await fetchGrantForReport(grantId)
     if (grant) {
       const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'external_id')
-      reportSubmissionId = created.submission?.id ?? null
+      reportId = created.submission?.id ?? null
     }
   }
-  if (!reportSubmissionId) {
+  if (!reportId) {
     matchCandidates = await computeGrantCandidates(clientId, {
       charityNumber: resolved.charityNumber?.value,
       organisationName: resolved.organisationName?.value,
@@ -175,7 +175,7 @@ export async function processReportIngest(
     })
   }
 
-  const finalStatus: ReportIngestStatus = reportSubmissionId ? status : 'needs_review'
+  const finalStatus: ReportIngestStatus = reportId ? status : 'needs_review'
   await getDb()
     .update(reportIngests)
     .set({
@@ -183,10 +183,10 @@ export async function processReportIngest(
       proposed,
       resolved: resolvedMap,
       matchCandidates,
-      reportSubmissionId,
+      reportId,
       resolvedAt: finalStatus === 'needs_review' ? null : new Date(),
     })
     .where(eq(reportIngests.id, ingestId))
 
-  return { ok: true, status: finalStatus, reportSubmissionId }
+  return { ok: true, status: finalStatus, reportId }
 }

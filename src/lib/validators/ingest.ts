@@ -33,6 +33,6 @@ export type MappingInput = z.infer<typeof MappingSchema>
 export const ResolveReportSchema = z.object({
   mapping: z.record(z.string(), z.string()),
   addToLookup: z.array(z.string()).default([]),
-  grantId: z.uuid().optional(),
+  awardId: z.uuid().optional(),
 })
 export type ResolveReportInput = z.infer<typeof ResolveReportSchema>

@@ -1,14 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../../server/db'
-import { grants } from '../../../drizzle/schema'
+import { awards } from '../../../drizzle/schema'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 
-// The grants of a client, flattened for the report review queue's match picker:
+// The awards of a client, flattened for the report review queue's match picker:
 // enough context to recognise a grant (organisation, programme, amount, award
 // date, external application ID) plus its open-milestone count so the reviewer
 // can see whether a report is even expected.
-export const Route = createFileRoute('/api/admin/grants')(
+export const Route = createFileRoute('/api/admin/awards')(
   {
     server: {
       handlers: {
@@ -20,8 +20,8 @@ export const Route = createFileRoute('/api/admin/grants')(
           const clientId = new URL(request.url).searchParams.get('clientId')
           if (!clientId) return adminJson({ error: 'clientId is required' }, 400)
 
-          const rows = await getDb().query.grants.findMany({
-            where: eq(grants.clientId, clientId),
+          const rows = await getDb().query.awards.findMany({
+            where: eq(awards.clientId, clientId),
             orderBy: (g, { desc }) => [desc(g.decisionAt)],
             with: {
               application: {
@@ -37,7 +37,7 @@ export const Route = createFileRoute('/api/admin/grants')(
                   },
                 },
               },
-              reports: { columns: { id: true, label: true, dueDate: true, submittedDate: true } },
+              schedule: { columns: { id: true, label: true, dueDate: true, submittedDate: true } },
             },
           })
 
@@ -50,8 +50,8 @@ export const Route = createFileRoute('/api/admin/grants')(
             charityNumber: g.application?.charityNumber ?? null,
             externalApplicationId: g.application?.externalApplicationId ?? null,
             programmeName: g.application?.roundProgramme?.programme?.name ?? null,
-            openMilestones: g.reports.filter((r) => !r.submittedDate).length,
-            totalMilestones: g.reports.length,
+            openMilestones: g.schedule.filter((r) => !r.submittedDate).length,
+            totalMilestones: g.schedule.length,
           }))
           return adminJson(flat, 200)
         },

@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { listReports, type ReportRowStatus } from '../../server/fns/reports'
-import { Badge, Card, EmptyState } from '../../components/ui'
+import {
+  listReports,
+  type DueStatus,
+  type ReceivedStatus,
+  type ReportRowStatus,
+} from '../../server/fns/reports'
+import { Badge, Button, Card, EmptyState } from '../../components/ui'
+import { Drawer } from '../../components/Drawer'
 
 export const Route = createFileRoute('/_authenticated/reports/')({
   loader: async () => listReports(),
@@ -29,11 +35,12 @@ function fmtDate(date: Date | string | null | undefined) {
   return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-type Tab = 'all' | ReportRowStatus
+type Tab = 'all' | ReceivedStatus
 
 function ReportsPage() {
-  const { items, totals } = Route.useLoaderData()
+  const { items, upcoming, totals } = Route.useLoaderData()
   const [tab, setTab] = useState<Tab>('all')
+  const [dueOpen, setDueOpen] = useState(false)
 
   const filtered = tab === 'all' ? items : items.filter((i) => i.status === tab)
 
@@ -43,17 +50,28 @@ function ReportsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1
-          className="font-display text-[21px] font-semibold text-gray-900"
-        >
-          Reports
-        </h1>
-        <p className="mt-0.5 text-sm text-gray-400">Grantee reporting schedules and submissions</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[21px] font-semibold text-gray-900">Reports</h1>
+          <p className="mt-0.5 text-sm text-gray-400">Reports received from grantees</p>
+        </div>
+        <Button variant="secondary" onClick={() => setDueOpen(true)}>
+          Outstanding
+          {totals.outstanding > 0 && (
+            <span
+              className={`ml-2 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+                totals.overdue > 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {totals.outstanding}
+            </span>
+          )}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active" value={totals.active} sub="Scheduled from awards" />
+        <StatCard label="Awaiting review" value={totals.received} sub="Received, not yet signed off" />
+        <StatCard label="Reviewed" value={totals.reviewed} sub="Signed off" />
         <StatCard
           label="Overdue"
           value={totals.overdue}
@@ -61,16 +79,11 @@ function ReportsPage() {
           valueClass={totals.overdue > 0 ? 'text-red-600' : undefined}
         />
         <StatCard label="Due soon" value={totals.dueSoon} sub="Within 30 days" />
-        <StatCard label="Received" value={totals.received} sub="Awaiting review" />
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {(['all', 'overdue', 'due_soon', 'upcoming', 'received', 'reviewed'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`${tabBase} ${tab === t ? tabOn : tabOff}`}
-          >
+        {(['all', 'received', 'reviewed'] as Tab[]).map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={`${tabBase} ${tab === t ? tabOn : tabOff}`}>
             {t === 'all' ? 'All' : STATUS_LABELS[t]}
           </button>
         ))}
@@ -78,10 +91,10 @@ function ReportsPage() {
 
       {filtered.length === 0 ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No reports here.</p>
+          <p className="text-sm text-gray-500">No reports received yet.</p>
           <p className="mt-1 text-xs text-gray-400">
-            Reporting milestones are set when an award is generated; submitted reports land against
-            them automatically.
+            Reports appear here as soon as a grantee submits one. Dates you are still waiting on are
+            under “Outstanding”.
           </p>
         </EmptyState>
       ) : (
@@ -92,7 +105,7 @@ function ReportsPage() {
                 <th className="px-5 py-3">Organisation</th>
                 <th className="px-5 py-3">Programme</th>
                 <th className="px-5 py-3">Report</th>
-                <th className="px-5 py-3">Due</th>
+                <th className="px-5 py-3">Received</th>
                 <th className="px-5 py-3">Status</th>
               </tr>
             </thead>
@@ -110,17 +123,11 @@ function ReportsPage() {
                   </td>
                   <td className="px-5 py-3 text-gray-600">{item.programmeName ?? '—'}</td>
                   <td className="px-5 py-3 text-gray-600">{item.label}</td>
-                  <td
-                    className={`whitespace-nowrap px-5 py-3 ${
-                      item.status === 'overdue' ? 'font-medium text-red-600' : 'text-gray-600'
-                    }`}
-                  >
-                    {fmtDate(item.dueDate)}
+                  <td className="whitespace-nowrap px-5 py-3 text-gray-600">
+                    {fmtDate(item.submittedAt)}
                   </td>
                   <td className="px-5 py-3">
-                    <Badge className={STATUS_COLORS[item.status]}>
-                      {STATUS_LABELS[item.status]}
-                    </Badge>
+                    <Badge className={STATUS_COLORS[item.status]}>{STATUS_LABELS[item.status]}</Badge>
                   </td>
                 </tr>
               ))}
@@ -128,7 +135,72 @@ function ReportsPage() {
           </table>
         </Card>
       )}
+
+      <OutstandingDrawer open={dueOpen} onClose={() => setDueOpen(false)} rows={upcoming} />
     </div>
+  )
+}
+
+/**
+ * Dates we are still waiting on. Deliberately not in the main table: these are a
+ * chase-list, not documents to read.
+ */
+function OutstandingDrawer({
+  open,
+  onClose,
+  rows,
+}: {
+  open: boolean
+  onClose: () => void
+  rows: Array<{
+    key: string
+    organisationName: string
+    programmeName: string | null
+    label: string
+    dueDate: string
+    status: DueStatus
+  }>
+}) {
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title="Outstanding reports"
+      subtitle={rows.length === 0 ? 'Nothing outstanding' : `${rows.length} awaited, most urgent first`}
+      ariaLabel="Outstanding reports"
+    >
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        {rows.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            Every scheduled report has been received. New dates appear here when an award is generated.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {rows.map((r) => (
+              <li key={r.key} className="flex items-start justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-900">{r.organisationName}</p>
+                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                    {r.label}
+                    {r.programmeName ? ` · ${r.programmeName}` : ''}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <Badge className={STATUS_COLORS[r.status]}>{STATUS_LABELS[r.status]}</Badge>
+                  <p
+                    className={`mt-1 whitespace-nowrap text-xs ${
+                      r.status === 'overdue' ? 'font-medium text-red-600' : 'text-gray-500'
+                    }`}
+                  >
+                    {fmtDate(r.dueDate)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Drawer>
   )
 }
 

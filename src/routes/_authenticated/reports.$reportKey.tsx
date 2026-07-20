@@ -4,7 +4,7 @@ import { getReport, markReportReviewed, type ReportRowStatus } from '../../serve
 import { Drawer } from '../../components/Drawer'
 import { ReportFields } from '../../components/ReportFields'
 import { ReportAnalysisPanel, type ReportAnalysisStatus } from '../../components/reportAnalysis'
-import { Button, EmptyState } from '../../components/ui'
+import { Button, Card, EmptyState } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
   loader: ({ params }) => getReport({ data: { key: params.reportKey } }),
@@ -135,15 +135,13 @@ function ReportDetail() {
               View report
             </Button>
           )}
-          {report.applicationId && (
-            <Link
-              to="/applications/$applicationId"
-              params={{ applicationId: report.applicationId }}
-              className="rounded border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
-            >
-              View application
-            </Link>
-          )}
+          <Link
+            to="/applications/$applicationId"
+            params={{ applicationId: report.applicationId }}
+            className="rounded border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            View application
+          </Link>
         </div>
       </div>
 
@@ -188,6 +186,67 @@ function ReportDetail() {
           </Drawer>
         </>
       )}
+
+      <AwardReports siblings={report.siblings} outstanding={report.outstanding} />
     </div>
+  )
+}
+
+/**
+ * The rest of the reporting picture for this award. A report is rarely read on its
+ * own — you want the one before it, and what is still to come from the same grantee.
+ */
+function AwardReports({
+  siblings,
+  outstanding,
+}: {
+  siblings: Array<{ key: string; label: string; submittedAt: string; status: string }>
+  outstanding: Array<{ key: string; label: string; dueDate: string; status: string }>
+}) {
+  if (siblings.length === 0 && outstanding.length === 0) return null
+
+  return (
+    <Card className="px-5 py-4">
+      <h2 className="text-sm font-semibold text-gray-900">Other reports on this award</h2>
+
+      {siblings.length > 0 && (
+        <ul className="mt-3 divide-y divide-gray-100">
+          {siblings.map((r) => (
+            <li key={r.key} className="py-2">
+              <Link
+                to="/reports/$reportKey"
+                params={{ reportKey: r.key }}
+                className="flex items-center justify-between gap-3 text-sm hover:underline"
+              >
+                <span className="truncate font-medium text-gray-900">{r.label}</span>
+                <span className="shrink-0 text-xs text-gray-500">
+                  Received {fmtDate(r.submittedAt)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {outstanding.length > 0 && (
+        <>
+          <p className="mt-4 text-[11px] uppercase tracking-wide text-gray-400">Still to come</p>
+          <ul className="mt-1 divide-y divide-gray-100">
+            {outstanding.map((m) => (
+              <li key={m.key} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="truncate text-gray-600">{m.label}</span>
+                <span
+                  className={`shrink-0 text-xs ${
+                    m.status === 'overdue' ? 'font-medium text-red-600' : 'text-gray-500'
+                  }`}
+                >
+                  Due {fmtDate(m.dueDate)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Card>
   )
 }

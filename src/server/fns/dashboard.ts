@@ -8,10 +8,10 @@ import {
   programmes,
   applicationVotes,
   users,
-  grants,
-  grantPayments,
-  grantReports,
-  reportSubmissions,
+  awards,
+  awardInstalments,
+  reportSchedule,
+  reports,
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
@@ -60,7 +60,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   const trendStart = new Date(now.getTime() - 12 * 7 * 24 * 60 * 60 * 1000)
 
   const clientId = user.clientId
-  const grantScope = clientId ? eq(grants.clientId, clientId) : undefined
+  const awardScope = clientId ? eq(awards.clientId, clientId) : undefined
 
   const [
     statusRows,
@@ -113,26 +113,26 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
           .orderBy(desc(rounds.openedAt))
       : Promise.resolve([] as Array<{ id: string; name: string; openedAt: Date | null; closedAt: Date | null }>),
 
-    // Money: total awarded (all grants) and how many are still active.
+    // Money: total awarded (all awards) and how many are still active.
     getDb()
       .select({
-        totalAwarded: sql<string>`COALESCE(SUM(${grants.amountAwarded}), '0')`,
-        activeGrants: sql<number>`COUNT(*) FILTER (WHERE ${grants.status} = 'active')`,
+        totalAwarded: sql<string>`COALESCE(SUM(${awards.amountAwarded}), '0')`,
+        activeGrants: sql<number>`COUNT(*) FILTER (WHERE ${awards.status} = 'active')`,
       })
-      .from(grants)
-      .where(grantScope),
+      .from(awards)
+      .where(awardScope),
 
     // Awarded amount by programme (for the donut), via the awarded application.
     getDb()
       .select({
         programmeName: programmes.name,
-        amount: sql<string>`COALESCE(SUM(${grants.amountAwarded}), '0')`,
+        amount: sql<string>`COALESCE(SUM(${awards.amountAwarded}), '0')`,
       })
-      .from(grants)
-      .innerJoin(applications, eq(grants.applicationId, applications.id))
+      .from(awards)
+      .innerJoin(applications, eq(awards.applicationId, applications.id))
       .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
       .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
-      .where(grantScope)
+      .where(awardScope)
       .groupBy(programmes.name),
 
     // Shortlisted applications with their yes-vote tally (for ready-to-award / awaiting-vote).
@@ -193,75 +193,75 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     // Recent report submissions (for the activity feed).
     getDb()
       .select({
-        id: reportSubmissions.id,
-        grantReportId: reportSubmissions.grantReportId,
+        id: reports.id,
+        scheduleId: reports.scheduleId,
         organisationName: applications.organisationName,
-        at: reportSubmissions.submittedAt,
+        at: reports.submittedAt,
       })
-      .from(reportSubmissions)
-      .innerJoin(grants, eq(reportSubmissions.grantId, grants.id))
-      .leftJoin(applications, eq(grants.applicationId, applications.id))
-      .where(grantScope)
-      .orderBy(desc(reportSubmissions.submittedAt))
+      .from(reports)
+      .innerJoin(awards, eq(reports.awardId, awards.id))
+      .leftJoin(applications, eq(awards.applicationId, applications.id))
+      .where(awardScope)
+      .orderBy(desc(reports.submittedAt))
       .limit(8),
 
     // Recent report reviews (activity feed). Derived from reviewedAt, so an
     // undone review simply drops out of the feed.
     getDb()
       .select({
-        id: reportSubmissions.id,
-        grantReportId: reportSubmissions.grantReportId,
+        id: reports.id,
+        scheduleId: reports.scheduleId,
         organisationName: applications.organisationName,
-        at: reportSubmissions.reviewedAt,
-        by: reportSubmissions.reviewedBy,
+        at: reports.reviewedAt,
+        by: reports.reviewedBy,
       })
-      .from(reportSubmissions)
-      .innerJoin(grants, eq(reportSubmissions.grantId, grants.id))
-      .leftJoin(applications, eq(grants.applicationId, applications.id))
-      .where(and(grantScope, isNotNull(reportSubmissions.reviewedAt)))
-      .orderBy(desc(reportSubmissions.reviewedAt))
+      .from(reports)
+      .innerJoin(awards, eq(reports.awardId, awards.id))
+      .leftJoin(applications, eq(awards.applicationId, applications.id))
+      .where(and(awardScope, isNotNull(reports.reviewedAt)))
+      .orderBy(desc(reports.reviewedAt))
       .limit(8),
 
     // Outstanding grant reports, soonest first.
     getDb()
       .select({
-        grantId: grantReports.grantId,
-        applicationId: grants.applicationId,
+        awardId: reportSchedule.awardId,
+        applicationId: awards.applicationId,
         organisationName: applications.organisationName,
-        label: grantReports.label,
-        dueDate: grantReports.dueDate,
+        label: reportSchedule.label,
+        dueDate: reportSchedule.dueDate,
       })
-      .from(grantReports)
-      .innerJoin(grants, eq(grantReports.grantId, grants.id))
-      .leftJoin(applications, eq(grants.applicationId, applications.id))
-      .where(and(grantScope, sql`${grantReports.submittedDate} IS NULL`, isNotNull(grantReports.dueDate)))
-      .orderBy(grantReports.dueDate),
+      .from(reportSchedule)
+      .innerJoin(awards, eq(reportSchedule.awardId, awards.id))
+      .leftJoin(applications, eq(awards.applicationId, applications.id))
+      .where(and(awardScope, sql`${reportSchedule.submittedDate} IS NULL`, isNotNull(reportSchedule.dueDate)))
+      .orderBy(reportSchedule.dueDate),
 
     // Outstanding (unpaid) grant payments, soonest first.
     getDb()
       .select({
-        grantId: grantPayments.grantId,
-        applicationId: grants.applicationId,
+        awardId: awardInstalments.awardId,
+        applicationId: awards.applicationId,
         organisationName: applications.organisationName,
-        instalmentNo: grantPayments.instalmentNo,
-        amount: grantPayments.amount,
-        dueDate: grantPayments.dueDate,
+        instalmentNo: awardInstalments.instalmentNo,
+        amount: awardInstalments.amount,
+        dueDate: awardInstalments.dueDate,
       })
-      .from(grantPayments)
-      .innerJoin(grants, eq(grantPayments.grantId, grants.id))
-      .leftJoin(applications, eq(grants.applicationId, applications.id))
-      .where(and(grantScope, sql`${grantPayments.paidDate} IS NULL`, isNotNull(grantPayments.dueDate)))
-      .orderBy(grantPayments.dueDate),
+      .from(awardInstalments)
+      .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
+      .leftJoin(applications, eq(awards.applicationId, applications.id))
+      .where(and(awardScope, sql`${awardInstalments.paidDate} IS NULL`, isNotNull(awardInstalments.dueDate)))
+      .orderBy(awardInstalments.dueDate),
 
     // Paid-to-date / outstanding totals across all scheduled instalments (any due date).
     getDb()
       .select({
-        paid: sql<string>`COALESCE(SUM(${grantPayments.amount}) FILTER (WHERE ${grantPayments.paidDate} IS NOT NULL), '0')`,
-        outstanding: sql<string>`COALESCE(SUM(${grantPayments.amount}) FILTER (WHERE ${grantPayments.paidDate} IS NULL), '0')`,
+        paid: sql<string>`COALESCE(SUM(${awardInstalments.amount}) FILTER (WHERE ${awardInstalments.paidDate} IS NOT NULL), '0')`,
+        outstanding: sql<string>`COALESCE(SUM(${awardInstalments.amount}) FILTER (WHERE ${awardInstalments.paidDate} IS NULL), '0')`,
       })
-      .from(grantPayments)
-      .innerJoin(grants, eq(grantPayments.grantId, grants.id))
-      .where(grantScope),
+      .from(awardInstalments)
+      .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
+      .where(awardScope),
 
     // Count of trustees for the client (denominator for the vote majority).
     clientId
@@ -336,11 +336,11 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
         .select({
           roundId: roundProgrammes.roundId,
           budget: sql<string>`COALESCE(SUM(${roundProgrammes.budget}), '0')`,
-          committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${grants.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
+          committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
         })
         .from(roundProgrammes)
         .leftJoin(applications, eq(applications.roundProgrammeId, roundProgrammes.id))
-        .leftJoin(grants, eq(grants.applicationId, applications.id))
+        .leftJoin(awards, eq(awards.applicationId, applications.id))
         .where(inArray(roundProgrammes.roundId, roundIds))
         .groupBy(roundProgrammes.roundId),
       // Status counts for the focus round only — the basis of the funnel.
@@ -434,13 +434,13 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     })),
     ...recentReportRows.map((r) => ({
       type: 'report_received' as const,
-      reportKey: r.grantReportId ?? r.id,
+      reportKey: r.scheduleId ?? r.id,
       organisationName: r.organisationName ?? '(direct grant)',
       at: r.at,
     })),
     ...recentReviewedRows.map((r) => ({
       type: 'report_reviewed' as const,
-      reportKey: r.grantReportId ?? r.id,
+      reportKey: r.scheduleId ?? r.id,
       organisationName: r.organisationName ?? '(direct grant)',
       by: r.by,
       at: r.at!,

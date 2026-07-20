@@ -12,7 +12,7 @@
 
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { fieldMappings, grants, reportIngests } from '../../../drizzle/schema'
+import { fieldMappings, awards, reportIngests } from '../../../drizzle/schema'
 import {
   buildReportCanonicalInput,
   computeReportResponses,
@@ -26,7 +26,7 @@ import type { ResolveReportInput } from '../../lib/validators/ingest'
 export type ResolveReportResult =
   | { ok: false; error: 'not_found' | 'already_resolved' | 'processing' | 'grant_not_found' }
   | { ok: false; error: 'invalid'; fields: Array<{ field: string; message: string }> }
-  | { ok: true; reportSubmissionId: string }
+  | { ok: true; reportId: string }
 
 async function persistReportLookups(
   clientId: string,
@@ -66,22 +66,22 @@ export async function resolveReportIngest(
   if (ingest.status === 'received') return { ok: false, error: 'processing' }
 
   // Already promoted: confirm rather than re-create.
-  if (ingest.reportSubmissionId) {
+  if (ingest.reportId) {
     if (ingest.status === 'complete') return { ok: false, error: 'already_resolved' }
     await persistReportLookups(ingest.clientId, input, actor)
     await getDb()
       .update(reportIngests)
       .set({ status: 'complete', resolvedAt: new Date(), resolvedBy: actor })
       .where(eq(reportIngests.id, ingestId))
-    return { ok: true, reportSubmissionId: ingest.reportSubmissionId }
+    return { ok: true, reportId: ingest.reportId }
   }
 
   // Creating the submission needs a grant. It must exist and belong to the
   // ingest's client — never allow a reviewer to stitch a report onto another
   // tenant's grant.
-  if (!input.grantId) return { ok: false, error: 'grant_not_found' }
-  const grantRow = await getDb().query.grants.findFirst({
-    where: eq(grants.id, input.grantId),
+  if (!input.awardId) return { ok: false, error: 'grant_not_found' }
+  const grantRow = await getDb().query.awards.findFirst({
+    where: eq(awards.id, input.awardId),
     columns: { id: true, clientId: true },
   })
   if (!grantRow || grantRow.clientId !== ingest.clientId) {
@@ -104,22 +104,22 @@ export async function resolveReportIngest(
 
   await persistReportLookups(ingest.clientId, input, actor)
 
-  const grant = await fetchGrantForReport(input.grantId)
+  const grant = await fetchGrantForReport(input.awardId)
   if (!grant) return { ok: false, error: 'grant_not_found' }
   const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'manual')
-  const reportSubmissionId = created.submission?.id
-  if (!reportSubmissionId) return { ok: false, error: 'grant_not_found' }
+  const reportId = created.submission?.id
+  if (!reportId) return { ok: false, error: 'grant_not_found' }
 
   await getDb()
     .update(reportIngests)
     .set({
       status: 'complete',
-      reportSubmissionId,
+      reportId,
       resolved: reportResolvedMapFor(resolved),
       resolvedAt: new Date(),
       resolvedBy: actor,
     })
     .where(eq(reportIngests.id, ingestId))
 
-  return { ok: true, reportSubmissionId }
+  return { ok: true, reportId }
 }

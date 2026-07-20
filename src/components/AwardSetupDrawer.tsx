@@ -121,6 +121,13 @@ export function AwardSetupDrawer({
   const scheduleValid = reconciled && allPositive
 
   const filledReportingRows = reportingRows.filter((r) => r.label.trim() && r.date)
+  // A half-filled row used to be dropped silently on save — you'd type a label, hit
+  // generate, and the milestone would simply not exist. An expected report always
+  // needs both a label and a date, so say so and block instead.
+  const partialReportingRows = reportingRows.filter(
+    (r) => (r.label.trim() ? 1 : 0) + (r.date ? 1 : 0) === 1,
+  )
+  const reportingValid = partialReportingRows.length === 0
 
   function enterCustom() {
     setCustom(true)
@@ -509,10 +516,18 @@ export function AwardSetupDrawer({
                 + Add reporting milestone
               </Button>
 
-              {filledReportingRows.length === 0 && (
-                <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-                  No reporting milestones added. At least one is recommended.
+              {partialReportingRows.length > 0 ? (
+                <div className="rounded-lg bg-red-50 px-3 py-2.5 text-xs text-red-700">
+                  {partialReportingRows.length === 1
+                    ? 'One reporting milestone is incomplete — each needs both a label and a due date.'
+                    : `${partialReportingRows.length} reporting milestones are incomplete — each needs both a label and a due date.`}
                 </div>
+              ) : (
+                filledReportingRows.length === 0 && (
+                  <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+                    No reporting milestones added. At least one is recommended.
+                  </div>
+                )
               )}
             </div>
           )}
@@ -539,7 +554,7 @@ export function AwardSetupDrawer({
             ) : (
               <button
                 onClick={handleConfirm}
-                disabled={saving || amountNum <= 0 || !scheduleValid}
+                disabled={saving || amountNum <= 0 || !scheduleValid || !reportingValid}
                 className="flex-[2] rounded bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {saving ? 'Generating…' : '✓ Generate award'}

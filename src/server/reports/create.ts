@@ -7,16 +7,16 @@
 
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { getDb } from '../db'
-import { grantReports, grants, reportSubmissions } from '../../../drizzle/schema'
+import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { runReportAnalysis } from '../reportAnalysis/run'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import type { CreateReportSubmissionInput } from '../../lib/validators/report'
 
 /** Fetch a grant with everything the report pipeline needs: the application it
  *  came from (for promise-alignment) and the programme (goal + impact unit). */
-export async function fetchGrantForReport(grantId: string) {
-  return getDb().query.grants.findFirst({
-    where: eq(grants.id, grantId),
+export async function fetchGrantForReport(awardId: string) {
+  return getDb().query.awards.findFirst({
+    where: eq(awards.id, awardId),
     with: {
       application: {
         with: {
@@ -99,17 +99,17 @@ export async function createReportSubmissionFromCanonical(
   // The earliest open reporting milestone this submission satisfies. dueDate is
   // ISO yyyy-mm-dd text, so ascending lexicographic order is chronological;
   // undated milestones sort last (Postgres puts nulls last ascending).
-  const milestone = await getDb().query.grantReports.findFirst({
-    where: and(eq(grantReports.grantId, grant.id), isNull(grantReports.submittedDate)),
-    orderBy: [asc(grantReports.dueDate)],
+  const milestone = await getDb().query.reportSchedule.findFirst({
+    where: and(eq(reportSchedule.awardId, grant.id), isNull(reportSchedule.submittedDate)),
+    orderBy: [asc(reportSchedule.dueDate)],
   })
 
   const id = crypto.randomUUID()
-  await getDb().insert(reportSubmissions).values({
+  await getDb().insert(reports).values({
     id,
     clientId: grant.clientId,
-    grantId: grant.id,
-    grantReportId: milestone?.id ?? null,
+    awardId: grant.id,
+    scheduleId: milestone?.id ?? null,
     matchMethod,
     externalApplicationId: input.externalApplicationId,
     organisationName: input.organisationName,
@@ -149,12 +149,12 @@ export async function createReportSubmissionFromCanonical(
 
   if (milestone) {
     await getDb()
-      .update(grantReports)
+      .update(reportSchedule)
       .set({ submittedDate: new Date().toISOString().slice(0, 10) })
-      .where(eq(grantReports.id, milestone.id))
+      .where(eq(reportSchedule.id, milestone.id))
   }
 
-  const submission = await getDb().query.reportSubmissions.findFirst({
+  const submission = await getDb().query.reports.findFirst({
     where: (s, { eq: eqOp }) => eqOp(s.id, id),
   })
   return { submission, analysis, milestone: milestone ?? null }

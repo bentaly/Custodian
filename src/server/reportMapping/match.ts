@@ -5,26 +5,26 @@
 //   findGrantByExternalApplicationId — the ONLY automated link. A report whose
 //   externalApplicationId exactly matches one application with a grant links to
 //   that grant; anything else (no ID, unknown ID, or — pathologically — the same
-//   ID on several grants) is held for review.
+//   ID on several awards) is held for review.
 //
 //   computeGrantCandidates — advisory heuristics for the review queue. Charity
 //   number, normalised organisation name, programme, amount and award-date fit
-//   RANK the client's grants so the reviewer confirms in one click, but they
+//   RANK the client's awards so the reviewer confirms in one click, but they
 //   never auto-link: real data (Arete's Typeform exports) shows name+amount
-//   cannot distinguish "two grants" from "two periodic reports on one grant".
+//   cannot distinguish "two awards" from "two periodic reports on one grant".
 
 import { and, eq, sql } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, grants } from '../../../drizzle/schema'
+import { applications, awards } from '../../../drizzle/schema'
 
 export interface GrantCandidate {
-  grantId: string
+  awardId: string
   score: number
   reasons: string[]
 }
 
 export type ExternalIdMatch =
-  | { kind: 'matched'; grantId: string }
+  | { kind: 'matched'; awardId: string }
   | { kind: 'ambiguous'; grantIds: string[] }
   | { kind: 'none' }
 
@@ -34,17 +34,17 @@ export async function findGrantByExternalApplicationId(
   externalApplicationId: string,
 ): Promise<ExternalIdMatch> {
   const rows = await getDb()
-    .select({ grantId: grants.id })
-    .from(grants)
-    .innerJoin(applications, eq(grants.applicationId, applications.id))
+    .select({ awardId: awards.id })
+    .from(awards)
+    .innerJoin(applications, eq(awards.applicationId, applications.id))
     .where(
       and(
-        eq(grants.clientId, clientId),
+        eq(awards.clientId, clientId),
         sql`lower(${applications.externalApplicationId}) = lower(${externalApplicationId})`,
       ),
     )
-  if (rows.length === 1) return { kind: 'matched', grantId: rows[0]!.grantId }
-  if (rows.length > 1) return { kind: 'ambiguous', grantIds: rows.map((r) => r.grantId) }
+  if (rows.length === 1) return { kind: 'matched', awardId: rows[0]!.awardId }
+  if (rows.length > 1) return { kind: 'ambiguous', grantIds: rows.map((r) => r.awardId) }
   return { kind: 'none' }
 }
 
@@ -83,13 +83,13 @@ export interface CandidateHints {
   awardDate?: string | null
 }
 
-/** Rank the client's grants as candidates for a held report. Advisory only. */
+/** Rank the client's awards as candidates for a held report. Advisory only. */
 export async function computeGrantCandidates(
   clientId: string,
   hints: CandidateHints,
 ): Promise<GrantCandidate[]> {
-  const clientGrants = await getDb().query.grants.findMany({
-    where: eq(grants.clientId, clientId),
+  const clientAwards = await getDb().query.awards.findMany({
+    where: eq(awards.clientId, clientId),
     with: {
       application: {
         with: { roundProgramme: { with: { programme: true } } },
@@ -103,7 +103,7 @@ export async function computeGrantCandidates(
   const hintYear = hints.awardDate?.match(/\b(20\d\d)\b/)?.[1] ?? ''
 
   const candidates: GrantCandidate[] = []
-  for (const g of clientGrants) {
+  for (const g of clientAwards) {
     const app = g.application
     let score = 0
     const reasons: string[] = []
@@ -139,7 +139,7 @@ export async function computeGrantCandidates(
       reasons.push('Award year matches')
     }
 
-    if (score >= 12) candidates.push({ grantId: g.id, score, reasons })
+    if (score >= 12) candidates.push({ awardId: g.id, score, reasons })
   }
 
   return candidates.sort((a, b) => b.score - a.score).slice(0, 5)

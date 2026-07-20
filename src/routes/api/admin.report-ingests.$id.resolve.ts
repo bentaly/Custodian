@@ -54,7 +54,7 @@ export const Route = createFileRoute('/api/admin/report-ingests/$id/resolve')(
             return adminJson({ error: 'Grant not found for this client' }, 409)
           }
 
-          return adminJson({ reportSubmissionId: result.reportSubmissionId }, 200)
+          return adminJson({ reportId: result.reportId }, 200)
         },
       },
     },

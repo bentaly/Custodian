@@ -186,7 +186,7 @@ export interface ReportIngestRow {
   proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
   resolved: Record<string, string> | null
   matchCandidates: Array<{ grantId: string; score: number; reasons: string[] }> | null
-  reportSubmissionId: string | null
+  reportId: string | null
   createdAt: string
   client: { id: string; name: string }
 }

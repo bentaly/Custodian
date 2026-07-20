@@ -81,7 +81,7 @@ function StatCards({ totals }: { totals: Totals }) {
         <p className="text-[11px] uppercase tracking-wide text-gray-400">Total awarded</p>
         <p className="mt-1 text-xl font-semibold text-gray-900">{fmt(totals.totalAwarded)}</p>
         <p className="mt-0.5 text-xs text-gray-400">
-          {totals.count} grant{totals.count !== 1 ? 's' : ''}
+          {totals.count} award{totals.count !== 1 ? 's' : ''}
         </p>
       </Card>
       <Card className="px-4 py-3">
@@ -92,7 +92,7 @@ function StatCards({ totals }: { totals: Totals }) {
       <Card className="px-4 py-3">
         <p className="text-[11px] uppercase tracking-wide text-gray-400">Multi-year</p>
         <p className="mt-1 text-xl font-semibold text-gray-900">{totals.multiYearCount}</p>
-        <p className="mt-0.5 text-xs text-gray-400">Grants over 1 year</p>
+        <p className="mt-0.5 text-xs text-gray-400">Awards over 1 year</p>
       </Card>
       <Card className="px-4 py-3">
         <p className="mb-1.5 text-[11px] uppercase tracking-wide text-gray-400">By programme</p>
@@ -182,7 +182,7 @@ function RecordPage() {
           >
             Record
           </h1>
-          <p className="mt-0.5 text-sm text-gray-400">Every grant awarded, across all rounds</p>
+          <p className="mt-0.5 text-sm text-gray-400">Every award made, across all rounds</p>
         </div>
         {visibleRounds.length > 0 && (
           <Select value={roundId ?? ''} onChange={handleRoundChange}>
@@ -244,9 +244,9 @@ function RecordPage() {
 
       {items.length === 0 ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No grants match these filters.</p>
+          <p className="text-sm text-gray-500">No awards match these filters.</p>
           <p className="mt-1 text-xs text-gray-400">
-            Grants appear here as soon as an award is generated after the trustee vote.
+            Awards appear here as soon as one is generated after the trustee vote.
           </p>
         </EmptyState>
       ) : (
@@ -267,7 +267,7 @@ function RecordPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {items.map((g) => (
-                <tr key={g.grantId} className="relative transition-colors hover:bg-gray-50">
+                <tr key={g.awardId} className="relative transition-colors hover:bg-gray-50">
                   <td className="px-5 py-3 font-medium text-gray-900">
                     <Link
                       to="/applications/$applicationId"

@@ -50,7 +50,7 @@ export const applicationStatusEnum = pgEnum('application_status', [
 //   active     — award generated; instalments outstanding or in progress
 //   completed  — all instalments paid / the grant has run its course
 //   cancelled  — the award was withdrawn after being generated
-export const grantStatusEnum = pgEnum('grant_status', [
+export const awardStatusEnum = pgEnum('award_status', [
   'active',
   'completed',
   'cancelled',
@@ -222,7 +222,7 @@ export const roundProgrammes = pgTable(
     // The most any single applicant can be awarded, e.g. £50,000.
     // Shown to reviewers and used as a guardrail when assessing applications.
     maxGrantAmount: numeric('max_grant_amount'),
-    // How many years grants from this round programme typically run, e.g. 3.
+    // How many years awards from this round programme typically run, e.g. 3.
     // Used to show an annualised figure (max_grant_amount / years) alongside the total.
     grantDurationYears: integer('grant_duration_years'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -512,24 +512,26 @@ export const apiKeys = pgTable('api_keys', {
 // successful application (after the trustee-majority vote). It is deliberately a
 // separate entity from `applications`: the application is the *request* (terminal at
 // the decision), the grant is the *outcome* that runs on — paid out via instalments.
-//   - `applicationId` is nullable so a family-office client can record a direct grant
-//     that never went through a formal application intake.
-//   - `clientId` is denormalised (not derived via the application) because (a) it is
-//     the only owner signal when `applicationId` is null, and (b) it keeps tenant
-//     scoping a single-column filter on the hottest read path. It never changes, so
-//     there is no drift risk.
-export const grants = pgTable('grants', {
+//   - `applicationId` is required: every award is generated from an application. The
+//     old nullable "direct grant" case (a family office recording money given with no
+//     intake) was never built and has been dropped.
+//   - `clientId` is denormalised (not derived via the application) because it keeps
+//     tenant scoping a single-column filter on the hottest read path. It never
+//     changes, so there is no drift risk.
+export const awards = pgTable('awards', {
   id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id').references(() => applications.id, {
-    onDelete: 'set null',
-  }),
+  // `restrict`: an application with an award cannot be deleted out from under it —
+  // that would take the instalments and reports with it. Cancel the award first.
+  applicationId: uuid('application_id')
+    .notNull()
+    .references(() => applications.id, { onDelete: 'restrict' }),
   clientId: uuid('client_id')
     .notNull()
     .references(() => clients.id, { onDelete: 'cascade' }),
   amountAwarded: numeric('amount_awarded').notNull(),
-  status: grantStatusEnum('status').notNull().default('active'),
+  status: awardStatusEnum('status').notNull().default('active'),
   // When the award was generated (the grant's start). Mirrors the application's
-  // decisionAt for application-derived grants.
+  // decisionAt for application-derived awards.
   decisionAt: timestamp('decision_at').notNull().defaultNow(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
@@ -539,11 +541,11 @@ export const grants = pgTable('grants', {
 // marked paid independently and aggregated across the portfolio (paid-to-date,
 // outstanding). `dueDate`/`paidDate` are ISO yyyy-mm-dd strings; `dueDate` is null for
 // "date TBC", `paidDate` is null until the instalment is paid.
-export const grantPayments = pgTable('grant_payments', {
+export const awardInstalments = pgTable('award_instalments', {
   id: uuid('id').primaryKey().defaultRandom(),
-  grantId: uuid('grant_id')
+  awardId: uuid('award_id')
     .notNull()
-    .references(() => grants.id, { onDelete: 'cascade' }),
+    .references(() => awards.id, { onDelete: 'cascade' }),
   instalmentNo: integer('instalment_no').notNull(),
   amount: numeric('amount').notNull(),
   dueDate: text('due_date'),
@@ -551,18 +553,21 @@ export const grantPayments = pgTable('grant_payments', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
-// One reporting milestone of a grant. Promoted out of the old
-// `applications.reporting_schedule` jsonb so each milestone is a first-class row that can
-// be tracked and marked received independently (mirrors `grant_payments`). `dueDate` is
-// an ISO yyyy-mm-dd string (null = "date TBC"); `submittedDate` is null until the report
-// is received.
-export const grantReports = pgTable('grant_reports', {
+// One date an award expects a report on. Promoted out of the old
+// `applications.reporting_schedule` jsonb so each expectation is a first-class row that
+// can be tracked and ticked off independently (mirrors `award_instalments`).
+//
+// `dueDate` is a required ISO yyyy-mm-dd string — unlike an instalment, an expected
+// report always has a date. (It was briefly nullable for "date TBC", but the award
+// form never allowed it, so a dateless row could not be created anyway.)
+// `submittedDate` is null until a report arrives against it.
+export const reportSchedule = pgTable('report_schedule', {
   id: uuid('id').primaryKey().defaultRandom(),
-  grantId: uuid('grant_id')
+  awardId: uuid('award_id')
     .notNull()
-    .references(() => grants.id, { onDelete: 'cascade' }),
+    .references(() => awards.id, { onDelete: 'cascade' }),
   label: text('label').notNull(),
-  dueDate: text('due_date'),
+  dueDate: text('due_date').notNull(),
   submittedDate: text('submitted_date'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
@@ -591,10 +596,10 @@ export const reportIngests = pgTable('report_ingests', {
   // NEVER auto-link — an admin confirms one of these in the review queue. Kept on
   // the row so a future client-facing match UI can render the same suggestions.
   matchCandidates: jsonb('match_candidates').$type<
-    Array<{ grantId: string; score: number; reasons: string[] }>
+    Array<{ awardId: string; score: number; reasons: string[] }>
   >(),
   // Set once promoted to a real report submission.
-  reportSubmissionId: uuid('report_submission_id').references(() => reportSubmissions.id, {
+  reportId: uuid('report_id').references(() => reports.id, {
     onDelete: 'set null',
   }),
   note: text('note'),
@@ -608,17 +613,17 @@ export const reportIngests = pgTable('report_ingests', {
 // in `report_ingests`). Carries the AI analysis: summary, alignment against the
 // application's promises and the programme's goal, and the extracted impact
 // quantity in the programme's impact unit (which feeds Insights).
-export const reportSubmissions = pgTable('report_submissions', {
+export const reports = pgTable('reports', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id')
     .notNull()
     .references(() => clients.id, { onDelete: 'cascade' }),
-  grantId: uuid('grant_id')
+  awardId: uuid('award_id')
     .notNull()
-    .references(() => grants.id, { onDelete: 'cascade' }),
+    .references(() => awards.id, { onDelete: 'cascade' }),
   // The reporting milestone this submission satisfied (earliest open one at the
   // time of linking); null when the grant had no open milestones left.
-  grantReportId: uuid('grant_report_id').references(() => grantReports.id, {
+  scheduleId: uuid('schedule_id').references(() => reportSchedule.id, {
     onDelete: 'set null',
   }),
   matchMethod: reportMatchMethodEnum('match_method').notNull(),
@@ -704,7 +709,7 @@ export const clientsRelations = relations(clients, ({ many, one }) => ({
   fieldMappings: many(fieldMappings),
   applicationIngests: many(applicationIngests),
   apiKeys: many(apiKeys),
-  grants: many(grants),
+  awards: many(awards),
   profile: one(clientProfiles, { fields: [clients.id], references: [clientProfiles.clientId] }),
 }))
 
@@ -751,43 +756,44 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
   comments: many(applicationComments),
   votes: many(applicationVotes),
   // 1:1 in practice (one award per application), modelled as a to-one relation.
-  grant: one(grants, { fields: [applications.id], references: [grants.applicationId] }),
+  award: one(awards, { fields: [applications.id], references: [awards.applicationId] }),
 }))
 
-export const grantsRelations = relations(grants, ({ one, many }) => ({
+export const awardsRelations = relations(awards, ({ one, many }) => ({
   application: one(applications, {
-    fields: [grants.applicationId],
+    fields: [awards.applicationId],
     references: [applications.id],
   }),
-  client: one(clients, { fields: [grants.clientId], references: [clients.id] }),
-  payments: many(grantPayments),
-  reports: many(grantReports),
-  reportSubmissions: many(reportSubmissions),
+  client: one(clients, { fields: [awards.clientId], references: [clients.id] }),
+  instalments: many(awardInstalments),
+  // The dates a report is expected on, and the reports actually received.
+  schedule: many(reportSchedule),
+  reports: many(reports),
 }))
 
-export const grantPaymentsRelations = relations(grantPayments, ({ one }) => ({
-  grant: one(grants, { fields: [grantPayments.grantId], references: [grants.id] }),
+export const awardInstalmentsRelations = relations(awardInstalments, ({ one }) => ({
+  award: one(awards, { fields: [awardInstalments.awardId], references: [awards.id] }),
 }))
 
-export const grantReportsRelations = relations(grantReports, ({ one, many }) => ({
-  grant: one(grants, { fields: [grantReports.grantId], references: [grants.id] }),
-  submissions: many(reportSubmissions),
+export const reportScheduleRelations = relations(reportSchedule, ({ one, many }) => ({
+  award: one(awards, { fields: [reportSchedule.awardId], references: [awards.id] }),
+  reports: many(reports),
 }))
 
 export const reportIngestsRelations = relations(reportIngests, ({ one }) => ({
   client: one(clients, { fields: [reportIngests.clientId], references: [clients.id] }),
-  reportSubmission: one(reportSubmissions, {
-    fields: [reportIngests.reportSubmissionId],
-    references: [reportSubmissions.id],
+  report: one(reports, {
+    fields: [reportIngests.reportId],
+    references: [reports.id],
   }),
 }))
 
-export const reportSubmissionsRelations = relations(reportSubmissions, ({ one }) => ({
-  client: one(clients, { fields: [reportSubmissions.clientId], references: [clients.id] }),
-  grant: one(grants, { fields: [reportSubmissions.grantId], references: [grants.id] }),
-  grantReport: one(grantReports, {
-    fields: [reportSubmissions.grantReportId],
-    references: [grantReports.id],
+export const reportsRelations = relations(reports, ({ one }) => ({
+  client: one(clients, { fields: [reports.clientId], references: [clients.id] }),
+  award: one(awards, { fields: [reports.awardId], references: [awards.id] }),
+  schedule: one(reportSchedule, {
+    fields: [reports.scheduleId],
+    references: [reportSchedule.id],
   }),
 }))
 

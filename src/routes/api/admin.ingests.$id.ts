@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../../server/db'
-import { applicationIngests, applications, grants } from '../../../drizzle/schema'
+import { applicationIngests, applications, awards } from '../../../drizzle/schema'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 
 // Delete a submission outright: the ingest row and, when one was created from it,
@@ -29,8 +29,8 @@ export const Route = createFileRoute('/api/admin/ingests/$id')(
           if (!ingest) return adminJson({ ok: true }, 200)
 
           if (ingest.applicationId) {
-            const grant = await getDb().query.grants.findFirst({
-              where: eq(grants.applicationId, ingest.applicationId),
+            const grant = await getDb().query.awards.findFirst({
+              where: eq(awards.applicationId, ingest.applicationId),
               columns: { id: true },
             })
             if (grant) {

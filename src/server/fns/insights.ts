@@ -27,7 +27,7 @@ export type InsightsDeprivation = {
 }
 
 export type InsightsGrant = {
-  grantId: string
+  awardId: string
   applicationId: string
   organisationName: string
   programmeId: string | null
@@ -74,7 +74,7 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
     ),
     with: {
       roundProgramme: { with: { programme: true, round: true } },
-      grant: { with: { reports: true, reportSubmissions: true } },
+      award: { with: { schedule: true, reports: true } },
     },
     orderBy: (a, { asc }) => [asc(a.decisionAt)],
   })
@@ -82,13 +82,13 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
   const today = new Date().toISOString().slice(0, 10)
 
   const items: InsightsGrant[] = apps
-    .filter((a) => a.grant)
+    .filter((a) => a.award)
     .map((a) => {
-      const grant = a.grant!
+      const award = a.award!
       const programme = a.roundProgramme?.programme ?? null
       const round = a.roundProgramme?.round ?? null
 
-      const analysed = grant.reportSubmissions
+      const analysed = award.reports
         .filter((s) => s.analysisStatus === 'analysed')
         .sort((x, y) => x.submittedAt.getTime() - y.submittedAt.getTime())
       const latestWithQuantity = [...analysed].reverse().find((s) => s.impactQuantity !== null)
@@ -98,12 +98,12 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
       // A milestone counts as received when it was ticked (submittedDate) or a
       // submission satisfied it; on time means it arrived by its due date.
       const submissionByMilestone = new Map(
-        grant.reportSubmissions.filter((s) => s.grantReportId).map((s) => [s.grantReportId!, s]),
+        award.reports.filter((s) => s.scheduleId).map((s) => [s.scheduleId!, s]),
       )
       let received = 0
       let onTime = 0
       let overdue = 0
-      for (const m of grant.reports) {
+      for (const m of award.schedule) {
         const receivedDate =
           m.submittedDate ??
           submissionByMilestone.get(m.id)?.submittedAt.toISOString().slice(0, 10) ??
@@ -130,7 +130,7 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
           : null
 
       return {
-        grantId: grant.id,
+        awardId: award.id,
         applicationId: a.id,
         organisationName: a.organisationName,
         programmeId: programme?.id ?? null,
@@ -141,9 +141,9 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         roundId: round?.id ?? null,
         roundName: round?.name ?? null,
         roundOpenedAt: round?.openedAt ? round.openedAt.toISOString() : null,
-        decisionAt: grant.decisionAt.toISOString(),
-        status: grant.status,
-        amountAwarded: parseFloat(grant.amountAwarded),
+        decisionAt: award.decisionAt.toISOString(),
+        status: award.status,
+        amountAwarded: parseFloat(award.amountAwarded),
         region:
           a.deliveryRegion ?? (a.deliveryNation ? (NATION_LABELS[a.deliveryNation] ?? null) : null),
         ladName: a.deliveryLadName,
@@ -153,7 +153,7 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         alignmentScore: latestWithAlignment?.applicationAlignment?.score ?? null,
         outcome: latestAnalysed?.aiSummary ?? latestAnalysed?.impactSummary ?? null,
         reportsAnalysed: analysed.length,
-        milestones: { total: grant.reports.length, received, onTime, overdue },
+        milestones: { total: award.schedule.length, received, onTime, overdue },
       }
     })
 

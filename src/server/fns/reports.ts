@@ -2,23 +2,31 @@ import { createServerFn } from '@tanstack/react-start'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db'
-import { grantReports, grants, reportSubmissions } from '../../../drizzle/schema'
+import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 
-// The Reports screen's data: every reporting milestone across the client's
-// grants (the schedule side, from generateAward) merged with the submissions
-// that satisfied them (the content side, from /api/submit-report). One row per
-// milestone, plus rows for submissions that arrived when a grant had no open
-// milestone left ("unscheduled" — still real reports).
+// The Reports screen's data. Two distinct things, deliberately kept apart:
+//
+//   items    — reports that have actually ARRIVED (`reports`, from /api/submit-report).
+//              One row per report. This is the screen's primary table: every row is a
+//              real document you can open and read.
+//   upcoming — dates we are still WAITING on (`report_schedule`, from generateAward).
+//              A chase-list, not reading material, so it lives in a side drawer.
+//
+// These used to be merged into one table, which made a never-submitted milestone look
+// like a report. An expectation and a document are different entities; the schema has
+// always modelled them as such and the screen now matches.
 
-export type ReportRowStatus = 'received' | 'reviewed' | 'overdue' | 'due_soon' | 'upcoming'
+/** A report that has arrived. */
+export type ReceivedStatus = 'received' | 'reviewed'
+/** A date we are still waiting on. */
+export type DueStatus = 'overdue' | 'due_soon' | 'upcoming'
+export type ReportRowStatus = ReceivedStatus | DueStatus
 
 const DUE_SOON_DAYS = 30
 
-function statusFor(dueDate: string | null, submitted: boolean): ReportRowStatus {
-  if (submitted) return 'received'
-  if (!dueDate) return 'upcoming'
+function dueStatusFor(dueDate: string): DueStatus {
   const due = new Date(dueDate)
   const now = new Date()
   if (due < now) return 'overdue'
@@ -28,10 +36,10 @@ function statusFor(dueDate: string | null, submitted: boolean): ReportRowStatus 
 
 export const listReports = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
-  if (!user.clientId) return { items: [], totals: emptyTotals() }
+  if (!user.clientId) return { items: [], upcoming: [], totals: emptyTotals() }
 
-  const clientGrants = await getDb().query.grants.findMany({
-    where: eq(grants.clientId, user.clientId),
+  const clientAwards = await getDb().query.awards.findMany({
+    where: eq(awards.clientId, user.clientId),
     with: {
       application: {
         columns: { id: true, organisationName: true, deliveryArea: true },
@@ -45,12 +53,12 @@ export const listReports = createServerFn({ method: 'GET' }).handler(async () =>
           },
         },
       },
+      schedule: true,
       reports: true,
-      reportSubmissions: true,
     },
   })
 
-  type SubmissionRow = (typeof clientGrants)[number]['reportSubmissions'][number]
+  type SubmissionRow = (typeof clientAwards)[number]['reports'][number]
 
   // Shape the submission into an explicitly serializable payload (raw rows carry
   // loosely-typed jsonb that the server-fn serializer rejects).
@@ -78,78 +86,91 @@ export const listReports = createServerFn({ method: 'GET' }).handler(async () =>
   }
   type SubmissionView = ReturnType<typeof toSubmissionView>
 
+  // Reports that have arrived — the screen's primary table.
   const items: Array<{
     key: string
-    grantId: string
-    applicationId: string | null
+    awardId: string
+    applicationId: string
     organisationName: string
     programmeName: string | null
     roundName: string | null
+    /** The schedule label this report answered, or "Unscheduled report". */
     label: string
     dueDate: string | null
-    status: ReportRowStatus
-    submission: SubmissionView | null
+    submittedAt: string
+    status: ReceivedStatus
+    submission: SubmissionView
   }> = []
 
-  for (const g of clientGrants) {
-    const org = g.application?.organisationName ?? '(direct grant)'
-    const programmeName = g.application?.roundProgramme?.programme?.name ?? null
-    const roundName = g.application?.roundProgramme?.round?.name ?? null
-    const byMilestone = new Map(
-      g.reportSubmissions.filter((s) => s.grantReportId).map((s) => [s.grantReportId!, s]),
-    )
+  // Dates still outstanding — the chase-list, shown in the drawer.
+  const upcoming: Array<{
+    key: string
+    awardId: string
+    applicationId: string
+    organisationName: string
+    programmeName: string | null
+    label: string
+    dueDate: string
+    status: DueStatus
+  }> = []
 
-    for (const m of g.reports) {
-      const submission = byMilestone.get(m.id) ?? null
-      items.push({
-        key: m.id,
-        grantId: g.id,
-        applicationId: g.application?.id ?? null,
-        organisationName: org,
-        programmeName,
-        roundName,
-        label: m.label,
-        dueDate: m.dueDate,
-        status: submission?.reviewedAt
-          ? 'reviewed'
-          : statusFor(m.dueDate, Boolean(m.submittedDate || submission)),
-        submission: submission ? toSubmissionView(submission) : null,
-      })
-    }
-    // Reports that arrived with no open milestone to satisfy.
-    for (const s of g.reportSubmissions.filter((s) => !s.grantReportId)) {
+  for (const g of clientAwards) {
+    const org = g.application.organisationName
+    const programmeName = g.application.roundProgramme?.programme?.name ?? null
+    const roundName = g.application.roundProgramme?.round?.name ?? null
+    const scheduleById = new Map(g.schedule.map((m) => [m.id, m]))
+
+    for (const s of g.reports) {
+      const milestone = s.scheduleId ? (scheduleById.get(s.scheduleId) ?? null) : null
       items.push({
         key: s.id,
-        grantId: g.id,
-        applicationId: g.application?.id ?? null,
+        awardId: g.id,
+        applicationId: g.application.id,
         organisationName: org,
         programmeName,
         roundName,
-        label: 'Unscheduled report',
-        dueDate: null,
+        label: milestone?.label ?? 'Unscheduled report',
+        dueDate: milestone?.dueDate ?? null,
+        submittedAt: s.submittedAt.toISOString(),
         status: s.reviewedAt ? 'reviewed' : 'received',
         submission: toSubmissionView(s),
       })
     }
+
+    // A schedule row is outstanding until something ticks it off.
+    for (const m of g.schedule) {
+      if (m.submittedDate) continue
+      upcoming.push({
+        key: m.id,
+        awardId: g.id,
+        applicationId: g.application.id,
+        organisationName: org,
+        programmeName,
+        label: m.label,
+        dueDate: m.dueDate,
+        status: dueStatusFor(m.dueDate),
+      })
+    }
   }
 
-  // Overdue first (most urgent), then due soon by date, then upcoming, received last.
-  const order: Record<ReportRowStatus, number> = { overdue: 0, due_soon: 1, upcoming: 2, received: 3, reviewed: 4 }
-  items.sort((a, b) => order[a.status] - order[b.status] || (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
+  // Most recently received first — the newest report is the one you came to read.
+  items.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+  // Most overdue first — the chase-list is ordered by urgency.
+  upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
   const totals = {
-    active: items.filter((i) => i.status !== 'received' && i.status !== 'reviewed').length,
-    overdue: items.filter((i) => i.status === 'overdue').length,
-    dueSoon: items.filter((i) => i.status === 'due_soon').length,
     received: items.filter((i) => i.status === 'received').length,
     reviewed: items.filter((i) => i.status === 'reviewed').length,
+    overdue: upcoming.filter((i) => i.status === 'overdue').length,
+    dueSoon: upcoming.filter((i) => i.status === 'due_soon').length,
+    outstanding: upcoming.length,
   }
 
-  return { items, totals }
+  return { items, upcoming, totals }
 })
 
 function emptyTotals() {
-  return { active: 0, overdue: 0, dueSoon: 0, received: 0, reviewed: 0 }
+  return { received: 0, reviewed: 0, overdue: 0, dueSoon: 0, outstanding: 0 }
 }
 
 // Admin sign-off on a received report (and undo). Drives the 'reviewed' status.
@@ -157,20 +178,20 @@ export const markReportReviewed = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.uuid(), reviewed: z.boolean() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
-    const submission = await getDb().query.reportSubmissions.findFirst({
-      where: eq(reportSubmissions.id, data.id),
+    const submission = await getDb().query.reports.findFirst({
+      where: eq(reports.id, data.id),
       columns: { id: true, clientId: true },
     })
     if (!submission) throw new Error('Not found')
     assertClientAccess(user, submission.clientId)
     await getDb()
-      .update(reportSubmissions)
+      .update(reports)
       .set(
         data.reviewed
           ? { reviewedAt: new Date(), reviewedBy: user.email ?? user.name ?? null }
           : { reviewedAt: null, reviewedBy: null },
       )
-      .where(eq(reportSubmissions.id, data.id))
+      .where(eq(reports.id, data.id))
   })
 
 // One report for the detail screen. `key` is either a grant_reports milestone id
@@ -181,21 +202,21 @@ export const getReport = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
-    const milestone = await getDb().query.grantReports.findFirst({
-      where: eq(grantReports.id, data.key),
-      with: { submissions: true },
+    const milestone = await getDb().query.reportSchedule.findFirst({
+      where: eq(reportSchedule.id, data.key),
+      with: { reports: true },
     })
     const submissionRow = milestone
-      ? (milestone.submissions[0] ?? null)
-      : ((await getDb().query.reportSubmissions.findFirst({
-          where: eq(reportSubmissions.id, data.key),
+      ? (milestone.reports[0] ?? null)
+      : ((await getDb().query.reports.findFirst({
+          where: eq(reports.id, data.key),
         })) ?? null)
 
-    const grantId = milestone?.grantId ?? submissionRow?.grantId
-    if (!grantId) throw new Error('Not found')
+    const awardId = milestone?.awardId ?? submissionRow?.awardId
+    if (!awardId) throw new Error('Not found')
 
-    const grant = await getDb().query.grants.findFirst({
-      where: eq(grants.id, grantId),
+    const award = await getDb().query.awards.findFirst({
+      where: eq(awards.id, awardId),
       with: {
         application: {
           columns: { id: true, organisationName: true, deliveryArea: true, amountRequested: true },
@@ -209,28 +230,56 @@ export const getReport = createServerFn({ method: 'GET' })
             },
           },
         },
+        // Every report on this award, plus the schedule, so the detail screen can
+        // offer the siblings: a report is rarely read in isolation — you want the
+        // one before it, and what is still outstanding on the same award.
+        schedule: true,
+        reports: { columns: { id: true, scheduleId: true, submittedAt: true, reviewedAt: true } },
       },
     })
-    if (!grant) throw new Error('Not found')
-    assertClientAccess(user, grant.clientId)
+    if (!award) throw new Error('Not found')
+    assertClientAccess(user, award.clientId)
+
+    const scheduleById = new Map(award.schedule.map((m) => [m.id, m]))
+
+    // Other reports on this award, newest first, excluding the one being viewed.
+    const siblings = award.reports
+      .filter((r) => r.id !== submissionRow?.id)
+      .map((r) => ({
+        key: r.id,
+        label: (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
+        submittedAt: r.submittedAt.toISOString(),
+        status: (r.reviewedAt ? 'reviewed' : 'received') as ReceivedStatus,
+      }))
+      .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+
+    // Dates still outstanding on this award, most urgent first.
+    const outstanding = award.schedule
+      .filter((m) => !m.submittedDate && m.id !== milestone?.id)
+      .map((m) => ({ key: m.id, label: m.label, dueDate: m.dueDate, status: dueStatusFor(m.dueDate) }))
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
     const s = submissionRow
     return {
       label: milestone?.label ?? 'Unscheduled report',
       dueDate: milestone?.dueDate ?? null,
-      status: s?.reviewedAt
-        ? ('reviewed' as ReportRowStatus)
-        : statusFor(milestone?.dueDate ?? null, Boolean(milestone?.submittedDate || s)),
+      status: (s?.reviewedAt
+        ? 'reviewed'
+        : s || milestone?.submittedDate
+          ? 'received'
+          : dueStatusFor(milestone!.dueDate)) as ReportRowStatus,
+      siblings,
+      outstanding,
       grant: {
-        id: grant.id,
-        amountAwarded: grant.amountAwarded,
-        decisionAt: grant.decisionAt.toISOString(),
-        status: grant.status,
+        id: award.id,
+        amountAwarded: award.amountAwarded,
+        decisionAt: award.decisionAt.toISOString(),
+        status: award.status,
       },
-      applicationId: grant.application?.id ?? null,
-      organisationName: grant.application?.organisationName ?? '(direct grant)',
-      programmeName: grant.application?.roundProgramme?.programme?.name ?? null,
-      roundName: grant.application?.roundProgramme?.round?.name ?? null,
+      applicationId: award.application.id,
+      organisationName: award.application.organisationName,
+      programmeName: award.application.roundProgramme?.programme?.name ?? null,
+      roundName: award.application.roundProgramme?.round?.name ?? null,
       submission: s
         ? {
             id: s.id,
