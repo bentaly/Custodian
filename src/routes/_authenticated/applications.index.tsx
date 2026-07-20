@@ -216,7 +216,7 @@ function ApplicationsList() {
   const navigate = useNavigate({ from: '/applications/' })
   const search = Route.useSearch()
   const { roundId, programmeId, status, scoreBand, tag, q, page } = search
-  const { items, total, rounds, budgetSummary, statusCounts, allCount } = Route.useLoaderData()
+  const { items, total, rounds, budgetSummary, statusCounts } = Route.useLoaderData()
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -254,13 +254,24 @@ function ApplicationsList() {
     ...new Set(programmes.flatMap((p) => (p.tags as string[] | null) ?? [])),
   ].sort()
 
+  // Budget shown under the programme tabs is scoped to the selected programme
+  // (all programmes when the "All" tab is active). Budget rows are keyed by
+  // roundProgrammeId; the tabs by programme.id — map one to the other.
+  const selectedRoundProgrammeId = programmeId
+    ? selectedRound?.roundProgrammes.find((rp) => rp.programme.id === programmeId)?.id
+    : undefined
+  const budgetRows = selectedRoundProgrammeId
+    ? budgetSummary.filter((r) => r.roundProgrammeId === selectedRoundProgrammeId)
+    : budgetSummary
+
   function handleRoundChange(e: React.ChangeEvent<HTMLSelectElement>) {
     // Changing round invalidates the programme + tag filters (both are per-round).
     navigate({ search: (prev) => ({ ...prev, roundId: e.target.value || undefined, programmeId: undefined, tag: undefined, page: undefined }) })
   }
 
   function setProgramme(id: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, programmeId: prev.programmeId === id ? undefined : id, page: undefined }) })
+    // Programme is the primary tab axis — select directly (the "All" tab clears it).
+    navigate({ search: (prev) => ({ ...prev, programmeId: id, page: undefined }) })
   }
 
   function setStatus(value: ApplicationStatus | undefined) {
@@ -316,29 +327,30 @@ function ApplicationsList() {
         )}
       </div>
 
-      {budgetSummary.length > 0 && <BudgetPanel rows={budgetSummary} />}
+      {/* Programme tabs — the primary axis for browsing a round's applications */}
+      {programmes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 border-b border-gray-100">
+          {[{ id: undefined, name: 'All programmes' }, ...programmes].map((p) => {
+            const on = programmeId === p.id
+            return (
+              <button
+                key={p.id ?? 'all'}
+                onClick={() => setProgramme(p.id)}
+                className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
+                  on
+                    ? 'border-gray-900 font-medium text-gray-900'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {p.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
-      {/* Status tabs */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-gray-100">
-        {STATUS_TABS.map((tab) => {
-          const cnt = tab.value === undefined ? allCount : (statusCounts[tab.value] ?? 0)
-          const on = status === tab.value
-          return (
-            <button
-              key={tab.label}
-              onClick={() => setStatus(tab.value)}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
-                on
-                  ? 'border-gray-900 font-medium text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab.label}
-              {cnt > 0 && <span className="ml-1 text-xs text-gray-400">({cnt})</span>}
-            </button>
-          )
-        })}
-      </div>
+      {/* Budget for the selected programme (all programmes on the "All" tab) */}
+      {budgetRows.length > 0 && <BudgetPanel rows={budgetRows} />}
 
       {/* Filters: search, programme, AI score */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -350,26 +362,24 @@ function ApplicationsList() {
           className="w-56 rounded border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
         />
 
-        {programmes.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Programme</span>
-            <button
-              onClick={() => setProgramme(undefined)}
-              className={`${pillBase} ${programmeId === undefined ? pillOn : pillOff}`}
-            >
-              All
-            </button>
-            {programmes.map((p) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Status</span>
+          {STATUS_TABS.filter(
+            (t): t is { value: ApplicationStatus; label: string } => t.value !== undefined,
+          ).map((t) => {
+            const cnt = statusCounts[t.value] ?? 0
+            return (
               <button
-                key={p.id}
-                onClick={() => setProgramme(p.id)}
-                className={`${pillBase} ${programmeId === p.id ? pillOn : pillOff}`}
+                key={t.label}
+                onClick={() => setStatus(status === t.value ? undefined : t.value)}
+                className={`${pillBase} ${status === t.value ? pillOn : pillOff}`}
               >
-                {p.name}
+                {t.label}
+                {cnt > 0 && <span className="ml-1 text-gray-400">({cnt})</span>}
               </button>
-            ))}
-          </div>
-        )}
+            )
+          })}
+        </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">AI score</span>
