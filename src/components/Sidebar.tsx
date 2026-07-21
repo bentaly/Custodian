@@ -1,15 +1,16 @@
 import { Link } from '@tanstack/react-router'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Award,
-  Building2,
-  CalendarRange,
-  Files,
-  FileText,
-  LayoutGrid,
-  ListChecks,
-  Target,
-  TrendingUp,
-} from 'lucide-react'
+  Award01Icon,
+  Building02Icon,
+  Calendar03Icon,
+  CheckListIcon,
+  DashboardSquare01Icon,
+  File01Icon,
+  Files01Icon,
+  Target01Icon,
+  TradeUpIcon,
+} from '@hugeicons/core-free-icons'
 
 // Hard-coded palette lifted from the Figma dashboard design; swapped for theme
 // tokens when the design system lands.
@@ -41,40 +42,40 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         <Link to="/dashboard" className={itemClass}>
-          <LayoutGrid className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={DashboardSquare01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Dashboard
         </Link>
         <Link to="/rounds" className={itemClass}>
-          <CalendarRange className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={Calendar03Icon} className="h-5 w-5" strokeWidth={1.75} />
           Rounds
         </Link>
         <Link to="/programmes" className={itemClass}>
-          <Target className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={Target01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Programmes
         </Link>
         <Link to="/applications" search={{ roundId: undefined }} className={itemClass}>
-          <Files className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={Files01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Applications
         </Link>
         <Link to="/shortlist" search={{ roundId: undefined }} className={itemClass}>
-          <ListChecks className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={CheckListIcon} className="h-5 w-5" strokeWidth={1.75} />
           Shortlist
         </Link>
         <Link to="/reports" className={itemClass}>
-          <FileText className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={File01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Reports
         </Link>
         <Link to="/awards" search={{ roundId: undefined }} className={itemClass}>
-          <Award className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={Award01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Awards
         </Link>
         <Link to="/insights" className={itemClass}>
-          <TrendingUp className="h-5 w-5" strokeWidth={1.75} />
+          <HugeiconsIcon icon={TradeUpIcon} className="h-5 w-5" strokeWidth={1.75} />
           Insights
         </Link>
         {isAdmin && (
           <Link to="/users" className={itemClass}>
-            <Building2 className="h-5 w-5" strokeWidth={1.75} />
+            <HugeiconsIcon icon={Building02Icon} className="h-5 w-5" strokeWidth={1.75} />
             Organisation
           </Link>
         )}

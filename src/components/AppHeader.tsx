@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ChevronDown, FileText, Layers, Loader2, Search, Trophy, Users } from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import type { IconSvgElement } from '@hugeicons/react'
+import {
+  ArrowDown01Icon,
+  ChampionIcon,
+  File01Icon,
+  Layers01Icon,
+  Loading03Icon,
+  Search01Icon,
+  UserMultipleIcon,
+} from '@hugeicons/core-free-icons'
 import { authClient } from '../lib/auth-client'
 import { getRoundStatus } from '../lib/roundStatus'
 import { globalSearch, type SearchResult, type SearchResultType } from '../server/fns/search'
@@ -67,12 +77,12 @@ function roundStatusParts(rounds: HeaderRound[]) {
   return { grey, green }
 }
 
-const GROUPS: { type: SearchResultType; label: string; icon: typeof FileText }[] = [
-  { type: 'application', label: 'Applications', icon: FileText },
-  { type: 'award', label: 'Awards', icon: Trophy },
-  { type: 'report', label: 'Reports', icon: Layers },
-  { type: 'programme', label: 'Programmes', icon: Users },
-  { type: 'round', label: 'Rounds', icon: Search },
+const GROUPS: { type: SearchResultType; label: string; icon: IconSvgElement }[] = [
+  { type: 'application', label: 'Applications', icon: File01Icon },
+  { type: 'award', label: 'Awards', icon: ChampionIcon },
+  { type: 'report', label: 'Reports', icon: Layers01Icon },
+  { type: 'programme', label: 'Programmes', icon: UserMultipleIcon },
+  { type: 'round', label: 'Rounds', icon: Search01Icon },
 ]
 
 // A single dropdown row's link target, mapped from result type to its typed route.
@@ -184,7 +194,11 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
 
   return (
     <div ref={containerRef} className="relative w-full max-w-sm">
-      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA3AD]" />
+      <HugeiconsIcon
+        icon={Search01Icon}
+        strokeWidth={1.5}
+        className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA3AD]"
+      />
       <input
         ref={inputRef}
         type="text"
@@ -200,7 +214,11 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
         className="w-full rounded-full bg-[#F1F3F5] py-2.5 pl-10 pr-14 text-sm text-[#101828] placeholder:text-[#9AA3AD] focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/30"
       />
       {loading ? (
-        <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#9AA3AD]" />
+        <HugeiconsIcon
+          icon={Loading03Icon}
+          strokeWidth={1.5}
+          className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#9AA3AD]"
+        />
       ) : (
         <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-white px-1.5 py-0.5 text-xs text-[#6B7280] shadow-sm">
           {isMac ? '⌘K' : 'Ctrl+K'}
@@ -221,7 +239,6 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
           {GROUPS.map((group) => {
             const rows = results.filter((r) => r.type === group.type)
             if (rows.length === 0) return null
-            const Icon = group.icon
             return (
               <div key={group.type} className="py-1">
                 <p className="px-4 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-[#9AA3AD]">
@@ -247,7 +264,7 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
                       }}
                       className={`flex items-center gap-3 px-4 py-2 ${isActive ? 'bg-[#F0F6F3]' : ''}`}
                     >
-                      <Icon className="h-4 w-4 shrink-0 text-[#9AA3AD]" />
+                      <HugeiconsIcon icon={group.icon} strokeWidth={1.5} className="h-4 w-4 shrink-0 text-[#9AA3AD]" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-[#101828]">
                           {r.title}
@@ -320,7 +337,7 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DFF0E7] text-xs font-semibold text-[#1C6B4F]">
             {initials(user.name)}
           </span>
-          <ChevronDown className="h-4 w-4 text-[#9AA3AD]" />
+          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={1.5} className="h-4 w-4 text-[#9AA3AD]" />
         </button>
         {menuOpen && (
           <>
