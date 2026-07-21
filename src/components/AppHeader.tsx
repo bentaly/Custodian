@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ChevronDown, Search } from 'lucide-react'
+import { ChevronDown, FileText, Layers, Loader2, Search, Trophy, Users } from 'lucide-react'
 import { authClient } from '../lib/auth-client'
 import { getRoundStatus } from '../lib/roundStatus'
+import { globalSearch, type SearchResult, type SearchResultType } from '../server/fns/search'
 
 type HeaderRound = {
   id: string
@@ -66,9 +67,214 @@ function roundStatusParts(rounds: HeaderRound[]) {
   return { grey, green }
 }
 
+const GROUPS: { type: SearchResultType; label: string; icon: typeof FileText }[] = [
+  { type: 'application', label: 'Applications', icon: FileText },
+  { type: 'award', label: 'Awards', icon: Trophy },
+  { type: 'report', label: 'Reports', icon: Layers },
+  { type: 'programme', label: 'Programmes', icon: Users },
+  { type: 'round', label: 'Rounds', icon: Search },
+]
+
+// A single dropdown row's link target, mapped from result type to its typed route.
+function linkProps(r: SearchResult) {
+  switch (r.type) {
+    case 'application':
+      return { to: '/applications/$applicationId', params: { applicationId: r.id } } as const
+    case 'award':
+      return { to: '/awards/$awardId', params: { awardId: r.id } } as const
+    case 'report':
+      return { to: '/reports/$reportKey', params: { reportKey: r.id } } as const
+    case 'programme':
+      return { to: '/programmes/$programmeId', params: { programmeId: r.id } } as const
+    case 'round':
+      return { to: '/rounds/$roundId', params: { roundId: r.id } } as const
+  }
+}
+
+function GlobalSearch({ isMac }: { isMac: boolean }) {
+  const navigate = useNavigate()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<SearchResult[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [active, setActive] = useState(0)
+  // Guards against out-of-order responses: only the latest request may set state.
+  const reqId = useRef(0)
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  // Close when a click lands outside the search widget.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  // Debounced query — 200ms after the last keystroke.
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setResults([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    const id = ++reqId.current
+    const t = setTimeout(async () => {
+      try {
+        const res = await globalSearch({ data: { q } })
+        if (id === reqId.current) {
+          setResults(res)
+          setActive(0)
+          setOpen(true)
+        }
+      } catch {
+        if (id === reqId.current) setResults([])
+      } finally {
+        if (id === reqId.current) setLoading(false)
+      }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [query])
+
+  function go(r: SearchResult) {
+    setOpen(false)
+    setQuery('')
+    setResults([])
+    inputRef.current?.blur()
+    navigate(linkProps(r))
+  }
+
+  function onInputKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') {
+      setOpen(false)
+      inputRef.current?.blur()
+      return
+    }
+    if (!open || results.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActive((i) => (i + 1) % results.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActive((i) => (i - 1 + results.length) % results.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const r = results[active]
+      if (r) go(r)
+    }
+  }
+
+  const showDropdown = open && query.trim().length > 0
+  // Flat list order must match the render order so `active` indexes correctly.
+  const ordered = GROUPS.flatMap((g) => results.filter((r) => r.type === g.type))
+
+  return (
+    <div ref={containerRef} className="relative w-full max-w-sm">
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA3AD]" />
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => query.trim() && setOpen(true)}
+        onKeyDown={onInputKeyDown}
+        placeholder="Search applications, awards, reports…"
+        role="combobox"
+        aria-expanded={showDropdown}
+        aria-controls="global-search-listbox"
+        autoComplete="off"
+        className="w-full rounded-full bg-[#F1F3F5] py-2.5 pl-10 pr-14 text-sm text-[#101828] placeholder:text-[#9AA3AD] focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/30"
+      />
+      {loading ? (
+        <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#9AA3AD]" />
+      ) : (
+        <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-white px-1.5 py-0.5 text-xs text-[#6B7280] shadow-sm">
+          {isMac ? '⌘K' : 'Ctrl+K'}
+        </kbd>
+      )}
+
+      {showDropdown && (
+        <div
+          id="global-search-listbox"
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[70vh] w-[26rem] max-w-[90vw] overflow-y-auto rounded-2xl border border-[#E4E7E6] bg-white py-2 shadow-xl"
+        >
+          {ordered.length === 0 && !loading && (
+            <p className="px-4 py-6 text-center text-sm text-[#9AA3AD]">
+              No results for “{query.trim()}”
+            </p>
+          )}
+          {GROUPS.map((group) => {
+            const rows = results.filter((r) => r.type === group.type)
+            if (rows.length === 0) return null
+            const Icon = group.icon
+            return (
+              <div key={group.type} className="py-1">
+                <p className="px-4 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-[#9AA3AD]">
+                  {group.label}
+                </p>
+                {rows.map((r) => {
+                  const idx = ordered.indexOf(r)
+                  const isActive = idx === active
+                  return (
+                    <Link
+                      key={`${r.type}-${r.id}`}
+                      {...linkProps(r)}
+                      role="option"
+                      aria-selected={isActive}
+                      onMouseEnter={() => setActive(idx)}
+                      onClick={(e) => {
+                        // Let ⌘/Ctrl/Shift-click open in a new tab; only intercept a plain click.
+                        if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                          setOpen(false)
+                          return
+                        }
+                        go(r)
+                      }}
+                      className={`flex items-center gap-3 px-4 py-2 ${isActive ? 'bg-[#F0F6F3]' : ''}`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0 text-[#9AA3AD]" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-[#101828]">
+                          {r.title}
+                        </span>
+                        {r.subtitle && (
+                          <span className="block truncate text-xs text-[#8A939D]">{r.subtitle}</span>
+                        )}
+                      </span>
+                      {r.badge && (
+                        <span className="shrink-0 rounded-full bg-[#F1F3F2] px-2 py-0.5 text-xs font-medium text-[#6B7280]">
+                          {r.badge}
+                        </span>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRound[] }) {
   const navigate = useNavigate()
-  const searchRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const { grey, green } = roundStatusParts(rounds)
 
@@ -77,23 +283,6 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
   useEffect(() => {
     setIsMac(/Mac|iPhone|iPad/.test(navigator.platform))
   }, [])
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        searchRef.current?.focus()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
-
-  function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const q = searchRef.current?.value.trim()
-    navigate({ to: '/applications', search: { q: q || undefined, roundId: undefined } })
-  }
 
   async function handleSignOut() {
     await authClient.signOut()
@@ -111,18 +300,7 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
         <span className="text-[15px] font-semibold text-[#101828]">{orgName}</span>
       </div>
 
-      <form onSubmit={handleSearchSubmit} className="relative w-full max-w-sm">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA3AD]" />
-        <input
-          ref={searchRef}
-          type="search"
-          placeholder="Search applications…"
-          className="w-full rounded-full bg-[#F1F3F5] py-2.5 pl-10 pr-14 text-sm text-[#101828] placeholder:text-[#9AA3AD] focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/30"
-        />
-        <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-white px-1.5 py-0.5 text-xs text-[#6B7280] shadow-sm">
-          {isMac ? '⌘K' : 'Ctrl+K'}
-        </kbd>
-      </form>
+      <GlobalSearch isMac={isMac} />
 
       <div className="flex-1" />
 
