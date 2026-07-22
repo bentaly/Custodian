@@ -43,3 +43,25 @@
     animation: none;
   }
 }
+
+/* Horizontal progress/budget bars grow from the left on load, sharing the tick's
+   easing so the whole app animates with one feel. Staggered via inline delay. */
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.bar-grow {
+  transform-origin: left center;
+  animation: bar-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-grow {
+    animation: none;
+  }
+}

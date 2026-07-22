@@ -12,35 +12,35 @@ import {
   TradeUpIcon,
 } from '@hugeicons/core-free-icons'
 
-// Hard-coded palette lifted from the Figma dashboard design; swapped for theme
-// tokens when the design system lands.
+// Values lifted directly from the Figma sidebar (node 126:31796). #637083 = Gray/500,
+// #E4E7EC = Gray/200, #141C24 = Gray/900 — the real design variables, so matching them
+// exactly now makes the eventual token swap a clean find-and-replace.
 const itemClass =
-  'flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium text-[#5F6B76] hover:bg-[#F0F3F1] hover:text-[#3D4852] [&.active]:bg-[#DFF0E7] [&.active]:text-[#1C6B4F]'
+  'flex items-center gap-3 rounded-xl p-3 text-[14px] font-medium text-[#637083] hover:bg-[#F0F3F1] hover:text-[#3D4852] [&.active]:bg-[#DFF3EA] [&.active]:text-[#1F7A5C]'
 
+// Exact logo mark from Figma (node 126:31799) — the chip background is baked into the SVG.
 function LogoMark() {
   return (
-    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#DFF0E7]">
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-        <path
-          d="M 17.2 7 A 7.5 7.5 0 1 0 17.2 17"
-          fill="none"
-          stroke="#17795A"
-          strokeWidth="5"
-        />
-        <rect x="14.6" y="9.9" width="4.6" height="4.6" fill="#17795A" />
-      </svg>
-    </span>
+    <svg viewBox="0 0 40 40" fill="none" className="h-10 w-10" aria-hidden>
+      <rect width="40" height="40" rx="10" fill="#DFF3EA" />
+      <path
+        d="M20 29C18.22 29 16.4799 28.4722 14.9999 27.4832C13.5198 26.4943 12.3663 25.0887 11.6851 23.4442C11.0039 21.7996 10.8257 19.99 11.1729 18.2442C11.5202 16.4984 12.3774 14.8947 13.636 13.636C14.8947 12.3774 16.4984 11.5202 18.2442 11.1729C19.99 10.8257 21.7996 11.0039 23.4442 11.6851C25.0887 12.3663 26.4943 13.5198 27.4832 14.9999C28.4722 16.4799 29 18.22 29 20"
+        stroke="#1F7A5C"
+        strokeWidth="6"
+      />
+      <rect x="26" y="26" width="6" height="6" fill="#1F7A5C" />
+    </svg>
   )
 }
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-[#EDF0EF] bg-[#FAFBFA]">
-      <div className="flex items-center gap-3 border-b border-[#EDF0EF] px-5 py-4">
+    <aside className="flex w-64 shrink-0 flex-col bg-[#FCFCFC]">
+      <div className="flex h-[74px] items-center gap-2 border-b border-[#E4E7EC] px-4">
         <LogoMark />
-        <span className="text-[19px] font-bold tracking-tight text-[#101828]">Custodian</span>
+        <span className="text-[20px] font-semibold text-[#141C24]">Custodian</span>
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
         <Link to="/dashboard" className={itemClass}>
           <HugeiconsIcon icon={DashboardSquare01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Dashboard

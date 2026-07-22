@@ -34,7 +34,7 @@ function AuthenticatedLayout() {
         <Sidebar isAdmin={isAdmin} />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader user={user} rounds={rounds} />
-          <main className="flex-1 overflow-y-auto p-8">
+          <main className="flex-1 overflow-y-auto bg-white p-8">
             <Outlet />
           </main>
         </div>

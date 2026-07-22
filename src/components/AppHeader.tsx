@@ -193,11 +193,11 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
   const ordered = GROUPS.flatMap((g) => results.filter((r) => r.type === g.type))
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-sm">
+    <div ref={containerRef} className="relative w-[320px] max-w-full">
       <HugeiconsIcon
         icon={Search01Icon}
         strokeWidth={1.5}
-        className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA3AD]"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#637083]"
       />
       <input
         ref={inputRef}
@@ -206,21 +206,21 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => query.trim() && setOpen(true)}
         onKeyDown={onInputKeyDown}
-        placeholder="Search applications, awards, reports…"
+        placeholder="Search grants, partners, reports…"
         role="combobox"
         aria-expanded={showDropdown}
         aria-controls="global-search-listbox"
         autoComplete="off"
-        className="w-full rounded-full bg-[#F1F3F5] py-2.5 pl-10 pr-14 text-sm text-[#101828] placeholder:text-[#9AA3AD] focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/30"
+        className="h-10 w-full rounded-xl bg-[#F2F4F7] pl-9 pr-14 text-[14px] text-[#141C24] placeholder:text-[#637083] focus:outline-none focus:ring-2 focus:ring-[#1F7A5C]/25"
       />
       {loading ? (
         <HugeiconsIcon
           icon={Loading03Icon}
           strokeWidth={1.5}
-          className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#9AA3AD]"
+          className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#637083]"
         />
       ) : (
-        <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-white px-1.5 py-0.5 text-xs text-[#6B7280] shadow-sm">
+        <kbd className="pointer-events-none absolute right-2 top-1/2 flex h-6 -translate-y-1/2 items-center rounded-lg bg-white px-2 text-[12px] font-medium text-[#141C24]">
           {isMac ? '⌘K' : 'Ctrl+K'}
         </kbd>
       )}
@@ -309,36 +309,39 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
   const orgName = user.clientName ?? 'Custodian Platform'
 
   return (
-    <header className="flex items-center gap-4 border-b border-[#EDF0EF] bg-white px-6 py-3">
-      <div className="flex items-center gap-2.5 rounded-xl border border-[#E4E7E6] px-3 py-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#F1F3F2] text-xs font-semibold text-[#4B5563]">
-          {initials(orgName)}
-        </span>
-        <span className="text-[15px] font-semibold text-[#101828]">{orgName}</span>
+    <header className="flex h-[74px] items-center justify-between gap-4 border-b border-[#E4E7EC] bg-white px-4">
+      <div className="flex items-center gap-3">
+        {/* Org switcher — Figma 126:31875 */}
+        <div className="flex items-center gap-2 rounded-xl border border-[#E4E7EC] bg-white py-1 pl-1 pr-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F2F4F7] text-[14px] font-semibold text-[#141C24]">
+            {initials(orgName)}
+          </span>
+          <span className="text-[14px] font-medium text-[#141C24]">{orgName}</span>
+          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={1.5} className="h-4 w-4 text-[#637083]" />
+        </div>
+
+        <GlobalSearch isMac={isMac} />
       </div>
 
-      <GlobalSearch isMac={isMac} />
+      <div className="flex items-center gap-4">
+        {(grey || green) && (
+          <p className="hidden whitespace-nowrap text-[12px] font-medium lg:block">
+            {grey && <span className="text-[#97A1AF]">{grey}</span>}
+            {grey && green && <span className="text-[#97A1AF]"> · </span>}
+            {green && <span className="text-[#1F7A5C]">{green}</span>}
+          </p>
+        )}
 
-      <div className="flex-1" />
-
-      {(grey || green) && (
-        <p className="hidden whitespace-nowrap text-sm lg:block">
-          {grey && <span className="text-[#8A939D]">{grey}</span>}
-          {grey && green && <span className="text-[#8A939D]"> · </span>}
-          {green && <span className="font-medium text-[#1D9E75]">{green}</span>}
-        </p>
-      )}
-
-      <div className="relative">
-        <button
-          onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-1.5 rounded-full p-1 hover:bg-[#F0F3F1]"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DFF0E7] text-xs font-semibold text-[#1C6B4F]">
-            {initials(user.name)}
-          </span>
-          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={1.5} className="h-4 w-4 text-[#9AA3AD]" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="flex items-center gap-1 rounded-[20px] border border-[#E4E7EC] bg-white py-1 pl-1 pr-2 hover:bg-[#F7F8FA]"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DFF3EA] text-xs font-semibold text-[#1F7A5C]">
+              {initials(user.name)}
+            </span>
+            <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={1.5} className="h-4 w-4 text-[#637083]" />
+          </button>
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
@@ -359,6 +362,7 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
             </div>
           </>
         )}
+        </div>
       </div>
     </header>
   )

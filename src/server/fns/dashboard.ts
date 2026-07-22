@@ -16,6 +16,7 @@ import {
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
+import { bucketSeries } from '../../lib/timeSeries'
 
 // ISO yyyy-mm-dd in UTC for a given Date — grant payment/report due dates are stored
 // as plain date strings, so we compare against the same representation.
@@ -92,7 +93,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     paymentTotalsRows,
     trusteeCountRows,
     givingBucketRows,
-    givingMonthlyRows,
+    givingEventsRows,
     paymentsThisMonthRows,
     reportsToReviewRows,
     latelyRows,
@@ -301,11 +302,12 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .from(awards)
       .where(awardScope),
 
-    // Awarded amounts this calendar year, for the monthly giving series (bucketed in JS).
+    // Every award's decision date + amount — the raw events the giving chart buckets
+    // adaptively per range (day/week/month/quarter/year, chosen from the span).
     getDb()
       .select({ decisionAt: awards.decisionAt, amount: awards.amountAwarded })
       .from(awards)
-      .where(and(awardScope, sql`${awards.decisionAt} >= ${yearStart}`)),
+      .where(awardScope),
 
     // Unpaid instalments falling due this calendar month (Finance KPI).
     getDb()
@@ -585,13 +587,17 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   const reportsToReview = reportsToReviewRows[0]?.count ?? 0
 
   // ── Giving so far (awards.decisionAt) ────────────────────────────────────
-  const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const monthly = MONTH_LABELS.slice(0, now.getUTCMonth() + 1).map((label) => ({ label, amount: 0 }))
-  for (const r of givingMonthlyRows) {
-    if (!r.decisionAt) continue
-    const m = new Date(r.decisionAt).getUTCMonth()
-    if (m <= now.getUTCMonth()) monthly[m]!.amount += parseFloat(r.amount)
-  }
+  // Raw award events → adaptively-bucketed chart series per range. Bucket size is
+  // chosen from each range's span (a 3-week quarter resolves to weeks/days; a
+  // multi-year all-time window to months/quarters), so the line never collapses to
+  // a single point when the window is short.
+  const givingEvents = givingEventsRows
+    .filter((r) => r.decisionAt)
+    .map((r) => ({ date: new Date(r.decisionAt), amount: parseFloat(r.amount) }))
+  const firstAwardDate = givingEvents.reduce(
+    (min, e) => (e.date < min ? e.date : min),
+    givingEvents[0]?.date ?? yearStart,
+  )
   const ytd = parseFloat(givingBucketRows[0]?.ytd ?? '0')
   const lastYtd = parseFloat(givingBucketRows[0]?.lastYtd ?? '0')
   const giving = {
@@ -600,7 +606,11 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     quarter: parseFloat(givingBucketRows[0]?.quarter ?? '0'),
     yoyDelta: ytd - lastYtd,
     grants: Number(givingBucketRows[0]?.grants ?? 0),
-    monthly,
+    series: {
+      quarter: bucketSeries(givingEvents.filter((e) => e.date >= quarterStart), quarterStart, now),
+      ytd: bucketSeries(givingEvents.filter((e) => e.date >= yearStart), yearStart, now),
+      allTime: bucketSeries(givingEvents, firstAwardDate, now),
+    },
   }
 
   // ── Lately feed (audit log) ──────────────────────────────────────────────
@@ -709,7 +719,11 @@ function emptyDashboard(name: string) {
       quarter: 0,
       yoyDelta: 0,
       grants: 0,
-      monthly: [] as Array<{ label: string; amount: number }>,
+      series: {
+        quarter: [] as Array<{ label: string; amount: number }>,
+        ytd: [] as Array<{ label: string; amount: number }>,
+        allTime: [] as Array<{ label: string; amount: number }>,
+      },
     },
     lately: [] as Array<{
       id: string

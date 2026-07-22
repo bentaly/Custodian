@@ -12,6 +12,10 @@ import {
   CheckmarkCircle02Icon,
 } from '@hugeicons/core-free-icons'
 import { Card as UiCard } from '../../components/ui'
+import { BarMeter, type BarSegment, withAlpha } from '../../components/BarMeter'
+import { ProgressBar } from '../../components/ProgressBar'
+import { Donut, type DonutSlice } from '../../components/charts/Donut'
+import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>
@@ -100,7 +104,7 @@ const plural = (n: number) => (n !== 1 ? 's' : '')
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div
-      className={`rounded-2xl border bg-white p-5 ${className}`}
+      className={`rounded-2xl border bg-white p-4 ${className}`}
       style={{ borderColor: C.line }}
     >
       {children}
@@ -108,34 +112,14 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
   )
 }
 
+// Panel heading — Figma: Inter Display, 16px, medium, Gray/900.
 function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h2 className="text-[15px] font-semibold" style={{ color: C.ink }}>
+      <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
         {children}
       </h2>
       {right}
-    </div>
-  )
-}
-
-// A decorative bar strip behind each KPI — a light→accent gradient of thin bars.
-// Deterministic heights so it's stable across renders; purely a visual motif.
-function SparkStrip({ accent }: { accent: string }) {
-  const n = 30
-  return (
-    <div className="mt-3 flex h-8 items-end gap-[3px]">
-      {Array.from({ length: n }).map((_, i) => {
-        const h = 45 + Math.round(38 * Math.abs(Math.sin(i * 0.9 + 1)) + (i / n) * 18)
-        const t = i / (n - 1)
-        return (
-          <span
-            key={i}
-            className="flex-1 rounded-sm"
-            style={{ height: `${Math.min(100, h)}%`, backgroundColor: accent, opacity: 0.35 + t * 0.55 }}
-          />
-        )
-      })}
     </div>
   )
 }
@@ -166,6 +150,7 @@ function KpiCard({
   label,
   to,
   search,
+  meter,
   children,
 }: {
   tint: { bg: string; border: string; accent: string }
@@ -176,145 +161,50 @@ function KpiCard({
   label: string
   to: string
   search?: Record<string, unknown>
+  meter: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <Link
       to={to}
       search={search}
-      className="flex flex-col rounded-2xl border p-4 transition-shadow hover:shadow-sm"
-      style={{ backgroundColor: tint.bg, borderColor: tint.border }}
+      className="flex flex-col rounded-[20px] border bg-white p-1 transition-shadow hover:shadow-sm"
+      style={{ borderColor: C.line }}
     >
-      <div className="text-[30px] font-semibold leading-none" style={{ color: C.ink }}>
-        {value}
+      {/* Tinted inner panel (Figma 112:134) — inset 4px, holds the number/meter/chips. */}
+      <div className="relative overflow-hidden rounded-2xl p-4" style={{ backgroundColor: tint.bg }}>
+        {/* Figma "Mask group" (112:802): a radial accent gradient shown *through* a dot
+            grid — the gradient is the fill, the dots are the mask. Top-right, offset up. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 -translate-y-[17%]"
+          style={{
+            backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(tint.accent, 0.5)} 0%, ${withAlpha(tint.accent, 0)} 100%)`,
+            WebkitMaskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
+            maskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
+            WebkitMaskSize: '7px 7px',
+            maskSize: '7px 7px',
+          }}
+        />
+        <div className="relative z-10">
+          <div className="text-[30px] font-semibold leading-none" style={{ color: C.ink }}>
+            {value}
+          </div>
+          <div className="mt-1.5 text-xs font-medium" style={{ color: subColor ?? C.sub }}>
+            {sub}
+          </div>
+          <div className="mt-3">{meter}</div>
+          {children}
+        </div>
       </div>
-      <div className="mt-1.5 text-xs font-medium" style={{ color: subColor ?? C.sub }}>
-        {sub}
-      </div>
-      <SparkStrip accent={tint.accent} />
-      {children}
-      <div className="mt-3 flex items-center gap-2 border-t pt-3" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+      {/* Footer on the white card. */}
+      <div className="flex items-center gap-2 px-4 py-3">
         <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
-        <span className="text-[13px] font-medium" style={{ color: C.body }}>
+        <span className="text-[13px] font-medium" style={{ color: C.ink }}>
           {label}
         </span>
       </div>
     </Link>
-  )
-}
-
-// ─── Round-by-programme donut ────────────────────────────────────────────────────
-
-function RoundDonut({
-  segments,
-  budget,
-  committed,
-}: {
-  segments: Array<{ amount: number; color: string }>
-  budget: number
-  committed: number
-}) {
-  const r = 52
-  const circ = 2 * Math.PI * r
-  const denom = budget > 0 ? budget : Math.max(committed, 1)
-  const pct = budget > 0 ? Math.round((committed / budget) * 100) : 0
-  const left = Math.max(0, budget - committed)
-
-  let offset = 0
-  const arcs = segments
-    .filter((s) => s.amount > 0)
-    .map((s, i) => {
-      const len = (s.amount / denom) * circ
-      const el = (
-        <circle
-          key={i}
-          cx="70"
-          cy="70"
-          r={r}
-          fill="none"
-          stroke={s.color}
-          strokeWidth="16"
-          strokeDasharray={`${len} ${circ - len}`}
-          strokeDashoffset={-offset}
-          strokeLinecap="butt"
-        />
-      )
-      offset += len
-      return el
-    })
-
-  return (
-    <div className="relative h-[140px] w-[140px] shrink-0">
-      <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
-        <circle cx="70" cy="70" r={r} fill="none" stroke={ALLOCATE_LEFT} strokeWidth="16" />
-        {arcs}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-2xl font-semibold" style={{ color: C.ink }}>
-          {pct}%
-        </div>
-        <div className="mt-0.5 text-center text-[11px] leading-tight" style={{ color: C.sub }}>
-          {fmtCompact(left)} left
-          <br />
-          to allocate
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Giving chart (monthly area) ─────────────────────────────────────────────────
-
-function GivingChart({ data }: { data: Array<{ label: string; amount: number }> }) {
-  const W = 640
-  const H = 200
-  const padL = 40
-  const padR = 8
-  const padT = 12
-  const padB = 24
-  const rawMax = Math.max(1, ...data.map((d) => d.amount))
-  // Round the axis up to a "nice" step so gridlines read cleanly.
-  const step = rawMax > 400_000 ? 200_000 : rawMax > 100_000 ? 100_000 : rawMax > 20_000 ? 20_000 : 5_000
-  const max = Math.ceil(rawMax / step) * step
-  const ticks = 4
-  const n = data.length
-  const x = (i: number) => (n <= 1 ? padL : padL + (i * (W - padL - padR)) / (n - 1))
-  const y = (v: number) => padT + (1 - v / max) * (H - padT - padB)
-  const pts = data.map((d, i) => `${x(i)},${y(d.amount)}`)
-  const line = pts.length ? `M${pts.join(' L')}` : ''
-  const area = pts.length ? `M${x(0)},${H - padB} L${pts.join(' L')} L${x(n - 1)},${H - padB} Z` : ''
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-52 w-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="givingFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#8B7FF0" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="#8B7FF0" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {Array.from({ length: ticks + 1 }).map((_, i) => {
-        const v = (max / ticks) * (ticks - i)
-        const yy = y(v)
-        return (
-          <g key={i}>
-            <line x1={padL} y1={yy} x2={W - padR} y2={yy} stroke={C.line} strokeWidth="1" strokeDasharray="2 3" />
-            <text x={padL - 6} y={yy + 3} textAnchor="end" fontSize="9" fill={C.faint}>
-              {v >= 1000 ? `${Math.round(v / 1000)}k` : Math.round(v)}
-            </text>
-          </g>
-        )
-      })}
-      {area && <path d={area} fill="url(#givingFill)" />}
-      {line && <path d={line} fill="none" stroke="#8B7FF0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-      {data.map((d, i) => (
-        <circle key={i} cx={x(i)} cy={y(d.amount)} r="2.5" fill="#8B7FF0" />
-      ))}
-      {data.map((d, i) => (
-        <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="9" fill={C.faint}>
-          {d.label}
-        </text>
-      ))}
-    </svg>
   )
 }
 
@@ -407,18 +297,44 @@ function Dashboard() {
   if (d.reportsToReview > 0)
     desk.push({ icon: File01Icon, iconTint: { bg: KPI.reports.bg, accent: KPI.reports.accent }, lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`, rest: 'to review', tag: 'Reports', to: '/reports' })
 
-  // ── Round donut segments ────────────────────────────────────────────────────
-  const segments = (round?.programmes ?? []).map((p, i) => ({ amount: p.committed, color: PROG_COLORS[i % PROG_COLORS.length]! }))
+  // ── Round donut data (per-programme committed + an "unallocated" remainder) ──
+  const donutData: DonutSlice[] = round
+    ? [
+        ...round.programmes.map((p, i) => ({ name: p.name, value: p.committed, color: PROG_COLORS[i % PROG_COLORS.length]! })),
+        { name: 'Unallocated', value: Math.max(0, round.budget - round.committed), color: ALLOCATE_LEFT },
+      ]
+    : []
+  const roundPct = round && round.budget > 0 ? Math.round((round.committed / round.budget) * 100) : 0
+  const roundLeft = round ? Math.max(0, round.budget - round.committed) : 0
   const roundDaysLeft = daysUntil(round?.closedAt)
 
+  // KPI category breakdowns — one source for both the chips and the bar-meter, so the
+  // strip's colours always match the legend beneath it.
+  const appsCats: Chip[] = [
+    { label: 'to review', count: d.pipeline.for_review, color: KPI.apps.accent },
+    { label: 'shortlisted', count: d.pipeline.shortlisted, color: withAlpha(KPI.apps.accent, 0.45) },
+    { label: 'awarded', count: d.pipeline.awarded, color: C.success },
+    { label: 'declined', count: d.pipeline.declined, color: C.danger },
+  ]
+  const reviewCats: Chip[] = [
+    { label: 'approved', count: a.readyToAward.count, color: C.success },
+    { label: 'to vote', count: d.awaitingVotes, color: C.warning },
+  ]
+  const reportsCats: Chip[] = [
+    { label: 'to review', count: d.reportsToReview, color: C.info },
+    { label: 'overdue', count: a.reportsOverdue.count, color: C.danger },
+  ]
+  const toSegments = (cats: Chip[]): BarSegment[] => cats.map((c) => ({ value: c.count, color: c.color }))
+  const financeDenom = d.money.paidToDate + d.money.outstanding
+  const financeProgress = financeDenom > 0 ? d.money.paidToDate / financeDenom : 0
+
   return (
-    <div className="space-y-5">
-      {/* Greeting */}
-      <div>
-        <h1 className="text-[26px] font-semibold tracking-tight" style={{ color: C.ink }}>
-          {greeting()}, {firstName(d.name)}.
-        </h1>
-      </div>
+    <div className="space-y-4">
+      {/* Greeting — Figma: 20px medium, prefix grey (#97A1AF), name Gray/900 */}
+      <h1 className="font-display text-[20px] font-medium">
+        <span style={{ color: '#97A1AF' }}>{greeting()}, </span>
+        <span style={{ color: C.ink }}>{firstName(d.name)}</span>
+      </h1>
 
       {/* KPI candy row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -431,15 +347,9 @@ function Dashboard() {
           label="Applications"
           to="/applications"
           search={{ roundId: undefined }}
+          meter={<BarMeter segments={toSegments(appsCats)} color={KPI.apps.accent} />}
         >
-          <Chips
-            chips={[
-              { label: 'to review', count: d.pipeline.for_review, color: C.info },
-              { label: 'shortlisted', count: d.pipeline.shortlisted, color: C.warning },
-              { label: 'awarded', count: d.pipeline.awarded, color: C.success },
-              { label: 'declined', count: d.pipeline.declined, color: C.faint },
-            ]}
-          />
+          <Chips chips={appsCats} />
         </KpiCard>
 
         <KpiCard
@@ -450,13 +360,9 @@ function Dashboard() {
           label="Review"
           to="/shortlist"
           search={{ roundId: undefined }}
+          meter={<BarMeter segments={toSegments(reviewCats)} color={KPI.review.accent} />}
         >
-          <Chips
-            chips={[
-              { label: 'approved', count: a.readyToAward.count, color: C.success },
-              { label: 'to vote', count: d.awaitingVotes, color: C.warning },
-            ]}
-          />
+          <Chips chips={reviewCats} />
         </KpiCard>
 
         <KpiCard
@@ -467,6 +373,7 @@ function Dashboard() {
           label="Finance"
           to="/awards"
           search={{ roundId: undefined }}
+          meter={<BarMeter progress={financeProgress} color={KPI.finance.accent} />}
         >
           {/* TODO: bank-detail validation status (no verification model yet) */}
           <p className="mt-3 text-xs italic" style={{ color: C.faint }}>
@@ -482,18 +389,14 @@ function Dashboard() {
           icon={File01Icon}
           label="Reports"
           to="/reports"
+          meter={<BarMeter segments={toSegments(reportsCats)} color={KPI.reports.accent} />}
         >
-          <Chips
-            chips={[
-              { label: 'to review', count: d.reportsToReview, color: C.info },
-              { label: 'overdue', count: a.reportsOverdue.count, color: C.danger },
-            ]}
-          />
+          <Chips chips={reportsCats} />
         </KpiCard>
       </div>
 
       {/* On your desk + Round */}
-      <div className="grid gap-5 lg:grid-cols-[2fr_3fr]">
+      <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
         <Panel>
           <PanelTitle>On your desk</PanelTitle>
           {desk.length === 0 ? (
@@ -531,34 +434,46 @@ function Dashboard() {
                 {fmtCompact(round.committed)} committed of {fmtCompact(round.budget)} budget
               </p>
               <div className="flex items-center gap-6">
-                <RoundDonut segments={segments} budget={round.budget} committed={round.committed} />
+                <Donut
+                  data={donutData}
+                  center={
+                    <>
+                      <div className="text-2xl font-semibold" style={{ color: C.ink }}>
+                        {roundPct}%
+                      </div>
+                      <div className="mt-0.5 text-center text-[11px] leading-tight" style={{ color: C.sub }}>
+                        {fmtCompact(roundLeft)} left
+                        <br />
+                        to allocate
+                      </div>
+                    </>
+                  }
+                />
                 <div className="min-w-0 flex-1 space-y-3.5">
                   {round.programmes.length === 0 && (
                     <p className="text-sm" style={{ color: C.faint }}>
                       No programmes in this round yet.
                     </p>
                   )}
-                  {round.programmes.map((p, i) => {
-                    const pct = p.budget > 0 ? Math.min(100, Math.round((p.committed / p.budget) * 100)) : 0
-                    return (
-                      <div key={p.name}>
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="truncate text-[13px] font-medium" style={{ color: C.body }}>
-                            {p.name}
-                          </span>
-                          <span className="shrink-0 text-xs" style={{ color: C.sub }}>
-                            {fmtCompact(p.committed)} / {fmtCompact(p.budget)}
-                          </span>
-                        </div>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: C.wash }}>
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${pct}%`, backgroundColor: PROG_COLORS[i % PROG_COLORS.length] }}
-                          />
-                        </div>
+                  {round.programmes.map((p, i) => (
+                    <div key={p.name}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-[13px] font-medium" style={{ color: C.body }}>
+                          {p.name}
+                        </span>
+                        <span className="shrink-0 text-xs" style={{ color: C.sub }}>
+                          {fmtCompact(p.committed)} / {fmtCompact(p.budget)}
+                        </span>
                       </div>
-                    )
-                  })}
+                      <ProgressBar
+                        className="mt-1.5"
+                        value={p.budget > 0 ? p.committed / p.budget : 0}
+                        color={PROG_COLORS[i % PROG_COLORS.length]!}
+                        track={C.wash}
+                        delay={i * 90}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
             </>
@@ -574,7 +489,7 @@ function Dashboard() {
       </div>
 
       {/* Giving + Lately */}
-      <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Panel>
           <GivingSoFar giving={d.giving} />
         </Panel>
@@ -646,11 +561,12 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
     { key: 'allTime', label: 'All time' },
   ] as const
   const headline = giving[range]
+  const series = giving.series[range]
 
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[15px] font-semibold" style={{ color: C.ink }}>
+        <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
           Giving so far
         </h2>
         <div className="inline-flex rounded-lg p-0.5" style={{ backgroundColor: C.wash }}>
@@ -686,11 +602,11 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
       </p>
 
       <div className="mt-4">
-        {giving.monthly.length > 0 ? (
-          <GivingChart data={giving.monthly} />
+        {series.length > 0 ? (
+          <GivingArea data={series} />
         ) : (
           <p className="py-10 text-center text-sm" style={{ color: C.faint }}>
-            No giving recorded this year yet.
+            No giving recorded in this period yet.
           </p>
         )}
       </div>
