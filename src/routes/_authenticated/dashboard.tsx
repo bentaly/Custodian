@@ -393,13 +393,6 @@ function Dashboard() {
   const a = d.attention
   const round = d.focusRoundBreakdown
 
-  // ── Greeting subtitle: year-on-year giving ─────────────────────────────────
-  const delta = d.giving.yoyDelta
-  const yoy =
-    delta === 0
-      ? null
-      : `giving is ${fmtCompact(Math.abs(delta))} ${delta > 0 ? 'ahead of' : 'behind'} this time last year`
-
   // ── "On your desk" — the attention queue as narrated actions ────────────────
   const paymentsDue = a.paymentsOverdue.count + a.paymentsDueSoon.count
   const desk: Array<React.ComponentProps<typeof DeskRow>> = []
@@ -421,26 +414,17 @@ function Dashboard() {
   return (
     <div className="space-y-5">
       {/* Greeting */}
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div>
         <h1 className="text-[26px] font-semibold tracking-tight" style={{ color: C.ink }}>
           {greeting()}, {firstName(d.name)}.
         </h1>
-        {yoy && (
-          <p className="text-sm" style={{ color: C.sub }}>
-            {yoy.split(fmtCompact(Math.abs(delta)))[0]}
-            <span className="font-semibold" style={{ color: delta > 0 ? C.success : C.danger }}>
-              {fmtCompact(Math.abs(delta))}
-            </span>
-            {yoy.split(fmtCompact(Math.abs(delta)))[1]}
-          </p>
-        )}
       </div>
 
       {/* KPI candy row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           tint={KPI.apps}
-          value={String(d.pipeline.for_review + d.pipeline.shortlisted + d.pipeline.declined)}
+          value={String(d.pipeline.total)}
           sub={`+${d.submittedThisWeek} this week`}
           subColor={C.success}
           icon={Files01Icon}
@@ -451,7 +435,8 @@ function Dashboard() {
           <Chips
             chips={[
               { label: 'to review', count: d.pipeline.for_review, color: C.info },
-              { label: 'shortlisted', count: d.pipeline.shortlisted, color: C.success },
+              { label: 'shortlisted', count: d.pipeline.shortlisted, color: C.warning },
+              { label: 'awarded', count: d.pipeline.awarded, color: C.success },
               { label: 'declined', count: d.pipeline.declined, color: C.faint },
             ]}
           />
