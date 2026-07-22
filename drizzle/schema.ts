@@ -707,6 +707,46 @@ export const reports = pgTable('reports', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// ─── Audit log ──────────────────────────────────────────────────────────────
+
+// Human actions taken inside the platform, recorded uniformly for the dashboard
+// "Lately" feed and any future history views. Deliberately narrow: only *people*
+// doing interesting things (awarding, declining, shortlisting, commenting). It does
+// NOT record external submissions (a charity applying/reporting) or system/AI events
+// (scoring, due diligence) — those are derivable from their own timestamped rows and
+// aren't "someone did something" moments. New action types are added to the enum.
+export const auditActionEnum = pgEnum('audit_action', [
+  'application_awarded',
+  'application_declined',
+  'application_shortlisted',
+  'application_commented',
+])
+
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Tenant that owns the acted-on entity — the feed is read per client. Resolved
+    // from the application (not the actor) so it lands on the right dashboard even
+    // when a superadmin acts across tenants.
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    // The person who performed the action. `set null` keeps the history when a user
+    // is deleted (rendered as an anonymous actor rather than vanishing).
+    actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+    action: auditActionEnum('action').notNull(),
+    // The application the action concerns. Every current action is application-scoped;
+    // nullable to leave room for future non-application events.
+    applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'cascade' }),
+    // Small action-specific extras (e.g. `{ amount }` for an award) so the feed can
+    // render without extra joins.
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('audit_log_client_created_idx').on(t.clientId, t.createdAt)],
+)
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -843,4 +883,13 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
   user: one(users, { fields: [accounts.userId], references: [users.id] }),
+}))
+
+export const auditLogRelations = relations(auditLog, ({ one }) => ({
+  client: one(clients, { fields: [auditLog.clientId], references: [clients.id] }),
+  actor: one(users, { fields: [auditLog.actorUserId], references: [users.id] }),
+  application: one(applications, {
+    fields: [auditLog.applicationId],
+    references: [applications.id],
+  }),
 }))

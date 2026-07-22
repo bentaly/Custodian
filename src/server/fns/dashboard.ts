@@ -12,6 +12,7 @@ import {
   awardInstalments,
   reportSchedule,
   reports,
+  auditLog,
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
@@ -58,6 +59,17 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   const soonIso = isoDate(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000))
   // Submissions trend window: the last 12 ISO weeks.
   const trendStart = new Date(now.getTime() - 12 * 7 * 24 * 60 * 60 * 1000)
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  // Giving time windows (bucketed on awards.decisionAt). "This time last year" is the
+  // same calendar day one year back, so the YoY comparison is like-for-like to date.
+  const y = now.getUTCFullYear()
+  const yearStart = new Date(Date.UTC(y, 0, 1))
+  const lastYearStart = new Date(Date.UTC(y - 1, 0, 1))
+  const lastYearToDate = new Date(Date.UTC(y - 1, now.getUTCMonth(), now.getUTCDate(), 23, 59, 59))
+  const quarterStart = new Date(Date.UTC(y, Math.floor(now.getUTCMonth() / 3) * 3, 1))
+  const monthStartIso = isoDate(new Date(Date.UTC(y, now.getUTCMonth(), 1)))
+  const monthEndIso = isoDate(new Date(Date.UTC(y, now.getUTCMonth() + 1, 1)))
 
   const clientId = user.clientId
   const awardScope = clientId ? eq(awards.clientId, clientId) : undefined
@@ -79,6 +91,11 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     paymentRows,
     paymentTotalsRows,
     trusteeCountRows,
+    givingBucketRows,
+    givingMonthlyRows,
+    paymentsThisMonthRows,
+    reportsToReviewRows,
+    latelyRows,
   ] = await Promise.all([
     // Pipeline counts by status.
     getDb()
@@ -270,6 +287,80 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
           .from(users)
           .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId)))
       : Promise.resolve([{ count: 0 }]),
+
+    // Giving buckets (on awards.decisionAt): all-time / YTD / this year to last year /
+    // this quarter, plus a grant count — all for the "Giving so far" panel + YoY line.
+    getDb()
+      .select({
+        allTime: sql<string>`COALESCE(SUM(${awards.amountAwarded}), '0')`,
+        ytd: sql<string>`COALESCE(SUM(${awards.amountAwarded}) FILTER (WHERE ${awards.decisionAt} >= ${yearStart}), '0')`,
+        lastYtd: sql<string>`COALESCE(SUM(${awards.amountAwarded}) FILTER (WHERE ${awards.decisionAt} >= ${lastYearStart} AND ${awards.decisionAt} <= ${lastYearToDate}), '0')`,
+        quarter: sql<string>`COALESCE(SUM(${awards.amountAwarded}) FILTER (WHERE ${awards.decisionAt} >= ${quarterStart}), '0')`,
+        grants: sql<number>`COUNT(*)`,
+      })
+      .from(awards)
+      .where(awardScope),
+
+    // Awarded amounts this calendar year, for the monthly giving series (bucketed in JS).
+    getDb()
+      .select({ decisionAt: awards.decisionAt, amount: awards.amountAwarded })
+      .from(awards)
+      .where(and(awardScope, sql`${awards.decisionAt} >= ${yearStart}`)),
+
+    // Unpaid instalments falling due this calendar month (Finance KPI).
+    getDb()
+      .select({
+        amount: sql<string>`COALESCE(SUM(${awardInstalments.amount}), '0')`,
+        cnt: sql<number>`COUNT(*)`,
+      })
+      .from(awardInstalments)
+      .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
+      .where(
+        and(
+          awardScope,
+          sql`${awardInstalments.paidDate} IS NULL`,
+          sql`${awardInstalments.dueDate} >= ${monthStartIso}`,
+          sql`${awardInstalments.dueDate} < ${monthEndIso}`,
+        ),
+      ),
+
+    // Reports received but not yet signed off (Reports KPI: "to review").
+    clientId
+      ? getDb()
+          .select({ count: count() })
+          .from(reports)
+          .where(and(eq(reports.clientId, clientId), sql`${reports.reviewedAt} IS NULL`))
+      : Promise.resolve([{ count: 0 }]),
+
+    // "Lately" feed — human actions from the audit log, newest first.
+    clientId
+      ? getDb()
+          .select({
+            id: auditLog.id,
+            action: auditLog.action,
+            applicationId: auditLog.applicationId,
+            metadata: auditLog.metadata,
+            at: auditLog.createdAt,
+            actorName: users.name,
+            organisationName: applications.organisationName,
+          })
+          .from(auditLog)
+          .leftJoin(users, eq(auditLog.actorUserId, users.id))
+          .leftJoin(applications, eq(auditLog.applicationId, applications.id))
+          .where(eq(auditLog.clientId, clientId))
+          .orderBy(desc(auditLog.createdAt))
+          .limit(8)
+      : Promise.resolve(
+          [] as Array<{
+            id: string
+            action: string
+            applicationId: string | null
+            metadata: Record<string, unknown> | null
+            at: Date
+            actorName: string | null
+            organisationName: string | null
+          }>,
+        ),
   ])
 
   // ── Pipeline ──────────────────────────────────────────────────────────────
@@ -323,9 +414,10 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
   let roundsOut: DashboardRound[] = []
   let funnel: DashboardFunnel | null = null
+  let focusRoundBreakdown: DashboardRoundBreakdown | null = null
   if (roundRows.length > 0) {
     const roundIds = roundRows.map((r) => r.id)
-    const [appCountRows, budgetRows, funnelRows] = await Promise.all([
+    const [appCountRows, budgetRows, funnelRows, focusProgrammeRows] = await Promise.all([
       getDb()
         .select({ roundId: roundProgrammes.roundId, count: count() })
         .from(applications)
@@ -352,6 +444,21 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
             .where(eq(roundProgrammes.roundId, focusRound.id))
             .groupBy(applications.status)
         : Promise.resolve([] as Array<{ status: string; count: number }>),
+      // Per-programme budget + committed for the focus round (the round rail donut/bars).
+      focusRound
+        ? getDb()
+            .select({
+              programmeName: programmes.name,
+              budget: sql<string>`COALESCE(${roundProgrammes.budget}, '0')`,
+              committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
+            })
+            .from(roundProgrammes)
+            .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
+            .leftJoin(applications, eq(applications.roundProgrammeId, roundProgrammes.id))
+            .leftJoin(awards, eq(awards.applicationId, applications.id))
+            .where(eq(roundProgrammes.roundId, focusRound.id))
+            .groupBy(programmes.name, roundProgrammes.budget)
+        : Promise.resolve([] as Array<{ programmeName: string; budget: string; committed: string }>),
     ])
     const appCountByRound = new Map(appCountRows.map((r) => [r.roundId, r.count]))
     const budgetByRound = new Map(budgetRows.map((r) => [r.roundId, r]))
@@ -379,6 +486,22 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
         shortlisted: (fc.shortlisted ?? 0) + awarded,
         awarded,
         declined: fc.declined ?? 0,
+      }
+
+      const programmesOut = focusProgrammeRows
+        .map((r) => ({
+          name: r.programmeName,
+          budget: parseFloat(r.budget),
+          committed: parseFloat(r.committed),
+        }))
+        .sort((a, b) => b.budget - a.budget)
+      focusRoundBreakdown = {
+        roundId: focusRound.id,
+        roundName: focusRound.name,
+        closedAt: focusRound.closedAt,
+        budget: programmesOut.reduce((s, p) => s + p.budget, 0),
+        committed: programmesOut.reduce((s, p) => s + p.committed, 0),
+        programmes: programmesOut,
       }
     }
   }
@@ -450,6 +573,47 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
     .slice(0, 8)
 
+  // ── KPI extras ───────────────────────────────────────────────────────────
+  const submittedThisWeek = submissionRows.filter(
+    (r) => r.submittedAt && new Date(r.submittedAt) >= weekAgo,
+  ).length
+  const awaitingVotes = shortlist.filter((s) => !s.hasMajority).length
+  const paymentsThisMonth = {
+    count: Number(paymentsThisMonthRows[0]?.cnt ?? 0),
+    amount: parseFloat(paymentsThisMonthRows[0]?.amount ?? '0'),
+  }
+  const reportsToReview = reportsToReviewRows[0]?.count ?? 0
+
+  // ── Giving so far (awards.decisionAt) ────────────────────────────────────
+  const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const monthly = MONTH_LABELS.slice(0, now.getUTCMonth() + 1).map((label) => ({ label, amount: 0 }))
+  for (const r of givingMonthlyRows) {
+    if (!r.decisionAt) continue
+    const m = new Date(r.decisionAt).getUTCMonth()
+    if (m <= now.getUTCMonth()) monthly[m]!.amount += parseFloat(r.amount)
+  }
+  const ytd = parseFloat(givingBucketRows[0]?.ytd ?? '0')
+  const lastYtd = parseFloat(givingBucketRows[0]?.lastYtd ?? '0')
+  const giving = {
+    allTime: parseFloat(givingBucketRows[0]?.allTime ?? '0'),
+    ytd,
+    quarter: parseFloat(givingBucketRows[0]?.quarter ?? '0'),
+    yoyDelta: ytd - lastYtd,
+    grants: Number(givingBucketRows[0]?.grants ?? 0),
+    monthly,
+  }
+
+  // ── Lately feed (audit log) ──────────────────────────────────────────────
+  const lately = latelyRows.map((r) => ({
+    id: r.id,
+    action: r.action,
+    applicationId: r.applicationId,
+    organisationName: r.organisationName,
+    actorName: r.actorName,
+    amount: typeof r.metadata?.amount === 'number' ? (r.metadata.amount as number) : null,
+    at: r.at,
+  }))
+
   // Open round context for the greeting subtitle.
   const openRound = roundsOut.find((r) => {
     const opened = r.openedAt ? new Date(r.openedAt) <= now : false
@@ -467,6 +631,13 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     submissionsTrend,
     rounds: roundsOut,
     funnel,
+    focusRoundBreakdown,
+    submittedThisWeek,
+    awaitingVotes,
+    paymentsThisMonth,
+    reportsToReview,
+    giving,
+    lately,
     attention: {
       toReview: { count: pipeline.for_review, items: reviewRows },
       awaitingMyVote: { count: awaitingMyVote.length, items: awaitingMyVote.slice(0, 5) },
@@ -501,6 +672,15 @@ type DashboardFunnel = {
   declined: number
 }
 
+type DashboardRoundBreakdown = {
+  roundId: string
+  roundName: string
+  closedAt: Date | null
+  budget: number
+  committed: number
+  programmes: Array<{ name: string; budget: number; committed: number }>
+}
+
 function emptyDashboard(name: string) {
   return {
     name,
@@ -518,6 +698,28 @@ function emptyDashboard(name: string) {
     submissionsTrend: [] as Array<{ weekStart: string; count: number }>,
     rounds: [] as DashboardRound[],
     funnel: null as DashboardFunnel | null,
+    focusRoundBreakdown: null as DashboardRoundBreakdown | null,
+    submittedThisWeek: 0,
+    awaitingVotes: 0,
+    paymentsThisMonth: { count: 0, amount: 0 },
+    reportsToReview: 0,
+    giving: {
+      allTime: 0,
+      ytd: 0,
+      quarter: 0,
+      yoyDelta: 0,
+      grants: 0,
+      monthly: [] as Array<{ label: string; amount: number }>,
+    },
+    lately: [] as Array<{
+      id: string
+      action: string
+      applicationId: string | null
+      organisationName: string | null
+      actorName: string | null
+      amount: number | null
+      at: Date
+    }>,
     attention: {
       toReview: { count: 0, items: [] as never[] },
       awaitingMyVote: { count: 0, items: [] as never[] },

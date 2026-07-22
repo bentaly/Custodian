@@ -12,6 +12,7 @@ import {
   users,
 } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { recordAudit } from '../audit'
 import { assertApplicationAccess, assertClientAccess } from '../scope'
 
 export const listComments = createServerFn({ method: 'GET' })
@@ -35,6 +36,12 @@ export const addComment = createServerFn({ method: 'POST' })
       .insert(applicationComments)
       .values({ applicationId: data.applicationId, userId: user.id, body: data.body })
       .returning()
+
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'application_commented',
+      applicationId: data.applicationId,
+    })
     return comment!
   })
 

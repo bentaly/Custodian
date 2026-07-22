@@ -14,6 +14,7 @@ import {
   reports,
 } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { recordAudit } from '../audit'
 import { assertApplicationAccess, assertClientAccess, intersectScope, visibleRoundProgrammeIds } from '../scope'
 import {
   ApplicationFiltersSchema,
@@ -355,6 +356,14 @@ export const generateAward = createServerFn({ method: 'POST' })
       .where(eq(applications.id, data.id))
       .returning()
     if (!application) throw new Error('Not found')
+
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'application_awarded',
+      applicationId: data.id,
+      clientId,
+      metadata: { amount: data.amountAwarded },
+    })
     return application
   })
 
@@ -453,6 +462,18 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       })
       .where(eq(applications.id, id))
       .returning()
+
+    // Log the interesting human decisions. Awards are logged in `generateAward`
+    // (the path that actually mints the grant), so they're excluded here.
+    const auditAction =
+      status === 'shortlisted'
+        ? 'application_shortlisted'
+        : status === 'declined'
+          ? 'application_declined'
+          : null
+    if (auditAction) {
+      await recordAudit({ actorUserId: user.id, action: auditAction, applicationId: id })
+    }
     return application!
   })
 

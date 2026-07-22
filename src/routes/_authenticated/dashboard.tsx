@@ -1,7 +1,20 @@
+import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Files01Icon,
+  File01Icon,
+  Coins01Icon,
+  CheckListIcon,
+  Award01Icon,
+  Message01Icon,
+  CancelCircleIcon,
+  CheckmarkCircle02Icon,
+} from '@hugeicons/core-free-icons'
 import { Card as UiCard } from '../../components/ui'
 import { getDashboard } from '../../server/fns/dashboard'
-import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
+
+type DashboardData = Awaited<ReturnType<typeof getDashboard>>
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
   beforeLoad: ({ context }) => {
@@ -16,26 +29,56 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
   component: Dashboard,
 })
 
-// ─── Formatting helpers ───────────────────────────────────────────────────────
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+// Centralised so the whole screen re-themes from one place when the full Figma token
+// set lands. The named greys/status colours are the current Figma variables; the KPI
+// tints and chart hues are picked to match the dashboard comp until they're tokenised.
+const C = {
+  ink: '#141C24', // Gray/900
+  body: '#374050',
+  sub: '#637083', // Gray/500
+  faint: '#98A2B3',
+  line: '#E4E7EC', // Gray/200
+  wash: '#F2F4F7', // Gray/100
+  success: '#31A650',
+  danger: '#FF4242',
+  warning: '#F89828',
+  info: '#3B82C4',
+}
+
+// KPI card tints: { bg, border, accent } per metric.
+const KPI = {
+  apps: { bg: '#F5F4FF', border: '#E7E4FB', accent: '#8B7FF0' },
+  review: { bg: '#EDF9F1', border: '#D5EFDE', accent: '#31A650' },
+  finance: { bg: '#FEF7EB', border: '#F7E7C6', accent: '#F89828' },
+  reports: { bg: '#FDEFF2', border: '#F8D9E1', accent: '#F0537A' },
+}
+
+// Round donut / programme-bar palette.
+const PROG_COLORS = ['#4FBEE8', '#F48FB1', '#F5B851', '#8B7FF0', '#5BD1B0', '#F0876B']
+const ALLOCATE_LEFT = '#E9ECF1'
+
+// ─── Formatting helpers ─────────────────────────────────────────────────────────
 
 function fmtCompact(n: number) {
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}m`
-  if (n >= 1_000) return `£${Math.round(n / 1_000)}k`
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
-function fmtDate(date: Date | string | null | undefined) {
-  if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const neg = n < 0
+  const a = Math.abs(n)
+  let s: string
+  if (a >= 1_000_000) s = `£${(a / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}m`
+  else if (a >= 1_000) s = `£${Math.round(a / 1_000)}k`
+  else s = `£${Math.round(a).toLocaleString('en-GB')}`
+  return neg ? `-${s}` : s
 }
 function relativeTime(date: Date | string) {
   const mins = Math.round((Date.now() - new Date(date).getTime()) / 60000)
   if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 60) return `${mins}m`
   const hrs = Math.round(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 24) return `${hrs}h`
   const days = Math.round(hrs / 24)
-  if (days < 30) return `${days}d ago`
-  return fmtDate(date)
+  if (days < 7) return `${days}d`
+  const wks = Math.round(days / 7)
+  return `${wks}w`
 }
 function daysUntil(date: Date | string | null | undefined): number | null {
   if (!date) return null
@@ -43,486 +86,634 @@ function daysUntil(date: Date | string | null | undefined): number | null {
 }
 function greeting() {
   const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
+  if (h < 12) return 'Good Morning'
+  if (h < 18) return 'Good Afternoon'
+  return 'Good Evening'
 }
 function firstName(name: string) {
   return name.split(' ')[0] || name
 }
+const plural = (n: number) => (n !== 1 ? 's' : '')
 
-const PALETTE = ['#1D9E75', '#3B82C4', '#C2843B', '#8B5C9E', '#C44B6E', '#4F9E8C', '#A89B3B', '#9CA3AF']
+// ─── Small primitives ───────────────────────────────────────────────────────────
 
-// ─── Layout primitives ────────────────────────────────────────────────────────
-
-function Card({ title, action, children }: { title?: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <UiCard className="flex flex-col">
-      {title && (
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{title}</h2>
-          {action}
-        </div>
-      )}
-      <div className="flex-1 px-5 py-4">{children}</div>
-    </UiCard>
-  )
-}
-
-// ─── Charts (hand-rolled SVG, no chart dependency) ─────────────────────────────
-
-function Donut({ data }: { data: Array<{ name: string; amount: number }> }) {
-  const total = data.reduce((s, d) => s + d.amount, 0)
-  const top = data.slice(0, 6)
-  const restAmount = data.slice(6).reduce((s, d) => s + d.amount, 0)
-  const segments = top.map((d, i) => ({ ...d, color: PALETTE[i] }))
-  if (restAmount > 0) segments.push({ name: 'Other', amount: restAmount, color: PALETTE[7] })
-
-  const r = 56
-  const circ = 2 * Math.PI * r
-  let offset = 0
-  return (
-    <div className="flex items-center gap-5">
-      <svg viewBox="0 0 140 140" className="h-32 w-32 shrink-0 -rotate-90">
-        <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f1ee" strokeWidth="16" />
-        {total > 0 &&
-          segments.map((s) => {
-            const len = (s.amount / total) * circ
-            const el = (
-              <circle
-                key={s.name}
-                cx="70"
-                cy="70"
-                r={r}
-                fill="none"
-                stroke={s.color}
-                strokeWidth="16"
-                strokeDasharray={`${len} ${circ - len}`}
-                strokeDashoffset={-offset}
-              />
-            )
-            offset += len
-            return el
-          })}
-      </svg>
-      <div className="min-w-0 flex-1 space-y-1.5">
-        {segments.length === 0 && <p className="text-sm text-gray-400">No awards yet.</p>}
-        {segments.map((s) => (
-          <div key={s.name} className="flex items-center gap-2 text-xs">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
-            <span className="truncate text-gray-600" title={s.name}>
-              {s.name}
-            </span>
-            <span className="ml-auto shrink-0 font-medium text-gray-800">{fmtCompact(s.amount)}</span>
-          </div>
-        ))}
-      </div>
+    <div
+      className={`rounded-2xl border bg-white p-5 ${className}`}
+      style={{ borderColor: C.line }}
+    >
+      {children}
     </div>
   )
 }
 
-function TrendArea({ data }: { data: Array<{ weekStart: string; count: number }> }) {
-  const W = 300
-  const H = 96
-  const pad = 6
-  const max = Math.max(1, ...data.map((d) => d.count))
-  const n = data.length
-  const x = (i: number) => (n <= 1 ? W / 2 : pad + (i * (W - 2 * pad)) / (n - 1))
-  const y = (v: number) => H - pad - (v / max) * (H - 2 * pad)
-  const pts = data.map((d, i) => `${x(i)},${y(d.count)}`)
-  const line = pts.length ? `M${pts.join(' L')}` : ''
-  const area = pts.length ? `M${x(0)},${H - pad} L${pts.join(' L')} L${x(n - 1)},${H - pad} Z` : ''
-  const total = data.reduce((s, d) => s + d.count, 0)
+function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div>
-      <div className="mb-2 flex items-baseline justify-between">
-        <p className="text-2xl font-semibold text-gray-900">{total}</p>
-        <p className="text-xs text-gray-400">submissions · 12 weeks</p>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-24 w-full" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1D9E75" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#1D9E75" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {area && <path d={area} fill="url(#trendFill)" />}
-        {line && <path d={line} fill="none" stroke="#1D9E75" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-        {data.map((dp, i) => (dp.count > 0 ? <circle key={i} cx={x(i)} cy={y(dp.count)} r="2" fill="#0F6E56" /> : null))}
-      </svg>
+    <div className="mb-4 flex items-center justify-between">
+      <h2 className="text-[15px] font-semibold" style={{ color: C.ink }}>
+        {children}
+      </h2>
+      {right}
     </div>
   )
 }
 
-const SCORE_COLORS: Record<string, string> = {
-  '90plus': '#0F6E56',
-  '80to89': '#1D9E75',
-  '70to79': '#5BAE91',
-  '60to69': '#C2843B',
-  below60: '#C46B6B',
+// A decorative bar strip behind each KPI — a light→accent gradient of thin bars.
+// Deterministic heights so it's stable across renders; purely a visual motif.
+function SparkStrip({ accent }: { accent: string }) {
+  const n = 30
+  return (
+    <div className="mt-3 flex h-8 items-end gap-[3px]">
+      {Array.from({ length: n }).map((_, i) => {
+        const h = 45 + Math.round(38 * Math.abs(Math.sin(i * 0.9 + 1)) + (i / n) * 18)
+        const t = i / (n - 1)
+        return (
+          <span
+            key={i}
+            className="flex-1 rounded-sm"
+            style={{ height: `${Math.min(100, h)}%`, backgroundColor: accent, opacity: 0.35 + t * 0.55 }}
+          />
+        )
+      })}
+    </div>
+  )
 }
 
-function ScoreBars({ data }: { data: Array<{ key: string; label: string; count: number }> }) {
-  const max = Math.max(1, ...data.map((d) => d.count))
-  const total = data.reduce((s, d) => s + d.count, 0)
-  if (total === 0) return <p className="py-8 text-center text-sm text-gray-400">No scored applications yet.</p>
+type Chip = { label: string; count: number; color: string }
+
+function Chips({ chips }: { chips: Chip[] }) {
   return (
-    <div className="flex h-32 items-end justify-between gap-2">
-      {data.map((d) => (
-        <div key={d.key} className="flex flex-1 flex-col items-center gap-1">
-          <span className="text-[11px] font-medium text-gray-500">{d.count}</span>
-          <div className="flex w-full flex-1 items-end">
-            <div
-              className="w-full rounded-t"
-              style={{ height: `${Math.max(2, (d.count / max) * 100)}%`, backgroundColor: SCORE_COLORS[d.key] ?? '#9CA3AF' }}
-            />
-          </div>
-          <span className="text-[10px] text-gray-400">{d.label}</span>
-        </div>
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs" style={{ color: C.sub }}>
+      {chips.map((c) => (
+        <span key={c.label} className="inline-flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+          {c.count} {c.label}
+        </span>
       ))}
     </div>
   )
 }
 
-type FunnelData = { roundName: string; submitted: number; shortlisted: number; awarded: number; declined: number }
+// ─── KPI card ───────────────────────────────────────────────────────────────────
 
-function Funnel({ data }: { data: FunnelData | null }) {
-  if (!data || data.submitted === 0) {
-    return <p className="py-10 text-center text-sm text-gray-400">No applications in this round yet.</p>
-  }
-  const stages = [
-    { label: 'Submitted', n: data.submitted, color: '#94A3B8' },
-    { label: 'Shortlisted', n: data.shortlisted, color: '#3B82C4' },
-    { label: 'Awarded', n: data.awarded, color: '#1D9E75' },
-  ]
-  const W = 300
-  const H = 120
-  const cy = H / 2 + 6 // leave headroom for the count labels above each segment
-  const segW = W / stages.length
-  const maxH = H - 28
-  // Height is fully proportional to the count; a 3px floor keeps a nonzero stage visible.
-  const heightFor = (n: number) => Math.max(3, (n / data.submitted) * maxH)
-
-  return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-28 w-full">
-        {stages.map((s, i) => {
-          const x0 = i * segW
-          const x1 = x0 + segW
-          const hL = heightFor(s.n)
-          const hR = heightFor(stages[i + 1]?.n ?? s.n) // taper toward the next stage
-          const pts = [
-            [x0, cy - hL / 2],
-            [x1, cy - hR / 2],
-            [x1, cy + hR / 2],
-            [x0, cy + hL / 2],
-          ]
-            .map((p) => p.join(','))
-            .join(' ')
-          return (
-            <g key={s.label}>
-              <polygon points={pts} fill={s.color} />
-              <text x={x0 + segW / 2} y={cy - hL / 2 - 6} textAnchor="middle" fontSize="14" fontWeight="600" fill={s.color}>
-                {s.n}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-      <div className="mt-3 space-y-1.5">
-        {stages.map((s, i) => {
-          const prev = i === 0 ? null : (stages[i - 1]?.n ?? null)
-          const pct = prev && prev > 0 ? Math.round((s.n / prev) * 100) : null
-          return (
-            <div key={s.label} className="flex items-center gap-2 text-xs">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
-              <span className="text-gray-600">{s.label}</span>
-              <span className="ml-auto font-medium text-gray-800">{s.n}</span>
-              {pct != null && <span className="w-12 shrink-0 text-right text-gray-400">{pct}%</span>}
-              {pct == null && <span className="w-12 shrink-0" />}
-            </div>
-          )
-        })}
-      </div>
-      {data.declined > 0 && (
-        <p className="mt-2 border-t border-gray-100 pt-2 text-[11px] text-gray-400">{data.declined} declined</p>
-      )}
-    </div>
-  )
-}
-
-// ─── KPI card ─────────────────────────────────────────────────────────────────
-
-function Kpi({ label, value, sub, to, search }: { label: string; value: string; sub?: string; to: string; search?: Record<string, unknown> }) {
+function KpiCard({
+  tint,
+  value,
+  sub,
+  subColor,
+  icon,
+  label,
+  to,
+  search,
+  children,
+}: {
+  tint: { bg: string; border: string; accent: string }
+  value: string
+  sub: string
+  subColor?: string
+  icon: typeof Files01Icon
+  label: string
+  to: string
+  search?: Record<string, unknown>
+  children: React.ReactNode
+}) {
   return (
     <Link
       to={to}
       search={search}
-      className="rounded-lg border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-50"
+      className="flex flex-col rounded-2xl border p-4 transition-shadow hover:shadow-sm"
+      style={{ backgroundColor: tint.bg, borderColor: tint.border }}
     >
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-gray-400">{sub}</p>}
+      <div className="text-[30px] font-semibold leading-none" style={{ color: C.ink }}>
+        {value}
+      </div>
+      <div className="mt-1.5 text-xs font-medium" style={{ color: subColor ?? C.sub }}>
+        {sub}
+      </div>
+      <SparkStrip accent={tint.accent} />
+      {children}
+      <div className="mt-3 flex items-center gap-2 border-t pt-3" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+        <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
+        <span className="text-[13px] font-medium" style={{ color: C.body }}>
+          {label}
+        </span>
+      </div>
     </Link>
   )
 }
 
-// ─── Attention queue ──────────────────────────────────────────────────────────
+// ─── Round-by-programme donut ────────────────────────────────────────────────────
 
-type Lane = {
-  key: string
-  sev: 'red' | 'amber' | 'green' | 'neutral'
-  title: string
-  detail?: string
-  to: string
-  search?: Record<string, unknown>
-  cta: string
-  priority: number
-}
+function RoundDonut({
+  segments,
+  budget,
+  committed,
+}: {
+  segments: Array<{ amount: number; color: string }>
+  budget: number
+  committed: number
+}) {
+  const r = 52
+  const circ = 2 * Math.PI * r
+  const denom = budget > 0 ? budget : Math.max(committed, 1)
+  const pct = budget > 0 ? Math.round((committed / budget) * 100) : 0
+  const left = Math.max(0, budget - committed)
 
-const SEV_STYLE: Record<Lane['sev'], { dot: string; bg: string; border: string; title: string; cta: string }> = {
-  red: { dot: '#A32D2D', bg: '#FCEBEB', border: '#F3D2D2', title: '#791F1F', cta: '#A32D2D' },
-  amber: { dot: '#854F0B', bg: '#FBF1DF', border: '#EED9A0', title: '#633806', cta: '#854F0B' },
-  green: { dot: '#0F6E56', bg: '#E6F4EF', border: '#BFE3D6', title: '#0F6E56', cta: '#0F6E56' },
-  neutral: { dot: '#9CA3AF', bg: '#F7F7F4', border: '#ECECE6', title: '#444444', cta: '#666666' },
-}
-const SEV_ORDER: Lane['sev'][] = ['red', 'amber', 'green', 'neutral']
+  let offset = 0
+  const arcs = segments
+    .filter((s) => s.amount > 0)
+    .map((s, i) => {
+      const len = (s.amount / denom) * circ
+      const el = (
+        <circle
+          key={i}
+          cx="70"
+          cy="70"
+          r={r}
+          fill="none"
+          stroke={s.color}
+          strokeWidth="16"
+          strokeDasharray={`${len} ${circ - len}`}
+          strokeDashoffset={-offset}
+          strokeLinecap="butt"
+        />
+      )
+      offset += len
+      return el
+    })
 
-function AttentionLane({ lane }: { lane: Lane }) {
-  const s = SEV_STYLE[lane.sev]
   return (
-    <div className="flex items-center gap-3 rounded-md px-3 py-2.5" style={{ backgroundColor: s.bg, border: `0.5px solid ${s.border}` }}>
-      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: s.dot }} />
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-medium" style={{ color: s.title }}>
-          {lane.title}
-        </p>
-        {lane.detail && (
-          <p className="truncate text-xs" style={{ color: s.cta }} title={lane.detail}>
-            {lane.detail}
-          </p>
-        )}
+    <div className="relative h-[140px] w-[140px] shrink-0">
+      <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
+        <circle cx="70" cy="70" r={r} fill="none" stroke={ALLOCATE_LEFT} strokeWidth="16" />
+        {arcs}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="text-2xl font-semibold" style={{ color: C.ink }}>
+          {pct}%
+        </div>
+        <div className="mt-0.5 text-center text-[11px] leading-tight" style={{ color: C.sub }}>
+          {fmtCompact(left)} left
+          <br />
+          to allocate
+        </div>
       </div>
-      <Link
-        to={lane.to}
-        search={lane.search}
-        className="shrink-0 rounded border bg-white px-2.5 py-1 text-[11px] font-medium hover:bg-gray-50"
-        style={{ borderColor: s.border, color: s.cta }}
-      >
-        {lane.cta}
-      </Link>
     </div>
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Giving chart (monthly area) ─────────────────────────────────────────────────
+
+function GivingChart({ data }: { data: Array<{ label: string; amount: number }> }) {
+  const W = 640
+  const H = 200
+  const padL = 40
+  const padR = 8
+  const padT = 12
+  const padB = 24
+  const rawMax = Math.max(1, ...data.map((d) => d.amount))
+  // Round the axis up to a "nice" step so gridlines read cleanly.
+  const step = rawMax > 400_000 ? 200_000 : rawMax > 100_000 ? 100_000 : rawMax > 20_000 ? 20_000 : 5_000
+  const max = Math.ceil(rawMax / step) * step
+  const ticks = 4
+  const n = data.length
+  const x = (i: number) => (n <= 1 ? padL : padL + (i * (W - padL - padR)) / (n - 1))
+  const y = (v: number) => padT + (1 - v / max) * (H - padT - padB)
+  const pts = data.map((d, i) => `${x(i)},${y(d.amount)}`)
+  const line = pts.length ? `M${pts.join(' L')}` : ''
+  const area = pts.length ? `M${x(0)},${H - padB} L${pts.join(' L')} L${x(n - 1)},${H - padB} Z` : ''
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-52 w-full" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="givingFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#8B7FF0" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#8B7FF0" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {Array.from({ length: ticks + 1 }).map((_, i) => {
+        const v = (max / ticks) * (ticks - i)
+        const yy = y(v)
+        return (
+          <g key={i}>
+            <line x1={padL} y1={yy} x2={W - padR} y2={yy} stroke={C.line} strokeWidth="1" strokeDasharray="2 3" />
+            <text x={padL - 6} y={yy + 3} textAnchor="end" fontSize="9" fill={C.faint}>
+              {v >= 1000 ? `${Math.round(v / 1000)}k` : Math.round(v)}
+            </text>
+          </g>
+        )
+      })}
+      {area && <path d={area} fill="url(#givingFill)" />}
+      {line && <path d={line} fill="none" stroke="#8B7FF0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+      {data.map((d, i) => (
+        <circle key={i} cx={x(i)} cy={y(d.amount)} r="2.5" fill="#8B7FF0" />
+      ))}
+      {data.map((d, i) => (
+        <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="9" fill={C.faint}>
+          {d.label}
+        </text>
+      ))}
+    </svg>
+  )
+}
+
+// ─── "On your desk" rows ──────────────────────────────────────────────────────────
+
+const TAG_COLOR: Record<string, string> = {
+  Applications: C.success,
+  Finance: C.warning,
+  Review: C.info,
+  Giving: '#E0568A',
+  Reports: '#F0537A',
+}
+
+function DeskRow({
+  icon,
+  iconTint,
+  lead,
+  rest,
+  tag,
+  to,
+  search,
+}: {
+  icon: typeof Files01Icon
+  iconTint: { bg: string; accent: string }
+  lead: string
+  rest: string
+  tag: string
+  to: string
+  search?: Record<string, unknown>
+}) {
+  return (
+    <Link
+      to={to}
+      search={search}
+      className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-[#FAFAFB]"
+    >
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+        style={{ backgroundColor: iconTint.bg }}
+      >
+        <HugeiconsIcon icon={icon} className="h-[18px] w-[18px]" strokeWidth={1.7} style={{ color: iconTint.accent }} />
+      </span>
+      <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: C.body }}>
+        <span className="font-semibold" style={{ color: C.ink }}>
+          {lead}
+        </span>{' '}
+        {rest}
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium" style={{ color: TAG_COLOR[tag] }}>
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: TAG_COLOR[tag] }} />
+        {tag}
+      </span>
+    </Link>
+  )
+}
+
+// ─── "Lately" (audit log) rows ────────────────────────────────────────────────────
+
+const LATELY_META: Record<string, { icon: typeof Award01Icon; tint: { bg: string; accent: string }; verb: string }> = {
+  application_awarded: { icon: Award01Icon, tint: { bg: '#EDF9F1', accent: C.success }, verb: 'awarded a grant to' },
+  application_declined: { icon: CancelCircleIcon, tint: { bg: '#FDEFF2', accent: C.danger }, verb: 'declined' },
+  application_shortlisted: { icon: CheckmarkCircle02Icon, tint: { bg: '#F5F4FF', accent: '#8B7FF0' }, verb: 'shortlisted' },
+  application_commented: { icon: Message01Icon, tint: { bg: '#EEF6FE', accent: C.info }, verb: 'commented on' },
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────────
 
 function Dashboard() {
   const d = Route.useLoaderData()
-  const isTrustee = d.role === 'trustee'
-  const isFinance = d.role === 'finance'
 
   // Brand-new tenant: nothing exists yet → onboarding.
   if (d.pipeline.total === 0 && d.rounds.length === 0 && d.money.totalAwarded === 0) {
     return <Onboarding name={d.name} />
   }
 
-  const names = (items: Array<{ organisationName: string | null }>) =>
-    items.slice(0, 3).map((i) => i.organisationName ?? 'Direct grant').join(', ')
-
-  // ── Attention lanes (only those with something to act on) ────────────────────
   const a = d.attention
-  const lanes: Lane[] = []
-  const plural = (n: number) => (n !== 1 ? 's' : '')
-  if (a.reportsOverdue.count > 0)
-    lanes.push({ key: 'rep-od', sev: 'red', priority: isFinance ? 0 : 3, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.reportsOverdue.count} grant report${plural(a.reportsOverdue.count)} overdue`, detail: names(a.reportsOverdue.items) })
-  if (a.paymentsOverdue.count > 0)
-    lanes.push({ key: 'pay-od', sev: 'red', priority: isFinance ? 1 : 4, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.paymentsOverdue.count} payment${plural(a.paymentsOverdue.count)} overdue`, detail: names(a.paymentsOverdue.items) })
-  if (a.dueDiligenceFlags > 0)
-    lanes.push({ key: 'dd', sev: 'red', priority: 5, to: '/applications', search: { roundId: undefined, status: 'for_review' }, cta: 'Resolve', title: `${a.dueDiligenceFlags} due-diligence flag${plural(a.dueDiligenceFlags)} to resolve` })
-  if (isTrustee && a.awaitingMyVote.count > 0)
-    lanes.push({ key: 'vote', sev: 'amber', priority: 0, to: '/shortlist', search: { roundId: undefined }, cta: 'Vote', title: `${a.awaitingMyVote.count} application${plural(a.awaitingMyVote.count)} awaiting your vote`, detail: names(a.awaitingMyVote.items) })
+  const round = d.focusRoundBreakdown
+
+  // ── Greeting subtitle: year-on-year giving ─────────────────────────────────
+  const delta = d.giving.yoyDelta
+  const yoy =
+    delta === 0
+      ? null
+      : `giving is ${fmtCompact(Math.abs(delta))} ${delta > 0 ? 'ahead of' : 'behind'} this time last year`
+
+  // ── "On your desk" — the attention queue as narrated actions ────────────────
+  const paymentsDue = a.paymentsOverdue.count + a.paymentsDueSoon.count
+  const desk: Array<React.ComponentProps<typeof DeskRow>> = []
+  if (a.toReview.count > 0)
+    desk.push({ icon: Files01Icon, iconTint: { bg: KPI.apps.bg, accent: KPI.apps.accent }, lead: `${a.toReview.count} application${plural(a.toReview.count)}`, rest: 'ready to review', tag: 'Applications', to: '/applications', search: { roundId: undefined, status: 'for_review' } })
+  if (paymentsDue > 0)
+    desk.push({ icon: Coins01Icon, iconTint: { bg: KPI.finance.bg, accent: KPI.finance.accent }, lead: `${paymentsDue} payment${plural(paymentsDue)}`, rest: 'due to be paid', tag: 'Finance', to: '/awards', search: { roundId: undefined } })
+  if (d.awaitingVotes > 0)
+    desk.push({ icon: CheckListIcon, iconTint: { bg: '#EEF6FE', accent: C.info }, lead: `${d.awaitingVotes} application${plural(d.awaitingVotes)}`, rest: 'await a trustee vote', tag: 'Review', to: '/shortlist', search: { roundId: undefined } })
   if (a.readyToAward.count > 0)
-    lanes.push({ key: 'award', sev: 'green', priority: 2, to: '/shortlist', search: { roundId: undefined }, cta: 'Set up', title: `${a.readyToAward.count} approved — ready to award`, detail: names(a.readyToAward.items) })
-  if (a.reportsDueSoon.count > 0)
-    lanes.push({ key: 'rep-soon', sev: 'amber', priority: isFinance ? 2 : 6, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.reportsDueSoon.count} report${plural(a.reportsDueSoon.count)} due within 30 days` })
-  if (a.paymentsDueSoon.count > 0)
-    lanes.push({ key: 'pay-soon', sev: 'amber', priority: isFinance ? 3 : 7, to: '/awards', search: { roundId: undefined }, cta: 'View', title: `${a.paymentsDueSoon.count} payment${plural(a.paymentsDueSoon.count)} due within 30 days` })
-  if (a.toReview.count > 0 && !isTrustee)
-    lanes.push({ key: 'review', sev: 'neutral', priority: 1, to: '/applications', search: { roundId: undefined, status: 'for_review' }, cta: 'Review', title: `${a.toReview.count} application${plural(a.toReview.count)} awaiting review`, detail: names(a.toReview.items) })
-  if (a.scoringPending > 0 && !isTrustee)
-    lanes.push({ key: 'scoring', sev: 'neutral', priority: 9, to: '/applications', search: { roundId: undefined, status: 'for_review' }, cta: 'View', title: `${a.scoringPending} awaiting AI assessment` })
-  lanes.sort((x, y) => x.priority - y.priority || SEV_ORDER.indexOf(x.sev) - SEV_ORDER.indexOf(y.sev))
+    desk.push({ icon: Award01Icon, iconTint: { bg: '#FDEFF2', accent: '#E0568A' }, lead: `${a.readyToAward.count} award${plural(a.readyToAward.count)}`, rest: 'ready to set up', tag: 'Giving', to: '/shortlist', search: { roundId: undefined } })
+  if (d.reportsToReview > 0)
+    desk.push({ icon: File01Icon, iconTint: { bg: KPI.reports.bg, accent: KPI.reports.accent }, lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`, rest: 'to review', tag: 'Reports', to: '/reports' })
 
-  // ── Role-aware first KPI ─────────────────────────────────────────────────────
-  const firstKpi = isTrustee
-    ? { label: 'Awaiting your vote', value: String(a.awaitingMyVote.count), sub: `${a.shortlist.count} shortlisted`, to: '/shortlist', search: { roundId: undefined } as Record<string, unknown> }
-    : { label: 'Awaiting review', value: String(d.pipeline.for_review), sub: 'applications', to: '/applications', search: { roundId: undefined, status: 'for_review' } as Record<string, unknown> }
-
-  // ── Rounds: open first, then most recent ─────────────────────────────────────
-  const rank = (r: { openedAt: Date | null; closedAt: Date | null }) => {
-    const s = getRoundStatus(r)
-    return s === 'open' ? 0 : s === 'upcoming' ? 1 : 2
-  }
-  const sortedRounds = [...d.rounds]
-    .sort((x, y) => rank(x) - rank(y) || (y.openedAt ? new Date(y.openedAt).getTime() : 0) - (x.openedAt ? new Date(x.openedAt).getTime() : 0))
-    .slice(0, 4)
+  // ── Round donut segments ────────────────────────────────────────────────────
+  const segments = (round?.programmes ?? []).map((p, i) => ({ amount: p.committed, color: PROG_COLORS[i % PROG_COLORS.length]! }))
+  const roundDaysLeft = daysUntil(round?.closedAt)
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-gray-900">
+      {/* Greeting */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-[26px] font-semibold tracking-tight" style={{ color: C.ink }}>
           {greeting()}, {firstName(d.name)}.
         </h1>
-        <p className="mt-0.5 text-sm text-gray-400">
-          {d.openRoundName ? (
+        {yoy && (
+          <p className="text-sm" style={{ color: C.sub }}>
+            {yoy.split(fmtCompact(Math.abs(delta)))[0]}
+            <span className="font-semibold" style={{ color: delta > 0 ? C.success : C.danger }}>
+              {fmtCompact(Math.abs(delta))}
+            </span>
+            {yoy.split(fmtCompact(Math.abs(delta)))[1]}
+          </p>
+        )}
+      </div>
+
+      {/* KPI candy row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          tint={KPI.apps}
+          value={String(d.pipeline.for_review + d.pipeline.shortlisted + d.pipeline.declined)}
+          sub={`+${d.submittedThisWeek} this week`}
+          subColor={C.success}
+          icon={Files01Icon}
+          label="Applications"
+          to="/applications"
+          search={{ roundId: undefined }}
+        >
+          <Chips
+            chips={[
+              { label: 'to review', count: d.pipeline.for_review, color: C.info },
+              { label: 'shortlisted', count: d.pipeline.shortlisted, color: C.success },
+              { label: 'declined', count: d.pipeline.declined, color: C.faint },
+            ]}
+          />
+        </KpiCard>
+
+        <KpiCard
+          tint={KPI.review}
+          value={String(a.shortlist.count)}
+          sub={`${fmtCompact(a.shortlist.proposed)} proposed`}
+          icon={CheckListIcon}
+          label="Review"
+          to="/shortlist"
+          search={{ roundId: undefined }}
+        >
+          <Chips
+            chips={[
+              { label: 'approved', count: a.readyToAward.count, color: C.success },
+              { label: 'to vote', count: d.awaitingVotes, color: C.warning },
+            ]}
+          />
+        </KpiCard>
+
+        <KpiCard
+          tint={KPI.finance}
+          value={fmtCompact(d.paymentsThisMonth.amount)}
+          sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
+          icon={Coins01Icon}
+          label="Finance"
+          to="/awards"
+          search={{ roundId: undefined }}
+        >
+          {/* TODO: bank-detail validation status (no verification model yet) */}
+          <p className="mt-3 text-xs italic" style={{ color: C.faint }}>
+            TODO · bank verification
+          </p>
+        </KpiCard>
+
+        <KpiCard
+          tint={KPI.reports}
+          value={String(d.reportsToReview + a.reportsOverdue.count)}
+          sub={a.reportsOverdue.count > 0 ? `${a.reportsOverdue.count} overdue` : 'up to date'}
+          subColor={a.reportsOverdue.count > 0 ? C.danger : C.sub}
+          icon={File01Icon}
+          label="Reports"
+          to="/reports"
+        >
+          <Chips
+            chips={[
+              { label: 'to review', count: d.reportsToReview, color: C.info },
+              { label: 'overdue', count: a.reportsOverdue.count, color: C.danger },
+            ]}
+          />
+        </KpiCard>
+      </div>
+
+      {/* On your desk + Round */}
+      <div className="grid gap-5 lg:grid-cols-[2fr_3fr]">
+        <Panel>
+          <PanelTitle>On your desk</PanelTitle>
+          {desk.length === 0 ? (
+            <div className="flex items-center gap-3 py-6 text-sm" style={{ color: C.sub }}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">✓</span>
+              You’re all caught up — nothing needs action right now.
+            </div>
+          ) : (
+            <div className="-mx-2 space-y-0.5">
+              {desk.map((row, i) => (
+                <DeskRow key={i} {...row} />
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel>
+          {round ? (
             <>
-              <span className="text-gray-500">{d.openRoundName}</span> is open for applications
+              <PanelTitle
+                right={
+                  roundDaysLeft != null && (
+                    <span
+                      className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                      style={{ backgroundColor: C.wash, color: C.sub }}
+                    >
+                      {roundDaysLeft > 0 ? `${roundDaysLeft} days left` : 'closed'}
+                    </span>
+                  )
+                }
+              >
+                {round.roundName}
+              </PanelTitle>
+              <p className="-mt-2 mb-4 text-xs" style={{ color: C.sub }}>
+                {fmtCompact(round.committed)} committed of {fmtCompact(round.budget)} budget
+              </p>
+              <div className="flex items-center gap-6">
+                <RoundDonut segments={segments} budget={round.budget} committed={round.committed} />
+                <div className="min-w-0 flex-1 space-y-3.5">
+                  {round.programmes.length === 0 && (
+                    <p className="text-sm" style={{ color: C.faint }}>
+                      No programmes in this round yet.
+                    </p>
+                  )}
+                  {round.programmes.map((p, i) => {
+                    const pct = p.budget > 0 ? Math.min(100, Math.round((p.committed / p.budget) * 100)) : 0
+                    return (
+                      <div key={p.name}>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="truncate text-[13px] font-medium" style={{ color: C.body }}>
+                            {p.name}
+                          </span>
+                          <span className="shrink-0 text-xs" style={{ color: C.sub }}>
+                            {fmtCompact(p.committed)} / {fmtCompact(p.budget)}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: C.wash }}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${pct}%`, backgroundColor: PROG_COLORS[i % PROG_COLORS.length] }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </>
           ) : (
-            'Here’s where things stand today'
+            <>
+              <PanelTitle>Current round</PanelTitle>
+              <p className="py-8 text-center text-sm" style={{ color: C.faint }}>
+                No active round.
+              </p>
+            </>
           )}
-        </p>
+        </Panel>
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi {...firstKpi} />
-        <Kpi label="Shortlisted" value={String(a.shortlist.count)} sub={`${fmtCompact(a.shortlist.proposed)} proposed`} to="/shortlist" search={{ roundId: undefined }} />
-        <Kpi label="Total awarded" value={fmtCompact(d.money.totalAwarded)} sub={`${d.money.activeGrants} active grant${plural(d.money.activeGrants)}`} to="/awards" search={{ roundId: undefined }} />
-        <Kpi label="Outstanding to pay" value={fmtCompact(d.money.outstanding)} sub={`${fmtCompact(d.money.paidToDate)} paid to date`} to="/awards" search={{ roundId: undefined }} />
-      </div>
+      {/* Giving + Lately */}
+      <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
+        <Panel>
+          <GivingSoFar giving={d.giving} />
+        </Panel>
 
-      {/* Attention + Rounds */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Card title="Needs attention">
-            {lanes.length === 0 ? (
-              <div className="flex items-center gap-3 py-6 text-sm text-gray-500">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">✓</span>
-                You’re all caught up — nothing needs action right now.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {lanes.map((l) => (
-                  <AttentionLane key={l.key} lane={l} />
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-
-        <Card title="Active rounds" action={<Link to="/rounds" className="text-xs text-gray-400 hover:text-gray-600">All</Link>}>
-          {sortedRounds.length === 0 ? (
-            <p className="py-4 text-sm text-gray-400">No rounds yet.</p>
+        <Panel>
+          <PanelTitle>Lately</PanelTitle>
+          {d.lately.length === 0 ? (
+            <p className="py-4 text-sm" style={{ color: C.faint }}>
+              No activity yet.
+            </p>
           ) : (
-            <div className="space-y-3.5">
-              {sortedRounds.map((r) => {
-                const status = getRoundStatus(r)
-                const left = status === 'open' ? daysUntil(r.closedAt) : null
-                const pct = r.budget > 0 ? Math.min(100, Math.round((r.committed / r.budget) * 100)) : 0
-                return (
-                  <div key={r.id}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-gray-800">{r.name}</span>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROUND_STATUS_COLORS[status]}`}>
-                        {ROUND_STATUS_LABELS[status]}
+            <div className="space-y-1">
+              {d.lately.map((ev) => {
+                const meta = LATELY_META[ev.action]
+                if (!meta) return null
+                const org = ev.organisationName ?? 'an application'
+                const inner = (
+                  <>
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: meta.tint.bg }}
+                    >
+                      <HugeiconsIcon icon={meta.icon} className="h-4 w-4" strokeWidth={1.7} style={{ color: meta.tint.accent }} />
+                    </span>
+                    <span className="min-w-0 flex-1 text-[13px] leading-snug" style={{ color: C.body }}>
+                      <span className="font-semibold" style={{ color: C.ink }}>
+                        {ev.actorName ?? 'Someone'}
+                      </span>{' '}
+                      {meta.verb}{' '}
+                      <span className="font-medium" style={{ color: C.ink }}>
+                        {org}
                       </span>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-gray-400">
-                      <span>
-                        {r.applicationCount} application{plural(r.applicationCount)}
-                      </span>
-                      <span>
-                        {left != null ? (left >= 0 ? `closes in ${left}d` : 'closed') : r.closedAt ? `closed ${fmtDate(r.closedAt)}` : ''}
-                      </span>
-                    </div>
-                    {r.budget > 0 && (
-                      <>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: pct >= 90 ? '#C2843B' : '#1D9E75' }} />
-                        </div>
-                        <p className="mt-1 text-[11px] text-gray-400">
-                          {fmtCompact(r.committed)} of {fmtCompact(r.budget)} committed ({pct}%)
-                        </p>
-                      </>
-                    )}
+                    </span>
+                    <span className="shrink-0 text-[11px]" style={{ color: C.faint }}>
+                      {relativeTime(ev.at)}
+                    </span>
+                  </>
+                )
+                return ev.applicationId ? (
+                  <Link
+                    key={ev.id}
+                    to="/applications/$applicationId"
+                    params={{ applicationId: ev.applicationId }}
+                    className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[#FAFAFB]"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={ev.id} className="flex items-center gap-3 px-2 py-2">
+                    {inner}
                   </div>
                 )
               })}
             </div>
           )}
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Card
-          title="Pipeline"
-          action={d.funnel && <span className="max-w-[55%] truncate text-[11px] text-gray-400" title={d.funnel.roundName}>{d.funnel.roundName}</span>}
-        >
-          <Funnel data={d.funnel} />
-        </Card>
-        <Card title="Awards by programme">
-          <Donut data={d.money.byProgramme} />
-        </Card>
-        <Card title="Score distribution">
-          <ScoreBars data={d.scoreDistribution} />
-        </Card>
-      </div>
-
-      {/* Trend + Activity */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Card title="Submissions over time">
-            <TrendArea data={d.submissionsTrend} />
-          </Card>
-        </div>
-        <Card title="Recent activity">
-          {d.activity.length === 0 ? (
-            <p className="py-4 text-sm text-gray-400">No recent activity.</p>
-          ) : (
-            <div className="space-y-2.5">
-              {d.activity.map((ev) =>
-                ev.type === 'report_received' || ev.type === 'report_reviewed' ? (
-                  <Link
-                    key={`${ev.type}-${ev.reportKey}`}
-                    to="/reports/$reportKey"
-                    params={{ reportKey: ev.reportKey }}
-                    className="flex items-center gap-2.5 text-sm hover:opacity-80"
-                  >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ev.type === 'report_reviewed' ? '#1D9E75' : '#5B8DEF' }} />
-                    <span className="min-w-0 flex-1 truncate text-gray-700">{ev.organisationName}</span>
-                    <span
-                      className="shrink-0 text-[11px] text-gray-400"
-                      title={ev.type === 'report_reviewed' && ev.by ? `Reviewed by ${ev.by}` : undefined}
-                    >
-                      {ev.type === 'report_reviewed' ? 'report reviewed' : 'report received'} · {relativeTime(ev.at)}
-                    </span>
-                  </Link>
-                ) : (
-                  <Link
-                    key={`${ev.type}-${ev.applicationId}`}
-                    to="/applications/$applicationId"
-                    params={{ applicationId: ev.applicationId }}
-                    className="flex items-center gap-2.5 text-sm hover:opacity-80"
-                  >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ev.type === 'awarded' ? '#1D9E75' : ev.type === 'declined' ? '#C46B6B' : '#9CA3AF' }} />
-                    <span className="min-w-0 flex-1 truncate text-gray-700">{ev.organisationName}</span>
-                    <span className="shrink-0 text-[11px] text-gray-400">
-                      {ev.type === 'submitted' ? 'submitted' : ev.type === 'awarded' ? 'awarded' : 'declined'} · {relativeTime(ev.at)}
-                    </span>
-                  </Link>
-                ),
-              )}
-            </div>
-          )}
-        </Card>
+        </Panel>
       </div>
     </div>
   )
 }
+
+// ─── Giving so far (with range toggle) ────────────────────────────────────────────
+
+function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
+  const [range, setRange] = useState<'quarter' | 'ytd' | 'allTime'>('ytd')
+  const ranges = [
+    { key: 'quarter', label: 'Quarter' },
+    { key: 'ytd', label: 'Year to date' },
+    { key: 'allTime', label: 'All time' },
+  ] as const
+  const headline = giving[range]
+
+  return (
+    <>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold" style={{ color: C.ink }}>
+          Giving so far
+        </h2>
+        <div className="inline-flex rounded-lg p-0.5" style={{ backgroundColor: C.wash }}>
+          {ranges.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => setRange(r.key)}
+              className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+              style={
+                range === r.key
+                  ? { backgroundColor: '#fff', color: C.ink, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
+                  : { color: C.sub }
+              }
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-baseline gap-3">
+        <span className="text-[34px] font-semibold leading-none" style={{ color: C.ink }}>
+          {fmtCompact(headline)}
+        </span>
+        {giving.quarter > 0 && (
+          <span className="text-sm font-medium" style={{ color: C.success }}>
+            +{fmtCompact(giving.quarter)} this quarter
+          </span>
+        )}
+      </div>
+      <p className="mt-1.5 text-xs" style={{ color: C.sub }}>
+        across {giving.grants} grant{plural(giving.grants)}
+      </p>
+
+      <div className="mt-4">
+        {giving.monthly.length > 0 ? (
+          <GivingChart data={giving.monthly} />
+        ) : (
+          <p className="py-10 text-center text-sm" style={{ color: C.faint }}>
+            No giving recorded this year yet.
+          </p>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─── Onboarding (brand-new tenant) ─────────────────────────────────────────────────
 
 function Onboarding({ name }: { name: string }) {
   const steps = [
@@ -533,10 +724,12 @@ function Onboarding({ name }: { name: string }) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-gray-900">
+        <h1 className="text-[26px] font-semibold tracking-tight" style={{ color: C.ink }}>
           {greeting()}, {firstName(name)}.
         </h1>
-        <p className="mt-0.5 text-sm text-gray-400">Let’s get your foundation set up</p>
+        <p className="mt-0.5 text-sm" style={{ color: C.sub }}>
+          Let’s get your foundation set up
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         {steps.map((s) => (
@@ -544,10 +737,7 @@ function Onboarding({ name }: { name: string }) {
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-700">{s.n}</span>
             <p className="mt-3 text-sm font-medium text-gray-900">{s.title}</p>
             <p className="mt-1 text-xs text-gray-500">{s.body}</p>
-            <Link
-              to={s.to}
-              className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:text-emerald-800"
-            >
+            <Link to={s.to} className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:text-emerald-800">
               {s.cta} →
             </Link>
           </UiCard>
