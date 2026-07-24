@@ -163,7 +163,7 @@ export const createApplication = createServerFn({ method: 'POST' })
   .inputValidator(CreateApplicationSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
-    const { amountRequested, ...rest } = data
+    const { amountRequested, proposedImpactQuantity, ...rest } = data
 
     // The roundProgramme determines the owning client; reject one outside it.
     const rp = await getDb().query.roundProgrammes.findFirst({
@@ -179,6 +179,7 @@ export const createApplication = createServerFn({ method: 'POST' })
       id,
       ...rest,
       amountRequested: amountRequested.toString(),
+      proposedImpactQuantity: proposedImpactQuantity != null ? proposedImpactQuantity.toString() : null,
     })
 
     const application = await getDb().query.applications.findFirst({

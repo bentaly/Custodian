@@ -27,11 +27,14 @@ export function Donut({
   size = 140,
   thickness = 16,
   center,
+  tooltip = true,
 }: {
   data: DonutSlice[]
   size?: number
   thickness?: number
   center?: React.ReactNode
+  /** Money-formatted hover tooltip. Off for non-monetary uses (e.g. a score gauge). */
+  tooltip?: boolean
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   const slices: DonutSlice[] = total > 0 ? data.filter((d) => d.value > 0) : [{ name: 'Empty', value: 1, color: chart.allocateLeft }]
@@ -56,7 +59,7 @@ export function Donut({
             <Cell key={i} fill={s.color} />
           ))}
         </Pie>
-        {total > 0 && (
+        {tooltip && total > 0 && (
           <Tooltip
             content={<DonutTooltip />}
             wrapperStyle={{ zIndex: 60, outline: 'none' }}
