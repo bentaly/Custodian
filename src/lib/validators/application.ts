@@ -40,6 +40,9 @@ export const CreateApplicationSchema = z.object({
   bankAccountNumber: z.string().min(1).max(50),
   bankSortCode: z.string().min(1).max(20),
   amountRequested: z.number().positive(),
+  // The impact the applicant proposes to achieve, in the programme's impact unit
+  // (people / trees / hectares …). Optional — not every foundation collects it.
+  proposedImpactQuantity: z.number().min(0).max(1_000_000_000).optional(),
   // The project budget as line items. Optional — not every foundation collects
   // one. Deliberately NOT reconciled against `amountRequested`: the applicant may
   // be asking this funder for only part of the budget, so the lines legitimately

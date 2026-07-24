@@ -20,6 +20,7 @@ export type CanonicalFieldKey =
   | 'companyNumber'
   | 'deliveryArea'
   | 'budgetBreakdown'
+  | 'proposedImpactQuantity'
 
 export interface CanonicalField {
   key: CanonicalFieldKey
@@ -125,6 +126,18 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'Do NOT map a single total figure — the overall ask is `amountRequested`, a separate field. ' +
       'Do NOT map a free-text narrative describing spending in prose; leave that unmapped so it ' +
       'is kept as a form response.',
+  },
+  {
+    key: 'proposedImpactQuantity',
+    label: 'Proposed impact (quantity)',
+    required: false,
+    description:
+      'THE NUMBER OF BENEFICIARIES / IMPACT UNITS THE APPLICANT PROPOSES TO REACH — a single count, ' +
+      'in whatever unit the programme measures (people helped, trees planted, hectares restored, etc.). ' +
+      'Map a field stating how many the project WILL reach or benefit (e.g. "we will support 340 young ' +
+      'people"). Extract the number only. Do NOT map monetary amounts, and do NOT map figures the ' +
+      'applicant reports having ALREADY achieved in the past — this is the forward-looking proposal.',
+    coerce: coerceAmount,
   },
 ]
 

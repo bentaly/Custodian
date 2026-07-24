@@ -1,65 +1,226 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { getApplication, rerunDueDiligence, rerunCustodianScore, rerunDeprivation, updateApplicationStatus } from '../../server/fns/applications'
-import { DueDiligencePanel } from '../../components/dueDiligence'
-import { CustodianScorePanel } from '../../components/custodianScore'
-import { DeprivationPanel } from '../../components/deprivation'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  ArrowLeft01Icon,
+  Coins01Icon,
+  FolderLibraryIcon,
+  UserGroupIcon,
+  ChartAverageIcon,
+  File01Icon,
+  CheckmarkCircle02Icon,
+  CancelCircleIcon,
+  InformationCircleIcon,
+} from '@hugeicons/core-free-icons'
+import {
+  getApplication,
+  rerunDueDiligence,
+  updateApplicationStatus,
+} from '../../server/fns/applications'
 import { ApplicationDrawer } from '../../components/ApplicationDrawer'
 import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
-import type { DueDiligenceCheckRecord, DueDiligenceStatus } from '../../lib/dueDiligence'
-import type { CustodianScoreDetail, CustodianScoreStatus } from '../../lib/custodianScore'
-import type { DeprivationResult, DeprivationStatus } from '../../lib/deprivation/types'
-import { Button, Card } from '../../components/ui'
+import { ProgressBar } from '../../components/ProgressBar'
+import { BarMeter, withAlpha } from '../../components/BarMeter'
+import { Donut } from '../../components/charts/Donut'
+import { CRITERION_DEFINITIONS, CRITERION_ORDER, type CustodianScoreDetail } from '../../lib/custodianScore'
+import { impactUnitLabel } from '../../lib/impactUnits'
+import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
+import type { DeprivationContext } from '../../lib/deprivation/types'
+import type { BudgetLine } from '../../lib/budget/types'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => getApplication({ data: { id: params.applicationId } }),
   component: ApplicationDetail,
 })
 
-function fmtCompact(n: number) {
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
-  if (n >= 1_000) return `£${Math.round(n / 1_000)}k`
-  return `£${Math.round(n).toLocaleString('en-GB')}`
+// ─── Design tokens ───────────────────────────────────────────────────────────────
+const C = {
+  ink: '#141C24',
+  sub: '#637083',
+  faint: '#97A1AF',
+  line: '#E4E7EC',
+  wash: '#F2F4F7',
+  brand: '#1F7A5C',
+  brandBg: 'rgba(31, 122, 92, 0.1)',
+  brandBorder: 'rgba(31, 122, 92, 0.2)',
+  success: '#31A650',
+  amber: '#9B6916',
+  danger: '#FF4242',
+}
+const KPI = {
+  amount: { bg: '#F5F4FF', accent: '#8B7FF0' },
+  programme: { bg: '#EDF9F1', accent: '#31A650' },
+  area: { bg: '#FEF7EB', accent: '#F89828' },
+  headroom: { bg: '#FDEFF2', accent: '#F0537A' },
+}
+const BUDGET_COLORS = ['#8B7FF0', '#31A650', '#F5B851', '#F48FB1', '#4FBEE8', '#F0876B']
+
+// RAG colour for a 1–10 criterion score: 0–3 red, 4–6 amber, 7+ green.
+function ragColor(score: number) {
+  if (score >= 7) return C.success
+  if (score >= 4) return '#F5B851'
+  return C.danger
 }
 
-function RoundProgrammeBudgetBar({
-  budget,
-  committed,
-}: {
-  budget: number
-  committed: number
-}) {
-  const pct = Math.min(100, (committed / budget) * 100)
-  const remaining = budget - committed
-  const isOver = remaining < 0
-  const barColor = pct >= 100 ? 'bg-red-400' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'
+// ─── Formatting ──────────────────────────────────────────────────────────────────
+function fmtMoney(n: number) {
+  return `£${Math.round(n).toLocaleString('en-GB')}`
+}
+function fmtCompact(n: number) {
+  const a = Math.abs(n)
+  if (a >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
+  if (a >= 1_000) return `£${Math.round(n / 1_000)}k`
+  return `£${Math.round(n).toLocaleString('en-GB')}`
+}
+function initials(name: string) {
+  const p = name.trim().split(/\s+/).filter(Boolean)
+  if (p.length === 0) return '—'
+  if (p.length === 1) return p[0]!.slice(0, 2).toUpperCase()
+  return (p[0]![0]! + p[p.length - 1]![0]!).toUpperCase()
+}
+function scoreColor(score: number) {
+  if (score >= 75) return C.brand
+  if (score >= 50) return C.amber
+  return C.danger
+}
+function durationLabel(years: number | null | undefined) {
+  if (!years) return null
+  return years === 1 ? '12 months' : `${years} years`
+}
 
+// ─── Primitives ──────────────────────────────────────────────────────────────────
+
+function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex-1 overflow-hidden rounded-full bg-gray-100" style={{ height: 4 }}>
-        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+    <div className={`rounded-[16px] border bg-white p-4 ${className}`} style={{ borderColor: C.line }}>
+      {children}
+    </div>
+  )
+}
+
+function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+        {children}
+      </h2>
+      {right}
+    </div>
+  )
+}
+
+function HeaderChip({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 font-display text-[13px] font-medium" style={{ color: C.sub }}>
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {children}
+    </span>
+  )
+}
+
+// Score gauge — the same Recharts `Donut` the dashboard/insights use (so it animates
+// its arc in on load for free), as a two-slice score/remainder ring with the money
+// tooltip switched off.
+function ScoreRing({ score, size = 132, thickness = 15 }: { score: number; size?: number; thickness?: number }) {
+  const pct = Math.max(0, Math.min(100, score))
+  const color = scoreColor(score)
+  return (
+    <Donut
+      size={size}
+      thickness={thickness}
+      tooltip={false}
+      data={[
+        { name: 'Score', value: pct, color },
+        { name: 'Remaining', value: 100 - pct, color: withAlpha(color, 0.15) },
+      ]}
+      center={
+        <div className="flex flex-col items-center">
+          <span className="font-display text-[32px] font-medium leading-none" style={{ color: C.ink }}>
+            {score}
+          </span>
+          <span className="mt-0.5 font-display text-[12px]" style={{ color: C.faint }}>
+            /100
+          </span>
+        </div>
+      }
+    />
+  )
+}
+
+function MiniKpi({
+  tint,
+  icon,
+  label,
+  value,
+  sub,
+  valueClass = 'text-[24px] font-semibold leading-tight',
+}: {
+  tint: { bg: string; accent: string }
+  icon: typeof Coins01Icon
+  label: string
+  value: React.ReactNode
+  sub: React.ReactNode
+  valueClass?: string
+}) {
+  return (
+    <div className="flex flex-col rounded-[20px] border bg-white p-1" style={{ borderColor: C.line }}>
+      <div className="relative overflow-hidden rounded-2xl p-4" style={{ backgroundColor: tint.bg }}>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 -translate-y-[17%]"
+          style={{
+            backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(tint.accent, 0.5)} 0%, ${withAlpha(tint.accent, 0)} 100%)`,
+            WebkitMaskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
+            maskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
+            WebkitMaskSize: '7px 7px',
+            maskSize: '7px 7px',
+          }}
+        />
+        <div className="relative z-10">
+          <div className={`truncate ${valueClass}`} style={{ color: C.ink }} title={typeof value === 'string' ? value : undefined}>
+            {value}
+          </div>
+          <div className="mt-1 truncate text-xs font-medium" style={{ color: C.sub }}>
+            {sub}
+          </div>
+        </div>
       </div>
-      <span className="text-xs tabular-nums text-gray-500">
-        {fmtCompact(committed)} / {fmtCompact(budget)}
+      <div className="flex items-center gap-2 px-4 py-3">
+        <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
+        <span className="text-[13px] font-medium" style={{ color: C.ink }}>
+          {label}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function CriterionBar({ label, score }: { label: string; score: number }) {
+  const color = ragColor(score)
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-32 shrink-0 font-display text-[13px]" style={{ color: C.sub }}>
+        {label}
       </span>
-      <span className={`text-xs tabular-nums ${isOver ? 'text-red-500' : 'text-gray-400'}`}>
-        {isOver ? `${fmtCompact(-remaining)} over` : `${fmtCompact(remaining)} left`}
+      <ProgressBar className="flex-1" value={score / 10} color={color} track={withAlpha(color, 0.15)} height={8} />
+      <span className="w-9 shrink-0 text-right font-display text-[13px] font-medium tabular-nums" style={{ color: C.ink }}>
+        {score}/10
       </span>
     </div>
   )
 }
 
+// ─── Screen ──────────────────────────────────────────────────────────────────────
+
 function ApplicationDetail() {
   const application = Route.useLoaderData()
   const { user } = Route.useRouteContext()
   const router = useRouter()
-  const [rerunning, setRerunning] = useState(false)
-  const [rescoring, setRescoring] = useState(false)
-  const [rederiving, setRederiving] = useState(false)
+  const [rerunningDD, setRerunningDD] = useState(false)
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
-  const [shortlistError, setShortlistError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const isShortlisted = application.status === 'shortlisted'
@@ -67,236 +228,419 @@ function ApplicationDetail() {
   const isAwarded = application.status === 'awarded'
 
   const rp = application.roundProgramme
+  const programme = rp.programme
+  const roundName = rp.round?.name ?? null
   const budget = rp.budget ? parseFloat(rp.budget) : null
   const committed = application.roundProgrammeCommitted
-  // Budget is full when committed (excluding this app) would already meet or exceed budget.
-  // We check against committed as returned by the server (which already excludes nothing — it
-  // includes this app if already shortlisted, excludes it if not). So the "would exceed" check
-  // is: committed + amountRequested > budget when NOT yet shortlisted.
   const amountRequested = parseFloat(application.amountRequested)
-  const isBudgetFull =
-    !isShortlisted &&
-    budget !== null &&
-    committed + amountRequested > budget
+  const isBudgetFull = !isShortlisted && budget !== null && committed + amountRequested > budget
 
-  async function handleShortlist() {
-    setShortlistError(null)
-    setShortlisting(true)
+  const scoreStatus = application.custodianScoreStatus ?? 'pending'
+  const score = application.custodianScore
+  const scoreDetail = application.custodianScoreDetail as CustodianScoreDetail | null
+  const scored = scoreStatus === 'scored' && score != null && scoreDetail != null
+
+  const ddRecords = (application.dueDiligenceChecks as DueDiligenceCheckRecord[] | null) ?? []
+  const ddFlags = ddRecords.filter((r) => r.result === 'fail').length
+
+  const deprivation = application.deprivationContext as DeprivationContext | null
+  const depResolved = application.deprivationStatus === 'resolved' && deprivation != null
+  const depShare =
+    depResolved && deprivation.count > 0
+      ? Math.round(((deprivation.histogram[0] ?? 0) + (deprivation.histogram[1] ?? 0)) / deprivation.count * 100)
+      : null
+  const region = application.deliveryRegion ?? application.deliveryArea ?? null
+
+  const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
+  const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || amountRequested
+
+  // Beneficiaries + cost-per-beneficiary come from what the applicant PROPOSES on
+  // this application (a forward-looking count in the programme's impact unit).
+  const unitLabel = impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
+  const unitSingular = unitLabel.replace(/s$/i, '') || unitLabel
+  const proposedImpact = application.proposedImpactQuantity != null ? parseFloat(application.proposedImpactQuantity) : null
+  const costPerBeneficiary = proposedImpact && proposedImpact > 0 ? amountRequested / proposedImpact : null
+
+  async function act(
+    setBusy: (b: boolean) => void,
+    fn: () => Promise<unknown>,
+  ) {
+    setError(null)
+    setBusy(true)
     try {
-      await updateApplicationStatus({
-        data: { id: application.id, status: isShortlisted ? 'for_review' : 'shortlisted' },
-      })
+      await fn()
       await router.invalidate()
     } catch (err) {
-      setShortlistError(err instanceof Error ? err.message : 'Failed to update status')
+      setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
-      setShortlisting(false)
+      setBusy(false)
     }
   }
 
-  async function handleDecline() {
-    setShortlistError(null)
-    setDeclining(true)
-    try {
-      await updateApplicationStatus({
-        data: { id: application.id, status: isDeclined ? 'for_review' : 'declined' },
-      })
-      await router.invalidate()
-    } catch (err) {
-      setShortlistError(err instanceof Error ? err.message : 'Failed to update status')
-    } finally {
-      setDeclining(false)
-    }
-  }
+  const handleShortlist = () =>
+    act(setShortlisting, () =>
+      updateApplicationStatus({ data: { id: application.id, status: isShortlisted ? 'for_review' : 'shortlisted' } }),
+    )
+  const handleDecline = () =>
+    act(setDeclining, () =>
+      updateApplicationStatus({ data: { id: application.id, status: isDeclined ? 'for_review' : 'declined' } }),
+    )
+  const handleRerunDD = () => act(setRerunningDD, () => rerunDueDiligence({ data: { id: application.id } }))
 
-  async function handleRerun() {
-    setRerunning(true)
-    try {
-      await rerunDueDiligence({ data: { id: application.id } })
-      await router.invalidate()
-    } finally {
-      setRerunning(false)
-    }
-  }
-
-  async function handleRescore() {
-    setRescoring(true)
-    try {
-      await rerunCustodianScore({ data: { id: application.id } })
-      await router.invalidate()
-    } finally {
-      setRescoring(false)
-    }
-  }
-
-  async function handleRederive() {
-    setRederiving(true)
-    try {
-      await rerunDeprivation({ data: { id: application.id } })
-      await router.invalidate()
-    } finally {
-      setRederiving(false)
-    }
-  }
+  const statusMeta = isAwarded
+    ? { label: 'Awarded', color: C.brand }
+    : isShortlisted
+      ? { label: 'Shortlisted', color: C.success }
+      : isDeclined
+        ? { label: 'Declined', color: C.danger }
+        : { label: 'In review', color: C.amber }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Link to="/applications" search={{ roundId: undefined }} className="hover:text-gray-600">
-          Applications
-        </Link>
-        <span>›</span>
-        <span className="text-gray-600">{application.organisationName}</span>
-      </div>
-
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{application.organisationName}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-            <span>
-              <span className="text-gray-400">Requested </span>
-              <span className="font-semibold text-gray-900">
-                £{Math.round(amountRequested).toLocaleString('en-GB')}
-              </span>
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/applications"
+            search={{ roundId: undefined }}
+            className="flex size-9 items-center justify-center rounded-lg border bg-white"
+            style={{ borderColor: C.line }}
+            aria-label="Back to applications"
+          >
+            <HugeiconsIcon icon={ArrowLeft01Icon} size={18} color={C.sub} />
+          </Link>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.wash }}>
+            <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
+              {initials(application.organisationName)}
             </span>
-            {application.deliveryArea && (
-              <span>
-                <span className="text-gray-400">Delivery area </span>
-                <span className="font-medium text-gray-700">{application.deliveryArea}</span>
-              </span>
-            )}
-            <span>
-              <span className="text-gray-400">Programme </span>
-              <span className="font-medium text-gray-700">{rp.programme.name}</span>
-            </span>
-            {application.externalApplicationId && (
-              <span>
-                <span className="text-gray-400">Ref </span>
-                <span className="font-mono text-gray-700">{application.externalApplicationId}</span>
-              </span>
-            )}
+          </div>
+          <div>
+            <h1 className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+              {application.organisationName}
+            </h1>
+            <p className="font-display text-[13px]" style={{ color: C.sub }}>
+              {[
+                programme.name,
+                application.charityNumber ? `Charity no. ${application.charityNumber}` : null,
+                region,
+                roundName ? `${roundName} round` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <div className="flex items-center gap-2">
-            {isAwarded && (
-              <span className="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
-                ✓ Awarded
-              </span>
+        <div className="flex items-center gap-4">
+          {application.charityNumber && <HeaderChip color={C.success}>Registered charity</HeaderChip>}
+          <HeaderChip color={statusMeta.color}>{statusMeta.label}</HeaderChip>
+          <HeaderChip color={ddFlags > 0 ? C.danger : C.success}>
+            {ddFlags > 0 ? `${ddFlags} due diligence flag${ddFlags !== 1 ? 's' : ''}` : 'No due diligence flags'}
+          </HeaderChip>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="flex h-9 items-center gap-2 rounded-lg border bg-white px-3"
+            style={{ borderColor: C.line }}
+          >
+            <HugeiconsIcon icon={File01Icon} size={16} color={C.sub} />
+            <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
+              View submission
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border px-3 py-2 font-display text-[13px]" style={{ borderColor: withAlpha(C.danger, 0.3), backgroundColor: withAlpha(C.danger, 0.06), color: C.danger }}>
+          {error}
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        {/* Main column */}
+        <div className="flex flex-col gap-4">
+          {/* AI Assessment */}
+          <Panel>
+            <PanelTitle>AI Assessment</PanelTitle>
+
+            {scored ? (
+              <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                <div className="flex items-center gap-4 md:w-[46%] md:shrink-0">
+                  <ScoreRing score={score} />
+                  <div>
+                    <p className="font-display text-[14px] leading-relaxed" style={{ color: C.sub }}>
+                      {scoreDetail.summary}
+                    </p>
+                    <span
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-display text-[12px] font-medium"
+                      style={{ backgroundColor: C.brandBg, color: C.brand }}
+                    >
+                      AI analysis{roundName ? ` · ${roundName}` : ''}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-1 flex-col gap-2.5">
+                  {CRITERION_ORDER.map((key) => {
+                    const c = scoreDetail.criteria[key]
+                    if (!c) return null
+                    return (
+                      <CriterionBar key={key} label={CRITERION_DEFINITIONS[key].label} score={c.score} />
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="font-display text-[14px]" style={{ color: C.sub }}>
+                {scoreStatus === 'error'
+                  ? 'Scoring failed — try re-scoring.'
+                  : 'This application has not been scored yet.'}
+              </p>
             )}
-            {!isDeclined && !isAwarded && (
-              <button
-                onClick={handleShortlist}
-                disabled={shortlisting || isBudgetFull}
-                title={isBudgetFull ? 'Budget committed — no funds remaining in this programme' : undefined}
-                className={`rounded border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
-                  isShortlisted
-                    ? 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                    : isBudgetFull
-                      ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-                      : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
-              >
-                {shortlisting
-                  ? '…'
-                  : isShortlisted
-                    ? '✓ Shortlisted'
-                    : isBudgetFull
-                      ? 'Budget full'
-                      : 'Add to shortlist'}
-              </button>
+
+            {scored && scoreDetail.flags.length > 0 && (
+              <ul className="mt-4 flex flex-col gap-1.5 border-t pt-4" style={{ borderColor: C.line }}>
+                {scoreDetail.flags.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 font-display text-[13px]" style={{ color: C.amber }}>
+                    <span className="mt-0.5">⚠</span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-            <button
-              onClick={handleDecline}
-              disabled={declining}
-              className={`rounded border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
-                isDeclined
-                  ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {declining ? '…' : isDeclined ? '✓ Declined · Reinstate' : 'Decline'}
-            </button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-1.5"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
-                  clipRule="evenodd"
+          </Panel>
+
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <MiniKpi
+              tint={KPI.amount}
+              icon={Coins01Icon}
+              label="Amount requested"
+              value={fmtCompact(amountRequested)}
+              sub={durationLabel(rp.grantDurationYears) ?? 'Duration not set'}
+            />
+            <MiniKpi
+              tint={KPI.programme}
+              icon={FolderLibraryIcon}
+              label="Programme"
+              value={programme.name}
+              sub={roundName ?? '—'}
+              valueClass="text-[16px] font-semibold leading-snug"
+            />
+            <MiniKpi
+              tint={KPI.area}
+              icon={UserGroupIcon}
+              label="Beneficiaries"
+              value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
+              sub={proposedImpact != null ? `${unitLabel.toLowerCase()} · proposed` : 'not stated'}
+            />
+            <MiniKpi
+              tint={KPI.headroom}
+              icon={ChartAverageIcon}
+              label="Cost per beneficiary"
+              value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
+              sub={costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'}
+            />
+          </div>
+
+          {/* Project budget */}
+          <Panel>
+            <PanelTitle>Project budget</PanelTitle>
+            {budgetLines.length > 0 ? (
+              <>
+                <div className="mb-3 flex items-baseline justify-between">
+                  <span className="font-display text-[24px] font-medium leading-none" style={{ color: C.ink }}>
+                    {fmtMoney(budgetTotal)}
+                  </span>
+                  <span className="font-display text-[13px]" style={{ color: C.sub }}>
+                    {budgetLines.length} line{budgetLines.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <BarMeter
+                  bars={120}
+                  height={24}
+                  barWidth={3}
+                  className="mb-4 w-full"
+                  segments={budgetLines.map((l, i) => ({ value: l.amount, color: BUDGET_COLORS[i % BUDGET_COLORS.length]! }))}
                 />
-              </svg>
-              View application
-            </Button>
-          </div>
-          {shortlistError && (
-            <p className="text-xs text-red-500">{shortlistError}</p>
+                <div className="flex flex-col gap-2.5">
+                  {budgetLines.map((l, i) => {
+                    const pct = budgetTotal > 0 ? Math.round((l.amount / budgetTotal) * 100) : 0
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: BUDGET_COLORS[i % BUDGET_COLORS.length] }} />
+                        <span className="flex-1 truncate font-display text-[14px]" style={{ color: C.ink }} title={l.item}>
+                          {l.item}
+                        </span>
+                        <span className="w-24 text-right font-display text-[14px] font-medium tabular-nums" style={{ color: C.ink }}>
+                          {fmtMoney(l.amount)}
+                        </span>
+                        <span className="w-10 text-right font-display text-[13px] tabular-nums" style={{ color: C.faint }}>
+                          {pct}%
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="font-display text-[14px]" style={{ color: C.sub }}>
+                No budget breakdown was provided with this application.
+              </p>
+            )}
+          </Panel>
+
+          {/* Due diligence checks */}
+          <Panel>
+            <PanelTitle
+              right={
+                <button
+                  type="button"
+                  onClick={handleRerunDD}
+                  disabled={rerunningDD}
+                  className="flex h-8 items-center rounded-lg border bg-white px-3 font-display text-[13px] font-medium disabled:opacity-60"
+                  style={{ borderColor: C.line, color: C.ink }}
+                >
+                  {rerunningDD ? 'Re-running…' : 'Re-run'}
+                </button>
+              }
+            >
+              Due diligence checks
+            </PanelTitle>
+            {ddRecords.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {ddRecords.map((r, i) => {
+                  const def = CHECK_DEFINITIONS[r.key]
+                  const ok = r.result === 'pass'
+                  const failed = r.result === 'fail'
+                  const color = ok ? C.success : failed ? C.danger : C.faint
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5"
+                      style={{ backgroundColor: C.wash }}
+                    >
+                      <span className="font-display text-[14px]" style={{ color: C.ink }}>
+                        {def?.label ?? r.key}
+                      </span>
+                      <span className="flex items-center gap-1.5 font-display text-[13px] font-medium" style={{ color }}>
+                        <HugeiconsIcon icon={failed ? CancelCircleIcon : CheckmarkCircle02Icon} size={16} color={color} />
+                        {r.detail ?? (ok ? 'Clear' : failed ? 'Flagged' : 'Unverified')}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="font-display text-[14px]" style={{ color: C.sub }}>
+                Not screened yet.
+              </p>
+            )}
+          </Panel>
+
+          {/* Trustee vote — only once shortlisted (a vote precedes an award). */}
+          {isShortlisted && (
+            <Panel>
+              <VotingSection applicationId={application.id} userId={user.id} userRole={user.role} />
+            </Panel>
           )}
-          {budget !== null && (
-            <div className="w-72">
-              <p className="mb-1 text-xs text-gray-400">{rp.programme.name} budget</p>
-              <RoundProgrammeBudgetBar budget={budget} committed={committed} />
+        </div>
+
+        {/* Sidebar */}
+        <div className="flex flex-col gap-4">
+          {/* Decision */}
+          <Panel>
+            <div className="mb-3 flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: statusMeta.color }} />
+              <span className="font-display text-[13px] font-medium" style={{ color: C.ink }}>
+                {statusMeta.label}
+                {roundName ? ` for ${roundName}` : ''}
+              </span>
             </div>
+
+            {isAwarded ? (
+              <div
+                className="flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-[14px] font-medium"
+                style={{ backgroundColor: C.brandBg, color: C.brand }}
+              >
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color={C.brand} /> Awarded
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleShortlist}
+                  disabled={shortlisting || isBudgetFull}
+                  title={isBudgetFull ? 'Budget committed — no funds remaining in this programme' : undefined}
+                  className="flex h-10 items-center justify-center rounded-lg font-display text-[14px] font-medium disabled:opacity-50"
+                  style={
+                    isShortlisted
+                      ? { border: `1px solid ${C.line}`, color: C.ink, background: '#fff' }
+                      : { background: C.brand, color: '#fff' }
+                  }
+                >
+                  {shortlisting ? '…' : isShortlisted ? 'Remove from shortlist' : isBudgetFull ? 'Budget full' : 'Add to shortlist'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDecline}
+                  disabled={declining}
+                  className="flex h-10 items-center justify-center rounded-lg font-display text-[14px] font-medium disabled:opacity-50"
+                  style={{ border: `1px solid ${isDeclined ? withAlpha(C.danger, 0.3) : C.line}`, color: C.danger, background: isDeclined ? withAlpha(C.danger, 0.06) : '#fff' }}
+                >
+                  {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Move to declined'}
+                </button>
+              </div>
+            )}
+
+            {depShare != null && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg p-3" style={{ backgroundColor: C.wash }}>
+                <HugeiconsIcon icon={InformationCircleIcon} size={16} color={C.sub} className="mt-0.5 shrink-0" />
+                <p className="font-display text-[13px] leading-relaxed" style={{ color: C.sub }}>
+                  <span style={{ color: C.ink, fontWeight: 500 }}>{depShare}%</span> reaches IMD decile{' '}
+                  {deprivation!.min}–{deprivation!.max}
+                  {region ? `, concentrated in ${region}` : ''}.
+                </p>
+              </div>
+            )}
+          </Panel>
+
+          {/* Notes (comments) */}
+          <Panel>
+            <PanelTitle>Notes</PanelTitle>
+            <CommentsSection applicationId={application.id} userId={user.id} userRole={user.role} />
+          </Panel>
+
+          {/* Community context */}
+          {(scored || depResolved) && (
+            <Panel>
+              <PanelTitle>Community context</PanelTitle>
+              {scored && scoreDetail.criteria.community_need && (
+                <div className="mb-2 flex items-baseline gap-2">
+                  <span className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+                    {scoreDetail.criteria.community_need.score}/10
+                  </span>
+                  <span className="font-display text-[13px]" style={{ color: C.sub }}>
+                    community need
+                  </span>
+                </div>
+              )}
+              {depResolved && (
+                <p className="font-display text-[14px]" style={{ color: C.ink }}>
+                  Decile {deprivation.min}–{deprivation.max}
+                  <span style={{ color: C.sub }}>
+                    {' '}
+                    · {deprivation.vintage}
+                    {region ? ` · ${region}` : ''}
+                  </span>
+                </p>
+              )}
+            </Panel>
           )}
         </div>
       </div>
 
-      <CustodianScorePanel
-        status={(application.custodianScoreStatus ?? 'pending') as CustodianScoreStatus}
-        score={application.custodianScore}
-        detail={application.custodianScoreDetail as CustodianScoreDetail | null}
-        scoredAt={application.custodianScoredAt}
-        action={
-          <Button variant="secondary" size="xs" onClick={handleRescore} disabled={rescoring}>
-            {rescoring ? 'Scoring…' : 'Re-score'}
-          </Button>
-        }
-      />
-
-      <DueDiligencePanel
-        status={(application.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus}
-        checks={application.dueDiligenceChecks as DueDiligenceCheckRecord[] | null}
-        checkedAt={application.dueDiligenceCheckedAt}
-        action={
-          <Button variant="secondary" size="xs" onClick={handleRerun} disabled={rerunning}>
-            {rerunning ? 'Re-running…' : 'Re-run'}
-          </Button>
-        }
-      />
-
-      <DeprivationPanel
-        status={(application.deprivationStatus ?? 'pending') as DeprivationStatus}
-        context={application.deprivationContext as DeprivationResult | null}
-        resolvedAt={application.deprivationResolvedAt}
-        action={
-          <Button variant="secondary" size="xs" onClick={handleRederive} disabled={rederiving}>
-            {rederiving ? 'Resolving…' : 'Re-run'}
-          </Button>
-        }
-      />
-
-      <Card className="p-5 space-y-6">
-        <VotingSection
-          applicationId={application.id}
-          userId={user.id}
-          userRole={user.role}
-        />
-        <CommentsSection
-          applicationId={application.id}
-          userId={user.id}
-          userRole={user.role}
-        />
-      </Card>
-
-      <ApplicationDrawer
-        application={application}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-      />
+      <ApplicationDrawer application={application} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   )
 }
