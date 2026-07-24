@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { Button, Card, EmptyState } from '../../components/ui'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Coins01Icon,
+  UserGroupIcon,
+  Location01Icon,
+  ChartAverageIcon,
+  Download01Icon,
+  ArrowDown01Icon,
+} from '@hugeicons/core-free-icons'
+import { EmptyState } from '../../components/ui'
+import { Donut, type DonutSlice } from '../../components/charts/Donut'
+import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
 // impact figures the report-analysis pipeline has already extracted and stored.
-// No screen-time AI: where a number's coverage is partial (unreported grants,
-// unresolved locations) the denominator is stated rather than hidden.
+// No screen-time AI: where a number's coverage is partial the denominator is stated.
 
 type InsightsSearch = {
   /** 'all' | '12m' | '24m' | a round id. */
@@ -27,19 +37,43 @@ export const Route = createFileRoute('/_authenticated/insights')({
   component: InsightsPage,
 })
 
+// ─── Design tokens ───────────────────────────────────────────────────────────────
+const C = {
+  ink: '#141C24',
+  sub: '#637083',
+  faint: '#97A1AF',
+  line: '#E4E7EC',
+  wash: '#F2F4F7',
+  brand: '#1F7A5C',
+  success: '#31A650',
+}
+const KPI = {
+  committed: { bg: '#F5F4FF', accent: '#8B7FF0' },
+  people: { bg: '#EDF9F1', accent: '#31A650' },
+  reach: { bg: '#FEF7EB', accent: '#F89828' },
+  avg: { bg: '#FDEFF2', accent: '#F0537A' },
+}
+const PALETTE = ['#31A650', '#4FA8E8', '#F48FB1', '#F5B851', '#8B7FF0', '#4FBEE8', '#F0876B']
+// Rotating pastel tints for the round grant cards.
+const CARD_TINTS = [
+  { bg: '#F5F4FF', ink: '#6E63D6' },
+  { bg: '#EDF9F1', ink: '#1F7A5C' },
+  { bg: '#FEF7EB', ink: '#B4741A' },
+  { bg: '#FDEFF2', ink: '#C64B72' },
+  { bg: '#EEF7FC', ink: '#2F7CB8' },
+]
+
+// ─── Formatting ──────────────────────────────────────────────────────────────────
 function fmt(n: number) {
   return `£${Math.round(n).toLocaleString('en-GB')}`
 }
-
 function fmtCompact(n: number) {
   if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
   if (n >= 1_000) return `£${Math.round(n / 1_000)}k`
   return `£${Math.round(n).toLocaleString('en-GB')}`
 }
 
-// Count-up for the headline stats. Renders the real value on first paint (and
-// SSR), then animates towards the target whenever it changes — so filter
-// switches roll the numbers. Sits still for users who prefer reduced motion.
+// Count-up for the headline stats (SSR-safe; sits still under reduced motion).
 function useCountUp(target: number, duration = 450): number {
   const [value, setValue] = useState(target)
   const fromRef = useRef(target)
@@ -66,29 +100,236 @@ function useCountUp(target: number, duration = 450): number {
   return value
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-  accent = false,
-}: {
-  label: string
-  value: string
-  sub: string
-  accent?: boolean
-}) {
+// ─── Primitives ──────────────────────────────────────────────────────────────────
+
+function Panel({ children, className = '', innerRef, ...rest }: { children: React.ReactNode; className?: string; innerRef?: React.Ref<HTMLDivElement> } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <Card className="px-4 py-3">
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${accent ? 'text-emerald-700' : 'text-gray-900'}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-gray-400">{sub}</p>
-    </Card>
+    <div ref={innerRef} className={`rounded-[16px] border bg-white p-4 ${className}`} style={{ borderColor: C.line }} {...rest}>
+      {children}
+    </div>
   )
 }
 
-// ─── Derivations (all pure, over the filtered grant set) ─────────────────────
+function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+        {children}
+      </h2>
+      {right}
+    </div>
+  )
+}
 
-/** Share of a grant's location falling in deciles 1..maxDecile, from its histogram. */
+function MiniKpi({
+  tint,
+  icon,
+  label,
+  value,
+  sub,
+}: {
+  tint: { bg: string; accent: string }
+  icon: typeof Coins01Icon
+  label: string
+  value: React.ReactNode
+  sub: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col rounded-[20px] border bg-white p-1" style={{ borderColor: C.line }}>
+      <div className="relative overflow-hidden rounded-2xl p-4" style={{ backgroundColor: tint.bg }}>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 -translate-y-[17%]"
+          style={{
+            backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(tint.accent, 0.5)} 0%, ${withAlpha(tint.accent, 0)} 100%)`,
+            WebkitMaskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
+            maskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
+            WebkitMaskSize: '7px 7px',
+            maskSize: '7px 7px',
+          }}
+        />
+        <div className="relative z-10">
+          <div className="text-[30px] font-semibold leading-none" style={{ color: C.ink }}>
+            {value}
+          </div>
+          <div className="mt-1.5 text-xs font-medium" style={{ color: C.sub }}>
+            {sub}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 px-4 py-3">
+        <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
+        <span className="text-[13px] font-medium" style={{ color: C.ink }}>
+          {label}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Native <select> styled as a Figma filter pill.
+// A borderless stat (used inside a titled panel).
+function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div>
+      <p className="font-display text-[13px] font-medium" style={{ color: C.sub }}>
+        {label}
+      </p>
+      <p className="mt-1 font-display text-[24px] font-semibold leading-none" style={{ color: C.ink }}>
+        {value}
+      </p>
+      <p className="mt-1 font-display text-[12px]" style={{ color: C.faint }}>
+        {sub}
+      </p>
+    </div>
+  )
+}
+
+// Column chart of funding across IMD deciles 1–10. Deciles 1–4 (the "most deprived
+// 40%") carry the accent; 5–10 recede.
+function DecileChart({ amounts, total, max }: { amounts: number[]; total: number; max: number }) {
+  return (
+    <div>
+      <div className="mt-2 flex h-40 items-end gap-2">
+        {amounts.map((amt, i) => {
+          const pct = total > 0 ? Math.round((amt / total) * 100) : 0
+          const h = Math.round((amt / max) * 100)
+          return (
+            <div key={i} className="group flex h-full flex-1 flex-col justify-end" title={`Decile ${i + 1} · ${fmt(amt)} · ${pct}%`}>
+              {amt > 0 && pct >= 4 && (
+                <span className="mb-1 text-center font-display text-[10px]" style={{ color: C.faint }}>
+                  {pct}%
+                </span>
+              )}
+              <div
+                className="mx-auto w-full max-w-[26px] rounded-t-md"
+                style={{ height: `${Math.max(amt > 0 ? 3 : 0, h)}%`, backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2) }}
+              />
+              <span className="mt-1.5 text-center font-display text-[11px]" style={{ color: C.sub }}>
+                {i + 1}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-3 flex items-center gap-4">
+        <span className="flex items-center gap-1.5 font-display text-[12px]" style={{ color: C.sub }}>
+          <span className="size-2 rounded-[2px]" style={{ backgroundColor: C.brand }} /> Most deprived 40%
+        </span>
+        <span className="flex items-center gap-1.5 font-display text-[12px]" style={{ color: C.sub }}>
+          <span className="size-2 rounded-[2px]" style={{ backgroundColor: withAlpha(C.success, 0.2) }} /> Deciles 5–10
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Schematic UK ITL1 tile-grid (a "for now" region map — dependency-free, data-bound).
+// Swap for a true silhouette SVG when one is exported from Figma.
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+const UK_TILES: Array<{ name: string; abbr: string; col: number; row: number }> = [
+  { name: 'Scotland', abbr: 'Sco', col: 3, row: 1 },
+  { name: 'North East', abbr: 'NE', col: 3, row: 2 },
+  { name: 'Northern Ireland', abbr: 'NI', col: 1, row: 3 },
+  { name: 'North West', abbr: 'NW', col: 2, row: 3 },
+  { name: 'Yorkshire and The Humber', abbr: 'Y&H', col: 3, row: 3 },
+  { name: 'Wales', abbr: 'Wal', col: 1, row: 4 },
+  { name: 'West Midlands', abbr: 'WM', col: 2, row: 4 },
+  { name: 'East Midlands', abbr: 'EM', col: 3, row: 4 },
+  { name: 'East of England', abbr: 'EoE', col: 4, row: 4 },
+  { name: 'South West', abbr: 'SW', col: 2, row: 5 },
+  { name: 'South East', abbr: 'SE', col: 3, row: 5 },
+  { name: 'London', abbr: 'Lon', col: 4, row: 5 },
+]
+
+function RegionTileMap({
+  data,
+  max,
+  active,
+  onSelect,
+}: {
+  data: Map<string, { amount: number; count: number; name: string }>
+  max: number
+  active: string | null
+  onSelect: (name: string) => void
+}) {
+  return (
+    <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, minmax(0, 1fr))' }}>
+      {UK_TILES.map((t) => {
+        const d = data.get(norm(t.name))
+        const intensity = d ? 0.2 + 0.8 * (max > 0 ? d.amount / max : 0) : 0
+        const isActive = d != null && d.name === active
+        const light = intensity > 0.55
+        return (
+          <button
+            key={t.name}
+            type="button"
+            disabled={!d}
+            onClick={() => d && onSelect(d.name)}
+            title={d ? `${d.name} · ${fmtCompact(d.amount)} · ${d.count}` : t.name}
+            className="flex aspect-square flex-col items-center justify-center rounded-lg p-1 transition-colors disabled:cursor-default"
+            style={{
+              gridColumn: t.col,
+              gridRow: t.row,
+              backgroundColor: d ? withAlpha(C.success, intensity) : C.wash,
+              outline: isActive ? `2px solid ${C.brand}` : 'none',
+              outlineOffset: -1,
+            }}
+          >
+            <span className="font-display text-[12px] font-semibold" style={{ color: light ? '#fff' : C.ink }}>
+              {t.abbr}
+            </span>
+            {d && (
+              <span className="font-display text-[9px]" style={{ color: light ? 'rgba(255,255,255,0.85)' : C.sub }}>
+                {fmtCompact(d.amount)}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string | undefined
+  options: Array<{ value: string; label: string }>
+  onChange: (v: string | undefined) => void
+}) {
+  const current = options.find((o) => o.value === value)
+  return (
+    <div className="relative shrink-0">
+      <div className="flex h-9 items-center gap-1 rounded-lg border bg-white pl-3 pr-2" style={{ borderColor: C.line }}>
+        <span className="whitespace-nowrap font-display text-[14px] font-medium" style={{ color: C.ink }}>
+          {current ? current.label : label}
+        </span>
+        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.sub} />
+      </div>
+      <select
+        aria-label={label}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+        className="absolute inset-0 w-full cursor-pointer opacity-0"
+      >
+        <option value="">{label}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+// ─── Derivations (pure, over the filtered grant set) ─────────────────────────────
+
 function decileShare(g: InsightsGrant, maxDecile: number): number {
   if (!g.deprivation) return 0
   const total = g.deprivation.histogram.reduce((s, n) => s + n, 0)
@@ -97,7 +338,22 @@ function decileShare(g: InsightsGrant, maxDecile: number): number {
   return inBand / total
 }
 
-/** Funding distributed across deciles 1–10, weighting each grant's amount by its histogram. */
+type ImpactSource = 'reported' | 'proposed'
+/**
+ * A grant's impact figure, provenance-tagged: the ACTUAL from an analysed report
+ * where one exists, otherwise the applicant's PROPOSED figure as a fallback. Callers
+ * decide how to present each source — proposed figures are estimates, never actuals.
+ */
+function effImpact(g: InsightsGrant): { value: number; source: ImpactSource } | null {
+  if (g.impactQuantity !== null) return { value: g.impactQuantity, source: 'reported' }
+  if (g.proposedImpactQuantity !== null) return { value: g.proposedImpactQuantity, source: 'proposed' }
+  return null
+}
+function sumImpact(grants: InsightsGrant[]): number {
+  return grants.reduce((s, g) => s + (effImpact(g)?.value ?? 0), 0)
+}
+
+/** Funding spread across deciles 1–10, weighting each grant's amount by its histogram. */
 function fundingByDecile(grants: InsightsGrant[]): number[] {
   const out = Array<number>(10).fill(0)
   for (const g of grants) {
@@ -141,96 +397,48 @@ function InsightsPage() {
   // ── Headline stats ──
   const committed = fil.reduce((s, g) => s + g.amountAwarded, 0)
   const avgGrant = fil.length > 0 ? committed / fil.length : 0
+  const amounts = fil.map((g) => g.amountAwarded)
+  const minGrant = amounts.length ? Math.min(...amounts) : 0
+  const maxGrant = amounts.length ? Math.max(...amounts) : 0
 
-  // Impact headline: the selected programme's own unit, or people-programmes only
-  // portfolio-wide (units must never be summed across each other).
   const selectedProgramme = programmeId ? fil.find((g) => g.programmeId === programmeId) : undefined
   const impactPool = selectedProgramme ? fil : fil.filter((g) => g.unitKey === 'people')
-  const impactReported = impactPool.filter((g) => g.impactQuantity !== null)
-  const impactTotal = impactReported.reduce((s, g) => s + (g.impactQuantity ?? 0), 0)
+  // Provenance-aware: prefer reported actuals, fall back to proposed. Track the split
+  // so estimates are surfaced, never silently passed off as achieved impact.
+  const impactEff = impactPool.map(effImpact).filter((e): e is { value: number; source: ImpactSource } => e !== null)
+  const impactTotal = impactEff.reduce((s, e) => s + e.value, 0)
+  const impactReportedCount = impactEff.filter((e) => e.source === 'reported').length
+  const impactProposedCount = impactEff.filter((e) => e.source === 'proposed').length
   const impactLabel = selectedProgramme ? selectedProgramme.unitLabel : 'People reached'
 
-  // Deprivation reach: amount-weighted share of located funding in deciles 1–4.
-  // Each grant's deciles are within its own nation's index.
   const located = fil.filter((g) => g.deprivation)
   const locatedAmt = located.reduce((s, g) => s + g.amountAwarded, 0)
   const dep14Amt = located.reduce((s, g) => s + g.amountAwarded * decileShare(g, 4), 0)
   const dep14Pct = locatedAmt > 0 ? Math.round((dep14Amt / locatedAmt) * 100) : 0
-  const locatedPct = committed > 0 ? Math.round((locatedAmt / committed) * 100) : 0
 
   const committedUp = useCountUp(committed)
   const impactUp = useCountUp(impactTotal)
   const dep14Up = useCountUp(locatedAmt > 0 ? dep14Pct : 0)
   const avgUp = useCountUp(avgGrant)
 
-  // ── Panel data ──
-  const decileAmounts = fundingByDecile(located)
-  const vintages = [...new Set(located.map((g) => `${g.deprivation!.vintage}`))].sort()
-
+  // ── Giving by programme ──
   const byProgramme = [...new Map(fil.filter((g) => g.programmeId).map((g) => [g.programmeId!, g])).keys()]
-    .map((pid) => {
+    .map((pid, i) => {
       const grants = fil.filter((g) => g.programmeId === pid)
-      const reported = grants.filter((g) => g.impactQuantity !== null)
-      const impact = reported.reduce((s, g) => s + (g.impactQuantity ?? 0), 0)
-      const reportedAmt = reported.reduce((s, g) => s + g.amountAwarded, 0)
       return {
         id: pid,
         name: grants[0]!.programmeName ?? '—',
-        unitLabel: grants[0]!.unitLabel,
+        color: PALETTE[i % PALETTE.length]!,
         committed: grants.reduce((s, g) => s + g.amountAwarded, 0),
         grants: grants.length,
-        reported: reported.length,
-        impact,
-        costPerUnit: impact > 0 ? reportedAmt / impact : null,
+        people: grants[0]!.unitKey === 'people' ? sumImpact(grants) : null,
+        unitLabel: grants[0]!.unitLabel,
       }
     })
     .sort((a, b) => b.committed - a.committed)
 
-  const byRegion = regions
-    .filter((r) => !region || r === region)
-    .map((r) => {
-      const grants = fil.filter((g) => g.region === r)
-      return {
-        name: r,
-        amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
-        count: grants.length,
-        lads: [...new Set(grants.map((g) => g.ladName).filter(Boolean))] as string[],
-      }
-    })
-    .filter((r) => r.count > 0)
-    .sort((a, b) => b.amount - a.amount)
-  const unlocatedCount = fil.filter((g) => !g.region).length
-  const maxRegionAmt = byRegion[0]?.amount ?? 1
-
-  const tagNames = [...new Set(fil.flatMap((g) => g.tags))].sort()
-  const themes = tagNames
-    .map((t) => {
-      const grants = fil.filter((g) => g.tags.includes(t))
-      const withQuote = [...grants].sort((a, b) => b.amountAwarded - a.amountAwarded).find((g) => g.impactQuote)
-      return {
-        tag: t,
-        amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
-        count: grants.length,
-        quote: withQuote ? { text: withQuote.impactQuote!, org: withQuote.organisationName } : null,
-      }
-    })
-    .sort((a, b) => b.amount - a.amount)
-  const themedTotal = themes.reduce((s, t) => s + t.amount, 0)
-
-  const alignmentScores = fil.map((g) => g.alignmentScore).filter((s): s is number => s !== null)
-  const avgAlignment =
-    alignmentScores.length > 0 ? alignmentScores.reduce((s, n) => s + n, 0) / alignmentScores.length : null
-  const milestones = fil.reduce(
-    (acc, g) => ({
-      received: acc.received + g.milestones.received,
-      onTime: acc.onTime + g.milestones.onTime,
-      overdue: acc.overdue + g.milestones.overdue,
-    }),
-    { received: 0, onTime: 0, overdue: 0 },
-  )
-  const reportsAnalysed = fil.reduce((s, g) => s + g.reportsAnalysed, 0)
-
-  // Timeline: rounds in chronological order, grants largest-first within each.
+  // ── Commitment over time (by round, chronological) ──
+  const [chartMode, setChartMode] = useState<'bars' | 'cumulative'>('bars')
   const timelineRounds = [...new Map(fil.filter((g) => g.roundId).map((g) => [g.roundId!, g])).keys()]
     .map((rid) => {
       const grants = fil.filter((g) => g.roundId === rid).sort((a, b) => b.amountAwarded - a.amountAwarded)
@@ -243,29 +451,89 @@ function InsightsPage() {
       }
     })
     .sort((a, b) => (a.openedAt ?? '').localeCompare(b.openedAt ?? ''))
-  const undatedGrants = fil.filter((g) => !g.roundId)
+  let running = 0
+  const commitSeries = timelineRounds.map((r) => {
+    running += r.total
+    return { label: r.name, bars: r.total, cumulative: running }
+  })
+  const chartMax = Math.max(1, ...commitSeries.map((p) => (chartMode === 'cumulative' ? p.cumulative : p.bars)))
+
+  // ── Themes ──
+  const tagNames = [...new Set(fil.flatMap((g) => g.tags))].sort()
+  const themes = tagNames
+    .map((t, i) => {
+      const grants = fil.filter((g) => g.tags.includes(t))
+      const withQuote = [...grants].sort((a, b) => b.amountAwarded - a.amountAwarded).find((g) => g.impactQuote)
+      return {
+        tag: t,
+        color: PALETTE[i % PALETTE.length]!,
+        amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
+        count: grants.length,
+        people: sumImpact(grants.filter((g) => g.unitKey === 'people')),
+        quote: withQuote?.impactQuote ?? null,
+      }
+    })
+    .sort((a, b) => b.amount - a.amount)
+  const themedTotal = themes.reduce((s, t) => s + t.amount, 0)
+
+  // ── Region + selected-region breakdown ──
+  const byRegion = regions
+    .map((r) => {
+      const grants = fil.filter((g) => g.region === r)
+      return { name: r, amount: grants.reduce((s, g) => s + g.amountAwarded, 0), count: grants.length }
+    })
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.amount - a.amount)
+  const unlocatedCount = fil.filter((g) => !g.region).length
+
+  const [selRegion, setSelRegion] = useState<string | null>(null)
+  const activeRegion = selRegion && byRegion.some((r) => r.name === selRegion) ? selRegion : (byRegion[0]?.name ?? null)
+  const regionByNorm = new Map(byRegion.map((r) => [norm(r.name), r]))
+  const maxRegionAmt = byRegion[0]?.amount ?? 1
+  const tiledNorms = new Set(UK_TILES.map((t) => norm(t.name)))
+  const unmatchedRegions = byRegion.filter((r) => !tiledNorms.has(norm(r.name)))
+  const regionGrants = fil.filter((g) => g.region === activeRegion)
+  const regionTotal = regionGrants.reduce((s, g) => s + g.amountAwarded, 0)
+  const byLad = [...new Map(regionGrants.map((g) => [g.ladName ?? '—', 0])).keys()]
+    .map((lad, i) => ({
+      name: lad,
+      color: PALETTE[i % PALETTE.length]!,
+      amount: regionGrants.filter((g) => (g.ladName ?? '—') === lad).reduce((s, g) => s + g.amountAwarded, 0),
+    }))
+    .sort((a, b) => b.amount - a.amount)
+  const ladDonut: DonutSlice[] = byLad.map((l) => ({ name: l.name, value: l.amount, color: l.color }))
+
+  // ── Deprivation-decile distribution ──
+  const decileAmounts = fundingByDecile(located)
+  const decileMax = Math.max(1, ...decileAmounts)
+  const vintages = [...new Set(located.map((g) => g.deprivation!.vintage))].sort()
+
+  // ── Grantee performance (from analysed reports) ──
+  const alignmentScores = fil.map((g) => g.alignmentScore).filter((s): s is number => s !== null)
+  const avgAlignment = alignmentScores.length > 0 ? alignmentScores.reduce((s, n) => s + n, 0) / alignmentScores.length : null
+  const milestones = fil.reduce(
+    (acc, g) => ({
+      received: acc.received + g.milestones.received,
+      onTime: acc.onTime + g.milestones.onTime,
+      overdue: acc.overdue + g.milestones.overdue,
+    }),
+    { received: 0, onTime: 0, overdue: 0 },
+  )
+  const reportsAnalysed = fil.reduce((s, g) => s + g.reportsAnalysed, 0)
+
+  const earliest = timelineRounds[0]?.name ?? null
 
   function setSearch(patch: Partial<InsightsSearch>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
 
-  // ── PDF export: a screengrab of the current, filtered state ──
+  // ── PDF export ──
   const exportRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
-
   const periodLabel =
-    !range || range === 'all'
-      ? 'All time'
-      : range === '12m'
-        ? 'Last 12 months'
-        : range === '24m'
-          ? 'Last 2 years'
-          : (rounds.find((r) => r.id === range)?.name ?? 'Selected round')
-  const programmeLabel = programmeId
-    ? (programmes.find((p) => p.id === programmeId)?.name ?? 'Selected programme')
-    : 'All programmes'
+    !range || range === 'all' ? 'All time' : range === '12m' ? 'Last 12 months' : range === '24m' ? 'Last 2 years' : (rounds.find((r) => r.id === range)?.name ?? 'Selected round')
+  const programmeLabel = programmeId ? (programmes.find((p) => p.id === programmeId)?.name ?? 'Selected programme') : 'All programmes'
   const regionLabel = region ?? 'All regions'
-
   async function handleExport() {
     if (!exportRef.current) return
     setExporting(true)
@@ -274,433 +542,410 @@ function InsightsPage() {
         title: 'Insights',
         filters: `${periodLabel} · ${programmeLabel} · ${regionLabel}`,
         summary: `${fil.length} award${fil.length !== 1 ? 's' : ''} · ${fmtCompact(committed)} committed`,
-        generatedAt: new Date().toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        }),
+        generatedAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
       })
     } finally {
       setExporting(false)
     }
   }
 
-  const pillBase = 'rounded-full border px-3 py-1 text-xs transition-colors'
-  const pillOn = 'border-emerald-600 bg-emerald-50 font-medium text-emerald-700'
-  const pillOff = 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-  const pill = (on: boolean) => `${pillBase} ${on ? pillOn : pillOff}`
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1
-            className="font-display text-[21px] font-semibold text-gray-900"
-          >
-            Insights
-          </h1>
-          <p className="mt-0.5 text-sm text-gray-400">Portfolio analysis across every award made</p>
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-[20px] font-medium">
+          <span style={{ color: C.ink }}>The story </span>
+          <span style={{ color: C.faint }}>so far</span>
+        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          {earliest && (
+            <span className="font-display text-[13px] font-medium" style={{ color: C.brand }}>
+              {items.length} grant{items.length !== 1 ? 's' : ''} since {earliest}
+            </span>
+          )}
+          <FilterSelect
+            label="Period"
+            value={range}
+            options={[
+              { value: 'all', label: 'All time' },
+              { value: '12m', label: 'Last 12 months' },
+              { value: '24m', label: 'Last 2 years' },
+              ...rounds.map((r) => ({ value: r.id, label: r.name })),
+            ]}
+            onChange={(v) => setSearch({ range: v })}
+          />
+          {programmes.length > 1 && (
+            <FilterSelect label="Programme" value={programmeId} options={programmes.map((p) => ({ value: p.id, label: p.name }))} onChange={(v) => setSearch({ programmeId: v })} />
+          )}
+          {regions.length > 1 && (
+            <FilterSelect label="Region" value={region} options={regions.map((r) => ({ value: r, label: r }))} onChange={(v) => setSearch({ region: v })} />
+          )}
+          {fil.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex h-9 items-center gap-2 rounded-lg border px-3 disabled:opacity-60"
+              style={{ backgroundColor: 'rgba(31,122,92,0.1)', borderColor: 'rgba(31,122,92,0.2)' }}
+            >
+              <span className="font-display text-[14px] font-medium" style={{ color: C.brand }}>
+                {exporting ? 'Preparing…' : 'Export PDF'}
+              </span>
+              <HugeiconsIcon icon={Download01Icon} size={18} color={C.brand} />
+            </button>
+          )}
         </div>
-        {fil.length > 0 && (
-          <Button variant="secondary" size="sm" onClick={handleExport} disabled={exporting}>
-            {exporting ? 'Preparing…' : 'Export PDF'}
-          </Button>
-        )}
-      </div>
-
-      {/* One filter row scoping every panel below. */}
-      <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Period</span>
-          <button onClick={() => setSearch({ range: undefined })} className={pill(!range || range === 'all')}>
-            All time
-          </button>
-          <button onClick={() => setSearch({ range: '12m' })} className={pill(range === '12m')}>
-            Last 12 months
-          </button>
-          <button onClick={() => setSearch({ range: '24m' })} className={pill(range === '24m')}>
-            Last 2 years
-          </button>
-          {rounds.map((r) => (
-            <button key={r.id} onClick={() => setSearch({ range: r.id })} className={pill(range === r.id)}>
-              {r.name}
-            </button>
-          ))}
-        </div>
-        {programmes.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Programme</span>
-            <button onClick={() => setSearch({ programmeId: undefined })} className={pill(!programmeId)}>
-              All
-            </button>
-            {programmes.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSearch({ programmeId: programmeId === p.id ? undefined : p.id })}
-                className={pill(programmeId === p.id)}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-        )}
-        {regions.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Region</span>
-            <button onClick={() => setSearch({ region: undefined })} className={pill(!region)}>
-              All
-            </button>
-            {regions.map((r) => (
-              <button
-                key={r}
-                onClick={() => setSearch({ region: region === r ? undefined : r })}
-                className={pill(region === r)}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {fil.length === 0 ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No awards match these filters.</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="font-display text-[14px]" style={{ color: C.sub }}>
+            No awards match these filters.
+          </p>
+          <p className="mt-1 font-display text-[12px]" style={{ color: C.faint }}>
             Insights build up as awards are made and grant reports are analysed.
           </p>
         </EmptyState>
       ) : (
-        <div ref={exportRef} className="space-y-4">
-          {/* Headline stats */}
-          <div data-export-block className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              label="Total committed"
-              value={fmtCompact(committedUp)}
-              sub={`${fil.length} award${fil.length !== 1 ? 's' : ''}${selectedProgramme ? ` · ${selectedProgramme.programmeName}` : ''}`}
-            />
-            <StatCard
+        <div ref={exportRef} className="flex flex-col gap-4">
+          {/* KPI cards */}
+          <div data-export-block className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MiniKpi tint={KPI.committed} icon={Coins01Icon} label="Total committed" value={fmtCompact(committedUp)} sub={`across ${fil.length} grant${fil.length !== 1 ? 's' : ''}`} />
+            <MiniKpi
+              tint={KPI.people}
+              icon={UserGroupIcon}
               label={impactLabel}
-              value={impactReported.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
+              value={impactEff.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
               sub={
                 impactPool.length === 0
-                  ? 'No people-measured programmes in this slice'
-                  : `Reported by ${impactReported.length} of ${impactPool.length} award${impactPool.length !== 1 ? 's' : ''}`
+                  ? 'no people-measured programmes here'
+                  : `${impactReportedCount} reported${impactProposedCount > 0 ? ` · ${impactProposedCount} proposed` : ''}`
               }
             />
-            <StatCard
+            <MiniKpi
+              tint={KPI.reach}
+              icon={Location01Icon}
               label="Deprivation reach"
               value={locatedAmt > 0 ? `${Math.round(dep14Up)}%` : '—'}
-              sub={
-                locatedAmt > 0
-                  ? `Funding reaching the most deprived 40% of areas · location known for ${locatedPct}% of funding`
-                  : 'No awards with a resolved location yet'
-              }
-              accent
+              sub={locatedAmt > 0 ? 'reached IMD decile 1–4' : 'no resolved locations yet'}
             />
-            <StatCard label="Average award" value={fmt(avgUp)} sub="Across filtered awards" />
+            <MiniKpi tint={KPI.avg} icon={ChartAverageIcon} label="Average grant" value={fmtCompact(avgUp)} sub={amounts.length ? `${fmtCompact(minGrant)}–${fmtCompact(maxGrant)} range` : 'across filtered awards'} />
           </div>
 
-          {/* Deprivation distribution + impact by programme */}
-          <div data-export-block className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <Card className="p-5">
-              <h2 className="text-sm font-semibold text-gray-900">Funding by deprivation decile</h2>
-              <p className="mt-0.5 text-xs text-gray-400">
-                Awarded funding weighted across the IMD deciles of each award's delivery area · decile 1 is the most
-                deprived 10% of areas in its nation{vintages.length > 0 ? ` (${vintages.join(', ')})` : ''}
-              </p>
-              {locatedAmt === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">
-                  No resolved delivery locations in this slice yet.
-                </p>
-              ) : (
-                <DecileChart amounts={decileAmounts} total={locatedAmt} />
-              )}
-              {unlocatedCount > 0 && locatedAmt > 0 && (
-                <p className="mt-2 text-[11px] text-gray-400">
-                  {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable location excluded.
-                </p>
-              )}
-            </Card>
-
-            <Card className="p-5">
-              <h2 className="text-sm font-semibold text-gray-900">Impact by programme</h2>
-              <p className="mt-0.5 text-xs text-gray-400">
-                Each programme measures impact in its own unit — figures come from analysed grant reports
-              </p>
-              {byProgramme.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">No programmes in this slice.</p>
-              ) : (
-                <div className="mt-3 divide-y divide-gray-100">
-                  {byProgramme.map((p) => (
-                    <div key={p.id} className="flex items-baseline gap-3 py-2.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-gray-700">{p.name}</p>
-                        <p className="text-[11px] text-gray-400">
-                          {fmtCompact(p.committed)} · {p.grants} award{p.grants !== 1 ? 's' : ''}
-                          {p.reported > 0 && p.reported < p.grants ? ` · ${p.reported} reporting` : ''}
-                        </p>
+          {/* Giving by programme */}
+          {byProgramme.length > 0 && (
+            <Panel data-export-block>
+              <PanelTitle>Giving by programme</PanelTitle>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 xl:grid-cols-5">
+                {byProgramme.map((p) => {
+                  const pct = committed > 0 ? Math.round((p.committed / committed) * 100) : 0
+                  return (
+                    <div key={p.id}>
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+                          {fmtCompact(p.committed)}
+                        </span>
+                        <span className="font-display text-[13px] font-medium" style={{ color: C.faint }}>
+                          {pct}%
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-gray-900">
-                          {p.impact > 0 ? p.impact.toLocaleString('en-GB') : '—'}
-                          <span className="ml-1 text-[11px] font-normal text-gray-400">
-                            {p.unitLabel.toLowerCase()}
-                          </span>
-                        </p>
-                        <p className="text-[11px] text-gray-400">
-                          {p.costPerUnit !== null
-                            ? `${fmt(p.costPerUnit)} per ${p.unitLabel.replace(/s$/i, '').toLowerCase()}`
-                            : 'no reports analysed yet'}
-                        </p>
-                      </div>
+                      <BarMeter bars={26} height={22} barWidth={3} className="my-2 w-full" segments={[{ value: 1, color: p.color }]} />
+                      <p className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }} title={p.name}>
+                        {p.name}
+                      </p>
+                      <p className="font-display text-[12px]" style={{ color: C.sub }}>
+                        {p.grants} grant{p.grants !== 1 ? 's' : ''}
+                        {p.people != null && p.people > 0 ? ` · ${Math.round(p.people).toLocaleString('en-GB')} ${p.unitLabel.toLowerCase()}` : ''}
+                      </p>
                     </div>
-                  ))}
+                  )
+                })}
+              </div>
+            </Panel>
+          )}
+
+          {/* Commitment over time + Themes */}
+          <div data-export-block className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Panel>
+              <PanelTitle
+                right={
+                  <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ backgroundColor: C.wash }}>
+                    {(['bars', 'cumulative'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setChartMode(m)}
+                        className="h-7 rounded-md px-2.5 font-display text-[13px] font-medium capitalize"
+                        style={chartMode === m ? { backgroundColor: '#fff', border: `1px solid ${C.line}`, color: C.ink } : { color: C.sub }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                }
+              >
+                Commitment over time
+              </PanelTitle>
+              {commitSeries.length === 0 ? (
+                <p className="py-10 text-center font-display text-[14px]" style={{ color: C.faint }}>
+                  No dated rounds in this slice.
+                </p>
+              ) : (
+                <div className="mt-2 flex h-44 items-end gap-3">
+                  {commitSeries.map((p) => {
+                    const v = chartMode === 'cumulative' ? p.cumulative : p.bars
+                    const h = Math.round((v / chartMax) * 100)
+                    return (
+                      <div key={p.label} className="group flex h-full flex-1 flex-col justify-end" title={`${p.label} · ${fmt(v)}`}>
+                        <span className="mb-1 text-center font-display text-[11px]" style={{ color: C.faint }}>
+                          {fmtCompact(v)}
+                        </span>
+                        <div className="mx-auto w-full max-w-[44px] rounded-t-md" style={{ height: `${Math.max(2, h)}%`, backgroundColor: '#8B7FF0' }} />
+                        <span className="mt-1.5 truncate text-center font-display text-[11px]" style={{ color: C.sub }} title={p.label}>
+                          {p.label}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
-            </Card>
+            </Panel>
+
+            <Panel>
+              <PanelTitle>Themes</PanelTitle>
+              {themes.length === 0 ? (
+                <p className="py-10 text-center font-display text-[14px]" style={{ color: C.faint }}>
+                  No programme tags set — add tags to programmes to see themed giving.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {themes.map((t) => {
+                    const pct = themedTotal > 0 ? Math.round((t.amount / themedTotal) * 100) : 0
+                    return (
+                      <div key={t.tag} className="rounded-xl p-3" style={{ backgroundColor: withAlpha(t.color, 0.1) }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
+                              {t.tag}
+                            </p>
+                            <p className="font-display text-[12px]" style={{ color: C.sub }}>
+                              {t.count} grant{t.count !== 1 ? 's' : ''} · {fmtCompact(t.amount)}
+                              {t.people > 0 ? ` · ${Math.round(t.people).toLocaleString('en-GB')} people` : ''}
+                            </p>
+                          </div>
+                          <span className="shrink-0 font-display text-[22px] font-medium" style={{ color: C.faint }}>
+                            {pct}
+                            <span className="text-[13px]">%</span>
+                          </span>
+                        </div>
+                        {t.quote && (
+                          <p className="mt-1.5 font-display text-[12px] italic" style={{ color: C.sub }}>
+                            “{t.quote}”
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </Panel>
           </div>
 
-          {/* Geography + themes */}
-          <div data-export-block className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <Card className="p-5">
-              <h2 className="text-sm font-semibold text-gray-900">Geographic reach</h2>
-              <p className="mt-0.5 text-xs text-gray-400">Awarded funding by delivery region</p>
-              {byRegion.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">No resolved delivery locations yet.</p>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  {byRegion.map((r) => (
-                    <div key={r.name}>
-                      <div className="flex items-baseline justify-between text-sm">
-                        <span className="font-medium text-gray-700">
-                          {r.name}
-                          {r.lads.length > 0 && (
-                            <span className="ml-2 text-[11px] font-normal text-gray-400">
-                              {r.lads.slice(0, 3).join(' · ')}
-                              {r.lads.length > 3 ? ` +${r.lads.length - 3}` : ''}
-                            </span>
-                          )}
-                        </span>
-                        <span className="ml-3 shrink-0 text-gray-700">
-                          {fmtCompact(r.amount)}
-                          <span className="ml-1.5 text-[11px] text-gray-400">
-                            {r.count} award{r.count !== 1 ? 's' : ''}
-                          </span>
-                        </span>
-                      </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                          style={{ width: `${Math.max(2, Math.round((r.amount / maxRegionAmt) * 100))}%` }}
-                        />
-                      </div>
+          {/* Giving by region */}
+          {byRegion.length > 0 && (
+            <Panel data-export-block>
+              <PanelTitle>Giving by region</PanelTitle>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {/* Region tile-map */}
+                <div>
+                  <RegionTileMap data={regionByNorm} max={maxRegionAmt} active={activeRegion} onSelect={setSelRegion} />
+                  {unmatchedRegions.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {unmatchedRegions.map((r) => {
+                        const on = r.name === activeRegion
+                        return (
+                          <button
+                            key={r.name}
+                            type="button"
+                            onClick={() => setSelRegion(r.name)}
+                            className="rounded-lg border px-2.5 py-1 font-display text-[13px]"
+                            style={{ borderColor: on ? C.brand : C.line, color: C.ink }}
+                          >
+                            {r.name} · {fmtCompact(r.amount)}
+                          </button>
+                        )
+                      })}
                     </div>
-                  ))}
+                  )}
                   {unlocatedCount > 0 && (
-                    <p className="text-[11px] text-gray-400">
-                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable delivery location.
+                    <p className="mt-3 font-display text-[12px]" style={{ color: C.faint }}>
+                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable location.
                     </p>
                   )}
                 </div>
-              )}
-            </Card>
 
-            <Card className="p-5">
-              <h2 className="text-sm font-semibold text-gray-900">Themes</h2>
-              <p className="mt-0.5 text-xs text-gray-400">Giving by programme tag, with what grantees reported</p>
-              {themes.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">
-                  No programme tags set — add tags to programmes to see themed giving here.
+                {/* Selected region donut + LAD breakdown */}
+                <div>
+                  <p className="mb-2 font-display text-[14px] font-medium" style={{ color: C.ink }}>
+                    {activeRegion}
+                  </p>
+                  <div className="flex items-center gap-5">
+                    <Donut
+                      data={ladDonut}
+                      size={132}
+                      thickness={16}
+                      center={
+                        <div className="text-center">
+                          <div className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+                            {fmtCompact(regionTotal)}
+                          </div>
+                          <div className="font-display text-[12px]" style={{ color: C.faint }}>
+                            committed
+                          </div>
+                        </div>
+                      }
+                    />
+                    <div className="flex-1">
+                      {byLad.map((l) => {
+                        const pct = regionTotal > 0 ? Math.round((l.amount / regionTotal) * 100) : 0
+                        return (
+                          <div key={l.name} className="mb-2 last:mb-0">
+                            <div className="flex items-baseline justify-between">
+                              <span className="font-display text-[13px]" style={{ color: C.ink }}>
+                                {l.name}
+                              </span>
+                              <span className="font-display text-[12px]" style={{ color: C.sub }}>
+                                {fmtCompact(l.amount)} · {pct}%
+                              </span>
+                            </div>
+                            <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: C.wash }}>
+                              <div className="h-full rounded-full bar-grow" style={{ width: `${Math.max(2, pct)}%`, backgroundColor: l.color }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          {/* Deprivation-decile distribution + grantee performance */}
+          <div data-export-block className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Panel>
+              <PanelTitle>Funding by deprivation decile</PanelTitle>
+              {locatedAmt === 0 ? (
+                <p className="py-10 text-center font-display text-[14px]" style={{ color: C.faint }}>
+                  No resolved delivery locations in this slice.
                 </p>
               ) : (
-                <div className="mt-3 space-y-2.5">
-                  {themes.map((t) => (
-                    <div key={t.tag} className="rounded-md border border-gray-100 p-3">
-                      <div className="flex items-baseline justify-between">
-                        <p className="text-sm font-medium text-gray-800">{t.tag}</p>
-                        <p className="text-sm text-gray-700">
-                          {fmtCompact(t.amount)}
-                          <span className="ml-1.5 text-[11px] text-gray-400">
-                            {themedTotal > 0 ? Math.round((t.amount / themedTotal) * 100) : 0}% of themed giving
-                          </span>
-                        </p>
+                <>
+                  <p className="-mt-1 mb-1 font-display text-[12px]" style={{ color: C.sub }}>
+                    Decile 1 is the most deprived 10% of areas in its nation{vintages.length ? ` · ${vintages.join(', ')}` : ''}
+                  </p>
+                  <DecileChart amounts={decileAmounts} total={locatedAmt} max={decileMax} />
+                  {unlocatedCount > 0 && (
+                    <p className="mt-2 font-display text-[11px]" style={{ color: C.faint }}>
+                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable location excluded.
+                    </p>
+                  )}
+                </>
+              )}
+            </Panel>
+
+            <Panel>
+              <PanelTitle>Grantee performance</PanelTitle>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Stat
+                  label="Promises kept"
+                  value={avgAlignment !== null ? `${(Math.round(avgAlignment * 10) / 10).toLocaleString('en-GB')}/10` : '—'}
+                  sub={avgAlignment !== null ? `avg alignment · ${alignmentScores.length} report${alignmentScores.length !== 1 ? 's' : ''}` : 'awaits analysed reports'}
+                />
+                <Stat
+                  label="Reporting on time"
+                  value={milestones.received > 0 ? `${Math.round((milestones.onTime / milestones.received) * 100)}%` : '—'}
+                  sub={
+                    milestones.received > 0
+                      ? `${milestones.onTime} of ${milestones.received} by due date${milestones.overdue > 0 ? ` · ${milestones.overdue} overdue` : ''}`
+                      : milestones.overdue > 0
+                        ? `${milestones.overdue} overdue`
+                        : 'none due yet'
+                  }
+                />
+                <Stat
+                  label="Reports analysed"
+                  value={reportsAnalysed > 0 ? String(reportsAnalysed) : '—'}
+                  sub={`across ${fil.filter((g) => g.reportsAnalysed > 0).length} of ${fil.length}`}
+                />
+              </div>
+            </Panel>
+          </div>
+
+          {/* Impact by round */}
+          {timelineRounds.length > 0 && (
+            <Panel data-export-block>
+              <PanelTitle>Impact by round</PanelTitle>
+              <div className="flex flex-col gap-5">
+                {timelineRounds
+                  .slice()
+                  .reverse()
+                  .map((r, ri) => (
+                    <div key={r.id}>
+                      <div className="mb-2.5 flex items-center gap-2.5">
+                        <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.brand }} />
+                        <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
+                          {r.name}
+                        </span>
+                        <span className="font-display text-[12px]" style={{ color: C.sub }}>
+                          {r.grants.length} grant{r.grants.length !== 1 ? 's' : ''} · {fmtCompact(r.total)}
+                        </span>
+                        <span className="h-px flex-1" style={{ backgroundColor: C.line }} />
                       </div>
-                      <p className="text-[11px] text-gray-400">
-                        {t.count} award{t.count !== 1 ? 's' : ''}
-                      </p>
-                      {t.quote && (
-                        <blockquote className="mt-2 border-l-2 border-emerald-200 pl-2.5 text-xs italic text-gray-500">
-                          “{t.quote.text}”
-                          <span className="mt-0.5 block not-italic text-[10px] text-gray-400">— {t.quote.org}</span>
-                        </blockquote>
-                      )}
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {r.grants.map((g, gi) => (
+                          <RoundGrantCard key={g.awardId} grant={g} tint={CARD_TINTS[(ri + gi) % CARD_TINTS.length]!} />
+                        ))}
+                      </div>
                     </div>
                   ))}
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Grantee performance */}
-          <div data-export-block className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatCard
-              label="Promises kept"
-              value={avgAlignment !== null ? `${(Math.round(avgAlignment * 10) / 10).toLocaleString('en-GB')}/10` : '—'}
-              sub={
-                avgAlignment !== null
-                  ? `Average alignment with what was applied for · ${alignmentScores.length} analysed report${alignmentScores.length !== 1 ? 's' : ''}`
-                  : 'Appears once grant reports are analysed'
-              }
-            />
-            <StatCard
-              label="Reporting on time"
-              value={milestones.received > 0 ? `${Math.round((milestones.onTime / milestones.received) * 100)}%` : '—'}
-              sub={
-                milestones.received > 0
-                  ? `${milestones.onTime} of ${milestones.received} reports by their due date${milestones.overdue > 0 ? ` · ${milestones.overdue} overdue now` : ''}`
-                  : milestones.overdue > 0
-                    ? `No reports received yet · ${milestones.overdue} overdue`
-                    : 'No reports due yet'
-              }
-            />
-            <StatCard
-              label="Reports analysed"
-              value={reportsAnalysed > 0 ? String(reportsAnalysed) : '—'}
-              sub={`Across ${fil.filter((g) => g.reportsAnalysed > 0).length} of ${fil.length} awards`}
-            />
-          </div>
-
-          {/* Timeline */}
-          <Card data-export-block className="p-5">
-            <h2 className="text-sm font-semibold text-gray-900">Impact timeline</h2>
-            <p className="mt-0.5 text-xs text-gray-400">
-              Awards by round — reported outcomes shown where a grant report has been analysed
-            </p>
-            <div className="mt-4 space-y-5">
-              {timelineRounds.map((r) => (
-                <div key={r.id}>
-                  <div className="flex items-center gap-2.5">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
-                    <span className="text-xs font-semibold text-gray-700">{r.name}</span>
-                    <span className="text-[11px] text-gray-400">
-                      {r.grants.length} award{r.grants.length !== 1 ? 's' : ''} · {fmtCompact(r.total)}
-                    </span>
-                    <span className="h-px flex-1 bg-gray-100" />
-                  </div>
-                  <div className="mt-2.5 grid grid-cols-1 gap-2 pl-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {r.grants.map((g) => (
-                      <TimelineGrantCard key={g.awardId} grant={g} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {undatedGrants.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-gray-300" />
-                    <span className="text-xs font-semibold text-gray-700">Direct awards</span>
-                    <span className="h-px flex-1 bg-gray-100" />
-                  </div>
-                  <div className="mt-2.5 grid grid-cols-1 gap-2 pl-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {undatedGrants.map((g) => (
-                      <TimelineGrantCard key={g.awardId} grant={g} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
+              </div>
+            </Panel>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-// Column chart of funding across IMD deciles 1–10. Deciles 1–4 (the "most
-// deprived 40%" the headline stat describes) carry the accent; 5–10 recede.
-function DecileChart({ amounts, total }: { amounts: number[]; total: number }) {
-  const max = Math.max(...amounts, 1)
-  return (
-    <div>
-      <div className="mt-4 flex h-36 items-end gap-1.5" role="img" aria-label="Funding by deprivation decile">
-        {amounts.map((amt, i) => {
-          const pct = total > 0 ? Math.round((amt / total) * 100) : 0
-          const h = Math.round((amt / max) * 100)
-          return (
-            <div key={i} className="group relative flex h-full flex-1 flex-col justify-end" tabIndex={0}>
-              <div className="pointer-events-none absolute -top-1 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-full whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-[10px] text-white group-hover:block group-focus:block">
-                Decile {i + 1} · {fmtCompact(amt)} · {pct}%
-              </div>
-              {amt > 0 && pct >= 5 && (
-                <span className="mb-0.5 text-center text-[9px] leading-none text-gray-400">{pct}%</span>
-              )}
-              <div
-                className={`mx-auto w-full max-w-6 rounded-t ${i < 4 ? 'bg-emerald-600' : 'bg-emerald-200'}`}
-                style={{ height: `${Math.max(amt > 0 ? 2 : 0, h)}%` }}
-              />
-            </div>
-          )
-        })}
-      </div>
-      <div className="mt-1 flex gap-1.5 border-t border-gray-100 pt-1">
-        {amounts.map((_, i) => (
-          <span key={i} className="flex-1 text-center text-[10px] text-gray-400">
-            {i + 1}
-          </span>
-        ))}
-      </div>
-      <div className="mt-2 flex items-center gap-4 text-[11px] text-gray-500">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-sm bg-emerald-600" /> Most deprived 40%
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-sm bg-emerald-200" /> Deciles 5–10
-        </span>
-      </div>
-      <table className="sr-only">
-        <caption>Funding by deprivation decile</caption>
-        <tbody>
-          {amounts.map((amt, i) => (
-            <tr key={i}>
-              <th scope="row">Decile {i + 1}</th>
-              <td>{fmt(amt)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function TimelineGrantCard({ grant: g }: { grant: InsightsGrant }) {
-  const reported = g.reportsAnalysed > 0
+function RoundGrantCard({ grant: g, tint }: { grant: InsightsGrant; tint: { bg: string; ink: string } }) {
+  const eff = g.unitKey === 'people' ? effImpact(g) : null
+  const detail = [g.programmeName, g.ladName ?? g.region].filter(Boolean).join(' · ')
   return (
     <Link
       to="/applications/$applicationId"
       params={{ applicationId: g.applicationId }}
-      className={`block rounded-md border p-3 transition-colors ${
-        reported ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300' : 'border-gray-100 hover:border-gray-200'
-      }`}
+      className="block rounded-2xl p-4 transition-shadow hover:shadow-sm"
+      style={{ backgroundColor: tint.bg }}
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="truncate text-xs font-medium text-gray-800">{g.organisationName}</p>
-        <p className="shrink-0 text-xs text-gray-500">{fmtCompact(g.amountAwarded)}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }}>
+            {g.organisationName}
+          </p>
+          <p className="font-display text-[12px]" style={{ color: C.sub }}>
+            {eff
+              ? `${Math.round(eff.value).toLocaleString('en-GB')} ${g.unitLabel.toLowerCase()}${eff.source === 'proposed' ? ' (proposed)' : ''}`
+              : 'no report yet'}
+          </p>
+        </div>
+        <span className="shrink-0 font-display text-[18px] font-medium" style={{ color: tint.ink }}>
+          {fmtCompact(g.amountAwarded)}
+        </span>
       </div>
-      <p className="mt-0.5 text-[10px] text-gray-400">{g.programmeName ?? '—'}</p>
-      {g.outcome ? (
-        <p
-          className="mt-1.5 text-[11px] leading-snug text-gray-500"
-          style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-        >
-          {g.outcome}
-        </p>
-      ) : (
-        <p className="mt-1.5 text-[11px] italic text-gray-300">No report yet</p>
-      )}
-      {g.impactQuantity !== null && (
-        <p className="mt-1.5 text-[11px] font-semibold text-emerald-700">
-          {g.impactQuantity.toLocaleString('en-GB')} {g.unitLabel.toLowerCase()}
+      {detail && (
+        <p className="mt-3 truncate font-display text-[12px]" style={{ color: C.sub }} title={detail}>
+          {detail}
         </p>
       )}
     </Link>
