@@ -345,14 +345,6 @@ function InsightsPage() {
     .sort((a, b) => b.amount - a.amount)
   const ladDonut: DonutSlice[] = byLad.map((l) => ({ name: l.name, value: l.amount, color: l.color }))
 
-  // ── Portfolio summary (templated from the figures — not AI narrative) ──
-  const topProg = byProgramme[0]
-  const summary =
-    `${fil.length} grant${fil.length !== 1 ? 's' : ''} worth ${fmt(committed)}` +
-    (impactReported.length > 0 ? ` have reached ${Math.round(impactTotal).toLocaleString('en-GB')} ${impactLabel.toLowerCase()}` : ' awarded') +
-    (locatedAmt > 0 ? `, weighted toward the most deprived communities — ${dep14Pct}% of located funding lands in IMD decile 1–4` : '') +
-    (topProg ? `. ${topProg.name} leads the portfolio at ${fmtCompact(topProg.committed)}.` : '.')
-
   const earliest = timelineRounds[0]?.name ?? null
 
   function setSearch(patch: Partial<InsightsSearch>) {
@@ -658,21 +650,6 @@ function InsightsPage() {
               </div>
             </Panel>
           )}
-
-          {/* Portfolio summary — templated from the figures (not AI narrative) */}
-          <div data-export-block className="flex items-start gap-3 rounded-[16px] p-5" style={{ backgroundColor: C.ink }}>
-            <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-              <HugeiconsIcon icon={ChartAverageIcon} size={16} color="#8FE3B8" />
-            </div>
-            <div>
-              <p className="mb-1 font-display text-[13px] font-medium" style={{ color: '#8FE3B8' }}>
-                Portfolio summary
-              </p>
-              <p className="font-display text-[14px] leading-relaxed" style={{ color: '#D4D8DF' }}>
-                {summary}
-              </p>
-            </div>
-          </div>
 
           {/* Impact by round */}
           {timelineRounds.length > 0 && (
