@@ -316,6 +316,13 @@
       "when": 1784923615971,
       "tag": "0044_bouncy_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1784928423336,
+      "tag": "0045_kind_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

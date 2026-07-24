@@ -107,6 +107,7 @@ export async function createApplicationFromCanonical(
     bankAccountNumber: input.bankAccountNumber,
     bankSortCode: input.bankSortCode,
     amountRequested: String(input.amountRequested),
+    proposedImpactQuantity: input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
     budgetBreakdown: input.budgetBreakdown ?? null,
     responses: input.responses,
     dueDiligenceStatus: dueDiligence.status,

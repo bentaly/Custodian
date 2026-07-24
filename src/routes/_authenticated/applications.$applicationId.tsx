@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowLeft01Icon,
@@ -22,6 +22,7 @@ import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
+import { Donut } from '../../components/charts/Donut'
 import { CRITERION_DEFINITIONS, CRITERION_ORDER, type CustodianScoreDetail } from '../../lib/custodianScore'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
@@ -120,54 +121,32 @@ function HeaderChip({ color, children }: { color: string; children: React.ReactN
   )
 }
 
-// Score ring — an SVG donut whose arc sweeps in from zero on load (stroke-dashoffset
-// transition), matching the on-load animation of the shared chart donuts. Honours
-// prefers-reduced-motion by rendering the final arc without the sweep.
+// Score gauge — the same Recharts `Donut` the dashboard/insights use (so it animates
+// its arc in on load for free), as a two-slice score/remainder ring with the money
+// tooltip switched off.
 function ScoreRing({ score, size = 132, thickness = 15 }: { score: number; size?: number; thickness?: number }) {
   const pct = Math.max(0, Math.min(100, score))
   const color = scoreColor(score)
-  const r = (size - thickness) / 2
-  const circ = 2 * Math.PI * r
-
-  const [reduce, setReduce] = useState(false)
-  const [shown, setShown] = useState(false)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setReduce(true)
-      setShown(true)
-      return
-    }
-    const raf = requestAnimationFrame(() => setShown(true))
-    return () => cancelAnimationFrame(raf)
-  }, [])
-  const offset = circ * (1 - (shown ? pct : 0) / 100)
-
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={withAlpha(color, 0.15)} strokeWidth={thickness} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={thickness}
-          strokeLinecap="round"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          style={reduce ? undefined : { transition: 'stroke-dashoffset 900ms cubic-bezier(0.2, 0.8, 0.2, 1)' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-[32px] font-medium leading-none" style={{ color: C.ink }}>
-          {score}
-        </span>
-        <span className="mt-0.5 font-display text-[12px]" style={{ color: C.faint }}>
-          /100
-        </span>
-      </div>
-    </div>
+    <Donut
+      size={size}
+      thickness={thickness}
+      tooltip={false}
+      data={[
+        { name: 'Score', value: pct, color },
+        { name: 'Remaining', value: 100 - pct, color: withAlpha(color, 0.15) },
+      ]}
+      center={
+        <div className="flex flex-col items-center">
+          <span className="font-display text-[32px] font-medium leading-none" style={{ color: C.ink }}>
+            {score}
+          </span>
+          <span className="mt-0.5 font-display text-[12px]" style={{ color: C.faint }}>
+            /100
+          </span>
+        </div>
+      }
+    />
   )
 }
 
@@ -276,12 +255,12 @@ function ApplicationDetail() {
   const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
   const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || amountRequested
 
-  // Beneficiaries + cost-per-beneficiary come from the programme's typical target
-  // (programme-level, in its own impact unit) — not the application.
+  // Beneficiaries + cost-per-beneficiary come from what the applicant PROPOSES on
+  // this application (a forward-looking count in the programme's impact unit).
   const unitLabel = impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
   const unitSingular = unitLabel.replace(/s$/i, '') || unitLabel
-  const targetBeneficiaries = programme.targetBeneficiaries
-  const costPerBeneficiary = targetBeneficiaries && targetBeneficiaries > 0 ? amountRequested / targetBeneficiaries : null
+  const proposedImpact = application.proposedImpactQuantity != null ? parseFloat(application.proposedImpactQuantity) : null
+  const costPerBeneficiary = proposedImpact && proposedImpact > 0 ? amountRequested / proposedImpact : null
 
   async function act(
     setBusy: (b: boolean) => void,
@@ -458,8 +437,8 @@ function ApplicationDetail() {
               tint={KPI.area}
               icon={UserGroupIcon}
               label="Beneficiaries"
-              value={targetBeneficiaries != null ? `~${targetBeneficiaries.toLocaleString('en-GB')}` : '—'}
-              sub={targetBeneficiaries != null ? unitLabel.toLowerCase() : 'not set on programme'}
+              value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
+              sub={proposedImpact != null ? `${unitLabel.toLowerCase()} · proposed` : 'not stated'}
             />
             <MiniKpi
               tint={KPI.headroom}

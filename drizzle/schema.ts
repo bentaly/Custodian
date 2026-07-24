@@ -204,11 +204,6 @@ export const programmes = pgTable('programmes', {
   // Free-text PLURAL noun phrase when impactUnit = 'other', e.g. "hectares of
   // peatland restored". Used verbatim for display and extraction; never inflected.
   impactUnitLabel: text('impact_unit_label'),
-  // Typical number of impact-units a grant in this programme is expected to reach,
-  // in `impactUnit`s. Programme-level (not per-application): drives the application
-  // detail "Beneficiaries" / "Cost per beneficiary" figures. Nullable — unset until
-  // the client provides an estimate.
-  targetBeneficiaries: integer('target_beneficiaries'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -263,6 +258,12 @@ export const applications = pgTable('applications', {
   // to it — the applicant may be asking this funder to fund only part of the
   // budget. Never derive one from the other.
   budgetBreakdown: jsonb('budget_breakdown').$type<BudgetLine[]>(),
+  // The impact the applicant PROPOSES to achieve, counted in the programme's own
+  // impact unit (people / trees / hectares …). Application-level and forward-looking —
+  // distinct from the ACTUAL impact captured later on grant reports (which is what
+  // Insights aggregates). Drives the detail-page "Beneficiaries" / "Cost per
+  // beneficiary" figures. Nullable — not every foundation collects it.
+  proposedImpactQuantity: numeric('proposed_impact_quantity'),
   // Free-text area where the funded PROJECT is delivered — the community served (e.g.
   // "Bradford", "BD1 1AA", "Yorkshire"), NOT where the organisation is based. Captured
   // from the incoming application; nullable as not every foundation collects it. Drives
