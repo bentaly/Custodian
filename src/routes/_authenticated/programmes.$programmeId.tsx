@@ -44,6 +44,7 @@ function ProgrammeDetail() {
   const [tags, setTags] = useState<string[]>((programme.tags ?? []) as string[])
   const [impactUnit, setImpactUnit] = useState(programme.impactUnit ?? DEFAULT_IMPACT_UNIT)
   const [impactUnitCustom, setImpactUnitCustom] = useState(programme.impactUnitLabel ?? '')
+  const [targetBeneficiaries, setTargetBeneficiaries] = useState(programme.targetBeneficiaries?.toString() ?? '')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -72,6 +73,7 @@ function ProgrammeDetail() {
           tags,
           impactUnit,
           impactUnitLabel: impactUnit === 'other' ? impactUnitCustom.trim() || null : null,
+          targetBeneficiaries: targetBeneficiaries.trim() ? parseInt(targetBeneficiaries, 10) : null,
         },
       })
       setEditing(false)
@@ -199,6 +201,26 @@ function ProgrammeDetail() {
             </div>
             <div>
               <Label>
+                Typical beneficiaries per grant{' '}
+                <span className="font-normal text-gray-400">(optional)</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={targetBeneficiaries}
+                  onChange={(e) => setTargetBeneficiaries(e.target.value)}
+                  placeholder="e.g. 340"
+                  className="w-40"
+                />
+                <span className="text-xs text-gray-400">
+                  {impactUnitLabel(impactUnit, impactUnitCustom).toLowerCase()} — sets the beneficiary and
+                  cost-per-beneficiary figures on each application
+                </span>
+              </div>
+            </div>
+            <div>
+              <Label>
                 Programme priorities{' '}
                 <span className="font-normal text-gray-400">— used by AI to score applications</span>
               </Label>
@@ -221,6 +243,7 @@ function ProgrammeDetail() {
                   setTags((programme.tags ?? []) as string[])
                   setImpactUnit(programme.impactUnit ?? DEFAULT_IMPACT_UNIT)
                   setImpactUnitCustom(programme.impactUnitLabel ?? '')
+                  setTargetBeneficiaries(programme.targetBeneficiaries?.toString() ?? '')
                   setSaveError('')
                 }}
               >
@@ -254,6 +277,15 @@ function ProgrammeDetail() {
                 <span className="font-medium text-gray-500">
                   {impactUnitLabel(programme.impactUnit, programme.impactUnitLabel).toLowerCase()}
                 </span>
+                {programme.targetBeneficiaries != null && (
+                  <>
+                    {' · '}
+                    <span className="font-medium text-gray-500">
+                      ~{programme.targetBeneficiaries.toLocaleString('en-GB')}
+                    </span>{' '}
+                    per grant
+                  </>
+                )}
               </p>
             </div>
             {canManage && (

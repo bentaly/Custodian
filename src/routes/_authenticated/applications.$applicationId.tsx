@@ -1,21 +1,19 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowLeft01Icon,
   Coins01Icon,
   FolderLibraryIcon,
-  Location01Icon,
+  UserGroupIcon,
   ChartAverageIcon,
   File01Icon,
-  PencilEdit02Icon,
   CheckmarkCircle02Icon,
   CancelCircleIcon,
   InformationCircleIcon,
 } from '@hugeicons/core-free-icons'
 import {
   getApplication,
-  rerunCustodianScore,
   rerunDueDiligence,
   updateApplicationStatus,
 } from '../../server/fns/applications'
@@ -25,6 +23,7 @@ import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { CRITERION_DEFINITIONS, CRITERION_ORDER, type CustodianScoreDetail } from '../../lib/custodianScore'
+import { impactUnitLabel } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
@@ -121,20 +120,46 @@ function HeaderChip({ color, children }: { color: string; children: React.ReactN
   )
 }
 
-// Score ring — a conic-gradient donut (no chart dependency); solid arc + hollow centre.
+// Score ring — an SVG donut whose arc sweeps in from zero on load (stroke-dashoffset
+// transition), matching the on-load animation of the shared chart donuts. Honours
+// prefers-reduced-motion by rendering the final arc without the sweep.
 function ScoreRing({ score, size = 132, thickness = 15 }: { score: number; size?: number; thickness?: number }) {
   const pct = Math.max(0, Math.min(100, score))
   const color = scoreColor(score)
+  const r = (size - thickness) / 2
+  const circ = 2 * Math.PI * r
+
+  const [reduce, setReduce] = useState(false)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setReduce(true)
+      setShown(true)
+      return
+    }
+    const raf = requestAnimationFrame(() => setShown(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const offset = circ * (1 - (shown ? pct : 0) / 100)
+
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <div
-        className="size-full rounded-full"
-        style={{ background: `conic-gradient(${color} ${pct * 3.6}deg, ${withAlpha(color, 0.15)} 0)` }}
-      />
-      <div
-        className="absolute flex flex-col items-center justify-center rounded-full bg-white"
-        style={{ inset: thickness }}
-      >
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={withAlpha(color, 0.15)} strokeWidth={thickness} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={thickness}
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          style={reduce ? undefined : { transition: 'stroke-dashoffset 900ms cubic-bezier(0.2, 0.8, 0.2, 1)' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-display text-[32px] font-medium leading-none" style={{ color: C.ink }}>
           {score}
         </span>
@@ -214,7 +239,6 @@ function ApplicationDetail() {
   const application = Route.useLoaderData()
   const { user } = Route.useRouteContext()
   const router = useRouter()
-  const [rescoring, setRescoring] = useState(false)
   const [rerunningDD, setRerunningDD] = useState(false)
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
@@ -252,6 +276,13 @@ function ApplicationDetail() {
   const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
   const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || amountRequested
 
+  // Beneficiaries + cost-per-beneficiary come from the programme's typical target
+  // (programme-level, in its own impact unit) — not the application.
+  const unitLabel = impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
+  const unitSingular = unitLabel.replace(/s$/i, '') || unitLabel
+  const targetBeneficiaries = programme.targetBeneficiaries
+  const costPerBeneficiary = targetBeneficiaries && targetBeneficiaries > 0 ? amountRequested / targetBeneficiaries : null
+
   async function act(
     setBusy: (b: boolean) => void,
     fn: () => Promise<unknown>,
@@ -276,7 +307,6 @@ function ApplicationDetail() {
     act(setDeclining, () =>
       updateApplicationStatus({ data: { id: application.id, status: isDeclined ? 'for_review' : 'declined' } }),
     )
-  const handleRescore = () => act(setRescoring, () => rerunCustodianScore({ data: { id: application.id } }))
   const handleRerunDD = () => act(setRerunningDD, () => rerunDueDiligence({ data: { id: application.id } }))
 
   const statusMeta = isAwarded
@@ -354,24 +384,7 @@ function ApplicationDetail() {
         <div className="flex flex-col gap-4">
           {/* AI Assessment */}
           <Panel>
-            <PanelTitle
-              right={
-                <button
-                  type="button"
-                  onClick={handleRescore}
-                  disabled={rescoring}
-                  className="flex h-8 items-center gap-1.5 rounded-lg border bg-white pl-3 pr-2.5 disabled:opacity-60"
-                  style={{ borderColor: C.line }}
-                >
-                  <span className="font-display text-[13px] font-medium" style={{ color: C.ink }}>
-                    {rescoring ? 'Scoring…' : 'Re-score'}
-                  </span>
-                  <HugeiconsIcon icon={PencilEdit02Icon} size={15} color={C.sub} />
-                </button>
-              }
-            >
-              AI Assessment
-            </PanelTitle>
+            <PanelTitle>AI Assessment</PanelTitle>
 
             {scored ? (
               <div className="flex flex-col gap-6 md:flex-row md:items-center">
@@ -443,18 +456,17 @@ function ApplicationDetail() {
             />
             <MiniKpi
               tint={KPI.area}
-              icon={Location01Icon}
-              label="Delivery area"
-              value={region ?? '—'}
-              sub={depResolved ? `IMD decile ${deprivation.min}–${deprivation.max} · ${deprivation.vintage}` : 'Not resolved'}
-              valueClass="text-[16px] font-semibold leading-snug"
+              icon={UserGroupIcon}
+              label="Beneficiaries"
+              value={targetBeneficiaries != null ? `~${targetBeneficiaries.toLocaleString('en-GB')}` : '—'}
+              sub={targetBeneficiaries != null ? unitLabel.toLowerCase() : 'not set on programme'}
             />
             <MiniKpi
               tint={KPI.headroom}
               icon={ChartAverageIcon}
-              label="Programme headroom"
-              value={budget !== null ? fmtCompact(Math.max(0, budget - committed)) : '—'}
-              sub={budget !== null ? `of ${fmtCompact(budget)} left` : 'No budget set'}
+              label="Cost per beneficiary"
+              value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
+              sub={costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'}
             />
           </div>
 
@@ -553,10 +565,12 @@ function ApplicationDetail() {
             )}
           </Panel>
 
-          {/* Trustee vote — retained (not in the redesign comp) */}
-          <Panel>
-            <VotingSection applicationId={application.id} userId={user.id} userRole={user.role} />
-          </Panel>
+          {/* Trustee vote — only once shortlisted (a vote precedes an award). */}
+          {isShortlisted && (
+            <Panel>
+              <VotingSection applicationId={application.id} userId={user.id} userRole={user.role} />
+            </Panel>
+          )}
         </div>
 
         {/* Sidebar */}

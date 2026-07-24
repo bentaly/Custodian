@@ -9,6 +9,7 @@ export const CreateProgrammeSchema = z.object({
   tags: z.array(z.string().min(1).max(100)).optional(),
   impactUnit: z.enum(IMPACT_UNIT_KEYS as [string, ...string[]]).optional(),
   impactUnitLabel: z.string().max(200).nullable().optional(),
+  targetBeneficiaries: z.number().int().min(0).max(100_000_000).nullable().optional(),
 })
 export type CreateProgrammeInput = z.infer<typeof CreateProgrammeSchema>
 
@@ -20,6 +21,7 @@ export const UpdateProgrammeSchema = z.object({
   tags: z.array(z.string().min(1).max(100)).optional(),
   impactUnit: z.enum(IMPACT_UNIT_KEYS as [string, ...string[]]).optional(),
   impactUnitLabel: z.string().max(200).nullable().optional(),
+  targetBeneficiaries: z.number().int().min(0).max(100_000_000).nullable().optional(),
 })
 export type UpdateProgrammeInput = z.infer<typeof UpdateProgrammeSchema>
 

@@ -204,6 +204,11 @@ export const programmes = pgTable('programmes', {
   // Free-text PLURAL noun phrase when impactUnit = 'other', e.g. "hectares of
   // peatland restored". Used verbatim for display and extraction; never inflected.
   impactUnitLabel: text('impact_unit_label'),
+  // Typical number of impact-units a grant in this programme is expected to reach,
+  // in `impactUnit`s. Programme-level (not per-application): drives the application
+  // detail "Beneficiaries" / "Cost per beneficiary" figures. Nullable — unset until
+  // the client provides an estimate.
+  targetBeneficiaries: integer('target_beneficiaries'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 

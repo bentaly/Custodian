@@ -309,6 +309,13 @@
       "when": 1784701340143,
       "tag": "0043_blue_aaron_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784923615971,
+      "tag": "0044_bouncy_thing",
+      "breakpoints": true
     }
   ]
 }
