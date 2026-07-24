@@ -11,6 +11,7 @@ export type CanonicalFieldKey =
   | 'programmeName'
   | 'externalApplicationId'
   | 'organisationName'
+  | 'applicantEmail'
   | 'amountRequested'
   | 'bankName'
   | 'bankAccountName'
@@ -58,6 +59,16 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Organisation name',
     required: true,
     description: 'The legal or trading name of the applicant organisation.',
+  },
+  {
+    key: 'applicantEmail',
+    label: 'Applicant email',
+    required: true,
+    description:
+      "The applicant's contact EMAIL ADDRESS — the person or organisation submitting the application. " +
+      'Map a field containing a single email address (e.g. "Contact email", "Applicant email", "Your email"). ' +
+      'Prefer the primary applicant/contact email over any generic info@ address if both are present.',
+    coerce: (raw: string) => raw.trim().toLowerCase(),
   },
   {
     key: 'amountRequested',

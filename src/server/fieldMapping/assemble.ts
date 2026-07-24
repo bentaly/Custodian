@@ -78,6 +78,7 @@ export function buildCanonicalInput(
     roundProgrammeId,
     externalApplicationId: get('externalApplicationId'),
     organisationName: get('organisationName'),
+    applicantEmail: get('applicantEmail'),
     charityNumber: get('charityNumber'),
     companyNumber: get('companyNumber'),
     deliveryArea: get('deliveryArea'),

@@ -241,6 +241,10 @@ export const applications = pgTable('applications', {
   // applications submitted directly (canonical form) have no external reference.
   externalApplicationId: text('external_application_id'),
   organisationName: text('organisation_name').notNull(),
+  // The applicant's contact email address. Required for every new application (a
+  // required canonical field), but the column is nullable so it can be added without
+  // backfilling existing rows.
+  applicantEmail: text('applicant_email'),
   // Registration numbers drive due diligence routing. Both nullable: a CIO has
   // only a charity number, a CIC only a company number, and some entities are
   // dual-registered and have both.

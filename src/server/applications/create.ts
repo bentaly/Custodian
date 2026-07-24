@@ -99,6 +99,7 @@ export async function createApplicationFromCanonical(
     roundProgrammeId: input.roundProgrammeId,
     externalApplicationId: input.externalApplicationId,
     organisationName: input.organisationName,
+    applicantEmail: input.applicantEmail,
     charityNumber: input.charityNumber,
     companyNumber: input.companyNumber,
     deliveryArea: input.deliveryArea,

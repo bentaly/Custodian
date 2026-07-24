@@ -29,6 +29,8 @@ export const CreateApplicationSchema = z.object({
   // still validate without one.
   externalApplicationId: z.string().min(1).max(255).optional(),
   organisationName: z.string().min(1).max(255),
+  // The applicant's contact email — required on every application.
+  applicantEmail: z.string().email().max(255),
   // Both optional — an applicant may hold a charity number, a company number,
   // or both. Due diligence routing keys off whichever are present.
   charityNumber: z.string().max(50).optional(),
