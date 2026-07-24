@@ -50,6 +50,9 @@ export type InsightsGrant = {
   // as the current statement of the grant's impact (milestone reports tend to be
   // cumulative; summing across them would double-count).
   impactQuantity: number | null
+  // The applicant's PROPOSED impact from the application (forward-looking, same unit).
+  // Insights falls back to this when no analysed report has stated an actual figure.
+  proposedImpactQuantity: number | null
   impactQuote: string | null
   alignmentScore: number | null
   outcome: string | null
@@ -149,6 +152,7 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         ladName: a.deliveryLadName,
         deprivation,
         impactQuantity: latestWithQuantity ? parseFloat(latestWithQuantity.impactQuantity!) : null,
+        proposedImpactQuantity: a.proposedImpactQuantity != null ? parseFloat(a.proposedImpactQuantity) : null,
         impactQuote: latestWithQuantity?.impactQuantityQuote ?? null,
         alignmentScore: latestWithAlignment?.applicationAlignment?.score ?? null,
         outcome: latestAnalysed?.aiSummary ?? latestAnalysed?.impactSummary ?? null,

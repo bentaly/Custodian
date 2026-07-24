@@ -168,6 +168,129 @@ function MiniKpi({
 }
 
 // Native <select> styled as a Figma filter pill.
+// A borderless stat (used inside a titled panel).
+function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div>
+      <p className="font-display text-[13px] font-medium" style={{ color: C.sub }}>
+        {label}
+      </p>
+      <p className="mt-1 font-display text-[24px] font-semibold leading-none" style={{ color: C.ink }}>
+        {value}
+      </p>
+      <p className="mt-1 font-display text-[12px]" style={{ color: C.faint }}>
+        {sub}
+      </p>
+    </div>
+  )
+}
+
+// Column chart of funding across IMD deciles 1–10. Deciles 1–4 (the "most deprived
+// 40%") carry the accent; 5–10 recede.
+function DecileChart({ amounts, total, max }: { amounts: number[]; total: number; max: number }) {
+  return (
+    <div>
+      <div className="mt-2 flex h-40 items-end gap-2">
+        {amounts.map((amt, i) => {
+          const pct = total > 0 ? Math.round((amt / total) * 100) : 0
+          const h = Math.round((amt / max) * 100)
+          return (
+            <div key={i} className="group flex h-full flex-1 flex-col justify-end" title={`Decile ${i + 1} · ${fmt(amt)} · ${pct}%`}>
+              {amt > 0 && pct >= 4 && (
+                <span className="mb-1 text-center font-display text-[10px]" style={{ color: C.faint }}>
+                  {pct}%
+                </span>
+              )}
+              <div
+                className="mx-auto w-full max-w-[26px] rounded-t-md"
+                style={{ height: `${Math.max(amt > 0 ? 3 : 0, h)}%`, backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2) }}
+              />
+              <span className="mt-1.5 text-center font-display text-[11px]" style={{ color: C.sub }}>
+                {i + 1}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-3 flex items-center gap-4">
+        <span className="flex items-center gap-1.5 font-display text-[12px]" style={{ color: C.sub }}>
+          <span className="size-2 rounded-[2px]" style={{ backgroundColor: C.brand }} /> Most deprived 40%
+        </span>
+        <span className="flex items-center gap-1.5 font-display text-[12px]" style={{ color: C.sub }}>
+          <span className="size-2 rounded-[2px]" style={{ backgroundColor: withAlpha(C.success, 0.2) }} /> Deciles 5–10
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Schematic UK ITL1 tile-grid (a "for now" region map — dependency-free, data-bound).
+// Swap for a true silhouette SVG when one is exported from Figma.
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+const UK_TILES: Array<{ name: string; abbr: string; col: number; row: number }> = [
+  { name: 'Scotland', abbr: 'Sco', col: 3, row: 1 },
+  { name: 'North East', abbr: 'NE', col: 3, row: 2 },
+  { name: 'Northern Ireland', abbr: 'NI', col: 1, row: 3 },
+  { name: 'North West', abbr: 'NW', col: 2, row: 3 },
+  { name: 'Yorkshire and The Humber', abbr: 'Y&H', col: 3, row: 3 },
+  { name: 'Wales', abbr: 'Wal', col: 1, row: 4 },
+  { name: 'West Midlands', abbr: 'WM', col: 2, row: 4 },
+  { name: 'East Midlands', abbr: 'EM', col: 3, row: 4 },
+  { name: 'East of England', abbr: 'EoE', col: 4, row: 4 },
+  { name: 'South West', abbr: 'SW', col: 2, row: 5 },
+  { name: 'South East', abbr: 'SE', col: 3, row: 5 },
+  { name: 'London', abbr: 'Lon', col: 4, row: 5 },
+]
+
+function RegionTileMap({
+  data,
+  max,
+  active,
+  onSelect,
+}: {
+  data: Map<string, { amount: number; count: number; name: string }>
+  max: number
+  active: string | null
+  onSelect: (name: string) => void
+}) {
+  return (
+    <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, minmax(0, 1fr))' }}>
+      {UK_TILES.map((t) => {
+        const d = data.get(norm(t.name))
+        const intensity = d ? 0.2 + 0.8 * (max > 0 ? d.amount / max : 0) : 0
+        const isActive = d != null && d.name === active
+        const light = intensity > 0.55
+        return (
+          <button
+            key={t.name}
+            type="button"
+            disabled={!d}
+            onClick={() => d && onSelect(d.name)}
+            title={d ? `${d.name} · ${fmtCompact(d.amount)} · ${d.count}` : t.name}
+            className="flex aspect-square flex-col items-center justify-center rounded-lg p-1 transition-colors disabled:cursor-default"
+            style={{
+              gridColumn: t.col,
+              gridRow: t.row,
+              backgroundColor: d ? withAlpha(C.success, intensity) : C.wash,
+              outline: isActive ? `2px solid ${C.brand}` : 'none',
+              outlineOffset: -1,
+            }}
+          >
+            <span className="font-display text-[12px] font-semibold" style={{ color: light ? '#fff' : C.ink }}>
+              {t.abbr}
+            </span>
+            {d && (
+              <span className="font-display text-[9px]" style={{ color: light ? 'rgba(255,255,255,0.85)' : C.sub }}>
+                {fmtCompact(d.amount)}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function FilterSelect({
   label,
   value,
@@ -215,6 +338,35 @@ function decileShare(g: InsightsGrant, maxDecile: number): number {
   return inBand / total
 }
 
+type ImpactSource = 'reported' | 'proposed'
+/**
+ * A grant's impact figure, provenance-tagged: the ACTUAL from an analysed report
+ * where one exists, otherwise the applicant's PROPOSED figure as a fallback. Callers
+ * decide how to present each source — proposed figures are estimates, never actuals.
+ */
+function effImpact(g: InsightsGrant): { value: number; source: ImpactSource } | null {
+  if (g.impactQuantity !== null) return { value: g.impactQuantity, source: 'reported' }
+  if (g.proposedImpactQuantity !== null) return { value: g.proposedImpactQuantity, source: 'proposed' }
+  return null
+}
+function sumImpact(grants: InsightsGrant[]): number {
+  return grants.reduce((s, g) => s + (effImpact(g)?.value ?? 0), 0)
+}
+
+/** Funding spread across deciles 1–10, weighting each grant's amount by its histogram. */
+function fundingByDecile(grants: InsightsGrant[]): number[] {
+  const out = Array<number>(10).fill(0)
+  for (const g of grants) {
+    if (!g.deprivation) continue
+    const total = g.deprivation.histogram.reduce((s, n) => s + n, 0)
+    if (total === 0) continue
+    g.deprivation.histogram.forEach((n, i) => {
+      out[i] = (out[i] ?? 0) + g.amountAwarded * (n / total)
+    })
+  }
+  return out
+}
+
 function InsightsPage() {
   const navigate = useNavigate({ from: '/insights' })
   const { range, programmeId, region } = Route.useSearch()
@@ -251,8 +403,12 @@ function InsightsPage() {
 
   const selectedProgramme = programmeId ? fil.find((g) => g.programmeId === programmeId) : undefined
   const impactPool = selectedProgramme ? fil : fil.filter((g) => g.unitKey === 'people')
-  const impactReported = impactPool.filter((g) => g.impactQuantity !== null)
-  const impactTotal = impactReported.reduce((s, g) => s + (g.impactQuantity ?? 0), 0)
+  // Provenance-aware: prefer reported actuals, fall back to proposed. Track the split
+  // so estimates are surfaced, never silently passed off as achieved impact.
+  const impactEff = impactPool.map(effImpact).filter((e): e is { value: number; source: ImpactSource } => e !== null)
+  const impactTotal = impactEff.reduce((s, e) => s + e.value, 0)
+  const impactReportedCount = impactEff.filter((e) => e.source === 'reported').length
+  const impactProposedCount = impactEff.filter((e) => e.source === 'proposed').length
   const impactLabel = selectedProgramme ? selectedProgramme.unitLabel : 'People reached'
 
   const located = fil.filter((g) => g.deprivation)
@@ -269,14 +425,13 @@ function InsightsPage() {
   const byProgramme = [...new Map(fil.filter((g) => g.programmeId).map((g) => [g.programmeId!, g])).keys()]
     .map((pid, i) => {
       const grants = fil.filter((g) => g.programmeId === pid)
-      const reported = grants.filter((g) => g.impactQuantity !== null)
       return {
         id: pid,
         name: grants[0]!.programmeName ?? '—',
         color: PALETTE[i % PALETTE.length]!,
         committed: grants.reduce((s, g) => s + g.amountAwarded, 0),
         grants: grants.length,
-        people: grants[0]!.unitKey === 'people' ? reported.reduce((s, g) => s + (g.impactQuantity ?? 0), 0) : null,
+        people: grants[0]!.unitKey === 'people' ? sumImpact(grants) : null,
         unitLabel: grants[0]!.unitLabel,
       }
     })
@@ -308,14 +463,13 @@ function InsightsPage() {
   const themes = tagNames
     .map((t, i) => {
       const grants = fil.filter((g) => g.tags.includes(t))
-      const reported = grants.filter((g) => g.impactQuantity !== null && g.unitKey === 'people')
       const withQuote = [...grants].sort((a, b) => b.amountAwarded - a.amountAwarded).find((g) => g.impactQuote)
       return {
         tag: t,
         color: PALETTE[i % PALETTE.length]!,
         amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
         count: grants.length,
-        people: reported.reduce((s, g) => s + (g.impactQuantity ?? 0), 0),
+        people: sumImpact(grants.filter((g) => g.unitKey === 'people')),
         quote: withQuote?.impactQuote ?? null,
       }
     })
@@ -334,6 +488,10 @@ function InsightsPage() {
 
   const [selRegion, setSelRegion] = useState<string | null>(null)
   const activeRegion = selRegion && byRegion.some((r) => r.name === selRegion) ? selRegion : (byRegion[0]?.name ?? null)
+  const regionByNorm = new Map(byRegion.map((r) => [norm(r.name), r]))
+  const maxRegionAmt = byRegion[0]?.amount ?? 1
+  const tiledNorms = new Set(UK_TILES.map((t) => norm(t.name)))
+  const unmatchedRegions = byRegion.filter((r) => !tiledNorms.has(norm(r.name)))
   const regionGrants = fil.filter((g) => g.region === activeRegion)
   const regionTotal = regionGrants.reduce((s, g) => s + g.amountAwarded, 0)
   const byLad = [...new Map(regionGrants.map((g) => [g.ladName ?? '—', 0])).keys()]
@@ -344,6 +502,24 @@ function InsightsPage() {
     }))
     .sort((a, b) => b.amount - a.amount)
   const ladDonut: DonutSlice[] = byLad.map((l) => ({ name: l.name, value: l.amount, color: l.color }))
+
+  // ── Deprivation-decile distribution ──
+  const decileAmounts = fundingByDecile(located)
+  const decileMax = Math.max(1, ...decileAmounts)
+  const vintages = [...new Set(located.map((g) => g.deprivation!.vintage))].sort()
+
+  // ── Grantee performance (from analysed reports) ──
+  const alignmentScores = fil.map((g) => g.alignmentScore).filter((s): s is number => s !== null)
+  const avgAlignment = alignmentScores.length > 0 ? alignmentScores.reduce((s, n) => s + n, 0) / alignmentScores.length : null
+  const milestones = fil.reduce(
+    (acc, g) => ({
+      received: acc.received + g.milestones.received,
+      onTime: acc.onTime + g.milestones.onTime,
+      overdue: acc.overdue + g.milestones.overdue,
+    }),
+    { received: 0, onTime: 0, overdue: 0 },
+  )
+  const reportsAnalysed = fil.reduce((s, g) => s + g.reportsAnalysed, 0)
 
   const earliest = timelineRounds[0]?.name ?? null
 
@@ -439,8 +615,12 @@ function InsightsPage() {
               tint={KPI.people}
               icon={UserGroupIcon}
               label={impactLabel}
-              value={impactReported.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
-              sub={impactPool.length === 0 ? 'no people-measured programmes here' : `reported by ${impactReported.length} of ${impactPool.length}`}
+              value={impactEff.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
+              sub={
+                impactPool.length === 0
+                  ? 'no people-measured programmes here'
+                  : `${impactReportedCount} reported${impactProposedCount > 0 ? ` · ${impactProposedCount} proposed` : ''}`
+              }
             />
             <MiniKpi
               tint={KPI.reach}
@@ -469,7 +649,7 @@ function InsightsPage() {
                           {pct}%
                         </span>
                       </div>
-                      <BarMeter bars={26} height={22} barWidth={3} className="my-2" progress={pct / 100} color={p.color} />
+                      <BarMeter bars={26} height={22} barWidth={3} className="my-2 w-full" segments={[{ value: 1, color: p.color }]} />
                       <p className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }} title={p.name}>
                         {p.name}
                       </p>
@@ -553,7 +733,7 @@ function InsightsPage() {
                               {t.people > 0 ? ` · ${Math.round(t.people).toLocaleString('en-GB')} people` : ''}
                             </p>
                           </div>
-                          <span className="shrink-0 font-display text-[22px] font-medium" style={{ color: t.color }}>
+                          <span className="shrink-0 font-display text-[22px] font-medium" style={{ color: C.faint }}>
                             {pct}
                             <span className="text-[13px]">%</span>
                           </span>
@@ -576,29 +756,29 @@ function InsightsPage() {
             <Panel data-export-block>
               <PanelTitle>Giving by region</PanelTitle>
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Region list */}
-                <div className="flex flex-col gap-1.5">
-                  {byRegion.map((r) => {
-                    const on = r.name === activeRegion
-                    return (
-                      <button
-                        key={r.name}
-                        type="button"
-                        onClick={() => setSelRegion(r.name)}
-                        className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left"
-                        style={{ borderColor: on ? C.brand : C.line, backgroundColor: on ? 'rgba(31,122,92,0.05)' : '#fff' }}
-                      >
-                        <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
-                          {r.name}
-                        </span>
-                        <span className="font-display text-[13px]" style={{ color: C.sub }}>
-                          {fmtCompact(r.amount)} · {r.count}
-                        </span>
-                      </button>
-                    )
-                  })}
+                {/* Region tile-map */}
+                <div>
+                  <RegionTileMap data={regionByNorm} max={maxRegionAmt} active={activeRegion} onSelect={setSelRegion} />
+                  {unmatchedRegions.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {unmatchedRegions.map((r) => {
+                        const on = r.name === activeRegion
+                        return (
+                          <button
+                            key={r.name}
+                            type="button"
+                            onClick={() => setSelRegion(r.name)}
+                            className="rounded-lg border px-2.5 py-1 font-display text-[13px]"
+                            style={{ borderColor: on ? C.brand : C.line, color: C.ink }}
+                          >
+                            {r.name} · {fmtCompact(r.amount)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   {unlocatedCount > 0 && (
-                    <p className="mt-1 font-display text-[12px]" style={{ color: C.faint }}>
+                    <p className="mt-3 font-display text-[12px]" style={{ color: C.faint }}>
                       {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable location.
                     </p>
                   )}
@@ -651,6 +831,57 @@ function InsightsPage() {
             </Panel>
           )}
 
+          {/* Deprivation-decile distribution + grantee performance */}
+          <div data-export-block className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Panel>
+              <PanelTitle>Funding by deprivation decile</PanelTitle>
+              {locatedAmt === 0 ? (
+                <p className="py-10 text-center font-display text-[14px]" style={{ color: C.faint }}>
+                  No resolved delivery locations in this slice.
+                </p>
+              ) : (
+                <>
+                  <p className="-mt-1 mb-1 font-display text-[12px]" style={{ color: C.sub }}>
+                    Decile 1 is the most deprived 10% of areas in its nation{vintages.length ? ` · ${vintages.join(', ')}` : ''}
+                  </p>
+                  <DecileChart amounts={decileAmounts} total={locatedAmt} max={decileMax} />
+                  {unlocatedCount > 0 && (
+                    <p className="mt-2 font-display text-[11px]" style={{ color: C.faint }}>
+                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable location excluded.
+                    </p>
+                  )}
+                </>
+              )}
+            </Panel>
+
+            <Panel>
+              <PanelTitle>Grantee performance</PanelTitle>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Stat
+                  label="Promises kept"
+                  value={avgAlignment !== null ? `${(Math.round(avgAlignment * 10) / 10).toLocaleString('en-GB')}/10` : '—'}
+                  sub={avgAlignment !== null ? `avg alignment · ${alignmentScores.length} report${alignmentScores.length !== 1 ? 's' : ''}` : 'awaits analysed reports'}
+                />
+                <Stat
+                  label="Reporting on time"
+                  value={milestones.received > 0 ? `${Math.round((milestones.onTime / milestones.received) * 100)}%` : '—'}
+                  sub={
+                    milestones.received > 0
+                      ? `${milestones.onTime} of ${milestones.received} by due date${milestones.overdue > 0 ? ` · ${milestones.overdue} overdue` : ''}`
+                      : milestones.overdue > 0
+                        ? `${milestones.overdue} overdue`
+                        : 'none due yet'
+                  }
+                />
+                <Stat
+                  label="Reports analysed"
+                  value={reportsAnalysed > 0 ? String(reportsAnalysed) : '—'}
+                  sub={`across ${fil.filter((g) => g.reportsAnalysed > 0).length} of ${fil.length}`}
+                />
+              </div>
+            </Panel>
+          </div>
+
           {/* Impact by round */}
           {timelineRounds.length > 0 && (
             <Panel data-export-block>
@@ -688,7 +919,7 @@ function InsightsPage() {
 }
 
 function RoundGrantCard({ grant: g, tint }: { grant: InsightsGrant; tint: { bg: string; ink: string } }) {
-  const people = g.impactQuantity !== null && g.unitKey === 'people' ? g.impactQuantity : null
+  const eff = g.unitKey === 'people' ? effImpact(g) : null
   const detail = [g.programmeName, g.ladName ?? g.region].filter(Boolean).join(' · ')
   return (
     <Link
@@ -703,7 +934,9 @@ function RoundGrantCard({ grant: g, tint }: { grant: InsightsGrant; tint: { bg: 
             {g.organisationName}
           </p>
           <p className="font-display text-[12px]" style={{ color: C.sub }}>
-            {people != null ? `${Math.round(people).toLocaleString('en-GB')} ${g.unitLabel.toLowerCase()}` : 'no report yet'}
+            {eff
+              ? `${Math.round(eff.value).toLocaleString('en-GB')} ${g.unitLabel.toLowerCase()}${eff.source === 'proposed' ? ' (proposed)' : ''}`
+              : 'no report yet'}
           </p>
         </div>
         <span className="shrink-0 font-display text-[18px] font-medium" style={{ color: tint.ink }}>
