@@ -54,16 +54,14 @@ const KPI = {
   area: { bg: '#FEF7EB', accent: '#F89828' },
   headroom: { bg: '#FDEFF2', accent: '#F0537A' },
 }
-// Per-criterion palette (Figma AI-assessment bars).
-const CRITERION_COLOR: Record<string, string> = {
-  strategic_alignment: '#4FA8E8',
-  community_need: '#F48FB1',
-  track_record: '#F5B851',
-  budget_quality: '#31A650',
-  delivery_risk: '#8B7FF0',
-  additionality: '#4FBEE8',
-}
 const BUDGET_COLORS = ['#8B7FF0', '#31A650', '#F5B851', '#F48FB1', '#4FBEE8', '#F0876B']
+
+// RAG colour for a 1–10 criterion score: 0–3 red, 4–6 amber, 7+ green.
+function ragColor(score: number) {
+  if (score >= 7) return C.success
+  if (score >= 4) return '#F5B851'
+  return C.danger
+}
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
 function fmtMoney(n: number) {
@@ -198,7 +196,8 @@ function MiniKpi({
   )
 }
 
-function CriterionBar({ label, score, color }: { label: string; score: number; color: string }) {
+function CriterionBar({ label, score }: { label: string; score: number }) {
+  const color = ragColor(score)
   return (
     <div className="flex items-center gap-3">
       <span className="w-32 shrink-0 font-display text-[13px]" style={{ color: C.sub }}>
@@ -386,12 +385,7 @@ function ApplicationDetail() {
                     const c = scoreDetail.criteria[key]
                     if (!c) return null
                     return (
-                      <CriterionBar
-                        key={key}
-                        label={CRITERION_DEFINITIONS[key].label}
-                        score={c.score}
-                        color={CRITERION_COLOR[key] ?? C.brand}
-                      />
+                      <CriterionBar key={key} label={CRITERION_DEFINITIONS[key].label} score={c.score} />
                     )
                   })}
                 </div>
