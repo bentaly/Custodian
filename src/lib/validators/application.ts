@@ -90,7 +90,12 @@ export const ApplicationFiltersSchema = z.object({
   scoreBand: ScoreBand.optional(),
   // Programme tag/theme — matches applications whose programme carries the tag.
   tag: z.string().min(1).max(100).optional(),
+  // Column sort. Only base-table columns are sortable; programme/theme are the
+  // grouping (tabs) and filter axes.
+  sortBy: z.enum(['organisation', 'amount', 'status', 'score', 'dueDiligence']).optional(),
+  sortDir: z.enum(['asc', 'desc']).optional(),
   page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(25),
+  // Cap is high enough to cover a whole-programme CSV export in one call.
+  pageSize: z.number().int().min(1).max(10_000).default(25),
 })
 export type ApplicationFilters = z.infer<typeof ApplicationFiltersSchema>

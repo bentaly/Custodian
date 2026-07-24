@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, count, inArray, sql, ne, ilike, gte, lt, isNotNull } from 'drizzle-orm'
+import { and, eq, count, inArray, sql, ne, ilike, gte, lt, isNotNull, desc } from 'drizzle-orm'
 import { getDb } from '../db'
 import {
   applications,
@@ -87,11 +87,32 @@ export const listApplications = createServerFn({ method: 'GET' })
       filters.status ? eq(applications.status, filters.status) : undefined,
     )
 
+    // Column sort. Categorical columns (status / due diligence) get an explicit
+    // ordering; the rest sort naturally. Newest-first is the default and the tiebreak.
+    const dir = filters.sortDir === 'asc' ? 'ASC' : 'DESC'
+    const sortExpr = (() => {
+      switch (filters.sortBy) {
+        case 'organisation':
+          return sql`lower(${applications.organisationName}) ${sql.raw(dir)}`
+        case 'amount':
+          return sql`${applications.amountRequested} ${sql.raw(dir)} NULLS LAST`
+        case 'score':
+          return sql`${applications.custodianScore} ${sql.raw(dir)} NULLS LAST`
+        case 'status':
+          return sql`CASE ${applications.status} WHEN 'for_review' THEN 0 WHEN 'shortlisted' THEN 1 WHEN 'awarded' THEN 2 WHEN 'declined' THEN 3 ELSE 4 END ${sql.raw(dir)}`
+        case 'dueDiligence':
+          return sql`CASE ${applications.dueDiligenceStatus} WHEN 'blocked' THEN 0 WHEN 'warning' THEN 1 WHEN 'review' THEN 2 WHEN 'clear' THEN 3 ELSE 4 END ${sql.raw(dir)}`
+        default:
+          return null
+      }
+    })()
+    const orderBy = sortExpr ? [sortExpr, desc(applications.submittedAt)] : [desc(applications.submittedAt)]
+
     const [items, totals, statusRows] = await Promise.all([
       getDb().query.applications.findMany({
         where,
         with: { roundProgramme: { with: { programme: { with: { client: true } } } } },
-        orderBy: (a, { desc }) => [desc(a.submittedAt)],
+        orderBy,
         offset: (page - 1) * pageSize,
         limit: pageSize,
       }),
@@ -383,30 +404,52 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
 
     const rpIds = rps.map((rp) => rp.id)
 
-    const committedRows = await getDb()
-      .select({
-        roundProgrammeId: applications.roundProgrammeId,
-        committed: sql<string>`COALESCE(SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested})), '0')`,
-        shortlistedCount: count(),
-      })
-      .from(applications)
-      .leftJoin(awards, eq(awards.applicationId, applications.id))
-      .where(and(
-        inArray(applications.roundProgrammeId, rpIds),
-        inArray(applications.status, ['shortlisted', 'awarded']),
-      ))
-      .groupBy(applications.roundProgrammeId)
+    // Committed money split into its two tiers: awarded (a real grant) vs shortlisted
+    // (still awaiting decision). The round-budget dominos bar renders them as separate
+    // opacity bands, so they can't stay lumped into a single "committed" figure.
+    const [committedRows, countRows] = await Promise.all([
+      getDb()
+        .select({
+          roundProgrammeId: applications.roundProgrammeId,
+          awarded: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} = 'awarded' THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), 0)`,
+          shortlisted: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} = 'shortlisted' THEN ${applications.amountRequested} ELSE 0 END), 0)`,
+          awardedCount: sql<number>`CAST(COUNT(*) FILTER (WHERE ${applications.status} = 'awarded') AS integer)`,
+          shortlistedCount: sql<number>`CAST(COUNT(*) FILTER (WHERE ${applications.status} = 'shortlisted') AS integer)`,
+        })
+        .from(applications)
+        .leftJoin(awards, eq(awards.applicationId, applications.id))
+        .where(and(
+          inArray(applications.roundProgrammeId, rpIds),
+          inArray(applications.status, ['shortlisted', 'awarded']),
+        ))
+        .groupBy(applications.roundProgrammeId),
+      // Total applications per programme (all statuses) — drives the programme tab counts.
+      getDb()
+        .select({ roundProgrammeId: applications.roundProgrammeId, total: count() })
+        .from(applications)
+        .where(inArray(applications.roundProgrammeId, rpIds))
+        .groupBy(applications.roundProgrammeId),
+    ])
 
     const byRpId = new Map(committedRows.map((r) => [r.roundProgrammeId, r]))
+    const countByRpId = new Map(countRows.map((r) => [r.roundProgrammeId, r.total]))
 
     return rps.map((rp) => {
       const row = byRpId.get(rp.id)
+      const awarded = row ? parseFloat(row.awarded) : 0
+      const shortlisted = row ? parseFloat(row.shortlisted) : 0
       return {
         roundProgrammeId: rp.id,
+        programmeId: rp.programmeId,
         programmeName: rp.programme.name,
+        tags: (rp.programme.tags as string[] | null) ?? [],
         budget: rp.budget ? parseFloat(rp.budget) : null,
-        committed: row ? parseFloat(row.committed) : 0,
+        awarded,
+        shortlisted,
+        committed: awarded + shortlisted,
+        awardedCount: row?.awardedCount ?? 0,
         shortlistedCount: row?.shortlistedCount ?? 0,
+        total: countByRpId.get(rp.id) ?? 0,
       }
     })
   })
