@@ -9,7 +9,7 @@ import {
   Download01Icon,
   ArrowDown01Icon,
 } from '@hugeicons/core-free-icons'
-import { EmptyState } from '../../components/ui'
+import { EmptyState, MiniKpi } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
@@ -117,52 +117,6 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
         {children}
       </h2>
       {right}
-    </div>
-  )
-}
-
-function MiniKpi({
-  tint,
-  icon,
-  label,
-  value,
-  sub,
-}: {
-  tint: { bg: string; accent: string }
-  icon: typeof Coins01Icon
-  label: string
-  value: React.ReactNode
-  sub: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col rounded-[20px] border bg-white p-1" style={{ borderColor: C.line }}>
-      <div className="relative overflow-hidden rounded-2xl p-4" style={{ backgroundColor: tint.bg }}>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 -translate-y-[17%]"
-          style={{
-            backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(tint.accent, 0.5)} 0%, ${withAlpha(tint.accent, 0)} 100%)`,
-            WebkitMaskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
-            maskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
-            WebkitMaskSize: '7px 7px',
-            maskSize: '7px 7px',
-          }}
-        />
-        <div className="relative z-10">
-          <div className="text-[30px] font-semibold leading-none" style={{ color: C.ink }}>
-            {value}
-          </div>
-          <div className="mt-1.5 text-xs font-medium" style={{ color: C.sub }}>
-            {sub}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 px-4 py-3">
-        <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
-        <span className="text-[13px] font-medium" style={{ color: C.ink }}>
-          {label}
-        </span>
-      </div>
     </div>
   )
 }
@@ -649,7 +603,7 @@ function InsightsPage() {
                           {pct}%
                         </span>
                       </div>
-                      <BarMeter bars={26} height={22} barWidth={3} className="my-2 w-full" segments={[{ value: 1, color: p.color }]} />
+                      <BarMeter bars={48} height={22} barWidth={3} className="my-2 w-full" segments={[{ value: 1, color: p.color }]} />
                       <p className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }} title={p.name}>
                         {p.name}
                       </p>

@@ -22,6 +22,7 @@ import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
+import { MiniKpi } from '../../components/ui'
 import { Donut } from '../../components/charts/Donut'
 import { CRITERION_DEFINITIONS, CRITERION_ORDER, type CustodianScoreDetail } from '../../lib/custodianScore'
 import { impactUnitLabel } from '../../lib/impactUnits'
@@ -145,54 +146,6 @@ function ScoreRing({ score, size = 132, thickness = 15 }: { score: number; size?
         </div>
       }
     />
-  )
-}
-
-function MiniKpi({
-  tint,
-  icon,
-  label,
-  value,
-  sub,
-  valueClass = 'text-[24px] font-semibold leading-tight',
-}: {
-  tint: { bg: string; accent: string }
-  icon: typeof Coins01Icon
-  label: string
-  value: React.ReactNode
-  sub: React.ReactNode
-  valueClass?: string
-}) {
-  return (
-    <div className="flex flex-col rounded-[20px] border bg-white p-1" style={{ borderColor: C.line }}>
-      <div className="relative overflow-hidden rounded-2xl p-4" style={{ backgroundColor: tint.bg }}>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 -translate-y-[17%]"
-          style={{
-            backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(tint.accent, 0.5)} 0%, ${withAlpha(tint.accent, 0)} 100%)`,
-            WebkitMaskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
-            maskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',
-            WebkitMaskSize: '7px 7px',
-            maskSize: '7px 7px',
-          }}
-        />
-        <div className="relative z-10">
-          <div className={`truncate ${valueClass}`} style={{ color: C.ink }} title={typeof value === 'string' ? value : undefined}>
-            {value}
-          </div>
-          <div className="mt-1 truncate text-xs font-medium" style={{ color: C.sub }}>
-            {sub}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 px-4 py-3">
-        <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
-        <span className="text-[13px] font-medium" style={{ color: C.ink }}>
-          {label}
-        </span>
-      </div>
-    </div>
   )
 }
 
@@ -418,6 +371,7 @@ function ApplicationDetail() {
               label="Amount requested"
               value={fmtCompact(amountRequested)}
               sub={durationLabel(rp.grantDurationYears) ?? 'Duration not set'}
+              valueClass="text-[24px] font-semibold leading-tight"
             />
             <MiniKpi
               tint={KPI.programme}
@@ -433,6 +387,7 @@ function ApplicationDetail() {
               label="Beneficiaries"
               value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
               sub={proposedImpact != null ? `${unitLabel.toLowerCase()} · proposed` : 'not stated'}
+              valueClass="text-[24px] font-semibold leading-tight"
             />
             <MiniKpi
               tint={KPI.headroom}
@@ -440,6 +395,7 @@ function ApplicationDetail() {
               label="Cost per beneficiary"
               value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
               sub={costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'}
+              valueClass="text-[24px] font-semibold leading-tight"
             />
           </div>
 

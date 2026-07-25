@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Badge, Card, EmptyState, Select } from '../../components/ui'
+import { Card, DataTable, EmptyState, Select, StatusPill, type TableColumn } from '../../components/ui'
 import { listAwards } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import { getRoundStatus } from '../../lib/roundStatus'
+
+type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
 type AwardsSearch = {
   roundId?: string
@@ -63,11 +65,64 @@ const GRANT_STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 
-const GRANT_STATUS_COLORS: Record<string, string> = {
-  active: 'bg-emerald-50 text-emerald-700',
-  completed: 'bg-gray-100 text-gray-600',
-  cancelled: 'bg-red-50 text-red-600',
+const GRANT_STATUS_HEX: Record<string, string> = {
+  active: '#31A650',
+  completed: '#637083',
+  cancelled: '#FF4242',
 }
+
+const txtInk = 'font-display text-[14px] text-[#141C24]'
+const txtSub = 'font-display text-[14px] text-[#637083]'
+
+const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
+  {
+    id: 'organisation',
+    header: 'Organisation',
+    cell: (g) => (
+      <Link
+        to="/awards/$awardId"
+        params={{ awardId: g.awardId }}
+        onClick={(e) => e.stopPropagation()}
+        className="font-display text-[14px] font-medium text-[#141C24] hover:underline"
+      >
+        {g.organisationName}
+      </Link>
+    ),
+  },
+  { id: 'programme', header: 'Programme', cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span> },
+  { id: 'round', header: 'Round', cell: (g) => <span className={txtSub}>{g.roundName ?? '—'}</span> },
+  { id: 'awarded', header: 'Awarded', cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.decisionAt)}</span> },
+  {
+    id: 'amount',
+    header: 'Amount',
+    cellClassName: 'tabular-nums',
+    cell: (g) => <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">{fmt(g.amountAwarded)}</span>,
+  },
+  {
+    id: 'paid',
+    header: 'Paid',
+    cell: (g) =>
+      g.instalmentCount === 0 ? (
+        <span className={txtSub}>—</span>
+      ) : (
+        <span className={`whitespace-nowrap ${txtSub}`} title={`${g.paidCount} of ${g.instalmentCount} instalments paid`}>
+          {fmtCompact(g.paidToDate)} <span className="text-[#97A1AF]">/ {g.instalmentCount}</span>
+        </span>
+      ),
+  },
+  {
+    id: 'duration',
+    header: 'Duration',
+    cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '—'}</span>,
+  },
+  { id: 'geography', header: 'Geography', cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{g.deliveryArea ?? '—'}</span> },
+  {
+    id: 'status',
+    header: 'Status',
+    width: 'w-[120px]',
+    cell: (g) => <StatusPill label={GRANT_STATUS_LABELS[g.status] ?? g.status} color={GRANT_STATUS_HEX[g.status] ?? '#637083'} />,
+  },
+]
 
 type ProgrammeShare = { name: string; amount: number }
 type Totals = ReturnType<typeof Route.useLoaderData>['totals']
@@ -250,61 +305,14 @@ function AwardsPage() {
           </p>
         </EmptyState>
       ) : (
-        <Card className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-400">
-                <th className="px-5 py-3">Organisation</th>
-                <th className="px-5 py-3">Programme</th>
-                <th className="px-5 py-3">Round</th>
-                <th className="px-5 py-3">Awarded</th>
-                <th className="px-5 py-3">Amount</th>
-                <th className="px-5 py-3">Paid</th>
-                <th className="px-5 py-3">Duration</th>
-                <th className="px-5 py-3">Geography</th>
-                <th className="px-5 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {items.map((g) => (
-                <tr key={g.awardId} className="relative transition-colors hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-900">
-                    <Link
-                      to="/awards/$awardId"
-                      params={{ awardId: g.awardId }}
-                      className="after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded focus-visible:after:ring-2 focus-visible:after:ring-gray-400"
-                    >
-                      {g.organisationName}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3 text-gray-600">{g.programmeName ?? '—'}</td>
-                  <td className="px-5 py-3 text-gray-600">{g.roundName ?? '—'}</td>
-                  <td className="px-5 py-3 whitespace-nowrap text-gray-600">{fmtDate(g.decisionAt)}</td>
-                  <td className="px-5 py-3 whitespace-nowrap font-medium text-gray-900">{fmt(g.amountAwarded)}</td>
-                  <td className="px-5 py-3 whitespace-nowrap text-gray-600">
-                    {g.instalmentCount === 0 ? (
-                      '—'
-                    ) : (
-                      <span title={`${g.paidCount} of ${g.instalmentCount} instalments paid`}>
-                        {fmtCompact(g.paidToDate)}{' '}
-                        <span className="text-gray-400">/ {g.instalmentCount}</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 whitespace-nowrap text-gray-600">
-                    {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '—'}
-                  </td>
-                  <td className="px-5 py-3 whitespace-nowrap text-gray-600">{g.deliveryArea ?? '—'}</td>
-                  <td className="px-5 py-3">
-                    <Badge className={GRANT_STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-600'}>
-                      {GRANT_STATUS_LABELS[g.status] ?? g.status}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+        <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+          <DataTable
+            columns={AWARD_COLUMNS}
+            rows={items}
+            rowKey={(g) => g.awardId}
+            onRowClick={(g) => navigate({ to: '/awards/$awardId', params: { awardId: g.awardId } })}
+          />
+        </div>
       )}
     </div>
   )

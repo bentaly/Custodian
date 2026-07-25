@@ -3,12 +3,8 @@ import { createFileRoute, Link, redirect, useNavigate, useRouter } from '@tansta
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
-  ArrowUp01Icon,
-  ArrowUpDownIcon,
   Search01Icon,
   Calendar03Icon,
-  Download01Icon,
-  Tick02Icon,
   CheckmarkCircle02Icon,
   CancelCircleIcon,
 } from '@hugeicons/core-free-icons'
@@ -18,7 +14,7 @@ import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { ApplicationStatus, ScoreBand } from '../../lib/validators/application'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { EmptyState } from '../../components/ui'
+import { DataTable, EmptyState, ExportButton, StatusPill, Tabs, type TableColumn } from '../../components/ui'
 
 const PAGE_SIZE = 25
 
@@ -426,39 +422,6 @@ function RoundBudget({
 
 // ─── Table cells ─────────────────────────────────────────────────────────────────
 
-function RowCheck({ checked, onToggle }: { checked: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        onToggle()
-      }}
-      aria-pressed={checked}
-      aria-label={checked ? 'Deselect' : 'Select'}
-      className="flex size-5 items-center justify-center rounded-[6px] border transition-colors"
-      style={{ borderColor: checked ? C.brand : C.line, backgroundColor: checked ? C.brand : '#fff' }}
-    >
-      {checked && <HugeiconsIcon icon={Tick02Icon} size={12} color="#fff" />}
-    </button>
-  )
-}
-
-function StatusPill({ status }: { status: string }) {
-  const s = STATUS_PILL[status] ?? { label: status, color: C.sub }
-  return (
-    <span
-      className="inline-flex h-6 items-center gap-1.5 rounded-[20px] px-2"
-      style={{ backgroundColor: withAlpha(s.color, 0.1) }}
-    >
-      <span className="size-[3px] rounded-full" style={{ backgroundColor: s.color }} />
-      <span className="font-display text-[12px] font-medium" style={{ color: s.color }}>
-        {s.label}
-      </span>
-    </span>
-  )
-}
-
 function scoreBandColor(score: number) {
   if (score >= 80) return C.success
   if (score >= 60) return C.amber
@@ -504,6 +467,111 @@ function DueDiligenceCell({ status }: { status: DueDiligenceStatus }) {
   return <HugeiconsIcon icon={d.icon} size={20} color={d.color} />
 }
 
+type AppRow = ReturnType<typeof Route.useLoaderData>['items'][number]
+
+// Column ids double as sort keys — DataTable hands the clicked id straight to `setSort`.
+const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
+  {
+    id: 'organisation',
+    header: 'Organisation',
+    sortable: true,
+    cell: (app) => {
+      const type = app.charityNumber ? 'Reg. charity' : app.companyNumber ? 'Company' : null
+      const area = app.deliveryRegion ?? app.deliveryArea ?? null
+      const subline = [type, area, app.externalApplicationId].filter(Boolean).join(' · ') || '—'
+      return (
+        <div className="flex items-center gap-2">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.wash }}>
+            <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
+              {initials(app.organisationName)}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <Link
+              to="/applications/$applicationId"
+              params={{ applicationId: app.id }}
+              onClick={(e) => e.stopPropagation()}
+              className="block truncate font-display text-[14px] font-medium hover:underline"
+              style={{ color: C.ink }}
+            >
+              {app.organisationName}
+            </Link>
+            <p className="truncate font-display text-[12px]" style={{ color: C.sub }}>
+              {subline}
+            </p>
+          </div>
+        </div>
+      )
+    },
+  },
+  {
+    id: 'amount',
+    header: 'Amount',
+    width: 'w-[130px]',
+    sortable: true,
+    cell: (app) => (
+      <span className="font-display text-[14px] font-medium tabular-nums" style={{ color: C.ink }}>
+        {fmtAmount(app.amountRequested)}
+      </span>
+    ),
+  },
+  {
+    id: 'programme',
+    header: 'Programme',
+    width: 'w-[200px]',
+    cell: (app) => (
+      <span className="font-display text-[14px]" style={{ color: C.ink }}>
+        {app.roundProgramme?.programme?.name ?? '—'}
+      </span>
+    ),
+  },
+  {
+    id: 'theme',
+    header: 'Theme',
+    width: 'w-[160px]',
+    cell: (app) => {
+      const themes = (app.roundProgramme?.programme?.tags as string[] | null) ?? []
+      if (themes.length === 0) {
+        return (
+          <span className="font-display text-[14px]" style={{ color: C.faint }}>
+            —
+          </span>
+        )
+      }
+      return (
+        <span className="font-display text-[14px]" style={{ color: C.sub }}>
+          {themes[0]}
+          {themes.length > 1 && <span style={{ color: C.faint }}> +{themes.length - 1}</span>}
+        </span>
+      )
+    },
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    width: 'w-[130px]',
+    sortable: true,
+    cell: (app) => {
+      const s = STATUS_PILL[app.status] ?? { label: app.status, color: C.sub }
+      return <StatusPill label={s.label} color={s.color} />
+    },
+  },
+  {
+    id: 'score',
+    header: 'AI score',
+    width: 'w-[110px]',
+    sortable: true,
+    cell: (app) => <AiScoreCell status={app.custodianScoreStatus} score={app.custodianScore} />,
+  },
+  {
+    id: 'dueDiligence',
+    header: 'Due diligence',
+    width: 'w-[120px]',
+    sortable: true,
+    cell: (app) => <DueDiligenceCell status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />,
+  },
+]
+
 // Bulk status action for the selected rows. An action menu (not a filter) — it never
 // reflects a value; picking an option applies it and resets. "Awarded" is intentionally
 // absent: awarding runs through the dedicated grant flow, not a status flip.
@@ -531,52 +599,6 @@ function BulkStatusMenu({ busy, onPick }: { busy: boolean; onPick: (s: Applicati
         <option value="declined">Decline</option>
       </select>
     </div>
-  )
-}
-
-function Th({ children, className = '' }: { children?: React.ReactNode; className?: string }) {
-  return (
-    <th className={`px-3 text-left font-display text-[14px] font-medium ${className}`} style={{ color: C.ink }}>
-      {children}
-    </th>
-  )
-}
-
-// Sortable column header — label + a state arrow (faint up/down when inactive,
-// solid directional arrow when this column is the active sort).
-function SortTh({
-  label,
-  sortKey,
-  active,
-  dir,
-  onSort,
-  className = '',
-}: {
-  label: string
-  sortKey: SortKey
-  active: boolean
-  dir: SortDir | undefined
-  onSort: (k: SortKey) => void
-  className?: string
-}) {
-  return (
-    <th className={`px-3 text-left ${className}`}>
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className="group flex items-center gap-1 font-display text-[14px] font-medium"
-        style={{ color: C.ink }}
-      >
-        {label}
-        {active ? (
-          <HugeiconsIcon icon={dir === 'asc' ? ArrowUp01Icon : ArrowDown01Icon} size={14} color={C.sub} />
-        ) : (
-          <span className="opacity-0 transition-opacity group-hover:opacity-100">
-            <HugeiconsIcon icon={ArrowUpDownIcon} size={14} color={C.faint} />
-          </span>
-        )}
-      </button>
-    </th>
   )
 }
 
@@ -770,45 +792,19 @@ function ApplicationsList() {
                 style={{ color: C.ink }}
               />
             </div>
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={exporting}
-              className="flex h-10 items-center gap-2 rounded-[12px] border px-3 disabled:opacity-60"
-              style={{ backgroundColor: C.brandBg, borderColor: C.brandBorder }}
-            >
-              <span className="font-display text-[14px] font-medium" style={{ color: C.brand }}>
-                {exporting ? 'Exporting…' : 'Export CSV'}
-              </span>
-              <HugeiconsIcon icon={Download01Icon} size={18} color={C.brand} />
-            </button>
+            <ExportButton onClick={handleExport} busy={exporting} />
           </div>
         </div>
       </div>
 
       {/* Programme tabs — the primary browsing axis, above the budget */}
       {programmeTabs.length > 1 && (
-        <div className="flex items-center gap-0.5 self-start overflow-x-auto rounded-lg p-0.5" style={{ backgroundColor: C.wash }}>
-          {programmeTabs.map((t) => {
-            const on = programmeId === t.id
-            return (
-              <button
-                key={t.id ?? 'all'}
-                type="button"
-                onClick={() => setProgramme(t.id)}
-                className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2"
-                style={on ? { backgroundColor: '#fff', border: `1px solid ${C.line}` } : undefined}
-              >
-                <span className="whitespace-nowrap font-display text-[14px] font-medium" style={{ color: on ? C.ink : C.sub }}>
-                  {t.name}
-                </span>
-                <span className="font-display text-[14px] font-medium" style={{ color: C.faint }}>
-                  {t.count}
-                </span>
-              </button>
-            )
-          })}
-        </div>
+        <Tabs
+          ariaLabel="Programme"
+          value={programmeId}
+          onChange={setProgramme}
+          items={programmeTabs.map((t) => ({ id: t.id, label: t.name, count: t.count }))}
+        />
       )}
 
       {/* Budget for the selected programme (whole round on the "All" tab) */}
@@ -850,108 +846,29 @@ function ApplicationsList() {
           </div>
         )}
 
-        {items.length === 0 ? (
-          <div className="p-4">
-            <EmptyState>
-              <p className="font-display text-[14px]" style={{ color: C.sub }}>
-                No applications match these filters.
-              </p>
-            </EmptyState>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="h-10" style={{ backgroundColor: C.wash }}>
-                  <th className="w-11 px-3">
-                    <RowCheck checked={allSelected} onToggle={toggleAll} />
-                  </th>
-                  <SortTh label="Organisation" sortKey="organisation" active={sortBy === 'organisation'} dir={sortDir} onSort={setSort} />
-                  <SortTh label="Amount" sortKey="amount" active={sortBy === 'amount'} dir={sortDir} onSort={setSort} className="w-[130px]" />
-                  <Th className="w-[200px]">Programme</Th>
-                  <Th className="w-[160px]">Theme</Th>
-                  <SortTh label="Status" sortKey="status" active={sortBy === 'status'} dir={sortDir} onSort={setSort} className="w-[130px]" />
-                  <SortTh label="AI score" sortKey="score" active={sortBy === 'score'} dir={sortDir} onSort={setSort} className="w-[110px]" />
-                  <SortTh label="Due diligence" sortKey="dueDiligence" active={sortBy === 'dueDiligence'} dir={sortDir} onSort={setSort} className="w-[120px]" />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((app) => {
-                  const prog = app.roundProgramme?.programme?.name ?? '—'
-                  const themes = (app.roundProgramme?.programme?.tags as string[] | null) ?? []
-                  const type = app.charityNumber ? 'Reg. charity' : app.companyNumber ? 'Company' : null
-                  const area = app.deliveryRegion ?? app.deliveryArea ?? null
-                  const subline = [type, area, app.externalApplicationId].filter(Boolean).join(' · ') || '—'
-                  return (
-                    <tr
-                      key={app.id}
-                      onClick={() => navigate({ to: '/applications/$applicationId', params: { applicationId: app.id } })}
-                      className="h-16 cursor-pointer transition-colors hover:bg-[#f9fafb]"
-                    >
-                      <td className="w-11 px-3 align-middle" onClick={(e) => e.stopPropagation()}>
-                        <RowCheck checked={selected.has(app.id)} onToggle={() => toggleOne(app.id)} />
-                      </td>
-                      <td className="px-3 align-middle">
-                        <div className="flex items-center gap-2">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.wash }}>
-                            <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
-                              {initials(app.organisationName)}
-                            </span>
-                          </div>
-                          <div className="min-w-0">
-                            <Link
-                              to="/applications/$applicationId"
-                              params={{ applicationId: app.id }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="block truncate font-display text-[14px] font-medium hover:underline"
-                              style={{ color: C.ink }}
-                            >
-                              {app.organisationName}
-                            </Link>
-                            <p className="truncate font-display text-[12px]" style={{ color: C.sub }}>
-                              {subline}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 align-middle font-display text-[14px] font-medium tabular-nums" style={{ color: C.ink }}>
-                        {fmtAmount(app.amountRequested)}
-                      </td>
-                      <td className="px-3 align-middle">
-                        <span className="font-display text-[14px]" style={{ color: C.ink }}>
-                          {prog}
-                        </span>
-                      </td>
-                      <td className="px-3 align-middle">
-                        {themes.length > 0 ? (
-                          <span className="font-display text-[14px]" style={{ color: C.sub }}>
-                            {themes[0]}
-                            {themes.length > 1 && (
-                              <span style={{ color: C.faint }}> +{themes.length - 1}</span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="font-display text-[14px]" style={{ color: C.faint }}>
-                            —
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 align-middle">
-                        <StatusPill status={app.status} />
-                      </td>
-                      <td className="px-3 align-middle">
-                        <AiScoreCell status={app.custodianScoreStatus} score={app.custodianScore} />
-                      </td>
-                      <td className="px-3 align-middle">
-                        <DueDiligenceCell status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={APPLICATION_COLUMNS}
+          rows={items}
+          rowKey={(app) => app.id}
+          onRowClick={(app) => navigate({ to: '/applications/$applicationId', params: { applicationId: app.id } })}
+          sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+          onSort={(id) => setSort(id as SortKey)}
+          selection={{
+            isSelected: (app) => selected.has(app.id),
+            toggle: (app) => toggleOne(app.id),
+            allSelected,
+            toggleAll,
+          }}
+          empty={
+            <div className="p-4">
+              <EmptyState>
+                <p className="font-display text-[14px]" style={{ color: C.sub }}>
+                  No applications match these filters.
+                </p>
+              </EmptyState>
+            </div>
+          }
+        />
       </div>
 
       {/* Pagination */}

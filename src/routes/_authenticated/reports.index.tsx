@@ -1,13 +1,28 @@
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   listReports,
   type DueStatus,
   type ReceivedStatus,
   type ReportRowStatus,
 } from '../../server/fns/reports'
-import { Badge, Button, Card, EmptyState } from '../../components/ui'
+import { Alert02Icon, Calendar03Icon, File01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import {
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  KPI_TINTS,
+  MiniKpi,
+  StatusPill,
+  Tabs,
+  type TableColumn,
+} from '../../components/ui'
 import { Drawer } from '../../components/Drawer'
+
+// From the server fn, not the route loader: `Route.useLoaderData` is circular here
+// (the route's component uses this type), which resolves to `any`.
+type ReportItem = Awaited<ReturnType<typeof listReports>>['items'][number]
 
 export const Route = createFileRoute('/_authenticated/reports/')({
   loader: async () => listReports(),
@@ -30,6 +45,15 @@ const STATUS_COLORS: Record<ReportRowStatus, string> = {
   reviewed: 'bg-emerald-50 text-emerald-700',
 }
 
+// Hex per status for the shared StatusPill (dot + tinted background).
+const STATUS_HEX: Record<ReportRowStatus, string> = {
+  overdue: '#FF4242',
+  due_soon: '#9B6916',
+  upcoming: '#637083',
+  received: '#3B82C4',
+  reviewed: '#31A650',
+}
+
 function fmtDate(date: Date | string | null | undefined) {
   if (!date) return '—'
   return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -37,16 +61,45 @@ function fmtDate(date: Date | string | null | undefined) {
 
 type Tab = 'all' | ReceivedStatus
 
+const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
+  {
+    id: 'organisation',
+    header: 'Organisation',
+    width: 'w-[28%]',
+    cell: (item) => (
+      <Link
+        to="/reports/$reportKey"
+        params={{ reportKey: item.key }}
+        onClick={(e) => e.stopPropagation()}
+        className="font-display text-[14px] font-medium text-[#141C24] hover:underline"
+      >
+        {item.organisationName}
+      </Link>
+    ),
+  },
+  { id: 'programme', header: 'Programme', cell: (item) => <span className="font-display text-[14px] text-[#637083]">{item.programmeName ?? '—'}</span> },
+  { id: 'report', header: 'Report', cell: (item) => <span className="font-display text-[14px] text-[#637083]">{item.label}</span> },
+  {
+    id: 'received',
+    header: 'Received',
+    width: 'w-[160px]',
+    cell: (item) => <span className="whitespace-nowrap font-display text-[14px] text-[#637083]">{fmtDate(item.submittedAt)}</span>,
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    width: 'w-[140px]',
+    cell: (item) => <StatusPill label={STATUS_LABELS[item.status]} color={STATUS_HEX[item.status]} />,
+  },
+]
+
 function ReportsPage() {
   const { items, upcoming, totals } = Route.useLoaderData()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('all')
   const [dueOpen, setDueOpen] = useState(false)
 
   const filtered = tab === 'all' ? items : items.filter((i) => i.status === tab)
-
-  const tabBase = 'rounded-full border px-3 py-1 text-xs transition-colors'
-  const tabOn = 'border-emerald-600 bg-emerald-50 font-medium text-emerald-700'
-  const tabOff = 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
 
   return (
     <div className="space-y-4">
@@ -69,25 +122,48 @@ function ReportsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Awaiting review" value={totals.received} sub="Received, not yet signed off" />
-        <StatCard label="Reviewed" value={totals.reviewed} sub="Signed off" />
-        <StatCard
-          label="Overdue"
-          value={totals.overdue}
-          sub="Follow-up needed"
-          valueClass={totals.overdue > 0 ? 'text-red-600' : undefined}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniKpi
+          tint={KPI_TINTS.violet}
+          icon={File01Icon}
+          label="Awaiting review"
+          value={String(totals.received)}
+          sub="received, not yet signed off"
         />
-        <StatCard label="Due soon" value={totals.dueSoon} sub="Within 30 days" />
+        <MiniKpi
+          tint={KPI_TINTS.green}
+          icon={Tick02Icon}
+          label="Reviewed"
+          value={String(totals.reviewed)}
+          sub="signed off"
+        />
+        <MiniKpi
+          tint={KPI_TINTS.pink}
+          icon={Alert02Icon}
+          label="Overdue"
+          value={String(totals.overdue)}
+          valueColor={totals.overdue > 0 ? '#FF4242' : undefined}
+          sub="follow-up needed"
+        />
+        <MiniKpi
+          tint={KPI_TINTS.amber}
+          icon={Calendar03Icon}
+          label="Due soon"
+          value={String(totals.dueSoon)}
+          sub="within 30 days"
+        />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        {(['all', 'received', 'reviewed'] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`${tabBase} ${tab === t ? tabOn : tabOff}`}>
-            {t === 'all' ? 'All' : STATUS_LABELS[t]}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        ariaLabel="Report status"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'all' as Tab, label: 'All', count: items.length },
+          { id: 'received' as Tab, label: STATUS_LABELS.received, count: totals.received },
+          { id: 'reviewed' as Tab, label: STATUS_LABELS.reviewed, count: totals.reviewed },
+        ]}
+      />
 
       {filtered.length === 0 ? (
         <EmptyState>
@@ -98,42 +174,14 @@ function ReportsPage() {
           </p>
         </EmptyState>
       ) : (
-        <Card className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-400">
-                <th className="px-5 py-3">Organisation</th>
-                <th className="px-5 py-3">Programme</th>
-                <th className="px-5 py-3">Report</th>
-                <th className="px-5 py-3">Received</th>
-                <th className="px-5 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.map((item) => (
-                <tr key={item.key} className="relative transition-colors hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-900">
-                    <Link
-                      to="/reports/$reportKey"
-                      params={{ reportKey: item.key }}
-                      className="after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded focus-visible:after:ring-2 focus-visible:after:ring-gray-400"
-                    >
-                      {item.organisationName}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3 text-gray-600">{item.programmeName ?? '—'}</td>
-                  <td className="px-5 py-3 text-gray-600">{item.label}</td>
-                  <td className="whitespace-nowrap px-5 py-3 text-gray-600">
-                    {fmtDate(item.submittedAt)}
-                  </td>
-                  <td className="px-5 py-3">
-                    <Badge className={STATUS_COLORS[item.status]}>{STATUS_LABELS[item.status]}</Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+        <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+          <DataTable
+            columns={REPORT_COLUMNS}
+            rows={filtered}
+            rowKey={(item) => item.key}
+            onRowClick={(item) => navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })}
+          />
+        </div>
       )}
 
       <OutstandingDrawer open={dueOpen} onClose={() => setDueOpen(false)} rows={upcoming} />
@@ -201,25 +249,5 @@ function OutstandingDrawer({
         )}
       </div>
     </Drawer>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  sub,
-  valueClass,
-}: {
-  label: string
-  value: number
-  sub: string
-  valueClass?: string
-}) {
-  return (
-    <Card className="px-4 py-3">
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
-      <p className={`mt-1 text-xl font-semibold ${valueClass ?? 'text-gray-900'}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-gray-400">{sub}</p>
-    </Card>
   )
 }

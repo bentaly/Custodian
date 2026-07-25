@@ -9,7 +9,13 @@ import { listClientUsers } from '../../server/fns/users'
 import { listInvitations, createInvitation } from '../../server/fns/invitations'
 import { getClientProfile, upsertClientProfile } from '../../server/fns/clients'
 import { listApiKeys, createApiKey, revokeApiKey } from '../../server/fns/apiKeys'
-import { Badge, Button, Card, Input, Label } from '../../components/ui'
+import { Button, Card, DataTable, Input, Label, StatusPill, type TableColumn } from '../../components/ui'
+
+type Member = ReturnType<typeof Route.useLoaderData>['members'][number]
+type Invite = ReturnType<typeof Route.useLoaderData>['invites'][number]
+
+const cellInk = 'font-display text-[14px] font-medium text-[#141C24]'
+const cellSub = 'font-display text-[14px] text-[#637083]'
 
 export const Route = createFileRoute('/_authenticated/users')({
   loader: async () => {
@@ -285,39 +291,26 @@ function Organisation() {
       {/* Team members */}
       <section>
         <h2 className="text-sm font-medium text-gray-700 mb-3">Team members</h2>
-        <Card className="overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Role
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {members.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.name}
-                    {member.id === user.id && (
-                      <span className="ml-2 text-xs text-gray-400">(you)</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{member.email}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {ROLE_LABELS[member.role] ?? member.role}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+        <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+          <DataTable
+            rows={members}
+            rowKey={(m) => m.id}
+            columns={[
+              {
+                id: 'name',
+                header: 'Name',
+                cell: (m: Member) => (
+                  <span className={cellInk}>
+                    {m.name}
+                    {m.id === user.id && <span className="ml-2 font-normal text-[#97A1AF]">(you)</span>}
+                  </span>
+                ),
+              },
+              { id: 'email', header: 'Email', cell: (m: Member) => <span className={cellSub}>{m.email}</span> },
+              { id: 'role', header: 'Role', cell: (m: Member) => <span className={cellSub}>{ROLE_LABELS[m.role] ?? m.role}</span> },
+            ]}
+          />
+        </div>
       </section>
 
       {/* Invite form — admin only */}
@@ -366,36 +359,17 @@ function Organisation() {
       {isAdmin && invites.length > 0 && (
         <section>
           <h2 className="text-sm font-medium text-gray-700 mb-3">Pending invitations</h2>
-          <Card className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Email
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Role
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Expires
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {invites.map((invite) => (
-                  <tr key={invite.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">{invite.email}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {ROLE_LABELS[invite.role] ?? invite.role}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(invite.expiresAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
+          <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+            <DataTable
+              rows={invites}
+              rowKey={(inv) => inv.id}
+              columns={[
+                { id: 'email', header: 'Email', cell: (inv: Invite) => <span className={cellInk}>{inv.email}</span> },
+                { id: 'role', header: 'Role', cell: (inv: Invite) => <span className={cellSub}>{ROLE_LABELS[inv.role] ?? inv.role}</span> },
+                { id: 'expires', header: 'Expires', cell: (inv: Invite) => <span className={cellSub}>{new Date(inv.expiresAt).toLocaleDateString()}</span> },
+              ]}
+            />
+          </div>
         </section>
       )}
 
@@ -435,6 +409,48 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
       setCreating(false)
     }
   }
+
+  const keyColumns: TableColumn<ApiKeyRow>[] = [
+    { id: 'name', header: 'Name', cell: (k) => <span className={cellInk}>{k.name}</span> },
+    {
+      id: 'key',
+      header: 'Key',
+      cell: (k) => <span className="font-mono text-[13px] text-[#637083]">{maskKey(k.last4)}</span>,
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      width: 'w-[140px]',
+      cell: (k) => <span className={cellSub}>{new Date(k.createdAt).toLocaleDateString()}</span>,
+    },
+    {
+      id: 'lastUsed',
+      header: 'Last used',
+      width: 'w-[140px]',
+      cell: (k) => (
+        <span className={cellSub}>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}</span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      width: 'w-[120px]',
+      cell: (k) =>
+        k.revokedAt ? <StatusPill label="Revoked" color="#637083" /> : <StatusPill label="Active" color="#31A650" />,
+    },
+    {
+      id: 'actions',
+      header: '',
+      width: 'w-[100px]',
+      align: 'right',
+      cell: (k) =>
+        k.revokedAt ? null : (
+          <button onClick={() => handleRevoke(k.id)} className="font-display text-[13px] text-red-600 hover:text-red-800">
+            Revoke
+          </button>
+        ),
+    },
+  ]
 
   async function handleRevoke(id: string) {
     if (!confirm('Revoke this key? Any integration using it will stop working immediately.')) return
@@ -485,54 +501,12 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
 
       {apiKeys.length > 0 && (
         <Card className="mb-4 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                {['Name', 'Key', 'Created', 'Last used', 'Status', ''].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {apiKeys.map((k) => {
-                const revoked = Boolean(k.revokedAt)
-                return (
-                  <tr key={k.id} className={`hover:bg-gray-50 ${revoked ? 'opacity-50' : ''}`}>
-                    <td className="px-4 py-3 text-sm text-gray-900">{k.name}</td>
-                    <td className="px-4 py-3 font-mono text-sm text-gray-500">{maskKey(k.last4)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(k.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <Badge
-                        className={revoked ? 'bg-gray-100 text-gray-500' : 'bg-green-50 text-green-700'}
-                      >
-                        {revoked ? 'Revoked' : 'Active'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {!revoked && (
-                        <button
-                          onClick={() => handleRevoke(k.id)}
-                          className="text-xs text-red-600 hover:text-red-800"
-                        >
-                          Revoke
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <DataTable
+            columns={keyColumns}
+            rows={apiKeys}
+            rowKey={(k) => k.id}
+            rowClassName={(k) => (k.revokedAt ? 'opacity-50' : '')}
+          />
         </Card>
       )}
 

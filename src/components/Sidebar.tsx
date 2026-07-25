@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Award01Icon,
+  BankIcon,
   Building02Icon,
   Calendar03Icon,
   CheckListIcon,
@@ -68,6 +69,10 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         <Link to="/awards" search={{ roundId: undefined }} className={itemClass}>
           <HugeiconsIcon icon={Award01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Awards
+        </Link>
+        <Link to="/finance" className={itemClass}>
+          <HugeiconsIcon icon={BankIcon} className="h-5 w-5" strokeWidth={1.75} />
+          Finance
         </Link>
         <Link to="/insights" className={itemClass}>
           <HugeiconsIcon icon={TradeUpIcon} className="h-5 w-5" strokeWidth={1.75} />
