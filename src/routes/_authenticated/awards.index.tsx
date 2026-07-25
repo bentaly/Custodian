@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Card, DataTable, EmptyState, Select, StatusPill, type TableColumn } from '../../components/ui'
+import { BankIcon, Calendar03Icon, Coins01Icon, Target01Icon } from '@hugeicons/core-free-icons'
+import {
+  DataTable,
+  EmptyState,
+  KPI_TINTS,
+  MiniKpi,
+  Select,
+  StatusPill,
+  type TableColumn,
+} from '../../components/ui'
 import { listAwards } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import { getRoundStatus } from '../../lib/roundStatus'
@@ -128,33 +137,40 @@ type ProgrammeShare = { name: string; amount: number }
 type Totals = ReturnType<typeof Route.useLoaderData>['totals']
 
 function StatCards({ totals }: { totals: Totals }) {
-  const top: ProgrammeShare[] = totals.byProgramme.slice(0, 4)
+  const top: ProgrammeShare[] = totals.byProgramme.slice(0, 3)
   const topTotal = top.reduce((s: number, p: ProgrammeShare) => s + p.amount, 0)
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Card className="px-4 py-3">
-        <p className="text-[11px] uppercase tracking-wide text-gray-400">Total awarded</p>
-        <p className="mt-1 text-xl font-semibold text-gray-900">{fmt(totals.totalAwarded)}</p>
-        <p className="mt-0.5 text-xs text-gray-400">
-          {totals.count} award{totals.count !== 1 ? 's' : ''}
-        </p>
-      </Card>
-      <Card className="px-4 py-3">
-        <p className="text-[11px] uppercase tracking-wide text-gray-400">Paid to date</p>
-        <p className="mt-1 text-xl font-semibold text-gray-900">{fmt(totals.paidToDate)}</p>
-        <p className="mt-0.5 text-xs text-gray-400">{fmt(totals.outstanding)} outstanding</p>
-      </Card>
-      <Card className="px-4 py-3">
-        <p className="text-[11px] uppercase tracking-wide text-gray-400">Multi-year</p>
-        <p className="mt-1 text-xl font-semibold text-gray-900">{totals.multiYearCount}</p>
-        <p className="mt-0.5 text-xs text-gray-400">Awards over 1 year</p>
-      </Card>
-      <Card className="px-4 py-3">
-        <p className="mb-1.5 text-[11px] uppercase tracking-wide text-gray-400">By programme</p>
-        {top.length === 0 ? (
-          <p className="text-xs text-gray-400">—</p>
-        ) : (
-          <div className="space-y-1">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <MiniKpi
+        tint={KPI_TINTS.violet}
+        icon={Coins01Icon}
+        label="Total awarded"
+        value={fmt(totals.totalAwarded)}
+        sub={`${totals.count} award${totals.count !== 1 ? 's' : ''}`}
+      />
+      <MiniKpi
+        tint={KPI_TINTS.green}
+        icon={BankIcon}
+        label="Paid to date"
+        value={fmt(totals.paidToDate)}
+        sub={`${fmt(totals.outstanding)} outstanding`}
+      />
+      <MiniKpi
+        tint={KPI_TINTS.amber}
+        icon={Calendar03Icon}
+        label="Multi-year"
+        value={String(totals.multiYearCount)}
+        sub="awards running over 1 year"
+      />
+      <MiniKpi
+        tint={KPI_TINTS.pink}
+        icon={Target01Icon}
+        label="By programme"
+        value={top[0] ? top[0].name : '—'}
+        sub={top[0] ? `${fmtCompact(top[0].amount)} · largest share` : 'no awards yet'}
+      >
+        {top.length > 0 && (
+          <div className="mt-3 space-y-1">
             {top.map((p: ProgrammeShare) => {
               const pct = topTotal > 0 ? Math.round((p.amount / topTotal) * 100) : 0
               return (
@@ -165,15 +181,15 @@ function StatCards({ totals }: { totals: Totals }) {
                     </span>
                     <span className="ml-2 shrink-0 font-medium text-gray-700">{fmtCompact(p.amount)}</span>
                   </div>
-                  <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-gray-100">
-                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                  <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-white/70">
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: KPI_TINTS.pink.accent }} />
                   </div>
                 </div>
               )
             })}
           </div>
         )}
-      </Card>
+      </MiniKpi>
     </div>
   )
 }

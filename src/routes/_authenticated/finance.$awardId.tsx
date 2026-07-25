@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { BankIcon, Calendar03Icon, Coins01Icon, Wallet01Icon } from '@hugeicons/core-free-icons'
 import { getFinanceGrant, type BankStatus } from '../../server/fns/finance'
 import { setInstalmentPaid, updateInstalment } from '../../server/fns/applications'
-import { Badge, Button, Card } from '../../components/ui'
+import { Badge, Button, Card, KPI_TINTS, MiniKpi } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/finance/$awardId')({
   loader: ({ params }) => getFinanceGrant({ data: { id: params.awardId } }),
@@ -97,21 +98,38 @@ function FinanceGrantDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Committed" value={fmt(grant.committed)} />
-        <Stat
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniKpi
+          tint={KPI_TINTS.violet}
+          icon={Coins01Icon}
+          label="Committed"
+          value={fmt(grant.committed)}
+          sub={
+            grant.durationYears
+              ? `over ${grant.durationYears} year${grant.durationYears > 1 ? 's' : ''}`
+              : 'single award'
+          }
+        />
+        <MiniKpi
+          tint={KPI_TINTS.green}
+          icon={BankIcon}
           label="Paid to date"
           value={fmt(grant.paidToDate)}
           sub={`${grant.paidCount} of ${grant.instalmentCount} instalment${grant.instalmentCount === 1 ? '' : 's'}`}
         />
-        <Stat
+        <MiniKpi
+          tint={KPI_TINTS.amber}
+          icon={Wallet01Icon}
           label="Outstanding"
           value={fmt(grant.outstanding)}
           sub={grant.lastPaidDate ? `last paid ${fmtDate(grant.lastPaidDate)}` : 'nothing paid yet'}
         />
-        <Stat
+        <MiniKpi
+          tint={KPI_TINTS.pink}
+          icon={Calendar03Icon}
           label="Next payment"
           value={grant.nextPayment ? fmt(grant.nextPayment.amount) : '—'}
+          valueColor={grant.status === 'overdue' ? '#FF4242' : undefined}
           sub={
             grant.nextPayment
               ? grant.nextPayment.dueDate
@@ -119,14 +137,13 @@ function FinanceGrantDetail() {
                 : 'date TBC'
               : 'nothing scheduled'
           }
-          valueClass={grant.status === 'overdue' ? 'text-red-600' : undefined}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="space-y-4">
           <PaymentsCard grant={grant} />
-          <ReportingCard grant={grant} />
+          <OrganisationCard grant={grant} />
         </div>
         <div className="space-y-4">
           <ReadinessCard grant={grant} />
@@ -135,26 +152,6 @@ function FinanceGrantDetail() {
         </div>
       </div>
     </div>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  valueClass,
-}: {
-  label: string
-  value: string
-  sub?: string
-  valueClass?: string
-}) {
-  return (
-    <Card className="px-4 py-3">
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${valueClass ?? 'text-gray-900'}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-gray-400">{sub}</p>}
-    </Card>
   )
 }
 
@@ -168,6 +165,8 @@ function PaymentsCard({ grant }: { grant: Grant }) {
   const [draftAmount, setDraftAmount] = useState('')
 
   const pct = grant.scheduledTotal > 0 ? Math.round((grant.paidToDate / grant.scheduledTotal) * 100) : 0
+  const upcoming = grant.instalments.filter((i) => !i.paidDate)
+  const paid = grant.instalments.filter((i) => i.paidDate)
 
   async function togglePaid(id: string, paid: boolean) {
     setBusyId(id)
@@ -234,8 +233,25 @@ function PaymentsCard({ grant }: { grant: Grant }) {
           .
         </p>
       ) : (
-        <ul className="mt-3 divide-y divide-gray-100">
-          {grant.instalments.map((inst) => {
+        <>
+          {/* Split rather than one flat list: "what has gone out" and "what is still to
+              go" are two different questions, and the second is the one being worked. */}
+          <Group title="Still to come" rows={upcoming} count={upcoming.length} />
+          <Group title="Paid" rows={paid} count={paid.length} />
+        </>
+      )}
+    </Card>
+  )
+
+  function Group({ title, rows, count }: { title: string; rows: Grant['instalments']; count: number }) {
+    if (count === 0) return null
+    return (
+      <div className="mt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          {title} <span className="tabular-nums text-gray-300">{count}</span>
+        </p>
+        <ul className="divide-y divide-gray-100">
+          {rows.map((inst) => {
             const meta = PAY_STATUS[inst.status] ?? PAY_STATUS.upcoming
             return (
               <li key={inst.id} className="py-2.5">
@@ -295,9 +311,9 @@ function PaymentsCard({ grant }: { grant: Grant }) {
             )
           })}
         </ul>
-      )}
-    </Card>
-  )
+      </div>
+    )
+  }
 }
 
 // ─── Payment readiness ───────────────────────────────────────────────────────
@@ -327,17 +343,6 @@ function ReadinessCard({ grant }: { grant: Grant }) {
       warn: grant.bank.status === 'invalid',
       name: 'Bank details verified',
       detail: BANK_DETAIL_TEXT[grant.bank.status],
-    },
-    {
-      done: grant.reporting.length > 0 && grant.reportsOverdue === 0,
-      warn: grant.reportsOverdue > 0,
-      name: 'Reporting up to date',
-      detail:
-        grant.reporting.length === 0
-          ? 'No reporting dates set'
-          : grant.reportsOverdue > 0
-            ? `${grant.reportsOverdue} report${grant.reportsOverdue === 1 ? '' : 's'} overdue`
-            : `${grant.reporting.length} date${grant.reporting.length === 1 ? '' : 's'} on schedule`,
     },
   ]
 
@@ -497,39 +502,60 @@ function Row({
   )
 }
 
-// ─── Reporting ───────────────────────────────────────────────────────────────
+// ─── This organisation's other grants ────────────────────────────────────────
 
-function ReportingCard({ grant }: { grant: Grant }) {
-  if (grant.reporting.length === 0) return null
+/**
+ * The surrounding grants — everything else this organisation has been given, past and
+ * running. Context a finance officer wants before releasing money: what else is live,
+ * what is still owed, and whether this is a first grant or a long relationship.
+ */
+function OrganisationCard({ grant }: { grant: Grant }) {
+  const { organisation: org } = grant
   return (
     <Card className="px-5 py-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Reporting</h2>
-        <span className="text-xs text-gray-400">Payments are commonly held until reports land</span>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-gray-900">{grant.organisationName}</h2>
+        <span className="text-xs text-gray-400">
+          {org.grantCount} grant{org.grantCount === 1 ? '' : 's'} · {fmt(org.committedTotal)} committed ·{' '}
+          {fmt(org.paidTotal)} paid
+        </span>
       </div>
-      <ul className="mt-3 divide-y divide-gray-100">
-        {grant.reporting.map((m) => (
-          <li key={m.id} className="flex items-center justify-between gap-3 py-2.5">
-            <span className="truncate text-sm font-medium text-gray-900">{m.label}</span>
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="text-xs text-gray-500">
-                {m.submittedDate ? `Received ${fmtDate(m.submittedDate)}` : `Due ${fmtDate(m.dueDate)}`}
-              </span>
-              <Badge
-                className={
-                  m.status === 'received'
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : m.status === 'overdue'
-                      ? 'bg-red-50 text-red-600'
-                      : 'bg-gray-100 text-gray-500'
-                }
-              >
-                {m.status === 'received' ? 'Received' : m.status === 'overdue' ? 'Overdue' : 'Upcoming'}
-              </Badge>
-            </div>
-          </li>
-        ))}
-      </ul>
+
+      {org.others.length === 0 ? (
+        <p className="mt-3 text-sm text-gray-400">This is their only grant.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-gray-100">
+          {org.others.map((o) => {
+            const meta = GRANT_STATUS[o.status]
+            return (
+              <li key={o.awardId}>
+                <Link
+                  to="/finance/$awardId"
+                  params={{ awardId: o.awardId }}
+                  className="flex flex-wrap items-center justify-between gap-3 py-2.5 hover:bg-gray-50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {o.programmeName ?? 'Unattributed'}
+                      {o.roundName ? <span className="font-normal text-gray-400"> · {o.roundName}</span> : null}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Awarded {fmtDate(o.decisionAt)}
+                      {o.nextDue ? ` · next payment ${fmtDate(o.nextDue)}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-sm tabular-nums text-gray-500">
+                      {fmt(o.paidToDate)} <span className="text-gray-300">/ {fmt(o.committed)}</span>
+                    </span>
+                    <Badge className={meta.className}>{meta.label}</Badge>
+                  </div>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </Card>
   )
 }

@@ -8,7 +8,8 @@ import {
   setInstalmentPaid,
   updateInstalment,
 } from '../../server/fns/applications'
-import { Badge, Button, Card, EmptyState } from '../../components/ui'
+import { BankIcon, Calendar03Icon, Coins01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
+import { Badge, Button, Card, EmptyState, KPI_TINTS, MiniKpi } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
   loader: ({ params }) => getAward({ data: { id: params.awardId } }),
@@ -91,15 +92,31 @@ function AwardDetail() {
       </div>
 
       {/* Key figures */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Amount awarded" value={fmt(award.amountAwarded)} />
-        <Stat label="Paid to date" value={fmt(award.paidToDate)} sub={`${fmt(award.outstanding)} outstanding`} />
-        <Stat
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniKpi
+          tint={KPI_TINTS.violet}
+          icon={Coins01Icon}
+          label="Amount awarded"
+          value={fmt(award.amountAwarded)}
+          sub={award.programmeName ?? 'unattributed'}
+        />
+        <MiniKpi
+          tint={KPI_TINTS.green}
+          icon={BankIcon}
+          label="Paid to date"
+          value={fmt(award.paidToDate)}
+          sub={`${fmt(award.outstanding)} outstanding`}
+        />
+        <MiniKpi
+          tint={KPI_TINTS.amber}
+          icon={Calendar03Icon}
           label="Awarded"
           value={fmtDate(award.decisionAt)}
-          sub={award.durationYears ? `${award.durationYears} yr${award.durationYears > 1 ? 's' : ''}` : undefined}
+          sub={award.durationYears ? `over ${award.durationYears} yr${award.durationYears > 1 ? 's' : ''}` : 'single payment term'}
         />
-        <Stat
+        <MiniKpi
+          tint={KPI_TINTS.pink}
+          icon={UserGroupIcon}
           label={impact.unitLabel ?? 'Impact'}
           value={impact.total != null ? impact.total.toLocaleString('en-GB') : '—'}
           sub={
@@ -122,15 +139,6 @@ function AwardDetail() {
   )
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <Card className="px-4 py-3">
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-gray-900">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-gray-400">{sub}</p>}
-    </Card>
-  )
-}
 
 // ─── Payments ────────────────────────────────────────────────────────────────
 
