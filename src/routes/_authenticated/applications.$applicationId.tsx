@@ -371,7 +371,6 @@ function ApplicationDetail() {
               label="Amount requested"
               value={fmtCompact(amountRequested)}
               sub={durationLabel(rp.grantDurationYears) ?? 'Duration not set'}
-              valueClass="text-[24px] font-semibold leading-tight"
             />
             <MiniKpi
               tint={KPI.programme}
@@ -379,7 +378,6 @@ function ApplicationDetail() {
               label="Programme"
               value={programme.name}
               sub={roundName ?? '—'}
-              valueClass="text-[16px] font-semibold leading-snug"
             />
             <MiniKpi
               tint={KPI.area}
@@ -387,7 +385,6 @@ function ApplicationDetail() {
               label="Beneficiaries"
               value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
               sub={proposedImpact != null ? `${unitLabel.toLowerCase()} · proposed` : 'not stated'}
-              valueClass="text-[24px] font-semibold leading-tight"
             />
             <MiniKpi
               tint={KPI.headroom}
@@ -395,7 +392,6 @@ function ApplicationDetail() {
               label="Cost per beneficiary"
               value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
               sub={costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'}
-              valueClass="text-[24px] font-semibold leading-tight"
             />
           </div>
 

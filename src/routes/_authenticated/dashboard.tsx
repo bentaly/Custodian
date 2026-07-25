@@ -187,7 +187,8 @@ function KpiCard({
           }}
         />
         <div className="relative z-10">
-          <div className="text-[30px] font-semibold leading-none" style={{ color: C.ink }}>
+          {/* Figma 112:739 — Inter Display Medium 32, Gray/900. */}
+          <div className="font-display text-[32px] font-medium leading-none" style={{ color: C.ink }}>
             {value}
           </div>
           <div className="mt-1.5 text-xs font-medium" style={{ color: subColor ?? C.sub }}>

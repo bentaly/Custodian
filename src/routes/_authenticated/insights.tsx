@@ -564,8 +564,9 @@ function InsightsPage() {
         <div ref={exportRef} className="flex flex-col gap-4">
           {/* KPI cards */}
           <div data-export-block className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MiniKpi tint={KPI.committed} icon={Coins01Icon} label="Total committed" value={fmtCompact(committedUp)} sub={`across ${fil.length} grant${fil.length !== 1 ? 's' : ''}`} />
+            <MiniKpi size="lg" tint={KPI.committed} icon={Coins01Icon} label="Total committed" value={fmtCompact(committedUp)} sub={`across ${fil.length} grant${fil.length !== 1 ? 's' : ''}`} />
             <MiniKpi
+              size="lg"
               tint={KPI.people}
               icon={UserGroupIcon}
               label={impactLabel}
@@ -577,13 +578,14 @@ function InsightsPage() {
               }
             />
             <MiniKpi
+              size="lg"
               tint={KPI.reach}
               icon={Location01Icon}
               label="Deprivation reach"
               value={locatedAmt > 0 ? `${Math.round(dep14Up)}%` : '—'}
               sub={locatedAmt > 0 ? 'reached IMD decile 1–4' : 'no resolved locations yet'}
             />
-            <MiniKpi tint={KPI.avg} icon={ChartAverageIcon} label="Average grant" value={fmtCompact(avgUp)} sub={amounts.length ? `${fmtCompact(minGrant)}–${fmtCompact(maxGrant)} range` : 'across filtered awards'} />
+            <MiniKpi size="lg" tint={KPI.avg} icon={ChartAverageIcon} label="Average grant" value={fmtCompact(avgUp)} sub={amounts.length ? `${fmtCompact(minGrant)}–${fmtCompact(maxGrant)} range` : 'across filtered awards'} />
           </div>
 
           {/* Giving by programme */}

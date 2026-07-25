@@ -28,11 +28,13 @@ export function Tabs<T>({
   onChange: (id: T) => void
   ariaLabel?: string
 }) {
+  // `w-fit` keeps the track hugging its tabs in any parent — as a plain flex/block
+  // child it stretched to the full container width (which it did on Finance).
   return (
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="flex items-center gap-0.5 self-start overflow-x-auto rounded-lg p-0.5"
+      className="flex w-fit max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-lg p-0.5"
       style={{ backgroundColor: C.wash }}
     >
       {items.map((t) => {

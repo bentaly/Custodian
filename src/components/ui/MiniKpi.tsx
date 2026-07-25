@@ -23,13 +23,24 @@ export const KPI_TINTS = {
 
 export type KpiTint = { bg: string; accent: string }
 
+/**
+ * The number's type scale, straight from Figma (node 112:739 — Inter Display Medium,
+ * Gray/900): `lg` is the 32px headline used on the dashboard and Insights; `sm` is the
+ * 16px figure every other screen's stat cards use.
+ */
+const VALUE_SIZE = {
+  lg: 'font-display text-[32px] font-medium leading-none',
+  sm: 'font-display text-[16px] font-medium leading-snug',
+} as const
+
 export function MiniKpi({
   tint,
   icon,
   label,
   value,
   sub,
-  valueClass = 'text-[30px] font-semibold leading-none',
+  size = 'sm',
+  valueClass,
   valueColor,
   subColor,
   children,
@@ -39,7 +50,9 @@ export function MiniKpi({
   label: string
   value: ReactNode
   sub: ReactNode
-  /** Override the number's type scale (e.g. 24px where the value is a long string). */
+  /** `lg` (32px) for the dashboard/Insights headline row; `sm` (16px) everywhere else. */
+  size?: keyof typeof VALUE_SIZE
+  /** Escape hatch for a one-off type scale; overrides `size`. */
   valueClass?: string
   /** Colour the number when it carries a warning (e.g. money overdue). */
   valueColor?: string
@@ -65,7 +78,7 @@ export function MiniKpi({
         />
         <div className="relative z-10">
           <div
-            className={`truncate ${valueClass}`}
+            className={`truncate ${valueClass ?? VALUE_SIZE[size]}`}
             style={{ color: valueColor ?? C.ink }}
             title={typeof value === 'string' ? value : undefined}
           >
