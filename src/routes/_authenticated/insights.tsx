@@ -14,6 +14,7 @@ import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
+import { fmtCompact, fmtMoney } from '../../lib/format'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
@@ -64,14 +65,6 @@ const CARD_TINTS = [
 ]
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
-function fmt(n: number) {
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
-function fmtCompact(n: number) {
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
-  if (n >= 1_000) return `£${Math.round(n / 1_000)}k`
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 
 // Count-up for the headline stats (SSR-safe; sits still under reduced motion).
 function useCountUp(target: number, duration = 450): number {
@@ -149,7 +142,7 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
           const pct = total > 0 ? Math.round((amt / total) * 100) : 0
           const h = Math.round((amt / max) * 100)
           return (
-            <div key={i} className="group flex h-full flex-1 flex-col justify-end" title={`Decile ${i + 1} · ${fmt(amt)} · ${pct}%`}>
+            <div key={i} className="group flex h-full flex-1 flex-col justify-end" title={`Decile ${i + 1} · ${fmtMoney(amt)} · ${pct}%`}>
               {amt > 0 && pct >= 4 && (
                 <span className="mb-1 text-center font-display text-[10px]" style={{ color: C.faint }}>
                   {pct}%
@@ -652,7 +645,7 @@ function InsightsPage() {
                     const v = chartMode === 'cumulative' ? p.cumulative : p.bars
                     const h = Math.round((v / chartMax) * 100)
                     return (
-                      <div key={p.label} className="group flex h-full flex-1 flex-col justify-end" title={`${p.label} · ${fmt(v)}`}>
+                      <div key={p.label} className="group flex h-full flex-1 flex-col justify-end" title={`${p.label} · ${fmtMoney(v)}`}>
                         <span className="mb-1 text-center font-display text-[11px]" style={{ color: C.faint }}>
                           {fmtCompact(v)}
                         </span>

@@ -183,9 +183,15 @@ function RoundDetail() {
     }
   }
 
+  const [removingProgrammeId, setRemovingProgrammeId] = useState<string | null>(null)
   async function handleRemoveProgramme(programmeId: string) {
-    await removeProgrammeFromRound({ data: { roundId: round.id, programmeId } })
-    router.invalidate()
+    setRemovingProgrammeId(programmeId)
+    try {
+      await removeProgrammeFromRound({ data: { roundId: round.id, programmeId } })
+      router.invalidate()
+    } finally {
+      setRemovingProgrammeId(null)
+    }
   }
 
   async function handleDeleteRound() {
@@ -391,6 +397,7 @@ function RoundDetail() {
                 programme={rp.programme}
                 roundProgramme={rp}
                 canManage={canManage}
+                removing={removingProgrammeId === rp.programme.id}
                 onRemove={() => handleRemoveProgramme(rp.programme.id)}
                 onSaved={() => router.invalidate()}
               />
@@ -438,12 +445,14 @@ function ProgrammeCard({
   programme,
   roundProgramme,
   canManage,
+  removing,
   onRemove,
   onSaved,
 }: {
   programme: LinkedProgramme
   roundProgramme: RoundProgrammeRow
   canManage: boolean
+  removing: boolean
   onRemove: () => void
   onSaved: () => void
 }) {
@@ -572,9 +581,10 @@ function ProgrammeCard({
               </button>
               <button
                 onClick={onRemove}
-                className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                disabled={removing}
+                className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
               >
-                Remove
+                {removing ? 'Removing…' : 'Remove'}
               </button>
             </div>
           )}

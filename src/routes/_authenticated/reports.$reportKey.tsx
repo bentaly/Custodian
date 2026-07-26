@@ -5,6 +5,7 @@ import { Drawer } from '../../components/Drawer'
 import { ReportFields } from '../../components/ReportFields'
 import { ReportAnalysisPanel, type ReportAnalysisStatus } from '../../components/reportAnalysis'
 import { Button, Card, EmptyState } from '../../components/ui'
+import { fmtDate } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
   loader: ({ params }) => getReport({ data: { key: params.reportKey } }),
@@ -27,10 +28,6 @@ const STATUS_COLORS: Record<ReportRowStatus, string> = {
   reviewed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 }
 
-function fmtDate(date: Date | string | null | undefined) {
-  if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 function ReportDetail() {
   const report = Route.useLoaderData()

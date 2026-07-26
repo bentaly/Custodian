@@ -10,6 +10,7 @@ import {
 } from '../../server/fns/applications'
 import { BankIcon, Calendar03Icon, Coins01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
 import { Badge, Button, Card, EmptyState, KPI_TINTS, MiniKpi } from '../../components/ui'
+import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
   loader: ({ params }) => getAward({ data: { id: params.awardId } }),
@@ -18,13 +19,6 @@ export const Route = createFileRoute('/_authenticated/awards/$awardId')({
 
 type AwardData = Awaited<ReturnType<typeof getAward>>
 
-function fmt(n: number) {
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
-function fmtDate(date: string | null | undefined) {
-  if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 const AWARD_STATUS: Record<string, { label: string; className: string }> = {
   active: { label: 'Active', className: 'bg-emerald-50 text-emerald-700' },
@@ -97,15 +91,15 @@ function AwardDetail() {
           tint={KPI_TINTS.violet}
           icon={Coins01Icon}
           label="Amount awarded"
-          value={fmt(award.amountAwarded)}
+          value={fmtMoney(award.amountAwarded)}
           sub={award.programmeName ?? 'unattributed'}
         />
         <MiniKpi
           tint={KPI_TINTS.green}
           icon={BankIcon}
           label="Paid to date"
-          value={fmt(award.paidToDate)}
-          sub={`${fmt(award.outstanding)} outstanding`}
+          value={fmtMoney(award.paidToDate)}
+          sub={`${fmtMoney(award.outstanding)} outstanding`}
         />
         <MiniKpi
           tint={KPI_TINTS.amber}
@@ -199,7 +193,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
           <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
         </div>
         <span className="shrink-0 text-xs tabular-nums text-gray-500">
-          {fmt(award.paidToDate)} / {fmt(award.scheduledTotal)}
+          {fmtMoney(award.paidToDate)} / {fmtMoney(award.scheduledTotal)}
         </span>
       </div>
 
@@ -239,7 +233,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-400">#{inst.instalmentNo}</span>
-                      <span className="font-medium text-gray-900">{fmt(inst.amount)}</span>
+                      <span className="font-medium text-gray-900">{fmtMoney(inst.amount)}</span>
                       <span className="text-xs text-gray-500">
                         {inst.paidDate ? `Paid ${fmtDate(inst.paidDate)}` : `Due ${fmtDate(inst.dueDate)}`}
                       </span>
@@ -494,16 +488,16 @@ function ApplicationCard({ award }: { award: AwardData }) {
         </Link>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-        <Field label="Requested" value={fmt(a.amountRequested)} />
+        <Field label="Requested" value={fmtMoney(a.amountRequested)} />
         <Field
           label="Awarded"
-          value={fmt(award.amountAwarded)}
+          value={fmtMoney(award.amountAwarded)}
           sub={
             uplift === 0
               ? 'as requested'
               : uplift > 0
-                ? `${fmt(uplift)} above`
-                : `${fmt(-uplift)} below`
+                ? `${fmtMoney(uplift)} above`
+                : `${fmtMoney(-uplift)} below`
           }
         />
         <Field

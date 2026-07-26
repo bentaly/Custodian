@@ -32,11 +32,6 @@ export async function hashApiKey(key: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/** Mask a key for display from its stored last4, e.g. `cust_sk_••••a1b2`. */
-export function maskApiKey(last4: string): string {
-  return `${KEY_PREFIX}••••${last4}`
-}
-
 /**
  * Resolve the bearer token on a request to the owning clientId, or null if the
  * header is missing or the key is unknown/revoked. Touches `lastUsedAt` on success.

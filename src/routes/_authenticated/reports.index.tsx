@@ -19,6 +19,7 @@ import {
   type TableColumn,
 } from '../../components/ui'
 import { Drawer } from '../../components/Drawer'
+import { fmtDate } from '../../lib/format'
 
 // From the server fn, not the route loader: `Route.useLoaderData` is circular here
 // (the route's component uses this type), which resolves to `any`.
@@ -54,10 +55,6 @@ const STATUS_HEX: Record<ReportRowStatus, string> = {
   reviewed: '#31A650',
 }
 
-function fmtDate(date: Date | string | null | undefined) {
-  if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 type Tab = 'all' | ReceivedStatus
 

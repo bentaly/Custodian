@@ -111,9 +111,15 @@ function ProgrammeDetail() {
     }
   }
 
+  const [removingRoundId, setRemovingRoundId] = useState<string | null>(null)
   async function handleRemoveFromRound(roundId: string) {
-    await removeProgrammeFromRound({ data: { roundId, programmeId: programme.id } })
-    router.invalidate()
+    setRemovingRoundId(roundId)
+    try {
+      await removeProgrammeFromRound({ data: { roundId, programmeId: programme.id } })
+      router.invalidate()
+    } finally {
+      setRemovingRoundId(null)
+    }
   }
 
   const tags_ = (programme.tags ?? []) as string[]
@@ -402,9 +408,10 @@ function ProgrammeDetail() {
                 {canManage && (
                   <button
                     onClick={() => handleRemoveFromRound(round.id)}
-                    className="text-xs text-gray-400 hover:text-red-500"
+                    disabled={removingRoundId === round.id}
+                    className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50"
                   >
-                    Remove
+                    {removingRoundId === round.id ? 'Removing…' : 'Remove'}
                   </button>
                 )}
               </Card>

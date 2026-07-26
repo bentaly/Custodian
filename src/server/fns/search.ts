@@ -30,7 +30,7 @@ function statusLabel(status: string) {
 // caller's visible round-programmes; reports/programmes/rounds by clientId. A
 // superadmin (null clientId, null scope) sees everything.
 export const globalSearch = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ q: z.string().trim().min(1).max(100) }))
+  .validator(z.object({ q: z.string().trim().min(1).max(100) }))
   .handler(async ({ data }): Promise<SearchResult[]> => {
     const user = await requireAuthUser()
     const like = `%${data.q}%`

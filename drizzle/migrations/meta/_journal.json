@@ -330,6 +330,13 @@
       "when": 1784931343445,
       "tag": "0046_brown_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785097674824,
+      "tag": "0047_smiling_korg",
+      "breakpoints": true
     }
   ]
 }

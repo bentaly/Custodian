@@ -5,6 +5,9 @@ import { getDb } from '../db'
 import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
+import { dueStatus, type DueStatus } from '../../lib/schedule'
+
+export type { DueStatus } from '../../lib/schedule'
 
 // The Reports screen's data. Two distinct things, deliberately kept apart:
 //
@@ -20,19 +23,7 @@ import { assertClientAccess } from '../scope'
 
 /** A report that has arrived. */
 export type ReceivedStatus = 'received' | 'reviewed'
-/** A date we are still waiting on. */
-export type DueStatus = 'overdue' | 'due_soon' | 'upcoming'
 export type ReportRowStatus = ReceivedStatus | DueStatus
-
-const DUE_SOON_DAYS = 30
-
-function dueStatusFor(dueDate: string): DueStatus {
-  const due = new Date(dueDate)
-  const now = new Date()
-  if (due < now) return 'overdue'
-  if (due.getTime() - now.getTime() <= DUE_SOON_DAYS * 24 * 60 * 60 * 1000) return 'due_soon'
-  return 'upcoming'
-}
 
 export const listReports = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
@@ -148,7 +139,7 @@ export const listReports = createServerFn({ method: 'GET' }).handler(async () =>
         programmeName,
         label: m.label,
         dueDate: m.dueDate,
-        status: dueStatusFor(m.dueDate),
+        status: dueStatus(m.dueDate),
       })
     }
   }
@@ -175,7 +166,7 @@ function emptyTotals() {
 
 // Admin sign-off on a received report (and undo). Drives the 'reviewed' status.
 export const markReportReviewed = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid(), reviewed: z.boolean() }))
+  .validator(z.object({ id: z.uuid(), reviewed: z.boolean() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
     const submission = await getDb().query.reports.findFirst({
@@ -198,7 +189,7 @@ export const markReportReviewed = createServerFn({ method: 'POST' })
 // (rows from the schedule, with or without a submission) or a report_submissions
 // id (unscheduled reports) — the list uses whichever exists, so resolve both.
 export const getReport = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ key: z.uuid() }))
+  .validator(z.object({ key: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
@@ -256,7 +247,7 @@ export const getReport = createServerFn({ method: 'GET' })
     // Dates still outstanding on this award, most urgent first.
     const outstanding = award.schedule
       .filter((m) => !m.submittedDate && m.id !== milestone?.id)
-      .map((m) => ({ key: m.id, label: m.label, dueDate: m.dueDate, status: dueStatusFor(m.dueDate) }))
+      .map((m) => ({ key: m.id, label: m.label, dueDate: m.dueDate, status: dueStatus(m.dueDate) }))
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
     const s = submissionRow
@@ -267,7 +258,7 @@ export const getReport = createServerFn({ method: 'GET' })
         ? 'reviewed'
         : s || milestone?.submittedDate
           ? 'received'
-          : dueStatusFor(milestone!.dueDate)) as ReportRowStatus,
+          : dueStatus(milestone!.dueDate)) as ReportRowStatus,
       siblings,
       outstanding,
       grant: {

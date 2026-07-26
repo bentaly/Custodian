@@ -8,6 +8,7 @@ import { BriefingDrawer } from '../../components/BriefingDrawer'
 import { AwardSetupDrawer } from '../../components/AwardSetupDrawer'
 import { getRoundStatus } from '../../lib/roundStatus'
 import type { CustodianScoreDetail } from '../../lib/custodianScore'
+import { fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/shortlist')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -24,9 +25,6 @@ export const Route = createFileRoute('/_authenticated/shortlist')({
   component: ShortlistPage,
 })
 
-function fmt(n: number) {
-  return `£${n.toLocaleString('en-GB')}`
-}
 
 function scoreColor(score: number) {
   if (score >= 80) return '#0F6E56'
@@ -176,7 +174,7 @@ function ShortlistCard({
           <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', marginBottom: 1 }}>
             Requested
           </div>
-          <div style={{ fontSize: 12, fontWeight: 500 }}>{fmt(amount)}</div>
+          <div style={{ fontSize: 12, fontWeight: 500 }}>{fmtMoney(amount)}</div>
         </div>
         <div>
           <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', marginBottom: 1 }}>
@@ -380,7 +378,7 @@ function ShortlistPage() {
           </h1>
           <p className="mt-0.5 text-sm text-gray-400">
             {items.length} shortlisted
-            {items.length > 0 && ` · ${fmt(totalProposed)} proposed`}
+            {items.length > 0 && ` · ${fmtMoney(totalProposed)} proposed`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -398,7 +396,7 @@ function ShortlistPage() {
               <div
                 style={{ background: '#f7f7f4', borderRadius: 5, padding: '7px 12px', textAlign: 'center' }}
               >
-                <div style={{ fontSize: 17, fontWeight: 300 }}>{fmt(totalProposed)}</div>
+                <div style={{ fontSize: 17, fontWeight: 300 }}>{fmtMoney(totalProposed)}</div>
                 <div style={{ fontSize: 10, color: '#aaa', fontWeight: 600, textTransform: 'uppercase' }}>
                   Proposed
                 </div>
@@ -477,7 +475,7 @@ function ShortlistPage() {
                     }}
                   >
                     <span style={{ fontSize: 11, color: '#555' }}>{name}</span>
-                    <span style={{ fontSize: 11, fontWeight: 500 }}>{fmt(amount)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 500 }}>{fmtMoney(amount)}</span>
                   </div>
                 ))}
                 <div
@@ -489,7 +487,7 @@ function ShortlistPage() {
                 >
                   <span style={{ fontSize: 12, color: '#888' }}>Total proposed</span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: '#0F6E56' }}>
-                    {fmt(totalProposed)}
+                    {fmtMoney(totalProposed)}
                   </span>
                 </div>
               </div>
@@ -522,7 +520,7 @@ function ShortlistPage() {
                         >
                           <span style={{ color: '#555' }}>{name}</span>
                           <span style={{ fontWeight: 500 }}>
-                            {fmt(amount)} / {fmt(budget)}
+                            {fmtMoney(amount)} / {fmtMoney(budget)}
                           </span>
                         </div>
                         <div
@@ -543,7 +541,7 @@ function ShortlistPage() {
                           />
                         </div>
                         <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>
-                          {fmt(Math.max(0, budget - amount))} remaining
+                          {fmtMoney(Math.max(0, budget - amount))} remaining
                           {amount > budget && (
                             <span style={{ color: '#A32D2D' }}> · over budget</span>
                           )}

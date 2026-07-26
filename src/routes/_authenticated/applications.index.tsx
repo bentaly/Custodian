@@ -15,6 +15,7 @@ import { getRoundStatus } from '../../lib/roundStatus'
 import { ApplicationStatus, ScoreBand } from '../../lib/validators/application'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { DataTable, EmptyState, ExportButton, StatusPill, Tabs, type TableColumn } from '../../components/ui'
+import { fmtAmount, fmtCompact } from '../../lib/format'
 
 const PAGE_SIZE = 25
 
@@ -117,18 +118,7 @@ export const Route = createFileRoute('/_authenticated/applications/')({
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
 
-function fmtAmount(amount: string | number | null | undefined) {
-  if (amount == null || amount === '') return '—'
-  const n = typeof amount === 'number' ? amount : parseFloat(amount)
-  if (isNaN(n)) return '—'
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 
-function fmtCompact(n: number) {
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
-  if (n >= 1_000) return `£${Math.round(n / 1_000)}k`
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -575,7 +565,9 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
 // Bulk status action for the selected rows. An action menu (not a filter) — it never
 // reflects a value; picking an option applies it and resets. "Awarded" is intentionally
 // absent: awarding runs through the dedicated grant flow, not a status flip.
-function BulkStatusMenu({ busy, onPick }: { busy: boolean; onPick: (s: ApplicationStatus) => void }) {
+type SettableStatus = Exclude<ApplicationStatus, 'awarded'>
+
+function BulkStatusMenu({ busy, onPick }: { busy: boolean; onPick: (s: SettableStatus) => void }) {
   return (
     <div className="relative">
       <div className="flex h-8 items-center gap-1 rounded-lg border bg-white pl-3 pr-2" style={{ borderColor: C.line }}>
@@ -589,7 +581,7 @@ function BulkStatusMenu({ busy, onPick }: { busy: boolean; onPick: (s: Applicati
         value=""
         disabled={busy}
         onChange={(e) => {
-          if (e.target.value) onPick(e.target.value as ApplicationStatus)
+          if (e.target.value) onPick(e.target.value as SettableStatus)
         }}
         className="absolute inset-0 w-full cursor-pointer opacity-0 disabled:cursor-wait"
       >
@@ -727,7 +719,7 @@ function ApplicationsList() {
 
   // Bulk status change for the selected rows. Awarded applications are skipped —
   // un-awarding would orphan the award/grant records (that's the generateAward flow).
-  async function bulkSetStatus(status: ApplicationStatus) {
+  async function bulkSetStatus(status: SettableStatus) {
     const targets = selectedItems.filter((a) => a.status !== status && a.status !== 'awarded')
     if (targets.length === 0) {
       setSelected(new Set())

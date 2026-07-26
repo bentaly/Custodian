@@ -1,0 +1,1 @@
+ALTER TABLE "awards" ADD CONSTRAINT "awards_application_uniq" UNIQUE("application_id");

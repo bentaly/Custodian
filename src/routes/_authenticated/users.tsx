@@ -3,7 +3,6 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useRouter } from '@tanstack/react-router'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import { Markdown } from 'tiptap-markdown'
 import { listClientUsers } from '../../server/fns/users'
 import { listInvitations, createInvitation } from '../../server/fns/invitations'
@@ -83,7 +82,8 @@ function MissionStatementEditor({ initialContent }: { initialContent: string }) 
   const [error, setError] = useState('')
 
   const editor = useEditor({
-    extensions: [StarterKit, Underline, Markdown],
+    // StarterKit bundles Underline as of tiptap 3.x.
+    extensions: [StarterKit, Markdown],
     content: initialContent || '',
     editorProps: {
       attributes: {
@@ -389,6 +389,7 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [newKey, setNewKey] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -445,8 +446,12 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
       align: 'right',
       cell: (k) =>
         k.revokedAt ? null : (
-          <button onClick={() => handleRevoke(k.id)} className="font-display text-[13px] text-red-600 hover:text-red-800">
-            Revoke
+          <button
+            onClick={() => handleRevoke(k.id)}
+            disabled={revokingId === k.id}
+            className="font-display text-[13px] text-red-600 hover:text-red-800 disabled:opacity-50"
+          >
+            {revokingId === k.id ? 'Revoking…' : 'Revoke'}
           </button>
         ),
     },
@@ -454,11 +459,14 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
 
   async function handleRevoke(id: string) {
     if (!confirm('Revoke this key? Any integration using it will stop working immediately.')) return
+    setRevokingId(id)
     try {
       await revokeApiKey({ data: { id } })
       router.invalidate()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to revoke key')
+    } finally {
+      setRevokingId(null)
     }
   }
 

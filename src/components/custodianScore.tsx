@@ -34,26 +34,6 @@ function criterionClasses(score: number): { text: string; bar: string } {
   return { text: 'text-red-600', bar: 'bg-red-500' }
 }
 
-export function CustodianScoreBadge({
-  status,
-  score,
-}: {
-  status: CustodianScoreStatus
-  score: number | null | undefined
-}) {
-  if (status === 'scored' && score != null) {
-    return (
-      <span
-        className="rounded-full px-2 py-0.5 text-xs font-semibold"
-        style={{ backgroundColor: '#E1F5EE', color: compositeColor(score) }}
-      >
-        {score}/100
-      </span>
-    )
-  }
-  const meta = STATUS_META[status] ?? STATUS_META.pending
-  return <Badge className={meta.className}>{meta.label}</Badge>
-}
 
 export function CustodianScorePanel({
   status,

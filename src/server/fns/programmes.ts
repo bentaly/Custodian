@@ -20,7 +20,7 @@ export const listProgrammes = createServerFn({ method: 'GET' }).handler(async ()
 })
 
 export const getProgramme = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
     const programme = await getDb().query.programmes.findFirst({
@@ -35,7 +35,7 @@ export const getProgramme = createServerFn({ method: 'GET' })
   })
 
 export const createProgramme = createServerFn({ method: 'POST' })
-  .inputValidator(CreateProgrammeSchema)
+  .validator(CreateProgrammeSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
     assertClientAccess(user, data.clientId)
@@ -44,7 +44,7 @@ export const createProgramme = createServerFn({ method: 'POST' })
   })
 
 export const updateProgramme = createServerFn({ method: 'POST' })
-  .inputValidator(UpdateProgrammeSchema)
+  .validator(UpdateProgrammeSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const { id, ...rest } = data
@@ -63,7 +63,7 @@ export const updateProgramme = createServerFn({ method: 'POST' })
   })
 
 export const addProgrammeToRound = createServerFn({ method: 'POST' })
-  .inputValidator(AddProgrammeToRoundSchema)
+  .validator(AddProgrammeToRoundSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const { budget, maxGrantAmount, ...rest } = data
@@ -94,7 +94,7 @@ export const addProgrammeToRound = createServerFn({ method: 'POST' })
   })
 
 export const updateRoundProgramme = createServerFn({ method: 'POST' })
-  .inputValidator(UpdateRoundProgrammeSchema)
+  .validator(UpdateRoundProgrammeSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const { id, budget, maxGrantAmount, ...rest } = data
@@ -117,7 +117,7 @@ export const updateRoundProgramme = createServerFn({ method: 'POST' })
   })
 
 export const removeProgrammeFromRound = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ roundId: z.uuid(), programmeId: z.uuid() }))
+  .validator(z.object({ roundId: z.uuid(), programmeId: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const existing = await getDb().query.roundProgrammes.findFirst({

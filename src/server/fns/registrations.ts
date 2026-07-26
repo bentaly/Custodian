@@ -11,7 +11,7 @@ import { claimPendingInvite } from '../invites'
  * `clientId` and are bounced to /no-access by the authenticated layout guard.
  */
 export const completeRegistration = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ inviteToken: z.string().optional() }))
+  .validator(z.object({ inviteToken: z.string().optional() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 

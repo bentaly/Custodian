@@ -7,18 +7,6 @@ import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { CreateRoundSchema, UpdateRoundSchema } from '../../lib/validators/round'
 
-export const listRounds = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ clientId: z.uuid() }))
-  .handler(async ({ data }) => {
-    const user = await requireAuthUser()
-    // Non-superadmins may only list their own client's rounds.
-    assertClientAccess(user, data.clientId)
-    return getDb().query.rounds.findMany({
-      where: (r, { eq }) => eq(r.clientId, data.clientId),
-      orderBy: (r, { desc }) => [desc(r.createdAt)],
-    })
-  })
-
 export const listMyRounds = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
   if (!user.clientId) return []
@@ -47,7 +35,7 @@ export const listRoundDates = createServerFn({ method: 'GET' }).handler(async ()
 })
 
 export const getRound = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
     const round = await getDb().query.rounds.findFirst({
@@ -66,7 +54,7 @@ export const getRound = createServerFn({ method: 'GET' })
   })
 
 export const createRound = createServerFn({ method: 'POST' })
-  .inputValidator(CreateRoundSchema)
+  .validator(CreateRoundSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     assertClientAccess(user, data.clientId)
@@ -83,7 +71,7 @@ export const createRound = createServerFn({ method: 'POST' })
   })
 
 export const updateRound = createServerFn({ method: 'POST' })
-  .inputValidator(UpdateRoundSchema)
+  .validator(UpdateRoundSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const { id, openedAt, closedAt, ...rest } = data
@@ -106,7 +94,7 @@ export const updateRound = createServerFn({ method: 'POST' })
   })
 
 export const deleteRound = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
     const round = await getDb().query.rounds.findFirst({

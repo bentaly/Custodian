@@ -6,14 +6,12 @@ import { applications, awards } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
 import { checkBankAccount, type ModulusCheckStatus } from '../../lib/bankVerification'
+import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
 
 // Finance reads the same grants as Awards, but through the payments lens: one row per
 // grant, keyed on where its money is up to rather than on the decision that made it.
 // Nothing here writes — the payment actions (`setInstalmentPaid`, `updateInstalment`)
 // already live in `fns/applications.ts` and are reused as-is.
-
-/** Days ahead that count as "due soon" — matches the award/report schedules. */
-const DUE_SOON_DAYS = 30
 
 /**
  * Where a grant's money is up to. Ordered by urgency: `overdue` first through to
@@ -30,17 +28,6 @@ export type FinanceStatus =
 
 /** `missing` = we hold no details to check; the rest come from the modulus checker. */
 export type BankStatus = ModulusCheckStatus | 'missing'
-
-/** Today as `yyyy-mm-dd`, so due dates (also `yyyy-mm-dd`) compare as strings. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
 
 type InstalmentRow = { id: string; instalmentNo: number; amount: string; dueDate: string | null; paidDate: string | null }
 
@@ -78,8 +65,8 @@ function last4(accountNumber: string | null): string | null {
  * how urgent that next payment is.
  */
 function summarisePayments(instalments: InstalmentRow[], cancelled: boolean) {
-  const now = today()
-  const soonCutoff = addDays(now, DUE_SOON_DAYS)
+  const now = todayIso()
+  const soonCutoff = addDaysIso(now, DUE_SOON_DAYS)
 
   const paid = instalments.filter((i) => i.paidDate)
   const unpaid = instalments.filter((i) => !i.paidDate)
@@ -235,15 +222,15 @@ function emptyTotals() {
 
 /**
  * One grant's money, end to end: the payment schedule (paid and still to come), the
- * bank details we would pay it into with the modulus verdict, this organisation's
- * other grants, and how the grant sits inside its round-programme budget.
+ * bank details we would pay it into with the modulus verdict, and how the grant sits
+ * inside its round-programme budget.
  *
  * Deliberately NO reporting detail. Reporting belongs to the award record — a
  * finance officer here is answering "can I pay this, and what's left", not "what has
  * this grantee told us".
  */
 export const getFinanceGrant = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
@@ -262,8 +249,8 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
     const cancelled = award.status === 'cancelled'
     const committed = parseFloat(award.amountAwarded)
     const pay = summarisePayments(award.instalments, cancelled)
-    const now = today()
-    const soonCutoff = addDays(now, DUE_SOON_DAYS)
+    const now = todayIso()
+    const soonCutoff = addDaysIso(now, DUE_SOON_DAYS)
 
     const instalments = [...award.instalments]
       .sort((a, b) => a.instalmentNo - b.instalmentNo)
@@ -284,42 +271,6 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
                 : 'upcoming') as 'paid' | 'tbc' | 'overdue' | 'due_soon' | 'upcoming',
       }))
 
-    // Everything else this organisation has been given — the surrounding grants. A
-    // payment is rarely considered in isolation: what else is running, what is still
-    // owed, and has this grantee been paid on time before.
-    const orgAwards = await getDb().query.applications.findMany({
-      where: and(eq(applications.status, 'awarded'), eq(applications.organisationName, app.organisationName)),
-      columns: { id: true, organisationName: true },
-      with: {
-        roundProgramme: { with: { programme: { columns: { name: true } }, round: { columns: { name: true } } } },
-        award: { with: { instalments: true } },
-      },
-    })
-    const otherGrants = orgAwards
-      .filter((o) => o.award && o.award.id !== award.id)
-      .map((o) => {
-        const a = o.award!
-        const p = summarisePayments(a.instalments, a.status === 'cancelled')
-        return {
-          awardId: a.id,
-          programmeName: o.roundProgramme?.programme?.name ?? null,
-          roundName: o.roundProgramme?.round?.name ?? null,
-          decisionAt: a.decisionAt.toISOString(),
-          committed: parseFloat(a.amountAwarded),
-          paidToDate: p.paidToDate,
-          status: p.status,
-          nextDue: p.nextPayment?.dueDate ?? null,
-        }
-      })
-      .sort((x, y) => y.decisionAt.localeCompare(x.decisionAt))
-
-    const organisation = {
-      grantCount: otherGrants.length + 1,
-      committedTotal: otherGrants.reduce((s, o) => s + o.committed, 0) + committed,
-      paidTotal: otherGrants.reduce((s, o) => s + o.paidToDate, 0) + pay.paidToDate,
-      others: otherGrants,
-    }
-
     // Where this grant sits in its round-programme's pot: the same budget the round
     // screen tracks, but answered from the awards actually made.
     let budget: { budget: number; committed: number; paidToDate: number; grantCount: number } | null = null
@@ -331,7 +282,7 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
       })
       const live = siblings.filter((s) => s.award && s.award.status !== 'cancelled')
       budget = {
-        budget: parseFloat(rp.budget),
+        budget: rp.budget ? parseFloat(rp.budget) : 0,
         committed: live.reduce((s, x) => s + parseFloat(x.award!.amountAwarded), 0),
         paidToDate: live.reduce(
           (s, x) =>
@@ -366,7 +317,6 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
       // The plan may not add up to the promise — say so rather than let it hide.
       unallocated: cancelled ? 0 : committed - pay.scheduledTotal,
       instalments,
-      organisation,
       budget,
       bank: {
         status: bank.status,

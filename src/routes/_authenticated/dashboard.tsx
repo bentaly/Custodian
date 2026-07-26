@@ -17,6 +17,7 @@ import { ProgressBar } from '../../components/ProgressBar'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
+import { fmtCompact } from '../../lib/format'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>
 
@@ -64,15 +65,6 @@ const ALLOCATE_LEFT = '#E9ECF1'
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────────
 
-function fmtCompact(n: number) {
-  const neg = n < 0
-  const a = Math.abs(n)
-  let s: string
-  if (a >= 1_000_000) s = `£${(a / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}m`
-  else if (a >= 1_000) s = `£${Math.round(a / 1_000)}k`
-  else s = `£${Math.round(a).toLocaleString('en-GB')}`
-  return neg ? `-${s}` : s
-}
 function relativeTime(date: Date | string) {
   const mins = Math.round((Date.now() - new Date(date).getTime()) / 60000)
   if (mins < 1) return 'just now'
@@ -372,13 +364,13 @@ function Dashboard() {
           sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
           icon={Coins01Icon}
           label="Finance"
-          to="/awards"
-          search={{ roundId: undefined }}
+          to="/finance"
           meter={<BarMeter progress={financeProgress} color={KPI.finance.accent} />}
         >
-          {/* TODO: bank-detail validation status (no verification model yet) */}
-          <p className="mt-3 text-xs italic" style={{ color: C.faint }}>
-            TODO · bank verification
+          <p className="mt-3 text-xs" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
+            {d.bankIssues > 0
+              ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}`
+              : 'Bank details verified'}
           </p>
         </KpiCard>
 

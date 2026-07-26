@@ -16,7 +16,7 @@ import { recordAudit } from '../audit'
 import { assertApplicationAccess, assertClientAccess } from '../scope'
 
 export const listComments = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ applicationId: z.uuid() }))
+  .validator(z.object({ applicationId: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
     await assertApplicationAccess(user, data.applicationId)
@@ -28,7 +28,7 @@ export const listComments = createServerFn({ method: 'GET' })
   })
 
 export const addComment = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ applicationId: z.uuid(), body: z.string().min(1).max(2000) }))
+  .validator(z.object({ applicationId: z.uuid(), body: z.string().min(1).max(2000) }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
     await assertApplicationAccess(user, data.applicationId)
@@ -46,7 +46,7 @@ export const addComment = createServerFn({ method: 'POST' })
   })
 
 export const updateComment = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid(), body: z.string().min(1).max(2000) }))
+  .validator(z.object({ id: z.uuid(), body: z.string().min(1).max(2000) }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
     const comment = await getDb().query.applicationComments.findFirst({
@@ -66,7 +66,7 @@ export const updateComment = createServerFn({ method: 'POST' })
   })
 
 export const deleteComment = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
     const comment = await getDb().query.applicationComments.findFirst({
@@ -83,7 +83,7 @@ export const deleteComment = createServerFn({ method: 'POST' })
   })
 
 export const listVotes = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ applicationId: z.uuid() }))
+  .validator(z.object({ applicationId: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
@@ -117,7 +117,7 @@ export const listVotes = createServerFn({ method: 'GET' })
   })
 
 export const castVote = createServerFn({ method: 'POST' })
-  .inputValidator(
+  .validator(
     z.object({
       applicationId: z.uuid(),
       vote: z.enum(['yes', 'no']),

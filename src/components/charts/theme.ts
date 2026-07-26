@@ -15,9 +15,6 @@ export const chart = {
   allocateLeft: '#E9ECF1',
 }
 
-// Domain palette for categorical series (programmes, themes…).
-export const seriesColors = ['#4FBEE8', '#F48FB1', '#F5B851', '#8B7FF0', '#5BD1B0', '#F0876B']
-
 // On-load animation — one timing shared by every chart.
 export const anim = { isAnimationActive: true, animationBegin: 0, animationDuration: 700 } as const
 

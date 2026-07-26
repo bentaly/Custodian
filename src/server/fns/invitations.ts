@@ -8,7 +8,7 @@ import { sendInvitationEmail } from '../../lib/email'
 import { CreateInvitationSchema } from '../../lib/validators/invitation'
 
 export const getInvitationByToken = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ token: z.string() }))
+  .validator(z.object({ token: z.string() }))
   .handler(async ({ data }) => {
     const invite = await getDb().query.invitations.findFirst({
       where: (i, { gt }) =>
@@ -20,7 +20,7 @@ export const getInvitationByToken = createServerFn({ method: 'GET' })
   })
 
 export const createInvitation = createServerFn({ method: 'POST' })
-  .inputValidator(CreateInvitationSchema)
+  .validator(CreateInvitationSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
     if (!user.clientId) throw new Error('No client associated with your account')

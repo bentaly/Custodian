@@ -18,17 +18,14 @@ import { recordAudit } from '../audit'
 import { assertApplicationAccess, assertClientAccess, intersectScope, visibleRoundProgrammeIds } from '../scope'
 import {
   ApplicationFiltersSchema,
-  CreateApplicationSchema,
   GenerateAwardSchema,
   UpdateApplicationStatusSchema,
 } from '../../lib/validators/application'
 import { runDueDiligence } from '../dueDiligence/run'
-import { runCustodianScore } from '../custodianScore/run'
-import { resolveDeprivation } from '../deprivation/run'
-import { deliveryGeoFromResult } from '../../lib/deprivation/types'
+import { dueStatus, type ScheduleStatus } from '../../lib/schedule'
 
 export const listApplications = createServerFn({ method: 'GET' })
-  .inputValidator(ApplicationFiltersSchema)
+  .validator(ApplicationFiltersSchema)
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
     const { page, pageSize, ...filters } = data
@@ -122,7 +119,7 @@ export const listApplications = createServerFn({ method: 'GET' })
         .from(applications)
         .where(baseWhere)
         .groupBy(applications.status),
-    ]).catch((err) => { console.error('listApplications DB error:', err?.cause ?? err); throw err })
+    ])
 
     const statusCounts = Object.fromEntries(statusRows.map((r) => [r.status, r.count]))
     const allCount = statusRows.reduce((s, r) => s + r.count, 0)
@@ -131,7 +128,7 @@ export const listApplications = createServerFn({ method: 'GET' })
   })
 
 export const getApplication = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
     const application = await getDb().query.applications.findFirst({
@@ -159,37 +156,8 @@ export const getApplication = createServerFn({ method: 'GET' })
     return { ...application, roundProgrammeCommitted: committed ? parseFloat(committed) : 0 }
   })
 
-export const createApplication = createServerFn({ method: 'POST' })
-  .inputValidator(CreateApplicationSchema)
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
-    const { amountRequested, proposedImpactQuantity, ...rest } = data
-
-    // The roundProgramme determines the owning client; reject one outside it.
-    const rp = await getDb().query.roundProgrammes.findFirst({
-      where: (r, { eq }) => eq(r.id, rest.roundProgrammeId),
-      with: { programme: { columns: { clientId: true } } },
-    })
-    if (!rp) throw new Error('Not found')
-    assertClientAccess(user, rp.programme.clientId)
-
-    const id = crypto.randomUUID()
-
-    await getDb().insert(applications).values({
-      id,
-      ...rest,
-      amountRequested: amountRequested.toString(),
-      proposedImpactQuantity: proposedImpactQuantity != null ? proposedImpactQuantity.toString() : null,
-    })
-
-    const application = await getDb().query.applications.findFirst({
-      where: (a, { eq }) => eq(a.id, id),
-    })
-    return application!
-  })
-
 export const rerunDueDiligence = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     await assertApplicationAccess(user, data.id)
@@ -217,88 +185,8 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
     return updated!
   })
 
-export const rerunCustodianScore = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid() }))
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
-    await assertApplicationAccess(user, data.id)
-
-    const application = await getDb().query.applications.findFirst({
-      where: (a, { eq }) => eq(a.id, data.id),
-      with: {
-        roundProgramme: { with: { programme: { with: { client: { with: { profile: true } } } } } },
-      },
-    })
-    if (!application) throw new Error('Not found')
-
-    const programme = application.roundProgramme.programme
-    const result = await runCustodianScore({
-      missionStatement: programme.client.profile?.missionStatement,
-      programmeName: programme.name,
-      programmeGoal: programme.goal,
-      programmeDescription: programme.description,
-      organisationName: application.organisationName,
-      amountRequested: Number(application.amountRequested),
-      budgetBreakdown: application.budgetBreakdown,
-      deliveryArea: application.deliveryArea,
-      charityNumber: application.charityNumber,
-      companyNumber: application.companyNumber,
-      responses: application.responses,
-    })
-
-    const [updated] = await getDb()
-      .update(applications)
-      .set({
-        custodianScoreStatus: result.status,
-        custodianScore: result.score,
-        custodianScoreDetail: result.detail,
-        custodianScoredAt: new Date(result.scoredAt),
-      })
-      .where(eq(applications.id, data.id))
-      .returning()
-    return updated!
-  })
-
-// Re-resolve the deprivation context from the application's delivery area. Used by the
-// details-page "Re-run" button (e.g. after a staff member corrects the location) and by
-// the backfill script for applications created before this existed.
-export const rerunDeprivation = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid(), deliveryArea: z.string().max(255).optional() }))
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
-    await assertApplicationAccess(user, data.id)
-
-    const application = await getDb().query.applications.findFirst({
-      where: (a, { eq }) => eq(a.id, data.id),
-    })
-    if (!application) throw new Error('Not found')
-
-    // An optional override lets staff correct a mis-stated location in place.
-    const location = data.deliveryArea ?? application.deliveryArea
-    const result = await resolveDeprivation(location)
-    const attempted = result.status !== 'pending'
-    const geo = deliveryGeoFromResult(result)
-
-    const [updated] = await getDb()
-      .update(applications)
-      .set({
-        // Persist the corrected location too, when one was supplied.
-        ...(data.deliveryArea !== undefined ? { deliveryArea: data.deliveryArea } : {}),
-        deprivationStatus: result.status,
-        deprivationContext: attempted ? result : null,
-        deprivationResolvedAt: attempted ? new Date() : null,
-        deliveryNation: geo.nation,
-        deliveryRegion: geo.region,
-        deliveryLadCode: geo.ladCode,
-        deliveryLadName: geo.ladName,
-      })
-      .where(eq(applications.id, data.id))
-      .returning()
-    return updated!
-  })
-
 export const generateAward = createServerFn({ method: 'POST' })
-  .inputValidator(GenerateAwardSchema)
+  .validator(GenerateAwardSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     await assertApplicationAccess(user, data.id)
@@ -307,12 +195,15 @@ export const generateAward = createServerFn({ method: 'POST' })
     // a majority (> 50%) of its client's trustees voting in favour.
     const existing = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
-      with: { roundProgramme: { with: { programme: true } } },
+      with: { roundProgramme: { with: { programme: true } }, award: { columns: { id: true } } },
     })
     if (!existing) throw new Error('Not found')
     if (existing.status !== 'shortlisted') {
       throw new Error('Only shortlisted applications can be awarded')
     }
+    // Belt (the DB's unique index is braces): a double-submitted award must not
+    // mint a second grant.
+    if (existing.award) throw new Error('This application already has an award')
 
     const clientId = existing.roundProgramme.programme.clientId
     const [trusteeRows, yesRows] = await Promise.all([
@@ -336,10 +227,13 @@ export const generateAward = createServerFn({ method: 'POST' })
     const decisionAt = new Date()
 
     // Promote the award to a first-class grant: the money/schedule live on `awards` /
-    // `grant_payments` and the reporting milestones on `grant_reports`. The application
-    // stays the request record and only flips status.
+    // `award_instalments` and the reporting milestones on `report_schedule`. The
+    // application stays the request record and only flips status. All four writes go
+    // in one `db.batch` — neon-http has no interactive transactions, but a batch runs
+    // atomically, so a failure can't leave an award without its schedule or status flip.
     const awardId = crypto.randomUUID()
-    await getDb().insert(awards).values({
+    const db = getDb()
+    const insertAward = db.insert(awards).values({
       id: awardId,
       applicationId: data.id,
       clientId,
@@ -347,36 +241,34 @@ export const generateAward = createServerFn({ method: 'POST' })
       status: 'active',
       decisionAt,
     })
-    await getDb()
-      .insert(awardInstalments)
-      .values(
-        data.schedule.map((s) => ({
-          awardId,
-          instalmentNo: s.instalment,
-          amount: s.amount.toString(),
-          dueDate: s.date,
-        })),
-      )
-    if (data.reportingDates.length > 0) {
-      await getDb()
-        .insert(reportSchedule)
-        .values(
-          data.reportingDates.map((r) => ({
-            awardId,
-            label: r.label,
-            dueDate: r.date,
-          })),
-        )
-    }
-
-    const [application] = await getDb()
+    const insertInstalments = db.insert(awardInstalments).values(
+      data.schedule.map((s) => ({
+        awardId,
+        instalmentNo: s.instalment,
+        amount: s.amount.toString(),
+        dueDate: s.date,
+      })),
+    )
+    const flipStatus = db
       .update(applications)
-      .set({
-        status: 'awarded',
-        decisionAt,
-      })
+      .set({ status: 'awarded', decisionAt })
       .where(eq(applications.id, data.id))
       .returning()
+
+    const updatedRows =
+      data.reportingDates.length > 0
+        ? (
+            await db.batch([
+              insertAward,
+              insertInstalments,
+              db.insert(reportSchedule).values(
+                data.reportingDates.map((r) => ({ awardId, label: r.label, dueDate: r.date })),
+              ),
+              flipStatus,
+            ])
+          )[3]
+        : (await db.batch([insertAward, insertInstalments, flipStatus]))[2]
+    const application = updatedRows[0]
     if (!application) throw new Error('Not found')
 
     await recordAudit({
@@ -390,7 +282,7 @@ export const generateAward = createServerFn({ method: 'POST' })
   })
 
 export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ roundId: z.uuid() }))
+  .validator(z.object({ roundId: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
@@ -456,11 +348,22 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
   })
 
 export const updateApplicationStatus = createServerFn({ method: 'POST' })
-  .inputValidator(UpdateApplicationStatusSchema)
+  .validator(UpdateApplicationStatusSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const { id, status } = data
     await assertApplicationAccess(user, id)
+
+    // An awarded application has a live award row hanging off it — its status can
+    // only change by cancelling the award, never by sidestepping it here.
+    const current = await getDb().query.applications.findFirst({
+      where: (a, { eq }) => eq(a.id, id),
+      columns: { status: true },
+    })
+    if (!current) throw new Error('Not found')
+    if (current.status === 'awarded') {
+      throw new Error('An awarded application cannot change status; cancel the award instead')
+    }
 
     if (status === 'shortlisted') {
       const app = await getDb().query.applications.findFirst({
@@ -495,14 +398,13 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       }
     }
 
-    const decisionStatuses = ['awarded', 'declined'] as const
-    const isDecision = decisionStatuses.includes(status as (typeof decisionStatuses)[number])
-
     const [application] = await getDb()
       .update(applications)
       .set({
         status,
-        ...(isDecision && { decisionAt: new Date() }),
+        // Declining stamps the decision; moving back out of declined clears it, so
+        // the activity feed doesn't keep reporting a decision that was undone.
+        decisionAt: status === 'declined' ? new Date() : null,
       })
       .where(eq(applications.id, id))
       .returning()
@@ -526,7 +428,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
 // (via the awarded application that produced each), with instalments rolled up for
 // paid-to-date. Filters mirror the Applications list (round / programme / tag / search).
 export const listAwards = createServerFn({ method: 'GET' })
-  .inputValidator(
+  .validator(
     z.object({
       roundId: z.uuid().optional(),
       programmeId: z.uuid().optional(),
@@ -636,20 +538,7 @@ function emptyGrantTotals() {
 
 // ─── Award detail (drill-down) ──────────────────────────────────────────────────
 
-const DUE_SOON_DAYS = 30
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-
-/** Timeline status of a dated milestone/instalment (payment or report). */
-export type ScheduleStatus = 'tbc' | 'overdue' | 'due_soon' | 'upcoming'
-
-function dueStatus(dueDate: string | null): ScheduleStatus {
-  if (!dueDate) return 'tbc'
-  const due = new Date(dueDate).getTime()
-  const now = Date.now()
-  if (due < now) return 'overdue'
-  if (due - now <= DUE_SOON_DAYS * 24 * 60 * 60 * 1000) return 'due_soon'
-  return 'upcoming'
-}
 
 // The full picture of one award for its detail screen: the money (instalments,
 // paid-to-date, outstanding), the reporting schedule and every report received, an
@@ -657,7 +546,7 @@ function dueStatus(dueDate: string | null): ScheduleStatus {
 // is shaped into an explicitly serializable payload — raw rows carry loosely-typed
 // jsonb the server-fn serializer rejects.
 export const getAward = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
@@ -787,7 +676,7 @@ const ReportMilestoneSchema = z.object({
 
 // Add a reporting milestone to an award.
 export const addReportMilestone = createServerFn({ method: 'POST' })
-  .inputValidator(ReportMilestoneSchema.extend({ awardId: z.uuid() }))
+  .validator(ReportMilestoneSchema.extend({ awardId: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const award = await getDb().query.awards.findFirst({
@@ -803,7 +692,7 @@ export const addReportMilestone = createServerFn({ method: 'POST' })
 
 // Edit a reporting milestone's label and/or due date.
 export const updateReportMilestone = createServerFn({ method: 'POST' })
-  .inputValidator(ReportMilestoneSchema.extend({ id: z.uuid() }))
+  .validator(ReportMilestoneSchema.extend({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     await requireAwardForSchedule(user, data.id)
@@ -816,7 +705,7 @@ export const updateReportMilestone = createServerFn({ method: 'POST' })
 // Remove a reporting milestone. Refused once a report has been logged against it —
 // that would orphan a received document's schedule link.
 export const deleteReportMilestone = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin', 'manager')
     const row = await requireAwardForSchedule(user, data.id)
@@ -828,7 +717,7 @@ export const deleteReportMilestone = createServerFn({ method: 'POST' })
 
 // Edit an instalment's amount and/or due date (null dueDate = date TBC).
 export const updateInstalment = createServerFn({ method: 'POST' })
-  .inputValidator(
+  .validator(
     z.object({
       id: z.uuid(),
       amount: z.number().positive().optional(),
@@ -855,10 +744,10 @@ export const updateInstalment = createServerFn({ method: 'POST' })
 // Mark an instalment paid (records today, or an explicit date) or clear it back to
 // outstanding. Paying the final instalment auto-completes the award ("Done");
 // reopening a paid instalment on a completed award flips it back to active. A
-// cancelled award is never touched. (Until a dedicated Finance section owns this,
-// the award's lifecycle simply tracks whether the money is fully out the door.)
+// cancelled award is never touched — the award's lifecycle simply tracks whether
+// the money is fully out the door.
 export const setInstalmentPaid = createServerFn({ method: 'POST' })
-  .inputValidator(
+  .validator(
     z.object({
       id: z.uuid(),
       paid: z.boolean(),

@@ -30,13 +30,18 @@ function Profile() {
   const [error, setError] = useState('')
   const [impersonateError, setImpersonateError] = useState('')
 
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
   async function handleImpersonate(userId: string) {
+    setImpersonatingId(userId)
     const { error: impError } = await authClient.admin.impersonateUser({ userId })
     if (impError) {
+      setImpersonatingId(null)
       setImpersonateError(impError.message ?? 'Could not start impersonation')
       return
     }
     // Full reload so server-side session/context is re-read as the impersonated user.
+    // Deliberately no reset of the busy state — the button stays disabled until the
+    // navigation lands.
     window.location.href = '/dashboard'
   }
 
@@ -121,9 +126,10 @@ function Profile() {
                         </span>
                         <button
                           onClick={() => handleImpersonate(u.id)}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                          disabled={impersonatingId !== null}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                         >
-                          Log in as
+                          {impersonatingId === u.id ? 'Signing in…' : 'Log in as'}
                         </button>
                       </div>
                     ))}

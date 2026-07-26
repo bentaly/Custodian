@@ -9,60 +9,59 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignUpRouteImport } from './routes/sign-up'
-import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as NoAccessRouteImport } from './routes/no-access'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiSubmitReportRouteImport } from './routes/api/submit-report'
-import { Route as ApiRoundsRouteImport } from './routes/api/rounds'
-import { Route as ApiApplyRouteImport } from './routes/api/apply'
-import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
-import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
-import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
-import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
-import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as NoAccessRouteImport } from './routes/no-access'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
-import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
-import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
-import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
-import { Route as AuthenticatedFinanceIndexRouteImport } from './routes/_authenticated/finance.index'
-import { Route as AuthenticatedAwardsIndexRouteImport } from './routes/_authenticated/awards.index'
+import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
+import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
+import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
+import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
+import { Route as ApiApplyRouteImport } from './routes/api/apply'
+import { Route as ApiRoundsRouteImport } from './routes/api/rounds'
+import { Route as ApiSubmitReportRouteImport } from './routes/api/submit-report'
 import { Route as AuthenticatedApplicationsIndexRouteImport } from './routes/_authenticated/applications.index'
-import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
-import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.report-ingests'
-import { Route as ApiAdminReportCanonicalFieldsRouteImport } from './routes/api/admin.report-canonical-fields'
-import { Route as ApiAdminMappingsRouteImport } from './routes/api/admin.mappings'
-import { Route as ApiAdminIngestsRouteImport } from './routes/api/admin.ingests'
-import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
-import { Route as ApiAdminCanonicalFieldsRouteImport } from './routes/api/admin.canonical-fields'
-import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
-import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
-import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
-import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
-import { Route as AuthenticatedFinanceAwardIdRouteImport } from './routes/_authenticated/finance.$awardId'
-import { Route as AuthenticatedAwardsAwardIdRouteImport } from './routes/_authenticated/awards.$awardId'
 import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './routes/_authenticated/applications.$applicationId'
-import { Route as ApiAdminReportIngestsIdRouteImport } from './routes/api/admin.report-ingests.$id'
-import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
+import { Route as AuthenticatedAwardsIndexRouteImport } from './routes/_authenticated/awards.index'
+import { Route as AuthenticatedAwardsAwardIdRouteImport } from './routes/_authenticated/awards.$awardId'
+import { Route as AuthenticatedFinanceIndexRouteImport } from './routes/_authenticated/finance.index'
+import { Route as AuthenticatedFinanceAwardIdRouteImport } from './routes/_authenticated/finance.$awardId'
+import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
+import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
+import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
+import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
+import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
+import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
+import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
+import { Route as ApiAdminCanonicalFieldsRouteImport } from './routes/api/admin.canonical-fields'
+import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
+import { Route as ApiAdminIngestsRouteImport } from './routes/api/admin.ingests'
+import { Route as ApiAdminMappingsRouteImport } from './routes/api/admin.mappings'
+import { Route as ApiAdminReportCanonicalFieldsRouteImport } from './routes/api/admin.report-canonical-fields'
+import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.report-ingests'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
-import { Route as ApiAdminReportIngestsIdResolveRouteImport } from './routes/api/admin.report-ingests.$id.resolve'
+import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
+import { Route as ApiAdminReportIngestsIdRouteImport } from './routes/api/admin.report-ingests.$id'
 import { Route as ApiAdminIngestsIdResolveRouteImport } from './routes/api/admin.ingests.$id.resolve'
+import { Route as ApiAdminReportIngestsIdResolveRouteImport } from './routes/api/admin.report-ingests.$id.resolve'
 
-const SignUpRoute = SignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SignInRoute = SignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NoAccessRoute = NoAccessRouteImport.update({
@@ -70,79 +69,15 @@ const NoAccessRoute = NoAccessRouteImport.update({
   path: '/no-access',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSubmitReportRoute = ApiSubmitReportRouteImport.update({
-  id: '/api/submit-report',
-  path: '/api/submit-report',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRoundsRoute = ApiRoundsRouteImport.update({
-  id: '/api/rounds',
-  path: '/api/rounds',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiApplyRoute = ApiApplyRouteImport.update({
-  id: '/api/apply',
-  path: '/api/apply',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedShortlistRoute = AuthenticatedShortlistRouteImport.update({
-  id: '/shortlist',
-  path: '/shortlist',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedRoundsRoute = AuthenticatedRoundsRouteImport.update({
-  id: '/rounds',
-  path: '/rounds',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedProgrammesRoute = AuthenticatedProgrammesRouteImport.update({
-  id: '/programmes',
-  path: '/programmes',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
-  id: '/insights',
-  path: '/insights',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedFinanceRoute = AuthenticatedFinanceRouteImport.update({
-  id: '/finance',
-  path: '/finance',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedAwardsRoute = AuthenticatedAwardsRouteImport.update({
-  id: '/awards',
-  path: '/awards',
-  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedApplicationsRoute =
   AuthenticatedApplicationsRouteImport.update({
@@ -150,29 +85,82 @@ const AuthenticatedApplicationsRoute =
     path: '/applications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedRoundsIndexRoute =
-  AuthenticatedRoundsIndexRouteImport.update({
+const AuthenticatedAwardsRoute = AuthenticatedAwardsRouteImport.update({
+  id: '/awards',
+  path: '/awards',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedFinanceRoute = AuthenticatedFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedProgrammesRoute = AuthenticatedProgrammesRouteImport.update({
+  id: '/programmes',
+  path: '/programmes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedRoundsRoute = AuthenticatedRoundsRouteImport.update({
+  id: '/rounds',
+  path: '/rounds',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedShortlistRoute = AuthenticatedShortlistRouteImport.update({
+  id: '/shortlist',
+  path: '/shortlist',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiApplyRoute = ApiApplyRouteImport.update({
+  id: '/api/apply',
+  path: '/api/apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRoundsRoute = ApiRoundsRouteImport.update({
+  id: '/api/rounds',
+  path: '/api/rounds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSubmitReportRoute = ApiSubmitReportRouteImport.update({
+  id: '/api/submit-report',
+  path: '/api/submit-report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedApplicationsIndexRoute =
+  AuthenticatedApplicationsIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedRoundsRoute,
+    getParentRoute: () => AuthenticatedApplicationsRoute,
   } as any)
-const AuthenticatedReportsIndexRoute =
-  AuthenticatedReportsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedReportsRoute,
-  } as any)
-const AuthenticatedProgrammesIndexRoute =
-  AuthenticatedProgrammesIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedProgrammesRoute,
-  } as any)
-const AuthenticatedFinanceIndexRoute =
-  AuthenticatedFinanceIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedFinanceRoute,
+const AuthenticatedApplicationsApplicationIdRoute =
+  AuthenticatedApplicationsApplicationIdRouteImport.update({
+    id: '/$applicationId',
+    path: '/$applicationId',
+    getParentRoute: () => AuthenticatedApplicationsRoute,
   } as any)
 const AuthenticatedAwardsIndexRoute =
   AuthenticatedAwardsIndexRouteImport.update({
@@ -180,25 +168,83 @@ const AuthenticatedAwardsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAwardsRoute,
   } as any)
-const AuthenticatedApplicationsIndexRoute =
-  AuthenticatedApplicationsIndexRouteImport.update({
+const AuthenticatedAwardsAwardIdRoute =
+  AuthenticatedAwardsAwardIdRouteImport.update({
+    id: '/$awardId',
+    path: '/$awardId',
+    getParentRoute: () => AuthenticatedAwardsRoute,
+  } as any)
+const AuthenticatedFinanceIndexRoute =
+  AuthenticatedFinanceIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedApplicationsRoute,
+    getParentRoute: () => AuthenticatedFinanceRoute,
   } as any)
-const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
-  id: '/api/round/$roundId',
-  path: '/api/round/$roundId',
+const AuthenticatedFinanceAwardIdRoute =
+  AuthenticatedFinanceAwardIdRouteImport.update({
+    id: '/$awardId',
+    path: '/$awardId',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
+const AuthenticatedProgrammesIndexRoute =
+  AuthenticatedProgrammesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedProgrammesRoute,
+  } as any)
+const AuthenticatedProgrammesProgrammeIdRoute =
+  AuthenticatedProgrammesProgrammeIdRouteImport.update({
+    id: '/$programmeId',
+    path: '/$programmeId',
+    getParentRoute: () => AuthenticatedProgrammesRoute,
+  } as any)
+const AuthenticatedReportsIndexRoute =
+  AuthenticatedReportsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedReportsRoute,
+  } as any)
+const AuthenticatedReportsReportKeyRoute =
+  AuthenticatedReportsReportKeyRouteImport.update({
+    id: '/$reportKey',
+    path: '/$reportKey',
+    getParentRoute: () => AuthenticatedReportsRoute,
+  } as any)
+const AuthenticatedRoundsIndexRoute =
+  AuthenticatedRoundsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedRoundsRoute,
+  } as any)
+const AuthenticatedRoundsRoundIdRoute =
+  AuthenticatedRoundsRoundIdRouteImport.update({
+    id: '/$roundId',
+    path: '/$roundId',
+    getParentRoute: () => AuthenticatedRoundsRoute,
+  } as any)
+const ApiAdminAwardsRoute = ApiAdminAwardsRouteImport.update({
+  id: '/api/admin/awards',
+  path: '/api/admin/awards',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
+const ApiAdminCanonicalFieldsRoute = ApiAdminCanonicalFieldsRouteImport.update({
+  id: '/api/admin/canonical-fields',
+  path: '/api/admin/canonical-fields',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminReportIngestsRoute = ApiAdminReportIngestsRouteImport.update({
-  id: '/api/admin/report-ingests',
-  path: '/api/admin/report-ingests',
+const ApiAdminClientsRoute = ApiAdminClientsRouteImport.update({
+  id: '/api/admin/clients',
+  path: '/api/admin/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminIngestsRoute = ApiAdminIngestsRouteImport.update({
+  id: '/api/admin/ingests',
+  path: '/api/admin/ingests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminMappingsRoute = ApiAdminMappingsRouteImport.update({
+  id: '/api/admin/mappings',
+  path: '/api/admin/mappings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminReportCanonicalFieldsRoute =
@@ -207,93 +253,47 @@ const ApiAdminReportCanonicalFieldsRoute =
     path: '/api/admin/report-canonical-fields',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiAdminMappingsRoute = ApiAdminMappingsRouteImport.update({
-  id: '/api/admin/mappings',
-  path: '/api/admin/mappings',
+const ApiAdminReportIngestsRoute = ApiAdminReportIngestsRouteImport.update({
+  id: '/api/admin/report-ingests',
+  path: '/api/admin/report-ingests',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminIngestsRoute = ApiAdminIngestsRouteImport.update({
-  id: '/api/admin/ingests',
-  path: '/api/admin/ingests',
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminClientsRoute = ApiAdminClientsRouteImport.update({
-  id: '/api/admin/clients',
-  path: '/api/admin/clients',
+const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
+  id: '/api/round/$roundId',
+  path: '/api/round/$roundId',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminCanonicalFieldsRoute = ApiAdminCanonicalFieldsRouteImport.update({
-  id: '/api/admin/canonical-fields',
-  path: '/api/admin/canonical-fields',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminAwardsRoute = ApiAdminAwardsRouteImport.update({
-  id: '/api/admin/awards',
-  path: '/api/admin/awards',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRoundsRoundIdRoute =
-  AuthenticatedRoundsRoundIdRouteImport.update({
-    id: '/$roundId',
-    path: '/$roundId',
-    getParentRoute: () => AuthenticatedRoundsRoute,
-  } as any)
-const AuthenticatedReportsReportKeyRoute =
-  AuthenticatedReportsReportKeyRouteImport.update({
-    id: '/$reportKey',
-    path: '/$reportKey',
-    getParentRoute: () => AuthenticatedReportsRoute,
-  } as any)
-const AuthenticatedProgrammesProgrammeIdRoute =
-  AuthenticatedProgrammesProgrammeIdRouteImport.update({
-    id: '/$programmeId',
-    path: '/$programmeId',
-    getParentRoute: () => AuthenticatedProgrammesRoute,
-  } as any)
-const AuthenticatedFinanceAwardIdRoute =
-  AuthenticatedFinanceAwardIdRouteImport.update({
-    id: '/$awardId',
-    path: '/$awardId',
-    getParentRoute: () => AuthenticatedFinanceRoute,
-  } as any)
-const AuthenticatedAwardsAwardIdRoute =
-  AuthenticatedAwardsAwardIdRouteImport.update({
-    id: '/$awardId',
-    path: '/$awardId',
-    getParentRoute: () => AuthenticatedAwardsRoute,
-  } as any)
-const AuthenticatedApplicationsApplicationIdRoute =
-  AuthenticatedApplicationsApplicationIdRouteImport.update({
-    id: '/$applicationId',
-    path: '/$applicationId',
-    getParentRoute: () => AuthenticatedApplicationsRoute,
-  } as any)
-const ApiAdminReportIngestsIdRoute = ApiAdminReportIngestsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiAdminReportIngestsRoute,
-} as any)
-const ApiAdminMappingsIdRoute = ApiAdminMappingsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiAdminMappingsRoute,
 } as any)
 const ApiAdminIngestsIdRoute = ApiAdminIngestsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiAdminIngestsRoute,
 } as any)
-const ApiAdminReportIngestsIdResolveRoute =
-  ApiAdminReportIngestsIdResolveRouteImport.update({
-    id: '/resolve',
-    path: '/resolve',
-    getParentRoute: () => ApiAdminReportIngestsIdRoute,
-  } as any)
+const ApiAdminMappingsIdRoute = ApiAdminMappingsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminMappingsRoute,
+} as any)
+const ApiAdminReportIngestsIdRoute = ApiAdminReportIngestsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminReportIngestsRoute,
+} as any)
 const ApiAdminIngestsIdResolveRoute =
   ApiAdminIngestsIdResolveRouteImport.update({
     id: '/resolve',
     path: '/resolve',
     getParentRoute: () => ApiAdminIngestsIdRoute,
+  } as any)
+const ApiAdminReportIngestsIdResolveRoute =
+  ApiAdminReportIngestsIdResolveRouteImport.update({
+    id: '/resolve',
+    path: '/resolve',
+    getParentRoute: () => ApiAdminReportIngestsIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -588,25 +588,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sign-up': {
-      id: '/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof SignUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-in': {
-      id: '/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/no-access': {
-      id: '/no-access'
-      path: '/no-access'
-      fullPath: '/no-access'
-      preLoaderRoute: typeof NoAccessRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -616,95 +602,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/no-access': {
+      id: '/no-access'
+      path: '/no-access'
+      fullPath: '/no-access'
+      preLoaderRoute: typeof NoAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/submit-report': {
-      id: '/api/submit-report'
-      path: '/api/submit-report'
-      fullPath: '/api/submit-report'
-      preLoaderRoute: typeof ApiSubmitReportRouteImport
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/rounds': {
-      id: '/api/rounds'
-      path: '/api/rounds'
-      fullPath: '/api/rounds'
-      preLoaderRoute: typeof ApiRoundsRouteImport
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/apply': {
-      id: '/api/apply'
-      path: '/api/apply'
-      fullPath: '/api/apply'
-      preLoaderRoute: typeof ApiApplyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/users': {
-      id: '/_authenticated/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AuthenticatedUsersRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/shortlist': {
-      id: '/_authenticated/shortlist'
-      path: '/shortlist'
-      fullPath: '/shortlist'
-      preLoaderRoute: typeof AuthenticatedShortlistRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/rounds': {
-      id: '/_authenticated/rounds'
-      path: '/rounds'
-      fullPath: '/rounds'
-      preLoaderRoute: typeof AuthenticatedRoundsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/reports': {
-      id: '/_authenticated/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AuthenticatedReportsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/programmes': {
-      id: '/_authenticated/programmes'
-      path: '/programmes'
-      fullPath: '/programmes'
-      preLoaderRoute: typeof AuthenticatedProgrammesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/insights': {
-      id: '/_authenticated/insights'
-      path: '/insights'
-      fullPath: '/insights'
-      preLoaderRoute: typeof AuthenticatedInsightsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/finance': {
-      id: '/_authenticated/finance'
-      path: '/finance'
-      fullPath: '/finance'
-      preLoaderRoute: typeof AuthenticatedFinanceRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+    '/_authenticated/applications': {
+      id: '/_authenticated/applications'
+      path: '/applications'
+      fullPath: '/applications'
+      preLoaderRoute: typeof AuthenticatedApplicationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/awards': {
@@ -714,47 +637,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAwardsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/applications': {
-      id: '/_authenticated/applications'
-      path: '/applications'
-      fullPath: '/applications'
-      preLoaderRoute: typeof AuthenticatedApplicationsRouteImport
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/rounds/': {
-      id: '/_authenticated/rounds/'
-      path: '/'
-      fullPath: '/rounds/'
-      preLoaderRoute: typeof AuthenticatedRoundsIndexRouteImport
-      parentRoute: typeof AuthenticatedRoundsRoute
+    '/_authenticated/finance': {
+      id: '/_authenticated/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AuthenticatedFinanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/reports/': {
-      id: '/_authenticated/reports/'
-      path: '/'
-      fullPath: '/reports/'
-      preLoaderRoute: typeof AuthenticatedReportsIndexRouteImport
-      parentRoute: typeof AuthenticatedReportsRoute
+    '/_authenticated/insights': {
+      id: '/_authenticated/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof AuthenticatedInsightsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/programmes/': {
-      id: '/_authenticated/programmes/'
-      path: '/'
-      fullPath: '/programmes/'
-      preLoaderRoute: typeof AuthenticatedProgrammesIndexRouteImport
-      parentRoute: typeof AuthenticatedProgrammesRoute
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/finance/': {
-      id: '/_authenticated/finance/'
-      path: '/'
-      fullPath: '/finance/'
-      preLoaderRoute: typeof AuthenticatedFinanceIndexRouteImport
-      parentRoute: typeof AuthenticatedFinanceRoute
+    '/_authenticated/programmes': {
+      id: '/_authenticated/programmes'
+      path: '/programmes'
+      fullPath: '/programmes'
+      preLoaderRoute: typeof AuthenticatedProgrammesRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/awards/': {
-      id: '/_authenticated/awards/'
-      path: '/'
-      fullPath: '/awards/'
-      preLoaderRoute: typeof AuthenticatedAwardsIndexRouteImport
-      parentRoute: typeof AuthenticatedAwardsRoute
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/rounds': {
+      id: '/_authenticated/rounds'
+      path: '/rounds'
+      fullPath: '/rounds'
+      preLoaderRoute: typeof AuthenticatedRoundsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/shortlist': {
+      id: '/_authenticated/shortlist'
+      path: '/shortlist'
+      fullPath: '/shortlist'
+      preLoaderRoute: typeof AuthenticatedShortlistRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/users': {
+      id: '/_authenticated/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/apply': {
+      id: '/api/apply'
+      path: '/api/apply'
+      fullPath: '/api/apply'
+      preLoaderRoute: typeof ApiApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/rounds': {
+      id: '/api/rounds'
+      path: '/api/rounds'
+      fullPath: '/api/rounds'
+      preLoaderRoute: typeof ApiRoundsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/submit-report': {
+      id: '/api/submit-report'
+      path: '/api/submit-report'
+      fullPath: '/api/submit-report'
+      preLoaderRoute: typeof ApiSubmitReportRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/applications/': {
       id: '/_authenticated/applications/'
@@ -763,53 +728,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedApplicationsIndexRouteImport
       parentRoute: typeof AuthenticatedApplicationsRoute
     }
-    '/api/round/$roundId': {
-      id: '/api/round/$roundId'
-      path: '/api/round/$roundId'
-      fullPath: '/api/round/$roundId'
-      preLoaderRoute: typeof ApiRoundRoundIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/applications/$applicationId': {
+      id: '/_authenticated/applications/$applicationId'
+      path: '/$applicationId'
+      fullPath: '/applications/$applicationId'
+      preLoaderRoute: typeof AuthenticatedApplicationsApplicationIdRouteImport
+      parentRoute: typeof AuthenticatedApplicationsRoute
     }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/awards/': {
+      id: '/_authenticated/awards/'
+      path: '/'
+      fullPath: '/awards/'
+      preLoaderRoute: typeof AuthenticatedAwardsIndexRouteImport
+      parentRoute: typeof AuthenticatedAwardsRoute
     }
-    '/api/admin/report-ingests': {
-      id: '/api/admin/report-ingests'
-      path: '/api/admin/report-ingests'
-      fullPath: '/api/admin/report-ingests'
-      preLoaderRoute: typeof ApiAdminReportIngestsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/awards/$awardId': {
+      id: '/_authenticated/awards/$awardId'
+      path: '/$awardId'
+      fullPath: '/awards/$awardId'
+      preLoaderRoute: typeof AuthenticatedAwardsAwardIdRouteImport
+      parentRoute: typeof AuthenticatedAwardsRoute
     }
-    '/api/admin/report-canonical-fields': {
-      id: '/api/admin/report-canonical-fields'
-      path: '/api/admin/report-canonical-fields'
-      fullPath: '/api/admin/report-canonical-fields'
-      preLoaderRoute: typeof ApiAdminReportCanonicalFieldsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/finance/': {
+      id: '/_authenticated/finance/'
+      path: '/'
+      fullPath: '/finance/'
+      preLoaderRoute: typeof AuthenticatedFinanceIndexRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
     }
-    '/api/admin/mappings': {
-      id: '/api/admin/mappings'
-      path: '/api/admin/mappings'
-      fullPath: '/api/admin/mappings'
-      preLoaderRoute: typeof ApiAdminMappingsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/finance/$awardId': {
+      id: '/_authenticated/finance/$awardId'
+      path: '/$awardId'
+      fullPath: '/finance/$awardId'
+      preLoaderRoute: typeof AuthenticatedFinanceAwardIdRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
     }
-    '/api/admin/ingests': {
-      id: '/api/admin/ingests'
-      path: '/api/admin/ingests'
-      fullPath: '/api/admin/ingests'
-      preLoaderRoute: typeof ApiAdminIngestsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/programmes/': {
+      id: '/_authenticated/programmes/'
+      path: '/'
+      fullPath: '/programmes/'
+      preLoaderRoute: typeof AuthenticatedProgrammesIndexRouteImport
+      parentRoute: typeof AuthenticatedProgrammesRoute
     }
-    '/api/admin/clients': {
-      id: '/api/admin/clients'
-      path: '/api/admin/clients'
-      fullPath: '/api/admin/clients'
-      preLoaderRoute: typeof ApiAdminClientsRouteImport
+    '/_authenticated/programmes/$programmeId': {
+      id: '/_authenticated/programmes/$programmeId'
+      path: '/$programmeId'
+      fullPath: '/programmes/$programmeId'
+      preLoaderRoute: typeof AuthenticatedProgrammesProgrammeIdRouteImport
+      parentRoute: typeof AuthenticatedProgrammesRoute
+    }
+    '/_authenticated/reports/': {
+      id: '/_authenticated/reports/'
+      path: '/'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof AuthenticatedReportsIndexRouteImport
+      parentRoute: typeof AuthenticatedReportsRoute
+    }
+    '/_authenticated/reports/$reportKey': {
+      id: '/_authenticated/reports/$reportKey'
+      path: '/$reportKey'
+      fullPath: '/reports/$reportKey'
+      preLoaderRoute: typeof AuthenticatedReportsReportKeyRouteImport
+      parentRoute: typeof AuthenticatedReportsRoute
+    }
+    '/_authenticated/rounds/': {
+      id: '/_authenticated/rounds/'
+      path: '/'
+      fullPath: '/rounds/'
+      preLoaderRoute: typeof AuthenticatedRoundsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoundsRoute
+    }
+    '/_authenticated/rounds/$roundId': {
+      id: '/_authenticated/rounds/$roundId'
+      path: '/$roundId'
+      fullPath: '/rounds/$roundId'
+      preLoaderRoute: typeof AuthenticatedRoundsRoundIdRouteImport
+      parentRoute: typeof AuthenticatedRoundsRoute
+    }
+    '/api/admin/awards': {
+      id: '/api/admin/awards'
+      path: '/api/admin/awards'
+      fullPath: '/api/admin/awards'
+      preLoaderRoute: typeof ApiAdminAwardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/canonical-fields': {
@@ -819,68 +819,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminCanonicalFieldsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/awards': {
-      id: '/api/admin/awards'
-      path: '/api/admin/awards'
-      fullPath: '/api/admin/awards'
-      preLoaderRoute: typeof ApiAdminAwardsRouteImport
+    '/api/admin/clients': {
+      id: '/api/admin/clients'
+      path: '/api/admin/clients'
+      fullPath: '/api/admin/clients'
+      preLoaderRoute: typeof ApiAdminClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/rounds/$roundId': {
-      id: '/_authenticated/rounds/$roundId'
-      path: '/$roundId'
-      fullPath: '/rounds/$roundId'
-      preLoaderRoute: typeof AuthenticatedRoundsRoundIdRouteImport
-      parentRoute: typeof AuthenticatedRoundsRoute
+    '/api/admin/ingests': {
+      id: '/api/admin/ingests'
+      path: '/api/admin/ingests'
+      fullPath: '/api/admin/ingests'
+      preLoaderRoute: typeof ApiAdminIngestsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/reports/$reportKey': {
-      id: '/_authenticated/reports/$reportKey'
-      path: '/$reportKey'
-      fullPath: '/reports/$reportKey'
-      preLoaderRoute: typeof AuthenticatedReportsReportKeyRouteImport
-      parentRoute: typeof AuthenticatedReportsRoute
+    '/api/admin/mappings': {
+      id: '/api/admin/mappings'
+      path: '/api/admin/mappings'
+      fullPath: '/api/admin/mappings'
+      preLoaderRoute: typeof ApiAdminMappingsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/programmes/$programmeId': {
-      id: '/_authenticated/programmes/$programmeId'
-      path: '/$programmeId'
-      fullPath: '/programmes/$programmeId'
-      preLoaderRoute: typeof AuthenticatedProgrammesProgrammeIdRouteImport
-      parentRoute: typeof AuthenticatedProgrammesRoute
+    '/api/admin/report-canonical-fields': {
+      id: '/api/admin/report-canonical-fields'
+      path: '/api/admin/report-canonical-fields'
+      fullPath: '/api/admin/report-canonical-fields'
+      preLoaderRoute: typeof ApiAdminReportCanonicalFieldsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/finance/$awardId': {
-      id: '/_authenticated/finance/$awardId'
-      path: '/$awardId'
-      fullPath: '/finance/$awardId'
-      preLoaderRoute: typeof AuthenticatedFinanceAwardIdRouteImport
-      parentRoute: typeof AuthenticatedFinanceRoute
+    '/api/admin/report-ingests': {
+      id: '/api/admin/report-ingests'
+      path: '/api/admin/report-ingests'
+      fullPath: '/api/admin/report-ingests'
+      preLoaderRoute: typeof ApiAdminReportIngestsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/awards/$awardId': {
-      id: '/_authenticated/awards/$awardId'
-      path: '/$awardId'
-      fullPath: '/awards/$awardId'
-      preLoaderRoute: typeof AuthenticatedAwardsAwardIdRouteImport
-      parentRoute: typeof AuthenticatedAwardsRoute
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/applications/$applicationId': {
-      id: '/_authenticated/applications/$applicationId'
-      path: '/$applicationId'
-      fullPath: '/applications/$applicationId'
-      preLoaderRoute: typeof AuthenticatedApplicationsApplicationIdRouteImport
-      parentRoute: typeof AuthenticatedApplicationsRoute
-    }
-    '/api/admin/report-ingests/$id': {
-      id: '/api/admin/report-ingests/$id'
-      path: '/$id'
-      fullPath: '/api/admin/report-ingests/$id'
-      preLoaderRoute: typeof ApiAdminReportIngestsIdRouteImport
-      parentRoute: typeof ApiAdminReportIngestsRoute
-    }
-    '/api/admin/mappings/$id': {
-      id: '/api/admin/mappings/$id'
-      path: '/$id'
-      fullPath: '/api/admin/mappings/$id'
-      preLoaderRoute: typeof ApiAdminMappingsIdRouteImport
-      parentRoute: typeof ApiAdminMappingsRoute
+    '/api/round/$roundId': {
+      id: '/api/round/$roundId'
+      path: '/api/round/$roundId'
+      fullPath: '/api/round/$roundId'
+      preLoaderRoute: typeof ApiRoundRoundIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/admin/ingests/$id': {
       id: '/api/admin/ingests/$id'
@@ -889,12 +875,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminIngestsIdRouteImport
       parentRoute: typeof ApiAdminIngestsRoute
     }
-    '/api/admin/report-ingests/$id/resolve': {
-      id: '/api/admin/report-ingests/$id/resolve'
-      path: '/resolve'
-      fullPath: '/api/admin/report-ingests/$id/resolve'
-      preLoaderRoute: typeof ApiAdminReportIngestsIdResolveRouteImport
-      parentRoute: typeof ApiAdminReportIngestsIdRoute
+    '/api/admin/mappings/$id': {
+      id: '/api/admin/mappings/$id'
+      path: '/$id'
+      fullPath: '/api/admin/mappings/$id'
+      preLoaderRoute: typeof ApiAdminMappingsIdRouteImport
+      parentRoute: typeof ApiAdminMappingsRoute
+    }
+    '/api/admin/report-ingests/$id': {
+      id: '/api/admin/report-ingests/$id'
+      path: '/$id'
+      fullPath: '/api/admin/report-ingests/$id'
+      preLoaderRoute: typeof ApiAdminReportIngestsIdRouteImport
+      parentRoute: typeof ApiAdminReportIngestsRoute
     }
     '/api/admin/ingests/$id/resolve': {
       id: '/api/admin/ingests/$id/resolve'
@@ -902,6 +895,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/admin/ingests/$id/resolve'
       preLoaderRoute: typeof ApiAdminIngestsIdResolveRouteImport
       parentRoute: typeof ApiAdminIngestsIdRoute
+    }
+    '/api/admin/report-ingests/$id/resolve': {
+      id: '/api/admin/report-ingests/$id/resolve'
+      path: '/resolve'
+      fullPath: '/api/admin/report-ingests/$id/resolve'
+      preLoaderRoute: typeof ApiAdminReportIngestsIdResolveRouteImport
+      parentRoute: typeof ApiAdminReportIngestsIdRoute
     }
   }
 }

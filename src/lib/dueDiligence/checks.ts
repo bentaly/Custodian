@@ -292,8 +292,3 @@ export function computeStatus(records: DueDiligenceCheckRecord[]): DueDiligenceS
   if (worst >= LEVEL_RANK.warning) return 'warning'
   return 'clear'
 }
-
-/** All sources represented in a set of records — handy for grouping in the UI. */
-export function sourcesInRecords(records: DueDiligenceCheckRecord[]): DueDiligenceSource[] {
-  return [...new Set(records.map((r) => r.source))]
-}

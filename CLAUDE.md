@@ -22,6 +22,7 @@ Grant management platform for philanthropic organisations. Clients (charitable f
 ```sh
 pnpm dev          # vite dev server (localhost:5174)
 pnpm typecheck    # tsc --noEmit
+pnpm test         # vitest run (unit tests: invites, due diligence, deprivation, …)
 pnpm build        # production build
 pnpm preview      # build + wrangler dev (local Workers simulation)
 ```
@@ -124,12 +125,32 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
 
 ## Data model summary
 - **clients** — tenant (charitable_foundation | family_office); users and rounds belong to a client
-- **users** — extend BetterAuth user; have a `role` (superadmin → trustee) and belong to one client
-- **rounds** → **programmes** → **formFields** — funding rounds contain programmes which have dynamic application forms
-- **applications** + **applicationResponses** — submitted grant applications with per-field responses
+- **users** — extend BetterAuth user; have a `role` (superadmin | admin | manager | contributor | observer | trustee | finance) and belong to one client
+- **client_profiles** — per-tenant settings (mission statement, admin-voting toggle)
+- **rounds** ↔ **programmes** via **round_programmes** (budget, grant duration, impact unit per pairing); applications hang off a round-programme
+- **applications** — one row per submission; responses/budget lines live in jsonb columns, plus AI columns (Custodian score, due diligence, deprivation context)
+- **application_comments** / **application_votes** — discussion + trustee voting (majority gates `generateAward`)
+- **awards** → **award_instalments** (payment schedule) + **report_schedule** (reporting milestones) — a grant minted from an awarded application
+- **reports** — received grant reports (from `/api/submit-report`), with AI analysis columns; **report_ingests** is its holding table
+- **application_ingests** + **field_mappings** — `/api/apply` holding table and the learned field-name mappings
+- **deprivation_areas** — IMD decile lookup data (seeded by `scripts/seed-deprivation.ts`)
+- **audit_log** — human actions (award/decline/shortlist/comment) with actor; feeds the dashboard "Lately" feed
 - **invitations** — token-based invitation flow; users are invited to a client with a role
-- **apiKeys** — per-client secret keys gating `/api/apply` (see below)
+- **api_keys** — per-client secret keys gating `/api/apply` (see below)
 - BetterAuth tables: `sessions`, `accounts`, `verifications` (do not modify these manually)
+
+## Server-side patterns
+- **No `db.transaction()`** — `getDb()` uses the neon-http driver, where `transaction()` throws at
+  runtime. Use `db.batch()` for atomic multi-statement writes.
+- **Tenancy**: every server fn scopes reads/writes to the caller's client. List queries go through
+  `visibleRoundProgrammeIds(user)` + `intersectScope` (`src/server/scope.ts`); fetch-by-id goes
+  through `assertClientAccess` / `assertApplicationAccess`. `null` scope = superadmin, unrestricted.
+  Any query filtering on a cross-tenant column (e.g. `organisationName`) must ALSO scope by client.
+- **Post-response work**: `runInBackground` (`src/server/background.ts`) wraps `ctx.waitUntil` so
+  pipelines survive the Workers teardown after the response is sent. Background work must have a
+  durable failure story (e.g. an ingest row stuck at `received` is visible and reprocessable).
+- **Degrade gracefully**: AI features without `ANTHROPIC_API_KEY`, rate limiting without its
+  binding, and email without Resend all no-op or fall back rather than failing the request.
 
 ## Public submission auth (`/api/apply`)
 A foundation's intake integration posts applications to `POST /api/apply` authenticated with
@@ -149,8 +170,10 @@ canonical fields (`CreateApplicationSchema`).
   admin-only, scoped to the caller's client).
 - UI: **Organisation screen** (`/users` route → `Organisation` component), admin-only section.
 - Test/dev submitter: `admin-app/src/Submitter.tsx` has an API key field (stored in localStorage).
-- Missing/invalid/revoked key → 401. Keys are the intended rate-limit key for the backlogged
-  per-key rate limiting on `/api/apply` (Cloudflare Workers rate-limit binding); not yet wired.
+- Missing/invalid/revoked key → 401. `/api/apply` is rate-limited two ways (`src/server/rateLimit.ts`,
+  bindings in `wrangler.toml`): a per-IP volumetric backstop before auth (`APPLY_IP_LIMITER`) and a
+  per-client fairness limit after (`APPLY_KEY_LIMITER`). Degrades open — no binding (local dev) or a
+  limiter error means the request proceeds, mirroring how the AI features degrade without their key.
 - **`POST /api/submit-report`** is the report-side twin: same key auth + 202 + background
   pipeline, its own canonical registry (`src/lib/fieldMapping/reportCanonical.ts`) and holding
   table (`report_ingests`). Auto-links to a grant only on an exact `externalApplicationId`
@@ -163,7 +186,21 @@ canonical fields (`CreateApplicationSchema`).
 
 ## Route structure
 - `src/routes/_authenticated.tsx` — layout + auth guard for all protected routes
-- `src/routes/_authenticated/*.tsx` — dashboard, profile, users, applications
+- `src/routes/_authenticated/*.tsx` — dashboard, applications (+detail), shortlist, awards
+  (+detail), finance (+detail), reports (+detail), rounds (+detail), programmes (+detail),
+  insights, users (Organisation screen), profile
 - `src/routes/api/auth.$.ts` — BetterAuth handler (GET + POST)
-- `src/routes/api/apply.ts`, `api/round.$roundId.ts` — public-facing application endpoints
+- `src/routes/api/apply.ts`, `api/submit-report.ts` — public API-key-authed ingest endpoints
+- `src/routes/api/round.$roundId.ts`, `api/rounds.ts` — public round metadata
+- `src/routes/api/admin.*.ts` — `/api/admin/*` endpoints for the admin app (`x-admin-token` gated,
+  helpers in `src/server/admin/http.ts`)
 - `src/server/fns/` — server functions (TanStack Start server-side, called from routes)
+
+## Feature modules (each: `src/lib/<x>` pure logic, `src/server/<x>` IO)
+- **custodianScore** — Anthropic-scored application quality (0–100 + per-criterion detail)
+- **dueDiligence** — registry checks against Charity Commission + Companies House
+- **deprivation** — delivery-area → IMD decile context via postcodes.io + `deprivation_areas`
+- **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
+- **reportAnalysis** — AI analysis of received reports (summary, alignment, impact quantity)
+- **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance
+- **budget** — budget-line types/helpers; `validators/` — zod schemas shared client/server

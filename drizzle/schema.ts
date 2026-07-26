@@ -536,23 +536,29 @@ export const apiKeys = pgTable('api_keys', {
 //   - `clientId` is denormalised (not derived via the application) because it keeps
 //     tenant scoping a single-column filter on the hottest read path. It never
 //     changes, so there is no drift risk.
-export const awards = pgTable('awards', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  // `restrict`: an application with an award cannot be deleted out from under it —
-  // that would take the instalments and reports with it. Cancel the award first.
-  applicationId: uuid('application_id')
-    .notNull()
-    .references(() => applications.id, { onDelete: 'restrict' }),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  amountAwarded: numeric('amount_awarded').notNull(),
-  status: awardStatusEnum('status').notNull().default('active'),
-  // When the award was generated (the grant's start). Mirrors the application's
-  // decisionAt for application-derived awards.
-  decisionAt: timestamp('decision_at').notNull().defaultNow(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+export const awards = pgTable(
+  'awards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // `restrict`: an application with an award cannot be deleted out from under it —
+    // that would take the instalments and reports with it. Cancel the award first.
+    applicationId: uuid('application_id')
+      .notNull()
+      .references(() => applications.id, { onDelete: 'restrict' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    amountAwarded: numeric('amount_awarded').notNull(),
+    status: awardStatusEnum('status').notNull().default('active'),
+    // When the award was generated (the grant's start). Mirrors the application's
+    // decisionAt for application-derived awards.
+    decisionAt: timestamp('decision_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // One grant per application — the `award: one(...)` relation and every money
+  // rollup assume it; a double-submitted generateAward must hit this wall.
+  (t) => [unique('awards_application_uniq').on(t.applicationId)],
+)
 
 // One scheduled instalment of a grant. Promoted out of the old
 // `applications.payment_schedule` jsonb so payments are first-class rows: each can be

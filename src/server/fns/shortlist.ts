@@ -7,7 +7,7 @@ import { requireAuthUser } from '../session'
 import { intersectScope, visibleRoundProgrammeIds } from '../scope'
 
 export const listShortlist = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ roundId: z.uuid().optional() }))
+  .validator(z.object({ roundId: z.uuid().optional() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 

@@ -13,6 +13,7 @@ import {
   Tabs,
   type TableColumn,
 } from '../../components/ui'
+import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
 
 // Derived from the server fn rather than the route loader: `Route.useLoaderData` is
 // circular here (the route's component uses these types), which resolves to `any`.
@@ -27,21 +28,9 @@ export const Route = createFileRoute('/_authenticated/finance/')({
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-function fmt(n: number) {
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 
 /** Headline figures: £1.9m / £148k / £950. */
-function fmtCompact(n: number) {
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
-  if (n >= 10_000) return `£${Math.round(n / 1_000)}k`
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 
-function fmtDate(date: string | null | undefined) {
-  if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 /** "in 4 days" / "12 days ago" — the thing a finance officer actually reads off a due date. */
 function relativeDays(iso: string | null): { text: string; overdue: boolean } | null {
@@ -111,7 +100,7 @@ const COMMITTED: TableColumn<FinanceRow> = {
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">
-      {fmt(g.committed)}
+      {fmtMoney(g.committed)}
     </span>
   ),
 }
@@ -123,7 +112,7 @@ const PAID: TableColumn<FinanceRow> = {
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <div className="whitespace-nowrap">
-      <span className={txtSub}>{g.paidToDate > 0 ? fmt(g.paidToDate) : '—'}</span>
+      <span className={txtSub}>{g.paidToDate > 0 ? fmtMoney(g.paidToDate) : '—'}</span>
       {g.instalmentCount > 0 && (
         <span className="ml-1 font-display text-[12px] text-[#97A1AF]">
           {g.paidCount}/{g.instalmentCount}
@@ -181,7 +170,7 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
       const rel = relativeDays(g.nextPayment.dueDate)
       return (
         <div className="whitespace-nowrap">
-          <div className="font-display text-[14px] font-medium text-[#141C24]">{fmt(g.nextPayment.amount)}</div>
+          <div className="font-display text-[14px] font-medium text-[#141C24]">{fmtMoney(g.nextPayment.amount)}</div>
           <div
             className="font-display text-[12px]"
             style={{ color: rel?.overdue ? '#FF4242' : '#97A1AF' }}

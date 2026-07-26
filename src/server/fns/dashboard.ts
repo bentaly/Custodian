@@ -17,6 +17,7 @@ import {
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
 import { bucketSeries } from '../../lib/timeSeries'
+import { checkBankAccount } from '../../lib/bankVerification'
 
 // ISO yyyy-mm-dd in UTC for a given Date — grant payment/report due dates are stored
 // as plain date strings, so we compare against the same representation.
@@ -96,6 +97,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     givingEventsRows,
     paymentsThisMonthRows,
     reportsToReviewRows,
+    bankFieldRows,
     latelyRows,
   ] = await Promise.all([
     // Pipeline counts by status.
@@ -333,6 +335,17 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
           .from(reports)
           .where(and(eq(reports.clientId, clientId), sql`${reports.reviewedAt} IS NULL`))
       : Promise.resolve([{ count: 0 }]),
+
+    // Bank details for grants whose money is still moving (Finance KPI: the level-1
+    // modulus check runs offline, so checking on read is free).
+    getDb()
+      .select({
+        sortCode: applications.bankSortCode,
+        accountNumber: applications.bankAccountNumber,
+      })
+      .from(awards)
+      .innerJoin(applications, eq(awards.applicationId, applications.id))
+      .where(and(awardScope, eq(awards.status, 'active'))),
 
     // "Lately" feed — human actions from the audit log, newest first.
     clientId
@@ -585,6 +598,12 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     amount: parseFloat(paymentsThisMonthRows[0]?.amount ?? '0'),
   }
   const reportsToReview = reportsToReviewRows[0]?.count ?? 0
+  // Active grants whose held bank details are missing or fail the modulus check —
+  // each one is a payment that cannot go out cleanly.
+  const bankIssues = bankFieldRows.filter((r) => {
+    if (!r.sortCode || !r.accountNumber) return true
+    return checkBankAccount({ sortCode: r.sortCode, accountNumber: r.accountNumber }).status === 'invalid'
+  }).length
 
   // ── Giving so far (awards.decisionAt) ────────────────────────────────────
   // Raw award events → adaptively-bucketed chart series per range. Bucket size is
@@ -646,6 +665,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     awaitingVotes,
     paymentsThisMonth,
     reportsToReview,
+    bankIssues,
     giving,
     lately,
     attention: {
@@ -713,6 +733,7 @@ function emptyDashboard(name: string) {
     awaitingVotes: 0,
     paymentsThisMonth: { count: 0, amount: 0 },
     reportsToReview: 0,
+    bankIssues: 0,
     giving: {
       allTime: 0,
       ytd: 0,

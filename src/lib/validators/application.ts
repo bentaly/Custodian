@@ -54,9 +54,12 @@ export const CreateApplicationSchema = z.object({
 })
 export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>
 
+// 'awarded' is deliberately not settable here: awarding must go through
+// `generateAward` (which mints the award row, checks the trustee majority and
+// writes the audit trail), and un-awarding through cancelling the award.
 export const UpdateApplicationStatusSchema = z.object({
   id: z.uuid(),
-  status: ApplicationStatus,
+  status: z.enum(['for_review', 'shortlisted', 'declined']),
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
 

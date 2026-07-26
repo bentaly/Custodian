@@ -301,9 +301,16 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
     setIsMac(/Mac|iPhone|iPad/.test(navigator.platform))
   }, [])
 
+  const [signingOut, setSigningOut] = useState(false)
   async function handleSignOut() {
-    await authClient.signOut()
-    navigate({ to: '/sign-in' })
+    if (signingOut) return
+    setSigningOut(true)
+    try {
+      await authClient.signOut()
+      navigate({ to: '/sign-in' })
+    } finally {
+      setSigningOut(false)
+    }
   }
 
   const orgName = user.clientName ?? 'Custodian Platform'

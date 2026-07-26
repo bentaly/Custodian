@@ -29,6 +29,7 @@ import { impactUnitLabel } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
+import { fmtCompact, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => getApplication({ data: { id: params.applicationId } }),
@@ -65,15 +66,6 @@ function ragColor(score: number) {
 }
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
-function fmtMoney(n: number) {
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
-function fmtCompact(n: number) {
-  const a = Math.abs(n)
-  if (a >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
-  if (a >= 1_000) return `£${Math.round(n / 1_000)}k`
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 function initials(name: string) {
   const p = name.trim().split(/\s+/).filter(Boolean)
   if (p.length === 0) return '—'

@@ -1,6 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import { Markdown } from 'tiptap-markdown'
 
 function ToolbarButton({
@@ -38,7 +37,9 @@ export function RichTextEditor({
   minHeight?: string
 }) {
   const editor = useEditor({
-    extensions: [StarterKit, Underline, Markdown],
+    // StarterKit bundles Underline as of tiptap 3.x — adding the standalone
+    // extension again triggers the duplicate-extension warning.
+    extensions: [StarterKit, Markdown],
     content: defaultValue,
     editorProps: {
       attributes: {

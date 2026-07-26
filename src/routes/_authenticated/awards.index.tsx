@@ -13,6 +13,7 @@ import {
 import { listAwards } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import { getRoundStatus } from '../../lib/roundStatus'
+import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
 
 type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
@@ -53,20 +54,8 @@ export const Route = createFileRoute('/_authenticated/awards/')({
   component: AwardsPage,
 })
 
-function fmt(n: number) {
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 
-function fmtCompact(n: number) {
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`
-  if (n >= 1_000) return `£${Math.round(n / 1_000)}k`
-  return `£${Math.round(n).toLocaleString('en-GB')}`
-}
 
-function fmtDate(date: Date | string | null | undefined) {
-  if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 const GRANT_STATUS_LABELS: Record<string, string> = {
   active: 'Active',
@@ -105,7 +94,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     id: 'amount',
     header: 'Amount',
     cellClassName: 'tabular-nums',
-    cell: (g) => <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">{fmt(g.amountAwarded)}</span>,
+    cell: (g) => <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">{fmtMoney(g.amountAwarded)}</span>,
   },
   {
     id: 'paid',
@@ -145,15 +134,15 @@ function StatCards({ totals }: { totals: Totals }) {
         tint={KPI_TINTS.violet}
         icon={Coins01Icon}
         label="Total awarded"
-        value={fmt(totals.totalAwarded)}
+        value={fmtMoney(totals.totalAwarded)}
         sub={`${totals.count} award${totals.count !== 1 ? 's' : ''}`}
       />
       <MiniKpi
         tint={KPI_TINTS.green}
         icon={BankIcon}
         label="Paid to date"
-        value={fmt(totals.paidToDate)}
-        sub={`${fmt(totals.outstanding)} outstanding`}
+        value={fmtMoney(totals.paidToDate)}
+        sub={`${fmtMoney(totals.outstanding)} outstanding`}
       />
       <MiniKpi
         tint={KPI_TINTS.amber}

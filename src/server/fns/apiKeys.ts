@@ -21,7 +21,7 @@ export const listApiKeys = createServerFn({ method: 'GET' }).handler(async () =>
 })
 
 export const createApiKey = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ name: z.string().trim().min(1).max(80) }))
+  .validator(z.object({ name: z.string().trim().min(1).max(80) }))
   .handler(async ({ data }) => {
     const user = await requireRole('admin', 'superadmin')
     if (!user.clientId) throw new Error('No organisation associated with your account')
@@ -38,7 +38,7 @@ export const createApiKey = createServerFn({ method: 'POST' })
   })
 
 export const revokeApiKey = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('admin', 'superadmin')
     if (!user.clientId) throw new Error('No organisation associated with your account')
