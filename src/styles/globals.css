@@ -2,12 +2,19 @@
 
 @plugin '@tailwindcss/typography';
 
+/* Laptop-height viewports (a 900px display is ~810px of viewport once browser chrome
+   is taken). The signed-out brand panel is a fixed run of copy, so it compacts here
+   rather than scrolling. */
+@custom-variant short (@media (height <= 880px));
+
 @theme {
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
 
   --color-canvas: #fafbfa;
   --color-hairline: #edf0ef;
+  /* The hairline as it reads on the moss panel — the plain one disappears against it. */
+  --color-hairline-moss: #dfe9e1;
 
   --color-ink: #101828;
   --color-ink-muted: #5f6b76;

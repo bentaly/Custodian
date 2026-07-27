@@ -8,3 +8,4 @@ export { DataTable, StatusPill, type TableColumn, type TableSort, type TableSele
 export { MiniKpi, KPI_TINTS, type KpiTint } from './MiniKpi'
 export { Tabs, type TabItem } from './Tabs'
 export { ExportButton } from './ExportButton'
+export { LogoMark } from './LogoMark'
