@@ -2,10 +2,12 @@
 
 @plugin '@tailwindcss/typography';
 
-/* Laptop-height viewports (a 900px display is ~810px of viewport once browser chrome
-   is taken). The signed-out brand panel is a fixed run of copy, so it compacts here
-   rather than scrolling. */
-@custom-variant short (@media (height <= 880px));
+/* The signed-out brand panel in its two-column form, on a laptop-height viewport (a
+   900px display is ~810px once browser chrome is taken). Its run of copy is fixed, so
+   it compacts to fit rather than scrolling. Deliberately scoped to `lg` and up: below
+   that the panel sits under the form and scrolls with the page, where compacting a
+   phone-height viewport would be wrong. */
+@custom-variant compact (@media (width >= 64rem) and (height <= 880px));
 
 @theme {
   --font-sans:
