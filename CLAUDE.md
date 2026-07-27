@@ -126,6 +126,8 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
 ## Data model summary
 - **clients** — tenant (charitable_foundation | family_office); users and rounds belong to a client
 - **users** — extend BetterAuth user; have a `role` (superadmin | admin | manager | contributor | observer | trustee | finance) and belong to one client
+- **user_avatars** — profile photos, kept off the `users` row (which `getAuthUser` selects on
+  every authenticated call); `users.image` holds the `/api/avatar/$userId?v=<hash>` URL
 - **client_profiles** — per-tenant settings (mission statement, admin-voting toggle)
 - **rounds** ↔ **programmes** via **round_programmes** (budget, grant duration, impact unit per pairing); applications hang off a round-programme
 - **applications** — one row per submission; responses/budget lines live in jsonb columns, plus AI columns (Custodian score, due diligence, deprivation context)

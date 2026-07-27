@@ -6,10 +6,15 @@ import {
   File01Icon,
   Coins01Icon,
   CheckListIcon,
-  Award01Icon,
-  Message01Icon,
-  CancelCircleIcon,
   CheckmarkCircle02Icon,
+  CheckmarkSquare01Icon,
+  CancelSquareIcon,
+  BubbleChatIcon,
+  NoteIcon,
+  Note03Icon,
+  Wallet03Icon,
+  MoneySavingJarIcon,
+  ArrowRight01Icon,
 } from '@hugeicons/core-free-icons'
 import { Card as UiCard } from '../../components/ui'
 import { BarMeter, type BarSegment, withAlpha } from '../../components/BarMeter'
@@ -40,7 +45,6 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
 // tints and chart hues are picked to match the dashboard comp until they're tokenised.
 const C = {
   ink: '#141C24', // Gray/900
-  body: '#374050',
   sub: '#637083', // Gray/500
   faint: '#98A2B3',
   line: '#E4E7EC', // Gray/200
@@ -140,6 +144,7 @@ function KpiCard({
   subColor,
   icon,
   label,
+  meta,
   to,
   search,
   meter,
@@ -151,6 +156,8 @@ function KpiCard({
   subColor?: string
   icon: typeof Files01Icon
   label: string
+  /** Optional right-hand footer note (Figma 393:7930) — e.g. the round in focus. */
+  meta?: string | null
   to: string
   search?: Record<string, unknown>
   meter: React.ReactNode
@@ -190,12 +197,19 @@ function KpiCard({
           {children}
         </div>
       </div>
-      {/* Footer on the white card. */}
-      <div className="flex items-center gap-2 px-4 py-3">
-        <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
-        <span className="text-[13px] font-medium" style={{ color: C.ink }}>
-          {label}
+      {/* Footer on the white card — icon + label left, optional meta right (Figma 126:32567). */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <HugeiconsIcon icon={icon} className="h-5 w-5 shrink-0" strokeWidth={1.6} style={{ color: C.sub }} />
+          <span className="truncate text-sm font-medium" style={{ color: C.ink }}>
+            {label}
+          </span>
         </span>
+        {meta && (
+          <span className="shrink-0 truncate text-xs font-medium" style={{ color: C.sub }}>
+            {meta}
+          </span>
+        )}
       </div>
     </Link>
   )
@@ -203,28 +217,20 @@ function KpiCard({
 
 // ─── "On your desk" rows ──────────────────────────────────────────────────────────
 
-const TAG_COLOR: Record<string, string> = {
-  Applications: C.success,
-  Finance: C.warning,
-  Review: C.info,
-  Giving: '#E0568A',
-  Reports: '#F0537A',
-}
+// Figma 126:34573 — a neutral 40px tile (Gray/50 wash, Gray/500 glyph), 14px medium
+// copy with the lead in Gray/900 and the rest in Gray/500, and a chevron affordance.
+const DESK_TILE = '#F6F6F6'
 
 function DeskRow({
   icon,
-  iconTint,
   lead,
   rest,
-  tag,
   to,
   search,
 }: {
   icon: typeof Files01Icon
-  iconTint: { bg: string; accent: string }
   lead: string
   rest: string
-  tag: string
   to: string
   search?: Record<string, unknown>
 }) {
@@ -232,35 +238,36 @@ function DeskRow({
     <Link
       to={to}
       search={search}
-      className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-[#FAFAFB]"
+      className="flex items-center gap-4 rounded-xl px-2 py-2 transition-colors hover:bg-[#FAFAFB]"
     >
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-        style={{ backgroundColor: iconTint.bg }}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+        style={{ backgroundColor: DESK_TILE }}
       >
-        <HugeiconsIcon icon={icon} className="h-[18px] w-[18px]" strokeWidth={1.7} style={{ color: iconTint.accent }} />
+        <HugeiconsIcon icon={icon} className="h-5 w-5" strokeWidth={1.5} style={{ color: C.sub }} />
       </span>
-      <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: C.body }}>
-        <span className="font-semibold" style={{ color: C.ink }}>
-          {lead}
-        </span>{' '}
-        {rest}
+      <span className="min-w-0 flex-1 text-sm font-medium" style={{ color: C.sub }}>
+        <span style={{ color: C.ink }}>{lead}</span> {rest}
       </span>
-      <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium" style={{ color: TAG_COLOR[tag] }}>
-        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: TAG_COLOR[tag] }} />
-        {tag}
-      </span>
+      <HugeiconsIcon
+        icon={ArrowRight01Icon}
+        className="h-4 w-4 shrink-0"
+        strokeWidth={2}
+        style={{ color: C.ink }}
+      />
     </Link>
   )
 }
 
 // ─── "Lately" (audit log) rows ────────────────────────────────────────────────────
 
-const LATELY_META: Record<string, { icon: typeof Award01Icon; tint: { bg: string; accent: string }; verb: string }> = {
-  application_awarded: { icon: Award01Icon, tint: { bg: '#EDF9F1', accent: C.success }, verb: 'awarded a grant to' },
-  application_declined: { icon: CancelCircleIcon, tint: { bg: '#FDEFF2', accent: C.danger }, verb: 'declined' },
-  application_shortlisted: { icon: CheckmarkCircle02Icon, tint: { bg: '#F5F4FF', accent: '#8B7FF0' }, verb: 'shortlisted' },
-  application_commented: { icon: Message01Icon, tint: { bg: '#EEF6FE', accent: C.info }, verb: 'commented on' },
+// Figma 126:39615 — one neutral tile for every row; the glyph carries the only colour,
+// and only for the outcomes that are genuinely good/bad. Everything else is Gray/500.
+const LATELY_META: Record<string, { icon: typeof Files01Icon; accent: string; verb: string }> = {
+  application_awarded: { icon: CheckmarkSquare01Icon, accent: C.success, verb: 'awarded a grant to' },
+  application_declined: { icon: CancelSquareIcon, accent: C.danger, verb: 'declined' },
+  application_shortlisted: { icon: CheckmarkCircle02Icon, accent: C.sub, verb: 'shortlisted' },
+  application_commented: { icon: BubbleChatIcon, accent: C.sub, verb: 'commented on' },
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────────
@@ -280,15 +287,15 @@ function Dashboard() {
   const paymentsDue = a.paymentsOverdue.count + a.paymentsDueSoon.count
   const desk: Array<React.ComponentProps<typeof DeskRow>> = []
   if (a.toReview.count > 0)
-    desk.push({ icon: Files01Icon, iconTint: { bg: KPI.apps.bg, accent: KPI.apps.accent }, lead: `${a.toReview.count} application${plural(a.toReview.count)}`, rest: 'ready to review', tag: 'Applications', to: '/applications', search: { roundId: undefined, status: 'for_review' } })
+    desk.push({ icon: NoteIcon, lead: `${a.toReview.count} application${plural(a.toReview.count)}`, rest: 'ready to review', to: '/applications', search: { roundId: undefined, status: 'for_review' } })
   if (paymentsDue > 0)
-    desk.push({ icon: Coins01Icon, iconTint: { bg: KPI.finance.bg, accent: KPI.finance.accent }, lead: `${paymentsDue} payment${plural(paymentsDue)}`, rest: 'due to be paid', tag: 'Finance', to: '/awards', search: { roundId: undefined } })
+    desk.push({ icon: Wallet03Icon, lead: `${paymentsDue} payment${plural(paymentsDue)}`, rest: 'due to be paid', to: '/awards', search: { roundId: undefined } })
   if (d.awaitingVotes > 0)
-    desk.push({ icon: CheckListIcon, iconTint: { bg: '#EEF6FE', accent: C.info }, lead: `${d.awaitingVotes} application${plural(d.awaitingVotes)}`, rest: 'await a trustee vote', tag: 'Review', to: '/shortlist', search: { roundId: undefined } })
+    desk.push({ icon: Note03Icon, lead: `${d.awaitingVotes} application${plural(d.awaitingVotes)}`, rest: 'await a trustee vote', to: '/shortlist', search: { roundId: undefined } })
   if (a.readyToAward.count > 0)
-    desk.push({ icon: Award01Icon, iconTint: { bg: '#FDEFF2', accent: '#E0568A' }, lead: `${a.readyToAward.count} award${plural(a.readyToAward.count)}`, rest: 'ready to set up', tag: 'Giving', to: '/shortlist', search: { roundId: undefined } })
+    desk.push({ icon: MoneySavingJarIcon, lead: `${a.readyToAward.count} award${plural(a.readyToAward.count)}`, rest: 'ready to set up', to: '/shortlist', search: { roundId: undefined } })
   if (d.reportsToReview > 0)
-    desk.push({ icon: File01Icon, iconTint: { bg: KPI.reports.bg, accent: KPI.reports.accent }, lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`, rest: 'to review', tag: 'Reports', to: '/reports' })
+    desk.push({ icon: File01Icon, lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`, rest: 'to review', to: '/reports' })
 
   // ── Round donut data (per-programme committed + an "unallocated" remainder) ──
   const donutData: DonutSlice[] = round
@@ -338,6 +345,7 @@ function Dashboard() {
           subColor={C.success}
           icon={Files01Icon}
           label="Applications"
+          meta={round?.roundName}
           to="/applications"
           search={{ roundId: undefined }}
           meter={<BarMeter segments={toSegments(appsCats)} color={KPI.apps.accent} />}
@@ -398,7 +406,7 @@ function Dashboard() {
               You’re all caught up — nothing needs action right now.
             </div>
           ) : (
-            <div className="-mx-2 space-y-0.5">
+            <div className="-mx-2 -mt-2">
               {desk.map((row, i) => (
                 <DeskRow key={i} {...row} />
               ))}
@@ -451,18 +459,19 @@ function Dashboard() {
                   {round.programmes.map((p, i) => (
                     <div key={p.name}>
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-[13px] font-medium" style={{ color: C.body }}>
+                        <span className="truncate text-xs font-medium" style={{ color: C.ink }}>
                           {p.name}
                         </span>
-                        <span className="shrink-0 text-xs" style={{ color: C.sub }}>
+                        <span className="shrink-0 text-xs font-medium" style={{ color: C.sub }}>
                           {fmtCompact(p.committed)} / {fmtCompact(p.budget)}
                         </span>
                       </div>
+                      {/* Figma 126:34735 — the track is the programme's own hue at 20%, not grey. */}
                       <ProgressBar
-                        className="mt-1.5"
+                        className="mt-2"
                         value={p.budget > 0 ? p.committed / p.budget : 0}
                         color={PROG_COLORS[i % PROG_COLORS.length]!}
-                        track={C.wash}
+                        track={withAlpha(PROG_COLORS[i % PROG_COLORS.length]!, 0.2)}
                         delay={i * 90}
                       />
                     </div>
@@ -503,20 +512,15 @@ function Dashboard() {
                   <>
                     <span
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                      style={{ backgroundColor: meta.tint.bg }}
+                      style={{ backgroundColor: DESK_TILE }}
                     >
-                      <HugeiconsIcon icon={meta.icon} className="h-4 w-4" strokeWidth={1.7} style={{ color: meta.tint.accent }} />
+                      <HugeiconsIcon icon={meta.icon} className="h-5 w-5" strokeWidth={1.5} style={{ color: meta.accent }} />
                     </span>
-                    <span className="min-w-0 flex-1 text-[13px] leading-snug" style={{ color: C.body }}>
-                      <span className="font-semibold" style={{ color: C.ink }}>
-                        {ev.actorName ?? 'Someone'}
-                      </span>{' '}
-                      {meta.verb}{' '}
-                      <span className="font-medium" style={{ color: C.ink }}>
-                        {org}
-                      </span>
+                    <span className="min-w-0 flex-1 text-xs font-medium leading-snug" style={{ color: C.sub }}>
+                      <span style={{ color: C.ink }}>{ev.actorName ?? 'Someone'}</span> {meta.verb}{' '}
+                      <span style={{ color: C.ink }}>{org}</span>
                     </span>
-                    <span className="shrink-0 text-[11px]" style={{ color: C.faint }}>
+                    <span className="shrink-0 text-xs font-medium" style={{ color: C.sub }}>
                       {relativeTime(ev.at)}
                     </span>
                   </>
@@ -585,8 +589,9 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
           {fmtCompact(headline)}
         </span>
         {giving.quarter > 0 && (
-          <span className="text-sm font-medium" style={{ color: C.success }}>
-            +{fmtCompact(giving.quarter)} this quarter
+          <span className="flex items-center gap-1 text-sm font-medium">
+            <span style={{ color: C.success }}>+{fmtCompact(giving.quarter)}</span>
+            <span style={{ color: C.sub }}>this quarter</span>
           </span>
         )}
       </div>

@@ -177,6 +177,33 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
 })
 
+// Profile photos live in their own table, deliberately NOT as a column on `users`:
+// `getAuthUser` selects the user row on every authenticated server fn, and dragging
+// image bytes through that on every call — or inlining them into `getMe`'s payload —
+// would be wasteful and uncacheable. `users.image` instead holds the URL of
+// `/api/avatar/$userId`, which reads this table and is cached by the browser.
+//
+// Bytes are stored base64-encoded in a text column rather than as `bytea`: the
+// neon-http driver returns binary columns as hex strings, and base64 keeps the
+// round-trip explicit at a cost (~33% inflation on a ~15KB image) that does not matter
+// at this scale.
+//
+// R2 was the other candidate and was rejected for now: `pnpm dev` is Vite, not Wrangler,
+// so Worker bindings are absent there — an upload would only work under `pnpm preview`.
+// Nothing outside `/api/avatar/$userId` knows where the bytes live, so moving to R2
+// later is a contained change if these rows ever become a problem.
+export const userAvatars = pgTable('user_avatars', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  mimeType: text('mime_type').notNull(),
+  dataBase64: text('data_base64').notNull(),
+  // Content hash, used as the `?v=` cache-buster on the avatar URL so a new upload
+  // is picked up immediately despite the immutable Cache-Control on the old one.
+  hash: text('hash').notNull(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 export const rounds = pgTable('rounds', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id')

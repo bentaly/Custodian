@@ -14,6 +14,7 @@ import {
 import { authClient } from '../lib/auth-client'
 import { getRoundStatus } from '../lib/roundStatus'
 import { globalSearch, type SearchResult, type SearchResultType } from '../server/fns/search'
+import { Avatar, initials } from './ui'
 
 type HeaderRound = {
   id: string
@@ -24,16 +25,8 @@ type HeaderRound = {
 
 type HeaderUser = {
   name: string
+  image?: string | null
   clientName: string | null
-}
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('')
 }
 
 function daysUntil(date: Date | string) {
@@ -324,7 +317,6 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
             {initials(orgName)}
           </span>
           <span className="text-[14px] font-medium text-[#141C24]">{orgName}</span>
-          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={1.5} className="h-4 w-4 text-[#637083]" />
         </div>
 
         <GlobalSearch isMac={isMac} />
@@ -344,9 +336,7 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
             onClick={() => setMenuOpen((o) => !o)}
             className="flex items-center gap-1 rounded-[20px] border border-[#E4E7EC] bg-white py-1 pl-1 pr-2 hover:bg-[#F7F8FA]"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DFF3EA] text-xs font-semibold text-[#1F7A5C]">
-              {initials(user.name)}
-            </span>
+            <Avatar name={user.name} image={user.image} />
             <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={1.5} className="h-4 w-4 text-[#637083]" />
           </button>
         {menuOpen && (

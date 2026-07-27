@@ -3,6 +3,7 @@ export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from '.
 export { Input, Textarea, Select, Label } from './fields'
 export { Card, EmptyState } from './Card'
 export { Badge } from './Badge'
+export { Avatar, initials } from './Avatar'
 export { DataTable, StatusPill, type TableColumn, type TableSort, type TableSelection, type SortDir } from './DataTable'
 export { MiniKpi, KPI_TINTS, type KpiTint } from './MiniKpi'
 export { Tabs, type TabItem } from './Tabs'

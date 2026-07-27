@@ -29,8 +29,13 @@ export function GivingArea({ data, height = 210 }: { data: GivingPoint[]; height
             <stop offset="0%" stopColor={chart.purple} stopOpacity={0.28} />
             <stop offset="100%" stopColor={chart.purple} stopOpacity={0} />
           </linearGradient>
+          {/* Figma backdrop: 3px dots on a 6px grid, Gray/100 — not ruled lines. */}
+          <pattern id="givingDots" width="6" height="6" patternUnits="userSpaceOnUse">
+            <circle cx="1.5" cy="1.5" r="1.5" fill={chart.dot} />
+          </pattern>
         </defs>
-        <CartesianGrid vertical={false} stroke={chart.grid} strokeDasharray="2 3" />
+        {/* `fill` paints the plot-area rect; both rule sets stay off so only dots show. */}
+        <CartesianGrid horizontal={false} vertical={false} fill="url(#givingDots)" />
         <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: chart.faint }} dy={4} />
         <YAxis
           tickFormatter={axisMoney}

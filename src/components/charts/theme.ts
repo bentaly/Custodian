@@ -7,6 +7,8 @@ export const chart = {
   sub: '#637083',
   faint: '#98A2B3',
   grid: '#EAECF0',
+  /** Gray/100 — the dot-grid plot backdrop. */
+  dot: '#F2F4F7',
   purple: '#8B7FF0',
   success: '#31A650',
   danger: '#FF4242',

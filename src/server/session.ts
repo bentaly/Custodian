@@ -23,6 +23,8 @@ export async function getAuthUser() {
         // than merely typed. `claimPendingInvite` gates tenant attachment on this.
         emailVerified: users.emailVerified,
         name: users.name,
+        // Avatar. Populated by Google OAuth on sign-up; falls back to initials in the UI.
+        image: users.image,
         role: users.role,
         clientId: users.clientId,
         clientName: clients.name,

@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { useRef, useState } from 'react'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
 import { listClients } from '../../server/fns/platform'
-import { Button, Input } from '../../components/ui'
+import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
+import { AvatarError, prepareAvatar } from '../../lib/avatar'
+import { Avatar, Button, Input } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/profile')({
   // Impersonation targets are only needed for platform superadmins; everyone
@@ -24,6 +26,7 @@ const ROLE_LABELS: Record<string, string> = {
 function Profile() {
   const { user } = Route.useRouteContext()
   const { clients } = Route.useLoaderData()
+  const router = useRouter()
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -43,6 +46,47 @@ function Profile() {
     // Deliberately no reset of the busy state — the button stays disabled until the
     // navigation lands.
     window.location.href = '/dashboard'
+  }
+
+  // ── Profile photo ────────────────────────────────────────────────────────────
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [photo, setPhoto] = useState(user.image ?? null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+
+  async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    // Clear the input so re-picking the same file still fires a change event.
+    e.target.value = ''
+    if (!file) return
+
+    setPhotoBusy(true)
+    setPhotoError('')
+    try {
+      const prepared = await prepareAvatar(file)
+      const { image } = await updateProfilePhoto({ data: prepared })
+      setPhoto(image)
+      // The header reads `user.image` from route context, which the router must refetch.
+      await router.invalidate()
+    } catch (err) {
+      setPhotoError(err instanceof AvatarError ? err.message : 'Could not upload that photo.')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
+  async function handlePhotoRemove() {
+    setPhotoBusy(true)
+    setPhotoError('')
+    try {
+      await removeProfilePhoto()
+      setPhoto(null)
+      await router.invalidate()
+    } catch {
+      setPhotoError('Could not remove that photo.')
+    } finally {
+      setPhotoBusy(false)
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -68,6 +112,43 @@ function Profile() {
       <p className="mt-1 text-sm text-gray-500">Your account details</p>
 
       <div className="mt-8 space-y-6">
+        <div className="flex items-center gap-4">
+          <Avatar name={user.name} image={photo} size={64} />
+          <div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => fileInput.current?.click()}
+                disabled={photoBusy}
+              >
+                {photoBusy ? 'Uploading…' : photo ? 'Change photo' : 'Upload photo'}
+              </Button>
+              {photo && (
+                <button
+                  type="button"
+                  onClick={handlePhotoRemove}
+                  disabled={photoBusy}
+                  className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500">
+              JPEG, PNG or WebP. Square works best — we&rsquo;ll crop to the centre.
+            </p>
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoPick}
+            className="hidden"
+          />
+        </div>
+        {photoError && <p className="text-sm text-red-500">{photoError}</p>}
+
         <form onSubmit={handleSave} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Name</label>

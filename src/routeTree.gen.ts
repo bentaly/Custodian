@@ -48,6 +48,7 @@ import { Route as ApiAdminMappingsRouteImport } from './routes/api/admin.mapping
 import { Route as ApiAdminReportCanonicalFieldsRouteImport } from './routes/api/admin.report-canonical-fields'
 import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.report-ingests'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as ApiAvatarUserIdRouteImport } from './routes/api/avatar.$userId'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
@@ -263,6 +264,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAvatarUserIdRoute = ApiAvatarUserIdRouteImport.update({
+  id: '/api/avatar/$userId',
+  path: '/api/avatar/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
   id: '/api/round/$roundId',
   path: '/api/round/$roundId',
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -369,6 +376,7 @@ export interface FileRoutesByTo {
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/awards': typeof AuthenticatedAwardsIndexRoute
@@ -417,6 +425,7 @@ export interface FileRoutesById {
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -465,6 +474,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-canonical-fields'
     | '/api/admin/report-ingests'
     | '/api/auth/$'
+    | '/api/avatar/$userId'
     | '/api/round/$roundId'
     | '/applications/'
     | '/awards/'
@@ -505,6 +515,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-canonical-fields'
     | '/api/admin/report-ingests'
     | '/api/auth/$'
+    | '/api/avatar/$userId'
     | '/api/round/$roundId'
     | '/applications'
     | '/awards'
@@ -552,6 +563,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-canonical-fields'
     | '/api/admin/report-ingests'
     | '/api/auth/$'
+    | '/api/avatar/$userId'
     | '/api/round/$roundId'
     | '/_authenticated/applications/'
     | '/_authenticated/awards/'
@@ -583,6 +595,7 @@ export interface RootRouteChildren {
   ApiAdminReportCanonicalFieldsRoute: typeof ApiAdminReportCanonicalFieldsRoute
   ApiAdminReportIngestsRoute: typeof ApiAdminReportIngestsRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiAvatarUserIdRoute: typeof ApiAvatarUserIdRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
 }
 
@@ -861,6 +874,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/avatar/$userId': {
+      id: '/api/avatar/$userId'
+      path: '/api/avatar/$userId'
+      fullPath: '/api/avatar/$userId'
+      preLoaderRoute: typeof ApiAvatarUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/round/$roundId': {
       id: '/api/round/$roundId'
       path: '/api/round/$roundId'
@@ -1102,6 +1122,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminReportCanonicalFieldsRoute: ApiAdminReportCanonicalFieldsRoute,
   ApiAdminReportIngestsRoute: ApiAdminReportIngestsRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiAvatarUserIdRoute: ApiAvatarUserIdRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
 }
 export const routeTree = rootRouteImport
