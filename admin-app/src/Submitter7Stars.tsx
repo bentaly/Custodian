@@ -116,7 +116,7 @@ const SECTIONS: SevenStarsSection[] = [
       { key: 'How much funding are you requesting from the7stars foundation?', type: 'number', expect: 'review — required amountRequested, not in common dictionary' },
       { key: 'Do you have any other funding secured to date?', type: 'select', options: ['Yes', 'No'] },
       { key: 'If you have secured other funding, who was it from and for how much?', type: 'text', optional: true },
-      { key: 'Please use the below to outline your budget for the funding you are requesting:', type: 'textarea' },
+      { key: 'Please use the below to outline-solid your budget for the funding you are requesting:', type: 'textarea' },
       { key: 'Any additional notes', type: 'textarea', optional: true },
       { key: 'Budget total', type: 'number' },
     ],
@@ -182,7 +182,7 @@ const PREFILL_DECENT: Record<string, string> = {
   'How much funding are you requesting from the7stars foundation?': '10000',
   'Do you have any other funding secured to date?': 'Yes',
   'If you have secured other funding, who was it from and for how much?': 'BBC Children in Need — £24,000 over two years towards youth worker salary costs',
-  'Please use the below to outline your budget for the funding you are requesting:':
+  'Please use the below to outline-solid your budget for the funding you are requesting:':
     'Peer mentor training weekends (two per year) — £3,200\nYouth worker sessional hours (mentor supervision) — £4,400\nMentor recognition and expenses — £1,100\nMaterials, room hire and refreshments — £800\nContingency — £500',
   'Any additional notes': 'We are happy to share our safeguarding policy and pilot feedback summaries on request.',
   'Budget total': '10000',
@@ -245,7 +245,7 @@ const PREFILL_WEAK: Record<string, string> = {
   'How much funding are you requesting from the7stars foundation?': '10000',
   'Do you have any other funding secured to date?': 'No',
   'If you have secured other funding, who was it from and for how much?': '',
-  'Please use the below to outline your budget for the funding you are requesting:':
+  'Please use the below to outline-solid your budget for the funding you are requesting:':
     'Stage and PA hire — £3,000\nFood and refreshments — £2,500\nEntertainment — £2,500\nMiscellaneous — £2,000',
   'Any additional notes': '',
   'Budget total': '10000',
@@ -308,7 +308,7 @@ const PREFILL_STRONG: Record<string, string> = {
   'Do you have any other funding secured to date?': 'Yes',
   'If you have secured other funding, who was it from and for how much?':
     'The Robertson Trust — £30,000 over three years (core costs); National Lottery Young Start — £48,000 (delivery staff)',
-  'Please use the below to outline your budget for the funding you are requesting:':
+  'Please use the below to outline-solid your budget for the funding you are requesting:':
     'Year 1: Ambassador training programme, 24 young people — £2,600\nYear 1: Sessional youth worker support and group supervision — £1,900\nYear 1: Materials, travel and accessible venues — £500\nYear 2: Ambassador training programme, second cohort — £2,600\nYear 2: Sessional youth worker support and group supervision — £1,900\nYear 2: Evaluation and learning-share event with partner schools — £500',
   'Any additional notes':
     'The budget is £5,000 per year, matching the grant structure. Our 2024 independent evaluation and safeguarding policy are available on request.',
@@ -646,7 +646,7 @@ function Field({
         {required && <span className="ml-1 text-red-500">*</span>}
       </label>
       {hint && <p className="mb-1 text-xs text-amber-600">{hint}</p>}
-      <div className="[&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-gray-300 [&_input]:px-3 [&_input]:py-2 [&_input]:text-sm [&_input]:outline-none [&_input]:focus:border-indigo-500 [&_input]:focus:ring-1 [&_input]:focus:ring-indigo-500 [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-gray-300 [&_select]:px-3 [&_select]:py-2 [&_select]:text-sm [&_select]:outline-none [&_select]:focus:border-indigo-500 [&_select]:focus:ring-1 [&_select]:focus:ring-indigo-500 [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:px-3 [&_textarea]:py-2 [&_textarea]:text-sm [&_textarea]:outline-none [&_textarea]:focus:border-indigo-500 [&_textarea]:focus:ring-1 [&_textarea]:focus:ring-indigo-500">
+      <div className="[&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-gray-300 [&_input]:px-3 [&_input]:py-2 [&_input]:text-sm [&_input]:outline-hidden focus:[&_input]:border-indigo-500 focus:[&_input]:ring-1 focus:[&_input]:ring-indigo-500 [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-gray-300 [&_select]:px-3 [&_select]:py-2 [&_select]:text-sm [&_select]:outline-hidden focus:[&_select]:border-indigo-500 focus:[&_select]:ring-1 focus:[&_select]:ring-indigo-500 [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:px-3 [&_textarea]:py-2 [&_textarea]:text-sm [&_textarea]:outline-hidden focus:[&_textarea]:border-indigo-500 focus:[&_textarea]:ring-1 focus:[&_textarea]:ring-indigo-500">
         {children}
       </div>
     </div>
@@ -656,7 +656,7 @@ function Field({
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200">{children}</div>
+      <div className="rounded-xl bg-white p-8 shadow-xs ring-1 ring-gray-200">{children}</div>
     </div>
   )
 }

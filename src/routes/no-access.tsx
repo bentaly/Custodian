@@ -35,7 +35,7 @@ function NoAccessPage() {
       </p>
       <button
         onClick={handleSignOut}
-        className="mt-7 w-full rounded-xl border border-hairline bg-white px-4 py-3 text-[15px] font-medium text-ink-soft transition-colors hover:bg-canvas focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-moss-100"
+        className="mt-7 w-full rounded-xl border border-hairline bg-white px-4 py-3 text-[15px] font-medium text-ink-soft transition-colors hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-moss-100"
       >
         Sign out
       </button>

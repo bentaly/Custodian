@@ -67,7 +67,7 @@ export function MiniKpi({
             grid — the gradient is the fill, the dots are the mask. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 -translate-y-[17%]"
+          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 translate-y-[-17%]"
           style={{
             backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(tint.accent, 0.5)} 0%, ${withAlpha(tint.accent, 0)} 100%)`,
             WebkitMaskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',

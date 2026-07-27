@@ -43,7 +43,7 @@ export function RichTextEditor({
     content: defaultValue,
     editorProps: {
       attributes: {
-        class: `px-3 py-2 text-sm text-gray-900 focus:outline-none prose prose-sm max-w-none`,
+        class: `px-3 py-2 text-sm text-gray-900 focus:outline-hidden prose prose-sm max-w-none`,
         style: `min-height: ${minHeight}`,
       },
     },
@@ -59,7 +59,7 @@ export function RichTextEditor({
   if (!editor) return null
 
   return (
-    <div className="rounded border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400">
+    <div className="rounded-sm border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400">
       <div className="flex flex-wrap gap-0.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}

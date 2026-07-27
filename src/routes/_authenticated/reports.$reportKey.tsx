@@ -93,7 +93,7 @@ function ReportDetail() {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`rounded border px-3 py-1.5 text-sm font-medium ${STATUS_COLORS[report.status]}`}
+            className={`rounded-sm border px-3 py-1.5 text-sm font-medium ${STATUS_COLORS[report.status]}`}
             title={isReviewed && s?.reviewedBy ? `Reviewed by ${s.reviewedBy}` : undefined}
           >
             {report.status === 'received'
@@ -135,7 +135,7 @@ function ReportDetail() {
           <Link
             to="/applications/$applicationId"
             params={{ applicationId: report.applicationId }}
-            className="rounded border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-sm border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
           >
             View application
           </Link>

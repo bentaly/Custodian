@@ -33,7 +33,7 @@ const GRANT_STATUS = {
 }
 
 const inputClass =
-  'rounded border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400'
+  'rounded-sm border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400'
 
 function FinanceGrantDetail() {
   const grant = Route.useLoaderData()
@@ -286,13 +286,13 @@ function PaymentsCard({ grant }: { grant: Grant }) {
                         <button
                           onClick={() => togglePaid(inst.id, !inst.paidDate)}
                           disabled={busyId === inst.id}
-                          className="rounded border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                         >
                           {inst.paidDate ? 'Undo' : 'Mark paid'}
                         </button>
                         <button
                           onClick={() => beginEdit(inst)}
-                          className="rounded border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
                         >
                           Edit
                         </button>

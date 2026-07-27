@@ -780,7 +780,7 @@ function ApplicationsList() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search organisation or ID…"
-                className="w-52 bg-transparent font-display text-[14px] outline-none placeholder:text-[#637083]"
+                className="w-52 bg-transparent font-display text-[14px] outline-hidden placeholder:text-[#637083]"
                 style={{ color: C.ink }}
               />
             </div>

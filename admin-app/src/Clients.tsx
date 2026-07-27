@@ -71,13 +71,13 @@ export function Clients() {
             placeholder="Foundation name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-400"
             required
           />
           <select
             value={type}
             onChange={(e) => setType(e.target.value as typeof type)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-400"
           >
             <option value="charitable_foundation">Charitable foundation</option>
             <option value="family_office">Family office</option>
@@ -87,20 +87,20 @@ export function Clients() {
             placeholder="First admin's email"
             value={adminEmail}
             onChange={(e) => setAdminEmail(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 sm:col-span-2"
+            className="rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-400 sm:col-span-2"
             required
           />
           <button
             type="submit"
             disabled={creating}
-            className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 sm:col-span-2"
+            className="rounded-sm bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 sm:col-span-2"
           >
             {creating ? 'Creating…' : 'Create foundation & invite admin'}
           </button>
         </form>
 
         {lastInvite && (
-          <div className="mt-4 rounded border border-green-200 bg-green-50 p-3">
+          <div className="mt-4 rounded-sm border border-green-200 bg-green-50 p-3">
             <p className="text-xs font-medium text-green-800">
               {lastInvite.name} created. Invite link (also emailed):
             </p>
@@ -109,12 +109,12 @@ export function Clients() {
                 readOnly
                 value={lastInvite.url}
                 onFocus={(e) => e.currentTarget.select()}
-                className="flex-1 rounded border border-green-300 bg-white px-2 py-1 text-xs text-gray-700"
+                className="flex-1 rounded-sm border border-green-300 bg-white px-2 py-1 text-xs text-gray-700"
               />
               <button
                 type="button"
                 onClick={() => navigator.clipboard?.writeText(lastInvite.url)}
-                className="rounded border border-green-300 px-2 py-1 text-xs text-green-800 hover:bg-green-100"
+                className="rounded-sm border border-green-300 px-2 py-1 text-xs text-green-800 hover:bg-green-100"
               >
                 Copy
               </button>

@@ -173,7 +173,7 @@ function ProgrammeDetail() {
                 <select
                   value={impactUnit}
                   onChange={(e) => setImpactUnit(e.target.value)}
-                  className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  className="rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                 >
                   {IMPACT_UNITS.map((u) => (
                     <option key={u.key} value={u.key}>
@@ -187,7 +187,7 @@ function ProgrammeDetail() {
                     value={impactUnitCustom}
                     onChange={(e) => setImpactUnitCustom(e.target.value)}
                     placeholder="e.g. hectares of peatland restored"
-                    className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className="flex-1 rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                     required
                   />
                 ) : (
@@ -265,7 +265,7 @@ function ProgrammeDetail() {
             {canManage && (
               <button
                 onClick={() => setEditing(true)}
-                className="shrink-0 rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                className="shrink-0 rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
                 Edit
               </button>
@@ -295,7 +295,7 @@ function ProgrammeDetail() {
               <select
                 value={selectedRoundId}
                 onChange={(e) => setSelectedRoundId(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                 required
               >
                 <option value="">Choose a round…</option>
@@ -318,7 +318,7 @@ function ProgrammeDetail() {
                     min="0"
                     step="1"
                     placeholder="0"
-                    className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                   />
                 </div>
               </div>
@@ -333,7 +333,7 @@ function ProgrammeDetail() {
                     min="0"
                     step="1"
                     placeholder="0"
-                    className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                   />
                 </div>
               </div>
@@ -348,7 +348,7 @@ function ProgrammeDetail() {
                     max="20"
                     step="1"
                     placeholder="1"
-                    className="w-full rounded border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className="w-full rounded-sm border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                   />
                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
                 </div>

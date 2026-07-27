@@ -88,7 +88,7 @@ function MissionStatementEditor({ initialContent }: { initialContent: string }) 
     editorProps: {
       attributes: {
         class:
-          'min-h-[160px] px-3 py-2 text-sm text-gray-900 focus:outline-none prose prose-sm max-w-none',
+          'min-h-[160px] px-3 py-2 text-sm text-gray-900 focus:outline-hidden prose prose-sm max-w-none',
       },
     },
   })
@@ -115,7 +115,7 @@ function MissionStatementEditor({ initialContent }: { initialContent: string }) 
 
   return (
     <div>
-      <div className="rounded border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400">
+      <div className="rounded-sm border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400">
         <div className="flex flex-wrap gap-0.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
@@ -334,7 +334,7 @@ function Organisation() {
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as InviteRole)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                 >
                   {INVITABLE_ROLES.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -482,8 +482,8 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
       <h2 className="text-sm font-medium text-gray-700 mb-1">API keys</h2>
       <p className="mb-3 text-sm text-gray-500">
         Keys authenticate your intake integration when it posts applications to{' '}
-        <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">/api/apply</code>. Send the key in
-        the <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">Authorization: Bearer …</code>{' '}
+        <code className="rounded-sm bg-gray-100 px-1 py-0.5 text-xs">/api/apply</code>. Send the key in
+        the <code className="rounded-sm bg-gray-100 px-1 py-0.5 text-xs">Authorization: Bearer …</code>{' '}
         header from your server — never expose it in browser code.
       </p>
 
@@ -493,13 +493,13 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
             Key created — copy it now. You won't be able to see it again.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded border border-green-300 bg-white px-3 py-2 text-xs text-gray-900">
+            <code className="flex-1 overflow-x-auto rounded-sm border border-green-300 bg-white px-3 py-2 text-xs text-gray-900">
               {newKey}
             </code>
             <button
               type="button"
               onClick={copyKey}
-              className="shrink-0 rounded bg-green-700 px-3 py-2 text-xs font-medium text-white hover:bg-green-800"
+              className="shrink-0 rounded-sm bg-green-700 px-3 py-2 text-xs font-medium text-white hover:bg-green-800"
             >
               {copied ? 'Copied' : 'Copy'}
             </button>

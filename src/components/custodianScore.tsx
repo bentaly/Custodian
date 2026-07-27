@@ -103,9 +103,9 @@ export function CustodianScorePanel({
                       <span className="text-gray-600">{def.label}</span>
                       <span className={`font-semibold ${cls.text}`}>{c.score}/10</span>
                     </div>
-                    <div className="mt-0.5 h-1.5 overflow-hidden rounded bg-gray-100">
+                    <div className="mt-0.5 h-1.5 overflow-hidden rounded-sm bg-gray-100">
                       <div
-                        className={`h-full rounded ${cls.bar}`}
+                        className={`h-full rounded-sm ${cls.bar}`}
                         style={{ width: `${c.score * 10}%` }}
                       />
                     </div>
@@ -122,7 +122,7 @@ export function CustodianScorePanel({
                 AI assessment summary
               </h3>
               <div className="rounded-md bg-gray-50 p-3">
-                <span className="mb-1.5 inline-block rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+                <span className="mb-1.5 inline-block rounded-sm bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
                   AI analysis
                 </span>
                 <p className="text-sm leading-relaxed text-gray-700">{detail.summary}</p>
@@ -138,7 +138,7 @@ export function CustodianScorePanel({
                   {detail.flags.map((flag, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 rounded bg-amber-50 px-2.5 py-1.5 text-sm text-amber-800"
+                      className="flex items-start gap-2 rounded-sm bg-amber-50 px-2.5 py-1.5 text-sm text-amber-800"
                     >
                       <span className="mt-0.5 shrink-0">⚠</span>
                       <span>{flag}</span>

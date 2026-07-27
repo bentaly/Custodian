@@ -17,7 +17,7 @@ import {
 // #E4E7EC = Gray/200, #141C24 = Gray/900 — the real design variables, so matching them
 // exactly now makes the eventual token swap a clean find-and-replace.
 const itemClass =
-  'flex items-center gap-3 rounded-xl p-3 text-[14px] font-medium text-[#637083] hover:bg-[#F0F3F1] hover:text-[#3D4852] [&.active]:bg-[#DFF3EA] [&.active]:text-[#1F7A5C]'
+  'flex items-center gap-3 rounded-xl p-3 text-[14px] font-medium text-[#637083] hover:bg-moss-50 hover:text-ink-soft [&.active]:bg-[#DFF3EA] [&.active]:text-[#1F7A5C]'
 
 // Exact logo mark from Figma (node 126:31799) — the chip background is baked into the SVG.
 function LogoMark() {

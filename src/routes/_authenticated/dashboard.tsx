@@ -160,7 +160,7 @@ function KpiCard({
     <Link
       to={to}
       search={search}
-      className="flex flex-col rounded-[20px] border bg-white p-1 transition-shadow hover:shadow-sm"
+      className="flex flex-col rounded-[20px] border bg-white p-1 transition-shadow hover:shadow-xs"
       style={{ borderColor: C.line }}
     >
       {/* Tinted inner panel (Figma 112:134) — inset 4px, holds the number/meter/chips. */}
@@ -169,7 +169,7 @@ function KpiCard({
             grid — the gradient is the fill, the dots are the mask. Top-right, offset up. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 -translate-y-[17%]"
+          className="pointer-events-none absolute right-0 top-0 z-0 aspect-square w-1/2 translate-y-[-17%]"
           style={{
             backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(tint.accent, 0.5)} 0%, ${withAlpha(tint.accent, 0)} 100%)`,
             WebkitMaskImage: 'radial-gradient(circle, #000 1.1px, transparent 1.2px)',

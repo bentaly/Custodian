@@ -50,7 +50,7 @@ function OrgInitials({ name, score }: { name: string; score: number | null }) {
   return (
     <div
       style={{ background: bg, color }}
-      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
     >
       {initials}
     </div>
@@ -407,7 +407,7 @@ function ShortlistPage() {
             <select
               value={roundId ?? ''}
               onChange={handleRoundChange}
-              className="rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-gray-400"
             >
               <option value="">All rounds</option>
               {visibleRounds.map((r) => (
@@ -431,7 +431,7 @@ function ShortlistPage() {
           <Link
             to="/applications"
             search={{ roundId: undefined }}
-            className="mt-4 inline-block rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            className="mt-4 inline-block rounded-sm border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
           >
             Go to Applications →
           </Link>

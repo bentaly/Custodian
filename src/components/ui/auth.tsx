@@ -32,7 +32,7 @@ export function AuthInput({
           'w-full rounded-xl border border-hairline bg-canvas px-3.5 py-3 text-[15px] text-ink',
           'placeholder:text-ink-muted/60',
           'transition-colors duration-150',
-          'focus:border-moss-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-moss-100',
+          'focus:border-moss-600 focus:bg-white focus:outline-hidden focus:ring-4 focus:ring-moss-100',
           className,
         )}
         {...props}
@@ -56,7 +56,7 @@ export function AuthButton({
       className={cn(
         'w-full rounded-xl bg-ink px-4 py-3 text-[15px] font-medium text-white',
         'transition-colors duration-150 hover:bg-ink-soft',
-        'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-moss-100',
+        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-moss-100',
         'disabled:cursor-not-allowed disabled:opacity-40',
         className,
       )}
@@ -85,7 +85,7 @@ export function GoogleButton({
         'flex w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-white px-4 py-3',
         'text-[15px] font-medium text-ink-soft',
         'transition-colors duration-150 hover:bg-canvas',
-        'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-moss-100',
+        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-moss-100',
         'disabled:opacity-50',
       )}
     >
@@ -131,7 +131,7 @@ export function Notice({ tone, children }: { tone: 'error' | 'success'; children
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
         'mt-5 rounded-xl px-3.5 py-3 text-[14px] leading-relaxed',
-        tone === 'error' ? 'bg-[#FDF0F4] text-[#A3283F]' : 'bg-moss-100 text-moss-700',
+        tone === 'error' ? 'bg-tile-blush text-[#A3283F]' : 'bg-moss-100 text-moss-700',
       )}
     >
       {children}

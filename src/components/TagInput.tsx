@@ -75,7 +75,7 @@ export function TagInput({
   return (
     <div className="relative">
       <div
-        className="flex min-h-[40px] cursor-text flex-wrap gap-1.5 rounded border border-gray-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-gray-400"
+        className="flex min-h-[40px] cursor-text flex-wrap gap-1.5 rounded-sm border border-gray-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-gray-400"
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
@@ -120,7 +120,7 @@ export function TagInput({
             }, 150)
           }
           onKeyDown={handleKeyDown}
-          className="min-w-24 flex-1 border-none bg-transparent text-sm outline-none"
+          className="min-w-24 flex-1 border-none bg-transparent text-sm outline-hidden"
           placeholder={value.length === 0 ? placeholder : ''}
         />
       </div>
@@ -129,7 +129,7 @@ export function TagInput({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-10 mt-1 w-full rounded border border-gray-200 bg-white shadow-sm"
+          className="absolute z-10 mt-1 w-full rounded-sm border border-gray-200 bg-white shadow-xs"
         >
           {options.map((opt, i) => (
             <li

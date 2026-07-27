@@ -60,7 +60,7 @@ function ImpersonationBanner() {
       </span>
       <button
         onClick={handleStop}
-        className="rounded bg-amber-600 px-2 py-0.5 text-xs font-medium hover:bg-amber-700"
+        className="rounded-sm bg-amber-600 px-2 py-0.5 text-xs font-medium hover:bg-amber-700"
       >
         Stop impersonating
       </button>

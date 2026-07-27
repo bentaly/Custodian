@@ -874,7 +874,7 @@ function RoundGrantCard({ grant: g, tint }: { grant: InsightsGrant; tint: { bg: 
     <Link
       to="/applications/$applicationId"
       params={{ applicationId: g.applicationId }}
-      className="block rounded-2xl p-4 transition-shadow hover:shadow-sm"
+      className="block rounded-2xl p-4 transition-shadow hover:shadow-xs"
       style={{ backgroundColor: tint.bg }}
     >
       <div className="flex items-start justify-between gap-2">

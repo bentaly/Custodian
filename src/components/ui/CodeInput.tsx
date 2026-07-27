@@ -44,7 +44,7 @@ export function CodeInput({
         maxLength={length}
         autoFocus={autoFocus}
         disabled={disabled}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer bg-transparent text-transparent caret-transparent outline-none"
+        className="absolute inset-0 z-10 h-full w-full cursor-pointer bg-transparent text-transparent caret-transparent outline-hidden"
       />
       <div className="flex gap-2" aria-hidden>
         {Array.from({ length }).map((_, i) => {

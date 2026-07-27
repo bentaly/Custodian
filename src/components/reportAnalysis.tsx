@@ -59,8 +59,8 @@ function AlignmentBlock({
         <span className="text-gray-600">{title}</span>
         <span className={`font-semibold ${cls.text}`}>{score}/10</span>
       </div>
-      <div className="mt-0.5 h-1.5 overflow-hidden rounded bg-gray-100">
-        <div className={`h-full rounded ${cls.bar}`} style={{ width: `${score * 10}%` }} />
+      <div className="mt-0.5 h-1.5 overflow-hidden rounded-sm bg-gray-100">
+        <div className={`h-full rounded-sm ${cls.bar}`} style={{ width: `${score * 10}%` }} />
       </div>
       {narrative && <p className="mt-1.5 text-xs leading-relaxed text-gray-600">{narrative}</p>}
       {children}

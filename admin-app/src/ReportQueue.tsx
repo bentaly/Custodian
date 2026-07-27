@@ -287,7 +287,7 @@ function ReportCard({
                   <div className="col-span-2 flex items-center gap-1 text-xs">
                     {proposal?.sourceKey && (
                       <span
-                        className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-600"
+                        className="rounded-sm bg-blue-50 px-1.5 py-0.5 text-blue-600"
                         title={`AI suggested “${proposal.sourceKey}”`}
                       >
                         AI {Math.round(proposal.confidence * 100)}%
@@ -354,7 +354,7 @@ function ReportCard({
                           {g.totalMilestones - g.openMilestones}/{g.totalMilestones}
                         </span>
                         {cand && (
-                          <span className="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+                          <span className="ml-1 rounded-sm bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
                             {cand.reasons.join(' · ')}
                           </span>
                         )}

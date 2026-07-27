@@ -318,7 +318,7 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
         onClick={mode === 'password' ? undefined : onChange}
         className={
           mode === 'password'
-            ? `${base} bg-white text-ink shadow-sm`
+            ? `${base} bg-white text-ink shadow-xs`
             : `${base} text-ink-muted hover:text-ink-soft`
         }
       >
@@ -331,7 +331,7 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
         onClick={mode === 'code' ? undefined : onChange}
         className={
           mode === 'code'
-            ? `${base} bg-white text-ink shadow-sm`
+            ? `${base} bg-white text-ink shadow-xs`
             : `${base} text-ink-muted hover:text-ink-soft`
         }
       >

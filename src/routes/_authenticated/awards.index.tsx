@@ -266,7 +266,7 @@ function AwardsPage() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search organisation…"
-          className="w-56 rounded border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+          className="w-56 rounded-sm border border-gray-200 px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
         />
 
         {programmes.length > 0 && (

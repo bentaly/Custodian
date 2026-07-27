@@ -12,14 +12,14 @@ export type ButtonVariant =
 export type ButtonSize = 'xs' | 'sm' | 'md'
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'rounded bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50',
+  primary: 'rounded-sm bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50',
   secondary:
-    'rounded border border-gray-200 bg-white font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50',
-  ghost: 'rounded text-gray-500 hover:bg-gray-50 disabled:opacity-50',
+    'rounded-sm border border-gray-200 bg-white font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50',
+  ghost: 'rounded-sm text-gray-500 hover:bg-gray-50 disabled:opacity-50',
   link: 'font-medium text-emerald-700 hover:text-emerald-800 disabled:opacity-50',
-  danger: 'rounded bg-red-600 font-medium text-white hover:bg-red-700 disabled:opacity-50',
+  danger: 'rounded-sm bg-red-600 font-medium text-white hover:bg-red-700 disabled:opacity-50',
   dangerOutline:
-    'rounded border border-gray-200 font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50',
+    'rounded-sm border border-gray-200 font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50',
   icon: 'rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50',
 }
 

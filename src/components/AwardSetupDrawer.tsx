@@ -276,7 +276,7 @@ export function AwardSetupDrawer({
                     min="0"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full rounded border border-gray-200 py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className="w-full rounded-sm border border-gray-200 py-2 pl-7 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                   />
                 </div>
               </div>
@@ -316,7 +316,7 @@ export function AwardSetupDrawer({
                       type="date"
                       value={firstDate}
                       onChange={(e) => setFirstDate(e.target.value)}
-                      className="mt-2 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      className="mt-2 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                     />
                   </div>
 
@@ -401,19 +401,19 @@ export function AwardSetupDrawer({
                             min="0"
                             value={r.amount}
                             onChange={(e) => updateRow(i, 'amount', e.target.value)}
-                            className="w-full rounded border border-gray-200 py-2 pl-6 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                            className="w-full rounded-sm border border-gray-200 py-2 pl-6 pr-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                           />
                         </div>
                         <input
                           type="date"
                           value={r.date}
                           onChange={(e) => updateRow(i, 'date', e.target.value)}
-                          className="min-w-0 flex-1 rounded border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                          className="min-w-0 flex-1 rounded-sm border border-gray-200 px-2 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                         />
                         {rows.length > 1 && (
                           <button
                             onClick={() => removeRow(i)}
-                            className="shrink-0 rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+                            className="shrink-0 rounded-sm p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500"
                             aria-label="Remove instalment"
                           >
                             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -485,18 +485,18 @@ export function AwardSetupDrawer({
                       placeholder="Milestone label"
                       value={row.label}
                       onChange={(e) => updateReportingRow(i, 'label', e.target.value)}
-                      className="flex-1 rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      className="flex-1 rounded-sm border border-gray-200 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                     />
                     <input
                       type="date"
                       value={row.date}
                       onChange={(e) => updateReportingRow(i, 'date', e.target.value)}
-                      className="w-36 rounded border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      className="w-36 rounded-sm border border-gray-200 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                     />
                     {reportingRows.length > 1 && (
                       <button
                         onClick={() => removeReportingRow(i)}
-                        className="shrink-0 rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+                        className="shrink-0 rounded-sm p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-500"
                         aria-label="Remove row"
                       >
                         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -539,7 +539,7 @@ export function AwardSetupDrawer({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="flex-1 rounded border border-gray-200 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              className="flex-1 rounded-sm border border-gray-200 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
             >
               Cancel
             </button>
@@ -547,7 +547,7 @@ export function AwardSetupDrawer({
               <button
                 onClick={() => setStep((step + 1) as 2 | 3)}
                 disabled={amountNum <= 0 || (step === 2 && !scheduleValid)}
-                className="flex-[2] rounded bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="flex-2 rounded-sm bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 Continue →
               </button>
@@ -555,7 +555,7 @@ export function AwardSetupDrawer({
               <button
                 onClick={handleConfirm}
                 disabled={saving || amountNum <= 0 || !scheduleValid || !reportingValid}
-                className="flex-[2] rounded bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="flex-2 rounded-sm bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {saving ? 'Generating…' : '✓ Generate award'}
               </button>

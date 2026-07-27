@@ -85,7 +85,7 @@ function Profile() {
               type="email"
               value={user.email}
               readOnly
-              className="mt-1 w-full rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 cursor-not-allowed"
+              className="mt-1 w-full rounded-sm border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 cursor-not-allowed"
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
@@ -127,7 +127,7 @@ function Profile() {
                         <button
                           onClick={() => handleImpersonate(u.id)}
                           disabled={impersonatingId !== null}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          className="rounded-sm border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                         >
                           {impersonatingId === u.id ? 'Signing in…' : 'Log in as'}
                         </button>

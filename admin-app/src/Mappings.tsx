@@ -121,7 +121,7 @@ export function Mappings() {
                 <td className="px-4 py-2 text-right">
                   <button
                     onClick={() => remove(m.id)}
-                    className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:border-red-300 hover:text-red-500"
+                    className="rounded-sm border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:border-red-300 hover:text-red-500"
                   >
                     Delete
                   </button>

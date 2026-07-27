@@ -165,7 +165,7 @@ export function SubmitterReport() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
+      <div className="rounded-xl bg-white p-8 shadow-xs ring-1 ring-gray-200">
         {result ? (
           <>
             <button

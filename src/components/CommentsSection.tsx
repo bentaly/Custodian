@@ -143,20 +143,20 @@ export function CommentsSection({
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
                       rows={2}
-                      className="w-full resize-none rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-gray-400 focus:outline-none"
+                      className="w-full resize-none rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-gray-400 focus:outline-hidden"
                     />
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => setEditingId(null)}
                         disabled={busy}
-                        className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+                        className="rounded-sm px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => handleSaveEdit(c.id)}
                         disabled={busy || !editBody.trim()}
-                        className="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        className="rounded-sm border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                       >
                         {busy ? 'Saving…' : 'Save'}
                       </button>
@@ -200,7 +200,7 @@ export function CommentsSection({
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Add a comment…"
                 rows={2}
-                className="w-full resize-none rounded border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-gray-400 focus:outline-none"
+                className="w-full resize-none rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-gray-400 focus:outline-hidden"
               />
               <div className="flex justify-end">
                 <Button type="submit" variant="secondary" size="sm" disabled={submitting || !body.trim()}>

@@ -16,7 +16,7 @@ export function DateRangePicker({
   required?: boolean
 }) {
   return (
-    <div className="flex overflow-hidden rounded border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400 divide-x divide-gray-200">
+    <div className="flex overflow-hidden rounded-sm border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400 divide-x divide-gray-200">
       <div className="flex-1 px-3 py-2">
         <div className="mb-0.5 text-xs font-medium text-gray-400">{startLabel}</div>
         <input
@@ -24,7 +24,7 @@ export function DateRangePicker({
           value={startDate}
           required={required}
           onChange={(e) => onStartChange(e.target.value)}
-          className="w-full bg-transparent text-sm text-gray-900 focus:outline-none"
+          className="w-full bg-transparent text-sm text-gray-900 focus:outline-hidden"
         />
       </div>
       <div className="flex-1 px-3 py-2">
@@ -35,7 +35,7 @@ export function DateRangePicker({
           min={startDate || undefined}
           required={required}
           onChange={(e) => onEndChange(e.target.value)}
-          className="w-full bg-transparent text-sm text-gray-900 focus:outline-none"
+          className="w-full bg-transparent text-sm text-gray-900 focus:outline-hidden"
         />
       </div>
     </div>

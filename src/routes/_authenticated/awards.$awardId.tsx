@@ -36,7 +36,7 @@ const SCHED_STATUS = {
 }
 
 const inputClass =
-  'rounded border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400'
+  'rounded-sm border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400'
 
 function AwardDetail() {
   const award = Route.useLoaderData()
@@ -244,13 +244,13 @@ function PaymentsCard({ award }: { award: AwardData }) {
                         <button
                           onClick={() => togglePaid(inst.id, !inst.paidDate)}
                           disabled={busyId === inst.id}
-                          className="rounded border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                         >
                           {inst.paidDate ? 'Undo' : 'Mark paid'}
                         </button>
                         <button
                           onClick={() => beginEdit(inst)}
-                          className="rounded border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
                         >
                           Edit
                         </button>
@@ -382,7 +382,7 @@ function ReportingCard({ award }: { award: AwardData }) {
                       <div className="flex shrink-0 items-center gap-1.5">
                         <button
                           onClick={() => beginEdit(m)}
-                          className="rounded border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
                         >
                           Edit
                         </button>
@@ -390,7 +390,7 @@ function ReportingCard({ award }: { award: AwardData }) {
                           <button
                             onClick={() => remove(m.id)}
                             disabled={busyId === m.id}
-                            className="rounded border border-gray-200 px-2.5 py-1 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
+                            className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
                           >
                             Remove
                           </button>

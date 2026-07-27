@@ -254,7 +254,7 @@ function IngestCard({
                   <div className="col-span-2 flex items-center gap-1 text-xs">
                     {proposal?.sourceKey && (
                       <span
-                        className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-600"
+                        className="rounded-sm bg-blue-50 px-1.5 py-0.5 text-blue-600"
                         title={`AI suggested “${proposal.sourceKey}”`}
                       >
                         AI {Math.round(proposal.confidence * 100)}%

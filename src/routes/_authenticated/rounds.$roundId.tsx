@@ -66,7 +66,7 @@ function GrantTermsFields({
             step="1"
             placeholder="0"
             required={budgetRequired}
-            className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
           />
         </div>
       </div>
@@ -81,7 +81,7 @@ function GrantTermsFields({
             min="1"
             step="1"
             placeholder="0"
-            className="w-full rounded border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
           />
         </div>
       </div>
@@ -96,7 +96,7 @@ function GrantTermsFields({
             max="20"
             step="1"
             placeholder="1"
-            className="w-full rounded border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full rounded-sm border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
           />
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
         </div>
@@ -285,7 +285,7 @@ function RoundDetail() {
               {canManage && (
                 <button
                   onClick={() => setEditingRound(true)}
-                  className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                 >
                   Edit
                 </button>
@@ -296,7 +296,7 @@ function RoundDetail() {
                     setDeleteError('')
                     setConfirmingDelete(true)
                   }}
-                  className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                  className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                 >
                   Delete
                 </button>
@@ -334,7 +334,7 @@ function RoundDetail() {
               <select
                 value={selectedProgrammeId}
                 onChange={(e) => setSelectedProgrammeId(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                 required
                 autoFocus
               >
@@ -355,7 +355,7 @@ function RoundDetail() {
               <button
                 type="submit"
                 disabled={addingProgramme}
-                className="rounded bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+                className="rounded-sm bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
               >
                 {addingProgramme ? 'Adding…' : 'Add programme'}
               </button>
@@ -369,7 +369,7 @@ function RoundDetail() {
                   setAddGrantDurationYears('')
                   setAddError('')
                 }}
-                className="rounded border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                className="rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 Cancel
               </button>
@@ -575,14 +575,14 @@ function ProgrammeCard({
             <div className="flex shrink-0 gap-2">
               <button
                 onClick={() => setEditing(true)}
-                className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
                 Edit
               </button>
               <button
                 onClick={onRemove}
                 disabled={removing}
-                className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
               >
                 {removing ? 'Removing…' : 'Remove'}
               </button>

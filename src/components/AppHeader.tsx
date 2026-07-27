@@ -211,7 +211,7 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
         aria-expanded={showDropdown}
         aria-controls="global-search-listbox"
         autoComplete="off"
-        className="h-10 w-full rounded-xl bg-[#F2F4F7] pl-9 pr-14 text-[14px] text-[#141C24] placeholder:text-[#637083] focus:outline-none focus:ring-2 focus:ring-[#1F7A5C]/25"
+        className="h-10 w-full rounded-xl bg-[#F2F4F7] pl-9 pr-14 text-[14px] text-[#141C24] placeholder:text-[#637083] focus:outline-hidden focus:ring-2 focus:ring-[#1F7A5C]/25"
       />
       {loading ? (
         <HugeiconsIcon
@@ -229,7 +229,7 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
         <div
           id="global-search-listbox"
           role="listbox"
-          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[70vh] w-[26rem] max-w-[90vw] overflow-y-auto rounded-2xl border border-[#E4E7E6] bg-white py-2 shadow-xl"
+          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[70vh] w-104 max-w-[90vw] overflow-y-auto rounded-2xl border border-[#E4E7E6] bg-white py-2 shadow-xl"
         >
           {ordered.length === 0 && !loading && (
             <p className="px-4 py-6 text-center text-sm text-[#9AA3AD]">
@@ -266,7 +266,7 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
                     >
                       <HugeiconsIcon icon={group.icon} strokeWidth={1.5} className="h-4 w-4 shrink-0 text-[#9AA3AD]" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-[#101828]">
+                        <span className="block truncate text-sm font-medium text-ink">
                           {r.title}
                         </span>
                         {r.subtitle && (

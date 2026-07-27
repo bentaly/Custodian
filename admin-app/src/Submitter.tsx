@@ -515,7 +515,7 @@ export function Submitter() {
                     placeholder="Item (e.g. Staff costs)"
                     value={l.item}
                     onChange={(e) => updateBudgetLine(l.id, { item: e.target.value })}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                   <input
                     type="number"
@@ -524,7 +524,7 @@ export function Submitter() {
                     placeholder="Amount (£)"
                     value={l.amount}
                     onChange={(e) => updateBudgetLine(l.id, { amount: e.target.value })}
-                    className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                   <select
                     value={l.costType}
@@ -533,7 +533,7 @@ export function Submitter() {
                         costType: e.target.value as BudgetLineInput['costType'],
                       })
                     }
-                    className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="">Cost type…</option>
                     <option value="revenue">Revenue</option>
@@ -613,7 +613,7 @@ export function Submitter() {
                       placeholder="Field name"
                       value={f.label}
                       onChange={(e) => updateExtraField(f.id, 'label', e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div className="flex-1">
@@ -621,7 +621,7 @@ export function Submitter() {
                       placeholder="Value"
                       value={f.value}
                       onChange={(e) => updateExtraField(f.id, 'value', e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <button
@@ -753,7 +753,7 @@ function Field({
         {required && <span className="ml-1 text-red-500">*</span>}
       </label>
       {hint && <p className="mb-1 text-xs text-gray-400">{hint}</p>}
-      <div className="[&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-gray-300 [&_input]:px-3 [&_input]:py-2 [&_input]:text-sm [&_input]:outline-none [&_input]:focus:border-indigo-500 [&_input]:focus:ring-1 [&_input]:focus:ring-indigo-500 [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-gray-300 [&_select]:px-3 [&_select]:py-2 [&_select]:text-sm [&_select]:outline-none [&_select]:focus:border-indigo-500 [&_select]:focus:ring-1 [&_select]:focus:ring-indigo-500 [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:px-3 [&_textarea]:py-2 [&_textarea]:text-sm [&_textarea]:outline-none [&_textarea]:focus:border-indigo-500 [&_textarea]:focus:ring-1 [&_textarea]:focus:ring-indigo-500">
+      <div className="[&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-gray-300 [&_input]:px-3 [&_input]:py-2 [&_input]:text-sm [&_input]:outline-hidden focus:[&_input]:border-indigo-500 focus:[&_input]:ring-1 focus:[&_input]:ring-indigo-500 [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-gray-300 [&_select]:px-3 [&_select]:py-2 [&_select]:text-sm [&_select]:outline-hidden focus:[&_select]:border-indigo-500 focus:[&_select]:ring-1 focus:[&_select]:ring-indigo-500 [&_textarea]:w-full [&_textarea]:rounded-md [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:px-3 [&_textarea]:py-2 [&_textarea]:text-sm [&_textarea]:outline-hidden focus:[&_textarea]:border-indigo-500 focus:[&_textarea]:ring-1 focus:[&_textarea]:ring-indigo-500">
         {children}
       </div>
     </div>
@@ -763,7 +763,7 @@ function Field({
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200">{children}</div>
+      <div className="rounded-xl bg-white p-8 shadow-xs ring-1 ring-gray-200">{children}</div>
     </div>
   )
 }
