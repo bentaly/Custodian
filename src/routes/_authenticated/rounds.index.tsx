@@ -3,7 +3,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { listMyRounds, createRound } from '../../server/fns/rounds'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
-import { Badge, Button, Card, EmptyState, Input, Label } from '../../components/ui'
+import { Badge, Breadcrumb, Button, Card, EmptyState, Input, Label } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
   loader: () => listMyRounds(),
@@ -51,6 +51,7 @@ function Rounds() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Rounds' }]} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Funding Rounds</h1>

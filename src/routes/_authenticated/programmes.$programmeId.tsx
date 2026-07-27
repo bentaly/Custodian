@@ -12,7 +12,7 @@ import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { IMPACT_UNITS, DEFAULT_IMPACT_UNIT, impactUnitLabel } from '../../lib/impactUnits'
-import { Badge, Button, Card, Input, Label, Textarea } from '../../components/ui'
+import { Badge, Breadcrumb, Button, Card, Input, Label, Textarea } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/programmes/$programmeId')({
   loader: async ({ params }) => {
@@ -126,12 +126,13 @@ function ProgrammeDetail() {
 
   return (
     <div className="max-w-3xl space-y-8">
-      <Link
-        to="/programmes"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-      >
-        ← Programmes
-      </Link>
+      <Breadcrumb
+        items={[
+          { label: 'Settings', to: '/settings' },
+          { label: 'Programmes', to: '/programmes' },
+          { label: programme.name },
+        ]}
+      />
 
       {/* Programme header */}
       <Card className="p-5">

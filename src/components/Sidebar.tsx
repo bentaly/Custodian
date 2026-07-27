@@ -3,13 +3,11 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Award01Icon,
   BankIcon,
-  Building02Icon,
-  Calendar03Icon,
   CheckListIcon,
   DashboardSquare01Icon,
   File01Icon,
   Files01Icon,
-  Target01Icon,
+  Settings02Icon,
   TradeUpIcon,
 } from '@hugeicons/core-free-icons'
 import { LogoMark } from './ui/LogoMark'
@@ -20,7 +18,9 @@ import { LogoMark } from './ui/LogoMark'
 const itemClass =
   'flex items-center gap-3 rounded-xl p-3 text-[14px] font-medium text-[#637083] hover:bg-moss-50 hover:text-ink-soft [&.active]:bg-[#DFF3EA] [&.active]:text-[#1F7A5C]'
 
-export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+// No `isAdmin` any more: every nav entry is now visible to every role, and the
+// admin-only config it used to gate lives behind Settings, which filters itself.
+export function Sidebar() {
   return (
     <aside className="flex w-64 shrink-0 flex-col bg-[#FCFCFC]">
       <div className="flex h-[74px] items-center gap-2 border-b border-[#E4E7EC] px-4">
@@ -31,14 +31,6 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         <Link to="/dashboard" className={itemClass}>
           <HugeiconsIcon icon={DashboardSquare01Icon} className="h-5 w-5" strokeWidth={1.75} />
           Dashboard
-        </Link>
-        <Link to="/rounds" className={itemClass}>
-          <HugeiconsIcon icon={Calendar03Icon} className="h-5 w-5" strokeWidth={1.75} />
-          Rounds
-        </Link>
-        <Link to="/programmes" className={itemClass}>
-          <HugeiconsIcon icon={Target01Icon} className="h-5 w-5" strokeWidth={1.75} />
-          Programmes
         </Link>
         <Link to="/applications" search={{ roundId: undefined }} className={itemClass}>
           <HugeiconsIcon icon={Files01Icon} className="h-5 w-5" strokeWidth={1.75} />
@@ -64,13 +56,16 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
           <HugeiconsIcon icon={TradeUpIcon} className="h-5 w-5" strokeWidth={1.75} />
           Insights
         </Link>
-        {isAdmin && (
-          <Link to="/users" className={itemClass}>
-            <HugeiconsIcon icon={Building02Icon} className="h-5 w-5" strokeWidth={1.75} />
-            Organisation
-          </Link>
-        )}
       </nav>
+      {/* Settings sits apart at the foot of the rail: it is where the app is
+          configured (rounds, programmes, the team), not somewhere you work. Shown to
+          everyone — the hub itself filters its cards by role. */}
+      <div className="border-t border-[#E4E7EC] px-4 py-4">
+        <Link to="/settings" className={itemClass}>
+          <HugeiconsIcon icon={Settings02Icon} className="h-5 w-5" strokeWidth={1.75} />
+          Settings
+        </Link>
+      </div>
     </aside>
   )
 }

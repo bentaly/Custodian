@@ -2,7 +2,6 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  ArrowLeft01Icon,
   Coins01Icon,
   FolderLibraryIcon,
   UserGroupIcon,
@@ -22,7 +21,7 @@ import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { MiniKpi } from '../../components/ui'
+import { Breadcrumb, MiniKpi } from '../../components/ui'
 import { Donut } from '../../components/charts/Donut'
 import { CRITERION_DEFINITIONS, CRITERION_ORDER, type CustodianScoreDetail } from '../../lib/custodianScore'
 import { impactUnitLabel } from '../../lib/impactUnits'
@@ -242,18 +241,16 @@ function ApplicationDetail() {
 
   return (
     <div className="flex flex-col gap-4">
+      <Breadcrumb
+        items={[
+          { label: 'Applications', to: '/applications', search: { roundId: undefined } },
+          { label: application.organisationName },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link
-            to="/applications"
-            search={{ roundId: undefined }}
-            className="flex size-9 items-center justify-center rounded-lg border bg-white"
-            style={{ borderColor: C.line }}
-            aria-label="Back to applications"
-          >
-            <HugeiconsIcon icon={ArrowLeft01Icon} size={18} color={C.sub} />
-          </Link>
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.wash }}>
             <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
               {initials(application.organisationName)}

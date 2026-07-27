@@ -618,7 +618,7 @@ function Onboarding({ name }: { name: string }) {
   const steps = [
     { n: '1', title: 'Create a round', body: 'Set up a funding round and the programmes within it.', to: '/rounds', cta: 'Go to rounds' },
     { n: '2', title: 'Add programmes', body: 'Define programmes, budgets and grant limits.', to: '/programmes', cta: 'Go to programmes' },
-    { n: '3', title: 'Connect intake', body: 'Generate an API key so applications can flow in.', to: '/users', cta: 'Organisation' },
+    { n: '3', title: 'Connect intake', body: 'Generate an API key so applications can flow in.', to: '/settings/api-keys', cta: 'Go to API keys' },
   ]
   return (
     <div className="space-y-5">

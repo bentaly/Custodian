@@ -174,7 +174,8 @@ canonical fields (`CreateApplicationSchema`).
 - Auth helpers: `src/server/apiKeys.ts` (`generateApiKey`, `hashApiKey`, `authenticateApiKey`).
   Management server fns: `src/server/fns/apiKeys.ts` (`listApiKeys`/`createApiKey`/`revokeApiKey`,
   admin-only, scoped to the caller's client).
-- UI: **Organisation screen** (`/users` route → `Organisation` component), admin-only section.
+- UI: **Settings → API keys** (`/settings/api-keys`), admin-only. `/settings/submissions` documents
+  the endpoints and renders the canonical field registries, so those docs cannot drift from the mapper.
 - Test/dev submitter: `admin-app/src/Submitter.tsx` has an API key field (stored in localStorage).
 - Missing/invalid/revoked key → 401. `/api/apply` is rate-limited two ways (`src/server/rateLimit.ts`,
   bindings in `wrangler.toml`): a per-IP volumetric backstop before auth (`APPLY_IP_LIMITER`) and a
@@ -194,7 +195,12 @@ canonical fields (`CreateApplicationSchema`).
 - `src/routes/_authenticated.tsx` — layout + auth guard for all protected routes
 - `src/routes/_authenticated/*.tsx` — dashboard, applications (+detail), shortlist, awards
   (+detail), finance (+detail), reports (+detail), rounds (+detail), programmes (+detail),
-  insights, users (Organisation screen), profile
+  insights, profile, and the Settings hub
+- **Settings** (`/settings`) — a card-grid hub for everything that is configuration rather than daily
+  work. Sub-pages: `team`, `giving-strategy`, `voting`, `api-keys`, `submissions`; it also links out
+  to the (unmoved) `/rounds` and `/programmes` routes, which is why those left the sidebar. Cards are
+  filtered by role, so the hub is shown to everyone. `/users` is now a redirect to `/settings/team` —
+  it was the old all-in-one "Organisation" screen
 - `src/routes/api/auth.$.ts` — BetterAuth handler (GET + POST)
 - `src/routes/api/apply.ts`, `api/submit-report.ts` — public API-key-authed ingest endpoints
 - `src/routes/api/round.$roundId.ts`, `api/rounds.ts` — public round metadata

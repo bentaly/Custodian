@@ -9,7 +9,7 @@ import {
   updateRoundProgramme,
   removeProgrammeFromRound,
 } from '../../server/fns/programmes'
-import { Button, Card, Input, Label } from '../../components/ui'
+import { Breadcrumb, Button, Card, Input, Label } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/rounds/$roundId')({
   loader: async ({ params }) => {
@@ -208,12 +208,13 @@ function RoundDetail() {
 
   return (
     <div className="max-w-3xl space-y-8">
-      <Link
-        to="/rounds"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-      >
-        ← Rounds
-      </Link>
+      <Breadcrumb
+        items={[
+          { label: 'Settings', to: '/settings' },
+          { label: 'Rounds', to: '/rounds' },
+          { label: round.name },
+        ]}
+      />
 
       {/* Round header */}
       <Card className="p-5">

@@ -3,7 +3,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { BankIcon, Calendar03Icon, Coins01Icon, Wallet01Icon } from '@hugeicons/core-free-icons'
 import { getFinanceGrant, type BankStatus } from '../../server/fns/finance'
 import { setInstalmentPaid, updateInstalment } from '../../server/fns/applications'
-import { Badge, Button, Card, KPI_TINTS, MiniKpi } from '../../components/ui'
+import { Badge, Breadcrumb, Button, Card, KPI_TINTS, MiniKpi } from '../../components/ui'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/finance/$awardId')({
@@ -40,13 +40,9 @@ function FinanceGrantDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Link to="/finance" className="hover:text-gray-600">
-          Finance
-        </Link>
-        <span>›</span>
-        <span className="text-gray-600">{grant.organisationName}</span>
-      </div>
+      <Breadcrumb
+        items={[{ label: 'Finance', to: '/finance' }, { label: grant.organisationName }]}
+      />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

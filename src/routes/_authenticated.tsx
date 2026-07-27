@@ -25,13 +25,12 @@ export const Route = createFileRoute('/_authenticated')({
 function AuthenticatedLayout() {
   const { user } = Route.useRouteContext()
   const { rounds } = Route.useLoaderData()
-  const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
   return (
     <div className="flex h-screen flex-col">
       <ImpersonationBanner />
       <div className="flex min-h-0 flex-1">
-        <Sidebar isAdmin={isAdmin} />
+        <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader user={user} rounds={rounds} />
           <main className="flex-1 overflow-y-auto bg-white p-8">

@@ -4,7 +4,7 @@ import { listProgrammes, createProgramme, listClientTags } from '../../server/fn
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { getRoundStatus } from '../../lib/roundStatus'
-import { Badge, Button, Card, EmptyState, Input, Label, Textarea } from '../../components/ui'
+import { Badge, Breadcrumb, Button, Card, EmptyState, Input, Label, Textarea } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
@@ -63,6 +63,7 @@ function Programmes() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Programmes' }]} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Programmes</h1>

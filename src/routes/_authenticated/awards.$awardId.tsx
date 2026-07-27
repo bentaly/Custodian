@@ -9,7 +9,7 @@ import {
   updateInstalment,
 } from '../../server/fns/applications'
 import { BankIcon, Calendar03Icon, Coins01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
-import { Badge, Button, Card, EmptyState, KPI_TINTS, MiniKpi } from '../../components/ui'
+import { Badge, Breadcrumb, Button, Card, EmptyState, KPI_TINTS, MiniKpi } from '../../components/ui'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
@@ -44,14 +44,12 @@ function AwardDetail() {
 
   return (
     <div className="space-y-4">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Link to="/awards" search={{ roundId: undefined }} className="hover:text-gray-600">
-          Awards
-        </Link>
-        <span>›</span>
-        <span className="text-gray-600">{award.organisationName}</span>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: 'Awards', to: '/awards', search: { roundId: undefined } },
+          { label: award.organisationName },
+        ]}
+      />
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">

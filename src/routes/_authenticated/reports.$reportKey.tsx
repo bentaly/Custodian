@@ -4,7 +4,7 @@ import { getReport, markReportReviewed, type ReportRowStatus } from '../../serve
 import { Drawer } from '../../components/Drawer'
 import { ReportFields } from '../../components/ReportFields'
 import { ReportAnalysisPanel, type ReportAnalysisStatus } from '../../components/reportAnalysis'
-import { Button, Card, EmptyState } from '../../components/ui'
+import { Breadcrumb, Button, Card, EmptyState } from '../../components/ui'
 import { fmtDate } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
@@ -52,15 +52,12 @@ function ReportDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Link to="/reports" className="hover:text-gray-600">
-          Reports
-        </Link>
-        <span>›</span>
-        <span className="text-gray-600">
-          {report.organisationName} · {report.label}
-        </span>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: 'Reports', to: '/reports' },
+          { label: `${report.organisationName} · ${report.label}` },
+        ]}
+      />
 
       <div className="flex items-start justify-between gap-4">
         <div>

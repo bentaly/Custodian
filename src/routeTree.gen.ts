@@ -23,6 +23,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedRoundsRouteImport } from './routes/_authenticated/rounds'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as ApiApplyRouteImport } from './routes/api/apply'
@@ -40,6 +41,12 @@ import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
+import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings.api-keys'
+import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
+import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
+import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsVotingRouteImport } from './routes/_authenticated/settings.voting'
 import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
 import { Route as ApiAdminCanonicalFieldsRouteImport } from './routes/api/admin.canonical-fields'
 import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
@@ -124,6 +131,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
 const AuthenticatedRoundsRoute = AuthenticatedRoundsRouteImport.update({
   id: '/rounds',
   path: '/rounds',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedShortlistRoute = AuthenticatedShortlistRouteImport.update({
@@ -223,6 +235,42 @@ const AuthenticatedRoundsRoundIdRoute =
     path: '/$roundId',
     getParentRoute: () => AuthenticatedRoundsRoute,
   } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsApiKeysRoute =
+  AuthenticatedSettingsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsGivingStrategyRoute =
+  AuthenticatedSettingsGivingStrategyRouteImport.update({
+    id: '/giving-strategy',
+    path: '/giving-strategy',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsSubmissionsRoute =
+  AuthenticatedSettingsSubmissionsRouteImport.update({
+    id: '/submissions',
+    path: '/submissions',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsTeamRoute =
+  AuthenticatedSettingsTeamRouteImport.update({
+    id: '/team',
+    path: '/team',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsVotingRoute =
+  AuthenticatedSettingsVotingRouteImport.update({
+    id: '/voting',
+    path: '/voting',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const ApiAdminAwardsRoute = ApiAdminAwardsRouteImport.update({
   id: '/api/admin/awards',
   path: '/api/admin/awards',
@@ -316,6 +364,7 @@ export interface FileRoutesByFullPath {
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/reports': typeof AuthenticatedReportsRouteWithChildren
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
@@ -327,6 +376,11 @@ export interface FileRoutesByFullPath {
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
+  '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
+  '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
+  '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/settings/voting': typeof AuthenticatedSettingsVotingRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
@@ -343,6 +397,7 @@ export interface FileRoutesByFullPath {
   '/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
@@ -368,6 +423,11 @@ export interface FileRoutesByTo {
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
+  '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
+  '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
+  '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/settings/voting': typeof AuthenticatedSettingsVotingRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
@@ -384,6 +444,7 @@ export interface FileRoutesByTo {
   '/programmes': typeof AuthenticatedProgrammesIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
@@ -406,6 +467,7 @@ export interface FileRoutesById {
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/shortlist': typeof AuthenticatedShortlistRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
@@ -417,6 +479,11 @@ export interface FileRoutesById {
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
+  '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
+  '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
+  '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
+  '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/_authenticated/settings/voting': typeof AuthenticatedSettingsVotingRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
@@ -433,6 +500,7 @@ export interface FileRoutesById {
   '/_authenticated/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
@@ -455,6 +523,7 @@ export interface FileRouteTypes {
     | '/programmes'
     | '/reports'
     | '/rounds'
+    | '/settings'
     | '/shortlist'
     | '/users'
     | '/api/apply'
@@ -466,6 +535,11 @@ export interface FileRouteTypes {
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/rounds/$roundId'
+    | '/settings/api-keys'
+    | '/settings/giving-strategy'
+    | '/settings/submissions'
+    | '/settings/team'
+    | '/settings/voting'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
@@ -482,6 +556,7 @@ export interface FileRouteTypes {
     | '/programmes/'
     | '/reports/'
     | '/rounds/'
+    | '/settings/'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
@@ -507,6 +582,11 @@ export interface FileRouteTypes {
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/rounds/$roundId'
+    | '/settings/api-keys'
+    | '/settings/giving-strategy'
+    | '/settings/submissions'
+    | '/settings/team'
+    | '/settings/voting'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
@@ -523,6 +603,7 @@ export interface FileRouteTypes {
     | '/programmes'
     | '/reports'
     | '/rounds'
+    | '/settings'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
@@ -544,6 +625,7 @@ export interface FileRouteTypes {
     | '/_authenticated/programmes'
     | '/_authenticated/reports'
     | '/_authenticated/rounds'
+    | '/_authenticated/settings'
     | '/_authenticated/shortlist'
     | '/_authenticated/users'
     | '/api/apply'
@@ -555,6 +637,11 @@ export interface FileRouteTypes {
     | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/rounds/$roundId'
+    | '/_authenticated/settings/api-keys'
+    | '/_authenticated/settings/giving-strategy'
+    | '/_authenticated/settings/submissions'
+    | '/_authenticated/settings/team'
+    | '/_authenticated/settings/voting'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
@@ -571,6 +658,7 @@ export interface FileRouteTypes {
     | '/_authenticated/programmes/'
     | '/_authenticated/reports/'
     | '/_authenticated/rounds/'
+    | '/_authenticated/settings/'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
@@ -699,6 +787,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoundsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/shortlist': {
       id: '/_authenticated/shortlist'
       path: '/shortlist'
@@ -817,6 +912,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/rounds/$roundId'
       preLoaderRoute: typeof AuthenticatedRoundsRoundIdRouteImport
       parentRoute: typeof AuthenticatedRoundsRoute
+    }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/api-keys': {
+      id: '/_authenticated/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof AuthenticatedSettingsApiKeysRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/giving-strategy': {
+      id: '/_authenticated/settings/giving-strategy'
+      path: '/giving-strategy'
+      fullPath: '/settings/giving-strategy'
+      preLoaderRoute: typeof AuthenticatedSettingsGivingStrategyRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/submissions': {
+      id: '/_authenticated/settings/submissions'
+      path: '/submissions'
+      fullPath: '/settings/submissions'
+      preLoaderRoute: typeof AuthenticatedSettingsSubmissionsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/team': {
+      id: '/_authenticated/settings/team'
+      path: '/team'
+      fullPath: '/settings/team'
+      preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/voting': {
+      id: '/_authenticated/settings/voting'
+      path: '/voting'
+      fullPath: '/settings/voting'
+      preLoaderRoute: typeof AuthenticatedSettingsVotingRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/api/admin/awards': {
       id: '/api/admin/awards'
@@ -1012,6 +1149,30 @@ const AuthenticatedRoundsRouteChildren: AuthenticatedRoundsRouteChildren = {
 const AuthenticatedRoundsRouteWithChildren =
   AuthenticatedRoundsRoute._addFileChildren(AuthenticatedRoundsRouteChildren)
 
+interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
+  AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
+  AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
+  AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
+  AuthenticatedSettingsVotingRoute: typeof AuthenticatedSettingsVotingRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+}
+
+const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsApiKeysRoute: AuthenticatedSettingsApiKeysRoute,
+  AuthenticatedSettingsGivingStrategyRoute:
+    AuthenticatedSettingsGivingStrategyRoute,
+  AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,
+  AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
+  AuthenticatedSettingsVotingRoute: AuthenticatedSettingsVotingRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+}
+
+const AuthenticatedSettingsRouteWithChildren =
+  AuthenticatedSettingsRoute._addFileChildren(
+    AuthenticatedSettingsRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
   AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRouteWithChildren
@@ -1022,6 +1183,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedShortlistRoute: typeof AuthenticatedShortlistRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
 }
@@ -1036,6 +1198,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedShortlistRoute: AuthenticatedShortlistRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
 }
