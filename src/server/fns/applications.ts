@@ -159,7 +159,7 @@ export const getApplication = createServerFn({ method: 'GET' })
 export const rerunDueDiligence = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     await assertApplicationAccess(user, data.id)
 
     const application = await getDb().query.applications.findFirst({
@@ -188,7 +188,7 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
 export const generateAward = createServerFn({ method: 'POST' })
   .validator(GenerateAwardSchema)
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     await assertApplicationAccess(user, data.id)
 
     // An award can only be generated for a shortlisted application that has secured
@@ -350,7 +350,7 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
 export const updateApplicationStatus = createServerFn({ method: 'POST' })
   .validator(UpdateApplicationStatusSchema)
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const { id, status } = data
     await assertApplicationAccess(user, id)
 
@@ -618,7 +618,10 @@ export const getAward = createServerFn({ method: 'GET' })
       reportCount: quantified.length,
     }
 
-    const canEdit = user.role === 'superadmin' || user.role === 'admin' || user.role === 'manager'
+    // Two flags, because `finance` sits between the two: it may edit the payment
+    // schedule but not the reporting milestones (whose fns are admin-only).
+    const canEdit = user.role === 'superadmin' || user.role === 'admin'
+    const canEditPayments = canEdit || user.role === 'finance'
 
     return {
       id: award.id,
@@ -651,6 +654,7 @@ export const getAward = createServerFn({ method: 'GET' })
         deliveryArea: app.deliveryArea,
       },
       canEdit,
+      canEditPayments,
     }
   })
 
@@ -678,7 +682,7 @@ const ReportMilestoneSchema = z.object({
 export const addReportMilestone = createServerFn({ method: 'POST' })
   .validator(ReportMilestoneSchema.extend({ awardId: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const award = await getDb().query.awards.findFirst({
       where: eq(awards.id, data.awardId),
       columns: { id: true, clientId: true },
@@ -694,7 +698,7 @@ export const addReportMilestone = createServerFn({ method: 'POST' })
 export const updateReportMilestone = createServerFn({ method: 'POST' })
   .validator(ReportMilestoneSchema.extend({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     await requireAwardForSchedule(user, data.id)
     await getDb()
       .update(reportSchedule)
@@ -707,7 +711,7 @@ export const updateReportMilestone = createServerFn({ method: 'POST' })
 export const deleteReportMilestone = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const row = await requireAwardForSchedule(user, data.id)
     if (row.submittedDate) {
       throw new Error('This report has already been received and cannot be removed')
@@ -725,7 +729,9 @@ export const updateInstalment = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    // `finance` may move money around the schedule but never decides grants —
+    // the award/decline/shortlist fns above stay admin-only.
+    const user = await requireRole('superadmin', 'admin', 'finance')
     const row = await getDb().query.awardInstalments.findFirst({
       where: eq(awardInstalments.id, data.id),
       with: { award: { columns: { clientId: true } } },
@@ -755,7 +761,7 @@ export const setInstalmentPaid = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin', 'finance')
     const row = await getDb().query.awardInstalments.findFirst({
       where: eq(awardInstalments.id, data.id),
       with: { award: { columns: { id: true, clientId: true, status: true } } },

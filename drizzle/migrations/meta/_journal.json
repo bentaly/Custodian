@@ -344,6 +344,13 @@
       "when": 1785187339090,
       "tag": "0048_living_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1785188088653,
+      "tag": "0049_rich_miracleman",
+      "breakpoints": true
     }
   ]
 }

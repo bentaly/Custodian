@@ -109,7 +109,7 @@ function RoundDetail() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
   const { round, clientProgrammes } = Route.useLoaderData()
-  const canManage = ['superadmin', 'admin', 'manager'].includes(user.role)
+  const canManage = ['superadmin', 'admin'].includes(user.role)
   const canDelete = ['superadmin', 'admin'].includes(user.role)
 
   const [editingRound, setEditingRound] = useState(false)

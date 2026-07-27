@@ -56,7 +56,7 @@ export const getRound = createServerFn({ method: 'GET' })
 export const createRound = createServerFn({ method: 'POST' })
   .validator(CreateRoundSchema)
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     assertClientAccess(user, data.clientId)
     const { openedAt, closedAt, ...rest } = data
     const [round] = await getDb()
@@ -73,7 +73,7 @@ export const createRound = createServerFn({ method: 'POST' })
 export const updateRound = createServerFn({ method: 'POST' })
   .validator(UpdateRoundSchema)
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const { id, openedAt, closedAt, ...rest } = data
     const existing = await getDb().query.rounds.findFirst({
       where: (r, { eq }) => eq(r.id, id),

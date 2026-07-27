@@ -714,7 +714,7 @@ type DashboardRoundBreakdown = {
 function emptyDashboard(name: string) {
   return {
     name,
-    role: 'observer' as string,
+    role: 'trustee' as string,
     openRoundName: null as string | null,
     pipeline: { for_review: 0, shortlisted: 0, awarded: 0, declined: 0, total: 0 },
     money: {

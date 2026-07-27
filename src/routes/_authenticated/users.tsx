@@ -30,18 +30,16 @@ export const Route = createFileRoute('/_authenticated/users')({
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Super Admin',
   admin: 'Admin',
-  manager: 'Manager',
-  contributor: 'Contributor',
-  observer: 'Observer',
   trustee: 'Trustee',
+  finance: 'Finance',
 }
 
+// Shown on the invite form; the descriptions double as the roles-and-permissions
+// explainer, which is why they live next to where a role is actually assigned.
 const INVITABLE_ROLES = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'contributor', label: 'Contributor' },
-  { value: 'observer', label: 'Observer' },
-  { value: 'trustee', label: 'Trustee' },
+  { value: 'admin', label: 'Admin', hint: 'Full access — rounds, programmes, decisions and payments.' },
+  { value: 'trustee', label: 'Trustee', hint: 'Reads applications, comments and votes.' },
+  { value: 'finance', label: 'Finance', hint: 'Trustee access plus the payment schedule.' },
 ] as const
 
 type InviteRole = (typeof INVITABLE_ROLES)[number]['value']
@@ -235,7 +233,7 @@ function Organisation() {
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<InviteRole>('observer')
+  const [inviteRole, setInviteRole] = useState<InviteRole>('trustee')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [inviteSent, setInviteSent] = useState(false)
@@ -249,7 +247,7 @@ function Organisation() {
     try {
       await createInvitation({ data: { email: inviteEmail, role: inviteRole } })
       setInviteEmail('')
-      setInviteRole('observer')
+      setInviteRole('trustee')
       setInviteSent(true)
       router.invalidate()
     } catch (err) {
@@ -346,6 +344,10 @@ function Organisation() {
               <Button type="submit" disabled={inviting}>
                 {inviting ? 'Sending…' : 'Send invite'}
               </Button>
+              {/* Full-width so it wraps onto its own line under the controls. */}
+              <p className="w-full text-xs text-gray-500">
+                {INVITABLE_ROLES.find((r) => r.value === inviteRole)?.hint}
+              </p>
             </form>
             {inviteError && <p className="mt-2 text-sm text-red-500">{inviteError}</p>}
             {inviteSent && (

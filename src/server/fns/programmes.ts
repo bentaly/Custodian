@@ -46,7 +46,7 @@ export const createProgramme = createServerFn({ method: 'POST' })
 export const updateProgramme = createServerFn({ method: 'POST' })
   .validator(UpdateProgrammeSchema)
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const { id, ...rest } = data
     const existing = await getDb().query.programmes.findFirst({
       where: (p, { eq }) => eq(p.id, id),
@@ -65,7 +65,7 @@ export const updateProgramme = createServerFn({ method: 'POST' })
 export const addProgrammeToRound = createServerFn({ method: 'POST' })
   .validator(AddProgrammeToRoundSchema)
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const { budget, maxGrantAmount, ...rest } = data
     // Both the round and the programme must belong to the caller's client; this
     // also prevents stitching a programme from one client onto another's round.
@@ -96,7 +96,7 @@ export const addProgrammeToRound = createServerFn({ method: 'POST' })
 export const updateRoundProgramme = createServerFn({ method: 'POST' })
   .validator(UpdateRoundProgrammeSchema)
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const { id, budget, maxGrantAmount, ...rest } = data
     const existing = await getDb().query.roundProgrammes.findFirst({
       where: (rp, { eq }) => eq(rp.id, id),
@@ -119,7 +119,7 @@ export const updateRoundProgramme = createServerFn({ method: 'POST' })
 export const removeProgrammeFromRound = createServerFn({ method: 'POST' })
   .validator(z.object({ roundId: z.uuid(), programmeId: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager')
+    const user = await requireRole('superadmin', 'admin')
     const existing = await getDb().query.roundProgrammes.findFirst({
       where: (rp, { eq, and: andOp }) =>
         andOp(eq(rp.roundId, data.roundId), eq(rp.programmeId, data.programmeId)),

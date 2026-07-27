@@ -35,7 +35,7 @@ function ProgrammeDetail() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
   const { programme, clientTags, allRounds } = Route.useLoaderData()
-  const canManage = ['superadmin', 'admin', 'manager'].includes(user.role)
+  const canManage = ['superadmin', 'admin'].includes(user.role)
 
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(programme.name)

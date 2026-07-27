@@ -19,15 +19,11 @@ import type { BudgetLine } from '../src/lib/budget/types'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-export const userRoleEnum = pgEnum('user_role', [
-  'superadmin',
-  'admin',
-  'manager',
-  'contributor',
-  'observer',
-  'trustee',
-  'finance',
-])
+// Four roles, deliberately: `superadmin` is platform-level (no client_id), `admin`
+// runs a foundation, `trustee` reads/comments/votes, `finance` adds the payment
+// actions. The retired `manager`/`contributor`/`observer` values were folded in by
+// migration 0049 — manager→admin, contributor/observer→trustee.
+export const userRoleEnum = pgEnum('user_role', ['superadmin', 'admin', 'trustee', 'finance'])
 
 export const applicationVoteEnum = pgEnum('application_vote', ['yes', 'no'])
 
@@ -165,7 +161,7 @@ export const users = pgTable('users', {
   clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  role: userRoleEnum('role').notNull().default('observer'),
+  role: userRoleEnum('role').notNull().default('trustee'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   // BetterAuth admin plugin — ban controls (unused for now, required by plugin schema)
   banned: boolean('banned').notNull().default(false),
@@ -387,7 +383,7 @@ export const invitations = pgTable('invitations', {
     .notNull()
     .references(() => clients.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
-  role: userRoleEnum('role').notNull().default('observer'),
+  role: userRoleEnum('role').notNull().default('trustee'),
   token: text('token').notNull().unique(),
   // Nullable: invites created from the (token-gated) admin app have no main-app
   // user to attribute. In-app invites still set this to the inviting user.

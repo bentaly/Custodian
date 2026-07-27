@@ -18,10 +18,8 @@ export const Route = createFileRoute('/_authenticated/profile')({
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Super Admin',
   admin: 'Admin',
-  manager: 'Manager',
-  contributor: 'Contributor',
-  observer: 'Observer',
   trustee: 'Trustee',
+  finance: 'Finance',
 }
 
 function Profile() {

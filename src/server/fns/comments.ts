@@ -30,7 +30,7 @@ export const listComments = createServerFn({ method: 'GET' })
 export const addComment = createServerFn({ method: 'POST' })
   .validator(z.object({ applicationId: z.uuid(), body: z.string().min(1).max(2000) }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
+    const user = await requireRole('superadmin', 'admin', 'trustee', 'finance')
     await assertApplicationAccess(user, data.applicationId)
     const [comment] = await getDb()
       .insert(applicationComments)
@@ -48,7 +48,7 @@ export const addComment = createServerFn({ method: 'POST' })
 export const updateComment = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.uuid(), body: z.string().min(1).max(2000) }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
+    const user = await requireRole('superadmin', 'admin', 'trustee', 'finance')
     const comment = await getDb().query.applicationComments.findFirst({
       where: (c, { eq }) => eq(c.id, data.id),
     })
@@ -68,7 +68,7 @@ export const updateComment = createServerFn({ method: 'POST' })
 export const deleteComment = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin', 'manager', 'trustee', 'finance')
+    const user = await requireRole('superadmin', 'admin', 'trustee', 'finance')
     const comment = await getDb().query.applicationComments.findFirst({
       where: (c, { eq }) => eq(c.id, data.id),
     })

@@ -294,7 +294,9 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
     }
 
     const bank = bankCheck(app)
-    const canEdit = user.role === 'superadmin' || user.role === 'admin' || user.role === 'manager'
+    // The Finance screen is payments-only, so `finance` gets the full edit set here.
+    const canEdit =
+      user.role === 'superadmin' || user.role === 'admin' || user.role === 'finance'
 
     return {
       id: award.id,

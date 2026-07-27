@@ -96,7 +96,9 @@ function createAuth() {
           adminRoles: ['superadmin'],
           // Match our pgEnum — the plugin otherwise defaults new users to "user",
           // which is not a valid `user_role` value and would break signup inserts.
-          defaultRole: 'observer',
+          // `trustee` is the least-privileged role; a signup without an invite has
+          // no client_id anyway and is bounced to /no-access until one attaches.
+          defaultRole: 'trustee',
         }),
         emailOTP({
           // Custodian is invitation-only. Without this the plugin signs up any

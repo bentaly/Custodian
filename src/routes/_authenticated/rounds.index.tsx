@@ -19,7 +19,7 @@ function Rounds() {
   const router = useRouter()
   const rounds = Route.useLoaderData()
   const { user } = Route.useRouteContext()
-  const canManage = ['superadmin', 'admin', 'manager'].includes(user.role)
+  const canManage = ['superadmin', 'admin'].includes(user.role)
 
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')

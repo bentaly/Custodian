@@ -10,7 +10,7 @@ type Comment = {
   user: { id: string; name: string; role: string }
 }
 
-const CAN_COMMENT = new Set(['superadmin', 'admin', 'manager', 'trustee', 'finance'])
+const CAN_COMMENT = new Set(['superadmin', 'admin', 'trustee', 'finance'])
 
 function roleLabel(role: string) {
   switch (role) {

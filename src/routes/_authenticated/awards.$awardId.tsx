@@ -239,7 +239,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
                       </span>
                       <Badge className={meta.className}>{meta.label}</Badge>
                     </div>
-                    {award.canEdit && (
+                    {award.canEditPayments && (
                       <div className="flex shrink-0 items-center gap-1.5">
                         <button
                           onClick={() => togglePaid(inst.id, !inst.paidDate)}

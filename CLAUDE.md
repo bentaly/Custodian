@@ -125,7 +125,11 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
 
 ## Data model summary
 - **clients** — tenant (charitable_foundation | family_office); users and rounds belong to a client
-- **users** — extend BetterAuth user; have a `role` (superadmin | admin | manager | contributor | observer | trustee | finance) and belong to one client
+- **users** — extend BetterAuth user; have a `role` (superadmin | admin | trustee | finance) and belong to one client.
+  `superadmin` is platform-level (no `client_id`); `admin` runs a foundation; `trustee` reads/comments/votes;
+  `finance` is a trustee plus the payment schedule (instalment edits, marking paid) — but never grant decisions.
+  Default is `trustee`, both on the columns and BetterAuth's `defaultRole`. The old `manager`/`contributor`/`observer`
+  values were folded in by migration 0049 (manager→admin, contributor/observer→trustee)
 - **user_avatars** — profile photos, kept off the `users` row (which `getAuthUser` selects on
   every authenticated call); `users.image` holds the `/api/avatar/$userId?v=<hash>` URL
 - **client_profiles** — per-tenant settings (mission statement, admin-voting toggle)
