@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
 import { listClients } from '../../server/fns/platform'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
-import { AvatarError, prepareAvatar } from '../../lib/avatar'
+import { AvatarError, cropAvatar, loadAvatarSource, type AvatarCrop, type AvatarSource } from '../../lib/avatar'
+import { AvatarCropper } from '../../components/AvatarCropper'
 import { Avatar, Button, Input } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/profile')({
@@ -54,18 +55,42 @@ function Profile() {
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
 
+  // Set once a file is decoded; the cropper is shown until the user saves or cancels.
+  const [source, setSource] = useState<AvatarSource | null>(null)
+
+  function closeCropper() {
+    setSource((s) => {
+      s?.release()
+      return null
+    })
+  }
+  // Free the preview object URL if the user navigates away mid-crop.
+  useEffect(() => () => source?.release(), [source])
+
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     // Clear the input so re-picking the same file still fires a change event.
     e.target.value = ''
     if (!file) return
 
+    setPhotoError('')
+    try {
+      closeCropper()
+      setSource(await loadAvatarSource(file))
+    } catch (err) {
+      setPhotoError(err instanceof AvatarError ? err.message : 'Could not read that image.')
+    }
+  }
+
+  async function handlePhotoConfirm(crop: AvatarCrop) {
+    if (!source) return
     setPhotoBusy(true)
     setPhotoError('')
     try {
-      const prepared = await prepareAvatar(file)
+      const prepared = await cropAvatar(source, crop)
       const { image } = await updateProfilePhoto({ data: prepared })
       setPhoto(image)
+      closeCropper()
       // The header reads `user.image` from route context, which the router must refetch.
       await router.invalidate()
     } catch (err) {
@@ -136,7 +161,7 @@ function Profile() {
               )}
             </div>
             <p className="mt-1.5 text-xs text-gray-500">
-              JPEG, PNG or WebP. Square works best — we&rsquo;ll crop to the centre.
+              JPEG, PNG or WebP, up to 10MB. You can reposition it after choosing.
             </p>
           </div>
           <input
@@ -148,6 +173,14 @@ function Profile() {
           />
         </div>
         {photoError && <p className="text-sm text-red-500">{photoError}</p>}
+        {source && (
+          <AvatarCropper
+            source={source}
+            busy={photoBusy}
+            onCancel={closeCropper}
+            onConfirm={handlePhotoConfirm}
+          />
+        )}
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
