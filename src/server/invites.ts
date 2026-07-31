@@ -55,10 +55,7 @@ export async function claimPendingInvite(
         ...(token ? { emailVerified: true } : {}),
       })
       .where(eq(users.id, user.id)),
-    db
-      .update(invitations)
-      .set({ acceptedAt: new Date() })
-      .where(eq(invitations.id, invite.id)),
+    db.update(invitations).set({ acceptedAt: new Date() }).where(eq(invitations.id, invite.id)),
   ])
 
   return { clientId: invite.clientId, role: invite.role }

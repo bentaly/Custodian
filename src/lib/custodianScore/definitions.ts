@@ -59,7 +59,7 @@ export const CRITERION_DEFINITIONS: Record<CriterionKey, CriterionDefinition> = 
     label: 'Additionality',
     weight: 1,
     description:
-      "Whether this funding adds something that would not otherwise happen. Penalise work already well-funded elsewhere or duplicating provision; reward filling a genuine gap.",
+      'Whether this funding adds something that would not otherwise happen. Penalise work already well-funded elsewhere or duplicating provision; reward filling a genuine gap.',
   },
 }
 

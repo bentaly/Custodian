@@ -99,10 +99,7 @@ const plural = (n: number) => (n !== 1 ? 's' : '')
 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={`rounded-2xl border bg-white p-4 ${className}`}
-      style={{ borderColor: C.line }}
-    >
+    <div className={`rounded-2xl border bg-white p-4 ${className}`} style={{ borderColor: C.line }}>
       {children}
     </div>
   )
@@ -124,7 +121,10 @@ type Chip = { label: string; count: number; color: string }
 
 function Chips({ chips }: { chips: Chip[] }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs" style={{ color: C.sub }}>
+    <div
+      className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs"
+      style={{ color: C.sub }}
+    >
       {chips.map((c) => (
         <span key={c.label} className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
@@ -171,7 +171,10 @@ function KpiCard({
       style={{ borderColor: C.line }}
     >
       {/* Tinted inner panel (Figma 112:134) — inset 4px, holds the number/meter/chips. */}
-      <div className="relative overflow-hidden rounded-2xl p-4" style={{ backgroundColor: tint.bg }}>
+      <div
+        className="relative overflow-hidden rounded-2xl p-4"
+        style={{ backgroundColor: tint.bg }}
+      >
         {/* Figma "Mask group" (112:802): a radial accent gradient shown *through* a dot
             grid — the gradient is the fill, the dots are the mask. Top-right, offset up. */}
         <span
@@ -187,7 +190,10 @@ function KpiCard({
         />
         <div className="relative z-10">
           {/* Figma 112:739 — Inter Display Medium 32, Gray/900. */}
-          <div className="font-display text-[32px] font-medium leading-none" style={{ color: C.ink }}>
+          <div
+            className="font-display text-[32px] font-medium leading-none"
+            style={{ color: C.ink }}
+          >
             {value}
           </div>
           <div className="mt-1.5 text-xs font-medium" style={{ color: subColor ?? C.sub }}>
@@ -200,7 +206,12 @@ function KpiCard({
       {/* Footer on the white card — icon + label left, optional meta right (Figma 126:32567). */}
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <span className="flex min-w-0 items-center gap-2">
-          <HugeiconsIcon icon={icon} className="h-5 w-5 shrink-0" strokeWidth={1.6} style={{ color: C.sub }} />
+          <HugeiconsIcon
+            icon={icon}
+            className="h-5 w-5 shrink-0"
+            strokeWidth={1.6}
+            style={{ color: C.sub }}
+          />
           <span className="truncate text-sm font-medium" style={{ color: C.ink }}>
             {label}
           </span>
@@ -264,7 +275,11 @@ function DeskRow({
 // Figma 126:39615 — one neutral tile for every row; the glyph carries the only colour,
 // and only for the outcomes that are genuinely good/bad. Everything else is Gray/500.
 const LATELY_META: Record<string, { icon: typeof Files01Icon; accent: string; verb: string }> = {
-  application_awarded: { icon: CheckmarkSquare01Icon, accent: C.success, verb: 'awarded a grant to' },
+  application_awarded: {
+    icon: CheckmarkSquare01Icon,
+    accent: C.success,
+    verb: 'awarded a grant to',
+  },
   application_declined: { icon: CancelSquareIcon, accent: C.danger, verb: 'declined' },
   application_shortlisted: { icon: CheckmarkCircle02Icon, accent: C.sub, verb: 'shortlisted' },
   application_commented: { icon: BubbleChatIcon, accent: C.sub, verb: 'commented on' },
@@ -287,24 +302,62 @@ function Dashboard() {
   const paymentsDue = a.paymentsOverdue.count + a.paymentsDueSoon.count
   const desk: Array<React.ComponentProps<typeof DeskRow>> = []
   if (a.toReview.count > 0)
-    desk.push({ icon: NoteIcon, lead: `${a.toReview.count} application${plural(a.toReview.count)}`, rest: 'ready to review', to: '/applications', search: { roundId: undefined, status: 'for_review' } })
+    desk.push({
+      icon: NoteIcon,
+      lead: `${a.toReview.count} application${plural(a.toReview.count)}`,
+      rest: 'ready to review',
+      to: '/applications',
+      search: { roundId: undefined, status: 'for_review' },
+    })
   if (paymentsDue > 0)
-    desk.push({ icon: Wallet03Icon, lead: `${paymentsDue} payment${plural(paymentsDue)}`, rest: 'due to be paid', to: '/awards', search: { roundId: undefined } })
+    desk.push({
+      icon: Wallet03Icon,
+      lead: `${paymentsDue} payment${plural(paymentsDue)}`,
+      rest: 'due to be paid',
+      to: '/awards',
+      search: { roundId: undefined },
+    })
   if (d.awaitingVotes > 0)
-    desk.push({ icon: Note03Icon, lead: `${d.awaitingVotes} application${plural(d.awaitingVotes)}`, rest: 'await a trustee vote', to: '/shortlist', search: { roundId: undefined } })
+    desk.push({
+      icon: Note03Icon,
+      lead: `${d.awaitingVotes} application${plural(d.awaitingVotes)}`,
+      rest: 'await a trustee vote',
+      to: '/shortlist',
+      search: { roundId: undefined },
+    })
   if (a.readyToAward.count > 0)
-    desk.push({ icon: MoneySavingJarIcon, lead: `${a.readyToAward.count} award${plural(a.readyToAward.count)}`, rest: 'ready to set up', to: '/shortlist', search: { roundId: undefined } })
+    desk.push({
+      icon: MoneySavingJarIcon,
+      lead: `${a.readyToAward.count} award${plural(a.readyToAward.count)}`,
+      rest: 'ready to set up',
+      to: '/shortlist',
+      search: { roundId: undefined },
+    })
   if (d.reportsToReview > 0)
-    desk.push({ icon: File01Icon, lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`, rest: 'to review', to: '/reports' })
+    desk.push({
+      icon: File01Icon,
+      lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`,
+      rest: 'to review',
+      to: '/reports',
+    })
 
   // ── Round donut data (per-programme committed + an "unallocated" remainder) ──
   const donutData: DonutSlice[] = round
     ? [
-        ...round.programmes.map((p, i) => ({ name: p.name, value: p.committed, color: PROG_COLORS[i % PROG_COLORS.length]! })),
-        { name: 'Unallocated', value: Math.max(0, round.budget - round.committed), color: ALLOCATE_LEFT },
+        ...round.programmes.map((p, i) => ({
+          name: p.name,
+          value: p.committed,
+          color: PROG_COLORS[i % PROG_COLORS.length]!,
+        })),
+        {
+          name: 'Unallocated',
+          value: Math.max(0, round.budget - round.committed),
+          color: ALLOCATE_LEFT,
+        },
       ]
     : []
-  const roundPct = round && round.budget > 0 ? Math.round((round.committed / round.budget) * 100) : 0
+  const roundPct =
+    round && round.budget > 0 ? Math.round((round.committed / round.budget) * 100) : 0
   const roundLeft = round ? Math.max(0, round.budget - round.committed) : 0
   const roundDaysLeft = daysUntil(round?.closedAt)
 
@@ -312,7 +365,11 @@ function Dashboard() {
   // strip's colours always match the legend beneath it.
   const appsCats: Chip[] = [
     { label: 'to review', count: d.pipeline.for_review, color: KPI.apps.accent },
-    { label: 'shortlisted', count: d.pipeline.shortlisted, color: withAlpha(KPI.apps.accent, 0.45) },
+    {
+      label: 'shortlisted',
+      count: d.pipeline.shortlisted,
+      color: withAlpha(KPI.apps.accent, 0.45),
+    },
     { label: 'awarded', count: d.pipeline.awarded, color: C.success },
     { label: 'declined', count: d.pipeline.declined, color: C.danger },
   ]
@@ -324,7 +381,8 @@ function Dashboard() {
     { label: 'to review', count: d.reportsToReview, color: C.info },
     { label: 'overdue', count: a.reportsOverdue.count, color: C.danger },
   ]
-  const toSegments = (cats: Chip[]): BarSegment[] => cats.map((c) => ({ value: c.count, color: c.color }))
+  const toSegments = (cats: Chip[]): BarSegment[] =>
+    cats.map((c) => ({ value: c.count, color: c.color }))
   const financeDenom = d.money.paidToDate + d.money.outstanding
   const financeProgress = financeDenom > 0 ? d.money.paidToDate / financeDenom : 0
 
@@ -402,7 +460,9 @@ function Dashboard() {
           <PanelTitle>On your desk</PanelTitle>
           {desk.length === 0 ? (
             <div className="flex items-center gap-3 py-6 text-sm" style={{ color: C.sub }}>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">✓</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                ✓
+              </span>
               You’re all caught up — nothing needs action right now.
             </div>
           ) : (
@@ -442,7 +502,10 @@ function Dashboard() {
                       <div className="text-2xl font-semibold" style={{ color: C.ink }}>
                         {roundPct}%
                       </div>
-                      <div className="mt-0.5 text-center text-[11px] leading-tight" style={{ color: C.sub }}>
+                      <div
+                        className="mt-0.5 text-center text-[11px] leading-tight"
+                        style={{ color: C.sub }}
+                      >
                         {fmtCompact(roundLeft)} left
                         <br />
                         to allocate
@@ -514,9 +577,17 @@ function Dashboard() {
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                       style={{ backgroundColor: DESK_TILE }}
                     >
-                      <HugeiconsIcon icon={meta.icon} className="h-5 w-5" strokeWidth={1.5} style={{ color: meta.accent }} />
+                      <HugeiconsIcon
+                        icon={meta.icon}
+                        className="h-5 w-5"
+                        strokeWidth={1.5}
+                        style={{ color: meta.accent }}
+                      />
                     </span>
-                    <span className="min-w-0 flex-1 text-xs font-medium leading-snug" style={{ color: C.sub }}>
+                    <span
+                      className="min-w-0 flex-1 text-xs font-medium leading-snug"
+                      style={{ color: C.sub }}
+                    >
                       <span style={{ color: C.ink }}>{ev.actorName ?? 'Someone'}</span> {meta.verb}{' '}
                       <span style={{ color: C.ink }}>{org}</span>
                     </span>
@@ -574,7 +645,11 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
               className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
               style={
                 range === r.key
-                  ? { backgroundColor: '#fff', color: C.ink, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
+                  ? {
+                      backgroundColor: '#fff',
+                      color: C.ink,
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                    }
                   : { color: C.sub }
               }
             >
@@ -616,9 +691,27 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
 
 function Onboarding({ name }: { name: string }) {
   const steps = [
-    { n: '1', title: 'Create a round', body: 'Set up a funding round and the programmes within it.', to: '/rounds', cta: 'Go to rounds' },
-    { n: '2', title: 'Add programmes', body: 'Define programmes, budgets and grant limits.', to: '/programmes', cta: 'Go to programmes' },
-    { n: '3', title: 'Connect intake', body: 'Generate an API key so applications can flow in.', to: '/settings/api-keys', cta: 'Go to API keys' },
+    {
+      n: '1',
+      title: 'Create a round',
+      body: 'Set up a funding round and the programmes within it.',
+      to: '/rounds',
+      cta: 'Go to rounds',
+    },
+    {
+      n: '2',
+      title: 'Add programmes',
+      body: 'Define programmes, budgets and grant limits.',
+      to: '/programmes',
+      cta: 'Go to programmes',
+    },
+    {
+      n: '3',
+      title: 'Connect intake',
+      body: 'Generate an API key so applications can flow in.',
+      to: '/settings/api-keys',
+      cta: 'Go to API keys',
+    },
   ]
   return (
     <div className="space-y-5">
@@ -633,10 +726,15 @@ function Onboarding({ name }: { name: string }) {
       <div className="grid gap-4 sm:grid-cols-3">
         {steps.map((s) => (
           <UiCard key={s.n} className="p-5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-700">{s.n}</span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-700">
+              {s.n}
+            </span>
             <p className="mt-3 text-sm font-medium text-gray-900">{s.title}</p>
             <p className="mt-1 text-xs text-gray-500">{s.body}</p>
-            <Link to={s.to} className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:text-emerald-800">
+            <Link
+              to={s.to}
+              className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:text-emerald-800"
+            >
               {s.cta} →
             </Link>
           </UiCard>

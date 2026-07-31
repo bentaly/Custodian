@@ -18,12 +18,48 @@ import { accounts, clients, users } from '../drizzle/schema'
 // needs its own set of addresses.
 
 const SEED_USERS = [
-  { email: 'test1@test.com', name: 'Test Trustee One', password: 'test', role: 'trustee' as const, client: 'test fundy' },
-  { email: 'test2@test.com', name: 'Test Trustee Two', password: 'test', role: 'trustee' as const, client: 'test fundy' },
-  { email: 'test3@test.com', name: 'Test Trustee Three', password: 'test', role: 'trustee' as const, client: 'test fundy' },
-  { email: 'testa@test.com', name: 'Test Trustee A', password: 'test', role: 'trustee' as const, client: 'Custodian Foundation' },
-  { email: 'testb@test.com', name: 'Test Trustee B', password: 'test', role: 'trustee' as const, client: 'Custodian Foundation' },
-  { email: 'testc@test.com', name: 'Test Trustee C', password: 'test', role: 'trustee' as const, client: 'Custodian Foundation' },
+  {
+    email: 'test1@test.com',
+    name: 'Test Trustee One',
+    password: 'test',
+    role: 'trustee' as const,
+    client: 'test fundy',
+  },
+  {
+    email: 'test2@test.com',
+    name: 'Test Trustee Two',
+    password: 'test',
+    role: 'trustee' as const,
+    client: 'test fundy',
+  },
+  {
+    email: 'test3@test.com',
+    name: 'Test Trustee Three',
+    password: 'test',
+    role: 'trustee' as const,
+    client: 'test fundy',
+  },
+  {
+    email: 'testa@test.com',
+    name: 'Test Trustee A',
+    password: 'test',
+    role: 'trustee' as const,
+    client: 'Custodian Foundation',
+  },
+  {
+    email: 'testb@test.com',
+    name: 'Test Trustee B',
+    password: 'test',
+    role: 'trustee' as const,
+    client: 'Custodian Foundation',
+  },
+  {
+    email: 'testc@test.com',
+    name: 'Test Trustee C',
+    password: 'test',
+    role: 'trustee' as const,
+    client: 'Custodian Foundation',
+  },
 ]
 
 async function main() {

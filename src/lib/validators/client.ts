@@ -7,7 +7,12 @@ export const CreateClientSchema = z.object({
   name: z.string().min(1).max(255),
   type: ClientType.default('charitable_foundation'),
   description: z.string().max(2000).optional(),
-  website: z.string().url().optional().or(z.literal('')).transform(v => v || undefined),
+  website: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal(''))
+    .transform((v) => v || undefined),
 })
 export type CreateClientInput = z.infer<typeof CreateClientSchema>
 

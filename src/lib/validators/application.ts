@@ -1,11 +1,6 @@
 import { z } from 'zod'
 
-export const ApplicationStatus = z.enum([
-  'for_review',
-  'shortlisted',
-  'awarded',
-  'declined',
-])
+export const ApplicationStatus = z.enum(['for_review', 'shortlisted', 'awarded', 'declined'])
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
 // A single project-budget line. `amount` is in pounds (GBP) to the penny —

@@ -118,7 +118,13 @@ describe('runDueDiligence routing', () => {
 
   it('always runs the 360Giving supplementary check with a GB-CHC identifier', async () => {
     const threeSixtyGiving = vi.fn(async () => ({
-      grants: [{ fundingOrganization: [{ name: 'Big Lottery' }], amountAwarded: 5000, awardDate: '2024-01-01' }],
+      grants: [
+        {
+          fundingOrganization: [{ name: 'Big Lottery' }],
+          amountAwarded: 5000,
+          awardDate: '2024-01-01',
+        },
+      ],
     }))
     const res = await runDueDiligence(
       { charityNumber: '1234567', companyNumber: undefined, amountRequested: 1000 },

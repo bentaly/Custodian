@@ -42,8 +42,7 @@ export function applyLookupOver<K extends string>(
   const leftoverKeys: string[] = []
 
   for (const [key, rawValue] of Object.entries(payload)) {
-    const canonical =
-      sourceToCanonical.get(key) ?? (keySet.has(key) ? (key as K) : undefined)
+    const canonical = sourceToCanonical.get(key) ?? (keySet.has(key) ? (key as K) : undefined)
 
     if (!canonical) {
       leftoverKeys.push(key)

@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { runCustodianScore, type CustodianScoreAssessor } from './run'
-import { computeComposite, CRITERION_ORDER, type CustodianScoreInput } from '../../lib/custodianScore'
+import {
+  computeComposite,
+  CRITERION_ORDER,
+  type CustodianScoreInput,
+} from '../../lib/custodianScore'
 
 const INPUT: CustodianScoreInput = {
   missionStatement: 'Improve environmental education for young people in Yorkshire.',
@@ -29,7 +33,9 @@ function flatAssessor(score: number, summary = 'ok', flags: string[] = []): Cust
 
 describe('runCustodianScore', () => {
   it('rolls sub-scores up into a composite and returns scored', async () => {
-    const result = await runCustodianScore(INPUT, { assess: flatAssessor(8, 'Strong fit.', ['check budget']) })
+    const result = await runCustodianScore(INPUT, {
+      assess: flatAssessor(8, 'Strong fit.', ['check budget']),
+    })
     expect(result.status).toBe('scored')
     expect(result.score).toBe(80) // all-8s → 8/10 → 80/100
     expect(result.detail?.summary).toBe('Strong fit.')

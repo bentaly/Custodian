@@ -26,7 +26,6 @@ export const Route = createFileRoute('/_authenticated/programmes/$programmeId')(
   component: ProgrammeDetail,
 })
 
-
 type LoadedProgramme = Awaited<ReturnType<typeof getProgramme>>
 type RoundProgrammeRow = LoadedProgramme['roundProgrammes'][number]
 type MyRound = Awaited<ReturnType<typeof listMyRounds>>[number]
@@ -55,7 +54,9 @@ function ProgrammeDetail() {
   const [addingRound, setAddingRound] = useState(false)
   const [addRoundError, setAddRoundError] = useState('')
 
-  const linkedRoundIds = new Set(programme.roundProgrammes.map((rp: RoundProgrammeRow) => rp.roundId))
+  const linkedRoundIds = new Set(
+    programme.roundProgrammes.map((rp: RoundProgrammeRow) => rp.roundId),
+  )
   const availableRounds = allRounds.filter((r: MyRound) => !linkedRoundIds.has(r.id))
 
   async function handleSave(e: React.FormEvent) {
@@ -95,7 +96,9 @@ function ProgrammeDetail() {
           programmeId: programme.id,
           budget: parseFloat(addBudget),
           maxGrantAmount: addMaxGrantAmount ? parseFloat(addMaxGrantAmount) : undefined,
-          grantDurationYears: addGrantDurationYears ? parseInt(addGrantDurationYears, 10) : undefined,
+          grantDurationYears: addGrantDurationYears
+            ? parseInt(addGrantDurationYears, 10)
+            : undefined,
         },
       })
       setShowAddRound(false)
@@ -207,7 +210,9 @@ function ProgrammeDetail() {
             <div>
               <Label>
                 Programme priorities{' '}
-                <span className="font-normal text-gray-400">— used by AI to score applications</span>
+                <span className="font-normal text-gray-400">
+                  — used by AI to score applications
+                </span>
               </Label>
               <RichTextEditor key={programme.id} defaultValue={goal} onChange={setGoal} />
             </div>
@@ -311,7 +316,9 @@ function ProgrammeDetail() {
               <div>
                 <Label>Total budget</Label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
+                    £
+                  </span>
                   <input
                     type="number"
                     value={addBudget}
@@ -326,7 +333,9 @@ function ProgrammeDetail() {
               <div>
                 <Label>Max per award</Label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
+                    £
+                  </span>
                   <input
                     type="number"
                     value={addMaxGrantAmount}
@@ -351,7 +360,9 @@ function ProgrammeDetail() {
                     placeholder="1"
                     className="w-full rounded-sm border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                   />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">
+                    yrs
+                  </span>
                 </div>
               </div>
             </div>
@@ -390,10 +401,7 @@ function ProgrammeDetail() {
         ) : (
           <div className="space-y-1">
             {programme.roundProgrammes.map(({ round }: RoundProgrammeRow) => (
-              <Card
-                key={round.id}
-                className="flex items-center justify-between px-4 py-3"
-              >
+              <Card key={round.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Link
                     to="/rounds/$roundId"

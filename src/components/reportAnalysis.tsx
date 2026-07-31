@@ -114,7 +114,9 @@ export function ReportAnalysisPanel({
                 style={{ border: `3px solid ${a.impactQuantity != null ? '#0F6E56' : '#d1d5db'}` }}
               >
                 <span className="text-2xl font-light leading-none">
-                  {a.impactQuantity != null ? Number(a.impactQuantity).toLocaleString('en-GB') : '—'}
+                  {a.impactQuantity != null
+                    ? Number(a.impactQuantity).toLocaleString('en-GB')
+                    : '—'}
                 </span>
               </div>
               <span className="mt-1.5 text-center text-[10px] uppercase tracking-wide text-gray-400">
@@ -201,7 +203,9 @@ export function ReportAnalysisPanel({
                 <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Against the programme
                 </h3>
-                <p className="text-sm leading-relaxed text-gray-600">{a.programmeAlignment.narrative}</p>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  {a.programmeAlignment.narrative}
+                </p>
               </div>
             )}
 

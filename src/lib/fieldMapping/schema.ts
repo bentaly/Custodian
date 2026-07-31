@@ -14,7 +14,9 @@ export const FieldProposalSchema = z.object({
   sourceKey: z
     .string()
     .nullable()
-    .describe('The payload key whose value best fills this field, or null if none is a confident match.'),
+    .describe(
+      'The payload key whose value best fills this field, or null if none is a confident match.',
+    ),
   confidence: z
     .number()
     .min(0)

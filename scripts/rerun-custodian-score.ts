@@ -47,9 +47,7 @@ async function main() {
     },
   })
 
-  const targets = pendingOnly
-    ? rows.filter((r) => r.custodianScoreStatus === 'pending')
-    : rows
+  const targets = pendingOnly ? rows.filter((r) => r.custodianScoreStatus === 'pending') : rows
   console.log(`Re-scoring ${targets.length} application(s)...\n`)
 
   for (const app of targets) {

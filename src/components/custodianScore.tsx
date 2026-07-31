@@ -34,7 +34,6 @@ function criterionClasses(score: number): { text: string; bar: string } {
   return { text: 'text-red-600', bar: 'bg-red-500' }
 }
 
-
 export function CustodianScorePanel({
   status,
   score,

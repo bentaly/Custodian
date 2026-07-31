@@ -55,7 +55,8 @@ export function buildReportCanonicalInput(
     charityNumber: get('charityNumber'),
     companyNumber: get('companyNumber'),
     programmeName: get('programmeName'),
-    amountAwarded: amount !== undefined && Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    amountAwarded:
+      amount !== undefined && Number.isFinite(amount) && amount > 0 ? amount : undefined,
     awardDate: get('awardDate'),
     awardEndDate: get('awardEndDate'),
     contactName: get('contactName'),

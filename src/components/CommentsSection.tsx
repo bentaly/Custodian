@@ -14,10 +14,14 @@ const CAN_COMMENT = new Set(['superadmin', 'admin', 'trustee', 'finance'])
 
 function roleLabel(role: string) {
   switch (role) {
-    case 'admin': return 'Admin'
-    case 'trustee': return 'Trustee'
-    case 'finance': return 'Finance'
-    default: return role
+    case 'admin':
+      return 'Admin'
+    case 'trustee':
+      return 'Trustee'
+    case 'finance':
+      return 'Finance'
+    default:
+      return role
   }
 }
 
@@ -96,17 +100,13 @@ export function CommentsSection({
 
   return (
     <div>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-        Comments
-      </h3>
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Comments</h3>
 
       {loading ? (
         <p className="text-sm text-gray-400">Loading…</p>
       ) : (
         <div className="space-y-2.5">
-          {comments.length === 0 && (
-            <p className="text-sm text-gray-400">No comments yet.</p>
-          )}
+          {comments.length === 0 && <p className="text-sm text-gray-400">No comments yet.</p>}
 
           {comments.map((c) => {
             const canEdit = c.user.id === userId
@@ -114,14 +114,17 @@ export function CommentsSection({
             const isEditing = editingId === c.id
             const busy = busyId === c.id
             return (
-              <div
-                key={c.id}
-                className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2.5"
-              >
+              <div key={c.id} className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2.5">
                 <div className="mb-1.5 flex items-center gap-1.5">
                   <span className="text-xs font-medium text-gray-800">{c.user.name}</span>
                   <span
-                    style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: '#f0f0ec', color: '#777' }}
+                    style={{
+                      fontSize: 10,
+                      padding: '1px 5px',
+                      borderRadius: 3,
+                      background: '#f0f0ec',
+                      color: '#777',
+                    }}
                   >
                     {roleLabel(c.user.role)}
                   </span>
@@ -164,7 +167,9 @@ export function CommentsSection({
                   </div>
                 ) : (
                   <>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{c.body}</p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                      {c.body}
+                    </p>
                     {(canEdit || canDelete) && (
                       <div className="mt-1.5 flex gap-3">
                         {canEdit && (
@@ -203,7 +208,12 @@ export function CommentsSection({
                 className="w-full resize-none rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-gray-400 focus:outline-hidden"
               />
               <div className="flex justify-end">
-                <Button type="submit" variant="secondary" size="sm" disabled={submitting || !body.trim()}>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  size="sm"
+                  disabled={submitting || !body.trim()}
+                >
                   {submitting ? 'Posting…' : 'Post comment'}
                 </Button>
               </div>

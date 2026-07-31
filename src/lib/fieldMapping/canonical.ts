@@ -46,7 +46,7 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Programme name',
     required: true,
     description:
-      "The name of the programme the applicant is applying to (must match an active programme in an open round).",
+      'The name of the programme the applicant is applying to (must match an active programme in an open round).',
   },
   {
     key: 'externalApplicationId',
@@ -123,7 +123,7 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'otherwise the delivery region, town or area (e.g. "Bradford", "BD1 1AA", "London"). ' +
       'This is used to look up the deprivation of the area served. ' +
       'Do NOT map a field about where the ORGANISATION is based, registered, or has its office/headquarters — ' +
-      'that is the applicant\'s own location, not the area they serve, and must be left unmapped.',
+      "that is the applicant's own location, not the area they serve, and must be left unmapped.",
   },
   {
     key: 'budgetBreakdown',

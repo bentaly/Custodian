@@ -62,7 +62,10 @@ const PREFILL_7STARS: ReportField[] = [
   },
   { key: 'Number of beneficiaries (0-18 Years)', value: '84' },
   { key: 'Project Delivery Region', value: 'Yorkshire and the Humber' },
-  { key: 'Any other comments?', value: 'Thank you — the flexibility of the funding made the pivot possible.' },
+  {
+    key: 'Any other comments?',
+    value: 'Thank you — the flexibility of the funding made the pivot possible.',
+  },
 ]
 
 const PREFILL_ARETE: ReportField[] = [
@@ -139,7 +142,8 @@ export function SubmitterReport() {
     setSubmitError(null)
     setResult(null)
     try {
-      if (!apiKey.trim()) throw new Error('Enter an API key (generate one on the Organisation screen)')
+      if (!apiKey.trim())
+        throw new Error('Enter an API key (generate one on the Organisation screen)')
       const payload: Record<string, string> = {}
       for (const f of fields) {
         const v = f.value.trim()
@@ -239,7 +243,9 @@ export function SubmitterReport() {
                       value={f.value}
                       rows={3}
                       onChange={(e) =>
-                        setFields((fs) => fs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))
+                        setFields((fs) =>
+                          fs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)),
+                        )
                       }
                       className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                     />
@@ -248,7 +254,9 @@ export function SubmitterReport() {
                       type="text"
                       value={f.value}
                       onChange={(e) =>
-                        setFields((fs) => fs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))
+                        setFields((fs) =>
+                          fs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)),
+                        )
                       }
                       className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                     />

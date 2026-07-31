@@ -41,22 +41,28 @@ export function ReviewQueue() {
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1">
-          {(['needs_review', 'ai_proposed', 'complete', 'received', 'all'] as StatusFilter[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatus(s)}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                status === s ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200'
-              }`}
-            >
-              {s.replace('_', ' ')}
-            </button>
-          ))}
+          {(['needs_review', 'ai_proposed', 'complete', 'received', 'all'] as StatusFilter[]).map(
+            (s) => (
+              <button
+                key={s}
+                onClick={() => setStatus(s)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  status === s
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 ring-1 ring-gray-200'
+                }`}
+              >
+                {s.replace('_', ' ')}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
       {loading && <p className="text-sm text-gray-500">Loading…</p>}
-      {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">Error: {error}</p>}
+      {error && (
+        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">Error: {error}</p>
+      )}
       {!loading && !error && rows.length === 0 && (
         <p className="rounded-lg bg-white p-8 text-center text-sm text-gray-400 ring-1 ring-gray-200">
           Nothing here.
@@ -180,7 +186,9 @@ function IngestCard({
           </p>
           <p className="text-xs text-gray-400">{new Date(row.createdAt).toLocaleString('en-GB')}</p>
         </div>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}>
+        <span
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}
+        >
           {row.status.replace('_', ' ')}
         </span>
       </button>
@@ -188,8 +196,8 @@ function IngestCard({
       {open && row.status === 'received' && (
         <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-4 py-4">
           <p className="text-xs text-gray-500">
-            Processing — mapping, scoring and due diligence are running in the background.
-            Refresh in a minute; a row stuck here means the pipeline crashed.
+            Processing — mapping, scoring and due diligence are running in the background. Refresh
+            in a minute; a row stuck here means the pipeline crashed.
           </p>
           <DeleteButton onClick={remove} deleting={deleting} />
         </div>

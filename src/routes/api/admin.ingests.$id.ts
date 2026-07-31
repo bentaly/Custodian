@@ -7,47 +7,39 @@ import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/h
 // Delete a submission outright: the ingest row and, when one was created from it,
 // the application too (comments and votes cascade). Refused when a grant has been
 // awarded against the application — that is no longer disposable test data.
-export const Route = createFileRoute('/api/admin/ingests/$id')(
-  {
-    server: {
-      handlers: {
-        OPTIONS: async () => adminOptions(),
-        DELETE: async ({
-          request,
-          params,
-        }: {
-          request: Request
-          params: { id: string }
-        }) => {
-          const denied = requireAdminToken(request)
-          if (denied) return denied
+export const Route = createFileRoute('/api/admin/ingests/$id')({
+  server: {
+    handlers: {
+      OPTIONS: async () => adminOptions(),
+      DELETE: async ({ request, params }: { request: Request; params: { id: string } }) => {
+        const denied = requireAdminToken(request)
+        if (denied) return denied
 
-          const ingest = await getDb().query.applicationIngests.findFirst({
-            where: eq(applicationIngests.id, params.id),
-            columns: { id: true, applicationId: true },
+        const ingest = await getDb().query.applicationIngests.findFirst({
+          where: eq(applicationIngests.id, params.id),
+          columns: { id: true, applicationId: true },
+        })
+        if (!ingest) return adminJson({ ok: true }, 200)
+
+        if (ingest.applicationId) {
+          const grant = await getDb().query.awards.findFirst({
+            where: eq(awards.applicationId, ingest.applicationId),
+            columns: { id: true },
           })
-          if (!ingest) return adminJson({ ok: true }, 200)
-
-          if (ingest.applicationId) {
-            const grant = await getDb().query.awards.findFirst({
-              where: eq(awards.applicationId, ingest.applicationId),
-              columns: { id: true },
-            })
-            if (grant) {
-              return adminJson(
-                { error: 'Application has an awarded grant and cannot be deleted' },
-                409,
-              )
-            }
+          if (grant) {
+            return adminJson(
+              { error: 'Application has an awarded grant and cannot be deleted' },
+              409,
+            )
           }
+        }
 
-          await getDb().delete(applicationIngests).where(eq(applicationIngests.id, params.id))
-          if (ingest.applicationId) {
-            await getDb().delete(applications).where(eq(applications.id, ingest.applicationId))
-          }
-          return adminJson({ ok: true }, 200)
-        },
+        await getDb().delete(applicationIngests).where(eq(applicationIngests.id, params.id))
+        if (ingest.applicationId) {
+          await getDb().delete(applications).where(eq(applications.id, ingest.applicationId))
+        }
+        return adminJson({ ok: true }, 200)
       },
     },
-  } as any,
-)
+  },
+} as any)

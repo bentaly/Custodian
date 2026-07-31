@@ -46,22 +46,28 @@ export function ReportQueue() {
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1">
-          {(['needs_review', 'ai_proposed', 'complete', 'received', 'all'] as StatusFilter[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatus(s)}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                status === s ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200'
-              }`}
-            >
-              {s.replace('_', ' ')}
-            </button>
-          ))}
+          {(['needs_review', 'ai_proposed', 'complete', 'received', 'all'] as StatusFilter[]).map(
+            (s) => (
+              <button
+                key={s}
+                onClick={() => setStatus(s)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  status === s
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 ring-1 ring-gray-200'
+                }`}
+              >
+                {s.replace('_', ' ')}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
       {loading && <p className="text-sm text-gray-500">Loading…</p>}
-      {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">Error: {error}</p>}
+      {error && (
+        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">Error: {error}</p>
+      )}
       {!loading && !error && rows.length === 0 && (
         <p className="rounded-lg bg-white p-8 text-center text-sm text-gray-400 ring-1 ring-gray-200">
           Nothing here.
@@ -213,7 +219,9 @@ function ReportCard({
           </p>
           <p className="text-xs text-gray-400">{new Date(row.createdAt).toLocaleString('en-GB')}</p>
         </div>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}>
+        <span
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}
+        >
           {row.status.replace('_', ' ')}
         </span>
       </button>
@@ -236,9 +244,8 @@ function ReportCard({
             </p>
           ) : row.reportId ? (
             <p className="text-xs text-gray-500">
-              The report was already created from the AI-proposed mapping (submission{' '}
-              {row.reportId}). Review the mapping below, tick “lookup” for anything worth
-              teaching, then confirm.
+              The report was already created from the AI-proposed mapping (submission {row.reportId}
+              ). Review the mapping below, tick “lookup” for anything worth teaching, then confirm.
             </p>
           ) : (
             <p className="text-xs text-gray-500">
@@ -333,7 +340,9 @@ function ReportCard({
                     <label
                       key={g.id}
                       className={`flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-xs ${
-                        grantId === g.id ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 bg-white'
+                        grantId === g.id
+                          ? 'border-indigo-400 bg-indigo-50'
+                          : 'border-gray-200 bg-white'
                       }`}
                     >
                       <input

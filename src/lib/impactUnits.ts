@@ -41,7 +41,10 @@ export const IMPACT_UNIT_BY_KEY: Record<string, ImpactUnit> = Object.fromEntries
  * The display/extraction label for a programme's unit: the free-text phrase for
  * 'other' (falling back to the default unit if blank), else the curated label.
  */
-export function impactUnitLabel(unit: string | null | undefined, customLabel?: string | null): string {
+export function impactUnitLabel(
+  unit: string | null | undefined,
+  customLabel?: string | null,
+): string {
   if (unit === 'other' && customLabel?.trim()) return customLabel.trim()
   const known = unit ? IMPACT_UNIT_BY_KEY[unit] : undefined
   if (known && known.key !== 'other') return known.label

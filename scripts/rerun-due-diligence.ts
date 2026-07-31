@@ -54,7 +54,9 @@ async function main() {
         dueDiligenceCheckedAt: new Date(result.checkedAt),
       })
       .where(eq(schema.applications.id, app.id))
-    console.log(`  ${app.organisationName.padEnd(40)} → ${result.status} (${result.checks.length} checks)`)
+    console.log(
+      `  ${app.organisationName.padEnd(40)} → ${result.status} (${result.checks.length} checks)`,
+    )
   }
 
   console.log('\nDone.')

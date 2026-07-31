@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  decileStats,
-  formatDecileRange,
-  looksLikePostcode,
-  nationFromGssCode,
-} from './types'
+import { decileStats, formatDecileRange, looksLikePostcode, nationFromGssCode } from './types'
 
 describe('looksLikePostcode', () => {
   it('accepts full postcodes with and without a space', () => {

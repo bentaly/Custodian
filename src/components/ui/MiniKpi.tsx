@@ -61,8 +61,14 @@ export function MiniKpi({
   children?: ReactNode
 }) {
   return (
-    <div className="flex flex-col rounded-[20px] border bg-white p-1" style={{ borderColor: C.line }}>
-      <div className="relative overflow-hidden rounded-2xl p-4" style={{ backgroundColor: tint.bg }}>
+    <div
+      className="flex flex-col rounded-[20px] border bg-white p-1"
+      style={{ borderColor: C.line }}
+    >
+      <div
+        className="relative overflow-hidden rounded-2xl p-4"
+        style={{ backgroundColor: tint.bg }}
+      >
         {/* Figma "Mask group" (112:802): a radial accent gradient shown *through* a dot
             grid — the gradient is the fill, the dots are the mask. */}
         <span

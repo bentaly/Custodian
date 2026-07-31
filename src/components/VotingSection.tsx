@@ -90,9 +90,7 @@ export function VotingSection({
             >
               <span className="text-sm text-gray-700">
                 {trustee.name}
-                {isMe && (
-                  <span className="ml-1 text-xs text-gray-400">(you)</span>
-                )}
+                {isMe && <span className="ml-1 text-xs text-gray-400">(you)</span>}
               </span>
 
               {canSetThisVote ? (

@@ -1,14 +1,32 @@
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
 import { anim, chart, fmtMoney, tooltipBox } from './theme'
 
 export type GivingPoint = { label: string; amount: number }
 
-function AreaTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+function AreaTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean
+  payload?: Array<{ value: number }>
+  label?: string
+}) {
   if (!active || !payload?.length) return null
   return (
     <div style={tooltipBox}>
       <div style={{ color: chart.sub }}>{label}</div>
-      <div style={{ color: chart.ink, fontWeight: 600, marginTop: 2 }}>{fmtMoney(payload[0]!.value)}</div>
+      <div style={{ color: chart.ink, fontWeight: 600, marginTop: 2 }}>
+        {fmtMoney(payload[0]!.value)}
+      </div>
     </div>
   )
 }
@@ -36,7 +54,13 @@ export function GivingArea({ data, height = 210 }: { data: GivingPoint[]; height
         </defs>
         {/* `fill` paints the plot-area rect; both rule sets stay off so only dots show. */}
         <CartesianGrid horizontal={false} vertical={false} fill="url(#givingDots)" />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: chart.faint }} dy={4} />
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 10, fill: chart.faint }}
+          dy={4}
+        />
         <YAxis
           tickFormatter={axisMoney}
           tickLine={false}
@@ -44,7 +68,10 @@ export function GivingArea({ data, height = 210 }: { data: GivingPoint[]; height
           tick={{ fontSize: 10, fill: chart.faint }}
           width={38}
         />
-        <Tooltip content={<AreaTooltip />} cursor={{ stroke: chart.purple, strokeDasharray: '3 3' }} />
+        <Tooltip
+          content={<AreaTooltip />}
+          cursor={{ stroke: chart.purple, strokeDasharray: '3 3' }}
+        />
         <Area
           type="monotone"
           dataKey="amount"

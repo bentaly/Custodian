@@ -108,7 +108,11 @@ export async function computeGrantCandidates(
     let score = 0
     const reasons: string[] = []
 
-    if (hintCharity && app?.charityNumber && normaliseCharityNumber(app.charityNumber) === hintCharity) {
+    if (
+      hintCharity &&
+      app?.charityNumber &&
+      normaliseCharityNumber(app.charityNumber) === hintCharity
+    ) {
       score += 50
       reasons.push('Charity number matches')
     }

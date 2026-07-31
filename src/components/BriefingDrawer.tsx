@@ -84,11 +84,7 @@ export function BriefingDrawer({
 
             {/* Votes */}
             <section>
-              <VotingSection
-                applicationId={application.id}
-                userId={user.id}
-                userRole={user.role}
-              />
+              <VotingSection applicationId={application.id} userId={user.id} userRole={user.role} />
             </section>
 
             {/* Comments */}

@@ -257,13 +257,19 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
                       }}
                       className={`flex items-center gap-3 px-4 py-2 ${isActive ? 'bg-[#F0F6F3]' : ''}`}
                     >
-                      <HugeiconsIcon icon={group.icon} strokeWidth={1.5} className="h-4 w-4 shrink-0 text-[#9AA3AD]" />
+                      <HugeiconsIcon
+                        icon={group.icon}
+                        strokeWidth={1.5}
+                        className="h-4 w-4 shrink-0 text-[#9AA3AD]"
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-ink">
                           {r.title}
                         </span>
                         {r.subtitle && (
-                          <span className="block truncate text-xs text-[#8A939D]">{r.subtitle}</span>
+                          <span className="block truncate text-xs text-[#8A939D]">
+                            {r.subtitle}
+                          </span>
                         )}
                       </span>
                       {r.badge && (
@@ -337,28 +343,32 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
             className="flex items-center gap-1 rounded-[20px] border border-[#E4E7EC] bg-white py-1 pl-1 pr-2 hover:bg-[#F7F8FA]"
           >
             <Avatar name={user.name} image={user.image} />
-            <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={1.5} className="h-4 w-4 text-[#637083]" />
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              strokeWidth={1.5}
+              className="h-4 w-4 text-[#637083]"
+            />
           </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-[#E4E7E6] bg-white py-1.5 shadow-lg">
-              <Link
-                to="/profile"
-                onClick={() => setMenuOpen(false)}
-                className="block px-4 py-2 text-sm text-[#374151] hover:bg-[#F5F7F6]"
-              >
-                Profile
-              </Link>
-              <button
-                onClick={handleSignOut}
-                className="block w-full px-4 py-2 text-left text-sm text-[#374151] hover:bg-[#F5F7F6]"
-              >
-                Sign out
-              </button>
-            </div>
-          </>
-        )}
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-[#E4E7E6] bg-white py-1.5 shadow-lg">
+                <Link
+                  to="/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-2 text-sm text-[#374151] hover:bg-[#F5F7F6]"
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full px-4 py-2 text-left text-sm text-[#374151] hover:bg-[#F5F7F6]"
+                >
+                  Sign out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>

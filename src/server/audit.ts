@@ -37,13 +37,15 @@ export async function recordAudit(input: {
       if (!row) return
       clientId = row.clientId
     }
-    await getDb().insert(auditLog).values({
-      clientId,
-      actorUserId: input.actorUserId,
-      action: input.action,
-      applicationId: input.applicationId,
-      metadata: input.metadata ?? null,
-    })
+    await getDb()
+      .insert(auditLog)
+      .values({
+        clientId,
+        actorUserId: input.actorUserId,
+        action: input.action,
+        applicationId: input.applicationId,
+        metadata: input.metadata ?? null,
+      })
   } catch {
     // Audit logging is best-effort — never surface a logging failure to the caller.
   }

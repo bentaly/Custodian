@@ -117,4 +117,3 @@ export const deleteRound = createServerFn({ method: 'POST' })
     await getDb().delete(rounds).where(eq(rounds.id, data.id))
     return { ok: true }
   })
-

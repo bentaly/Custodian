@@ -171,7 +171,11 @@ function SignInPage() {
 
       {mode === 'password' && (
         <div className="mt-7 space-y-5">
-          <GoogleButton onClick={handleGoogle} loading={googleLoading} label="Continue with Google" />
+          <GoogleButton
+            onClick={handleGoogle}
+            loading={googleLoading}
+            label="Continue with Google"
+          />
           <Divider>or</Divider>
 
           <form onSubmit={handlePasswordSignIn} className="space-y-4">
@@ -219,7 +223,11 @@ function SignInPage() {
 
       {mode === 'code-request' && (
         <div className="mt-7 space-y-5">
-          <GoogleButton onClick={handleGoogle} loading={googleLoading} label="Continue with Google" />
+          <GoogleButton
+            onClick={handleGoogle}
+            loading={googleLoading}
+            label="Continue with Google"
+          />
           <Divider>or</Divider>
 
           <form onSubmit={handleRequestCode} className="space-y-4">

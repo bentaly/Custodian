@@ -48,7 +48,9 @@ export const listShortlist = createServerFn({ method: 'GET' })
       getDb()
         .select({ applicationId: applicationVotes.applicationId, yes: count() })
         .from(applicationVotes)
-        .where(and(inArray(applicationVotes.applicationId, appIds), eq(applicationVotes.vote, 'yes')))
+        .where(
+          and(inArray(applicationVotes.applicationId, appIds), eq(applicationVotes.vote, 'yes')),
+        )
         .groupBy(applicationVotes.applicationId),
       getDb()
         .select({ clientId: users.clientId, trustees: count() })

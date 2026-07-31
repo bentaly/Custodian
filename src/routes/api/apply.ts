@@ -60,46 +60,44 @@ function tooManyRequests() {
   })
 }
 
-export const Route = createFileRoute('/api/apply')(
-  {
-    server: {
-      handlers: {
-        OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
-        POST: async ({ request }: { request: Request }) => {
-          // 1. Per-IP backstop on every request — a volumetric guard for the
-          //    unauthenticated path (its ceiling sits above the per-client limit, so a
-          //    legit single-IP client is bounded by step 3, never tripped here first).
-          const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
-          if (!(await checkRateLimit('APPLY_IP_LIMITER', ip))) {
-            return tooManyRequests()
-          }
+export const Route = createFileRoute('/api/apply')({
+  server: {
+    handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
+      POST: async ({ request }: { request: Request }) => {
+        // 1. Per-IP backstop on every request — a volumetric guard for the
+        //    unauthenticated path (its ceiling sits above the per-client limit, so a
+        //    legit single-IP client is bounded by step 3, never tripped here first).
+        const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
+        if (!(await checkRateLimit('APPLY_IP_LIMITER', ip))) {
+          return tooManyRequests()
+        }
 
-          // 2. Authenticate — the API key both names the client and proves the caller
-          //    may submit as them.
-          const auth = await authenticateApiKey(request)
-          if (!auth) {
-            return jsonResponse({ error: 'Invalid or missing API key' }, 401)
-          }
+        // 2. Authenticate — the API key both names the client and proves the caller
+        //    may submit as them.
+        const auth = await authenticateApiKey(request)
+        if (!auth) {
+          return jsonResponse({ error: 'Invalid or missing API key' }, 401)
+        }
 
-          // 3. Per-client limit — the real per-tenant fairness control for legit traffic.
-          if (!(await checkRateLimit('APPLY_KEY_LIMITER', auth.clientId))) {
-            return tooManyRequests()
-          }
+        // 3. Per-client limit — the real per-tenant fairness control for legit traffic.
+        if (!(await checkRateLimit('APPLY_KEY_LIMITER', auth.clientId))) {
+          return tooManyRequests()
+        }
 
-          const payload = await parsePayload(request)
-          if (!payload) {
-            return jsonResponse({ error: 'Request body must contain application fields' }, 400)
-          }
+        const payload = await parsePayload(request)
+        if (!payload) {
+          return jsonResponse({ error: 'Request body must contain application fields' }, 400)
+        }
 
-          // Persist first — once the row exists the submission can never be lost —
-          // then acknowledge. The pipeline (mapping → AI fallback → scoring + due
-          // diligence) runs after the response; its outcome lands on the ingest row.
-          const ingestId = await saveIngest({ clientId: auth.clientId, payload })
-          runInBackground(`processIngest ${ingestId}`, () => processIngest(ingestId))
+        // Persist first — once the row exists the submission can never be lost —
+        // then acknowledge. The pipeline (mapping → AI fallback → scoring + due
+        // diligence) runs after the response; its outcome lands on the ingest row.
+        const ingestId = await saveIngest({ clientId: auth.clientId, payload })
+        runInBackground(`processIngest ${ingestId}`, () => processIngest(ingestId))
 
-          return jsonResponse({ status: 'received', ingestId }, 202)
-        },
+        return jsonResponse({ status: 'received', ingestId }, 202)
       },
     },
-  } as any,
-)
+  },
+} as any)

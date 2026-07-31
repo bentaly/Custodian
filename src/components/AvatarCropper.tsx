@@ -40,7 +40,14 @@ export function AvatarCropper({
 
   // Centre the image when it first loads.
   useEffect(() => {
-    setOffset(clamp((VIEWPORT - displayWidth) / 2, (VIEWPORT - displayHeight) / 2, displayWidth, displayHeight))
+    setOffset(
+      clamp(
+        (VIEWPORT - displayWidth) / 2,
+        (VIEWPORT - displayHeight) / 2,
+        displayWidth,
+        displayHeight,
+      ),
+    )
     // Only on a new source — later runs would fight the user's dragging.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source])
@@ -67,7 +74,9 @@ export function AvatarCropper({
   function handlePointerMove(e: React.PointerEvent) {
     const d = drag.current
     if (!d) return
-    setOffset(clamp(d.ox + (e.clientX - d.px), d.oy + (e.clientY - d.py), displayWidth, displayHeight))
+    setOffset(
+      clamp(d.ox + (e.clientX - d.px), d.oy + (e.clientY - d.py), displayWidth, displayHeight),
+    )
   }
   function handlePointerUp(e: React.PointerEvent) {
     e.currentTarget.releasePointerCapture(e.pointerId)
@@ -136,7 +145,13 @@ export function AvatarCropper({
           type="button"
           disabled={busy}
           onClick={() =>
-            onConfirm({ viewport: VIEWPORT, displayWidth, displayHeight, offsetX: offset.x, offsetY: offset.y })
+            onConfirm({
+              viewport: VIEWPORT,
+              displayWidth,
+              displayHeight,
+              offsetX: offset.x,
+              offsetY: offset.y,
+            })
           }
         >
           {busy ? 'Saving…' : 'Save photo'}

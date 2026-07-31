@@ -85,7 +85,16 @@ function placeCanvas(pdf: JsPDF, canvas: HTMLCanvasElement, contentW: number, y:
       pdf.addPage()
       y = MARGIN
     }
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', MARGIN, y, contentW, fullH, undefined, 'FAST')
+    pdf.addImage(
+      canvas.toDataURL('image/png'),
+      'PNG',
+      MARGIN,
+      y,
+      contentW,
+      fullH,
+      undefined,
+      'FAST',
+    )
     return y + fullH + BLOCK_GAP
   }
 
@@ -102,9 +111,20 @@ function placeCanvas(pdf: JsPDF, canvas: HTMLCanvasElement, contentW: number, y:
     const slice = document.createElement('canvas')
     slice.width = canvas.width
     slice.height = sliceHpx
-    slice.getContext('2d')!.drawImage(canvas, 0, srcY, canvas.width, sliceHpx, 0, 0, canvas.width, sliceHpx)
+    slice
+      .getContext('2d')!
+      .drawImage(canvas, 0, srcY, canvas.width, sliceHpx, 0, 0, canvas.width, sliceHpx)
     const sliceHpt = sliceHpx / pxPerPt
-    pdf.addImage(slice.toDataURL('image/png'), 'PNG', MARGIN, y, contentW, sliceHpt, undefined, 'FAST')
+    pdf.addImage(
+      slice.toDataURL('image/png'),
+      'PNG',
+      MARGIN,
+      y,
+      contentW,
+      sliceHpt,
+      undefined,
+      'FAST',
+    )
     srcY += sliceHpx
     y += sliceHpt
     if (srcY < canvas.height) {

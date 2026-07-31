@@ -13,8 +13,6 @@ export const Route = createFileRoute('/_authenticated/finance/$awardId')({
 
 type Grant = Awaited<ReturnType<typeof getFinanceGrant>>
 
-
-
 const PAY_STATUS = {
   paid: { label: 'Paid', className: 'bg-emerald-50 text-emerald-700' },
   overdue: { label: 'Overdue', className: 'bg-red-50 text-red-600' },
@@ -46,7 +44,9 @@ function FinanceGrantDetail() {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-[21px] font-semibold text-gray-900">{grant.organisationName}</h1>
+          <h1 className="font-display text-[21px] font-semibold text-gray-900">
+            {grant.organisationName}
+          </h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
             {grant.programmeName && (
               <span>
@@ -153,7 +153,8 @@ function PaymentsCard({ grant }: { grant: Grant }) {
   const [draftDate, setDraftDate] = useState('')
   const [draftAmount, setDraftAmount] = useState('')
 
-  const pct = grant.scheduledTotal > 0 ? Math.round((grant.paidToDate / grant.scheduledTotal) * 100) : 0
+  const pct =
+    grant.scheduledTotal > 0 ? Math.round((grant.paidToDate / grant.scheduledTotal) * 100) : 0
   const upcoming = grant.instalments.filter((i) => !i.paidDate)
   const paid = grant.instalments.filter((i) => i.paidDate)
 
@@ -177,7 +178,11 @@ function PaymentsCard({ grant }: { grant: Grant }) {
     setBusyId(id)
     try {
       await updateInstalment({
-        data: { id, amount: draftAmount ? Number(draftAmount) : undefined, dueDate: draftDate || null },
+        data: {
+          id,
+          amount: draftAmount ? Number(draftAmount) : undefined,
+          dueDate: draftDate || null,
+        },
       })
       setEditId(null)
       await router.invalidate()
@@ -232,7 +237,15 @@ function PaymentsCard({ grant }: { grant: Grant }) {
     </Card>
   )
 
-  function Group({ title, rows, count }: { title: string; rows: Grant['instalments']; count: number }) {
+  function Group({
+    title,
+    rows,
+    count,
+  }: {
+    title: string
+    rows: Grant['instalments']
+    count: number
+  }) {
     if (count === 0) return null
     return (
       <div className="mt-4">
@@ -260,7 +273,11 @@ function PaymentsCard({ grant }: { grant: Grant }) {
                       onChange={(e) => setDraftDate(e.target.value)}
                       className={inputClass}
                     />
-                    <Button size="sm" onClick={() => saveEdit(inst.id)} disabled={busyId === inst.id}>
+                    <Button
+                      size="sm"
+                      onClick={() => saveEdit(inst.id)}
+                      disabled={busyId === inst.id}
+                    >
                       Save
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => setEditId(null)}>
@@ -271,9 +288,13 @@ function PaymentsCard({ grant }: { grant: Grant }) {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-400">#{inst.instalmentNo}</span>
-                      <span className="font-medium tabular-nums text-gray-900">{fmtMoney(inst.amount)}</span>
+                      <span className="font-medium tabular-nums text-gray-900">
+                        {fmtMoney(inst.amount)}
+                      </span>
                       <span className="text-xs text-gray-500">
-                        {inst.paidDate ? `Paid ${fmtDate(inst.paidDate)}` : `Due ${fmtDate(inst.dueDate)}`}
+                        {inst.paidDate
+                          ? `Paid ${fmtDate(inst.paidDate)}`
+                          : `Due ${fmtDate(inst.dueDate)}`}
                       </span>
                       <Badge className={meta.className}>{meta.label}</Badge>
                     </div>
@@ -404,7 +425,9 @@ const BANK_BADGE: Record<BankStatus, { label: string; className: string }> = {
 function fmtSortCode(value: string | null) {
   if (!value) return '—'
   const digits = value.replace(/\D/g, '')
-  return digits.length === 6 ? `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}` : value
+  return digits.length === 6
+    ? `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`
+    : value
 }
 
 function BankCard({ grant }: { grant: Grant }) {
@@ -426,11 +449,7 @@ function BankCard({ grant }: { grant: Grant }) {
         <Row
           label="Account number"
           value={
-            bank.accountNumber
-              ? revealed
-                ? bank.accountNumber
-                : `••••${bank.last4 ?? ''}`
-              : '—'
+            bank.accountNumber ? (revealed ? bank.accountNumber : `••••${bank.last4 ?? ''}`) : '—'
           }
           mono
           action={
@@ -447,8 +466,8 @@ function BankCard({ grant }: { grant: Grant }) {
       </dl>
 
       <p className="mt-3 text-xs text-gray-400">
-        {BANK_DETAIL_TEXT[bank.status]}. The check confirms the numbers are a valid pair, not who owns
-        the account.
+        {BANK_DETAIL_TEXT[bank.status]}. The check confirms the numbers are a valid pair, not who
+        owns the account.
       </p>
 
       {bank.status !== 'valid' && (
@@ -461,8 +480,8 @@ function BankCard({ grant }: { grant: Grant }) {
           >
             application
           </Link>
-          {grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''} — ask the grantee to
-          resubmit them.
+          {grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''} — ask the grantee
+          to resubmit them.
         </p>
       )}
     </Card>
@@ -484,7 +503,9 @@ function Row({
     <div className="flex items-baseline justify-between gap-3">
       <dt className="text-xs text-gray-400">{label}</dt>
       <dd className="flex items-baseline gap-2">
-        <span className={`text-sm text-gray-900 ${mono ? 'font-mono tabular-nums' : ''}`}>{value}</span>
+        <span className={`text-sm text-gray-900 ${mono ? 'font-mono tabular-nums' : ''}`}>
+          {value}
+        </span>
         {action}
       </dd>
     </div>
@@ -513,16 +534,22 @@ function BudgetCard({ grant }: { grant: Grant }) {
       </div>
       {/* Paid sits inside committed: the darker bar is money out, the lighter is promised. */}
       <div className="relative mt-1.5 h-2 overflow-hidden rounded-full bg-gray-100">
-        <div className="absolute inset-y-0 left-0 rounded-full bg-emerald-200" style={{ width: `${committedPct}%` }} />
-        <div className="absolute inset-y-0 left-0 rounded-full bg-emerald-500" style={{ width: `${paidPct}%` }} />
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-emerald-200"
+          style={{ width: `${committedPct}%` }}
+        />
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-emerald-500"
+          style={{ width: `${paidPct}%` }}
+        />
       </div>
       <div className="mt-1.5 flex justify-between text-xs text-gray-400">
         <span>{fmtMoney(b.paidToDate)} paid</span>
         <span>{fmtMoney(Math.max(0, b.budget - b.committed))} uncommitted</span>
       </div>
       <p className="mt-2.5 text-xs text-gray-400">
-        This grant is {share}% of the {b.grantCount} award{b.grantCount === 1 ? '' : 's'} committed from this
-        round programme.
+        This grant is {share}% of the {b.grantCount} award{b.grantCount === 1 ? '' : 's'} committed
+        from this round programme.
       </p>
     </Card>
   )

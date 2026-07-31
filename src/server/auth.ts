@@ -13,8 +13,16 @@ import { users, sessions, accounts, verifications } from '../../drizzle/schema'
 const ac = createAccessControl(defaultStatements)
 const superadminRole = ac.newRole({
   user: [
-    'create', 'list', 'set-role', 'ban', 'impersonate', 'impersonate-admins',
-    'delete', 'set-password', 'get', 'update',
+    'create',
+    'list',
+    'set-role',
+    'ban',
+    'impersonate',
+    'impersonate-admins',
+    'delete',
+    'set-password',
+    'get',
+    'update',
   ],
   session: ['list', 'revoke', 'delete'],
 })
@@ -37,94 +45,94 @@ export function getAuth(): ReturnType<typeof createAuth> {
 
 function createAuth() {
   return betterAuth({
-      secret: process.env['BETTER_AUTH_SECRET']!,
-      baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
-      onAPIError: {
-        errorURL: '/sign-in',
+    secret: process.env['BETTER_AUTH_SECRET']!,
+    baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
+    onAPIError: {
+      errorURL: '/sign-in',
+    },
+    database: drizzleAdapter(getDb(), {
+      provider: 'pg',
+      schema: {
+        user: users,
+        session: sessions,
+        account: accounts,
+        verification: verifications,
       },
-      database: drizzleAdapter(getDb(), {
-        provider: 'pg',
-        schema: {
-          user: users,
-          session: sessions,
-          account: accounts,
-          verification: verifications,
+    }),
+    account: {
+      accountLinking: {
+        requireLocalEmailVerified: false,
+      },
+    },
+    emailAndPassword: {
+      enabled: true,
+      // To require email verification before sign-in, uncomment below and wire up Resend (or similar):
+      // requireEmailVerification: true,
+      // sendResetPassword: async ({ user, url }) => {
+      //   await resend.emails.send({
+      //     from: 'noreply@yourdomain.com',
+      //     to: user.email,
+      //     subject: 'Reset your password',
+      //     html: `<a href="${url}">Reset password</a>`,
+      //   })
+      // },
+    },
+    // emailVerification: {
+    //   sendOnSignUp: true,
+    //   autoSignInAfterVerification: true,
+    //   sendVerificationEmail: async ({ user, url }) => {
+    //     await resend.emails.send({
+    //       from: 'noreply@yourdomain.com',
+    //       to: user.email,
+    //       subject: 'Verify your email',
+    //       html: `<a href="${url}">Verify email</a>`,
+    //     })
+    //   },
+    // },
+    socialProviders: {
+      google: {
+        clientId: process.env['GOOGLE_CLIENT_ID'] ?? '',
+        clientSecret: process.env['GOOGLE_CLIENT_SECRET'] ?? '',
+      },
+    },
+    plugins: [
+      admin({
+        ac,
+        roles: { superadmin: superadminRole },
+        // Only platform superadmins may use admin endpoints (e.g. impersonation).
+        // Foundation `admin`s are tenant-scoped and must NOT get these powers.
+        adminRoles: ['superadmin'],
+        // Match our pgEnum — the plugin otherwise defaults new users to "user",
+        // which is not a valid `user_role` value and would break signup inserts.
+        // `trustee` is the least-privileged role; a signup without an invite has
+        // no client_id anyway and is bounced to /no-access until one attaches.
+        defaultRole: 'trustee',
+      }),
+      emailOTP({
+        // Custodian is invitation-only. Without this the plugin signs up any
+        // unknown email on the spot — and because `users.client_id` is nullable
+        // that insert *succeeds*, minting a clientless `observer` with a live
+        // session and no invitation. Unknown emails must fail instead.
+        disableSignUp: true,
+        otpLength: 6,
+        expiresIn: 300,
+        // A stolen code is a live credential until it expires, so cap guesses
+        // and keep only a hash of it in `verifications`.
+        allowedAttempts: 3,
+        storeOTP: 'hashed',
+        // These endpoints send mail to an attacker-chosen address, so they're the
+        // one place an unauthenticated caller can make us emit email. Cap it.
+        rateLimit: { window: 60, max: 3 },
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          // `forget-password` also covers "Google user who never had a password":
+          // /email-otp/reset-password creates a `credential` account when the user
+          // has none, which is the only way onto email+password for an OAuth-only
+          // account. `email-verification` is unused — Google's is trusted and local
+          // sign-up doesn't require it (see requireLocalEmailVerified).
+          if (type === 'sign-in') await sendSignInCodeEmail({ to: email, otp })
+          else if (type === 'forget-password') await sendPasswordResetCodeEmail({ to: email, otp })
         },
       }),
-      account: {
-        accountLinking: {
-          requireLocalEmailVerified: false,
-        },
-      },
-      emailAndPassword: {
-        enabled: true,
-        // To require email verification before sign-in, uncomment below and wire up Resend (or similar):
-        // requireEmailVerification: true,
-        // sendResetPassword: async ({ user, url }) => {
-        //   await resend.emails.send({
-        //     from: 'noreply@yourdomain.com',
-        //     to: user.email,
-        //     subject: 'Reset your password',
-        //     html: `<a href="${url}">Reset password</a>`,
-        //   })
-        // },
-      },
-      // emailVerification: {
-      //   sendOnSignUp: true,
-      //   autoSignInAfterVerification: true,
-      //   sendVerificationEmail: async ({ user, url }) => {
-      //     await resend.emails.send({
-      //       from: 'noreply@yourdomain.com',
-      //       to: user.email,
-      //       subject: 'Verify your email',
-      //       html: `<a href="${url}">Verify email</a>`,
-      //     })
-      //   },
-      // },
-      socialProviders: {
-        google: {
-          clientId: process.env['GOOGLE_CLIENT_ID'] ?? '',
-          clientSecret: process.env['GOOGLE_CLIENT_SECRET'] ?? '',
-        },
-      },
-      plugins: [
-        admin({
-          ac,
-          roles: { superadmin: superadminRole },
-          // Only platform superadmins may use admin endpoints (e.g. impersonation).
-          // Foundation `admin`s are tenant-scoped and must NOT get these powers.
-          adminRoles: ['superadmin'],
-          // Match our pgEnum — the plugin otherwise defaults new users to "user",
-          // which is not a valid `user_role` value and would break signup inserts.
-          // `trustee` is the least-privileged role; a signup without an invite has
-          // no client_id anyway and is bounced to /no-access until one attaches.
-          defaultRole: 'trustee',
-        }),
-        emailOTP({
-          // Custodian is invitation-only. Without this the plugin signs up any
-          // unknown email on the spot — and because `users.client_id` is nullable
-          // that insert *succeeds*, minting a clientless `observer` with a live
-          // session and no invitation. Unknown emails must fail instead.
-          disableSignUp: true,
-          otpLength: 6,
-          expiresIn: 300,
-          // A stolen code is a live credential until it expires, so cap guesses
-          // and keep only a hash of it in `verifications`.
-          allowedAttempts: 3,
-          storeOTP: 'hashed',
-          // These endpoints send mail to an attacker-chosen address, so they're the
-          // one place an unauthenticated caller can make us emit email. Cap it.
-          rateLimit: { window: 60, max: 3 },
-          sendVerificationOTP: async ({ email, otp, type }) => {
-            // `forget-password` also covers "Google user who never had a password":
-            // /email-otp/reset-password creates a `credential` account when the user
-            // has none, which is the only way onto email+password for an OAuth-only
-            // account. `email-verification` is unused — Google's is trusted and local
-            // sign-up doesn't require it (see requireLocalEmailVerified).
-            if (type === 'sign-in') await sendSignInCodeEmail({ to: email, otp })
-            else if (type === 'forget-password') await sendPasswordResetCodeEmail({ to: email, otp })
-          },
-        }),
-      ],
-    })
+    ],
+  })
 }

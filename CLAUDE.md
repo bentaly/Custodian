@@ -1,9 +1,11 @@
 # Custodian — Claude Code Context
 
 ## What this project is
+
 Grant management platform for philanthropic organisations. Clients (charitable foundations / family offices) manage funding rounds, programmes, applications, and users through a single app.
 
 ## Stack
+
 - **Framework**: TanStack Start (React, file-based routing via `src/routes/`)
 - **Auth**: BetterAuth (`src/server/auth.ts`) — Google OAuth + email/password
 - **ORM**: Drizzle ORM — schema at `drizzle/schema.ts`, migrations at `drizzle/migrations/`
@@ -13,12 +15,14 @@ Grant management platform for philanthropic organisations. Clients (charitable f
 - **Package manager**: pnpm
 
 ## Deployment
+
 - **Production URL**: `https://custodian.bental.workers.dev`
 - **Deploy method**: push to `master` → GitHub Actions (`.github/workflows/ci.yml`) runs typecheck → build → `wrangler deploy`
 - Do NOT run `npx wrangler deploy` manually unless testing outside of CI — the GitHub Action is the deploy path
 - Cloudflare secrets are managed via `npx wrangler secret put <KEY>` — they are NOT in `.env` for production
 
 ## Local development
+
 ```sh
 pnpm dev          # vite dev server (localhost:5174)
 pnpm typecheck    # tsc --noEmit
@@ -28,18 +32,22 @@ pnpm preview      # build + wrangler dev (local Workers simulation)
 ```
 
 ## Database
+
 ```sh
 pnpm db:generate  # generate migration from schema changes
 pnpm db:migrate   # apply migrations to Neon
 pnpm db:studio    # Drizzle Studio GUI
 pnpm db:seed      # run scripts/seed.ts
 ```
+
 Schema changes: edit `drizzle/schema.ts` → `pnpm db:generate` → `pnpm db:migrate`.
 
 **Never use `db:push`.** It applies schema changes without recording them in `drizzle.__drizzle_migrations`, which causes `db:migrate` to fail later. The script has been removed from `package.json`.
 
 ## Staging & migration workflow
+
 Two deployed environments, both fed from `master`:
+
 - **prod** — `custodian` Worker (`custodian.bental.workers.dev`), prod Neon branch.
 - **staging** — `custodian-staging` Worker (`custodian-staging.bental.workers.dev`), Neon `staging` branch. Mirrors prod (same code, own per-env secrets); not behind Cloudflare Access.
 
@@ -48,20 +56,24 @@ Two deployed environments, both fed from `master`:
 A push to `master` runs CI (`.github/workflows/ci.yml`) which **migrates then deploys staging, then migrates then deploys prod** — schema always lands before the code that needs it. **Do not run `db:migrate` against prod manually; CI owns prod migrations.**
 
 ### Default migration procedure (follow this by default)
+
 1. Edit `drizzle/schema.ts`.
-2. `pnpm db:generate`. For a **rename**, drizzle asks whether a column was renamed vs dropped+added — answer *rename* so it emits `ALTER ... RENAME COLUMN` (drop+add loses data). `generate` is local-only; CI never runs it.
+2. `pnpm db:generate`. For a **rename**, drizzle asks whether a column was renamed vs dropped+added — answer _rename_ so it emits `ALTER ... RENAME COLUMN` (drop+add loses data). `generate` is local-only; CI never runs it.
 3. `pnpm db:migrate` to apply to **staging**; verify the app still works. Staging holds real prod-snapshot data, so failures (e.g. adding `NOT NULL` to a populated table, bad type casts) surface here, not on prod.
 4. **Commit the generated migration `.sql` + the `meta/` snapshot & journal together with the schema and code.** CI only applies migrations present in the repo — a missing file means prod code ships against a schema it doesn't have.
 5. Push → CI migrates + deploys prod.
 
 ### Destructive changes (drop / rename / add NOT NULL / type change)
+
 Because `master` deploys both Workers at once, for a few seconds old code runs against the new schema. Additive changes are safe. For destructive ones use **expand/contract** across separate pushes, so prod code and prod schema never disagree:
+
 - **Rename** `a`→`b`: push 1 add `b` + write both + backfill; push 2 move reads to `b`; push 3 drop `a`.
 - **Drop**: stop using the column in one push, drop it in a later push.
 
 Only skip expand/contract for a deliberately-accepted brief blip on this low-traffic app (prefer off-hours).
 
 ## Environment variables
+
 Local: `.env` file (loaded via `dotenv/config` in drizzle.config.ts and scripts).
 Production: Cloudflare secrets — verify with `npx wrangler secret list`.
 
@@ -72,6 +84,7 @@ The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the 
 `BETTER_AUTH_URL` must be `https://custodian.bental.workers.dev` in production — if wrong, Google OAuth returns "Account not linked".
 
 ## Auth notes
+
 - BetterAuth lazy-initialised in `src/server/auth.ts` (prevents Cloudflare Workers module poisoning on missing env vars)
 - `worker-entry.js` bridges Cloudflare env bindings into `process.env` before delegating to the app server
 - Three ways in, all on `/sign-in`: **email + password**, **Google OAuth**, and an emailed
@@ -87,7 +100,7 @@ The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the 
   user has none. There is no link-based reset; `emailAndPassword.sendResetPassword` is deliberately
   not configured, so `/request-password-reset` returns `RESET_PASSWORD_DISABLED`.
 - **`emailOTP` runs with `disableSignUp: true`** — without it the plugin signs up any unknown email
-  on the spot, and since `users.client_id` is nullable that insert *succeeds*, minting a clientless
+  on the spot, and since `users.client_id` is nullable that insert _succeeds_, minting a clientless
   `observer` with a live session and no invitation. Both OTP flows therefore only work for users who
   already exist; a code is **not** a way to accept an invite.
 - Codes: 6 digits, 5-minute expiry, 3 attempts, stored **hashed** in `verifications`. An unknown
@@ -98,11 +111,13 @@ The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the 
 - Google OAuth authorized redirect URI in Google Console: `https://custodian.bental.workers.dev/api/auth/callback/google`
 
 ## Invite-only onboarding
+
 An invitation creates **no user row** — only an `invitations` row (email, token, `clientId`, role,
 7-day expiry). The `users` row appears when the invitee registers, with `client_id = null`; a user is
 attached to a tenant only by `claimPendingInvite` (`src/server/invites.ts`), which is the sole path
 granting tenant access. Two routes in:
-- **Invite link** → `/sign-up?invite=<token>` — password sign-up *or* "Continue with Google". Claiming
+
+- **Invite link** → `/sign-up?invite=<token>` — password sign-up _or_ "Continue with Google". Claiming
   by token also sets `email_verified = true`: possessing a token mailed to that address is the same
   proof a verification email would give, which is why no verification email is wired.
 - **Google** → the invitee ignores the link and hits "Continue with Google" on `/sign-in`. OAuth
@@ -115,7 +130,7 @@ granting tenant access. Two routes in:
 proving it, so without the gate anyone who knew an invited address (staff emails are often public)
 could sign up as it, let `getMe` hand them the invite, and land inside the tenant at the invited
 role — no token, no mailbox access. Google-proved addresses are unaffected; token claims skip the
-check because the token *is* the proof.
+check because the token _is_ the proof.
 
 No valid invite → `client_id` stays null → `_authenticated`'s guard redirects to `/no-access`.
 Superadmins legitimately have no `client_id` and are exempt. Signups without an invite still create
@@ -124,6 +139,7 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
 `authClient.signUp.email` call currently depends on.
 
 ## Data model summary
+
 - **clients** — tenant (charitable_foundation | family_office); users and rounds belong to a client
 - **users** — extend BetterAuth user; have a `role` (superadmin | admin | trustee | finance) and belong to one client.
   `superadmin` is platform-level (no `client_id`); `admin` runs a foundation; `trustee` reads/comments/votes;
@@ -146,6 +162,7 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
 - BetterAuth tables: `sessions`, `accounts`, `verifications` (do not modify these manually)
 
 ## Server-side patterns
+
 - **No `db.transaction()`** — `getDb()` uses the neon-http driver, where `transaction()` throws at
   runtime. Use `db.batch()` for atomic multi-statement writes.
 - **Tenancy**: every server fn scopes reads/writes to the caller's client. List queries go through
@@ -159,6 +176,7 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
   binding, and email without Resend all no-op or fall back rather than failing the request.
 
 ## Public submission auth (`/api/apply`)
+
 A foundation's intake integration posts applications to `POST /api/apply` authenticated with
 `Authorization: Bearer <api key>`. The key resolves to the owning client — there is **no
 `clientId` in the request body** (the old design; a key both names the client and proves the
@@ -169,6 +187,7 @@ including the foundation's own application reference, is mapped to canonical fie
 maps to the `externalApplicationId` canonical field (no special top-level key). The only
 door-level check is "non-empty object"; real validation runs downstream on the mapped
 canonical fields (`CreateApplicationSchema`).
+
 - Keys live in the `api_keys` table: only a **SHA-256 hash** is stored (plus `last4` for display);
   plaintext is shown once at creation, never again. Format `cust_sk_…`.
 - Auth helpers: `src/server/apiKeys.ts` (`generateApiKey`, `hashApiKey`, `authenticateApiKey`).
@@ -192,6 +211,7 @@ canonical fields (`CreateApplicationSchema`).
 - British English in all copy/identifiers (e.g. "Organisation", not "Organization").
 
 ## Route structure
+
 - `src/routes/_authenticated.tsx` — layout + auth guard for all protected routes
 - `src/routes/_authenticated/*.tsx` — dashboard, applications (+detail), shortlist, awards
   (+detail), finance (+detail), reports (+detail), rounds (+detail), programmes (+detail),
@@ -209,6 +229,7 @@ canonical fields (`CreateApplicationSchema`).
 - `src/server/fns/` — server functions (TanStack Start server-side, called from routes)
 
 ## Feature modules (each: `src/lib/<x>` pure logic, `src/server/<x>` IO)
+
 - **custodianScore** — Anthropic-scored application quality (0–100 + per-criterion detail)
 - **dueDiligence** — registry checks against Charity Commission + Companies House
 - **deprivation** — delivery-area → IMD decile context via postcodes.io + `deprivation_areas`

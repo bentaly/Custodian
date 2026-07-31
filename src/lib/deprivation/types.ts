@@ -25,11 +25,7 @@ export type DeprivationStatus =
   // Could not be matched to any place at all (typo, nonsense, or unsupported area).
   | 'unresolvable'
 
-export type DeprivationNation =
-  | 'england'
-  | 'scotland'
-  | 'wales'
-  | 'northern_ireland'
+export type DeprivationNation = 'england' | 'scotland' | 'wales' | 'northern_ireland'
 
 // The geography we snapped the location onto. A postcode pins to a single LSOA; a
 // town to its ward; a city to its local authority district; a large place (e.g.
@@ -75,7 +71,12 @@ export function deliveryGeoFromResult(result: DeprivationResult): DeliveryGeo {
   if (result.status !== 'resolved') {
     return { nation: null, region: null, ladCode: null, ladName: null }
   }
-  return { nation: result.nation, region: result.regionName, ladCode: result.ladCode, ladName: result.ladName }
+  return {
+    nation: result.nation,
+    region: result.regionName,
+    ladCode: result.ladCode,
+    ladName: result.ladName,
+  }
 }
 
 // What we persist on the application. The discriminated union mirrors DeprivationStatus
@@ -156,7 +157,5 @@ export function decileStats(deciles: number[]): DecileStats {
 
 // Headline for the UI, e.g. "Decile 3" (single area) or "Decile 2–6".
 export function formatDecileRange(stats: Pick<DecileStats, 'min' | 'max'>): string {
-  return stats.min === stats.max
-    ? `Decile ${stats.min}`
-    : `Decile ${stats.min}–${stats.max}`
+  return stats.min === stats.max ? `Decile ${stats.min}` : `Decile ${stats.min}–${stats.max}`
 }

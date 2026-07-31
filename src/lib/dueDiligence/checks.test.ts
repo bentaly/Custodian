@@ -95,7 +95,10 @@ describe('charityChecks', () => {
   })
 
   it('warns on an overdue reporting status', () => {
-    const records = charityChecks({ ...healthyCharity, reportingStatus: 'Submission Overdue' }, ctx())
+    const records = charityChecks(
+      { ...healthyCharity, reportingStatus: 'Submission Overdue' },
+      ctx(),
+    )
     expect(outcome(records, 'cc_reporting_status')).toBe('fail')
   })
 

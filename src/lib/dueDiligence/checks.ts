@@ -51,10 +51,7 @@ function rec(
 
 // ─── Charity Commission ──────────────────────────────────────────────────────
 
-export function charityChecks(
-  c: NormalizedCharity,
-  ctx: CheckContext,
-): DueDiligenceCheckRecord[] {
+export function charityChecks(c: NormalizedCharity, ctx: CheckContext): DueDiligenceCheckRecord[] {
   // Registration number not found → hard block, nothing else to check.
   if (!c.found) {
     return [rec('cc_registration_status', 'fail', 'Registration number not found on the register')]
@@ -122,7 +119,11 @@ export function charityChecks(
   )
 
   // reporting_status flags late/overdue/defaulted returns.
-  const badReporting = ['Submission Overdue', 'Submission Double Default', 'Submission Received Late']
+  const badReporting = [
+    'Submission Overdue',
+    'Submission Double Default',
+    'Submission Received Late',
+  ]
   out.push(
     c.reportingStatus == null
       ? rec('cc_reporting_status', 'unverified')
@@ -268,7 +269,10 @@ export function grantHistoryChecks(g: NormalizedGrants): DueDiligenceCheckRecord
   }
   const latest = g.grants.slice(0, 2)
   const detail = latest
-    .map((gr) => `${gr.funder ?? 'Unknown funder'}${gr.amount ? ` £${gr.amount.toLocaleString('en-GB')}` : ''}`)
+    .map(
+      (gr) =>
+        `${gr.funder ?? 'Unknown funder'}${gr.amount ? ` £${gr.amount.toLocaleString('en-GB')}` : ''}`,
+    )
     .join('; ')
   return [rec('tsg_prior_funding', 'pass', detail)]
 }

@@ -33,13 +33,20 @@ function toDateInput(date: Date | string | null | undefined): string {
 
 function formatDate(date: Date | string | null | undefined): string | null {
   if (!date) return null
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(date).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 function GrantTermsFields({
-  budget, onBudget,
-  maxGrantAmount, onMaxGrantAmount,
-  grantDurationYears, onGrantDurationYears,
+  budget,
+  onBudget,
+  maxGrantAmount,
+  onMaxGrantAmount,
+  grantDurationYears,
+  onGrantDurationYears,
   budgetRequired,
 }: {
   budget: string
@@ -57,7 +64,9 @@ function GrantTermsFields({
           Total budget{budgetRequired && <span className="ml-0.5 text-red-400">*</span>}
         </Label>
         <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
+            £
+          </span>
           <input
             type="number"
             value={budget}
@@ -73,7 +82,9 @@ function GrantTermsFields({
       <div>
         <Label>Max per award</Label>
         <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">£</span>
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
+            £
+          </span>
           <input
             type="number"
             value={maxGrantAmount}
@@ -98,7 +109,9 @@ function GrantTermsFields({
             placeholder="1"
             className="w-full rounded-sm border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
           />
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">yrs</span>
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">
+            yrs
+          </span>
         </div>
       </div>
     </div>
@@ -167,7 +180,9 @@ function RoundDetail() {
           programmeId: selectedProgrammeId,
           budget: parseFloat(addBudget),
           maxGrantAmount: addMaxGrantAmount ? parseFloat(addMaxGrantAmount) : undefined,
-          grantDurationYears: addGrantDurationYears ? parseInt(addGrantDurationYears, 10) : undefined,
+          grantDurationYears: addGrantDurationYears
+            ? parseInt(addGrantDurationYears, 10)
+            : undefined,
         },
       })
       setShowAddPicker(false)
@@ -268,7 +283,9 @@ function RoundDetail() {
                 {(() => {
                   const s = getRoundStatus(round)
                   return (
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[s]}`}>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[s]}`}
+                    >
                       {ROUND_STATUS_LABELS[s]}
                     </span>
                   )
@@ -341,14 +358,19 @@ function RoundDetail() {
               >
                 <option value="">Choose a programme…</option>
                 {availableProgrammes.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
             <GrantTermsFields
-              budget={addBudget} onBudget={setAddBudget}
-              maxGrantAmount={addMaxGrantAmount} onMaxGrantAmount={setAddMaxGrantAmount}
-              grantDurationYears={addGrantDurationYears} onGrantDurationYears={setAddGrantDurationYears}
+              budget={addBudget}
+              onBudget={setAddBudget}
+              maxGrantAmount={addMaxGrantAmount}
+              onMaxGrantAmount={setAddMaxGrantAmount}
+              grantDurationYears={addGrantDurationYears}
+              onGrantDurationYears={setAddGrantDurationYears}
               budgetRequired
             />
             {addError && <p className="text-sm text-red-500">{addError}</p>}
@@ -385,8 +407,8 @@ function RoundDetail() {
               <p className="mt-1 text-sm text-gray-400">
                 <Link to="/programmes" className="underline hover:text-gray-600">
                   Create a programme
-                </Link>
-                {' '}then add it here.
+                </Link>{' '}
+                then add it here.
               </p>
             )}
           </div>
@@ -431,7 +453,12 @@ function RoundDetail() {
               >
                 Cancel
               </Button>
-              <Button variant="danger" size="sm" onClick={handleDeleteRound} disabled={deletingRound}>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDeleteRound}
+                disabled={deletingRound}
+              >
                 {deletingRound ? 'Deleting…' : 'Delete round'}
               </Button>
             </div>
@@ -481,7 +508,9 @@ function ProgrammeCard({
           id: roundProgramme.id,
           budget: parseFloat(editBudget),
           maxGrantAmount: editMaxGrantAmount ? parseFloat(editMaxGrantAmount) : undefined,
-          grantDurationYears: editGrantDurationYears ? parseInt(editGrantDurationYears, 10) : undefined,
+          grantDurationYears: editGrantDurationYears
+            ? parseInt(editGrantDurationYears, 10)
+            : undefined,
         },
       })
       setEditing(false)
@@ -499,9 +528,12 @@ function ProgrammeCard({
         <form onSubmit={handleSave} className="space-y-3">
           <p className="text-sm font-medium text-gray-700">{programme.name}</p>
           <GrantTermsFields
-            budget={editBudget} onBudget={setEditBudget}
-            maxGrantAmount={editMaxGrantAmount} onMaxGrantAmount={setEditMaxGrantAmount}
-            grantDurationYears={editGrantDurationYears} onGrantDurationYears={setEditGrantDurationYears}
+            budget={editBudget}
+            onBudget={setEditBudget}
+            maxGrantAmount={editMaxGrantAmount}
+            onMaxGrantAmount={setEditMaxGrantAmount}
+            grantDurationYears={editGrantDurationYears}
+            onGrantDurationYears={setEditGrantDurationYears}
             budgetRequired
           />
           {saveError && <p className="text-sm text-red-500">{saveError}</p>}
@@ -537,7 +569,10 @@ function ProgrammeCard({
             {tags.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">
+                  <span
+                    key={tag}
+                    className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                  >
                     {tag}
                   </span>
                 ))}
@@ -551,12 +586,16 @@ function ProgrammeCard({
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-gray-100 pt-3">
               <div>
                 <span className="text-xs text-gray-400">Budget </span>
-                <span className="text-xs font-medium text-gray-700">£{budget.toLocaleString()}</span>
+                <span className="text-xs font-medium text-gray-700">
+                  £{budget.toLocaleString()}
+                </span>
               </div>
               {maxGrant !== null && (
                 <div>
                   <span className="text-xs text-gray-400">Max award </span>
-                  <span className="text-xs font-medium text-gray-700">£{maxGrant.toLocaleString()}</span>
+                  <span className="text-xs font-medium text-gray-700">
+                    £{maxGrant.toLocaleString()}
+                  </span>
                 </div>
               )}
               {duration !== null && (
@@ -566,7 +605,10 @@ function ProgrammeCard({
                     {duration} {duration === 1 ? 'yr' : 'yrs'}
                   </span>
                   {maxGrant !== null && duration > 1 && (
-                    <span className="text-xs text-gray-400"> (£{(maxGrant / duration).toLocaleString()}/yr)</span>
+                    <span className="text-xs text-gray-400">
+                      {' '}
+                      (£{(maxGrant / duration).toLocaleString()}/yr)
+                    </span>
                   )}
                 </div>
               )}

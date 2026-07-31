@@ -54,9 +54,6 @@ export const Route = createFileRoute('/_authenticated/awards/')({
   component: AwardsPage,
 })
 
-
-
-
 const GRANT_STATUS_LABELS: Record<string, string> = {
   active: 'Active',
   completed: 'Done',
@@ -87,14 +84,30 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
       </Link>
     ),
   },
-  { id: 'programme', header: 'Programme', cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span> },
-  { id: 'round', header: 'Round', cell: (g) => <span className={txtSub}>{g.roundName ?? '—'}</span> },
-  { id: 'awarded', header: 'Awarded', cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.decisionAt)}</span> },
+  {
+    id: 'programme',
+    header: 'Programme',
+    cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
+  },
+  {
+    id: 'round',
+    header: 'Round',
+    cell: (g) => <span className={txtSub}>{g.roundName ?? '—'}</span>,
+  },
+  {
+    id: 'awarded',
+    header: 'Awarded',
+    cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.decisionAt)}</span>,
+  },
   {
     id: 'amount',
     header: 'Amount',
     cellClassName: 'tabular-nums',
-    cell: (g) => <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">{fmtMoney(g.amountAwarded)}</span>,
+    cell: (g) => (
+      <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">
+        {fmtMoney(g.amountAwarded)}
+      </span>
+    ),
   },
   {
     id: 'paid',
@@ -103,7 +116,10 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
       g.instalmentCount === 0 ? (
         <span className={txtSub}>—</span>
       ) : (
-        <span className={`whitespace-nowrap ${txtSub}`} title={`${g.paidCount} of ${g.instalmentCount} instalments paid`}>
+        <span
+          className={`whitespace-nowrap ${txtSub}`}
+          title={`${g.paidCount} of ${g.instalmentCount} instalments paid`}
+        >
           {fmtCompact(g.paidToDate)} <span className="text-[#97A1AF]">/ {g.instalmentCount}</span>
         </span>
       ),
@@ -111,14 +127,27 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   {
     id: 'duration',
     header: 'Duration',
-    cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '—'}</span>,
+    cell: (g) => (
+      <span className={`whitespace-nowrap ${txtSub}`}>
+        {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '—'}
+      </span>
+    ),
   },
-  { id: 'geography', header: 'Geography', cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{g.deliveryArea ?? '—'}</span> },
+  {
+    id: 'geography',
+    header: 'Geography',
+    cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{g.deliveryArea ?? '—'}</span>,
+  },
   {
     id: 'status',
     header: 'Status',
     width: 'w-[120px]',
-    cell: (g) => <StatusPill label={GRANT_STATUS_LABELS[g.status] ?? g.status} color={GRANT_STATUS_HEX[g.status] ?? '#637083'} />,
+    cell: (g) => (
+      <StatusPill
+        label={GRANT_STATUS_LABELS[g.status] ?? g.status}
+        color={GRANT_STATUS_HEX[g.status] ?? '#637083'}
+      />
+    ),
   },
 ]
 
@@ -168,10 +197,15 @@ function StatCards({ totals }: { totals: Totals }) {
                     <span className="truncate text-gray-500" title={p.name}>
                       {p.name}
                     </span>
-                    <span className="ml-2 shrink-0 font-medium text-gray-700">{fmtCompact(p.amount)}</span>
+                    <span className="ml-2 shrink-0 font-medium text-gray-700">
+                      {fmtCompact(p.amount)}
+                    </span>
                   </div>
                   <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-white/70">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: KPI_TINTS.pink.accent }} />
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, backgroundColor: KPI_TINTS.pink.accent }}
+                    />
                   </div>
                 </div>
               )
@@ -217,12 +251,19 @@ function AwardsPage() {
 
   function handleRoundChange(e: React.ChangeEvent<HTMLSelectElement>) {
     navigate({
-      search: (prev) => ({ ...prev, roundId: e.target.value || undefined, programmeId: undefined, tag: undefined }),
+      search: (prev) => ({
+        ...prev,
+        roundId: e.target.value || undefined,
+        programmeId: undefined,
+        tag: undefined,
+      }),
     })
   }
 
   function setProgramme(id: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, programmeId: prev.programmeId === id ? undefined : id }) })
+    navigate({
+      search: (prev) => ({ ...prev, programmeId: prev.programmeId === id ? undefined : id }),
+    })
   }
 
   function setTag(value: string) {
@@ -237,11 +278,7 @@ function AwardsPage() {
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1
-            className="font-display text-[21px] font-semibold text-gray-900"
-          >
-            Awards
-          </h1>
+          <h1 className="font-display text-[21px] font-semibold text-gray-900">Awards</h1>
           <p className="mt-0.5 text-sm text-gray-400">Every award made, across all rounds</p>
         </div>
         {visibleRounds.length > 0 && (
@@ -271,7 +308,9 @@ function AwardsPage() {
 
         {programmes.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Programme</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              Programme
+            </span>
             <button
               onClick={() => setProgramme(undefined)}
               className={`${pillBase} ${programmeId === undefined ? pillOn : pillOff}`}
@@ -292,9 +331,15 @@ function AwardsPage() {
 
         {tags.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Tag</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              Tag
+            </span>
             {tags.map((t) => (
-              <button key={t} onClick={() => setTag(t)} className={`${pillBase} ${tag === t ? pillOn : pillOff}`}>
+              <button
+                key={t}
+                onClick={() => setTag(t)}
+                className={`${pillBase} ${tag === t ? pillOn : pillOff}`}
+              >
                 {t}
               </button>
             ))}

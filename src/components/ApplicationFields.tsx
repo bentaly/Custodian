@@ -31,9 +31,7 @@ function fmtAmount(v: string | null) {
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-        {title}
-      </h3>
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</h3>
       {children}
     </section>
   )

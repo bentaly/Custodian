@@ -238,7 +238,8 @@ export const getReport = createServerFn({ method: 'GET' })
       .filter((r) => r.id !== submissionRow?.id)
       .map((r) => ({
         key: r.id,
-        label: (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
+        label:
+          (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
         submittedAt: r.submittedAt.toISOString(),
         status: (r.reviewedAt ? 'reviewed' : 'received') as ReceivedStatus,
       }))

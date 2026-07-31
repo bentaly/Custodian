@@ -150,7 +150,13 @@ export const globalSearch = createServerFn({ method: 'GET' })
     }
 
     for (const p of programmeRows) {
-      results.push({ type: 'programme', id: p.id, title: p.name, subtitle: null, badge: 'Programme' })
+      results.push({
+        type: 'programme',
+        id: p.id,
+        title: p.name,
+        subtitle: null,
+        badge: 'Programme',
+      })
     }
 
     for (const r of roundRows) {

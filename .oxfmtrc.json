@@ -10,6 +10,7 @@
     "wrangler.toml",
     "admin-app/wrangler.jsonc",
     "src/routeTree.gen.ts",
+    "drizzle/migrations/**",
     "dist/**",
     "admin-app/dist/**"
   ]

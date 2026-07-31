@@ -91,7 +91,12 @@ export const listVotes = createServerFn({ method: 'GET' })
       where: (a, { eq }) => eq(a.id, data.applicationId),
       with: { roundProgramme: { with: { programme: true } } },
     })
-    if (!app) return { trustees: [] as Array<{ id: string; name: string }>, votes: [] as Array<{ userId: string; vote: 'yes' | 'no'; createdAt: Date }>, allowAdminVoting: false }
+    if (!app)
+      return {
+        trustees: [] as Array<{ id: string; name: string }>,
+        votes: [] as Array<{ userId: string; vote: 'yes' | 'no'; createdAt: Date }>,
+        allowAdminVoting: false,
+      }
 
     const clientId = app.roundProgramme.programme.clientId
     assertClientAccess(user, clientId)
@@ -147,7 +152,8 @@ export const castVote = createServerFn({ method: 'POST' })
       const profile = await getDb().query.clientProfiles.findFirst({
         where: (p, { eq }) => eq(p.clientId, clientId),
       })
-      if (!profile?.allowAdminVoting) throw new Error('Admin voting is not enabled for this organisation')
+      if (!profile?.allowAdminVoting)
+        throw new Error('Admin voting is not enabled for this organisation')
 
       // The target must be a trustee of the same client.
       const target = await getDb().query.users.findFirst({

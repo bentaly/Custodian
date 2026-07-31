@@ -50,7 +50,8 @@ export function BarMeter({
       let assigned = 0
       segments.forEach((seg, si) => {
         // Last segment soaks up the rounding remainder so the strip is always full.
-        const n = si === segments.length - 1 ? bars - assigned : Math.round((bars * seg.value) / total)
+        const n =
+          si === segments.length - 1 ? bars - assigned : Math.round((bars * seg.value) / total)
         for (let k = 0; k < n; k++) colors.push(seg.color)
         assigned += n
       })

@@ -56,7 +56,10 @@ export function Tabs<T>({
               {t.label}
             </span>
             {t.count !== undefined && (
-              <span className="font-display text-[14px] font-medium tabular-nums" style={{ color: C.faint }}>
+              <span
+                className="font-display text-[14px] font-medium tabular-nums"
+                style={{ color: C.faint }}
+              >
                 {t.count}
               </span>
             )}

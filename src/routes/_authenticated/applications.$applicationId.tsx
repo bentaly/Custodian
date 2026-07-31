@@ -23,7 +23,11 @@ import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { Breadcrumb, MiniKpi } from '../../components/ui'
 import { Donut } from '../../components/charts/Donut'
-import { CRITERION_DEFINITIONS, CRITERION_ORDER, type CustodianScoreDetail } from '../../lib/custodianScore'
+import {
+  CRITERION_DEFINITIONS,
+  CRITERION_ORDER,
+  type CustodianScoreDetail,
+} from '../../lib/custodianScore'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
 import type { DeprivationContext } from '../../lib/deprivation/types'
@@ -85,7 +89,10 @@ function durationLabel(years: number | null | undefined) {
 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-[16px] border bg-white p-4 ${className}`} style={{ borderColor: C.line }}>
+    <div
+      className={`rounded-[16px] border bg-white p-4 ${className}`}
+      style={{ borderColor: C.line }}
+    >
       {children}
     </div>
   )
@@ -104,7 +111,10 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
 
 function HeaderChip({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 font-display text-[13px] font-medium" style={{ color: C.sub }}>
+    <span
+      className="inline-flex items-center gap-1.5 font-display text-[13px] font-medium"
+      style={{ color: C.sub }}
+    >
       <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
       {children}
     </span>
@@ -114,7 +124,15 @@ function HeaderChip({ color, children }: { color: string; children: React.ReactN
 // Score gauge — the same Recharts `Donut` the dashboard/insights use (so it animates
 // its arc in on load for free), as a two-slice score/remainder ring with the money
 // tooltip switched off.
-function ScoreRing({ score, size = 132, thickness = 15 }: { score: number; size?: number; thickness?: number }) {
+function ScoreRing({
+  score,
+  size = 132,
+  thickness = 15,
+}: {
+  score: number
+  size?: number
+  thickness?: number
+}) {
   const pct = Math.max(0, Math.min(100, score))
   const color = scoreColor(score)
   return (
@@ -128,7 +146,10 @@ function ScoreRing({ score, size = 132, thickness = 15 }: { score: number; size?
       ]}
       center={
         <div className="flex flex-col items-center">
-          <span className="font-display text-[32px] font-medium leading-none" style={{ color: C.ink }}>
+          <span
+            className="font-display text-[32px] font-medium leading-none"
+            style={{ color: C.ink }}
+          >
             {score}
           </span>
           <span className="mt-0.5 font-display text-[12px]" style={{ color: C.faint }}>
@@ -147,8 +168,17 @@ function CriterionBar({ label, score }: { label: string; score: number }) {
       <span className="w-32 shrink-0 font-display text-[13px]" style={{ color: C.sub }}>
         {label}
       </span>
-      <ProgressBar className="flex-1" value={score / 10} color={color} track={withAlpha(color, 0.15)} height={8} />
-      <span className="w-9 shrink-0 text-right font-display text-[13px] font-medium tabular-nums" style={{ color: C.ink }}>
+      <ProgressBar
+        className="flex-1"
+        value={score / 10}
+        color={color}
+        track={withAlpha(color, 0.15)}
+        height={8}
+      />
+      <span
+        className="w-9 shrink-0 text-right font-display text-[13px] font-medium tabular-nums"
+        style={{ color: C.ink }}
+      >
         {score}/10
       </span>
     </div>
@@ -191,7 +221,11 @@ function ApplicationDetail() {
   const depResolved = application.deprivationStatus === 'resolved' && deprivation != null
   const depShare =
     depResolved && deprivation.count > 0
-      ? Math.round(((deprivation.histogram[0] ?? 0) + (deprivation.histogram[1] ?? 0)) / deprivation.count * 100)
+      ? Math.round(
+          (((deprivation.histogram[0] ?? 0) + (deprivation.histogram[1] ?? 0)) /
+            deprivation.count) *
+            100,
+        )
       : null
   const region = application.deliveryRegion ?? application.deliveryArea ?? null
 
@@ -202,13 +236,14 @@ function ApplicationDetail() {
   // this application (a forward-looking count in the programme's impact unit).
   const unitLabel = impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
   const unitSingular = unitLabel.replace(/s$/i, '') || unitLabel
-  const proposedImpact = application.proposedImpactQuantity != null ? parseFloat(application.proposedImpactQuantity) : null
-  const costPerBeneficiary = proposedImpact && proposedImpact > 0 ? amountRequested / proposedImpact : null
+  const proposedImpact =
+    application.proposedImpactQuantity != null
+      ? parseFloat(application.proposedImpactQuantity)
+      : null
+  const costPerBeneficiary =
+    proposedImpact && proposedImpact > 0 ? amountRequested / proposedImpact : null
 
-  async function act(
-    setBusy: (b: boolean) => void,
-    fn: () => Promise<unknown>,
-  ) {
+  async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
     setError(null)
     setBusy(true)
     try {
@@ -223,13 +258,18 @@ function ApplicationDetail() {
 
   const handleShortlist = () =>
     act(setShortlisting, () =>
-      updateApplicationStatus({ data: { id: application.id, status: isShortlisted ? 'for_review' : 'shortlisted' } }),
+      updateApplicationStatus({
+        data: { id: application.id, status: isShortlisted ? 'for_review' : 'shortlisted' },
+      }),
     )
   const handleDecline = () =>
     act(setDeclining, () =>
-      updateApplicationStatus({ data: { id: application.id, status: isDeclined ? 'for_review' : 'declined' } }),
+      updateApplicationStatus({
+        data: { id: application.id, status: isDeclined ? 'for_review' : 'declined' },
+      }),
     )
-  const handleRerunDD = () => act(setRerunningDD, () => rerunDueDiligence({ data: { id: application.id } }))
+  const handleRerunDD = () =>
+    act(setRerunningDD, () => rerunDueDiligence({ data: { id: application.id } }))
 
   const statusMeta = isAwarded
     ? { label: 'Awarded', color: C.brand }
@@ -251,7 +291,10 @@ function ApplicationDetail() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.wash }}>
+          <div
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: C.wash }}
+          >
             <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
               {initials(application.organisationName)}
             </span>
@@ -273,10 +316,14 @@ function ApplicationDetail() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {application.charityNumber && <HeaderChip color={C.success}>Registered charity</HeaderChip>}
+          {application.charityNumber && (
+            <HeaderChip color={C.success}>Registered charity</HeaderChip>
+          )}
           <HeaderChip color={statusMeta.color}>{statusMeta.label}</HeaderChip>
           <HeaderChip color={ddFlags > 0 ? C.danger : C.success}>
-            {ddFlags > 0 ? `${ddFlags} due diligence flag${ddFlags !== 1 ? 's' : ''}` : 'No due diligence flags'}
+            {ddFlags > 0
+              ? `${ddFlags} due diligence flag${ddFlags !== 1 ? 's' : ''}`
+              : 'No due diligence flags'}
           </HeaderChip>
           <button
             type="button"
@@ -293,7 +340,14 @@ function ApplicationDetail() {
       </div>
 
       {error && (
-        <div className="rounded-lg border px-3 py-2 font-display text-[13px]" style={{ borderColor: withAlpha(C.danger, 0.3), backgroundColor: withAlpha(C.danger, 0.06), color: C.danger }}>
+        <div
+          className="rounded-lg border px-3 py-2 font-display text-[13px]"
+          style={{
+            borderColor: withAlpha(C.danger, 0.3),
+            backgroundColor: withAlpha(C.danger, 0.06),
+            color: C.danger,
+          }}
+        >
           {error}
         </div>
       )}
@@ -311,7 +365,10 @@ function ApplicationDetail() {
                 <div className="flex items-center gap-4 md:w-[46%] md:shrink-0">
                   <ScoreRing score={score} />
                   <div>
-                    <p className="font-display text-[14px] leading-relaxed" style={{ color: C.sub }}>
+                    <p
+                      className="font-display text-[14px] leading-relaxed"
+                      style={{ color: C.sub }}
+                    >
                       {scoreDetail.summary}
                     </p>
                     <span
@@ -327,7 +384,11 @@ function ApplicationDetail() {
                     const c = scoreDetail.criteria[key]
                     if (!c) return null
                     return (
-                      <CriterionBar key={key} label={CRITERION_DEFINITIONS[key].label} score={c.score} />
+                      <CriterionBar
+                        key={key}
+                        label={CRITERION_DEFINITIONS[key].label}
+                        score={c.score}
+                      />
                     )
                   })}
                 </div>
@@ -341,9 +402,16 @@ function ApplicationDetail() {
             )}
 
             {scored && scoreDetail.flags.length > 0 && (
-              <ul className="mt-4 flex flex-col gap-1.5 border-t pt-4" style={{ borderColor: C.line }}>
+              <ul
+                className="mt-4 flex flex-col gap-1.5 border-t pt-4"
+                style={{ borderColor: C.line }}
+              >
                 {scoreDetail.flags.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2 font-display text-[13px]" style={{ color: C.amber }}>
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 font-display text-[13px]"
+                    style={{ color: C.amber }}
+                  >
                     <span className="mt-0.5">⚠</span>
                     <span>{f}</span>
                   </li>
@@ -380,7 +448,9 @@ function ApplicationDetail() {
               icon={ChartAverageIcon}
               label="Cost per beneficiary"
               value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
-              sub={costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'}
+              sub={
+                costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'
+              }
             />
           </div>
 
@@ -390,7 +460,10 @@ function ApplicationDetail() {
             {budgetLines.length > 0 ? (
               <>
                 <div className="mb-3 flex items-baseline justify-between">
-                  <span className="font-display text-[24px] font-medium leading-none" style={{ color: C.ink }}>
+                  <span
+                    className="font-display text-[24px] font-medium leading-none"
+                    style={{ color: C.ink }}
+                  >
                     {fmtMoney(budgetTotal)}
                   </span>
                   <span className="font-display text-[13px]" style={{ color: C.sub }}>
@@ -402,21 +475,37 @@ function ApplicationDetail() {
                   height={24}
                   barWidth={3}
                   className="mb-4 w-full"
-                  segments={budgetLines.map((l, i) => ({ value: l.amount, color: BUDGET_COLORS[i % BUDGET_COLORS.length]! }))}
+                  segments={budgetLines.map((l, i) => ({
+                    value: l.amount,
+                    color: BUDGET_COLORS[i % BUDGET_COLORS.length]!,
+                  }))}
                 />
                 <div className="flex flex-col gap-2.5">
                   {budgetLines.map((l, i) => {
                     const pct = budgetTotal > 0 ? Math.round((l.amount / budgetTotal) * 100) : 0
                     return (
                       <div key={i} className="flex items-center gap-3">
-                        <span className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: BUDGET_COLORS[i % BUDGET_COLORS.length] }} />
-                        <span className="flex-1 truncate font-display text-[14px]" style={{ color: C.ink }} title={l.item}>
+                        <span
+                          className="size-2 shrink-0 rounded-[2px]"
+                          style={{ backgroundColor: BUDGET_COLORS[i % BUDGET_COLORS.length] }}
+                        />
+                        <span
+                          className="flex-1 truncate font-display text-[14px]"
+                          style={{ color: C.ink }}
+                          title={l.item}
+                        >
                           {l.item}
                         </span>
-                        <span className="w-24 text-right font-display text-[14px] font-medium tabular-nums" style={{ color: C.ink }}>
+                        <span
+                          className="w-24 text-right font-display text-[14px] font-medium tabular-nums"
+                          style={{ color: C.ink }}
+                        >
                           {fmtMoney(l.amount)}
                         </span>
-                        <span className="w-10 text-right font-display text-[13px] tabular-nums" style={{ color: C.faint }}>
+                        <span
+                          className="w-10 text-right font-display text-[13px] tabular-nums"
+                          style={{ color: C.faint }}
+                        >
                           {pct}%
                         </span>
                       </div>
@@ -464,8 +553,15 @@ function ApplicationDetail() {
                       <span className="font-display text-[14px]" style={{ color: C.ink }}>
                         {def?.label ?? r.key}
                       </span>
-                      <span className="flex items-center gap-1.5 font-display text-[13px] font-medium" style={{ color }}>
-                        <HugeiconsIcon icon={failed ? CancelCircleIcon : CheckmarkCircle02Icon} size={16} color={color} />
+                      <span
+                        className="flex items-center gap-1.5 font-display text-[13px] font-medium"
+                        style={{ color }}
+                      >
+                        <HugeiconsIcon
+                          icon={failed ? CancelCircleIcon : CheckmarkCircle02Icon}
+                          size={16}
+                          color={color}
+                        />
                         {r.detail ?? (ok ? 'Clear' : failed ? 'Flagged' : 'Unverified')}
                       </span>
                     </div>
@@ -492,7 +588,10 @@ function ApplicationDetail() {
           {/* Decision */}
           <Panel>
             <div className="mb-3 flex items-center gap-1.5">
-              <span className="size-1.5 rounded-full" style={{ backgroundColor: statusMeta.color }} />
+              <span
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: statusMeta.color }}
+              />
               <span className="font-display text-[13px] font-medium" style={{ color: C.ink }}>
                 {statusMeta.label}
                 {roundName ? ` for ${roundName}` : ''}
@@ -512,7 +611,11 @@ function ApplicationDetail() {
                   type="button"
                   onClick={handleShortlist}
                   disabled={shortlisting || isBudgetFull}
-                  title={isBudgetFull ? 'Budget committed — no funds remaining in this programme' : undefined}
+                  title={
+                    isBudgetFull
+                      ? 'Budget committed — no funds remaining in this programme'
+                      : undefined
+                  }
                   className="flex h-10 items-center justify-center rounded-lg font-display text-[14px] font-medium disabled:opacity-50"
                   style={
                     isShortlisted
@@ -520,14 +623,24 @@ function ApplicationDetail() {
                       : { background: C.brand, color: '#fff' }
                   }
                 >
-                  {shortlisting ? '…' : isShortlisted ? 'Remove from shortlist' : isBudgetFull ? 'Budget full' : 'Add to shortlist'}
+                  {shortlisting
+                    ? '…'
+                    : isShortlisted
+                      ? 'Remove from shortlist'
+                      : isBudgetFull
+                        ? 'Budget full'
+                        : 'Add to shortlist'}
                 </button>
                 <button
                   type="button"
                   onClick={handleDecline}
                   disabled={declining}
                   className="flex h-10 items-center justify-center rounded-lg font-display text-[14px] font-medium disabled:opacity-50"
-                  style={{ border: `1px solid ${isDeclined ? withAlpha(C.danger, 0.3) : C.line}`, color: C.danger, background: isDeclined ? withAlpha(C.danger, 0.06) : '#fff' }}
+                  style={{
+                    border: `1px solid ${isDeclined ? withAlpha(C.danger, 0.3) : C.line}`,
+                    color: C.danger,
+                    background: isDeclined ? withAlpha(C.danger, 0.06) : '#fff',
+                  }}
                 >
                   {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Move to declined'}
                 </button>
@@ -535,11 +648,19 @@ function ApplicationDetail() {
             )}
 
             {depShare != null && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg p-3" style={{ backgroundColor: C.wash }}>
-                <HugeiconsIcon icon={InformationCircleIcon} size={16} color={C.sub} className="mt-0.5 shrink-0" />
+              <div
+                className="mt-3 flex items-start gap-2 rounded-lg p-3"
+                style={{ backgroundColor: C.wash }}
+              >
+                <HugeiconsIcon
+                  icon={InformationCircleIcon}
+                  size={16}
+                  color={C.sub}
+                  className="mt-0.5 shrink-0"
+                />
                 <p className="font-display text-[13px] leading-relaxed" style={{ color: C.sub }}>
-                  <span style={{ color: C.ink, fontWeight: 500 }}>{depShare}%</span> reaches IMD decile{' '}
-                  {deprivation!.min}–{deprivation!.max}
+                  <span style={{ color: C.ink, fontWeight: 500 }}>{depShare}%</span> reaches IMD
+                  decile {deprivation!.min}–{deprivation!.max}
                   {region ? `, concentrated in ${region}` : ''}.
                 </p>
               </div>
@@ -581,7 +702,11 @@ function ApplicationDetail() {
         </div>
       </div>
 
-      <ApplicationDrawer application={application} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <ApplicationDrawer
+        application={application}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </div>
   )
 }

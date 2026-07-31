@@ -55,7 +55,6 @@ const STATUS_HEX: Record<ReportRowStatus, string> = {
   reviewed: '#31A650',
 }
 
-
 type Tab = 'all' | ReceivedStatus
 
 const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
@@ -74,19 +73,35 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
       </Link>
     ),
   },
-  { id: 'programme', header: 'Programme', cell: (item) => <span className="font-display text-[14px] text-[#637083]">{item.programmeName ?? '—'}</span> },
-  { id: 'report', header: 'Report', cell: (item) => <span className="font-display text-[14px] text-[#637083]">{item.label}</span> },
+  {
+    id: 'programme',
+    header: 'Programme',
+    cell: (item) => (
+      <span className="font-display text-[14px] text-[#637083]">{item.programmeName ?? '—'}</span>
+    ),
+  },
+  {
+    id: 'report',
+    header: 'Report',
+    cell: (item) => <span className="font-display text-[14px] text-[#637083]">{item.label}</span>,
+  },
   {
     id: 'received',
     header: 'Received',
     width: 'w-[160px]',
-    cell: (item) => <span className="whitespace-nowrap font-display text-[14px] text-[#637083]">{fmtDate(item.submittedAt)}</span>,
+    cell: (item) => (
+      <span className="whitespace-nowrap font-display text-[14px] text-[#637083]">
+        {fmtDate(item.submittedAt)}
+      </span>
+    ),
   },
   {
     id: 'status',
     header: 'Status',
     width: 'w-[140px]',
-    cell: (item) => <StatusPill label={STATUS_LABELS[item.status]} color={STATUS_HEX[item.status]} />,
+    cell: (item) => (
+      <StatusPill label={STATUS_LABELS[item.status]} color={STATUS_HEX[item.status]} />
+    ),
   },
 ]
 
@@ -176,7 +191,9 @@ function ReportsPage() {
             columns={REPORT_COLUMNS}
             rows={filtered}
             rowKey={(item) => item.key}
-            onRowClick={(item) => navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })}
+            onRowClick={(item) =>
+              navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
+            }
           />
         </div>
       )}
@@ -211,13 +228,16 @@ function OutstandingDrawer({
       open={open}
       onClose={onClose}
       title="Outstanding reports"
-      subtitle={rows.length === 0 ? 'Nothing outstanding' : `${rows.length} awaited, most urgent first`}
+      subtitle={
+        rows.length === 0 ? 'Nothing outstanding' : `${rows.length} awaited, most urgent first`
+      }
       ariaLabel="Outstanding reports"
     >
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {rows.length === 0 ? (
           <p className="text-sm text-gray-500">
-            Every scheduled report has been received. New dates appear here when an award is generated.
+            Every scheduled report has been received. New dates appear here when an award is
+            generated.
           </p>
         ) : (
           <ul className="divide-y divide-gray-100">

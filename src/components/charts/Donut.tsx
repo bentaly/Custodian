@@ -3,12 +3,26 @@ import { anim, chart, fmtMoney, tooltipBox } from './theme'
 
 export type DonutSlice = { name: string; value: number; color: string }
 
-function DonutTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: DonutSlice }> }) {
+function DonutTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ payload: DonutSlice }>
+}) {
   if (!active || !payload?.length) return null
   const s = payload[0]!.payload
   return (
     <div style={tooltipBox}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: chart.ink, fontWeight: 500 }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          color: chart.ink,
+          fontWeight: 500,
+        }}
+      >
         <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color }} />
         {s.name}
       </span>
@@ -37,7 +51,10 @@ export function Donut({
   tooltip?: boolean
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
-  const slices: DonutSlice[] = total > 0 ? data.filter((d) => d.value > 0) : [{ name: 'Empty', value: 1, color: chart.allocateLeft }]
+  const slices: DonutSlice[] =
+    total > 0
+      ? data.filter((d) => d.value > 0)
+      : [{ name: 'Empty', value: 1, color: chart.allocateLeft }]
 
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>

@@ -90,7 +90,9 @@ export function normalizeCharity(
     return emptyCharity(false)
   }
   // The register returns reg_status; a present record implies it was found.
-  const trustees = Array.isArray(raw['trustee_names']) ? (raw['trustee_names'] as unknown[]).length : null
+  const trustees = Array.isArray(raw['trustee_names'])
+    ? (raw['trustee_names'] as unknown[]).length
+    : null
 
   return {
     found: true,
@@ -200,10 +202,13 @@ export function normalizeGrants(raw: Record<string, unknown> | null): Normalized
     .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
     .map((r) => {
       const g = (r['data'] as Record<string, unknown>) ?? r
-      const funding = Array.isArray(g['fundingOrganization']) ? (g['fundingOrganization'] as unknown[]) : []
-      const funder = funding[0] && typeof funding[0] === 'object'
-        ? toStr((funding[0] as Record<string, unknown>)['name'])
-        : null
+      const funding = Array.isArray(g['fundingOrganization'])
+        ? (g['fundingOrganization'] as unknown[])
+        : []
+      const funder =
+        funding[0] && typeof funding[0] === 'object'
+          ? toStr((funding[0] as Record<string, unknown>)['name'])
+          : null
       return {
         funder,
         amount: toNum(g['amountAwarded']),

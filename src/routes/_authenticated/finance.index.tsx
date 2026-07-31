@@ -28,16 +28,15 @@ export const Route = createFileRoute('/_authenticated/finance/')({
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-
 /** Headline figures: £1.9m / £148k / £950. */
-
 
 /** "in 4 days" / "12 days ago" — the thing a finance officer actually reads off a due date. */
 function relativeDays(iso: string | null): { text: string; overdue: boolean } | null {
   if (!iso) return null
   const today = new Date().toISOString().slice(0, 10)
   const days = Math.round(
-    (new Date(`${iso}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86_400_000,
+    (new Date(`${iso}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) /
+      86_400_000,
   )
   if (days === 0) return { text: 'today', overdue: false }
   if (days < 0) return { text: `${-days} day${days === -1 ? '' : 's'} ago`, overdue: true }
@@ -170,12 +169,16 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
       const rel = relativeDays(g.nextPayment.dueDate)
       return (
         <div className="whitespace-nowrap">
-          <div className="font-display text-[14px] font-medium text-[#141C24]">{fmtMoney(g.nextPayment.amount)}</div>
+          <div className="font-display text-[14px] font-medium text-[#141C24]">
+            {fmtMoney(g.nextPayment.amount)}
+          </div>
           <div
             className="font-display text-[12px]"
             style={{ color: rel?.overdue ? '#FF4242' : '#97A1AF' }}
           >
-            {g.nextPayment.dueDate ? `${fmtDate(g.nextPayment.dueDate)} · ${rel!.text}` : 'Date TBC'}
+            {g.nextPayment.dueDate
+              ? `${fmtDate(g.nextPayment.dueDate)} · ${rel!.text}`
+              : 'Date TBC'}
           </div>
         </div>
       )
@@ -216,7 +219,8 @@ function FinancePage() {
   const settled = items.filter((g) => g.status === 'paid' || g.status === 'cancelled')
   const rows = tab === 'to_pay' ? toPay : settled
 
-  const paidPct = totals.committed > 0 ? Math.round((totals.paidToDate / totals.committed) * 100) : 0
+  const paidPct =
+    totals.committed > 0 ? Math.round((totals.paidToDate / totals.committed) * 100) : 0
 
   return (
     <div className="space-y-4">
@@ -232,9 +236,7 @@ function FinancePage() {
 
       <StatCards totals={totals} paidPct={paidPct} />
 
-      {(totals.bankIssueCount > 0 || totals.unscheduledCount > 0) && (
-        <Attention totals={totals} />
-      )}
+      {(totals.bankIssueCount > 0 || totals.unscheduledCount > 0) && <Attention totals={totals} />}
 
       <Tabs
         ariaLabel="Payment status"
@@ -249,10 +251,13 @@ function FinancePage() {
       {rows.length === 0 ? (
         <EmptyState>
           <p className="text-sm text-gray-500">
-            {tab === 'to_pay' ? 'Nothing outstanding — every grant is paid up.' : 'No payments made yet.'}
+            {tab === 'to_pay'
+              ? 'Nothing outstanding — every grant is paid up.'
+              : 'No payments made yet.'}
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            Grants appear here as soon as an award is generated, with the instalment schedule set on the award.
+            Grants appear here as soon as an award is generated, with the instalment schedule set on
+            the award.
           </p>
         </EmptyState>
       ) : (
@@ -261,7 +266,9 @@ function FinancePage() {
             columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
             rows={rows}
             rowKey={(g) => g.awardId}
-            onRowClick={(g) => navigate({ to: '/finance/$awardId', params: { awardId: g.awardId } })}
+            onRowClick={(g) =>
+              navigate({ to: '/finance/$awardId', params: { awardId: g.awardId } })
+            }
           />
         </div>
       )}
@@ -305,7 +312,12 @@ function StatCards({ totals, paidPct }: { totals: Totals; paidPct: number }) {
         value={fmtCompact(totals.paidToDate)}
         sub={`${paidPct}% of commitments · ${totals.paidCount} payment${totals.paidCount === 1 ? '' : 's'}`}
       >
-        <BarMeter className="mt-3" progress={paidPct / 100} color={KPI_TINTS.green.accent} height={16} />
+        <BarMeter
+          className="mt-3"
+          progress={paidPct / 100}
+          color={KPI_TINTS.green.accent}
+          height={16}
+        />
       </MiniKpi>
     </div>
   )

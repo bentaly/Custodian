@@ -43,7 +43,15 @@ const TEST_CASES: Array<{
   },
 ]
 
-type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'multi_select' | 'date' | 'file' | 'checkbox'
+type FieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'multi_select'
+  | 'date'
+  | 'file'
+  | 'checkbox'
 
 interface FormField {
   id: string
@@ -176,7 +184,8 @@ export function Submitter() {
 
     try {
       if (!round || !programme) throw new Error('No round or programme selected')
-      if (!apiKey.trim()) throw new Error('Enter an API key (generate one on the Organisation screen)')
+      if (!apiKey.trim())
+        throw new Error('Enter an API key (generate one on the Organisation screen)')
       const selectedProgramme = programme
 
       // Structured budget breakdown, sent as a real array under the canonical key
@@ -241,17 +250,26 @@ export function Submitter() {
     }
   }
 
-  if (loading) return <Card><p className="text-gray-500 text-sm">Loading rounds…</p></Card>
-  if (error) return <Card><p className="text-red-600 text-sm">Error: {error}</p></Card>
+  if (loading)
+    return (
+      <Card>
+        <p className="text-gray-500 text-sm">Loading rounds…</p>
+      </Card>
+    )
+  if (error)
+    return (
+      <Card>
+        <p className="text-red-600 text-sm">Error: {error}</p>
+      </Card>
+    )
 
-  const clients = Array.from(
-    new Map(allRounds.map((r) => [r.client.id, r.client])).values()
-  )
+  const clients = Array.from(new Map(allRounds.map((r) => [r.client.id, r.client])).values())
   const rounds = clientId ? allRounds.filter((r) => r.client.id === clientId) : allRounds
 
-  const programme = round && programmeId
-    ? (round.programmes.find((p) => p.id === programmeId) ?? round.programmes[0]!)
-    : null
+  const programme =
+    round && programmeId
+      ? (round.programmes.find((p) => p.id === programmeId) ?? round.programmes[0]!)
+      : null
   const fields = (programme?.formFields ?? []) as FormField[]
 
   function addExtraField() {
@@ -261,14 +279,11 @@ export function Submitter() {
     setExtraFields((fs) => fs.filter((f) => f.id !== id))
   }
   function updateExtraField(id: string, key: 'label' | 'value', val: string) {
-    setExtraFields((fs) => fs.map((f) => f.id === id ? { ...f, [key]: val } : f))
+    setExtraFields((fs) => fs.map((f) => (f.id === id ? { ...f, [key]: val } : f)))
   }
 
   function addBudgetLine() {
-    setBudgetLines((ls) => [
-      ...ls,
-      { id: crypto.randomUUID(), item: '', amount: '', costType: '' },
-    ])
+    setBudgetLines((ls) => [...ls, { id: crypto.randomUUID(), item: '', amount: '', costType: '' }])
   }
   function removeBudgetLine(id: string) {
     setBudgetLines((ls) => ls.filter((l) => l.id !== id))
@@ -326,7 +341,9 @@ export function Submitter() {
               className="rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
           </div>
@@ -385,9 +402,7 @@ export function Submitter() {
         )}
       </div>
 
-      {!round && (
-        <p className="text-gray-400 text-sm py-4">Loading round…</p>
-      )}
+      {!round && <p className="text-gray-400 text-sm py-4">Loading round…</p>}
       {result ? (
         <SuccessView result={result} />
       ) : round && programme ? (
@@ -442,7 +457,10 @@ export function Submitter() {
                 />
               </Field>
 
-              <Field label="Charity number" hint="Charity Commission (E&W) or OSCR (SC… prefix). Leave blank if none.">
+              <Field
+                label="Charity number"
+                hint="Charity Commission (E&W) or OSCR (SC… prefix). Leave blank if none."
+              >
                 <input
                   value={form.charityNumber}
                   onChange={(e) => setForm((f) => ({ ...f, charityNumber: e.target.value }))}
@@ -503,10 +521,9 @@ export function Submitter() {
           {/* Structured budget breakdown → applications.budgetBreakdown */}
           <Section title="Budget breakdown">
             <p className="mb-3 text-xs text-gray-400">
-              The project budget as line items. Sent as a structured{' '}
-              <code>budgetBreakdown</code> array. Need not sum to the amount requested —
-              the ask may fund only part of the project. Cost type rides along as an extra
-              field per line.
+              The project budget as line items. Sent as a structured <code>budgetBreakdown</code>{' '}
+              array. Need not sum to the amount requested — the ask may fund only part of the
+              project. Cost type rides along as an extra field per line.
             </p>
             <div className="space-y-3">
               {budgetLines.map((l) => (
@@ -666,8 +683,8 @@ function SuccessView({ result }: { result: SubmitResult }) {
       <h2 className="text-sm font-semibold">Accepted (202)</h2>
       <p className="mt-1 text-xs opacity-80">Ingest ID: {result.ingestId}</p>
       <p className="mt-0.5 text-xs opacity-80">
-        Mapping, scoring and due diligence run in the background — check the Review queue
-        for the outcome.
+        Mapping, scoring and due diligence run in the background — check the Review queue for the
+        outcome.
       </p>
     </div>
   )

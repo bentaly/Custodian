@@ -12,7 +12,8 @@ import { fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/shortlist')({
   validateSearch: (search: Record<string, unknown>) => ({
-    roundId: typeof search.roundId === 'string' ? search.roundId : (undefined as string | undefined),
+    roundId:
+      typeof search.roundId === 'string' ? search.roundId : (undefined as string | undefined),
   }),
   loaderDeps: ({ search }) => ({ roundId: search.roundId }),
   loader: async ({ deps }) => {
@@ -24,7 +25,6 @@ export const Route = createFileRoute('/_authenticated/shortlist')({
   },
   component: ShortlistPage,
 })
-
 
 function scoreColor(score: number) {
   if (score >= 80) return '#0F6E56'
@@ -352,9 +352,7 @@ function ShortlistPage() {
   const byProgramme: Record<string, { amount: number; budget: number | null }> = {}
   for (const app of items) {
     const progName = app.roundProgramme?.programme?.name ?? 'Unknown'
-    const budget = app.roundProgramme?.budget
-      ? parseFloat(app.roundProgramme.budget)
-      : null
+    const budget = app.roundProgramme?.budget ? parseFloat(app.roundProgramme.budget) : null
     if (!byProgramme[progName]) byProgramme[progName] = { amount: 0, budget }
     byProgramme[progName].amount += parseFloat(app.amountRequested)
   }
@@ -362,20 +360,14 @@ function ShortlistPage() {
 
   const hasBudgets = progEntries.some(([, v]) => v.budget !== null)
 
-  const roundLabel = selectedRound
-    ? `${selectedRound.name} · Shortlist`
-    : 'Shortlist'
+  const roundLabel = selectedRound ? `${selectedRound.name} · Shortlist` : 'Shortlist'
 
   return (
     <div className="space-y-4">
       {/* Header row */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1
-            className="font-display text-[21px] font-semibold text-gray-900"
-          >
-            {roundLabel}
-          </h1>
+          <h1 className="font-display text-[21px] font-semibold text-gray-900">{roundLabel}</h1>
           <p className="mt-0.5 text-sm text-gray-400">
             {items.length} shortlisted
             {items.length > 0 && ` · ${fmtMoney(totalProposed)} proposed`}
@@ -386,18 +378,42 @@ function ShortlistPage() {
           {items.length > 0 && (
             <div className="flex gap-2">
               <div
-                style={{ background: '#f7f7f4', borderRadius: 5, padding: '7px 12px', textAlign: 'center' }}
+                style={{
+                  background: '#f7f7f4',
+                  borderRadius: 5,
+                  padding: '7px 12px',
+                  textAlign: 'center',
+                }}
               >
                 <div style={{ fontSize: 17, fontWeight: 300 }}>{items.length}</div>
-                <div style={{ fontSize: 10, color: '#aaa', fontWeight: 600, textTransform: 'uppercase' }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: '#aaa',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Shortlisted
                 </div>
               </div>
               <div
-                style={{ background: '#f7f7f4', borderRadius: 5, padding: '7px 12px', textAlign: 'center' }}
+                style={{
+                  background: '#f7f7f4',
+                  borderRadius: 5,
+                  padding: '7px 12px',
+                  textAlign: 'center',
+                }}
               >
                 <div style={{ fontSize: 17, fontWeight: 300 }}>{fmtMoney(totalProposed)}</div>
-                <div style={{ fontSize: 10, color: '#aaa', fontWeight: 600, textTransform: 'uppercase' }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: '#aaa',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Proposed
                 </div>
               </div>
@@ -413,7 +429,11 @@ function ShortlistPage() {
               {visibleRounds.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
-                  {getRoundStatus(r) === 'open' ? ' (current)' : getRoundStatus(r) === 'closed' ? ' (closed)' : ''}
+                  {getRoundStatus(r) === 'open'
+                    ? ' (current)'
+                    : getRoundStatus(r) === 'closed'
+                      ? ' (closed)'
+                      : ''}
                 </option>
               ))}
             </select>

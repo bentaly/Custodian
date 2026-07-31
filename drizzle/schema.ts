@@ -27,12 +27,7 @@ export const userRoleEnum = pgEnum('user_role', ['superadmin', 'admin', 'trustee
 
 export const applicationVoteEnum = pgEnum('application_vote', ['yes', 'no'])
 
-export const clientTypeEnum = pgEnum('client_type', [
-  'charitable_foundation',
-  'family_office',
-])
-
-
+export const clientTypeEnum = pgEnum('client_type', ['charitable_foundation', 'family_office'])
 
 export const applicationStatusEnum = pgEnum('application_status', [
   'for_review',
@@ -47,11 +42,7 @@ export const applicationStatusEnum = pgEnum('application_status', [
 //   active     — award generated; instalments outstanding or in progress
 //   completed  — all instalments paid / the grant has run its course
 //   cancelled  — the award was withdrawn after being generated
-export const awardStatusEnum = pgEnum('award_status', [
-  'active',
-  'completed',
-  'cancelled',
-])
+export const awardStatusEnum = pgEnum('award_status', ['active', 'completed', 'cancelled'])
 
 // Overall outcome of the automated due diligence screening for an application.
 //   pending  — not yet run
@@ -170,7 +161,9 @@ export const users = pgTable('users', {
   // BetterAuth required
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
-  updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
 // Profile photos live in their own table, deliberately NOT as a column on `users`:
@@ -311,7 +304,9 @@ export const applications = pgTable('applications', {
   // AI "Custodian score" assessment. `custodianScore` is the denormalised
   // composite (0–100) kept in its own column for cheap list reads and sorting;
   // the per-criterion breakdown, summary, and flags live in `custodianScoreDetail`.
-  custodianScoreStatus: custodianScoreStatusEnum('custodian_score_status').notNull().default('pending'),
+  custodianScoreStatus: custodianScoreStatusEnum('custodian_score_status')
+    .notNull()
+    .default('pending'),
   custodianScore: integer('custodian_score'),
   custodianScoreDetail: jsonb('custodian_score_detail').$type<CustodianScoreDetail>(),
   custodianScoredAt: timestamp('custodian_scored_at'),
@@ -347,7 +342,9 @@ export const sessions = pgTable('sessions', {
   updatedAt: timestamp('updated_at').notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   // BetterAuth admin plugin — set to the admin's user id while impersonating
   impersonatedBy: text('impersonated_by'),
 })
@@ -356,7 +353,9 @@ export const accounts = pgTable('accounts', {
   id: text('id').primaryKey(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
@@ -404,7 +403,9 @@ export const clientProfiles = pgTable('client_profiles', {
   missionStatement: text('mission_statement'),
   // When true, admins may record votes on behalf of trustees (see castVote).
   allowAdminVoting: boolean('allow_admin_voting').notNull().default(false),
-  updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -439,29 +440,28 @@ export const fieldMappings = pgTable(
 // form. `needs_review` rows wait in the admin queue; `complete`/`ai_proposed` rows
 // are promoted to a real `applications` row (linked via `applicationId`). The raw
 // payload is always retained for audit and re-mapping.
-export const applicationIngests = pgTable(
-  'application_ingests',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    clientId: uuid('client_id')
-      .notNull()
-      .references(() => clients.id, { onDelete: 'cascade' }),
-    roundProgrammeId: uuid('round_programme_id')
-      .references(() => roundProgrammes.id, { onDelete: 'restrict' }),
-    rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
-    status: ingestStatusEnum('status').notNull().default('needs_review'),
-    // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
-    proposed: jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
-    // The final mapping applied: sourceKey → canonicalField.
-    resolved: jsonb('resolved').$type<Record<string, string>>(),
-    // Set once promoted to a real application.
-    applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'set null' }),
-    note: text('note'),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    resolvedAt: timestamp('resolved_at'),
-    resolvedBy: text('resolved_by'),
-  },
-)
+export const applicationIngests = pgTable('application_ingests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  roundProgrammeId: uuid('round_programme_id').references(() => roundProgrammes.id, {
+    onDelete: 'restrict',
+  }),
+  rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+  status: ingestStatusEnum('status').notNull().default('needs_review'),
+  // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
+  proposed:
+    jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
+  // The final mapping applied: sourceKey → canonicalField.
+  resolved: jsonb('resolved').$type<Record<string, string>>(),
+  // Set once promoted to a real application.
+  applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'set null' }),
+  note: text('note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  resolvedAt: timestamp('resolved_at'),
+  resolvedBy: text('resolved_by'),
+})
 
 // ─── Deprivation reference data ─────────────────────────────────────────────────
 //
@@ -635,16 +635,16 @@ export const reportIngests = pgTable('report_ingests', {
   rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
   status: ingestStatusEnum('status').notNull().default('needs_review'),
   // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
-  proposed: jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
+  proposed:
+    jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
   // The final mapping applied: sourceKey → canonicalField.
   resolved: jsonb('resolved').$type<Record<string, string>>(),
   // Ranked grant suggestions computed by the matching heuristics (charity number,
   // normalised organisation name, programme, amount, award-date fit). Heuristics
   // NEVER auto-link — an admin confirms one of these in the review queue. Kept on
   // the row so a future client-facing match UI can render the same suggestions.
-  matchCandidates: jsonb('match_candidates').$type<
-    Array<{ awardId: string; score: number; reasons: string[] }>
-  >(),
+  matchCandidates:
+    jsonb('match_candidates').$type<Array<{ awardId: string; score: number; reasons: string[] }>>(),
   // Set once promoted to a real report submission.
   reportId: uuid('report_id').references(() => reports.id, {
     onDelete: 'set null',
@@ -777,7 +777,9 @@ export const auditLog = pgTable(
     action: auditActionEnum('action').notNull(),
     // The application the action concerns. Every current action is application-scoped;
     // nullable to leave room for future non-application events.
-    applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'cascade' }),
+    applicationId: uuid('application_id').references(() => applications.id, {
+      onDelete: 'cascade',
+    }),
     // Small action-specific extras (e.g. `{ amount }` for an award) so the feed can
     // render without extra joins.
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
@@ -831,7 +833,10 @@ export const programmesRelations = relations(programmes, ({ one, many }) => ({
 
 export const roundProgrammesRelations = relations(roundProgrammes, ({ one, many }) => ({
   round: one(rounds, { fields: [roundProgrammes.roundId], references: [rounds.id] }),
-  programme: one(programmes, { fields: [roundProgrammes.programmeId], references: [programmes.id] }),
+  programme: one(programmes, {
+    fields: [roundProgrammes.programmeId],
+    references: [programmes.id],
+  }),
   applications: many(applications),
 }))
 

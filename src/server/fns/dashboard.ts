@@ -131,7 +131,9 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
           .from(rounds)
           .where(eq(rounds.clientId, clientId))
           .orderBy(desc(rounds.openedAt))
-      : Promise.resolve([] as Array<{ id: string; name: string; openedAt: Date | null; closedAt: Date | null }>),
+      : Promise.resolve(
+          [] as Array<{ id: string; name: string; openedAt: Date | null; closedAt: Date | null }>,
+        ),
 
     // Money: total awarded (all awards) and how many are still active.
     getDb()
@@ -254,7 +256,13 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .from(reportSchedule)
       .innerJoin(awards, eq(reportSchedule.awardId, awards.id))
       .leftJoin(applications, eq(awards.applicationId, applications.id))
-      .where(and(awardScope, sql`${reportSchedule.submittedDate} IS NULL`, isNotNull(reportSchedule.dueDate)))
+      .where(
+        and(
+          awardScope,
+          sql`${reportSchedule.submittedDate} IS NULL`,
+          isNotNull(reportSchedule.dueDate),
+        ),
+      )
       .orderBy(reportSchedule.dueDate),
 
     // Outstanding (unpaid) grant payments, soonest first.
@@ -270,7 +278,13 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .from(awardInstalments)
       .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
       .leftJoin(applications, eq(awards.applicationId, applications.id))
-      .where(and(awardScope, sql`${awardInstalments.paidDate} IS NULL`, isNotNull(awardInstalments.dueDate)))
+      .where(
+        and(
+          awardScope,
+          sql`${awardInstalments.paidDate} IS NULL`,
+          isNotNull(awardInstalments.dueDate),
+        ),
+      )
       .orderBy(awardInstalments.dueDate),
 
     // Paid-to-date / outstanding totals across all scheduled instalments (any due date).
@@ -406,7 +420,10 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     const ws = weekStart(new Date(r.submittedAt))
     if (weekCounts.has(ws)) weekCounts.set(ws, (weekCounts.get(ws) ?? 0) + 1)
   }
-  const submissionsTrend = [...weekCounts.entries()].map(([weekStart, count]) => ({ weekStart, count }))
+  const submissionsTrend = [...weekCounts.entries()].map(([weekStart, count]) => ({
+    weekStart,
+    count,
+  }))
 
   // ── Money ────────────────────────────────────────────────────────────────
   const byProgramme = byProgrammeRows
@@ -424,7 +441,8 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   // ── Rounds with deadlines, application counts and budget utilisation ─────────
   // Focus round for the conversion funnel: the open round, else the most recent.
   const isRoundOpen = (r: { openedAt: Date | null; closedAt: Date | null }) =>
-    (r.openedAt ? new Date(r.openedAt) <= now : false) && !(r.closedAt ? new Date(r.closedAt) <= now : false)
+    (r.openedAt ? new Date(r.openedAt) <= now : false) &&
+    !(r.closedAt ? new Date(r.closedAt) <= now : false)
   const focusRound = roundRows.find(isRoundOpen) ?? roundRows[0] ?? null
 
   let roundsOut: DashboardRound[] = []
@@ -473,7 +491,9 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
             .leftJoin(awards, eq(awards.applicationId, applications.id))
             .where(eq(roundProgrammes.roundId, focusRound.id))
             .groupBy(programmes.name, roundProgrammes.budget)
-        : Promise.resolve([] as Array<{ programmeName: string; budget: string; committed: string }>),
+        : Promise.resolve(
+            [] as Array<{ programmeName: string; budget: string; committed: string }>,
+          ),
     ])
     const appCountByRound = new Map(appCountRows.map((r) => [r.roundId, r.count]))
     const budgetByRound = new Map(budgetRows.map((r) => [r.roundId, r]))
@@ -602,7 +622,10 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   // each one is a payment that cannot go out cleanly.
   const bankIssues = bankFieldRows.filter((r) => {
     if (!r.sortCode || !r.accountNumber) return true
-    return checkBankAccount({ sortCode: r.sortCode, accountNumber: r.accountNumber }).status === 'invalid'
+    return (
+      checkBankAccount({ sortCode: r.sortCode, accountNumber: r.accountNumber }).status ===
+      'invalid'
+    )
   }).length
 
   // ── Giving so far (awards.decisionAt) ────────────────────────────────────
@@ -626,8 +649,16 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     yoyDelta: ytd - lastYtd,
     grants: Number(givingBucketRows[0]?.grants ?? 0),
     series: {
-      quarter: bucketSeries(givingEvents.filter((e) => e.date >= quarterStart), quarterStart, now),
-      ytd: bucketSeries(givingEvents.filter((e) => e.date >= yearStart), yearStart, now),
+      quarter: bucketSeries(
+        givingEvents.filter((e) => e.date >= quarterStart),
+        quarterStart,
+        now,
+      ),
+      ytd: bucketSeries(
+        givingEvents.filter((e) => e.date >= yearStart),
+        yearStart,
+        now,
+      ),
       allTime: bucketSeries(givingEvents, firstAwardDate, now),
     },
   }

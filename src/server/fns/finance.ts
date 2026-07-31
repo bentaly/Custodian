@@ -29,7 +29,13 @@ export type FinanceStatus =
 /** `missing` = we hold no details to check; the rest come from the modulus checker. */
 export type BankStatus = ModulusCheckStatus | 'missing'
 
-type InstalmentRow = { id: string; instalmentNo: number; amount: string; dueDate: string | null; paidDate: string | null }
+type InstalmentRow = {
+  id: string
+  instalmentNo: number
+  amount: string
+  dueDate: string | null
+  paidDate: string | null
+}
 
 type BankFields = {
   bankName: string | null
@@ -94,7 +100,8 @@ function summarisePayments(instalments: InstalmentRow[], cancelled: boolean) {
   else status = 'scheduled'
 
   const lastPaidDate = paid.reduce<string | null>(
-    (latest, i) => (latest === null || (i.paidDate as string) > latest ? (i.paidDate as string) : latest),
+    (latest, i) =>
+      latest === null || (i.paidDate as string) > latest ? (i.paidDate as string) : latest,
     null,
   )
 
@@ -273,7 +280,12 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
 
     // Where this grant sits in its round-programme's pot: the same budget the round
     // screen tracks, but answered from the awards actually made.
-    let budget: { budget: number; committed: number; paidToDate: number; grantCount: number } | null = null
+    let budget: {
+      budget: number
+      committed: number
+      paidToDate: number
+      grantCount: number
+    } | null = null
     if (rp) {
       const siblings = await getDb().query.applications.findMany({
         where: and(eq(applications.status, 'awarded'), eq(applications.roundProgrammeId, rp.id)),
@@ -286,7 +298,10 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
         committed: live.reduce((s, x) => s + parseFloat(x.award!.amountAwarded), 0),
         paidToDate: live.reduce(
           (s, x) =>
-            s + x.award!.instalments.filter((i) => i.paidDate).reduce((t, i) => t + parseFloat(i.amount), 0),
+            s +
+            x
+              .award!.instalments.filter((i) => i.paidDate)
+              .reduce((t, i) => t + parseFloat(i.amount), 0),
           0,
         ),
         grantCount: live.length,
@@ -295,8 +310,7 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
 
     const bank = bankCheck(app)
     // The Finance screen is payments-only, so `finance` gets the full edit set here.
-    const canEdit =
-      user.role === 'superadmin' || user.role === 'admin' || user.role === 'finance'
+    const canEdit = user.role === 'superadmin' || user.role === 'admin' || user.role === 'finance'
 
     return {
       id: award.id,

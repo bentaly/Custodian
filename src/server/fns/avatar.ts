@@ -43,7 +43,12 @@ export const updateProfilePhoto = createServerFn({ method: 'POST' })
         .values({ userId: user.id, mimeType: data.mimeType, dataBase64: data.dataBase64, hash })
         .onConflictDoUpdate({
           target: userAvatars.userId,
-          set: { mimeType: data.mimeType, dataBase64: data.dataBase64, hash, updatedAt: new Date() },
+          set: {
+            mimeType: data.mimeType,
+            dataBase64: data.dataBase64,
+            hash,
+            updatedAt: new Date(),
+          },
         }),
       getDb().update(users).set({ image: url }).where(eq(users.id, user.id)),
     ])

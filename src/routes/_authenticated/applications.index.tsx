@@ -8,13 +8,24 @@ import {
   CheckmarkCircle02Icon,
   CancelCircleIcon,
 } from '@hugeicons/core-free-icons'
-import { listApplications, getRoundBudgetSummary, updateApplicationStatus } from '../../server/fns/applications'
+import {
+  listApplications,
+  getRoundBudgetSummary,
+  updateApplicationStatus,
+} from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { ApplicationStatus, ScoreBand } from '../../lib/validators/application'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { DataTable, EmptyState, ExportButton, StatusPill, Tabs, type TableColumn } from '../../components/ui'
+import {
+  DataTable,
+  EmptyState,
+  ExportButton,
+  StatusPill,
+  Tabs,
+  type TableColumn,
+} from '../../components/ui'
 import { fmtAmount, fmtCompact } from '../../lib/format'
 
 const PAGE_SIZE = 25
@@ -61,7 +72,10 @@ export const Route = createFileRoute('/_authenticated/applications/')({
       tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
       q: typeof search.q === 'string' && search.q ? search.q : undefined,
       sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
-      sortDir: search.sortDir === 'asc' || search.sortDir === 'desc' ? (search.sortDir as SortDir) : undefined,
+      sortDir:
+        search.sortDir === 'asc' || search.sortDir === 'desc'
+          ? (search.sortDir as SortDir)
+          : undefined,
       page: Number.isInteger(page) && page > 1 ? page : undefined,
     }
   },
@@ -91,7 +105,11 @@ export const Route = createFileRoute('/_authenticated/applications/')({
         })[0]
       // Preserve any other filters (q from the header search, status, etc.) —
       // only the missing roundId is being filled in.
-      if (candidate) throw redirect({ to: '/applications', search: { ...deps, roundId: candidate.id, page: undefined } })
+      if (candidate)
+        throw redirect({
+          to: '/applications',
+          search: { ...deps, roundId: candidate.id, page: undefined },
+        })
     }
 
     const [applicationsData, budgetSummary] = await Promise.all([
@@ -117,8 +135,6 @@ export const Route = createFileRoute('/_authenticated/applications/')({
 })
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
-
-
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -155,7 +171,16 @@ const STATUS_PILL: Record<string, { label: string; color: string }> = {
 type AppItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
 function exportCsv(items: AppItem[], filename: string) {
-  const headers = ['Organisation', 'Reference', 'Amount requested', 'Programme', 'Theme', 'AI score', 'Due diligence', 'Status']
+  const headers = [
+    'Organisation',
+    'Reference',
+    'Amount requested',
+    'Programme',
+    'Theme',
+    'AI score',
+    'Due diligence',
+    'Status',
+  ]
   const esc = (v: unknown) => {
     const s = v == null ? '' : String(v)
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
@@ -206,14 +231,23 @@ function RoundSelect({
         className="flex items-center gap-2 rounded-[12px] border bg-white py-1 pl-1 pr-3"
         style={{ borderColor: C.line }}
       >
-        <div className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: C.wash }}>
+        <div
+          className="flex size-8 items-center justify-center rounded-lg"
+          style={{ backgroundColor: C.wash }}
+        >
           <HugeiconsIcon icon={Calendar03Icon} size={16} color={C.brand} />
         </div>
-        <span className="whitespace-nowrap font-display text-[14px] font-medium" style={{ color: C.brand }}>
+        <span
+          className="whitespace-nowrap font-display text-[14px] font-medium"
+          style={{ color: C.brand }}
+        >
           {current?.name ?? 'Select round'}
         </span>
         {statusLabel && (
-          <span className="whitespace-nowrap font-display text-[12px] font-medium" style={{ color: C.faint }}>
+          <span
+            className="whitespace-nowrap font-display text-[12px] font-medium"
+            style={{ color: C.faint }}
+          >
             · {statusLabel}
           </span>
         )}
@@ -252,7 +286,10 @@ function FilterSelect({
     <div className="relative shrink-0">
       <div
         className="flex h-8 items-center gap-1 rounded-lg border bg-white pl-2 pr-1.5"
-        style={{ borderColor: current ? C.brand : C.line, backgroundColor: current ? C.brandBg : '#fff' }}
+        style={{
+          borderColor: current ? C.brand : C.line,
+          backgroundColor: current ? C.brandBg : '#fff',
+        }}
       >
         <span
           className="whitespace-nowrap font-display text-[14px] font-medium"
@@ -283,7 +320,17 @@ function FilterSelect({
 
 type BudgetRow = Awaited<ReturnType<typeof getRoundBudgetSummary>>[number]
 
-function BudgetLegend({ color, amount, label, count }: { color: string; amount: number; label: string; count?: number }) {
+function BudgetLegend({
+  color,
+  amount,
+  label,
+  count,
+}: {
+  color: string
+  amount: number
+  label: string
+  count?: number
+}) {
   return (
     <div className="flex items-center gap-1.5">
       <span className="size-2 rounded-[2px]" style={{ backgroundColor: color }} />
@@ -325,7 +372,10 @@ function RoundBudget({
   const unallocated = Math.max(0, totalBudget - committed)
 
   return (
-    <div className="flex flex-col gap-4 rounded-[16px] border bg-white p-4" style={{ borderColor: C.line }}>
+    <div
+      className="flex flex-col gap-4 rounded-[16px] border bg-white p-4"
+      style={{ borderColor: C.line }}
+    >
       <p className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
         {title}
       </p>
@@ -357,9 +407,23 @@ function RoundBudget({
         />
 
         <div className="flex flex-wrap items-center gap-4">
-          <BudgetLegend color={C.success} amount={totalAwarded} label="awarded" count={awardedCount} />
-          <BudgetLegend color={withAlpha(C.success, 0.5)} amount={totalShortlisted} label="shortlisted" count={shortlistedCount} />
-          <BudgetLegend color={withAlpha(C.success, 0.1)} amount={unallocated} label="unallocated" />
+          <BudgetLegend
+            color={C.success}
+            amount={totalAwarded}
+            label="awarded"
+            count={awardedCount}
+          />
+          <BudgetLegend
+            color={withAlpha(C.success, 0.5)}
+            amount={totalShortlisted}
+            label="shortlisted"
+            count={shortlistedCount}
+          />
+          <BudgetLegend
+            color={withAlpha(C.success, 0.1)}
+            amount={unallocated}
+            label="unallocated"
+          />
         </div>
       </div>
 
@@ -377,7 +441,10 @@ function RoundBudget({
             icon={ArrowDown01Icon}
             size={16}
             color={C.brand}
-            style={{ transform: brokenDown ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}
+            style={{
+              transform: brokenDown ? 'rotate(180deg)' : 'none',
+              transition: 'transform 150ms',
+            }}
           />
         </button>
       )}
@@ -386,19 +453,32 @@ function RoundBudget({
         <div className="flex flex-col gap-3 border-t pt-3" style={{ borderColor: C.line }}>
           {rows.map((row) => (
             <div key={row.roundProgrammeId} className="flex items-center gap-3">
-              <span className="w-44 shrink-0 truncate font-display text-[14px] font-medium" style={{ color: C.ink }} title={row.programmeName}>
+              <span
+                className="w-44 shrink-0 truncate font-display text-[14px] font-medium"
+                style={{ color: C.ink }}
+                title={row.programmeName}
+              >
                 {row.programmeName}
               </span>
               <div className="flex-1">
                 {row.budget != null ? (
-                  <BarMeter bars={60} height={16} barWidth={3} className="w-full" segments={programmeSegments(row)} />
+                  <BarMeter
+                    bars={60}
+                    height={16}
+                    barWidth={3}
+                    className="w-full"
+                    segments={programmeSegments(row)}
+                  />
                 ) : (
                   <span className="font-display text-[12px]" style={{ color: C.faint }}>
                     No budget set
                   </span>
                 )}
               </div>
-              <span className="w-32 shrink-0 text-right font-display text-[12px] tabular-nums" style={{ color: C.sub }}>
+              <span
+                className="w-32 shrink-0 text-right font-display text-[12px] tabular-nums"
+                style={{ color: C.sub }}
+              >
                 {fmtCompact(row.committed)}
                 {row.budget != null ? ` / ${fmtCompact(row.budget)}` : ''}
               </span>
@@ -418,7 +498,13 @@ function scoreBandColor(score: number) {
   return C.danger
 }
 
-function AiScoreCell({ status, score }: { status: string | null | undefined; score: number | null | undefined }) {
+function AiScoreCell({
+  status,
+  score,
+}: {
+  status: string | null | undefined
+  score: number | null | undefined
+}) {
   const has = status === 'scored' && score != null
   const color = has ? scoreBandColor(score!) : null
   return (
@@ -453,7 +539,10 @@ const DD_ICON: Record<string, { icon: typeof CheckmarkCircle02Icon; color: strin
 
 function DueDiligenceCell({ status }: { status: DueDiligenceStatus }) {
   const d = DD_ICON[status]
-  if (!d) return <span className="inline-block size-5 rounded-full border" style={{ borderColor: C.line }} />
+  if (!d)
+    return (
+      <span className="inline-block size-5 rounded-full border" style={{ borderColor: C.line }} />
+    )
   return <HugeiconsIcon icon={d.icon} size={20} color={d.color} />
 }
 
@@ -471,7 +560,10 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       const subline = [type, area, app.externalApplicationId].filter(Boolean).join(' · ') || '—'
       return (
         <div className="flex items-center gap-2">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: C.wash }}>
+          <div
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: C.wash }}
+          >
             <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
               {initials(app.organisationName)}
             </span>
@@ -558,7 +650,9 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     header: 'Due diligence',
     width: 'w-[120px]',
     sortable: true,
-    cell: (app) => <DueDiligenceCell status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />,
+    cell: (app) => (
+      <DueDiligenceCell status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />
+    ),
   },
 ]
 
@@ -570,8 +664,14 @@ type SettableStatus = Exclude<ApplicationStatus, 'awarded'>
 function BulkStatusMenu({ busy, onPick }: { busy: boolean; onPick: (s: SettableStatus) => void }) {
   return (
     <div className="relative">
-      <div className="flex h-8 items-center gap-1 rounded-lg border bg-white pl-3 pr-2" style={{ borderColor: C.line }}>
-        <span className="whitespace-nowrap font-display text-[14px] font-medium" style={{ color: C.ink }}>
+      <div
+        className="flex h-8 items-center gap-1 rounded-lg border bg-white pl-3 pr-2"
+        style={{ borderColor: C.line }}
+      >
+        <span
+          className="whitespace-nowrap font-display text-[14px] font-medium"
+          style={{ color: C.ink }}
+        >
           {busy ? 'Updating…' : 'Change status'}
         </span>
         <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.sub} />
@@ -638,7 +738,13 @@ function ApplicationsList() {
   const selectedRound = rounds.find((r) => r.id === roundId)
   const roundStatus = selectedRound ? getRoundStatus(selectedRound) : null
   const statusLabel =
-    roundStatus === 'open' ? 'Current round' : roundStatus === 'closed' ? 'Closed' : roundStatus ? 'Upcoming' : null
+    roundStatus === 'open'
+      ? 'Current round'
+      : roundStatus === 'closed'
+        ? 'Closed'
+        : roundStatus
+          ? 'Upcoming'
+          : null
 
   // Distinct themes (tags) across the round's programmes, for the Theme filter.
   const tags = [...new Set(budgetSummary.flatMap((r) => r.tags))].sort()
@@ -651,7 +757,9 @@ function ApplicationsList() {
   ]
 
   // Budget is scoped to the selected programme tab (whole round on "All").
-  const scopedBudget = programmeId ? budgetSummary.filter((r) => r.programmeId === programmeId) : budgetSummary
+  const scopedBudget = programmeId
+    ? budgetSummary.filter((r) => r.programmeId === programmeId)
+    : budgetSummary
   const selectedProgrammeName = programmeId
     ? budgetSummary.find((r) => r.programmeId === programmeId)?.programmeName
     : null
@@ -663,7 +771,9 @@ function ApplicationsList() {
     if (selectedRound?.closedAt) {
       const days = Math.ceil((new Date(selectedRound.closedAt).getTime() - Date.now()) / 86_400_000)
       if (roundStatus === 'closed' || days < 0) {
-        parts.push(`closed ${new Date(selectedRound.closedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`)
+        parts.push(
+          `closed ${new Date(selectedRound.closedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+        )
       } else {
         parts.push(`closes in ${days} day${days !== 1 ? 's' : ''}`)
       }
@@ -672,19 +782,39 @@ function ApplicationsList() {
   })()
 
   function handleRoundChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    navigate({ search: (prev) => ({ ...prev, roundId: e.target.value || undefined, programmeId: undefined, tag: undefined, page: undefined }) })
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        roundId: e.target.value || undefined,
+        programmeId: undefined,
+        tag: undefined,
+        page: undefined,
+      }),
+    })
   }
   function setProgramme(id: string | undefined) {
     navigate({ search: (prev) => ({ ...prev, programmeId: id, page: undefined }) })
   }
   function setStatus(value: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, status: (value as ApplicationStatus) || undefined, page: undefined }) })
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        status: (value as ApplicationStatus) || undefined,
+        page: undefined,
+      }),
+    })
   }
   function setTag(value: string | undefined) {
     navigate({ search: (prev) => ({ ...prev, tag: value || undefined, page: undefined }) })
   }
   function setScoreBand(value: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, scoreBand: (value as ScoreBand) || undefined, page: undefined }) })
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        scoreBand: (value as ScoreBand) || undefined,
+        page: undefined,
+      }),
+    })
   }
   function goToPage(p: number) {
     navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
@@ -692,7 +822,8 @@ function ApplicationsList() {
   // Click a header: first click sorts by its natural default direction (text asc,
   // numeric/score desc); clicking the active column flips direction.
   function setSort(key: SortKey) {
-    const defaultDir: SortDir = key === 'organisation' || key === 'status' || key === 'dueDiligence' ? 'asc' : 'desc'
+    const defaultDir: SortDir =
+      key === 'organisation' || key === 'status' || key === 'dueDiligence' ? 'asc' : 'desc'
     navigate({
       search: (prev) => {
         const active = prev.sortBy === key
@@ -704,7 +835,9 @@ function ApplicationsList() {
 
   const allSelected = items.length > 0 && items.every((a) => selected.has(a.id))
   function toggleAll() {
-    setSelected((prev) => (items.every((a) => prev.has(a.id)) ? new Set() : new Set(items.map((a) => a.id))))
+    setSelected((prev) =>
+      items.every((a) => prev.has(a.id)) ? new Set() : new Set(items.map((a) => a.id)),
+    )
   }
   function toggleOne(id: string) {
     setSelected((prev) => {
@@ -715,7 +848,10 @@ function ApplicationsList() {
   }
 
   const selectedItems = items.filter((a) => selected.has(a.id))
-  const combinedAsk = selectedItems.reduce((s, a) => s + (parseFloat(a.amountRequested ?? '0') || 0), 0)
+  const combinedAsk = selectedItems.reduce(
+    (s, a) => s + (parseFloat(a.amountRequested ?? '0') || 0),
+    0,
+  )
 
   // Bulk status change for the selected rows. Awarded applications are skipped —
   // un-awarding would orphan the award/grant records (that's the generateAward flow).
@@ -746,8 +882,12 @@ function ApplicationsList() {
   async function handleExport() {
     setExporting(true)
     try {
-      const all = await listApplications({ data: { page: 1, pageSize: 10_000, roundId, programmeId } })
-      const scope = programmeId ? budgetSummary.find((r) => r.programmeId === programmeId)?.programmeName : selectedRound?.name
+      const all = await listApplications({
+        data: { page: 1, pageSize: 10_000, roundId, programmeId },
+      })
+      const scope = programmeId
+        ? budgetSummary.find((r) => r.programmeId === programmeId)?.programmeName
+        : selectedRound?.name
       exportCsv(all.items, `applications-${scope ?? 'export'}.csv`.replace(/\s+/g, '-'))
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Could not export applications')
@@ -766,14 +906,25 @@ function ApplicationsList() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {visibleRounds.length > 0 && (
-              <RoundSelect rounds={visibleRounds} value={roundId} statusLabel={statusLabel} onChange={handleRoundChange} />
+              <RoundSelect
+                rounds={visibleRounds}
+                value={roundId}
+                statusLabel={statusLabel}
+                onChange={handleRoundChange}
+              />
             )}
-            <span className="whitespace-nowrap font-display text-[12px] font-medium" style={{ color: C.sub }}>
+            <span
+              className="whitespace-nowrap font-display text-[12px] font-medium"
+              style={{ color: C.sub }}
+            >
               {metaLine}
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex h-10 items-center gap-2 rounded-[12px] px-3" style={{ backgroundColor: C.wash }}>
+            <div
+              className="flex h-10 items-center gap-2 rounded-[12px] px-3"
+              style={{ backgroundColor: C.wash }}
+            >
               <HugeiconsIcon icon={Search01Icon} size={16} color={C.sub} />
               <input
                 type="search"
@@ -805,14 +956,32 @@ function ApplicationsList() {
       )}
 
       {/* Table card */}
-      <div className="overflow-hidden rounded-[16px] border bg-white" style={{ borderColor: C.line }}>
+      <div
+        className="overflow-hidden rounded-[16px] border bg-white"
+        style={{ borderColor: C.line }}
+      >
         {/* Filter dropdowns */}
         <div className="flex flex-wrap items-center justify-end gap-3 p-4">
-          <FilterSelect label="Status" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+          <FilterSelect
+            label="Status"
+            value={status}
+            options={STATUS_OPTIONS}
+            onChange={setStatus}
+          />
           {tags.length > 0 && (
-            <FilterSelect label="Theme" value={tag} options={tags.map((t) => ({ value: t, label: t }))} onChange={setTag} />
+            <FilterSelect
+              label="Theme"
+              value={tag}
+              options={tags.map((t) => ({ value: t, label: t }))}
+              onChange={setTag}
+            />
           )}
-          <FilterSelect label="AI score" value={scoreBand} options={SCORE_BAND_OPTIONS} onChange={setScoreBand} />
+          <FilterSelect
+            label="AI score"
+            value={scoreBand}
+            options={SCORE_BAND_OPTIONS}
+            onChange={setScoreBand}
+          />
         </div>
 
         {/* Selection toolbar — appears above the table when rows are selected */}
@@ -842,7 +1011,9 @@ function ApplicationsList() {
           columns={APPLICATION_COLUMNS}
           rows={items}
           rowKey={(app) => app.id}
-          onRowClick={(app) => navigate({ to: '/applications/$applicationId', params: { applicationId: app.id } })}
+          onRowClick={(app) =>
+            navigate({ to: '/applications/$applicationId', params: { applicationId: app.id } })
+          }
           sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
           onSort={(id) => setSort(id as SortKey)}
           selection={{
@@ -865,9 +1036,13 @@ function ApplicationsList() {
 
       {/* Pagination */}
       {total > 0 && pageCount > 1 && (
-        <div className="flex items-center justify-between font-display text-[14px]" style={{ color: C.sub }}>
+        <div
+          className="flex items-center justify-between font-display text-[14px]"
+          style={{ color: C.sub }}
+        >
           <span>
-            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)} of {total}
+            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)} of{' '}
+            {total}
           </span>
           <div className="flex items-center gap-2">
             <button

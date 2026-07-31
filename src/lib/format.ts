@@ -31,5 +31,9 @@ export function fmtCompact(n: number): string {
 /** `12 Mar 2026`, or `—` when absent. */
 export function fmtDate(date: Date | string | null | undefined): string {
   if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(date).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 }

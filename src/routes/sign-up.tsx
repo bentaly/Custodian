@@ -96,7 +96,9 @@ function SignUpPage() {
   if (!isInvite) {
     return (
       <AuthShell>
-        <h1 className="font-display text-[32px] font-semibold text-ink">You'll need an invitation</h1>
+        <h1 className="font-display text-[32px] font-semibold text-ink">
+          You'll need an invitation
+        </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-muted">
           Custodian is invite-only. Ask your administrator to invite you to your organisation, and
           you'll get an email with a link to set up your account.
@@ -123,7 +125,11 @@ function SignUpPage() {
 
       <div className="mt-7 space-y-5">
         <div>
-          <GoogleButton onClick={handleGoogle} loading={googleLoading} label="Continue with Google" />
+          <GoogleButton
+            onClick={handleGoogle}
+            loading={googleLoading}
+            label="Continue with Google"
+          />
           <p className="mt-2 text-center text-[13px] text-ink-muted">
             Use the Google account for {invitation.email}
           </p>

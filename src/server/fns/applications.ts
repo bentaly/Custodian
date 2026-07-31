@@ -15,7 +15,12 @@ import {
 } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
-import { assertApplicationAccess, assertClientAccess, intersectScope, visibleRoundProgrammeIds } from '../scope'
+import {
+  assertApplicationAccess,
+  assertClientAccess,
+  intersectScope,
+  visibleRoundProgrammeIds,
+} from '../scope'
 import {
   ApplicationFiltersSchema,
   GenerateAwardSchema,
@@ -36,7 +41,9 @@ export const listApplications = createServerFn({ method: 'GET' })
       const conds = and(
         filters.roundId ? eq(roundProgrammes.roundId, filters.roundId) : undefined,
         filters.programmeId ? eq(roundProgrammes.programmeId, filters.programmeId) : undefined,
-        filters.tag ? sql`${programmes.tags} @> ${JSON.stringify([filters.tag])}::jsonb` : undefined,
+        filters.tag
+          ? sql`${programmes.tags} @> ${JSON.stringify([filters.tag])}::jsonb`
+          : undefined,
       )
       const rows = filters.tag
         ? await getDb()
@@ -103,7 +110,9 @@ export const listApplications = createServerFn({ method: 'GET' })
           return null
       }
     })()
-    const orderBy = sortExpr ? [sortExpr, desc(applications.submittedAt)] : [desc(applications.submittedAt)]
+    const orderBy = sortExpr
+      ? [sortExpr, desc(applications.submittedAt)]
+      : [desc(applications.submittedAt)]
 
     const [items, totals, statusRows] = await Promise.all([
       getDb().query.applications.findMany({
@@ -143,14 +152,18 @@ export const getApplication = createServerFn({ method: 'GET' })
     // Committed = awarded awards at their grant amount + shortlisted at requested.
     const committedRows = await getDb()
       .select({
-        committed: sql<string | null>`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
+        committed: sql<
+          string | null
+        >`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
       })
       .from(applications)
       .leftJoin(awards, eq(awards.applicationId, applications.id))
-      .where(and(
-        eq(applications.roundProgrammeId, application.roundProgrammeId),
-        inArray(applications.status, ['shortlisted', 'awarded']),
-      ))
+      .where(
+        and(
+          eq(applications.roundProgrammeId, application.roundProgrammeId),
+          inArray(applications.status, ['shortlisted', 'awarded']),
+        ),
+      )
     const committed = committedRows[0]?.committed
 
     return { ...application, roundProgrammeCommitted: committed ? parseFloat(committed) : 0 }
@@ -219,9 +232,7 @@ export const generateAward = createServerFn({ method: 'POST' })
     const trusteeCount = trusteeRows[0]?.count ?? 0
     const yesCount = yesRows[0]?.count ?? 0
     if (trusteeCount === 0 || yesCount * 2 <= trusteeCount) {
-      throw new Error(
-        'A majority of trustees must vote in favour before an award can be generated',
-      )
+      throw new Error('A majority of trustees must vote in favour before an award can be generated')
     }
 
     const decisionAt = new Date()
@@ -261,9 +272,11 @@ export const generateAward = createServerFn({ method: 'POST' })
             await db.batch([
               insertAward,
               insertInstalments,
-              db.insert(reportSchedule).values(
-                data.reportingDates.map((r) => ({ awardId, label: r.label, dueDate: r.date })),
-              ),
+              db
+                .insert(reportSchedule)
+                .values(
+                  data.reportingDates.map((r) => ({ awardId, label: r.label, dueDate: r.date })),
+                ),
               flipStatus,
             ])
           )[3]
@@ -311,10 +324,12 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
         })
         .from(applications)
         .leftJoin(awards, eq(awards.applicationId, applications.id))
-        .where(and(
-          inArray(applications.roundProgrammeId, rpIds),
-          inArray(applications.status, ['shortlisted', 'awarded']),
-        ))
+        .where(
+          and(
+            inArray(applications.roundProgrammeId, rpIds),
+            inArray(applications.status, ['shortlisted', 'awarded']),
+          ),
+        )
         .groupBy(applications.roundProgrammeId),
       // Total applications per programme (all statuses) — drives the programme tab counts.
       getDb()
@@ -376,15 +391,19 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       if (budget !== null) {
         const currentRows = await getDb()
           .select({
-            current: sql<string | null>`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
+            current: sql<
+              string | null
+            >`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
           })
           .from(applications)
           .leftJoin(awards, eq(awards.applicationId, applications.id))
-          .where(and(
-            eq(applications.roundProgrammeId, app.roundProgrammeId),
-            inArray(applications.status, ['shortlisted', 'awarded']),
-            ne(applications.id, id),
-          ))
+          .where(
+            and(
+              eq(applications.roundProgrammeId, app.roundProgrammeId),
+              inArray(applications.status, ['shortlisted', 'awarded']),
+              ne(applications.id, id),
+            ),
+          )
 
         const committed = currentRows[0]?.current ? parseFloat(currentRows[0].current) : 0
         const requested = parseFloat(app.amountRequested)
@@ -392,7 +411,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
           const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
           const remaining = budget - committed
           throw new Error(
-            `Budget limit reached — ${fmt(remaining > 0 ? remaining : 0)} remaining, this application requests ${fmt(requested)}`
+            `Budget limit reached — ${fmt(remaining > 0 ? remaining : 0)} remaining, this application requests ${fmt(requested)}`,
           )
         }
       }
@@ -588,7 +607,9 @@ export const getAward = createServerFn({ method: 'GET' })
         label: m.label,
         dueDate: m.dueDate,
         submittedDate: m.submittedDate,
-        status: (m.submittedDate ? 'submitted' : dueStatus(m.dueDate)) as 'submitted' | ScheduleStatus,
+        status: (m.submittedDate ? 'submitted' : dueStatus(m.dueDate)) as
+          | 'submitted'
+          | ScheduleStatus,
       }))
 
     const scheduleById = new Map(award.schedule.map((m) => [m.id, m]))
@@ -596,7 +617,8 @@ export const getAward = createServerFn({ method: 'GET' })
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())
       .map((r) => ({
         id: r.id,
-        label: (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
+        label:
+          (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
         submittedAt: r.submittedAt.toISOString(),
         status: (r.reviewedAt ? 'reviewed' : 'received') as 'received' | 'reviewed',
         impactSummary: r.impactSummary,
@@ -769,10 +791,7 @@ export const setInstalmentPaid = createServerFn({ method: 'POST' })
     if (!row) throw new Error('Not found')
     assertClientAccess(user, row.award.clientId)
     const paidDate = data.paid ? (data.paidDate ?? new Date().toISOString().slice(0, 10)) : null
-    await getDb()
-      .update(awardInstalments)
-      .set({ paidDate })
-      .where(eq(awardInstalments.id, data.id))
+    await getDb().update(awardInstalments).set({ paidDate }).where(eq(awardInstalments.id, data.id))
 
     // Re-derive the award's lifecycle from its instalments. Only 'active' ⇄
     // 'completed' is automated here; 'cancelled' is a deliberate manual state.

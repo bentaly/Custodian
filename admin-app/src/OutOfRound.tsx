@@ -23,11 +23,13 @@ export function OutOfRound() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <p className="text-sm text-gray-500">
-        Submissions held because their programme name didn’t match an open round. Fix the data
-        and resend, or dismiss.
+        Submissions held because their programme name didn’t match an open round. Fix the data and
+        resend, or dismiss.
       </p>
       {loading && <p className="text-sm text-gray-500">Loading…</p>}
-      {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">Error: {error}</p>}
+      {error && (
+        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">Error: {error}</p>
+      )}
       {!loading && !error && rows.length === 0 && (
         <p className="rounded-lg bg-white p-8 text-center text-sm text-gray-400 ring-1 ring-gray-200">
           Nothing out of round.
@@ -96,7 +98,9 @@ function UnroutedCard({ row, onChanged }: { row: IngestRow; onChanged: () => voi
           {row.client.name}
           <span className="ml-2 text-gray-400">{externalIdOf(row) ?? '(no ext id)'}</span>
         </p>
-        <span className="text-xs text-gray-400">{new Date(row.createdAt).toLocaleString('en-GB')}</span>
+        <span className="text-xs text-gray-400">
+          {new Date(row.createdAt).toLocaleString('en-GB')}
+        </span>
       </div>
 
       <div className="space-y-2">

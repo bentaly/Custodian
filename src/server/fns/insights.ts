@@ -152,7 +152,8 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         ladName: a.deliveryLadName,
         deprivation,
         impactQuantity: latestWithQuantity ? parseFloat(latestWithQuantity.impactQuantity!) : null,
-        proposedImpactQuantity: a.proposedImpactQuantity != null ? parseFloat(a.proposedImpactQuantity) : null,
+        proposedImpactQuantity:
+          a.proposedImpactQuantity != null ? parseFloat(a.proposedImpactQuantity) : null,
         impactQuote: latestWithQuantity?.impactQuantityQuote ?? null,
         alignmentScore: latestWithAlignment?.applicationAlignment?.score ?? null,
         outcome: latestAnalysed?.aiSummary ?? latestAnalysed?.impactSummary ?? null,

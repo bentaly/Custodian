@@ -12,7 +12,11 @@ export const Route = createFileRoute('/_authenticated/rounds/')({
 
 function formatDate(date: Date | string | null | undefined) {
   if (!date) return null
-  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(date).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 function Rounds() {
@@ -59,9 +63,7 @@ function Rounds() {
             Manage your organisation's funding rounds and programmes
           </p>
         </div>
-        {canManage && (
-          <Button onClick={() => setShowCreate(!showCreate)}>New round</Button>
-        )}
+        {canManage && <Button onClick={() => setShowCreate(!showCreate)}>New round</Button>}
       </div>
 
       {showCreate && (

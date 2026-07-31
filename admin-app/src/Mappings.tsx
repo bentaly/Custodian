@@ -134,7 +134,9 @@ export function Mappings() {
 
       <div className="flex flex-wrap items-end gap-2 rounded-lg bg-white p-4 ring-1 ring-gray-200">
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-500">Incoming field name</label>
+          <label className="mb-1 block text-xs font-medium text-gray-500">
+            Incoming field name
+          </label>
           <input
             value={sourceKey}
             onChange={(e) => setSourceKey(e.target.value)}

@@ -3,7 +3,13 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
 import { listClients } from '../../server/fns/platform'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
-import { AvatarError, cropAvatar, loadAvatarSource, type AvatarCrop, type AvatarSource } from '../../lib/avatar'
+import {
+  AvatarError,
+  cropAvatar,
+  loadAvatarSource,
+  type AvatarCrop,
+  type AvatarSource,
+} from '../../lib/avatar'
 import { AvatarCropper } from '../../components/AvatarCropper'
 import { Avatar, Button, Input } from '../../components/ui'
 
@@ -209,9 +215,7 @@ function Profile() {
         <div className="border-t border-gray-100 pt-6 space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-500">Role</span>
-            <span className="font-medium text-gray-800">
-              {ROLE_LABELS[user.role] ?? user.role}
-            </span>
+            <span className="font-medium text-gray-800">{ROLE_LABELS[user.role] ?? user.role}</span>
           </div>
         </div>
 
@@ -229,7 +233,9 @@ function Profile() {
                   <p className="text-sm font-medium text-gray-900">{client.name}</p>
                   <div className="mt-2 space-y-1">
                     {client.users.length === 0 && (
-                      <p className="text-xs text-gray-400">No members yet — admin invite pending.</p>
+                      <p className="text-xs text-gray-400">
+                        No members yet — admin invite pending.
+                      </p>
                     )}
                     {client.users.map((u) => (
                       <div key={u.id} className="flex items-center justify-between text-sm">

@@ -22,9 +22,18 @@ import { API_BASE } from './api'
 // submission land as `complete` — that round-trip is the point of this test.
 
 const REGIONS = [
-  'North East', 'North West', 'Yorkshire and the Humber', 'East Midlands',
-  'West Midlands', 'East of England', 'London', 'South East', 'South West',
-  'Wales', 'Scotland', 'Northern Ireland',
+  'North East',
+  'North West',
+  'Yorkshire and the Humber',
+  'East Midlands',
+  'West Midlands',
+  'East of England',
+  'London',
+  'South East',
+  'South West',
+  'Wales',
+  'Scotland',
+  'Northern Ireland',
 ]
 
 type SevenStarsFieldType = 'text' | 'textarea' | 'number' | 'select' | 'date'
@@ -56,21 +65,40 @@ const SECTIONS: SevenStarsSection[] = [
   {
     title: 'Organisation details',
     fields: [
-      { key: 'Organisation type', type: 'select', options: ['Charity', "Council-run Children's Home", 'School in England'] },
+      {
+        key: 'Organisation type',
+        type: 'select',
+        options: ['Charity', "Council-run Children's Home", 'School in England'],
+      },
       { key: 'Organisation name', type: 'text', expect: 'auto → organisationName' },
       { key: 'Organisation website', type: 'text' },
-      { key: 'Organisation registration number', type: 'text', expect: 'review — ambiguous (charity vs company number)' },
+      {
+        key: 'Organisation registration number',
+        type: 'text',
+        expect: 'review — ambiguous (charity vs company number)',
+      },
       { key: 'Organisation registration date', type: 'date' },
       { key: "Your organisation's regulator", type: 'text' },
-      { key: 'Provide a link to a video showcasing the work of your organisation and summarising your application (optional).', type: 'text', optional: true },
-      { key: 'Please give details on your organisation’s main activities and services.', type: 'textarea' },
+      {
+        key: 'Provide a link to a video showcasing the work of your organisation and summarising your application (optional).',
+        type: 'text',
+        optional: true,
+      },
+      {
+        key: 'Please give details on your organisation’s main activities and services.',
+        type: 'textarea',
+      },
     ],
   },
   {
     title: 'Where you work',
     fields: [
       { key: 'In what region will your work be delivered?', type: 'select', options: REGIONS },
-      { key: 'What is the post code of the delivery of your work?', type: 'text', expect: 'review → deliveryArea' },
+      {
+        key: 'What is the post code of the delivery of your work?',
+        type: 'text',
+        expect: 'review → deliveryArea',
+      },
       { key: 'In what region is your organisation based?', type: 'select', options: REGIONS },
       { key: "What is your organisation's specific location?", type: 'text' },
     ],
@@ -82,9 +110,15 @@ const SECTIONS: SevenStarsSection[] = [
       { key: 'Your organisation’s total expenditure in the last year.', type: 'number' },
       { key: 'Your organisation’s total salaries in the last year.', type: 'number' },
       { key: 'Your current unrestricted funding reserves.', type: 'number' },
-      { key: 'Please provide narrative on your unrestricted funding reserve sources.', type: 'textarea' },
+      {
+        key: 'Please provide narrative on your unrestricted funding reserve sources.',
+        type: 'textarea',
+      },
       { key: 'Your current restricted funding reserves.', type: 'number' },
-      { key: 'Please provide narrative on your restricted funding reserve sources.', type: 'textarea' },
+      {
+        key: 'Please provide narrative on your restricted funding reserve sources.',
+        type: 'textarea',
+      },
       { key: 'Your balance at the time of application.', type: 'number' },
       { key: "Your bank's name", type: 'text', expect: 'auto → bankName' },
       { key: 'Your bank account name', type: 'text', expect: 'auto → bankAccountName' },
@@ -99,24 +133,56 @@ const SECTIONS: SevenStarsSection[] = [
   {
     title: 'Your funding request',
     fields: [
-      { key: 'Which fund focus area does your funding request primarily relate to?', type: 'select', options: ['Anti-Racism', 'Online Abuse'] },
+      {
+        key: 'Which fund focus area does your funding request primarily relate to?',
+        type: 'select',
+        options: ['Anti-Racism', 'Online Abuse'],
+      },
       { key: 'Funding title', type: 'text' },
-      { key: 'Does your funding request seek support for a solution or a cause (please provide narrative)?', type: 'textarea' },
+      {
+        key: 'Does your funding request seek support for a solution or a cause (please provide narrative)?',
+        type: 'textarea',
+      },
       { key: 'Why is this funding needed and how has the need been identified?', type: 'textarea' },
       { key: 'How many young people will benefit from our funding?', type: 'number' },
       { key: 'Please give ages or age ranges of the young people who will benefit.', type: 'text' },
-      { key: 'Please give details on your organisation’s expertise in this application’s subject matter.', type: 'textarea' },
-      { key: 'Have you delivered work similar in nature to this application before?', type: 'select', options: ['Yes', 'No'] },
-      { key: 'Please describe the challenges you encountered and your plans to address them if your application is successful.', type: 'textarea' },
+      {
+        key: 'Please give details on your organisation’s expertise in this application’s subject matter.',
+        type: 'textarea',
+      },
+      {
+        key: 'Have you delivered work similar in nature to this application before?',
+        type: 'select',
+        options: ['Yes', 'No'],
+      },
+      {
+        key: 'Please describe the challenges you encountered and your plans to address them if your application is successful.',
+        type: 'textarea',
+      },
     ],
   },
   {
     title: 'Budget',
     fields: [
-      { key: 'How much funding are you requesting from the7stars foundation?', type: 'number', expect: 'review — required amountRequested, not in common dictionary' },
-      { key: 'Do you have any other funding secured to date?', type: 'select', options: ['Yes', 'No'] },
-      { key: 'If you have secured other funding, who was it from and for how much?', type: 'text', optional: true },
-      { key: 'Please use the below to outline-solid your budget for the funding you are requesting:', type: 'textarea' },
+      {
+        key: 'How much funding are you requesting from the7stars foundation?',
+        type: 'number',
+        expect: 'review — required amountRequested, not in common dictionary',
+      },
+      {
+        key: 'Do you have any other funding secured to date?',
+        type: 'select',
+        options: ['Yes', 'No'],
+      },
+      {
+        key: 'If you have secured other funding, who was it from and for how much?',
+        type: 'text',
+        optional: true,
+      },
+      {
+        key: 'Please use the below to outline-solid your budget for the funding you are requesting:',
+        type: 'textarea',
+      },
       { key: 'Any additional notes', type: 'textarea', optional: true },
       { key: 'Budget total', type: 'number' },
     ],
@@ -164,8 +230,8 @@ const PREFILL_DECENT: Record<string, string> = {
   'Your bank sort code': '40-52-40',
   'Full-time': '6',
   'Part-time': '4',
-  'Volunteers': '18',
-  'Trustees': '7',
+  Volunteers: '18',
+  Trustees: '7',
   'Which fund focus area does your funding request primarily relate to?': 'Online Abuse',
   'Funding title': 'Safer Feeds: peer-led support for young people experiencing online abuse',
   'Does your funding request seek support for a solution or a cause (please provide narrative)?':
@@ -173,7 +239,8 @@ const PREFILL_DECENT: Record<string, string> = {
   'Why is this funding needed and how has the need been identified?':
     'Referrals to our one-to-one service relating to online abuse have more than doubled in the past 18 months, from 31 to 74. Teachers in our partner schools tell us group-chat pile-ons and image-based abuse are the most common issues they now see. We surveyed 68 young people at our drop-ins in autumn 2025: 71% said they had experienced or witnessed abusive behaviour online in the previous month, and most said they would rather talk to another young person than to an adult. We have not yet been able to commission an independent needs assessment.',
   'How many young people will benefit from our funding?': '150',
-  'Please give ages or age ranges of the young people who will benefit.': '11–18, with most participants aged 13–16',
+  'Please give ages or age ranges of the young people who will benefit.':
+    '11–18, with most participants aged 13–16',
   'Please give details on your organisation’s expertise in this application’s subject matter.':
     'Our youth work team holds NSPCC online-safety training and our programme lead spent six years in a school safeguarding role before joining us. We have delivered digital-safety workshops since 2021 and launched the peer-mentor pilot in January 2025, training twelve mentors to date. An external evaluation of the pilot is planned but has not yet been commissioned.',
   'Have you delivered work similar in nature to this application before?': 'Yes',
@@ -181,10 +248,12 @@ const PREFILL_DECENT: Record<string, string> = {
     'Recruiting and retaining peer mentors has been harder than expected: five of our first cohort of twelve stepped back within six months, mostly due to exam pressure. If funded, we will shorten mentor commitments to one term at a time, introduce a small recognition budget, and pair each mentor with a staff supervisor. Some schools have also been slow to refer; we plan to formalise referral agreements at the start of each academic year.',
   'How much funding are you requesting from the7stars foundation?': '10000',
   'Do you have any other funding secured to date?': 'Yes',
-  'If you have secured other funding, who was it from and for how much?': 'BBC Children in Need — £24,000 over two years towards youth worker salary costs',
+  'If you have secured other funding, who was it from and for how much?':
+    'BBC Children in Need — £24,000 over two years towards youth worker salary costs',
   'Please use the below to outline-solid your budget for the funding you are requesting:':
     'Peer mentor training weekends (two per year) — £3,200\nYouth worker sessional hours (mentor supervision) — £4,400\nMentor recognition and expenses — £1,100\nMaterials, room hire and refreshments — £800\nContingency — £500',
-  'Any additional notes': 'We are happy to share our safeguarding policy and pilot feedback summaries on request.',
+  'Any additional notes':
+    'We are happy to share our safeguarding policy and pilot feedback summaries on request.',
   'Budget total': '10000',
 }
 
@@ -226,8 +295,8 @@ const PREFILL_WEAK: Record<string, string> = {
   'Your bank sort code': '20-00-00',
   'Full-time': '1',
   'Part-time': '0',
-  'Volunteers': '3',
-  'Trustees': '3',
+  Volunteers: '3',
+  Trustees: '3',
   'Which fund focus area does your funding request primarily relate to?': 'Anti-Racism',
   'Funding title': 'Community Fun Days',
   'Does your funding request seek support for a solution or a cause (please provide narrative)?':
@@ -289,8 +358,8 @@ const PREFILL_STRONG: Record<string, string> = {
   'Your bank sort code': '83-06-08',
   'Full-time': '12',
   'Part-time': '7',
-  'Volunteers': '35',
-  'Trustees': '9',
+  Volunteers: '35',
+  Trustees: '9',
   'Which fund focus area does your funding request primarily relate to?': 'Anti-Racism',
   'Funding title': 'Speak Up: youth-led anti-racism ambassadors in Glasgow schools',
   'Does your funding request seek support for a solution or a cause (please provide narrative)?':
@@ -338,12 +407,32 @@ const BUDGET_WEAK: PresetBudgetLine[] = [
 ]
 
 const BUDGET_STRONG: PresetBudgetLine[] = [
-  { item: 'Year 1: Ambassador training programme, 24 young people', amount: 2600, costType: 'revenue' },
-  { item: 'Year 1: Sessional youth worker support and group supervision', amount: 1900, costType: 'revenue' },
+  {
+    item: 'Year 1: Ambassador training programme, 24 young people',
+    amount: 2600,
+    costType: 'revenue',
+  },
+  {
+    item: 'Year 1: Sessional youth worker support and group supervision',
+    amount: 1900,
+    costType: 'revenue',
+  },
   { item: 'Year 1: Materials, travel and accessible venues', amount: 500, costType: 'revenue' },
-  { item: 'Year 2: Ambassador training programme, second cohort', amount: 2600, costType: 'revenue' },
-  { item: 'Year 2: Sessional youth worker support and group supervision', amount: 1900, costType: 'revenue' },
-  { item: 'Year 2: Evaluation and learning-share event with partner schools', amount: 500, costType: 'revenue' },
+  {
+    item: 'Year 2: Ambassador training programme, second cohort',
+    amount: 2600,
+    costType: 'revenue',
+  },
+  {
+    item: 'Year 2: Sessional youth worker support and group supervision',
+    amount: 1900,
+    costType: 'revenue',
+  },
+  {
+    item: 'Year 2: Evaluation and learning-share event with partner schools',
+    amount: 500,
+    costType: 'revenue',
+  },
 ]
 
 interface ApplicantPreset {
@@ -403,7 +492,8 @@ export function Submitter7Stars() {
     setResult(null)
 
     try {
-      if (!apiKey.trim()) throw new Error('Enter an API key (generate one on the Organisation screen)')
+      if (!apiKey.trim())
+        throw new Error('Enter an API key (generate one on the Organisation screen)')
       // The payload mirrors a Gravity Forms webhook export: the form's own
       // labels as keys, plus the numeric Entry Id Gravity assigns. Only
       // programmeName is integration config rather than a form field.
@@ -460,13 +550,16 @@ export function Submitter7Stars() {
           <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">
             the7stars foundation — simulated live form
           </p>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">Social Impact funding application</h1>
+          <h1 className="mt-1 text-2xl font-bold text-gray-900">
+            Social Impact funding application
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Posts the real form's field labels as raw payload keys, the way a Gravity Forms
-            webhook would. Some fields auto-map via the common dictionary; the amount, registration
-            number and delivery postcode are expected to land in the Review queue. A structured{' '}
+            Posts the real form's field labels as raw payload keys, the way a Gravity Forms webhook
+            would. Some fields auto-map via the common dictionary; the amount, registration number
+            and delivery postcode are expected to land in the Review queue. A structured{' '}
             <code>budgetBreakdown</code> is also sent (mirroring the budget narrative) to exercise
-            the budget UI — a deliberate divergence from the real form, which collects only free text.
+            the budget UI — a deliberate divergence from the real form, which collects only free
+            text.
           </p>
 
           <div className="mt-6 mb-8 space-y-4">
@@ -515,7 +608,9 @@ export function Submitter7Stars() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-gray-400">{preset.note} Switching replaces all form values.</p>
+              <p className="mt-1 text-xs text-gray-400">
+                {preset.note} Switching replaces all form values.
+              </p>
             </div>
           </div>
 
@@ -612,8 +707,8 @@ function SuccessView({ result }: { result: SubmitResult }) {
       <h2 className="text-sm font-semibold">Accepted (202)</h2>
       <p className="mt-1 text-xs opacity-80">Ingest ID: {result.ingestId}</p>
       <p className="mt-0.5 text-xs opacity-80">
-        Mapping, scoring and due diligence run in the background — check the Review queue
-        for the outcome.
+        Mapping, scoring and due diligence run in the background — check the Review queue for the
+        outcome.
       </p>
     </div>
   )

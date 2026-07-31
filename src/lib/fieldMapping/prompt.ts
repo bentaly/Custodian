@@ -11,7 +11,9 @@ export interface FieldMappingPromptInput {
   payload: Array<{ key: string; value: string }>
 }
 
-export function buildSystemPrompt(formKind: 'grant application' | 'grant report' = 'grant application'): string {
+export function buildSystemPrompt(
+  formKind: 'grant application' | 'grant report' = 'grant application',
+): string {
   return `You map fields from a ${formKind} form onto a fixed set of canonical fields.
 
 You will be given:

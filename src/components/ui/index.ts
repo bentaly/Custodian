@@ -5,7 +5,14 @@ export { Card, EmptyState } from './Card'
 export { Breadcrumb, type Crumb } from './Breadcrumb'
 export { Badge } from './Badge'
 export { Avatar, initials } from './Avatar'
-export { DataTable, StatusPill, type TableColumn, type TableSort, type TableSelection, type SortDir } from './DataTable'
+export {
+  DataTable,
+  StatusPill,
+  type TableColumn,
+  type TableSort,
+  type TableSelection,
+  type SortDir,
+} from './DataTable'
 export { MiniKpi, KPI_TINTS, type KpiTint } from './MiniKpi'
 export { Tabs, type TabItem } from './Tabs'
 export { ExportButton } from './ExportButton'

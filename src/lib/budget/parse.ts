@@ -64,10 +64,8 @@ function lineFromObject(o: Record<string, unknown>): BudgetLine | null {
   // keep the item search away from whichever key supplied it.
   const amount = pick(o, AMOUNT_KEYS, toAmount)
   if (!amount) return null
-  const item = pick(
-    o,
-    ITEM_KEYS,
-    (v) => (typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null),
+  const item = pick(o, ITEM_KEYS, (v) =>
+    typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null,
   )
   // A key can't be both the amount and the item; if the item search landed on the
   // amount's key, it found nothing usable.

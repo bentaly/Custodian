@@ -45,14 +45,20 @@ export function buildCanonicalInput(
   const get = (k: CanonicalFieldKey) => resolved[k]?.value
   const amountRaw = get('amountRequested')
   const amount =
-    amountRaw != null ? Number(CANONICAL_FIELD_BY_KEY.amountRequested.coerce!(amountRaw)) : undefined
+    amountRaw != null
+      ? Number(CANONICAL_FIELD_BY_KEY.amountRequested.coerce!(amountRaw))
+      : undefined
 
   const impactRaw = get('proposedImpactQuantity')
   const impactCoerced =
-    impactRaw != null ? Number(CANONICAL_FIELD_BY_KEY.proposedImpactQuantity.coerce!(impactRaw)) : undefined
+    impactRaw != null
+      ? Number(CANONICAL_FIELD_BY_KEY.proposedImpactQuantity.coerce!(impactRaw))
+      : undefined
   // Only pass a finite, non-negative number through; a garbled value stays unmapped.
   const proposedImpactQuantity =
-    impactCoerced != null && Number.isFinite(impactCoerced) && impactCoerced >= 0 ? impactCoerced : undefined
+    impactCoerced != null && Number.isFinite(impactCoerced) && impactCoerced >= 0
+      ? impactCoerced
+      : undefined
 
   // The breakdown reaches us as a JSON string (`toStringValue` stringifies any
   // structured payload value). A value that isn't actually structured — a prose

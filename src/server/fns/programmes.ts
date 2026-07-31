@@ -5,7 +5,12 @@ import { getDb } from '../db'
 import { programmes, roundProgrammes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
-import { CreateProgrammeSchema, UpdateProgrammeSchema, AddProgrammeToRoundSchema, UpdateRoundProgrammeSchema } from '../../lib/validators/programme'
+import {
+  CreateProgrammeSchema,
+  UpdateProgrammeSchema,
+  AddProgrammeToRoundSchema,
+  UpdateRoundProgrammeSchema,
+} from '../../lib/validators/programme'
 
 export const listProgrammes = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
@@ -109,7 +114,9 @@ export const updateRoundProgramme = createServerFn({ method: 'POST' })
       .set({
         ...rest,
         budget: budget.toString(),
-        ...(maxGrantAmount !== undefined ? { maxGrantAmount: maxGrantAmount.toString() } : { maxGrantAmount: null }),
+        ...(maxGrantAmount !== undefined
+          ? { maxGrantAmount: maxGrantAmount.toString() }
+          : { maxGrantAmount: null }),
       })
       .where(eq(roundProgrammes.id, id))
       .returning()

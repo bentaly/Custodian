@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowUp01Icon, ArrowDown01Icon, ArrowUpDownIcon, Tick02Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowUp01Icon,
+  ArrowDown01Icon,
+  ArrowUpDownIcon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons'
 
 // The one table style for the whole app — the Figma applications-list table:
 // a wash header row (Inter Display 14px medium), 64px hover rows, optional
@@ -65,7 +70,15 @@ export type TableSelection<T> = {
   toggleAll: () => void
 }
 
-function CheckBox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
+function CheckBox({
+  checked,
+  onToggle,
+  label,
+}: {
+  checked: boolean
+  onToggle: () => void
+  label: string
+}) {
   return (
     <button
       type="button"
@@ -76,14 +89,25 @@ function CheckBox({ checked, onToggle, label }: { checked: boolean; onToggle: ()
       aria-pressed={checked}
       aria-label={label}
       className="flex size-5 items-center justify-center rounded-[6px] border transition-colors"
-      style={{ borderColor: checked ? C.brand : C.line, backgroundColor: checked ? C.brand : '#fff' }}
+      style={{
+        borderColor: checked ? C.brand : C.line,
+        backgroundColor: checked ? C.brand : '#fff',
+      }}
     >
       {checked && <HugeiconsIcon icon={Tick02Icon} size={12} color="#fff" />}
     </button>
   )
 }
 
-function HeaderCell<T>({ col, sort, onSort }: { col: TableColumn<T>; sort?: TableSort; onSort?: (id: string) => void }) {
+function HeaderCell<T>({
+  col,
+  sort,
+  onSort,
+}: {
+  col: TableColumn<T>
+  sort?: TableSort
+  onSort?: (id: string) => void
+}) {
   const alignCls = col.align === 'right' ? 'text-right' : 'text-left'
   const base = `px-3 ${alignCls} ${col.width ?? ''}`
   if (!col.sortable || !onSort) {
@@ -104,7 +128,11 @@ function HeaderCell<T>({ col, sort, onSort }: { col: TableColumn<T>; sort?: Tabl
       >
         {col.header}
         {active ? (
-          <HugeiconsIcon icon={sort!.dir === 'asc' ? ArrowUp01Icon : ArrowDown01Icon} size={14} color={C.sub} />
+          <HugeiconsIcon
+            icon={sort!.dir === 'asc' ? ArrowUp01Icon : ArrowDown01Icon}
+            size={14}
+            color={C.sub}
+          />
         ) : (
           <span className="opacity-0 transition-opacity group-hover:opacity-100">
             <HugeiconsIcon icon={ArrowUpDownIcon} size={14} color={C.faint} />
@@ -148,7 +176,11 @@ export function DataTable<T>({
           <tr className="h-10" style={{ backgroundColor: C.wash }}>
             {selection && (
               <th className="w-11 px-3">
-                <CheckBox checked={selection.allSelected} onToggle={selection.toggleAll} label="Select all" />
+                <CheckBox
+                  checked={selection.allSelected}
+                  onToggle={selection.toggleAll}
+                  label="Select all"
+                />
               </th>
             )}
             {columns.map((col) => (
@@ -165,7 +197,11 @@ export function DataTable<T>({
             >
               {selection && (
                 <td className="w-11 px-3 align-middle" onClick={(e) => e.stopPropagation()}>
-                  <CheckBox checked={selection.isSelected(row)} onToggle={() => selection.toggle(row)} label="Select row" />
+                  <CheckBox
+                    checked={selection.isSelected(row)}
+                    onToggle={() => selection.toggle(row)}
+                    label="Select row"
+                  />
                 </td>
               )}
               {columns.map((col) => (

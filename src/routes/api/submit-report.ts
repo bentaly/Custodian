@@ -57,42 +57,40 @@ function tooManyRequests() {
   })
 }
 
-export const Route = createFileRoute('/api/submit-report')(
-  {
-    server: {
-      handlers: {
-        OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
-        POST: async ({ request }: { request: Request }) => {
-          // Same three-step guard as /api/apply: per-IP backstop → API key → per-client
-          // limit. The limiter bindings are shared — reports and applications draw from
-          // the same per-tenant budget, which is fine at this traffic.
-          const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
-          if (!(await checkRateLimit('APPLY_IP_LIMITER', ip))) {
-            return tooManyRequests()
-          }
+export const Route = createFileRoute('/api/submit-report')({
+  server: {
+    handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
+      POST: async ({ request }: { request: Request }) => {
+        // Same three-step guard as /api/apply: per-IP backstop → API key → per-client
+        // limit. The limiter bindings are shared — reports and applications draw from
+        // the same per-tenant budget, which is fine at this traffic.
+        const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
+        if (!(await checkRateLimit('APPLY_IP_LIMITER', ip))) {
+          return tooManyRequests()
+        }
 
-          const auth = await authenticateApiKey(request)
-          if (!auth) {
-            return jsonResponse({ error: 'Invalid or missing API key' }, 401)
-          }
+        const auth = await authenticateApiKey(request)
+        if (!auth) {
+          return jsonResponse({ error: 'Invalid or missing API key' }, 401)
+        }
 
-          if (!(await checkRateLimit('APPLY_KEY_LIMITER', auth.clientId))) {
-            return tooManyRequests()
-          }
+        if (!(await checkRateLimit('APPLY_KEY_LIMITER', auth.clientId))) {
+          return tooManyRequests()
+        }
 
-          const payload = await parsePayload(request)
-          if (!payload) {
-            return jsonResponse({ error: 'Request body must contain report fields' }, 400)
-          }
+        const payload = await parsePayload(request)
+        if (!payload) {
+          return jsonResponse({ error: 'Request body must contain report fields' }, 400)
+        }
 
-          // Persist first — once the row exists the report can never be lost — then
-          // acknowledge. Mapping, matching and analysis run after the response.
-          const ingestId = await saveReportIngest({ clientId: auth.clientId, payload })
-          runInBackground(`processReportIngest ${ingestId}`, () => processReportIngest(ingestId))
+        // Persist first — once the row exists the report can never be lost — then
+        // acknowledge. Mapping, matching and analysis run after the response.
+        const ingestId = await saveReportIngest({ clientId: auth.clientId, payload })
+        runInBackground(`processReportIngest ${ingestId}`, () => processReportIngest(ingestId))
 
-          return jsonResponse({ status: 'received', ingestId }, 202)
-        },
+        return jsonResponse({ status: 'received', ingestId }, 202)
       },
     },
-  } as any,
-)
+  },
+} as any)

@@ -4,7 +4,16 @@ import { listProgrammes, createProgramme, listClientTags } from '../../server/fn
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { getRoundStatus } from '../../lib/roundStatus'
-import { Badge, Breadcrumb, Button, Card, EmptyState, Input, Label, Textarea } from '../../components/ui'
+import {
+  Badge,
+  Breadcrumb,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Label,
+  Textarea,
+} from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
@@ -14,7 +23,14 @@ export const Route = createFileRoute('/_authenticated/programmes/')({
   component: Programmes,
 })
 
-function getProgrammeRoundStatus(roundProgrammes: Array<{ round: { openedAt: Date | string | null | undefined, closedAt: Date | string | null | undefined } }>) {
+function getProgrammeRoundStatus(
+  roundProgrammes: Array<{
+    round: {
+      openedAt: Date | string | null | undefined
+      closedAt: Date | string | null | undefined
+    }
+  }>,
+) {
   if (roundProgrammes.some((rp) => getRoundStatus(rp.round) === 'open'))
     return { label: 'In open round', color: 'bg-green-100 text-green-700' }
   if (roundProgrammes.length > 0)
@@ -71,11 +87,7 @@ function Programmes() {
             Define giving programmes and add them to funding rounds
           </p>
         </div>
-        {canManage && (
-          <Button onClick={() => setShowCreate(!showCreate)}>
-            New programme
-          </Button>
-        )}
+        {canManage && <Button onClick={() => setShowCreate(!showCreate)}>New programme</Button>}
       </div>
 
       {showCreate && (
@@ -111,7 +123,9 @@ function Programmes() {
             <div>
               <Label>
                 Programme priorities{' '}
-                <span className="font-normal text-gray-400">— used by AI to score applications</span>
+                <span className="font-normal text-gray-400">
+                  — used by AI to score applications
+                </span>
               </Label>
               <RichTextEditor key="create" defaultValue={goal} onChange={setGoal} />
             </div>
@@ -132,7 +146,9 @@ function Programmes() {
         <EmptyState>
           <p className="text-sm text-gray-500">No programmes yet.</p>
           {canManage && (
-            <p className="mt-1 text-sm text-gray-400">Create your first programme to get started.</p>
+            <p className="mt-1 text-sm text-gray-400">
+              Create your first programme to get started.
+            </p>
           )}
         </EmptyState>
       ) : (
@@ -152,11 +168,7 @@ function Programmes() {
                       <span className="text-sm font-medium text-gray-900">{programme.name}</span>
                       {(() => {
                         const { label, color } = getProgrammeRoundStatus(programme.roundProgrammes)
-                        return (
-                          <Badge className={color}>
-                            {label}
-                          </Badge>
-                        )
+                        return <Badge className={color}>{label}</Badge>
                       })()}
                     </div>
                     {progTags.length > 0 && (

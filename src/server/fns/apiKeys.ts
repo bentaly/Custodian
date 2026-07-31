@@ -15,7 +15,14 @@ export const listApiKeys = createServerFn({ method: 'GET' }).handler(async () =>
   if (!user.clientId) return []
   return getDb().query.apiKeys.findMany({
     where: eq(apiKeys.clientId, user.clientId),
-    columns: { id: true, name: true, last4: true, createdAt: true, lastUsedAt: true, revokedAt: true },
+    columns: {
+      id: true,
+      name: true,
+      last4: true,
+      createdAt: true,
+      lastUsedAt: true,
+      revokedAt: true,
+    },
     orderBy: (k, { desc }) => [desc(k.createdAt)],
   })
 })
@@ -31,7 +38,12 @@ export const createApiKey = createServerFn({ method: 'POST' })
     const [row] = await getDb()
       .insert(apiKeys)
       .values({ clientId: user.clientId, name: data.name, keyHash, last4, createdBy: user.id })
-      .returning({ id: apiKeys.id, name: apiKeys.name, last4: apiKeys.last4, createdAt: apiKeys.createdAt })
+      .returning({
+        id: apiKeys.id,
+        name: apiKeys.name,
+        last4: apiKeys.last4,
+        createdAt: apiKeys.createdAt,
+      })
 
     // `key` (plaintext) is returned only here — surfaced once in the UI, never stored.
     return { ...row!, key }

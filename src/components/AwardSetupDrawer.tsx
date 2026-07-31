@@ -444,9 +444,7 @@ export function AwardSetupDrawer({
                   {/* Allocation guardrail */}
                   <div
                     className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm ${
-                      reconciled
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-amber-50 text-amber-700'
+                      reconciled ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                     }`}
                   >
                     <span>
@@ -461,9 +459,7 @@ export function AwardSetupDrawer({
                     </span>
                   </div>
                   {!allPositive && (
-                    <p className="text-xs text-amber-700">
-                      Every instalment must be more than £0.
-                    </p>
+                    <p className="text-xs text-amber-700">Every instalment must be more than £0.</p>
                   )}
                 </>
               )}

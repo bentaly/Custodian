@@ -23,7 +23,10 @@ export function ProgressBar({
 }) {
   const pct = Math.max(0, Math.min(1, value)) * 100
   return (
-    <div className={`overflow-hidden rounded-full ${className}`} style={{ height, backgroundColor: track }}>
+    <div
+      className={`overflow-hidden rounded-full ${className}`}
+      style={{ height, backgroundColor: track }}
+    >
       <div
         className={`h-full rounded-full ${animate ? 'bar-grow' : ''}`}
         style={{

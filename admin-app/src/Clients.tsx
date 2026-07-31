@@ -14,7 +14,9 @@ export function Clients() {
   const [error, setError] = useState('')
 
   const [name, setName] = useState('')
-  const [type, setType] = useState<'charitable_foundation' | 'family_office'>('charitable_foundation')
+  const [type, setType] = useState<'charitable_foundation' | 'family_office'>(
+    'charitable_foundation',
+  )
   const [adminEmail, setAdminEmail] = useState('')
   const [creating, setCreating] = useState(false)
   const [lastInvite, setLastInvite] = useState<{ name: string; url: string } | null>(null)
@@ -126,7 +128,9 @@ export function Clients() {
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-gray-900">Foundations</h2>
         {loading && <p className="text-sm text-gray-500">Loading…</p>}
-        {!loading && clients.length === 0 && <p className="text-sm text-gray-500">No foundations yet.</p>}
+        {!loading && clients.length === 0 && (
+          <p className="text-sm text-gray-500">No foundations yet.</p>
+        )}
         {clients.map((client) => (
           <div key={client.id} className="rounded-lg border border-gray-200 bg-white p-4">
             <p className="text-sm font-medium text-gray-900">{client.name}</p>

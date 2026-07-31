@@ -138,8 +138,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
               <strong className="font-semibold text-ink">
                 AI runs through all five stages, not bolted on to one.
               </strong>{' '}
-              It reads, scores, summarises and checks — with every judgement traceable to the source.
-              Your team still decides.
+              It reads, scores, summarises and checks — with every judgement traceable to the
+              source. Your team still decides.
             </p>
           </div>
 

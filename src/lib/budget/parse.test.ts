@@ -45,7 +45,9 @@ describe('parseBudgetBreakdown', () => {
     // The real the7stars budget table — capitalised column names, Cost as the
     // amount, Description preserved as a detail.
     expect(
-      parseBudgetBreakdown([{ Item: 'Staff costs', Description: '2 FTE for 12 months', Cost: '£22,000' }]),
+      parseBudgetBreakdown([
+        { Item: 'Staff costs', Description: '2 FTE for 12 months', Cost: '£22,000' },
+      ]),
     ).toEqual([
       {
         item: 'Staff costs',
@@ -121,7 +123,12 @@ describe('parseBudgetBreakdown', () => {
 
 describe('budgetTotal', () => {
   it('sums the lines', () => {
-    expect(budgetTotal([{ item: 'a', amount: 100 }, { item: 'b', amount: 250.5 }])).toBe(350.5)
+    expect(
+      budgetTotal([
+        { item: 'a', amount: 100 },
+        { item: 'b', amount: 250.5 },
+      ]),
+    ).toBe(350.5)
   })
 
   it('is zero for no lines', () => {

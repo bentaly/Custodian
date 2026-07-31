@@ -28,7 +28,11 @@ async function main() {
   const singleId = arg && !arg.startsWith('--') ? arg : null
 
   const rows = await db
-    .select({ id: applications.id, deliveryArea: applications.deliveryArea, status: applications.deprivationStatus })
+    .select({
+      id: applications.id,
+      deliveryArea: applications.deliveryArea,
+      status: applications.deprivationStatus,
+    })
     .from(applications)
 
   const todo = rows.filter((r) =>

@@ -9,7 +9,15 @@ import {
   updateInstalment,
 } from '../../server/fns/applications'
 import { BankIcon, Calendar03Icon, Coins01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
-import { Badge, Breadcrumb, Button, Card, EmptyState, KPI_TINTS, MiniKpi } from '../../components/ui'
+import {
+  Badge,
+  Breadcrumb,
+  Button,
+  Card,
+  EmptyState,
+  KPI_TINTS,
+  MiniKpi,
+} from '../../components/ui'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
@@ -18,7 +26,6 @@ export const Route = createFileRoute('/_authenticated/awards/$awardId')({
 })
 
 type AwardData = Awaited<ReturnType<typeof getAward>>
-
 
 const AWARD_STATUS: Record<string, { label: string; className: string }> = {
   active: { label: 'Active', className: 'bg-emerald-50 text-emerald-700' },
@@ -104,7 +111,11 @@ function AwardDetail() {
           icon={Calendar03Icon}
           label="Awarded"
           value={fmtDate(award.decisionAt)}
-          sub={award.durationYears ? `over ${award.durationYears} yr${award.durationYears > 1 ? 's' : ''}` : 'single payment term'}
+          sub={
+            award.durationYears
+              ? `over ${award.durationYears} yr${award.durationYears > 1 ? 's' : ''}`
+              : 'single payment term'
+          }
         />
         <MiniKpi
           tint={KPI_TINTS.pink}
@@ -131,7 +142,6 @@ function AwardDetail() {
   )
 }
 
-
 // ─── Payments ────────────────────────────────────────────────────────────────
 
 function PaymentsCard({ award }: { award: AwardData }) {
@@ -141,7 +151,8 @@ function PaymentsCard({ award }: { award: AwardData }) {
   const [draftDate, setDraftDate] = useState('')
   const [draftAmount, setDraftAmount] = useState('')
 
-  const pct = award.scheduledTotal > 0 ? Math.round((award.paidToDate / award.scheduledTotal) * 100) : 0
+  const pct =
+    award.scheduledTotal > 0 ? Math.round((award.paidToDate / award.scheduledTotal) * 100) : 0
 
   async function togglePaid(id: string, paid: boolean) {
     setBusyId(id)
@@ -220,7 +231,11 @@ function PaymentsCard({ award }: { award: AwardData }) {
                       onChange={(e) => setDraftDate(e.target.value)}
                       className={inputClass}
                     />
-                    <Button size="sm" onClick={() => saveEdit(inst.id)} disabled={busyId === inst.id}>
+                    <Button
+                      size="sm"
+                      onClick={() => saveEdit(inst.id)}
+                      disabled={busyId === inst.id}
+                    >
                       Save
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => setEditId(null)}>
@@ -233,7 +248,9 @@ function PaymentsCard({ award }: { award: AwardData }) {
                       <span className="text-xs text-gray-400">#{inst.instalmentNo}</span>
                       <span className="font-medium text-gray-900">{fmtMoney(inst.amount)}</span>
                       <span className="text-xs text-gray-500">
-                        {inst.paidDate ? `Paid ${fmtDate(inst.paidDate)}` : `Due ${fmtDate(inst.dueDate)}`}
+                        {inst.paidDate
+                          ? `Paid ${fmtDate(inst.paidDate)}`
+                          : `Due ${fmtDate(inst.dueDate)}`}
                       </span>
                       <Badge className={meta.className}>{meta.label}</Badge>
                     </div>
@@ -294,9 +311,13 @@ function ReportingCard({ award }: { award: AwardData }) {
     setBusyId(editId ?? 'new')
     try {
       if (adding) {
-        await addReportMilestone({ data: { awardId: award.id, label: draftLabel.trim(), dueDate: draftDate } })
+        await addReportMilestone({
+          data: { awardId: award.id, label: draftLabel.trim(), dueDate: draftDate },
+        })
       } else if (editId) {
-        await updateReportMilestone({ data: { id: editId, label: draftLabel.trim(), dueDate: draftDate } })
+        await updateReportMilestone({
+          data: { id: editId, label: draftLabel.trim(), dueDate: draftDate },
+        })
       }
       setEditId(null)
       setAdding(false)
@@ -330,7 +351,11 @@ function ReportingCard({ award }: { award: AwardData }) {
         onChange={(e) => setDraftDate(e.target.value)}
         className={inputClass}
       />
-      <Button size="sm" onClick={save} disabled={busyId != null || !draftLabel.trim() || !draftDate}>
+      <Button
+        size="sm"
+        onClick={save}
+        disabled={busyId != null || !draftLabel.trim() || !draftDate}
+      >
         Save
       </Button>
       <Button
@@ -351,7 +376,10 @@ function ReportingCard({ award }: { award: AwardData }) {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">Reporting schedule</h2>
         {award.canEdit && !adding && (
-          <button onClick={beginAdd} className="text-xs font-medium text-emerald-700 hover:underline">
+          <button
+            onClick={beginAdd}
+            className="text-xs font-medium text-emerald-700 hover:underline"
+          >
             + Add date
           </button>
         )}
@@ -372,7 +400,9 @@ function ReportingCard({ award }: { award: AwardData }) {
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="truncate font-medium text-gray-900">{m.label}</span>
                       <span className="shrink-0 text-xs text-gray-500">
-                        {m.submittedDate ? `Received ${fmtDate(m.submittedDate)}` : `Due ${fmtDate(m.dueDate)}`}
+                        {m.submittedDate
+                          ? `Received ${fmtDate(m.submittedDate)}`
+                          : `Due ${fmtDate(m.dueDate)}`}
                       </span>
                       <Badge className={meta.className}>{meta.label}</Badge>
                     </div>
@@ -440,20 +470,26 @@ function ReportsCard({ award }: { award: AwardData }) {
                   <span className="font-medium text-gray-900 group-hover:underline">{r.label}</span>
                   <Badge
                     className={
-                      r.status === 'reviewed' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                      r.status === 'reviewed'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-blue-50 text-blue-700'
                     }
                   >
                     {r.status === 'reviewed' ? 'Reviewed' : 'Received'}
                   </Badge>
                 </div>
-                <p className="mt-1 line-clamp-2 text-sm text-gray-600">{r.aiSummary ?? r.impactSummary}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-gray-600">
+                  {r.aiSummary ?? r.impactSummary}
+                </p>
               </div>
               <div className="shrink-0 text-right">
                 {r.impactQuantity != null && (
                   <p className="text-sm font-semibold text-gray-900">
                     {Number(r.impactQuantity).toLocaleString('en-GB')}
                     {r.impactUnitLabel && (
-                      <span className="ml-1 text-xs font-normal text-gray-400">{r.impactUnitLabel}</span>
+                      <span className="ml-1 text-xs font-normal text-gray-400">
+                        {r.impactUnitLabel}
+                      </span>
                     )}
                   </p>
                 )}
@@ -501,11 +537,15 @@ function ApplicationCard({ award }: { award: AwardData }) {
         <Field
           label="Custodian score"
           value={
-            a.custodianScoreStatus === 'scored' && a.custodianScore != null ? `${a.custodianScore}/100` : '—'
+            a.custodianScoreStatus === 'scored' && a.custodianScore != null
+              ? `${a.custodianScore}/100`
+              : '—'
           }
         />
         <Field label="Registration" value={a.charityNumber ?? a.companyNumber ?? '—'} />
-        {a.externalApplicationId && <Field label="Their reference" value={a.externalApplicationId} />}
+        {a.externalApplicationId && (
+          <Field label="Their reference" value={a.externalApplicationId} />
+        )}
       </div>
     </Card>
   )

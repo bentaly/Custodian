@@ -27,7 +27,10 @@ import { CreateApplicationSchema } from '../../lib/validators/application'
 import type { ResolveInput } from '../../lib/validators/ingest'
 
 export type ResolveResult =
-  | { ok: false; error: 'not_found' | 'already_resolved' | 'processing' | 'round_programme_missing' }
+  | {
+      ok: false
+      error: 'not_found' | 'already_resolved' | 'processing' | 'round_programme_missing'
+    }
   | { ok: false; error: 'invalid'; fields: Array<{ field: string; message: string }> }
   | { ok: true; applicationId: string }
 
@@ -91,8 +94,7 @@ export async function resolveIngest(
     roundProgrammeId = found.id
   }
 
-  const roundProgramme =
-    await fetchRoundProgrammeForApplication(roundProgrammeId)
+  const roundProgramme = await fetchRoundProgrammeForApplication(roundProgrammeId)
   if (!roundProgramme) return { ok: false, error: 'round_programme_missing' }
 
   const responses = computeResponses(payload, resolved)

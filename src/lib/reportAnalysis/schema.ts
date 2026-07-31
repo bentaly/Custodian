@@ -19,7 +19,7 @@ export const ReportAnalysisOutputSchema = z.object({
         .number()
         .min(1)
         .max(10)
-        .describe('1-10: how fully the report shows the application\'s promises were delivered.'),
+        .describe("1-10: how fully the report shows the application's promises were delivered."),
       narrative: z
         .string()
         .describe('2-3 sentences on whether the grantee did what the application said they would.'),

@@ -28,7 +28,6 @@ const STATUS_COLORS: Record<ReportRowStatus, string> = {
   reviewed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 }
 
-
 function ReportDetail() {
   const report = Route.useLoaderData()
   const { user } = Route.useRouteContext()

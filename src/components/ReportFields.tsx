@@ -40,7 +40,9 @@ function fmtAmount(v: string | null | undefined) {
 }
 
 function fmtDate(v: string | null | undefined) {
-  return v ? new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null
+  return v
+    ? new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
 }
 
 export function ReportFields({ report }: { report: ReportFieldsData }) {
@@ -53,7 +55,8 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
     { label: 'Amount stated', value: fmtAmount(report.amountAwarded) },
     {
       label: 'Beneficiaries stated',
-      value: report.beneficiaryCount != null ? report.beneficiaryCount.toLocaleString('en-GB') : null,
+      value:
+        report.beneficiaryCount != null ? report.beneficiaryCount.toLocaleString('en-GB') : null,
     },
     { label: 'Award date stated', value: report.awardDate ?? null },
     { label: 'Award end stated', value: report.awardEndDate ?? null },
