@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "wrangler.toml",
+    "admin-app/wrangler.jsonc",
+    "src/routeTree.gen.ts",
+    "dist/**",
+    "admin-app/dist/**"
+  ]
+}
