@@ -7,6 +7,7 @@ import {
   UserGroupIcon,
   ChartAverageIcon,
   File01Icon,
+  Mail01Icon,
   CheckmarkCircle02Icon,
   CancelCircleIcon,
   InformationCircleIcon,
@@ -203,6 +204,7 @@ function ApplicationDetail() {
 
   const rp = application.roundProgramme
   const programme = rp.programme
+  const clientName = programme.client?.name ?? null
   const roundName = rp.round?.name ?? null
   const budget = rp.budget ? parseFloat(rp.budget) : null
   const committed = application.roundProgrammeCommitted
@@ -325,6 +327,27 @@ function ApplicationDetail() {
               ? `${ddFlags} due diligence flag${ddFlags !== 1 ? 's' : ''}`
               : 'No due diligence flags'}
           </HeaderChip>
+          {/* A plain mailto rather than anything we send: this is the grants team
+              picking up the phone, so it belongs in their own mail client with their
+              own signature and a copy in their sent items. Hidden when the
+              application carries no contact address. */}
+          {application.applicantEmail && (
+            <a
+              href={`mailto:${encodeURIComponent(application.applicantEmail)}?subject=${encodeURIComponent(
+                `Your application to ${clientName ?? 'us'}${
+                  application.externalApplicationId ? ` (${application.externalApplicationId})` : ''
+                }`,
+              )}`}
+              className="flex h-9 items-center gap-2 rounded-lg border bg-white px-3"
+              style={{ borderColor: C.line }}
+              title={application.applicantEmail}
+            >
+              <HugeiconsIcon icon={Mail01Icon} size={16} color={C.sub} />
+              <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
+                Email applicant
+              </span>
+            </a>
+          )}
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}

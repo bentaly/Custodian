@@ -121,6 +121,7 @@ function IngestCard({
   const [addToLookup, setAddToLookup] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [reprocessing, setReprocessing] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   // "Select all" for the lookup ticks: every canonical field with a chosen source.
@@ -147,6 +148,29 @@ function IngestCard({
       setErr((e as Error).message)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // Re-run the pipeline on a row whose background run never finished. Runs inline on
+  // the server, so the outcome is reported here rather than needing another refresh.
+  async function reprocess() {
+    setReprocessing(true)
+    setErr(null)
+    try {
+      const result = await adminPost<{ status: string; applicationId: string | null }>(
+        `/api/admin/ingests/${row.id}/reprocess`,
+        {},
+      )
+      // A run that mapped cleanly promotes straight to an application; one that didn't
+      // lands in this queue as needs_review. Either way the list needs refreshing.
+      if (result.status === 'needs_review') {
+        setErr('Reprocessed — the submission needs review; its mapping is below.')
+      }
+      onResolved()
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setReprocessing(false)
     }
   }
 
@@ -194,12 +218,26 @@ function IngestCard({
       </button>
 
       {open && row.status === 'received' && (
-        <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-4 py-4">
-          <p className="text-xs text-gray-500">
-            Processing — mapping, scoring and due diligence are running in the background. Refresh
-            in a minute; a row stuck here means the pipeline crashed.
-          </p>
-          <DeleteButton onClick={remove} deleting={deleting} />
+        <div className="border-t border-gray-100 px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-gray-500">
+              Processing — mapping, scoring and due diligence are running in the background. Refresh
+              in a minute; a row still here after that means the pipeline crashed, and Reprocess
+              will run it again.
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={reprocess}
+                disabled={reprocessing}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 disabled:opacity-60"
+              >
+                {reprocessing ? 'Reprocessing…' : 'Reprocess'}
+              </button>
+              <DeleteButton onClick={remove} deleting={deleting} />
+            </div>
+          </div>
+          {err && <p className="mt-3 text-xs text-red-600">{err}</p>}
         </div>
       )}
 

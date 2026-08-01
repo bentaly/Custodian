@@ -18,6 +18,21 @@ routes = [
 [assets]
 directory = "dist/client"
 
+# Workers Logs — persist console output + uncaught exceptions so a failure can be read
+# after the fact in the dashboard (Workers & Pages → the worker → Observability).
+#
+# This is load-bearing for the background pipelines: `/api/apply` answers 202 and then
+# runs mapping/scoring/due diligence via runInBackground, which logs its own failures
+# (`[background] <label> failed:`). Without collection those logs went nowhere, so a
+# crashed ingest left a row stuck at `received` with no way to learn WHY.
+#
+# Free on both plans at this app's volume (Free: 200k events/day, 3-day retention;
+# Paid: 20m/month included, 7-day). head_sampling_rate = 1 logs every invocation —
+# only worth lowering if volume ever became a cost issue.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 # Rate limiters for /api/apply. `simple.limit` is requests per `period` (seconds; must
 # be 10 or 60). namespace_id is an arbitrary unique id per limiter. Used in
 # src/server/rateLimit.ts via the stashed env (see worker-entry.js).
@@ -45,6 +60,12 @@ name = "custodian-staging"
 # custodian.fund custom domain and tries to claim it on every deploy.
 routes = []
 workers_dev = true
+
+# Repeated for staging: staging is where a pipeline change is exercised first, so it is
+# the environment whose logs you most need.
+[env.staging.observability]
+enabled = true
+head_sampling_rate = 1
 
 # Unsafe bindings are not inherited by named environments — repeat them for staging.
 [[env.staging.unsafe.bindings]]

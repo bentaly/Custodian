@@ -10,11 +10,12 @@
 //   processIngest — the pipeline, run in the background (see server/background.ts):
 //                   lookup-table match → built-in common-dictionary match (curated,
 //                   certain aliases auto-applied, same standing as a lookup hit) →
-//                   AI fallback for any required field still unresolved (proposals
-//                   above the confidence threshold ARE applied) → resolve programme
-//                   → decide status → validate the assembled canonical input →
-//                   promote or hold, updating the row in place. A crash leaves the
-//                   row at `received` — visible and reprocessable, never dropped.
+//                   AI fallback for any field still unresolved, required OR optional
+//                   (proposals above the confidence threshold ARE applied) → resolve
+//                   programme → decide status → validate the assembled canonical
+//                   input → promote or hold, updating the row in place. A crash
+//                   leaves the row at `received` — visible, and reprocessable from
+//                   the admin queue, never dropped.
 //
 // The foundation's own application reference is just the `externalApplicationId`
 // canonical field, resolved by mapping like any other. If `programmeName` can't be
@@ -29,6 +30,7 @@ import {
   matchCommonKey,
   toStringValue,
   CANONICAL_FIELD_BY_KEY,
+  CANONICAL_KEYS,
   REQUIRED_CANONICAL_KEYS,
   type LookupResult,
   type ProposalMap,
@@ -106,16 +108,35 @@ export async function processIngest(
     commonConsumed.add(key)
   }
 
-  // 3. AI fallback for any required field still unresolved. Only payload keys not
-  //    already consumed by the lookup table or common dictionary are offered.
+  // 3. AI fallback for any canonical field still unresolved — REQUIRED AND OPTIONAL.
+  //
+  //    Optional fields are offered deliberately. They used to be excluded, which meant
+  //    they could only ever be resolved by an exact string match (the client's lookup
+  //    table, or the curated dictionary) — so a foundation whose form says "Organisation
+  //    registration number" rather than "Charity number" silently lost due diligence,
+  //    and one asking "Where will the work happen?" silently lost deprivation context.
+  //    The value survived in `responses`, but never reached the typed column the feature
+  //    reads, and nothing anywhere reported a problem. The AI fallback is exactly the
+  //    mechanism that copes with wording the dictionary can't anticipate; withholding
+  //    the optional fields from it was the bug.
+  //
+  //    Only payload keys not already consumed by the lookup table or common dictionary
+  //    are offered as candidates.
+  const requiredKeySet = new Set<string>(REQUIRED_CANONICAL_KEYS)
+  // Required first: where two fields are proposed the same source key, the one that
+  // decides whether an application can exist at all takes it.
+  const unresolvedForAi = [
+    ...REQUIRED_CANONICAL_KEYS.filter((k) => !resolved[k]),
+    ...CANONICAL_KEYS.filter((k) => !requiredKeySet.has(k) && !resolved[k]),
+  ]
   let unresolvedRequired = REQUIRED_CANONICAL_KEYS.filter((k) => !resolved[k])
   let aiUsed = false
   let proposed: ProposalMap | null = null
 
-  if (unresolvedRequired.length > 0) {
+  if (unresolvedForAi.length > 0) {
     const proposals = await runFieldMapping(
       {
-        fields: unresolvedRequired.map((k) => {
+        fields: unresolvedForAi.map((k) => {
           const f = CANONICAL_FIELD_BY_KEY[k]
           return { key: f.key, label: f.label, description: f.description }
         }),
@@ -127,13 +148,26 @@ export async function processIngest(
     )
     proposed = proposals
 
-    for (const key of unresolvedRequired) {
+    // A source key may only feed one canonical field. Without this, an ambiguous
+    // label ("Organisation registration number") proposed for both charityNumber and
+    // companyNumber would write the same number into both, inventing a Companies House
+    // registration that was never claimed — and due diligence would then screen it
+    // against the wrong register.
+    const aiConsumed = new Set<string>()
+    for (const key of unresolvedForAi) {
       const p = proposals[key]
       if (!p || !p.sourceKey || p.confidence <= AI_CONFIDENCE_THRESHOLD) continue
+      if (aiConsumed.has(p.sourceKey)) continue
       const value = toStringValue(payload[p.sourceKey])
       if (!value) continue
       resolved[key] = { sourceKey: p.sourceKey, value }
-      aiUsed = true
+      aiConsumed.add(p.sourceKey)
+      // Only a REQUIRED field resolved by AI sends the ingest to the review queue for
+      // confirmation. An optional one is a bonus — it enriches the application, and
+      // holding every submission for review because the model recognised a postcode
+      // would make the queue useless. A wrong optional mapping is visible and fixable
+      // on the application; a wrong required one produces a bad application.
+      if (requiredKeySet.has(key)) aiUsed = true
     }
     unresolvedRequired = REQUIRED_CANONICAL_KEYS.filter((k) => !resolved[k])
   }
