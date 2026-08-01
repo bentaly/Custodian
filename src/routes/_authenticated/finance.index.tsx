@@ -88,6 +88,7 @@ const ORGANISATION: TableColumn<FinanceRow> = {
 
 const PROGRAMME: TableColumn<FinanceRow> = {
   id: 'programme',
+  hideBelow: 'lg',
   header: 'Programme',
   cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
 }
@@ -95,7 +96,7 @@ const PROGRAMME: TableColumn<FinanceRow> = {
 const COMMITTED: TableColumn<FinanceRow> = {
   id: 'committed',
   header: 'Committed',
-  width: 'w-[120px]',
+  width: 'sm:w-[120px]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">
@@ -106,8 +107,9 @@ const COMMITTED: TableColumn<FinanceRow> = {
 
 const PAID: TableColumn<FinanceRow> = {
   id: 'paid',
+  hideBelow: 'lg',
   header: 'Paid',
-  width: 'w-[130px]',
+  width: 'sm:w-[130px]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <div className="whitespace-nowrap">
@@ -123,8 +125,9 @@ const PAID: TableColumn<FinanceRow> = {
 
 const BANK: TableColumn<FinanceRow> = {
   id: 'bank',
+  hideBelow: 'xl',
   header: 'Bank',
-  width: 'w-[120px]',
+  width: 'sm:w-[120px]',
   cell: (g) => {
     const issue = BANK_ISSUE_LABELS[g.bank.status]
     if (!issue) {
@@ -148,7 +151,7 @@ const BANK: TableColumn<FinanceRow> = {
 const STATUS: TableColumn<FinanceRow> = {
   id: 'status',
   header: 'Status',
-  width: 'w-[130px]',
+  width: 'sm:w-[130px]',
   cell: (g) => <StatusPill label={STATUS_LABELS[g.status]} color={STATUS_HEX[g.status]} />,
 }
 
@@ -159,8 +162,9 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
   PAID,
   {
     id: 'next',
+    hideBelow: 'sm',
     header: 'Next payment',
-    width: 'w-[170px]',
+    width: 'sm:w-[170px]',
     cellClassName: 'tabular-nums',
     cell: (g) => {
       if (!g.nextPayment) {
@@ -195,8 +199,9 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
   PAID,
   {
     id: 'lastPaid',
+    hideBelow: 'sm',
     header: 'Last payment',
-    width: 'w-[150px]',
+    width: 'sm:w-[150px]',
     cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.lastPaidDate)}</span>,
   },
   BANK,

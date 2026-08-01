@@ -8,6 +8,7 @@ import {
   File01Icon,
   Layers01Icon,
   Loading03Icon,
+  Menu01Icon,
   Search01Icon,
   UserMultipleIcon,
 } from '@hugeicons/core-free-icons'
@@ -94,7 +95,19 @@ function linkProps(r: SearchResult) {
   }
 }
 
-function GlobalSearch({ isMac }: { isMac: boolean }) {
+function GlobalSearch({
+  isMac,
+  hotkey = true,
+  autoFocus = false,
+  onDismiss,
+}: {
+  isMac: boolean
+  /** Only the desktop instance binds ⌘K, so the two never fight over focus. */
+  hotkey?: boolean
+  autoFocus?: boolean
+  /** Rendered as a "Cancel" affordance beside the field (the mobile overlay). */
+  onDismiss?: () => void
+}) {
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -107,6 +120,7 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
   const reqId = useRef(0)
 
   useEffect(() => {
+    if (!hotkey) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
@@ -115,7 +129,11 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [hotkey])
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus()
+  }, [autoFocus])
 
   // Close when a click lands outside the search widget.
   useEffect(() => {
@@ -158,11 +176,14 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
     setQuery('')
     setResults([])
     inputRef.current?.blur()
+    onDismiss?.()
     navigate(linkProps(r))
   }
 
   function onInputKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') {
+      // First escape closes the results; a second one dismisses the mobile overlay.
+      if (!open && onDismiss) onDismiss()
       setOpen(false)
       inputRef.current?.blur()
       return
@@ -186,7 +207,7 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
   const ordered = GROUPS.flatMap((g) => results.filter((r) => r.type === g.type))
 
   return (
-    <div ref={containerRef} className="relative w-[320px] max-w-full">
+    <div ref={containerRef} className="relative w-full lg:w-[320px]">
       <HugeiconsIcon
         icon={Search01Icon}
         strokeWidth={1.5}
@@ -204,7 +225,7 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
         aria-expanded={showDropdown}
         aria-controls="global-search-listbox"
         autoComplete="off"
-        className="h-10 w-full rounded-xl bg-[#F2F4F7] pl-9 pr-14 text-[14px] text-[#141C24] placeholder:text-[#637083] focus:outline-hidden focus:ring-2 focus:ring-[#1F7A5C]/25"
+        className={`h-10 w-full rounded-xl bg-[#F2F4F7] pl-9 text-[14px] text-[#141C24] placeholder:text-[#637083] focus:outline-hidden focus:ring-2 focus:ring-[#1F7A5C]/25 ${onDismiss ? 'pr-10' : 'pr-14'}`}
       />
       {loading ? (
         <HugeiconsIcon
@@ -213,9 +234,12 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
           className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#637083]"
         />
       ) : (
-        <kbd className="pointer-events-none absolute right-2 top-1/2 flex h-6 -translate-y-1/2 items-center rounded-lg bg-white px-2 text-[12px] font-medium text-[#141C24]">
-          {isMac ? '⌘K' : 'Ctrl+K'}
-        </kbd>
+        // The shortcut badge is desktop-only chrome; the mobile overlay has a Cancel button instead.
+        !onDismiss && (
+          <kbd className="pointer-events-none absolute right-2 top-1/2 flex h-6 -translate-y-1/2 items-center rounded-lg bg-white px-2 text-[12px] font-medium text-[#141C24]">
+            {isMac ? '⌘K' : 'Ctrl+K'}
+          </kbd>
+        )
       )}
 
       {showDropdown && (
@@ -289,9 +313,19 @@ function GlobalSearch({ isMac }: { isMac: boolean }) {
   )
 }
 
-export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRound[] }) {
+export function AppHeader({
+  user,
+  rounds,
+  onOpenNav,
+}: {
+  user: HeaderUser
+  rounds: HeaderRound[]
+  /** Opens the off-canvas nav; the burger only shows below `lg`. */
+  onOpenNav: () => void
+}) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const { grey, green } = roundStatusParts(rounds)
 
   // SSR renders the Mac badge; corrected on mount for other platforms.
@@ -315,20 +349,64 @@ export function AppHeader({ user, rounds }: { user: HeaderUser; rounds: HeaderRo
   const orgName = user.clientName ?? 'Custodian Platform'
 
   return (
-    <header className="flex h-[74px] items-center justify-between gap-4 border-b border-[#E4E7EC] bg-white px-4">
-      <div className="flex items-center gap-3">
-        {/* Org switcher — Figma 126:31875 */}
-        <div className="flex items-center gap-2 rounded-xl border border-[#E4E7EC] bg-white py-1 pl-1 pr-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F2F4F7] text-[14px] font-semibold text-[#141C24]">
+    <header className="relative flex h-[74px] shrink-0 items-center justify-between gap-2 border-b border-[#E4E7EC] bg-white px-3 sm:gap-4 sm:px-4">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={onOpenNav}
+          aria-label="Open navigation"
+          aria-controls="mobile-nav"
+          className="-ml-1 flex size-10 shrink-0 items-center justify-center rounded-xl text-[#141C24] hover:bg-[#F2F4F7] lg:hidden"
+        >
+          <HugeiconsIcon icon={Menu01Icon} strokeWidth={1.75} className="h-6 w-6" />
+        </button>
+
+        {/* Org switcher — Figma 126:31875. Below `sm` the name is dropped and only the
+            initials tile survives; the burger and search need the room more. */}
+        <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#E4E7EC] bg-white p-1 sm:pr-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F4F7] text-[14px] font-semibold text-[#141C24]">
             {initials(orgName)}
           </span>
-          <span className="text-[14px] font-medium text-[#141C24]">{orgName}</span>
+          <span className="hidden truncate text-[14px] font-medium text-[#141C24] sm:block">
+            {orgName}
+          </span>
         </div>
 
-        <GlobalSearch isMac={isMac} />
+        <div className="hidden lg:block">
+          <GlobalSearch isMac={isMac} />
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      {/* Below `lg` search is a single icon that expands over the whole bar — the field
+          needs the full width to be usable, and the bar has none to spare. */}
+      {searchOpen && (
+        <div className="absolute inset-y-0 left-3 right-3 z-30 flex items-center gap-2 bg-white lg:hidden">
+          <GlobalSearch
+            isMac={isMac}
+            hotkey={false}
+            autoFocus
+            onDismiss={() => setSearchOpen(false)}
+          />
+          <button
+            type="button"
+            onClick={() => setSearchOpen(false)}
+            className="shrink-0 text-[14px] font-medium text-[#637083]"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          aria-label="Search"
+          className="flex size-10 items-center justify-center rounded-xl text-[#637083] hover:bg-[#F2F4F7] lg:hidden"
+        >
+          <HugeiconsIcon icon={Search01Icon} strokeWidth={1.75} className="h-5 w-5" />
+        </button>
+
         {(grey || green) && (
           <p className="hidden whitespace-nowrap text-[12px] font-medium lg:block">
             {grey && <span className="text-[#97A1AF]">{grey}</span>}

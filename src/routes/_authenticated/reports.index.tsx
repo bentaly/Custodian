@@ -61,7 +61,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   {
     id: 'organisation',
     header: 'Organisation',
-    width: 'w-[28%]',
+    width: 'sm:w-[28%]',
     cell: (item) => (
       <Link
         to="/reports/$reportKey"
@@ -75,6 +75,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   },
   {
     id: 'programme',
+    hideBelow: 'lg',
     header: 'Programme',
     cell: (item) => (
       <span className="font-display text-[14px] text-[#637083]">{item.programmeName ?? '—'}</span>
@@ -82,13 +83,15 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   },
   {
     id: 'report',
+    hideBelow: 'sm',
     header: 'Report',
     cell: (item) => <span className="font-display text-[14px] text-[#637083]">{item.label}</span>,
   },
   {
     id: 'received',
+    hideBelow: 'md',
     header: 'Received',
-    width: 'w-[160px]',
+    width: 'sm:w-[160px]',
     cell: (item) => (
       <span className="whitespace-nowrap font-display text-[14px] text-[#637083]">
         {fmtDate(item.submittedAt)}
@@ -98,7 +101,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   {
     id: 'status',
     header: 'Status',
-    width: 'w-[140px]',
+    width: 'sm:w-[140px]',
     cell: (item) => (
       <StatusPill label={STATUS_LABELS[item.status]} color={STATUS_HEX[item.status]} />
     ),

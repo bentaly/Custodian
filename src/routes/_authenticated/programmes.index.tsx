@@ -80,7 +80,7 @@ function Programmes() {
   return (
     <div className="max-w-3xl space-y-6">
       <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Programmes' }]} />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Programmes</h1>
           <p className="mt-1 text-sm text-gray-500">

@@ -79,6 +79,7 @@ function Team() {
                 {
                   id: 'email',
                   header: 'Email',
+                  hideBelow: 'sm',
                   cell: (m: Member) => <span className={cellSub}>{m.email}</span>,
                 },
                 {
@@ -171,6 +172,7 @@ function Team() {
                   {
                     id: 'expires',
                     header: 'Expires',
+                    hideBelow: 'sm',
                     cell: (inv: Invite) => (
                       <span className={cellSub}>
                         {new Date(inv.expiresAt).toLocaleDateString()}

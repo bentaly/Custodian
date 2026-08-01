@@ -81,19 +81,22 @@ function ApiKeys() {
     { id: 'name', header: 'Name', cell: (k) => <span className={cellInk}>{k.name}</span> },
     {
       id: 'key',
+      hideBelow: 'sm',
       header: 'Key',
       cell: (k) => <span className="font-mono text-[13px] text-[#637083]">{maskKey(k.last4)}</span>,
     },
     {
       id: 'created',
+      hideBelow: 'lg',
       header: 'Created',
-      width: 'w-[140px]',
+      width: 'sm:w-[140px]',
       cell: (k) => <span className={cellSub}>{new Date(k.createdAt).toLocaleDateString()}</span>,
     },
     {
       id: 'lastUsed',
+      hideBelow: 'md',
       header: 'Last used',
-      width: 'w-[140px]',
+      width: 'sm:w-[140px]',
       cell: (k) => (
         <span className={cellSub}>
           {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}
@@ -103,7 +106,7 @@ function ApiKeys() {
     {
       id: 'status',
       header: 'Status',
-      width: 'w-[120px]',
+      width: 'sm:w-[120px]',
       cell: (k) =>
         k.revokedAt ? (
           <StatusPill label="Revoked" color="#637083" />
@@ -114,7 +117,7 @@ function ApiKeys() {
     {
       id: 'actions',
       header: '',
-      width: 'w-[100px]',
+      width: 'sm:w-[100px]',
       align: 'right',
       cell: (k) =>
         k.revokedAt ? null : (

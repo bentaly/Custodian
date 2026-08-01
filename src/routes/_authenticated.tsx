@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { createFileRoute, Outlet, redirect, useRouterState } from '@tanstack/react-router'
 import { getMe } from '../server/fns/auth'
 import { listRoundDates } from '../server/fns/rounds'
 import { authClient } from '../lib/auth-client'
@@ -25,15 +26,21 @@ export const Route = createFileRoute('/_authenticated')({
 function AuthenticatedLayout() {
   const { user } = Route.useRouteContext()
   const { rounds } = Route.useLoaderData()
+  const [navOpen, setNavOpen] = useState(false)
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+
+  // Any navigation closes the drawer — including ones that don't come from a nav link
+  // (a breadcrumb, the search dropdown, the back button).
+  useEffect(() => setNavOpen(false), [pathname])
 
   return (
     <div className="flex h-screen flex-col">
       <ImpersonationBanner />
       <div className="flex min-h-0 flex-1">
-        <Sidebar />
+        <Sidebar mobileOpen={navOpen} onClose={() => setNavOpen(false)} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <AppHeader user={user} rounds={rounds} />
-          <main className="flex-1 overflow-y-auto bg-white p-8">
+          <AppHeader user={user} rounds={rounds} onOpenNav={() => setNavOpen(true)} />
+          <main className="flex-1 overflow-y-auto bg-white p-4 sm:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>

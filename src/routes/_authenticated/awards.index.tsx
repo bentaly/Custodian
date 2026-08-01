@@ -86,16 +86,19 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'programme',
+    hideBelow: 'lg',
     header: 'Programme',
     cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
   },
   {
     id: 'round',
+    hideBelow: 'xl',
     header: 'Round',
     cell: (g) => <span className={txtSub}>{g.roundName ?? '—'}</span>,
   },
   {
     id: 'awarded',
+    hideBelow: 'lg',
     header: 'Awarded',
     cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.decisionAt)}</span>,
   },
@@ -111,6 +114,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'paid',
+    hideBelow: 'md',
     header: 'Paid',
     cell: (g) =>
       g.instalmentCount === 0 ? (
@@ -126,6 +130,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'duration',
+    hideBelow: 'xl',
     header: 'Duration',
     cell: (g) => (
       <span className={`whitespace-nowrap ${txtSub}`}>
@@ -135,13 +140,14 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'geography',
+    hideBelow: 'xl',
     header: 'Geography',
     cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{g.deliveryArea ?? '—'}</span>,
   },
   {
     id: 'status',
     header: 'Status',
-    width: 'w-[120px]',
+    width: 'sm:w-[120px]',
     cell: (g) => (
       <StatusPill
         label={GRANT_STATUS_LABELS[g.status] ?? g.status}

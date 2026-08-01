@@ -58,7 +58,7 @@ function GrantTermsFields({
   budgetRequired?: boolean
 }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div>
         <Label>
           Total budget{budgetRequired && <span className="ml-0.5 text-red-400">*</span>}

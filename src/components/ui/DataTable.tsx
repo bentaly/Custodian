@@ -55,13 +55,34 @@ export type TableColumn<T> = {
   id: string
   header: ReactNode
   cell: (row: T) => ReactNode
-  /** Tailwind width class, e.g. 'w-[140px]'. */
+  /**
+   * Tailwind width class. Prefix it with `sm:` (e.g. `'sm:w-[140px]'`): these widths
+   * are tuned for the full desktop column set, and on a phone the two or three
+   * columns that survive `hideBelow` should share the row instead — pinned widths
+   * there leave the name column a sliver.
+   */
   width?: string
   align?: 'left' | 'right'
   sortable?: boolean
   /** Extra classes for the body cell (e.g. 'tabular-nums'). */
   cellClassName?: string
+  /**
+   * Drop this column below the given breakpoint. Every row here is a link into a
+   * detail screen that carries the full record, so on a phone the table earns its
+   * keep as a *list* — identity plus the one or two figures you scan for — rather
+   * than as a grid you scroll sideways through. Leave unset for the columns that
+   * make a row identifiable (name, amount, status).
+   */
+  hideBelow?: 'sm' | 'md' | 'lg' | 'xl'
 }
+
+// Tailwind needs whole class names, so the breakpoints are spelled out.
+const HIDE_BELOW = {
+  sm: 'hidden sm:table-cell',
+  md: 'hidden md:table-cell',
+  lg: 'hidden lg:table-cell',
+  xl: 'hidden xl:table-cell',
+} as const
 
 export type TableSelection<T> = {
   isSelected: (row: T) => boolean
@@ -109,7 +130,7 @@ function HeaderCell<T>({
   onSort?: (id: string) => void
 }) {
   const alignCls = col.align === 'right' ? 'text-right' : 'text-left'
-  const base = `px-3 ${alignCls} ${col.width ?? ''}`
+  const base = `px-3 ${alignCls} ${col.width ?? ''} ${col.hideBelow ? HIDE_BELOW[col.hideBelow] : ''}`
   if (!col.sortable || !onSort) {
     return (
       <th className={`${base} font-display text-[14px] font-medium`} style={{ color: C.ink }}>
@@ -207,7 +228,7 @@ export function DataTable<T>({
               {columns.map((col) => (
                 <td
                   key={col.id}
-                  className={`px-3 align-middle ${col.width ?? ''} ${col.align === 'right' ? 'text-right' : ''} ${col.cellClassName ?? ''}`}
+                  className={`px-3 align-middle ${col.width ?? ''} ${col.align === 'right' ? 'text-right' : ''} ${col.hideBelow ? HIDE_BELOW[col.hideBelow] : ''} ${col.cellClassName ?? ''}`}
                 >
                   {col.cell(row)}
                 </td>

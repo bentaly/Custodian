@@ -324,7 +324,7 @@ function RoundBudget({
       </p>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <p className="font-display text-[24px] font-medium leading-none" style={{ color: C.ink }}>
             {fmtCompact(committed)}
           </p>
@@ -532,7 +532,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   {
     id: 'amount',
     header: 'Amount',
-    width: 'w-[130px]',
+    width: 'sm:w-[130px]',
     sortable: true,
     cell: (app) => (
       <span className="font-display text-[14px] font-medium tabular-nums" style={{ color: C.ink }}>
@@ -542,8 +542,9 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   },
   {
     id: 'programme',
+    hideBelow: 'lg',
     header: 'Programme',
-    width: 'w-[200px]',
+    width: 'sm:w-[200px]',
     cell: (app) => (
       <span className="font-display text-[14px]" style={{ color: C.ink }}>
         {app.roundProgramme?.programme?.name ?? '—'}
@@ -552,8 +553,9 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   },
   {
     id: 'theme',
+    hideBelow: 'xl',
     header: 'Theme',
-    width: 'w-[160px]',
+    width: 'sm:w-[160px]',
     cell: (app) => {
       const themes = (app.roundProgramme?.programme?.tags as string[] | null) ?? []
       if (themes.length === 0) {
@@ -574,7 +576,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   {
     id: 'status',
     header: 'Status',
-    width: 'w-[130px]',
+    width: 'sm:w-[130px]',
     sortable: true,
     cell: (app) => {
       const s = STATUS_PILL[app.status] ?? { label: app.status, color: C.sub }
@@ -583,15 +585,17 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   },
   {
     id: 'score',
+    hideBelow: 'md',
     header: 'AI score',
-    width: 'w-[110px]',
+    width: 'sm:w-[110px]',
     sortable: true,
     cell: (app) => <AiScoreCell status={app.custodianScoreStatus} score={app.custodianScore} />,
   },
   {
     id: 'dueDiligence',
+    hideBelow: 'xl',
     header: 'Due diligence',
-    width: 'w-[120px]',
+    width: 'sm:w-[120px]',
     sortable: true,
     cell: (app) => (
       <DueDiligenceCell status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />
@@ -863,9 +867,9 @@ function ApplicationsList() {
               {metaLine}
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-4">
             <div
-              className="flex h-10 items-center gap-2 rounded-[12px] px-3"
+              className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[12px] px-3 sm:flex-none"
               style={{ backgroundColor: C.wash }}
             >
               <HugeiconsIcon icon={Search01Icon} size={16} color={C.sub} />
@@ -874,7 +878,7 @@ function ApplicationsList() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search organisation or ID…"
-                className="w-52 bg-transparent font-display text-[14px] outline-hidden placeholder:text-[#637083]"
+                className="w-full min-w-0 bg-transparent font-display text-[14px] outline-hidden placeholder:text-[#637083] sm:w-52"
                 style={{ color: C.ink }}
               />
             </div>
@@ -930,7 +934,7 @@ function ApplicationsList() {
         {/* Selection toolbar — appears above the table when rows are selected */}
         {selected.size > 0 && (
           <div
-            className="flex items-center justify-between gap-3 border-t px-4 py-2.5"
+            className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-2.5"
             style={{ borderColor: C.line, backgroundColor: C.wash }}
           >
             <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
