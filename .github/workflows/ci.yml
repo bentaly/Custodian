@@ -30,6 +30,11 @@ jobs:
       - name: Build
         run: pnpm build
         if: github.ref == 'refs/heads/master'
+        env:
+          # Uploads source maps to Sentry, then deletes them from dist/ so they are
+          # never served publicly. Absent (e.g. on a fork), the build simply skips the
+          # upload rather than failing — see vite.config.ts.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       # Migrate before deploy in each environment so the schema is always in
       # place before the code that depends on it goes live. Staging first (acts

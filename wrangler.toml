@@ -18,6 +18,12 @@ routes = [
 [assets]
 directory = "dist/client"
 
+# Which deployment Sentry should tag events with. Both Workers are built from the same
+# `master` commit by the same CI job, so the build cannot tell them apart — only the
+# binding can. Not a secret; the Sentry DSN itself lives in worker-entry.js.
+[vars]
+SENTRY_ENVIRONMENT = "production"
+
 # Workers Logs — persist console output + uncaught exceptions so a failure can be read
 # after the fact in the dashboard (Workers & Pages → the worker → Observability).
 #
@@ -60,6 +66,11 @@ name = "custodian-staging"
 # custodian.fund custom domain and tries to claim it on every deploy.
 routes = []
 workers_dev = true
+
+# `vars` is not inherited by named environments — repeat it so staging errors are
+# tagged as staging rather than silently landing in the production stream.
+[env.staging.vars]
+SENTRY_ENVIRONMENT = "staging"
 
 # Repeated for staging: staging is where a pipeline change is exercised first, so it is
 # the environment whose logs you most need.

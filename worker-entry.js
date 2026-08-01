@@ -3,9 +3,16 @@
 // Workers' global process.env which doesn't include binding values.
 // This thin wrapper copies all string bindings into process.env before
 // delegating to the TanStack Start server, so server code using process.env works.
+import * as Sentry from '@sentry/cloudflare'
 import handler from './dist/server/server.js'
 
-export default {
+// The DSN is not a secret (see src/lib/sentry.ts for why it is committed). It is
+// duplicated here rather than imported because this file is bundled by wrangler, not
+// vite — it cannot reach into the TypeScript sources under src/.
+const SENTRY_DSN =
+  'https://99a1bb7960228a135ed95825e59e6297@o4511832040079360.ingest.de.sentry.io/4511832062820432'
+
+const worker = {
   async fetch(request, env, ctx) {
     if (env && typeof env === 'object') {
       for (const [key, value] of Object.entries(env)) {
@@ -26,3 +33,22 @@ export default {
     return handler.fetch(request, env, ctx)
   },
 }
+
+// `withSentry` owns the outermost layer so it sees anything the app throws before the
+// runtime turns it into a bare 500, and so it can flush events via ctx.waitUntil —
+// without that flush a Worker isolate is torn down before the event is sent.
+//
+// This catches *uncaught* request errors only. Server-function errors never reach
+// here: TanStack catches them and serialises them back to the caller, so those are
+// reported explicitly from the server error middleware instead.
+export default Sentry.withSentry(
+  (env) => ({
+    dsn: SENTRY_DSN,
+    // Set per-Worker in wrangler.toml — both Workers are built from the same commit,
+    // so the build itself cannot tell staging from prod.
+    environment: env.SENTRY_ENVIRONMENT ?? 'production',
+    tracesSampleRate: 0,
+    sendDefaultPii: false,
+  }),
+  worker,
+)

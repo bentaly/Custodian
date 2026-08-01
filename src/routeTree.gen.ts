@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as NoAccessRouteImport } from './routes/no-access'
+import { Route as SentryTestRouteImport } from './routes/sentry-test'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
@@ -79,6 +80,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const NoAccessRoute = NoAccessRouteImport.update({
   id: '/no-access',
   path: '/no-access',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SentryTestRoute = SentryTestRouteImport.update({
+  id: '/sentry-test',
+  path: '/sentry-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -381,6 +387,7 @@ const ApiAdminReportIngestsIdResolveRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/no-access': typeof NoAccessRoute
+  '/sentry-test': typeof SentryTestRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/applications': typeof AuthenticatedApplicationsRouteWithChildren
@@ -439,6 +446,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/no-access': typeof NoAccessRoute
+  '/sentry-test': typeof SentryTestRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -491,6 +499,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/no-access': typeof NoAccessRoute
+  '/sentry-test': typeof SentryTestRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
@@ -551,6 +560,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/no-access'
+    | '/sentry-test'
     | '/sign-in'
     | '/sign-up'
     | '/applications'
@@ -609,6 +619,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/no-access'
+    | '/sentry-test'
     | '/sign-in'
     | '/sign-up'
     | '/dashboard'
@@ -660,6 +671,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/no-access'
+    | '/sentry-test'
     | '/sign-in'
     | '/sign-up'
     | '/_authenticated/applications'
@@ -720,6 +732,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   NoAccessRoute: typeof NoAccessRoute
+  SentryTestRoute: typeof SentryTestRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
@@ -758,6 +771,13 @@ declare module '@tanstack/react-router' {
       path: '/no-access'
       fullPath: '/no-access'
       preLoaderRoute: typeof NoAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sentry-test': {
+      id: '/sentry-test'
+      path: '/sentry-test'
+      fullPath: '/sentry-test'
+      preLoaderRoute: typeof SentryTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -1371,6 +1391,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   NoAccessRoute: NoAccessRoute,
+  SentryTestRoute: SentryTestRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
