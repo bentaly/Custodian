@@ -1,3 +1,4 @@
+import { forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { eq, and, isNull } from 'drizzle-orm'
@@ -23,7 +24,7 @@ export const createInvitation = createServerFn({ method: 'POST' })
   .validator(CreateInvitationSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
-    if (!user.clientId) throw new Error('No client associated with your account')
+    if (!user.clientId) throw forbidden('No organisation is associated with your account.')
 
     const token = crypto.randomUUID()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -41,7 +42,7 @@ export const createInvitation = createServerFn({ method: 'POST' })
       .returning()
 
     const [clientData] = await getDb().select().from(clients).where(eq(clients.id, user.clientId))
-    if (!clientData) throw new Error('Client not found')
+    if (!clientData) throw notFoundError('Client not found')
     const baseUrl = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000'
 
     await sendInvitationEmail({

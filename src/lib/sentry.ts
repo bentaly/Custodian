@@ -36,6 +36,21 @@ export function resolveEnvironment(hostname: string): SentryEnvironment {
 }
 
 /**
+ * Whether to report at all.
+ *
+ * Local development is excluded: you are already looking at the stack trace in the
+ * terminal, and a morning of hot-reloading a half-written component would otherwise
+ * spend the month's quota on errors nobody will ever read.
+ *
+ * Staging is *included*, deliberately — it is the rehearsal environment where a bad
+ * migration or a broken ingest pipeline shows up first, and it runs at near-zero
+ * volume. Drop it from this list if the prod stream is all you want to see.
+ */
+export function shouldReport(environment: SentryEnvironment): boolean {
+  return environment === 'production' || environment === 'staging'
+}
+
+/**
  * TanStack implements `redirect()` and `notFound()` by *throwing* them — every
  * sign-in bounce and every guard in `_authenticated.beforeLoad` is a throw. They are
  * control flow, not failures, and unfiltered they would exhaust the 5k/month free

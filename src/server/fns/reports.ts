@@ -1,3 +1,4 @@
+import { notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -173,7 +174,7 @@ export const markReportReviewed = createServerFn({ method: 'POST' })
       where: eq(reports.id, data.id),
       columns: { id: true, clientId: true },
     })
-    if (!submission) throw new Error('Not found')
+    if (!submission) throw notFoundError()
     assertClientAccess(user, submission.clientId)
     await getDb()
       .update(reports)
@@ -204,7 +205,7 @@ export const getReport = createServerFn({ method: 'GET' })
         })) ?? null)
 
     const awardId = milestone?.awardId ?? submissionRow?.awardId
-    if (!awardId) throw new Error('Not found')
+    if (!awardId) throw notFoundError()
 
     const award = await getDb().query.awards.findFirst({
       where: eq(awards.id, awardId),
@@ -228,7 +229,7 @@ export const getReport = createServerFn({ method: 'GET' })
         reports: { columns: { id: true, scheduleId: true, submittedAt: true, reviewedAt: true } },
       },
     })
-    if (!award) throw new Error('Not found')
+    if (!award) throw notFoundError()
     assertClientAccess(user, award.clientId)
 
     const scheduleById = new Map(award.schedule.map((m) => [m.id, m]))

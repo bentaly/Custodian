@@ -1,6 +1,8 @@
 import { createRouter } from '@tanstack/react-router'
 import { createIsomorphicFn } from '@tanstack/react-start'
 import { routeTree } from './routeTree.gen'
+import { RouteError } from './components/ui/RouteError'
+import { notFoundError } from './lib/errors'
 
 /**
  * Start Sentry as early as the browser runs any app code.
@@ -24,6 +26,13 @@ export function getRouter() {
     routeTree,
     scrollRestoration: true,
     defaultPreload: 'intent',
+    // Assigned to whichever route threw, so the failure renders at that route's own
+    // position — inside `_authenticated`'s <Outlet /> for app pages, keeping the
+    // sidebar and header. See RouteError for why this is not on the layout route.
+    defaultErrorComponent: RouteError,
+    defaultNotFoundComponent: () => (
+      <RouteError error={notFoundError('We could not find that record.')} />
+    ),
   })
   return router
 }

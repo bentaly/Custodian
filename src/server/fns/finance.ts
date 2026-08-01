@@ -1,3 +1,4 @@
+import { notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, inArray } from 'drizzle-orm'
@@ -248,7 +249,7 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
         instalments: true,
       },
     })
-    if (!award) throw new Error('Not found')
+    if (!award) throw notFoundError()
     assertClientAccess(user, award.clientId)
 
     const app = award.application

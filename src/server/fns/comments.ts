@@ -1,3 +1,4 @@
+import { badRequest, forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
@@ -52,10 +53,10 @@ export const updateComment = createServerFn({ method: 'POST' })
     const comment = await getDb().query.applicationComments.findFirst({
       where: (c, { eq }) => eq(c.id, data.id),
     })
-    if (!comment) throw new Error('Not found')
+    if (!comment) throw notFoundError()
     await assertApplicationAccess(user, comment.applicationId)
     // Only the author can edit their own comment.
-    if (comment.userId !== user.id) throw new Error('Not authorised')
+    if (comment.userId !== user.id) throw forbidden('You can only change your own comments.')
 
     const [updated] = await getDb()
       .update(applicationComments)
@@ -72,11 +73,11 @@ export const deleteComment = createServerFn({ method: 'POST' })
     const comment = await getDb().query.applicationComments.findFirst({
       where: (c, { eq }) => eq(c.id, data.id),
     })
-    if (!comment) throw new Error('Not found')
+    if (!comment) throw notFoundError()
     await assertApplicationAccess(user, comment.applicationId)
     // The author can delete their own comment; admins can delete any.
     const isAdmin = user.role === 'superadmin' || user.role === 'admin'
-    if (comment.userId !== user.id && !isAdmin) throw new Error('Not authorised')
+    if (comment.userId !== user.id && !isAdmin) throw forbidden('You can only change your own comments.')
 
     await getDb().delete(applicationComments).where(eq(applicationComments.id, data.id))
     return { ok: true }
@@ -140,27 +141,27 @@ export const castVote = createServerFn({ method: 'POST' })
     if (isAdmin) {
       // Admins don't have a vote of their own — they may only record one on
       // behalf of a trustee, and only when the client has enabled it.
-      if (!data.onBehalfOf) throw new Error('Select a trustee to vote on behalf of')
+      if (!data.onBehalfOf) throw badRequest('Select a trustee to vote on behalf of')
 
       const app = await getDb().query.applications.findFirst({
         where: (a, { eq }) => eq(a.id, data.applicationId),
         with: { roundProgramme: { with: { programme: true } } },
       })
-      if (!app) throw new Error('Not found')
+      if (!app) throw notFoundError()
       const clientId = app.roundProgramme.programme.clientId
 
       const profile = await getDb().query.clientProfiles.findFirst({
         where: (p, { eq }) => eq(p.clientId, clientId),
       })
       if (!profile?.allowAdminVoting)
-        throw new Error('Admin voting is not enabled for this organisation')
+        throw forbidden('Admin voting is not enabled for this organisation')
 
       // The target must be a trustee of the same client.
       const target = await getDb().query.users.findFirst({
         where: (u, { eq, and: andOp }) =>
           andOp(eq(u.id, data.onBehalfOf!), eq(u.clientId, clientId), eq(u.role, 'trustee')),
       })
-      if (!target) throw new Error('Not a trustee of this organisation')
+      if (!target) throw badRequest('Not a trustee of this organisation')
       targetUserId = target.id
     } else {
       // Trustees vote as themselves.

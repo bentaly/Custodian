@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { orNotFound } from '../../lib/loader'
 import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -22,7 +23,7 @@ import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { Breadcrumb, MiniKpi } from '../../components/ui'
+import { Boundary, Breadcrumb, MiniKpi } from '../../components/ui'
 import { Donut } from '../../components/charts/Donut'
 import {
   CRITERION_DEFINITIONS,
@@ -36,7 +37,7 @@ import type { BudgetLine } from '../../lib/budget/types'
 import { fmtCompact, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
-  loader: ({ params }) => getApplication({ data: { id: params.applicationId } }),
+  loader: ({ params }) => orNotFound(getApplication({ data: { id: params.applicationId } })),
   component: ApplicationDetail,
 })
 
@@ -88,13 +89,31 @@ function durationLabel(years: number | null | undefined) {
 
 // ─── Primitives ──────────────────────────────────────────────────────────────────
 
-function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+/**
+ * A section of the detail page, isolated behind its own error boundary.
+ *
+ * This page is where the app's least predictable data lands: `custodianScoreDetail`,
+ * `dueDiligenceChecks` and `deprivationContext` are jsonb columns holding AI- and
+ * third-party-produced shapes, destructured directly by the panels below, and the
+ * budget meter renders whatever numbers it is handed. Before this, one unexpected null
+ * in any of them threw during render and took the whole page with it — comments,
+ * voting, the award action, everything. Now the rest of the page survives.
+ */
+function Panel({
+  children,
+  className = '',
+  label,
+}: {
+  children: React.ReactNode
+  className?: string
+  label?: string
+}) {
   return (
     <div
       className={`rounded-[16px] border bg-white p-4 ${className}`}
       style={{ borderColor: C.line }}
     >
-      {children}
+      <Boundary label={label}>{children}</Boundary>
     </div>
   )
 }
@@ -380,7 +399,7 @@ function ApplicationDetail() {
         {/* Main column */}
         <div className="flex flex-col gap-4">
           {/* AI Assessment */}
-          <Panel>
+          <Panel label="AI assessment">
             <PanelTitle>AI Assessment</PanelTitle>
 
             {scored ? (
@@ -478,7 +497,7 @@ function ApplicationDetail() {
           </div>
 
           {/* Project budget */}
-          <Panel>
+          <Panel label="Project budget">
             <PanelTitle>Project budget</PanelTitle>
             {budgetLines.length > 0 ? (
               <>
@@ -698,7 +717,7 @@ function ApplicationDetail() {
 
           {/* Community context */}
           {(scored || depResolved) && (
-            <Panel>
+            <Panel label="Community context">
               <PanelTitle>Community context</PanelTitle>
               {scored && scoreDetail.criteria.community_need && (
                 <div className="mb-2 flex items-baseline gap-2">

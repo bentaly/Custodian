@@ -1,3 +1,4 @@
+import { conflict, forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
@@ -48,7 +49,7 @@ export const getRound = createServerFn({ method: 'GET' })
         },
       },
     })
-    if (!round) throw new Error('Not found')
+    if (!round) throw notFoundError()
     assertClientAccess(user, round.clientId)
     return round
   })
@@ -79,7 +80,7 @@ export const updateRound = createServerFn({ method: 'POST' })
       where: (r, { eq }) => eq(r.id, id),
       columns: { clientId: true },
     })
-    if (!existing) throw new Error('Not found')
+    if (!existing) throw notFoundError()
     assertClientAccess(user, existing.clientId)
     const [round] = await getDb()
       .update(rounds)
@@ -105,14 +106,14 @@ export const deleteRound = createServerFn({ method: 'POST' })
         },
       },
     })
-    if (!round) throw new Error('Not found')
+    if (!round) throw notFoundError()
     // Scope non-superadmins to their own client.
-    if (user.clientId && round.clientId !== user.clientId) throw new Error('Forbidden')
+    if (user.clientId && round.clientId !== user.clientId) throw forbidden()
     // applications.roundProgrammeId is ON DELETE RESTRICT, so deleting a round that
     // has applications would fail at the DB; surface a clear message instead.
     const hasApplications = round.roundProgrammes.some((rp) => rp.applications.length > 0)
     if (hasApplications) {
-      throw new Error('This round has applications and cannot be deleted.')
+      throw conflict('This round has applications and cannot be deleted.')
     }
     await getDb().delete(rounds).where(eq(rounds.id, data.id))
     return { ok: true }

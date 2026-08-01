@@ -1,3 +1,4 @@
+import { forbidden, notFoundError } from '../lib/errors'
 import { eq } from 'drizzle-orm'
 import { getDb } from './db'
 import { programmes, roundProgrammes } from '../../drizzle/schema'
@@ -17,7 +18,7 @@ export async function assertApplicationAccess(
     where: (a, { eq }) => eq(a.id, applicationId),
     with: { roundProgramme: { with: { programme: { columns: { clientId: true } } } } },
   })
-  if (!app) throw new Error('Not found')
+  if (!app) throw notFoundError()
   assertClientAccess(user, app.roundProgramme.programme.clientId)
 }
 
@@ -32,7 +33,7 @@ export function assertClientAccess(
   resourceClientId: string | null | undefined,
 ): void {
   if (user.role === 'superadmin') return
-  if (!user.clientId || resourceClientId !== user.clientId) throw new Error('Forbidden')
+  if (!user.clientId || resourceClientId !== user.clientId) throw forbidden()
 }
 
 /**

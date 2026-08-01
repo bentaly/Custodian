@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { orNotFound } from '../../lib/loader'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import {
   getProgramme,
@@ -17,7 +18,7 @@ import { Badge, Breadcrumb, Button, Card, Input, Label, Textarea } from '../../c
 export const Route = createFileRoute('/_authenticated/programmes/$programmeId')({
   loader: async ({ params }) => {
     const [programme, clientTags, allRounds] = await Promise.all([
-      getProgramme({ data: { id: params.programmeId } }),
+      orNotFound(getProgramme({ data: { id: params.programmeId } })),
       listClientTags(),
       listMyRounds(),
     ])

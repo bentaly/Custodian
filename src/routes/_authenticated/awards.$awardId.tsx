@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { orNotFound } from '../../lib/loader'
 import { useState } from 'react'
 import {
   getAward,
@@ -23,7 +24,7 @@ import {
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
-  loader: ({ params }) => getAward({ data: { id: params.awardId } }),
+  loader: ({ params }) => orNotFound(getAward({ data: { id: params.awardId } })),
   component: AwardDetail,
 })
 

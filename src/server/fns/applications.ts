@@ -1,3 +1,4 @@
+import { conflict, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, count, inArray, sql, ne, ilike, gte, lt, isNotNull, desc } from 'drizzle-orm'
@@ -145,7 +146,7 @@ export const getApplication = createServerFn({ method: 'GET' })
         roundProgramme: { with: { programme: { with: { client: true } }, round: true } },
       },
     })
-    if (!application) throw new Error('Not found')
+    if (!application) throw notFoundError()
     assertClientAccess(user, application.roundProgramme.programme.clientId)
 
     // Committed = awarded awards at their grant amount + shortlisted at requested.
@@ -177,7 +178,7 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
     const application = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
     })
-    if (!application) throw new Error('Not found')
+    if (!application) throw notFoundError()
 
     const result = await runDueDiligence({
       charityNumber: application.charityNumber,
@@ -278,9 +279,9 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       where: (a, { eq }) => eq(a.id, id),
       columns: { status: true },
     })
-    if (!current) throw new Error('Not found')
+    if (!current) throw notFoundError()
     if (current.status === 'awarded') {
-      throw new Error('An awarded application cannot change status; cancel the award instead')
+      throw conflict('An awarded application cannot change status; cancel the award instead')
     }
 
     if (status === 'shortlisted') {
@@ -288,7 +289,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
         where: (a, { eq }) => eq(a.id, id),
         with: { roundProgramme: true },
       })
-      if (!app) throw new Error('Not found')
+      if (!app) throw notFoundError()
 
       const budget = app.roundProgramme.budget ? parseFloat(app.roundProgramme.budget) : null
       if (budget !== null) {
@@ -313,7 +314,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
         if (committed + requested > budget) {
           const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
           const remaining = budget - committed
-          throw new Error(
+          throw conflict(
             `Budget limit reached — ${fmt(remaining > 0 ? remaining : 0)} remaining, this application requests ${fmt(requested)}`,
           )
         }
@@ -484,7 +485,7 @@ export const getAward = createServerFn({ method: 'GET' })
         letter: true,
       },
     })
-    if (!award) throw new Error('Not found')
+    if (!award) throw notFoundError()
     assertClientAccess(user, award.clientId)
 
     const app = award.application
@@ -610,7 +611,7 @@ async function requireAwardForSchedule(
     where: eq(reportSchedule.id, scheduleId),
     with: { award: { columns: { id: true, clientId: true } } },
   })
-  if (!row) throw new Error('Not found')
+  if (!row) throw notFoundError()
   assertClientAccess(user, row.award.clientId)
   return row
 }
@@ -629,7 +630,7 @@ export const addReportMilestone = createServerFn({ method: 'POST' })
       where: eq(awards.id, data.awardId),
       columns: { id: true, clientId: true },
     })
-    if (!award) throw new Error('Not found')
+    if (!award) throw notFoundError()
     assertClientAccess(user, award.clientId)
     await getDb()
       .insert(reportSchedule)
@@ -656,7 +657,7 @@ export const deleteReportMilestone = createServerFn({ method: 'POST' })
     const user = await requireRole('superadmin', 'admin')
     const row = await requireAwardForSchedule(user, data.id)
     if (row.submittedDate) {
-      throw new Error('This report has already been received and cannot be removed')
+      throw conflict('This report has already been received and cannot be removed')
     }
     await getDb().delete(reportSchedule).where(eq(reportSchedule.id, data.id))
   })
@@ -678,7 +679,7 @@ export const updateInstalment = createServerFn({ method: 'POST' })
       where: eq(awardInstalments.id, data.id),
       with: { award: { columns: { clientId: true } } },
     })
-    if (!row) throw new Error('Not found')
+    if (!row) throw notFoundError()
     assertClientAccess(user, row.award.clientId)
     await getDb()
       .update(awardInstalments)
@@ -708,7 +709,7 @@ export const setInstalmentPaid = createServerFn({ method: 'POST' })
       where: eq(awardInstalments.id, data.id),
       with: { award: { columns: { id: true, clientId: true, status: true } } },
     })
-    if (!row) throw new Error('Not found')
+    if (!row) throw notFoundError()
     assertClientAccess(user, row.award.clientId)
     const paidDate = data.paid ? (data.paidDate ?? new Date().toISOString().slice(0, 10)) : null
     await getDb().update(awardInstalments).set({ paidDate }).where(eq(awardInstalments.id, data.id))

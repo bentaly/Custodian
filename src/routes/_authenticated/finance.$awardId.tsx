@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { orNotFound } from '../../lib/loader'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { BankIcon, Calendar03Icon, Coins01Icon, Wallet01Icon } from '@hugeicons/core-free-icons'
 import { getFinanceGrant, type BankStatus } from '../../server/fns/finance'
@@ -7,7 +8,7 @@ import { Badge, Breadcrumb, Button, Card, KPI_TINTS, MiniKpi } from '../../compo
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/finance/$awardId')({
-  loader: ({ params }) => getFinanceGrant({ data: { id: params.awardId } }),
+  loader: ({ params }) => orNotFound(getFinanceGrant({ data: { id: params.awardId } })),
   component: FinanceGrantDetail,
 })
 

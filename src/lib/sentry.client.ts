@@ -1,17 +1,25 @@
 import * as Sentry from '@sentry/react'
-import { IGNORED_MESSAGES, SENTRY_DSN, resolveEnvironment, shouldIgnore } from './sentry'
+import {
+  IGNORED_MESSAGES,
+  SENTRY_DSN,
+  resolveEnvironment,
+  shouldIgnore,
+  shouldReport,
+} from './sentry'
 
 let started = false
 
 /**
  * Start Sentry in the browser. Idempotent, and a no-op during SSR — the Worker has its
- * own client (see `worker-entry.js`).
+ * own client (see `worker-entry.js`) — and on localhost, where the stack trace is
+ * already in your terminal.
  */
 export function initSentryClient(): void {
   if (started || typeof window === 'undefined') return
   started = true
 
   const environment = resolveEnvironment(window.location.hostname)
+  if (!shouldReport(environment)) return
 
   Sentry.init({
     dsn: SENTRY_DSN,
@@ -31,6 +39,10 @@ export function initSentryClient(): void {
     sendDefaultPii: false,
 
     ignoreErrors: IGNORED_MESSAGES,
+
+    // Browser and Worker errors share one project, so tag which half threw. Filter the
+    // issue stream with `side:browser` / `side:worker`.
+    initialScope: { tags: { side: 'browser' } },
 
     beforeSend(event, hint) {
       if (shouldIgnore(hint?.originalException)) return null

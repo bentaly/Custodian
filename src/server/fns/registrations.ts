@@ -1,3 +1,4 @@
+import { forbidden } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { requireAuthUser } from '../session'
@@ -18,7 +19,7 @@ export const completeRegistration = createServerFn({ method: 'POST' })
     if (user.clientId) return user
 
     const claimed = await claimPendingInvite(user, data.inviteToken)
-    if (!claimed) throw new Error('No valid invitation for this account')
+    if (!claimed) throw forbidden('No valid invitation for this account')
 
     return { ...user, clientId: claimed.clientId, role: claimed.role }
   })

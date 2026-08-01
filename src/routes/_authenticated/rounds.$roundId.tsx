@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { orNotFound } from '../../lib/loader'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { getRound, updateRound, deleteRound } from '../../server/fns/rounds'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
@@ -14,7 +15,7 @@ import { Breadcrumb, Button, Card, Input, Label } from '../../components/ui'
 export const Route = createFileRoute('/_authenticated/rounds/$roundId')({
   loader: async ({ params }) => {
     const [round, clientProgrammes] = await Promise.all([
-      getRound({ data: { id: params.roundId } }),
+      orNotFound(getRound({ data: { id: params.roundId } })),
       listProgrammes(),
     ])
     return { round, clientProgrammes }

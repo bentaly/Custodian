@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { orNotFound } from '../../lib/loader'
 import { useState } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
 import { Drawer } from '../../components/Drawer'
@@ -8,7 +9,7 @@ import { Breadcrumb, Button, Card, EmptyState } from '../../components/ui'
 import { fmtDate } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
-  loader: ({ params }) => getReport({ data: { key: params.reportKey } }),
+  loader: ({ params }) => orNotFound(getReport({ data: { key: params.reportKey } })),
   component: ReportDetail,
 })
 

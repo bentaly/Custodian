@@ -1,3 +1,4 @@
+import { badRequest, conflict, forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, eq, inArray } from 'drizzle-orm'
@@ -135,7 +136,7 @@ export const updateAwardLetterSettings = createServerFn({ method: 'POST' })
   .validator(AwardLetterSettingsSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('admin', 'superadmin')
-    if (!user.clientId) throw new Error('No client associated with your account')
+    if (!user.clientId) throw forbidden('No organisation is associated with your account.')
 
     // Only write the keys the caller actually sent, so saving the signatory never
     // clobbers the template (same rule as `upsertClientProfile`).
@@ -245,7 +246,7 @@ export const createAwards = createServerFn({ method: 'POST' })
 
     const applicationIds = data.grants.map((g) => g.applicationId)
     if (new Set(applicationIds).size !== applicationIds.length) {
-      throw new Error('The same application appears twice in this batch')
+      throw badRequest('The same application appears twice in this batch')
     }
 
     const rows = await db.query.applications.findMany({
@@ -261,9 +262,9 @@ export const createAwards = createServerFn({ method: 'POST' })
     // trustee roster and the tenancy check are all per-client, and a mixed batch could
     // only arise from a crafted request.
     const clientIds = [...new Set(rows.map((r) => r.roundProgramme.programme.clientId))]
-    if (clientIds.length > 1) throw new Error('Awards must all belong to one organisation')
+    if (clientIds.length > 1) throw badRequest('Awards must all belong to one organisation')
     const clientId = clientIds[0]
-    if (!clientId) throw new Error('Not found')
+    if (!clientId) throw notFoundError()
     assertClientAccess(user, clientId)
 
     const [trusteeRows, yesRows] = await Promise.all([
@@ -493,7 +494,7 @@ export const resendAwardLetter = createServerFn({ method: 'POST' })
     const letter = await getDb().query.awardLetters.findFirst({
       where: (l, { eq }) => eq(l.awardId, data.awardId),
     })
-    if (!letter) throw new Error('No letter has been issued for this award')
+    if (!letter) throw conflict('No letter has been issued for this award')
     assertClientAccess(user, letter.clientId)
 
     if (data.recipientEmail && data.recipientEmail !== letter.recipientEmail) {
@@ -504,6 +505,6 @@ export const resendAwardLetter = createServerFn({ method: 'POST' })
     }
 
     const result = await resendStoredLetter(letter.id)
-    if (!result.ok) throw new Error(result.error ?? 'The letter could not be sent')
+    if (!result.ok) throw conflict(result.error ?? 'The letter could not be sent')
     return { ok: true as const }
   })

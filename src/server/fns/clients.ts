@@ -1,3 +1,4 @@
+import { forbidden } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { getDb } from '../db'
@@ -22,7 +23,7 @@ export const upsertClientProfile = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const user = await requireRole('admin', 'superadmin')
-    if (!user.clientId) throw new Error('No client associated with your account')
+    if (!user.clientId) throw forbidden('No organisation is associated with your account.')
     // Only set the fields the caller actually provided, so updating one setting
     // (e.g. the admin-voting toggle) never clobbers another (the mission statement).
     const fields: Partial<typeof clientProfiles.$inferInsert> = {}

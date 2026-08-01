@@ -1,5 +1,8 @@
+import type { ReactNode } from 'react'
 import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ErrorState } from '../components/ui/ErrorState'
+import { notFoundError } from '../lib/errors'
 import '../styles/globals.css'
 
 const queryClient = new QueryClient({
@@ -35,13 +38,43 @@ export const Route = createRootRoute({
       },
     ],
   }),
+  // Last resort. A URL matching no route at all lands here; anything inside the app
+  // is caught by `_authenticated` first and keeps the sidebar and header.
   notFoundComponent: () => (
-    <div className="flex h-screen items-center justify-center">
-      <p className="text-sm text-gray-500">Page not found.</p>
-    </div>
+    <Shell>
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <ErrorState error={notFoundError('That page does not exist.')} />
+      </div>
+    </Shell>
+  ),
+  errorComponent: ({ error, reset }) => (
+    <Shell>
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <ErrorState error={error} onRetry={reset} />
+      </div>
+    </Shell>
   ),
   component: Root,
 })
+
+/**
+ * The document itself.
+ *
+ * Both boundaries above render this rather than bare markup, because a root
+ * `errorComponent` replaces the root *component* — it is not nested inside it. Return
+ * only a `<div>` and the page ships with no `<head>`, no stylesheet and no `<Scripts>`,
+ * which is why an unstyled wall of text is the classic look of a root-level crash.
+ */
+function Shell({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <HeadContent />
+      </head>
+      <body>{children}</body>
+    </html>
+  )
+}
 
 function Root() {
   return (

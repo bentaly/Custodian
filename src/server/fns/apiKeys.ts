@@ -1,3 +1,4 @@
+import { forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
@@ -31,7 +32,7 @@ export const createApiKey = createServerFn({ method: 'POST' })
   .validator(z.object({ name: z.string().trim().min(1).max(80) }))
   .handler(async ({ data }) => {
     const user = await requireRole('admin', 'superadmin')
-    if (!user.clientId) throw new Error('No organisation associated with your account')
+    if (!user.clientId) throw forbidden('No organisation is associated with your account.')
 
     const { key, last4 } = generateApiKey()
     const keyHash = await hashApiKey(key)
@@ -53,12 +54,12 @@ export const revokeApiKey = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('admin', 'superadmin')
-    if (!user.clientId) throw new Error('No organisation associated with your account')
+    if (!user.clientId) throw forbidden('No organisation is associated with your account.')
     const [row] = await getDb()
       .update(apiKeys)
       .set({ revokedAt: new Date() })
       .where(and(eq(apiKeys.id, data.id), eq(apiKeys.clientId, user.clientId)))
       .returning({ id: apiKeys.id })
-    if (!row) throw new Error('Key not found')
+    if (!row) throw notFoundError('Key not found')
     return row
   })

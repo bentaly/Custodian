@@ -43,12 +43,17 @@ const worker = {
 // reported explicitly from the server error middleware instead.
 export default Sentry.withSentry(
   (env) => ({
-    dsn: SENTRY_DSN,
+    // An empty DSN disables the SDK outright. `wrangler dev` locally sets no
+    // SENTRY_ENVIRONMENT, so local Worker runs stay out of the issue stream — matching
+    // the browser, which skips localhost (see src/lib/sentry.ts `shouldReport`).
+    dsn: env.SENTRY_ENVIRONMENT ? SENTRY_DSN : '',
     // Set per-Worker in wrangler.toml — both Workers are built from the same commit,
     // so the build itself cannot tell staging from prod.
-    environment: env.SENTRY_ENVIRONMENT ?? 'production',
+    environment: env.SENTRY_ENVIRONMENT ?? 'development',
     tracesSampleRate: 0,
     sendDefaultPii: false,
+    // Browser and Worker errors share one Sentry project — tag which half threw.
+    initialScope: { tags: { side: 'worker' } },
   }),
   worker,
 )

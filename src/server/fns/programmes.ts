@@ -1,3 +1,4 @@
+import { forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
@@ -34,7 +35,7 @@ export const getProgramme = createServerFn({ method: 'GET' })
         roundProgrammes: { with: { round: true } },
       },
     })
-    if (!programme) throw new Error('Not found')
+    if (!programme) throw notFoundError()
     assertClientAccess(user, programme.clientId)
     return programme
   })
@@ -57,7 +58,7 @@ export const updateProgramme = createServerFn({ method: 'POST' })
       where: (p, { eq }) => eq(p.id, id),
       columns: { clientId: true },
     })
-    if (!existing) throw new Error('Not found')
+    if (!existing) throw notFoundError()
     assertClientAccess(user, existing.clientId)
     const [programme] = await getDb()
       .update(programmes)
@@ -84,8 +85,8 @@ export const addProgrammeToRound = createServerFn({ method: 'POST' })
         columns: { clientId: true },
       }),
     ])
-    if (!round || !programme) throw new Error('Not found')
-    if (round.clientId !== programme.clientId) throw new Error('Forbidden')
+    if (!round || !programme) throw notFoundError()
+    if (round.clientId !== programme.clientId) throw forbidden()
     assertClientAccess(user, round.clientId)
     const [link] = await getDb()
       .insert(roundProgrammes)
@@ -107,7 +108,7 @@ export const updateRoundProgramme = createServerFn({ method: 'POST' })
       where: (rp, { eq }) => eq(rp.id, id),
       with: { programme: { columns: { clientId: true } } },
     })
-    if (!existing) throw new Error('Not found')
+    if (!existing) throw notFoundError()
     assertClientAccess(user, existing.programme.clientId)
     const [link] = await getDb()
       .update(roundProgrammes)
@@ -132,7 +133,7 @@ export const removeProgrammeFromRound = createServerFn({ method: 'POST' })
         andOp(eq(rp.roundId, data.roundId), eq(rp.programmeId, data.programmeId)),
       with: { programme: { columns: { clientId: true } } },
     })
-    if (!existing) throw new Error('Not found')
+    if (!existing) throw notFoundError()
     assertClientAccess(user, existing.programme.clientId)
     await getDb()
       .delete(roundProgrammes)

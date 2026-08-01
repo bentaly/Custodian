@@ -1,3 +1,4 @@
+import { forbidden, unauthorized } from '../lib/errors'
 import { getRequest } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { getAuth } from './auth'
@@ -40,7 +41,7 @@ export async function getAuthUser() {
 
 export async function requireAuthUser() {
   const user = await getAuthUser()
-  if (!user) throw new Error('Unauthorized')
+  if (!user) throw unauthorized()
   return user
 }
 
@@ -48,6 +49,6 @@ export type UserRole = 'superadmin' | 'admin' | 'trustee' | 'finance'
 
 export async function requireRole(...roles: UserRole[]) {
   const user = await requireAuthUser()
-  if (!roles.includes(user.role)) throw new Error('Forbidden')
+  if (!roles.includes(user.role)) throw forbidden()
   return user
 }
