@@ -44,6 +44,13 @@ export const applicationStatusEnum = pgEnum('application_status', [
 //   cancelled  — the award was withdrawn after being generated
 export const awardStatusEnum = pgEnum('award_status', ['active', 'completed', 'cancelled'])
 
+// Delivery state of the award letter that notifies a grantee of its grant.
+//   draft  — rendered and stored, not yet emailed (no recipient, or send deferred)
+//   sent   — handed to Resend without error
+//   failed — Resend rejected it, or there was no key/recipient; the stored letter is
+//            still viewable and can be resent from the award detail screen
+export const awardLetterStatusEnum = pgEnum('award_letter_status', ['draft', 'sent', 'failed'])
+
 // Overall outcome of the automated due diligence screening for an application.
 //   pending  — not yet run
 //   clear    — all checks passed
@@ -403,6 +410,25 @@ export const clientProfiles = pgTable('client_profiles', {
   missionStatement: text('mission_statement'),
   // When true, admins may record votes on behalf of trustees (see castVote).
   allowAdminVoting: boolean('allow_admin_voting').notNull().default(false),
+  // ─── Award letter ───
+  // The foundation's override of the built-in award-letter template (markdown with
+  // {{token}} placeholders — see src/lib/awardLetter). NULL means "use the built-in
+  // default", which is deliberately different from an empty string: we want a
+  // foundation that has never touched this to keep picking up template improvements,
+  // and clearing the editor back to the default writes NULL rather than ''.
+  awardLetterTemplate: text('award_letter_template'),
+  // The standard conditions of grant, in order. NULL = use the built-in list; an
+  // empty array is a real choice (a foundation that attaches no standard conditions).
+  awardLetterConditions: jsonb('award_letter_conditions').$type<string[]>(),
+  // Who the letter is signed off by, e.g. "Jane Fairfax, Chair of Trustees".
+  awardLetterSignatory: text('award_letter_signatory'),
+  // Display name on the From header. Defaults to the client's name when unset.
+  awardLetterSenderName: text('award_letter_sender_name'),
+  // Where the grantee's reply goes. This is the load-bearing half of "make it look
+  // like it came from the foundation": we cannot put their address in From without
+  // a DNS-verified sending domain, but Reply-To needs no proof of ownership, so a
+  // grantee hitting reply lands in the foundation's inbox, not ours.
+  awardLetterReplyTo: text('award_letter_reply_to'),
   updatedAt: timestamp('updated_at')
     .notNull()
     .$defaultFn(() => new Date()),
@@ -573,13 +599,25 @@ export const awards = pgTable(
       .references(() => clients.id, { onDelete: 'cascade' }),
     amountAwarded: numeric('amount_awarded').notNull(),
     status: awardStatusEnum('status').notNull().default('active'),
+    // What the money is FOR, in the foundation's words — "towards {{purpose}}" on the
+    // award letter, and the thing a later grant report is judged against. Captured
+    // during award set-up. Nullable: awards minted before this column existed have none.
+    purpose: text('purpose'),
+    // A condition that applies to this grant alone (e.g. "restricted to capital
+    // works"), appended after the standard conditions on the letter.
+    specialCondition: text('special_condition'),
+    // The date the grant period begins, as an ISO yyyy-mm-dd string. Distinct from
+    // `decisionAt` (when the award was made) and from the first instalment date (money
+    // may move before or after the period opens). Nullable — it is a letter/reporting
+    // concern, not something every legacy award has.
+    startDate: text('start_date'),
     // When the award was generated (the grant's start). Mirrors the application's
     // decisionAt for application-derived awards.
     decisionAt: timestamp('decision_at').notNull().defaultNow(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   // One grant per application — the `award: one(...)` relation and every money
-  // rollup assume it; a double-submitted generateAward must hit this wall.
+  // rollup assume it; a double-submitted award set-up must hit this wall.
   (t) => [unique('awards_application_uniq').on(t.applicationId)],
 )
 
@@ -617,6 +655,50 @@ export const reportSchedule = pgTable('report_schedule', {
   dueDate: text('due_date').notNull(),
   submittedDate: text('submitted_date'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// The award letter issued to a grantee — the document that tells a charity it has the
+// money and on what terms.
+//
+// This is a SNAPSHOT, not a view. The letter is rendered once at award set-up from the
+// then-current template, conditions, amounts and schedule, and the rendered text is
+// stored here verbatim. That is the whole point: the letter is a contractual record of
+// what was promised, so editing the template in Settings next month, or rescheduling an
+// instalment, must not retroactively rewrite what a grantee was actually sent. Nothing
+// re-renders a stored letter; "resend" posts the same bytes again.
+export const awardLetters = pgTable('award_letters', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  // Unique: one letter record per award. A resend updates this row (sentAt, status)
+  // rather than accumulating rows — the delivery attempts are not the document.
+  awardId: uuid('award_id')
+    .notNull()
+    .unique()
+    .references(() => awards.id, { onDelete: 'cascade' }),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  subject: text('subject').notNull(),
+  // The letter body as rendered markdown-ish plain text (the source of truth), and the
+  // HTML actually emailed. Both are stored so the award detail screen can show exactly
+  // what was sent without re-running the renderer.
+  bodyText: text('body_text').notNull(),
+  bodyHtml: text('body_html').notNull(),
+  // The conditions of grant as they stood when the letter was issued, in order.
+  conditions: jsonb('conditions').$type<string[]>().notNull(),
+  status: awardLetterStatusEnum('status').notNull().default('draft'),
+  // Who it went to, and where a reply lands. Snapshotted for the same reason as the
+  // body — the client's reply-to setting may change later.
+  recipientEmail: text('recipient_email'),
+  replyTo: text('reply_to'),
+  senderName: text('sender_name'),
+  // Why a send failed, surfaced on the award detail screen so a stuck letter is
+  // visible and actionable rather than silently undelivered.
+  failureReason: text('failure_reason'),
+  sentAt: timestamp('sent_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
 // ─── Grant report submissions (report ingest) ───────────────────────────────────
@@ -861,6 +943,13 @@ export const awardsRelations = relations(awards, ({ one, many }) => ({
   // The dates a report is expected on, and the reports actually received.
   schedule: many(reportSchedule),
   reports: many(reports),
+  // 1:1 (unique awardId), modelled as a to-one relation like `applications.award`.
+  letter: one(awardLetters, { fields: [awards.id], references: [awardLetters.awardId] }),
+}))
+
+export const awardLettersRelations = relations(awardLetters, ({ one }) => ({
+  award: one(awards, { fields: [awardLetters.awardId], references: [awards.id] }),
+  client: one(clients, { fields: [awardLetters.clientId], references: [clients.id] }),
 }))
 
 export const awardInstalmentsRelations = relations(awardInstalments, ({ one }) => ({

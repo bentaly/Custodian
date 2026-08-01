@@ -23,7 +23,6 @@ import {
 } from '../scope'
 import {
   ApplicationFiltersSchema,
-  GenerateAwardSchema,
   UpdateApplicationStatusSchema,
 } from '../../lib/validators/application'
 import { runDueDiligence } from '../dueDiligence/run'
@@ -198,102 +197,6 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
     return updated!
   })
 
-export const generateAward = createServerFn({ method: 'POST' })
-  .validator(GenerateAwardSchema)
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin')
-    await assertApplicationAccess(user, data.id)
-
-    // An award can only be generated for a shortlisted application that has secured
-    // a majority (> 50%) of its client's trustees voting in favour.
-    const existing = await getDb().query.applications.findFirst({
-      where: (a, { eq }) => eq(a.id, data.id),
-      with: { roundProgramme: { with: { programme: true } }, award: { columns: { id: true } } },
-    })
-    if (!existing) throw new Error('Not found')
-    if (existing.status !== 'shortlisted') {
-      throw new Error('Only shortlisted applications can be awarded')
-    }
-    // Belt (the DB's unique index is braces): a double-submitted award must not
-    // mint a second grant.
-    if (existing.award) throw new Error('This application already has an award')
-
-    const clientId = existing.roundProgramme.programme.clientId
-    const [trusteeRows, yesRows] = await Promise.all([
-      getDb()
-        .select({ count: count() })
-        .from(users)
-        .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId))),
-      getDb()
-        .select({ count: count() })
-        .from(applicationVotes)
-        .where(and(eq(applicationVotes.applicationId, data.id), eq(applicationVotes.vote, 'yes'))),
-    ])
-    const trusteeCount = trusteeRows[0]?.count ?? 0
-    const yesCount = yesRows[0]?.count ?? 0
-    if (trusteeCount === 0 || yesCount * 2 <= trusteeCount) {
-      throw new Error('A majority of trustees must vote in favour before an award can be generated')
-    }
-
-    const decisionAt = new Date()
-
-    // Promote the award to a first-class grant: the money/schedule live on `awards` /
-    // `award_instalments` and the reporting milestones on `report_schedule`. The
-    // application stays the request record and only flips status. All four writes go
-    // in one `db.batch` — neon-http has no interactive transactions, but a batch runs
-    // atomically, so a failure can't leave an award without its schedule or status flip.
-    const awardId = crypto.randomUUID()
-    const db = getDb()
-    const insertAward = db.insert(awards).values({
-      id: awardId,
-      applicationId: data.id,
-      clientId,
-      amountAwarded: data.amountAwarded.toString(),
-      status: 'active',
-      decisionAt,
-    })
-    const insertInstalments = db.insert(awardInstalments).values(
-      data.schedule.map((s) => ({
-        awardId,
-        instalmentNo: s.instalment,
-        amount: s.amount.toString(),
-        dueDate: s.date,
-      })),
-    )
-    const flipStatus = db
-      .update(applications)
-      .set({ status: 'awarded', decisionAt })
-      .where(eq(applications.id, data.id))
-      .returning()
-
-    const updatedRows =
-      data.reportingDates.length > 0
-        ? (
-            await db.batch([
-              insertAward,
-              insertInstalments,
-              db
-                .insert(reportSchedule)
-                .values(
-                  data.reportingDates.map((r) => ({ awardId, label: r.label, dueDate: r.date })),
-                ),
-              flipStatus,
-            ])
-          )[3]
-        : (await db.batch([insertAward, insertInstalments, flipStatus]))[2]
-    const application = updatedRows[0]
-    if (!application) throw new Error('Not found')
-
-    await recordAudit({
-      actorUserId: user.id,
-      action: 'application_awarded',
-      applicationId: data.id,
-      clientId,
-      metadata: { amount: data.amountAwarded },
-    })
-    return application
-  })
-
 export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
   .validator(z.object({ roundId: z.uuid() }))
   .handler(async ({ data }) => {
@@ -428,7 +331,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       .where(eq(applications.id, id))
       .returning()
 
-    // Log the interesting human decisions. Awards are logged in `generateAward`
+    // Log the interesting human decisions. Awards are logged in `createAwards`
     // (the path that actually mints the grant), so they're excluded here.
     const auditAction =
       status === 'shortlisted'
@@ -578,6 +481,7 @@ export const getAward = createServerFn({ method: 'GET' })
         instalments: true,
         schedule: true,
         reports: true,
+        letter: true,
       },
     })
     if (!award) throw new Error('Not found')
@@ -649,6 +553,22 @@ export const getAward = createServerFn({ method: 'GET' })
       id: award.id,
       status: award.status,
       amountAwarded,
+      purpose: award.purpose,
+      specialCondition: award.specialCondition,
+      startDate: award.startDate,
+      // The award letter as issued — a stored snapshot, not a re-render (see the
+      // `award_letters` table comment).
+      letter: award.letter
+        ? {
+            subject: award.letter.subject,
+            bodyText: award.letter.bodyText,
+            status: award.letter.status,
+            recipientEmail: award.letter.recipientEmail,
+            replyTo: award.letter.replyTo,
+            failureReason: award.letter.failureReason,
+            sentAt: award.letter.sentAt?.toISOString() ?? null,
+          }
+        : null,
       decisionAt: award.decisionAt.toISOString(),
       durationYears: app.roundProgramme?.grantDurationYears ?? null,
       organisationName: app.organisationName,

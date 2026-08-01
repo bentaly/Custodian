@@ -32,6 +32,33 @@ function fromAddress() {
   return process.env['FROM_EMAIL'] ?? 'Custodian <onboarding@resend.dev>'
 }
 
+/** The bare `local@domain` out of a possibly `Name <local@domain>` From setting. */
+function fromMailbox(): string {
+  const configured = fromAddress()
+  const angled = configured.match(/<([^>]+)>/)
+  return (angled?.[1] ?? configured).trim()
+}
+
+/**
+ * A From header that reads as the foundation: their name in the display part, our
+ * verified sending mailbox behind it.
+ *
+ * We cannot put the foundation's own address in From. SPF/DKIM/DMARC alignment is
+ * checked against the From domain, so sending as `grants@theirfoundation.org` from our
+ * infrastructure would fail authentication and land in spam — the deliverability cost
+ * is worse than the branding gain. Making it genuinely come *from* their domain needs
+ * them to add DNS records for a verified sending domain, which is a separate feature.
+ * Until then: their name in From, their address in Reply-To (see `sendAwardLetterEmail`).
+ */
+function brandedFrom(displayName: string | null | undefined): string {
+  const name = displayName?.trim()
+  if (!name) return fromAddress()
+  // Quote the display name and strip the characters that would let it break out of the
+  // header — a client-supplied foundation name reaches this string.
+  const safe = name.replace(/["\\\r\n]/g, '').slice(0, 78)
+  return `"${safe}" <${fromMailbox()}>`
+}
+
 export async function sendSignInCodeEmail({ to, otp }: { to: string; otp: string }) {
   await send('sign-in code email', {
     from: fromAddress(),
@@ -99,6 +126,52 @@ export async function sendPasswordResetCodeEmail({ to, otp }: { to: string; otp:
       </div>
     `,
   })
+}
+
+/**
+ * Email an award letter to a grantee.
+ *
+ * Unlike the other senders this one REPORTS its outcome rather than swallowing it. The
+ * others are best-effort side-cars to a request the user is watching (an invite, a
+ * sign-in code) and a failure is recoverable by retrying the action. An award letter is
+ * a contractual notification sent in the background after the award is already
+ * committed, so a silent failure would leave a charity un-notified with nothing on
+ * screen to say so. The caller records the result on `award_letters.status` and the
+ * award detail screen offers a resend.
+ */
+export async function sendAwardLetterEmail({
+  to,
+  replyTo,
+  senderName,
+  subject,
+  html,
+  text,
+}: {
+  to: string
+  replyTo?: string | null
+  senderName?: string | null
+  subject: string
+  html: string
+  text: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const resend = getResend()
+  if (!resend) {
+    console.warn('RESEND_API_KEY not set — skipping award letter email')
+    return { ok: false, error: 'Email is not configured (no RESEND_API_KEY).' }
+  }
+  const { error } = await resend.emails.send({
+    from: brandedFrom(senderName),
+    to,
+    ...(replyTo ? { replyTo } : {}),
+    subject,
+    text,
+    html,
+  })
+  if (error) {
+    console.error(`Resend rejected award letter to ${to}:`, error)
+    return { ok: false, error: error.message ?? 'The email provider rejected the message.' }
+  }
+  return { ok: true }
 }
 
 export async function sendInvitationEmail({

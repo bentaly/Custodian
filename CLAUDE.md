@@ -20,6 +20,11 @@ Grant management platform for philanthropic organisations. Clients (charitable f
 - **Deploy method**: push to `master` → GitHub Actions (`.github/workflows/ci.yml`) runs typecheck → build → `wrangler deploy`
 - Do NOT run `npx wrangler deploy` manually unless testing outside of CI — the GitHub Action is the deploy path
 - Cloudflare secrets are managed via `npx wrangler secret put <KEY>` — they are NOT in `.env` for production
+- **Logs**: Workers Logs is on for both Workers (`[observability]` in `wrangler.toml`). Read them in
+  the dashboard → Workers & Pages → the worker → Observability. Retention is short (3 days on Free,
+  7 on Paid), so check soon after a failure. This is where `runInBackground`'s
+  `[background] <label> failed:` lines land — the only record of why a background pipeline died.
+  `npx wrangler tail` streams the same logs live when you can reproduce on demand.
 
 ## Local development
 
@@ -77,7 +82,12 @@ Only skip expand/contract for a deliberately-accepted brief blip on this low-tra
 Local: `.env` file (loaded via `dotenv/config` in drizzle.config.ts and scripts).
 Production: Cloudflare secrets — verify with `npx wrangler secret list`.
 
-Required secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `CHARITY_COMMISSION_KEY`, `COMPANIES_HOUSE_KEY`, `ANTHROPIC_API_KEY` (AI "Custodian score" scoring AND field-mapping AI fallback; both degrade gracefully if absent — scoring → `pending`, mapping → `needs_review`), `ADMIN_API_TOKEN` (shared secret gating the `/api/admin/*` field-mapping endpoints).
+Required secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `CHARITY_COMMISSION_KEY`, `COMPANIES_HOUSE_KEY`, `ANTHROPIC_API_KEY` (AI "Custodian score" scoring AND field-mapping AI fallback; both degrade gracefully if absent — scoring → `pending`, mapping → `needs_review`), `ADMIN_API_TOKEN` (shared secret gating the `/api/admin/*` field-mapping endpoints), `FROM_EMAIL`
+(the sender, `Name <box@custodian.fund>` — the verified Resend domain is the **apex**
+`custodian.fund`, which is where the DKIM key lives; `send.custodian.fund` is only the
+bounce/return-path subdomain, so never put it in a From address. Set in both Workers but **not** in
+`.env`, so local sends fall back to `onboarding@resend.dev`, which Resend only delivers to the
+account owner's own address; set it locally before testing any outbound mail).
 
 The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the main app's `ADMIN_API_TOKEN`, and `VITE_API_BASE` pointing at the target main app. Locally these live in `admin-app/.env.local` (gitignored); in Cloudflare they're build-env vars on the admin project.
 
@@ -216,8 +226,18 @@ canonical fields (`CreateApplicationSchema`).
 - `src/routes/_authenticated/*.tsx` — dashboard, applications (+detail), shortlist, awards
   (+detail), finance (+detail), reports (+detail), rounds (+detail), programmes (+detail),
   insights, profile, and the Settings hub
+- **Shortlist** (`/shortlist`) — the board's decision screen: three `MiniKpi` cards (proposed spend
+  by programme / spend against the round-programme budget incl. what is already committed / where the
+  vote has got to), then a vote card per shortlisted application. Trustees get Approve-Decline
+  buttons; admins get per-trustee toggles only when `allowAdminVoting` is on (an admin has no vote of
+  their own — see `castVote`). `/shortlist/set-up-awards` is the admin-only award set-up flow (below)
+- **`RoundSelect`** (`src/components/ui`) — the round pill Applications and Shortlist share. There is
+  deliberately **no "all rounds"** option: these screens are about one round's decisions, and totals
+  summed across rounds are meaningless. Shortlist's `beforeLoad` redirects to the most recent round
+  when the search param is absent. Screen headers put the `<h1>` first and the round pill on the row
+  beneath it — match that on any new round-scoped screen
 - **Settings** (`/settings`) — a card-grid hub for everything that is configuration rather than daily
-  work. Sub-pages: `team`, `giving-strategy`, `voting`, `api-keys`, `submissions`; it also links out
+  work. Sub-pages: `team`, `giving-strategy`, `voting`, `award-letter`, `api-keys`, `submissions`; it also links out
   to the (unmoved) `/rounds` and `/programmes` routes, which is why those left the sidebar. Cards are
   filtered by role, so the hub is shown to everyone. `/users` is now a redirect to `/settings/team` —
   it was the old all-in-one "Organisation" screen
@@ -236,4 +256,34 @@ canonical fields (`CreateApplicationSchema`).
 - **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
 - **reportAnalysis** — AI analysis of received reports (summary, alignment, impact quantity)
 - **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance
+- **awardLetter** — the letter a grantee is emailed when awarded. `src/lib/awardLetter` renders it
+  (text-only `{{token}}` template, no markup passthrough — a foundation's template is emailed to
+  third parties); `src/server/awardLetter.ts` stores + sends it
 - **budget** — budget-line types/helpers; `validators/` — zod schemas shared client/server
+
+## Awards: shortlist → grant
+
+`createAwards` (`src/server/fns/awardSetup.ts`) is the **only** path that mints an award; the old
+single-grant `generateAward` + `AwardSetupDrawer` were removed with the batch flow. It takes terms
+shared by the batch (start date, reporting milestones, whether the standard conditions apply) plus a
+per-grant amount / purpose / special condition / schedule. Each grant is written in **its own**
+`db.batch`, so one failing its majority check doesn't roll back the others — the response reports
+per-grant outcomes.
+
+- Award letters are **snapshots**: rendered at set-up from the then-current template and schedule and
+  stored verbatim in `award_letters` (one row per award, unique on `awardId`). Nothing re-renders a
+  stored letter — editing the template later must not rewrite what a grantee was sent, and "resend"
+  posts the same bytes. Readable + resendable from the award detail screen.
+- Sending is **background** (`runInBackground`) but the outcome is recorded on the row
+  (`draft` / `sent` / `failed` + `failureReason`), because a silent failure would leave a charity
+  un-notified with nothing on screen to say so.
+- "Looks like it came from the foundation" = their name in the **From display name** + their address
+  in **Reply-To** (`client_profiles.award_letter_sender_name` / `_reply_to`). We cannot put their
+  address in From: DMARC aligns against the From domain, so it would fail auth and land in spam.
+  Genuinely sending from their domain needs per-client Resend domain verification (DKIM/SPF DNS) —
+  not built; the settings/schema are shaped so it can drop in.
+- Template + standard conditions default to the built-ins in `src/lib/awardLetter/template.ts`;
+  a foundation overrides them at `/settings/award-letter`. **NULL means "use the built-in"** (so they
+  keep picking up improvements), which is why resetting the editor to the default writes NULL, not
+  the current text.
+- Call it an **Award letter**, never a "grant letter".

@@ -50,35 +50,14 @@ export const CreateApplicationSchema = z.object({
 export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>
 
 // 'awarded' is deliberately not settable here: awarding must go through
-// `generateAward` (which mints the award row, checks the trustee majority and
-// writes the audit trail), and un-awarding through cancelling the award.
+// `createAwards` (which mints the award row, checks the trustee majority, issues the
+// award letter and writes the audit trail), and un-awarding through cancelling the
+// award.
 export const UpdateApplicationStatusSchema = z.object({
   id: z.uuid(),
   status: z.enum(['for_review', 'shortlisted', 'declined']),
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
-
-export const GenerateAwardSchema = z.object({
-  id: z.uuid(),
-  amountAwarded: z.number().positive(),
-  schedule: z
-    .array(
-      z.object({
-        instalment: z.number().int().positive(),
-        amount: z.number().positive(),
-        // ISO yyyy-mm-dd, or null for "date TBC".
-        date: z.string().min(1).nullable(),
-      }),
-    )
-    .min(1),
-  reportingDates: z.array(
-    z.object({
-      label: z.string().min(1),
-      date: z.string().min(1),
-    }),
-  ),
-})
-export type GenerateAwardInput = z.infer<typeof GenerateAwardSchema>
 
 export const ScoreBand = z.enum(['90plus', '80to89', '70to79', 'below70'])
 export type ScoreBand = z.infer<typeof ScoreBand>

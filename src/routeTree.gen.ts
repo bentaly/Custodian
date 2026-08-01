@@ -43,10 +43,13 @@ import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings.api-keys'
+import { Route as AuthenticatedSettingsAwardLetterRouteImport } from './routes/_authenticated/settings.award-letter'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsVotingRouteImport } from './routes/_authenticated/settings.voting'
+import { Route as AuthenticatedShortlistIndexRouteImport } from './routes/_authenticated/shortlist.index'
+import { Route as AuthenticatedShortlistSetUpAwardsRouteImport } from './routes/_authenticated/shortlist.set-up-awards'
 import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
 import { Route as ApiAdminCanonicalFieldsRouteImport } from './routes/api/admin.canonical-fields'
 import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
@@ -60,6 +63,7 @@ import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
 import { Route as ApiAdminReportIngestsIdRouteImport } from './routes/api/admin.report-ingests.$id'
+import { Route as ApiAdminIngestsIdReprocessRouteImport } from './routes/api/admin.ingests.$id.reprocess'
 import { Route as ApiAdminIngestsIdResolveRouteImport } from './routes/api/admin.ingests.$id.resolve'
 import { Route as ApiAdminReportIngestsIdResolveRouteImport } from './routes/api/admin.report-ingests.$id.resolve'
 
@@ -247,6 +251,12 @@ const AuthenticatedSettingsApiKeysRoute =
     path: '/api-keys',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsAwardLetterRoute =
+  AuthenticatedSettingsAwardLetterRouteImport.update({
+    id: '/award-letter',
+    path: '/award-letter',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsGivingStrategyRoute =
   AuthenticatedSettingsGivingStrategyRouteImport.update({
     id: '/giving-strategy',
@@ -270,6 +280,18 @@ const AuthenticatedSettingsVotingRoute =
     id: '/voting',
     path: '/voting',
     getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedShortlistIndexRoute =
+  AuthenticatedShortlistIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedShortlistRoute,
+  } as any)
+const AuthenticatedShortlistSetUpAwardsRoute =
+  AuthenticatedShortlistSetUpAwardsRouteImport.update({
+    id: '/set-up-awards',
+    path: '/set-up-awards',
+    getParentRoute: () => AuthenticatedShortlistRoute,
   } as any)
 const ApiAdminAwardsRoute = ApiAdminAwardsRouteImport.update({
   id: '/api/admin/awards',
@@ -337,6 +359,12 @@ const ApiAdminReportIngestsIdRoute = ApiAdminReportIngestsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAdminReportIngestsRoute,
 } as any)
+const ApiAdminIngestsIdReprocessRoute =
+  ApiAdminIngestsIdReprocessRouteImport.update({
+    id: '/reprocess',
+    path: '/reprocess',
+    getParentRoute: () => ApiAdminIngestsIdRoute,
+  } as any)
 const ApiAdminIngestsIdResolveRoute =
   ApiAdminIngestsIdResolveRouteImport.update({
     id: '/resolve',
@@ -365,7 +393,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRouteWithChildren
   '/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
-  '/shortlist': typeof AuthenticatedShortlistRoute
+  '/shortlist': typeof AuthenticatedShortlistRouteWithChildren
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/api/rounds': typeof ApiRoundsRoute
@@ -377,10 +405,12 @@ export interface FileRoutesByFullPath {
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
+  '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/voting': typeof AuthenticatedSettingsVotingRoute
+  '/shortlist/set-up-awards': typeof AuthenticatedShortlistSetUpAwardsRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
@@ -398,9 +428,11 @@ export interface FileRoutesByFullPath {
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/shortlist/': typeof AuthenticatedShortlistIndexRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/resolve': typeof ApiAdminReportIngestsIdResolveRoute
 }
@@ -412,7 +444,6 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/insights': typeof AuthenticatedInsightsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/shortlist': typeof AuthenticatedShortlistRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/api/rounds': typeof ApiRoundsRoute
@@ -424,10 +455,12 @@ export interface FileRoutesByTo {
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
+  '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/voting': typeof AuthenticatedSettingsVotingRoute
+  '/shortlist/set-up-awards': typeof AuthenticatedShortlistSetUpAwardsRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
@@ -445,9 +478,11 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/shortlist': typeof AuthenticatedShortlistIndexRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/resolve': typeof ApiAdminReportIngestsIdResolveRoute
 }
@@ -468,7 +503,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
   '/_authenticated/rounds': typeof AuthenticatedRoundsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
-  '/_authenticated/shortlist': typeof AuthenticatedShortlistRoute
+  '/_authenticated/shortlist': typeof AuthenticatedShortlistRouteWithChildren
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/api/rounds': typeof ApiRoundsRoute
@@ -480,10 +515,12 @@ export interface FileRoutesById {
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
+  '/_authenticated/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/settings/voting': typeof AuthenticatedSettingsVotingRoute
+  '/_authenticated/shortlist/set-up-awards': typeof AuthenticatedShortlistSetUpAwardsRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
@@ -501,9 +538,11 @@ export interface FileRoutesById {
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/shortlist/': typeof AuthenticatedShortlistIndexRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/resolve': typeof ApiAdminReportIngestsIdResolveRoute
 }
@@ -536,10 +575,12 @@ export interface FileRouteTypes {
     | '/reports/$reportKey'
     | '/rounds/$roundId'
     | '/settings/api-keys'
+    | '/settings/award-letter'
     | '/settings/giving-strategy'
     | '/settings/submissions'
     | '/settings/team'
     | '/settings/voting'
+    | '/shortlist/set-up-awards'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
@@ -557,9 +598,11 @@ export interface FileRouteTypes {
     | '/reports/'
     | '/rounds/'
     | '/settings/'
+    | '/shortlist/'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/resolve'
   fileRoutesByTo: FileRoutesByTo
@@ -571,7 +614,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/insights'
     | '/profile'
-    | '/shortlist'
     | '/users'
     | '/api/apply'
     | '/api/rounds'
@@ -583,10 +625,12 @@ export interface FileRouteTypes {
     | '/reports/$reportKey'
     | '/rounds/$roundId'
     | '/settings/api-keys'
+    | '/settings/award-letter'
     | '/settings/giving-strategy'
     | '/settings/submissions'
     | '/settings/team'
     | '/settings/voting'
+    | '/shortlist/set-up-awards'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
@@ -604,9 +648,11 @@ export interface FileRouteTypes {
     | '/reports'
     | '/rounds'
     | '/settings'
+    | '/shortlist'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/resolve'
   id:
@@ -638,10 +684,12 @@ export interface FileRouteTypes {
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/rounds/$roundId'
     | '/_authenticated/settings/api-keys'
+    | '/_authenticated/settings/award-letter'
     | '/_authenticated/settings/giving-strategy'
     | '/_authenticated/settings/submissions'
     | '/_authenticated/settings/team'
     | '/_authenticated/settings/voting'
+    | '/_authenticated/shortlist/set-up-awards'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
@@ -659,9 +707,11 @@ export interface FileRouteTypes {
     | '/_authenticated/reports/'
     | '/_authenticated/rounds/'
     | '/_authenticated/settings/'
+    | '/_authenticated/shortlist/'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/resolve'
   fileRoutesById: FileRoutesById
@@ -927,6 +977,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsApiKeysRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/award-letter': {
+      id: '/_authenticated/settings/award-letter'
+      path: '/award-letter'
+      fullPath: '/settings/award-letter'
+      preLoaderRoute: typeof AuthenticatedSettingsAwardLetterRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/giving-strategy': {
       id: '/_authenticated/settings/giving-strategy'
       path: '/giving-strategy'
@@ -954,6 +1011,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/voting'
       preLoaderRoute: typeof AuthenticatedSettingsVotingRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/shortlist/': {
+      id: '/_authenticated/shortlist/'
+      path: '/'
+      fullPath: '/shortlist/'
+      preLoaderRoute: typeof AuthenticatedShortlistIndexRouteImport
+      parentRoute: typeof AuthenticatedShortlistRoute
+    }
+    '/_authenticated/shortlist/set-up-awards': {
+      id: '/_authenticated/shortlist/set-up-awards'
+      path: '/set-up-awards'
+      fullPath: '/shortlist/set-up-awards'
+      preLoaderRoute: typeof AuthenticatedShortlistSetUpAwardsRouteImport
+      parentRoute: typeof AuthenticatedShortlistRoute
     }
     '/api/admin/awards': {
       id: '/api/admin/awards'
@@ -1045,6 +1116,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/admin/report-ingests/$id'
       preLoaderRoute: typeof ApiAdminReportIngestsIdRouteImport
       parentRoute: typeof ApiAdminReportIngestsRoute
+    }
+    '/api/admin/ingests/$id/reprocess': {
+      id: '/api/admin/ingests/$id/reprocess'
+      path: '/reprocess'
+      fullPath: '/api/admin/ingests/$id/reprocess'
+      preLoaderRoute: typeof ApiAdminIngestsIdReprocessRouteImport
+      parentRoute: typeof ApiAdminIngestsIdRoute
     }
     '/api/admin/ingests/$id/resolve': {
       id: '/api/admin/ingests/$id/resolve'
@@ -1151,6 +1229,7 @@ const AuthenticatedRoundsRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
+  AuthenticatedSettingsAwardLetterRoute: typeof AuthenticatedSettingsAwardLetterRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
@@ -1160,6 +1239,7 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsApiKeysRoute: AuthenticatedSettingsApiKeysRoute,
+  AuthenticatedSettingsAwardLetterRoute: AuthenticatedSettingsAwardLetterRoute,
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,
   AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,
@@ -1173,6 +1253,23 @@ const AuthenticatedSettingsRouteWithChildren =
     AuthenticatedSettingsRouteChildren,
   )
 
+interface AuthenticatedShortlistRouteChildren {
+  AuthenticatedShortlistSetUpAwardsRoute: typeof AuthenticatedShortlistSetUpAwardsRoute
+  AuthenticatedShortlistIndexRoute: typeof AuthenticatedShortlistIndexRoute
+}
+
+const AuthenticatedShortlistRouteChildren: AuthenticatedShortlistRouteChildren =
+  {
+    AuthenticatedShortlistSetUpAwardsRoute:
+      AuthenticatedShortlistSetUpAwardsRoute,
+    AuthenticatedShortlistIndexRoute: AuthenticatedShortlistIndexRoute,
+  }
+
+const AuthenticatedShortlistRouteWithChildren =
+  AuthenticatedShortlistRoute._addFileChildren(
+    AuthenticatedShortlistRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedApplicationsRoute: typeof AuthenticatedApplicationsRouteWithChildren
   AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRouteWithChildren
@@ -1184,7 +1281,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
   AuthenticatedRoundsRoute: typeof AuthenticatedRoundsRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
-  AuthenticatedShortlistRoute: typeof AuthenticatedShortlistRoute
+  AuthenticatedShortlistRoute: typeof AuthenticatedShortlistRouteWithChildren
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
 }
 
@@ -1199,7 +1296,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
   AuthenticatedRoundsRoute: AuthenticatedRoundsRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
-  AuthenticatedShortlistRoute: AuthenticatedShortlistRoute,
+  AuthenticatedShortlistRoute: AuthenticatedShortlistRouteWithChildren,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
 }
 
@@ -1208,10 +1305,12 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 )
 
 interface ApiAdminIngestsIdRouteChildren {
+  ApiAdminIngestsIdReprocessRoute: typeof ApiAdminIngestsIdReprocessRoute
   ApiAdminIngestsIdResolveRoute: typeof ApiAdminIngestsIdResolveRoute
 }
 
 const ApiAdminIngestsIdRouteChildren: ApiAdminIngestsIdRouteChildren = {
+  ApiAdminIngestsIdReprocessRoute: ApiAdminIngestsIdReprocessRoute,
   ApiAdminIngestsIdResolveRoute: ApiAdminIngestsIdResolveRoute,
 }
 

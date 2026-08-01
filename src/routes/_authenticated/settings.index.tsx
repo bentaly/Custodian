@@ -5,6 +5,7 @@ import {
   Calendar03Icon,
   Idea01Icon,
   Key01Icon,
+  Mail01Icon,
   PlugSocketIcon,
   SourceCodeIcon,
   Target01Icon,
@@ -86,6 +87,14 @@ const GROUPS: Group[] = [
           'How trustees record decisions on applications, and whether admins may vote on a trustee’s behalf.',
         to: '/settings/voting',
         icon: ThumbsUpDownIcon,
+        adminOnly: true,
+      },
+      {
+        title: 'Award letter',
+        description:
+          'The letter emailed to a charity when you award a grant, your standard conditions of grant, and who replies come back to.',
+        to: '/settings/award-letter',
+        icon: Mail01Icon,
         adminOnly: true,
       },
     ],

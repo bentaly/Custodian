@@ -351,6 +351,13 @@
       "when": 1785188088653,
       "tag": "0049_rich_miracleman",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1785532857343,
+      "tag": "0050_classy_phalanx",
+      "breakpoints": true
     }
   ]
 }

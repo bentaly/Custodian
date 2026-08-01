@@ -23,6 +23,7 @@ import {
   EmptyState,
   ExportButton,
   StatusPill,
+  RoundSelect,
   Tabs,
   type TableColumn,
 } from '../../components/ui'
@@ -210,64 +211,6 @@ function exportCsv(items: AppItem[], filename: string) {
 }
 
 // ─── Header controls ─────────────────────────────────────────────────────────────
-
-// Round selector — the Figma pill (icon chip + name + status), with a real native
-// <select> laid transparently over it so the control stays keyboard-accessible.
-function RoundSelect({
-  rounds,
-  value,
-  statusLabel,
-  onChange,
-}: {
-  rounds: Array<{ id: string; name: string }>
-  value: string | undefined
-  statusLabel: string | null
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
-}) {
-  const current = rounds.find((r) => r.id === value)
-  return (
-    <div className="relative shrink-0">
-      <div
-        className="flex items-center gap-2 rounded-[12px] border bg-white py-1 pl-1 pr-3"
-        style={{ borderColor: C.line }}
-      >
-        <div
-          className="flex size-8 items-center justify-center rounded-lg"
-          style={{ backgroundColor: C.wash }}
-        >
-          <HugeiconsIcon icon={Calendar03Icon} size={16} color={C.brand} />
-        </div>
-        <span
-          className="whitespace-nowrap font-display text-[14px] font-medium"
-          style={{ color: C.brand }}
-        >
-          {current?.name ?? 'Select round'}
-        </span>
-        {statusLabel && (
-          <span
-            className="whitespace-nowrap font-display text-[12px] font-medium"
-            style={{ color: C.faint }}
-          >
-            · {statusLabel}
-          </span>
-        )}
-        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.sub} />
-      </div>
-      <select
-        aria-label="Select round"
-        value={value ?? ''}
-        onChange={onChange}
-        className="absolute inset-0 w-full cursor-pointer opacity-0"
-      >
-        {rounds.map((r) => (
-          <option key={r.id} value={r.id}>
-            {r.name}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-}
 
 // Filter dropdown pill (Status / Theme / AI score) — Figma style, native <select> over it.
 function FilterSelect({
@@ -781,11 +724,11 @@ function ApplicationsList() {
     return parts.join(' · ')
   })()
 
-  function handleRoundChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  function handleRoundChange(nextRoundId: string) {
     navigate({
       search: (prev) => ({
         ...prev,
-        roundId: e.target.value || undefined,
+        roundId: nextRoundId || undefined,
         programmeId: undefined,
         tag: undefined,
         page: undefined,
@@ -854,7 +797,7 @@ function ApplicationsList() {
   )
 
   // Bulk status change for the selected rows. Awarded applications are skipped —
-  // un-awarding would orphan the award/grant records (that's the generateAward flow).
+  // un-awarding would orphan the award/grant records (that's the award set-up flow).
   async function bulkSetStatus(status: SettableStatus) {
     const targets = selectedItems.filter((a) => a.status !== status && a.status !== 'awarded')
     if (targets.length === 0) {

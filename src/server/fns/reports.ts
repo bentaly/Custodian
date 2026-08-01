@@ -14,7 +14,7 @@ export type { DueStatus } from '../../lib/schedule'
 //   items    — reports that have actually ARRIVED (`reports`, from /api/submit-report).
 //              One row per report. This is the screen's primary table: every row is a
 //              real document you can open and read.
-//   upcoming — dates we are still WAITING on (`report_schedule`, from generateAward).
+//   upcoming — dates we are still WAITING on (`report_schedule`, from award set-up).
 //              A chase-list, not reading material, so it lives in a side drawer.
 //
 // These used to be merged into one table, which made a never-submitted milestone look

@@ -8,6 +8,8 @@ import {
   setInstalmentPaid,
   updateInstalment,
 } from '../../server/fns/applications'
+import { resendAwardLetter } from '../../server/fns/awardSetup'
+import { AwardLetterPreview } from '../../components/AwardLetterPreview'
 import { BankIcon, Calendar03Icon, Coins01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
 import {
   Badge,
@@ -130,6 +132,24 @@ function AwardDetail() {
         />
       </div>
 
+      {/* What the money is for, in the foundation's own words — the thing a later
+          grant report is read against, so it belongs above the mechanics. */}
+      {award.purpose && (
+        <Card className="px-5 py-4">
+          <h2 className="text-sm font-semibold text-gray-900">Grant purpose</h2>
+          <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{award.purpose}</p>
+          {award.specialCondition && (
+            <p className="mt-3 border-t border-gray-100 pt-3 text-sm leading-relaxed text-gray-600">
+              <span className="text-[11px] uppercase tracking-wide text-gray-400">
+                Condition specific to this grant
+              </span>
+              <br />
+              {award.specialCondition}
+            </p>
+          )}
+        </Card>
+      )}
+
       <ApplicationCard award={award} />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -137,8 +157,112 @@ function AwardDetail() {
         <ReportingCard award={award} />
       </div>
 
+      <AwardLetterCard award={award} />
+
       <ReportsCard award={award} />
     </div>
+  )
+}
+
+// ─── Award letter ────────────────────────────────────────────────────────────
+
+const LETTER_STATUS: Record<string, { label: string; className: string }> = {
+  sent: { label: 'Sent', className: 'bg-emerald-50 text-emerald-700' },
+  draft: { label: 'Not sent', className: 'bg-amber-50 text-amber-700' },
+  failed: { label: 'Failed to send', className: 'bg-red-50 text-red-600' },
+}
+
+/**
+ * The letter this grantee was actually sent. Shown verbatim from storage rather than
+ * re-rendered, so it still reads as what was agreed even after the template, the
+ * schedule or the conditions have moved on.
+ */
+function AwardLetterCard({ award }: { award: AwardData }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const letter = award.letter
+
+  async function handleResend() {
+    setBusy(true)
+    setError(null)
+    try {
+      await resendAwardLetter({ data: { awardId: award.id } })
+      await router.invalidate()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The letter could not be sent')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!letter) {
+    return (
+      <Card className="px-5 py-4">
+        <h2 className="text-sm font-semibold text-gray-900">Award letter</h2>
+        <p className="mt-1.5 text-xs leading-relaxed text-gray-400">
+          No letter was issued for this grant. Letters are written and sent during award set-up —
+          awards made before that existed have none.
+        </p>
+      </Card>
+    )
+  }
+
+  const status = LETTER_STATUS[letter.status] ?? LETTER_STATUS.draft!
+
+  return (
+    <Card className="px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-gray-900">Award letter</h2>
+        <div className="flex items-center gap-2">
+          <Badge className={status.className}>{status.label}</Badge>
+          <Button variant="link" size="sm" onClick={() => setOpen(!open)}>
+            {open ? 'Hide' : 'Read the letter'}
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-400">
+        <span>
+          To <span className="text-gray-600">{letter.recipientEmail ?? 'nobody — no address'}</span>
+        </span>
+        {letter.replyTo && (
+          <span>
+            Replies to <span className="text-gray-600">{letter.replyTo}</span>
+          </span>
+        )}
+        {letter.sentAt && (
+          <span>
+            Sent <span className="text-gray-600">{fmtDate(letter.sentAt)}</span>
+          </span>
+        )}
+      </div>
+
+      {letter.status !== 'sent' && letter.failureReason && (
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {letter.failureReason}
+        </p>
+      )}
+
+      {open && (
+        <div className="mt-3 rounded-lg border border-gray-100 bg-[#FCFCFA] px-5 py-4">
+          <div className="mb-3 border-b border-gray-100 pb-2 text-xs text-gray-400">
+            Subject: <span className="text-gray-600">{letter.subject}</span>
+          </div>
+          <AwardLetterPreview bodyText={letter.bodyText} />
+        </div>
+      )}
+
+      {award.canEdit && (
+        <div className="mt-3 flex items-center gap-3">
+          <Button variant="secondary" size="sm" onClick={handleResend} disabled={busy}>
+            {busy ? 'Sending…' : letter.status === 'sent' ? 'Send again' : 'Send now'}
+          </Button>
+          {error && <span className="text-xs text-red-600">{error}</span>}
+        </div>
+      )}
+    </Card>
   )
 }
 
