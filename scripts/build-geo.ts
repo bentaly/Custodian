@@ -7,7 +7,7 @@
 // plain static assets and never touch the Worker itself.
 //
 // Three layers, deliberately coarse. Everything is BUC (ultra-generalised,
-// 500m, clipped to coastline) or Natural Earth 110m — at panel size that is
+// 500m, clipped to coastline) or Natural Earth 50m — at panel size that is
 // indistinguishable from full resolution and roughly two orders of magnitude
 // smaller. Anyone wanting a crisper coastline should step up to BSC (200m)
 // rather than reach for BGC/BFC, which are megabytes.
@@ -38,8 +38,14 @@ const ONS = 'https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services'
 // Natural Earth admin-0 as GeoJSON. Deliberately NOT topojson/world-atlas: that
 // build keys geometries by numeric M49 id and carries no ISO alpha-3, which is
 // the code an application's delivery country would realistically be stored as.
+//
+// 50m, not 110m. 110m is built for a whole-world view and falls apart the
+// moment the map zooms to a single country — Ukraine becomes a blob and
+// Bangladesh a jagged mess. 50m survives that zoom; simplified to 25% it costs
+// ~72 KB gzipped, which is a fair price for the only file that has to work at
+// two very different scales.
 const WORLD =
-  'https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/110m/cultural/ne_110m_admin_0_countries.json'
+  'https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_0_countries.json'
 
 // ONS serves ArcGIS FeatureServers. `f=geojson` + `outSR=4326` gets us WGS84
 // GeoJSON rather than the British National Grid the layers are stored in —
@@ -87,8 +93,8 @@ async function main() {
   await mkdir(OUT, { recursive: true })
   await mkdir(TMP, { recursive: true })
 
-  console.log('\nWorld (Natural Earth admin-0, 110m)')
-  const world = await fetchJson(WORLD, 'Natural Earth admin-0 110m')
+  console.log('\nWorld (Natural Earth admin-0, 50m)')
+  const world = await fetchJson(WORLD, 'Natural Earth admin-0 50m')
   const worldPath = await stage('world-raw.json', world)
   await run(
     [
@@ -104,9 +110,10 @@ async function main() {
       // country ends up unkeyed and silently unpaintable.
       `-each 'code = (ISO_A3_EH && ISO_A3_EH != "-99") ? ISO_A3_EH : ADM0_A3, name = NAME, continent = CONTINENT'`,
       `-filter-fields code,name,continent`,
-      // Natural Earth 110m is already generalised for small-scale use; a light
-      // pass mainly removes the Antarctic coastline detail nobody will see.
-      `-simplify 30% keep-shapes`,
+      // Tuned against the country-zoom view, which is what sets the floor here:
+      // below ~25% coastlines start visibly faceting when a single country
+      // fills the frame.
+      `-simplify 25% keep-shapes`,
       `-clean`,
       `-o world.json format=topojson`,
     ].join(' '),
@@ -210,7 +217,7 @@ async function main() {
       '',
       '| File | Source | Licence |',
       '| --- | --- | --- |',
-      '| `world.json` | Natural Earth admin-0 countries 110m, via topojson/world-atlas | Public domain |',
+      '| `world.json` | Natural Earth admin-0 countries 50m (simplified 25%) | Public domain |',
       '| `uk.json` | ONS Regions (December 2025) EN BUC + LAD (May 2025) UK BUC dissolved to nations | OGL v3 |',
       '| `uk-lad.json` | ONS Local Authority Districts (May 2025) UK BUC | OGL v3 |',
       '',

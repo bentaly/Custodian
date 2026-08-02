@@ -6,7 +6,7 @@ Last built: 2026-08-02
 
 | File | Source | Licence |
 | --- | --- | --- |
-| `world.json` | Natural Earth admin-0 countries 110m, via topojson/world-atlas | Public domain |
+| `world.json` | Natural Earth admin-0 countries 50m (simplified 25%) | Public domain |
 | `uk.json` | ONS Regions (December 2025) EN BUC + LAD (May 2025) UK BUC dissolved to nations | OGL v3 |
 | `uk-lad.json` | ONS Local Authority Districts (May 2025) UK BUC | OGL v3 |
 

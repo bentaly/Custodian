@@ -33,8 +33,16 @@ const EMPTY = '#F2F4F7'
 // world map that drills rather than selects.
 const UK_ISO3 = 'GBR'
 
+// Frame shape for a zoomed country. Slightly landscape: it suits the majority
+// of countries and sits close enough to the UK view's 0.78 that switching
+// between tiers doesn't feel like the panel resized.
+const COUNTRY_ASPECT = 1.3
+
 export type MapView =
   | { kind: 'world' }
+  /** Zoomed to one country. A leaf everywhere except the UK, which has its own
+   *  region + district layers and so gets `uk` instead. */
+  | { kind: 'country'; code: string; name: string }
   | { kind: 'uk' }
   /** One English region (or Wales/Scotland/NI) broken into its districts. */
   | { kind: 'region'; region: string }
@@ -63,7 +71,10 @@ const SOURCES = {
 } as const
 
 function sourceFor(view: MapView) {
-  return view.kind === 'world' ? SOURCES.world : view.kind === 'uk' ? SOURCES.uk : SOURCES.lad
+  // A zoomed country is still the world layer — the zoom is a projection fit,
+  // not a different file. Nothing below country level exists outside the UK.
+  if (view.kind === 'world' || view.kind === 'country') return SOURCES.world
+  return view.kind === 'uk' ? SOURCES.uk : SOURCES.lad
 }
 
 /** The value in `values` this feature is looked up by, per the view's key. */
@@ -180,22 +191,48 @@ export function Choropleth({
 
   const src = sourceFor(view)
   const width = 520
-  const height = Math.round(width / src.aspect)
 
-  const { features, pathFor } = useMemo(() => {
-    if (!data) return { features: [] as GeoFeature[], pathFor: null }
+  const { features, pathFor, height } = useMemo(() => {
+    const fallbackHeight = Math.round(width / src.aspect)
+    if (!data) return { features: [] as GeoFeature[], pathFor: null, height: fallbackHeight }
 
     // The region view is a filter on the national LAD layer rather than its own
     // file — London's 33 boroughs are simply the LADs whose region is London.
+    // Every other view draws its whole layer: on a zoomed country the
+    // surrounding countries are what make it legible as a place rather than a
+    // shape floating in white.
     const feats =
       view.kind === 'region'
         ? data.features.filter((f) => f.properties.region === view.region)
         : data.features
 
-    // Equal-area in both cases: a choropleth compares areas, and Mercator would
+    // What the projection is fitted to — which is NOT always what is drawn. A
+    // country view draws the world and frames one country.
+    const target =
+      view.kind === 'country'
+        ? data.features.filter((f) => f.properties.code === view.code)
+        : feats
+    if (target.length === 0) return { features: feats, pathFor: null, height: fallbackHeight }
+
+    const targetCollection = {
+      type: 'FeatureCollection',
+      features: target,
+    } as FeatureCollection
+
+    // A fixed frame, NOT one sized to the country's bounding box. Fitting the
+    // frame to each country was the obvious move and was wrong in use: Ukraine
+    // is wide and short, Bangladesh tall and narrow, so the panel lurched by
+    // hundreds of pixels on every click and the donut beside it jumped with it.
+    // The projection still fits the country inside this frame, so a tall
+    // country simply keeps margin either side — where its neighbours show, which
+    // is context rather than waste.
+    const aspect = view.kind === 'country' ? COUNTRY_ASPECT : src.aspect
+    const h = Math.round(width / aspect)
+
+    // Equal-area throughout: a choropleth compares areas, and Mercator would
     // inflate Scotland and the high latitudes into a quiet lie about the data.
     const projection =
-      view.kind === 'world'
+      view.kind === 'world' || view.kind === 'country'
         ? geoEqualEarth()
         : geoConicEqualArea().parallels([50, 60]).rotate([4.4, 0])
 
@@ -203,12 +240,12 @@ export function Choropleth({
     projection.fitExtent(
       [
         [pad, pad],
-        [width - pad, height - pad],
+        [width - pad, h - pad],
       ],
-      { type: 'FeatureCollection', features: feats } as FeatureCollection,
+      targetCollection,
     )
-    return { features: feats, pathFor: geoPath(projection) }
-  }, [data, view, width, height])
+    return { features: feats, pathFor: geoPath(projection), height: h }
+  }, [data, view, width, src.aspect])
 
   const cuts = useMemo(
     () => thresholds([...values.values()].map((v) => v.amount)),
@@ -240,7 +277,10 @@ export function Choropleth({
       <div ref={wrap} className="relative" onMouseLeave={() => setHover(null)}>
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}
+          // Not `overflow: visible` — a zoomed country fits its own bounds, so
+          // its neighbours extend well past the viewBox and would otherwise
+          // paint over the legend and the panel beside it.
+          style={{ width: '100%', height: 'auto', display: 'block' }}
           role="img"
           aria-label={`Funding by area — ${funded} of ${features.length} areas funded, ${fmtMoney(total)} total`}
         >
@@ -258,10 +298,17 @@ export function Choropleth({
             const drillTo: MapView | null =
               view.kind === 'uk' && amount > 0
                 ? { kind: 'region', region: f.properties.name }
-                : view.kind === 'world' && f.properties.code === UK_ISO3
-                  ? { kind: 'uk' }
+                : view.kind === 'world' || view.kind === 'country'
+                  ? f.properties.code === UK_ISO3
+                    // The UK skips the country tier: it has real layers beneath
+                    // it, and stopping at a flat national outline would hide them.
+                    ? { kind: 'uk' }
+                    : { kind: 'country', code: f.properties.code, name: f.properties.name }
                   : null
-            const interactive = amount > 0
+            // Unfunded areas are inert at UK levels — there is nothing to show.
+            // On the world map every country can still be zoomed to, so the
+            // whole map stays explorable rather than only its funded corners.
+            const interactive = amount > 0 || drillTo !== null
 
             return (
               <path
@@ -284,9 +331,11 @@ export function Choropleth({
                 tabIndex={interactive ? 0 : undefined}
                 role={interactive ? 'button' : undefined}
                 aria-label={
-                  interactive
-                    ? `${f.properties.name}: ${fmtMoney(amount)} across ${datum!.count} grant${datum!.count !== 1 ? 's' : ''}`
-                    : undefined
+                  !interactive
+                    ? undefined
+                    : datum
+                      ? `${f.properties.name}: ${fmtMoney(amount)} across ${datum.count} grant${datum.count !== 1 ? 's' : ''}`
+                      : `${f.properties.name}: no funding`
                 }
                 onMouseMove={(e) => {
                   const box = wrap.current?.getBoundingClientRect()
@@ -336,7 +385,9 @@ export function Choropleth({
         <p className="mt-2 font-display text-[12px]" style={{ color: chart.sub }}>
           {view.kind === 'world'
             ? 'No grant in this slice records a country outside the UK.'
-            : 'No grant in this slice resolved to an area here.'}
+            : view.kind === 'country'
+              ? `No grant in this slice was delivered in ${view.name}.`
+              : 'No grant in this slice resolved to an area here.'}
         </p>
       )}
 
@@ -405,7 +456,10 @@ function Breadcrumb({
   if (showWorld) {
     crumbs.push({ label: 'World', to: view.kind === 'world' ? undefined : { kind: 'world' } })
   }
-  if (view.kind !== 'world') {
+  if (view.kind === 'country') {
+    crumbs.push({ label: view.name })
+  }
+  if (view.kind === 'uk' || view.kind === 'region') {
     crumbs.push({
       label: 'United Kingdom',
       to: view.kind === 'uk' ? undefined : { kind: 'uk' },

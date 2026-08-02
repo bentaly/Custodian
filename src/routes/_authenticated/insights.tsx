@@ -482,7 +482,9 @@ function InsightsPage() {
   const isDemo = USE_SAMPLE_GEO
   const mapValues = !USE_SAMPLE_GEO
     ? realValues
-    : mapView.kind === 'world'
+    : // A zoomed country is still the country layer — same keys as World, so it
+      // keeps the same values and the figures don't shift under the zoom.
+      mapView.kind === 'world' || mapView.kind === 'country'
       ? demoGeo.world()
       : mapView.kind === 'uk'
         ? demoGeo.regions()
@@ -894,7 +896,10 @@ function InsightsPage() {
                     view={mapView}
                     onViewChange={(v) => {
                       setMapView(v)
-                      setSelArea(null)
+                      // Zooming to a country keeps it selected, so the donut
+                      // beside the map highlights the place you just opened
+                      // instead of clearing under you.
+                      setSelArea(v.kind === 'country' ? v.code : null)
                     }}
                     values={mapValues}
                     selected={selArea}
