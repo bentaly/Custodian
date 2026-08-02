@@ -44,6 +44,11 @@ export type InsightsGrant = {
   // Display region for geography breakdowns: England's 9 regions / "Wales", or
   // the nation for Scotland & NI (deciles/regions aren't England-comparable there).
   region: string | null
+  // ONS LAD code (e.g. "E09000019"). The choropleth joins districts on this
+  // rather than on `ladName` — ONS names carry inversions and qualifiers
+  // ("Bristol, City of", "Kingston upon Hull, City of") that no display string
+  // reliably matches.
+  ladCode: string | null
   ladName: string | null
   deprivation: InsightsDeprivation | null
   // From the latest analysed report with a quantity — the newest report is taken
@@ -149,6 +154,7 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         amountAwarded: parseFloat(award.amountAwarded),
         region:
           a.deliveryRegion ?? (a.deliveryNation ? (NATION_LABELS[a.deliveryNation] ?? null) : null),
+        ladCode: a.deliveryLadCode,
         ladName: a.deliveryLadName,
         deprivation,
         impactQuantity: latestWithQuantity ? parseFloat(latestWithQuantity.impactQuantity!) : null,

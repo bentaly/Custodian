@@ -11,6 +11,13 @@ import {
 } from '@hugeicons/core-free-icons'
 import { EmptyState, MiniKpi } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
+import {
+  Choropleth,
+  MapAttribution,
+  useAreaNames,
+  type MapView,
+} from '../../components/charts/Choropleth'
+import { demoGeo } from '../../lib/insights/demoGeo'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
@@ -215,84 +222,6 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
   )
 }
 
-// Schematic UK ITL1 tile-grid (a "for now" region map — dependency-free, data-bound).
-// Swap for a true silhouette SVG when one is exported from Figma.
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-const UK_TILES: Array<{ name: string; abbr: string; col: number; row: number }> = [
-  { name: 'Scotland', abbr: 'Sco', col: 3, row: 1 },
-  { name: 'North East', abbr: 'NE', col: 3, row: 2 },
-  { name: 'Northern Ireland', abbr: 'NI', col: 1, row: 3 },
-  { name: 'North West', abbr: 'NW', col: 2, row: 3 },
-  { name: 'Yorkshire and The Humber', abbr: 'Y&H', col: 3, row: 3 },
-  { name: 'Wales', abbr: 'Wal', col: 1, row: 4 },
-  { name: 'West Midlands', abbr: 'WM', col: 2, row: 4 },
-  { name: 'East Midlands', abbr: 'EM', col: 3, row: 4 },
-  { name: 'East of England', abbr: 'EoE', col: 4, row: 4 },
-  { name: 'South West', abbr: 'SW', col: 2, row: 5 },
-  { name: 'South East', abbr: 'SE', col: 3, row: 5 },
-  { name: 'London', abbr: 'Lon', col: 4, row: 5 },
-]
-
-function RegionTileMap({
-  data,
-  max,
-  active,
-  onSelect,
-}: {
-  data: Map<string, { amount: number; count: number; name: string }>
-  max: number
-  active: string | null
-  onSelect: (name: string) => void
-}) {
-  return (
-    <div
-      className="grid gap-1.5"
-      style={{
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gridTemplateRows: 'repeat(5, minmax(0, 1fr))',
-      }}
-    >
-      {UK_TILES.map((t) => {
-        const d = data.get(norm(t.name))
-        const intensity = d ? 0.2 + 0.8 * (max > 0 ? d.amount / max : 0) : 0
-        const isActive = d != null && d.name === active
-        const light = intensity > 0.55
-        return (
-          <button
-            key={t.name}
-            type="button"
-            disabled={!d}
-            onClick={() => d && onSelect(d.name)}
-            title={d ? `${d.name} · ${fmtCompact(d.amount)} · ${d.count}` : t.name}
-            className="flex aspect-square flex-col items-center justify-center rounded-lg p-1 transition-colors disabled:cursor-default"
-            style={{
-              gridColumn: t.col,
-              gridRow: t.row,
-              backgroundColor: d ? withAlpha(C.success, intensity) : C.wash,
-              outline: isActive ? `2px solid ${C.brand}` : 'none',
-              outlineOffset: -1,
-            }}
-          >
-            <span
-              className="font-display text-[12px] font-semibold"
-              style={{ color: light ? '#fff' : C.ink }}
-            >
-              {t.abbr}
-            </span>
-            {d && (
-              <span
-                className="font-display text-[9px]"
-                style={{ color: light ? 'rgba(255,255,255,0.85)' : C.sub }}
-              >
-                {fmtCompact(d.amount)}
-              </span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 function FilterSelect({
   label,
@@ -503,45 +432,69 @@ function InsightsPage() {
     .sort((a, b) => b.amount - a.amount)
   const themedTotal = themes.reduce((s, t) => s + t.amount, 0)
 
-  // ── Region + selected-region breakdown ──
-  const byRegion = regions
-    .map((r) => {
-      const grants = fil.filter((g) => g.region === r)
-      return {
-        name: r,
-        amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
-        count: grants.length,
-      }
-    })
-    .filter((r) => r.count > 0)
-    .sort((a, b) => b.amount - a.amount)
+  // ── Geography: the choropleth + its donut ──
+  //
+  // The map drills World → United Kingdom → one region's districts. Each level
+  // keys on a different field, so the values map is rebuilt per view rather than
+  // derived once: countries on ISO alpha-3, regions on the persisted region
+  // name, districts on the ONS LAD code.
+  const [mapView, setMapView] = useState<MapView>({ kind: 'uk' })
+  const [selArea, setSelArea] = useState<string | null>(null)
   const unlocatedCount = fil.filter((g) => !g.region).length
 
-  const [selRegion, setSelRegion] = useState<string | null>(null)
-  const activeRegion =
-    selRegion && byRegion.some((r) => r.name === selRegion)
-      ? selRegion
-      : (byRegion[0]?.name ?? null)
-  const regionByNorm = new Map(byRegion.map((r) => [norm(r.name), r]))
-  const maxRegionAmt = byRegion[0]?.amount ?? 1
-  const tiledNorms = new Set(UK_TILES.map((t) => norm(t.name)))
-  const unmatchedRegions = byRegion.filter((r) => !tiledNorms.has(norm(r.name)))
-  const regionGrants = fil.filter((g) => g.region === activeRegion)
-  const regionTotal = regionGrants.reduce((s, g) => s + g.amountAwarded, 0)
-  const byLad = [...new Map(regionGrants.map((g) => [g.ladName ?? '—', 0])).keys()]
-    .map((lad, i) => ({
-      name: lad,
-      color: PALETTE[i % PALETTE.length]!,
-      amount: regionGrants
-        .filter((g) => (g.ladName ?? '—') === lad)
-        .reduce((s, g) => s + g.amountAwarded, 0),
-    }))
+  // Roll grants up to whichever key the current view paints.
+  const realValues = (() => {
+    const acc = new Map<string, { amount: number; count: number }>()
+    const add = (key: string | null, amount: number) => {
+      if (!key) return
+      const prev = acc.get(key) ?? { amount: 0, count: 0 }
+      acc.set(key, { amount: prev.amount + amount, count: prev.count + 1 })
+    }
+    for (const g of fil) {
+      if (mapView.kind === 'uk') add(g.region, g.amountAwarded)
+      else if (mapView.kind === 'region') {
+        if (g.region === mapView.region) add(g.ladCode, g.amountAwarded)
+      }
+      // World: nothing to add yet. Delivery geography is UK-only today — there
+      // is no country on a grant — so the world tier has no real data to show
+      // rather than a wrong one. See demoGeo.ts.
+    }
+    return acc
+  })()
+
+  // Fall back to the sample portfolio only when NOTHING real is mappable, so
+  // invented figures can never sit alongside — or quietly stand in for — a real
+  // grant. `isDemo` drives the badge on the panel.
+  const hasRealGeo = fil.some((g) => g.region)
+  const isDemo = !hasRealGeo
+  const mapValues = hasRealGeo
+    ? realValues
+    : mapView.kind === 'world'
+      ? demoGeo.world()
+      : mapView.kind === 'uk'
+        ? demoGeo.regions()
+        : demoGeo.districts(mapView.region)
+
+  // The donut mirrors whatever the map is showing: same slice of the portfolio,
+  // ranked, so the two halves of the panel can never disagree.
+  const areaRanked = [...mapValues.entries()]
+    .map(([code, v]) => ({ code, ...v }))
     .sort((a, b) => b.amount - a.amount)
-  const ladDonut: DonutSlice[] = byLad.map((l) => ({
-    name: l.name,
-    value: l.amount,
-    color: l.color,
+  const areaTotal = areaRanked.reduce((s, a) => s + a.amount, 0)
+  const areaNames = useAreaNames(mapView)
+  const topAreas = areaRanked.slice(0, PALETTE.length).map((a, i) => ({
+    ...a,
+    name: areaNames.get(a.code) ?? a.code,
+    color: PALETTE[i % PALETTE.length]!,
   }))
+  const restAmount = areaRanked.slice(PALETTE.length).reduce((s, a) => s + a.amount, 0)
+  const areaDonut: DonutSlice[] = [
+    ...topAreas.map((a) => ({ name: a.name, value: a.amount, color: a.color })),
+    // Never generate an 8th hue — the tail folds into one neutral "Other".
+    ...(restAmount > 0
+      ? [{ name: 'Other areas', value: restAmount, color: C.line }]
+      : []),
+  ]
 
   // ── Deprivation-decile distribution ──
   const decileAmounts = fundingByDecile(located)
@@ -900,53 +853,44 @@ function InsightsPage() {
             </Panel>
           </div>
 
-          {/* Giving by region */}
-          {byRegion.length > 0 && (
+          {/* Giving by area */}
+          {(areaRanked.length > 0 || isDemo) && (
             <Panel data-export-block>
-              <PanelTitle>Giving by region</PanelTitle>
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Region tile-map */}
+              <PanelTitle
+                right={
+                  isDemo ? (
+                    <span
+                      className="shrink-0 rounded-full px-2 py-0.5 font-display text-[11px] font-medium"
+                      style={{ backgroundColor: KPI.reach.bg, color: '#B26A05' }}
+                      title="No award in this slice has a resolved delivery location, so the map is showing a sample portfolio."
+                    >
+                      Sample data
+                    </span>
+                  ) : undefined
+                }
+              >
+                Giving by area
+              </PanelTitle>
+
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_1fr]">
                 <div>
-                  <RegionTileMap
-                    data={regionByNorm}
-                    max={maxRegionAmt}
-                    active={activeRegion}
-                    onSelect={setSelRegion}
+                  <Choropleth
+                    view={mapView}
+                    onViewChange={(v) => {
+                      setMapView(v)
+                      setSelArea(null)
+                    }}
+                    values={mapValues}
+                    selected={selArea}
+                    onSelect={setSelArea}
                   />
-                  {unmatchedRegions.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {unmatchedRegions.map((r) => {
-                        const on = r.name === activeRegion
-                        return (
-                          <button
-                            key={r.name}
-                            type="button"
-                            onClick={() => setSelRegion(r.name)}
-                            className="rounded-lg border px-2.5 py-1 font-display text-[13px]"
-                            style={{ borderColor: on ? C.brand : C.line, color: C.ink }}
-                          >
-                            {r.name} · {fmtCompact(r.amount)}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                  {unlocatedCount > 0 && (
-                    <p className="mt-3 font-display text-[12px]" style={{ color: C.faint }}>
-                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
-                      location.
-                    </p>
-                  )}
+                  <MapAttribution />
                 </div>
 
-                {/* Selected region donut + LAD breakdown */}
                 <div>
-                  <p className="mb-2 font-display text-[14px] font-medium" style={{ color: C.ink }}>
-                    {activeRegion}
-                  </p>
                   <div className="flex items-center gap-5">
                     <Donut
-                      data={ladDonut}
+                      data={areaDonut}
                       size={132}
                       thickness={16}
                       center={
@@ -955,7 +899,7 @@ function InsightsPage() {
                             className="font-display text-[20px] font-medium"
                             style={{ color: C.ink }}
                           >
-                            {fmtCompact(regionTotal)}
+                            {fmtCompact(areaTotal)}
                           </div>
                           <div className="font-display text-[12px]" style={{ color: C.faint }}>
                             committed
@@ -963,33 +907,67 @@ function InsightsPage() {
                         </div>
                       }
                     />
-                    <div className="flex-1">
-                      {byLad.map((l) => {
-                        const pct = regionTotal > 0 ? Math.round((l.amount / regionTotal) * 100) : 0
+                    <ul className="min-w-0 flex-1 space-y-1">
+                      {topAreas.map((a) => {
+                        const pct = areaTotal > 0 ? Math.round((a.amount / areaTotal) * 100) : 0
+                        const on = selArea === a.code
                         return (
-                          <div key={l.name} className="mb-2 last:mb-0">
-                            <div className="flex items-baseline justify-between">
-                              <span className="font-display text-[13px]" style={{ color: C.ink }}>
-                                {l.name}
-                              </span>
-                              <span className="font-display text-[12px]" style={{ color: C.sub }}>
-                                {fmtCompact(l.amount)} · {pct}%
-                              </span>
-                            </div>
-                            <div
-                              className="mt-1 h-1.5 overflow-hidden rounded-full"
-                              style={{ backgroundColor: C.wash }}
+                          <li key={a.code}>
+                            <button
+                              type="button"
+                              onClick={() => setSelArea(on ? null : a.code)}
+                              className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left transition-colors hover:bg-black/[0.03]"
+                              style={{ backgroundColor: on ? C.wash : undefined }}
                             >
-                              <div
-                                className="h-full rounded-full bar-grow"
-                                style={{ width: `${Math.max(2, pct)}%`, backgroundColor: l.color }}
+                              <span
+                                className="size-2 shrink-0 rounded-[2px]"
+                                style={{ backgroundColor: a.color }}
                               />
-                            </div>
-                          </div>
+                              <span
+                                className="min-w-0 flex-1 truncate font-display text-[13px]"
+                                style={{ color: C.ink }}
+                              >
+                                {a.name}
+                              </span>
+                              <span
+                                className="shrink-0 font-display text-[12px] tabular-nums"
+                                style={{ color: C.sub }}
+                              >
+                                {fmtCompact(a.amount)} · {pct}%
+                              </span>
+                            </button>
+                          </li>
                         )
                       })}
-                    </div>
+                      {restAmount > 0 && (
+                        <li className="flex items-baseline gap-2 px-1 py-0.5">
+                          <span
+                            className="size-2 shrink-0 rounded-[2px]"
+                            style={{ backgroundColor: C.line }}
+                          />
+                          <span
+                            className="min-w-0 flex-1 truncate font-display text-[13px]"
+                            style={{ color: C.sub }}
+                          >
+                            Other areas
+                          </span>
+                          <span
+                            className="shrink-0 font-display text-[12px] tabular-nums"
+                            style={{ color: C.sub }}
+                          >
+                            {fmtCompact(restAmount)}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
                   </div>
+
+                  {unlocatedCount > 0 && (
+                    <p className="mt-3 font-display text-[12px]" style={{ color: C.faint }}>
+                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
+                      location.
+                    </p>
+                  )}
                 </div>
               </div>
             </Panel>
