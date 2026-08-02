@@ -43,19 +43,22 @@ export function BarMeter({
 }) {
   const colors: string[] = []
   if (segments && segments.length) {
-    const total = segments.reduce((s, x) => s + x.value, 0)
+    // Empty categories are dropped first: the last segment soaks up the rounding
+    // remainder, so a zero-valued one left in place would be handed a bar and show
+    // a category that isn't there (e.g. a red tick for "0 declined").
+    const segs = segments.filter((s) => s.value > 0)
+    const total = segs.reduce((s, x) => s + x.value, 0)
     if (total <= 0) {
       for (let i = 0; i < bars; i++) colors.push(withAlpha(color, trackOpacity))
     } else {
       let assigned = 0
-      segments.forEach((seg, si) => {
+      segs.forEach((seg, si) => {
         // Last segment soaks up the rounding remainder so the strip is always full.
-        const n =
-          si === segments.length - 1 ? bars - assigned : Math.round((bars * seg.value) / total)
+        const n = si === segs.length - 1 ? bars - assigned : Math.round((bars * seg.value) / total)
         for (let k = 0; k < n; k++) colors.push(seg.color)
         assigned += n
       })
-      while (colors.length < bars) colors.push(segments[segments.length - 1]!.color)
+      while (colors.length < bars) colors.push(segs[segs.length - 1]!.color)
     }
   } else {
     const p = Math.max(0, Math.min(1, progress ?? 0))

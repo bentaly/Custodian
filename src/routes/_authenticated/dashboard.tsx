@@ -120,12 +120,16 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
 type Chip = { label: string; count: number; color: string }
 
 function Chips({ chips }: { chips: Chip[] }) {
+  // Only categories that actually have something in them — "0 declined" is noise,
+  // and it has to match the bar-meter, which drops empty segments too.
+  const shown = chips.filter((c) => c.count > 0)
+  if (!shown.length) return null
   return (
     <div
       className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs"
       style={{ color: C.sub }}
     >
-      {chips.map((c) => (
+      {shown.map((c) => (
         <span key={c.label} className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
           {c.count} {c.label}
