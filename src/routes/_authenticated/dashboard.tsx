@@ -276,17 +276,14 @@ function DeskRow({
 
 // ─── "Lately" (audit log) rows ────────────────────────────────────────────────────
 
-// Figma 126:39615 — one neutral tile for every row; the glyph carries the only colour,
-// and only for the outcomes that are genuinely good/bad. Everything else is Gray/500.
-const LATELY_META: Record<string, { icon: typeof Files01Icon; accent: string; verb: string }> = {
-  application_awarded: {
-    icon: CheckmarkSquare01Icon,
-    accent: C.success,
-    verb: 'awarded a grant to',
-  },
-  application_declined: { icon: CancelSquareIcon, accent: C.danger, verb: 'declined' },
-  application_shortlisted: { icon: CheckmarkCircle02Icon, accent: C.sub, verb: 'shortlisted' },
-  application_commented: { icon: BubbleChatIcon, accent: C.sub, verb: 'commented on' },
+// Figma 126:39615 — one neutral tile for every row, and a Gray/500 glyph in all of them.
+// The feed is a log, not a status board: colouring only the good/bad outcomes made the
+// rest look like a different kind of row rather than reading as one list.
+const LATELY_META: Record<string, { icon: typeof Files01Icon; verb: string }> = {
+  application_awarded: { icon: CheckmarkSquare01Icon, verb: 'awarded a grant to' },
+  application_declined: { icon: CancelSquareIcon, verb: 'declined' },
+  application_shortlisted: { icon: CheckmarkCircle02Icon, verb: 'shortlisted' },
+  application_commented: { icon: BubbleChatIcon, verb: 'commented on' },
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────────
@@ -420,7 +417,7 @@ function Dashboard() {
           value={String(a.shortlist.count)}
           sub={`${fmtCompact(a.shortlist.proposed)} proposed`}
           icon={CheckListIcon}
-          label="Review"
+          label="Shortlist"
           to="/shortlist"
           search={{ roundId: undefined }}
           meter={<BarMeter segments={toSegments(reviewCats)} color={KPI.review.accent} />}
@@ -585,7 +582,7 @@ function Dashboard() {
                         icon={meta.icon}
                         className="h-5 w-5"
                         strokeWidth={1.5}
-                        style={{ color: meta.accent }}
+                        style={{ color: C.sub }}
                       />
                     </span>
                     <span

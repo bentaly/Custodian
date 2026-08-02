@@ -40,7 +40,8 @@ function AuthenticatedLayout() {
         <Sidebar mobileOpen={navOpen} onClose={() => setNavOpen(false)} />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader user={user} rounds={rounds} onOpenNav={() => setNavOpen(true)} />
-          <main className="flex-1 overflow-y-auto bg-white p-4 sm:p-6 lg:p-8">
+          {/* 16px all round at every width — the design's page gutter (Figma 126:31899). */}
+          <main className="flex-1 overflow-y-auto bg-white p-4">
             <Outlet />
           </main>
         </div>

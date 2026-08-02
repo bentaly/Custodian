@@ -27,9 +27,9 @@ const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardSquare01Icon },
   { to: '/applications', label: 'Applications', icon: Files01Icon, search: { roundId: undefined } },
   { to: '/shortlist', label: 'Shortlist', icon: CheckListIcon, search: { roundId: undefined } },
-  { to: '/reports', label: 'Reports', icon: File01Icon },
   { to: '/awards', label: 'Awards', icon: Award01Icon, search: { roundId: undefined } },
   { to: '/finance', label: 'Finance', icon: BankIcon },
+  { to: '/reports', label: 'Reports', icon: File01Icon },
   { to: '/insights', label: 'Insights', icon: TradeUpIcon },
 ] as const satisfies readonly {
   to: string
