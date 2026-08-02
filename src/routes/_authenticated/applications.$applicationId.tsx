@@ -32,6 +32,7 @@ import {
 } from '../../lib/custodianScore'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
+import { fieldGaps } from '../../lib/fieldMapping/gaps'
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { fmtCompact, fmtMoney } from '../../lib/format'
@@ -263,6 +264,19 @@ function ApplicationDetail() {
       : null
   const costPerBeneficiary =
     proposedImpact && proposedImpact > 0 ? amountRequested / proposedImpact : null
+
+  // What this submission never captured. A field that didn't map leaves a null column,
+  // indistinguishable from a question the foundation never asked — so the feature it
+  // feeds silently doesn't run. Stating it is the difference between noticing in the
+  // queue and noticing weeks later, if at all.
+  const gaps = fieldGaps({
+    charityNumber: application.charityNumber,
+    companyNumber: application.companyNumber,
+    deliveryArea: application.deliveryArea,
+    budgetBreakdown: budgetLines,
+    proposedImpactQuantity: application.proposedImpactQuantity,
+  })
+  const noRegistrationNumber = gaps.oneOf.length > 0
 
   async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
     setError(null)
@@ -610,6 +624,14 @@ function ApplicationDetail() {
                   )
                 })}
               </div>
+            ) : noRegistrationNumber ? (
+              // "Not screened yet" reads as pending. When there is no registration
+              // number it isn't pending — there is nothing to screen against, and
+              // re-running will never change that. Say which, so the fix is obvious.
+              <p className="font-display text-[14px]" style={{ color: C.sub }}>
+                Not screened — this submission has no charity number or company number, so there is
+                no register to check it against.
+              </p>
             ) : (
               <p className="font-display text-[14px]" style={{ color: C.sub }}>
                 Not screened yet.
@@ -739,6 +761,52 @@ function ApplicationDetail() {
                   </span>
                 </p>
               )}
+            </Panel>
+          )}
+
+          {/* Not captured — the one place a silently-lost field becomes visible. */}
+          {gaps.any && (
+            <Panel label="Not captured">
+              <PanelTitle>Not captured</PanelTitle>
+              <p className="mb-2.5 font-display text-[13px]" style={{ color: C.sub }}>
+                This submission didn't include the following, so the features that use them are
+                unavailable on this application.
+              </p>
+              <div className="flex flex-col gap-2">
+                {[
+                  ...gaps.oneOf.map((g) => ({
+                    key: g.keys.join('-'),
+                    label: g.label.replace(/^./, (ch) => ch.toUpperCase()),
+                    degrades: g.degrades,
+                  })),
+                  ...gaps.expected.map((g) => ({
+                    key: g.key,
+                    label: g.label,
+                    degrades: g.degrades,
+                  })),
+                ].map((g) => (
+                  <div
+                    key={g.key}
+                    className="rounded-lg px-3 py-2.5"
+                    style={{ backgroundColor: C.wash }}
+                  >
+                    <div className="font-display text-[14px]" style={{ color: C.ink }}>
+                      {g.label}
+                    </div>
+                    <div className="mt-0.5 font-display text-[12.5px]" style={{ color: C.sub }}>
+                      {g.degrades}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                className="mt-2.5 font-display text-[13px] font-medium"
+                style={{ color: C.brand }}
+              >
+                Check the submission →
+              </button>
             </Panel>
           )}
         </div>

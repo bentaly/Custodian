@@ -1,4 +1,5 @@
 export * from './canonical'
+export * from './gaps'
 export * from './types'
 export * from './match'
 export * from './common'

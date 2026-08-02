@@ -220,6 +220,33 @@ canonical fields (`CreateApplicationSchema`).
   in-app Reports screen (`/reports`).
 - British English in all copy/identifiers (e.g. "Organisation", not "Organization").
 
+## Canonical field tiers
+
+Every field in `src/lib/fieldMapping/canonical.ts` carries a `tier` saying what its absence costs.
+A two-state model (required / optional) shipped a real bug, so the middle tier is load-bearing:
+
+- **`required`** (9 fields) — no application without it. Unresolved → the ingest holds at
+  `needs_review`. Derived as `REQUIRED_CANONICAL_KEYS`.
+- **`one_of`** — belongs to a group in `REQUIRED_ONE_OF_GROUPS` (today just
+  `[charityNumber, companyNumber]`) of which at least one member must resolve. Neither is required
+  alone — an applicant may be a charity, a company, or both — but with **neither** there is no
+  register to check, so due diligence can never run. As two plain optionals this promoted silently
+  and an admin saw an application that looked screened and never had been. Enforced in **both**
+  `ingest.ts` (step 6) and `resolve.ts` (`oneOfIssues`) — a reviewer must not be able to wave
+  through what the pipeline held.
+- **`expected`** — promotes without it, but a feature is degraded, so the field carries a
+  `degrades` string that is **shown on the application** ("Not captured" panel) rather than left
+  silent. Holding these would be disproportionate: a foundation that doesn't ask for a delivery
+  area shouldn't have every submission stuck in a queue.
+
+`fieldGaps()` (`src/lib/fieldMapping/gaps.ts`) turns this metadata into the list the application
+screen renders. The principle: **a lost field must never be indistinguishable from a question the
+foundation never asked** — that equivalence is what made the original bug invisible for days.
+
+`/settings/submissions` renders the tiers straight from the registry, so the published spec cannot
+drift from the mapper. The admin review queue gets group membership via `oneOfGroup` on
+`/api/admin/canonical-fields` rather than inferring it from `tier`.
+
 ## Route structure
 
 - `src/routes/_authenticated.tsx` — layout + auth guard for all protected routes
@@ -253,7 +280,9 @@ canonical fields (`CreateApplicationSchema`).
 - **custodianScore** — Anthropic-scored application quality (0–100 + per-criterion detail)
 - **dueDiligence** — registry checks against Charity Commission + Companies House
 - **deprivation** — delivery-area → IMD decile context via postcodes.io + `deprivation_areas`
-- **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
+- **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback).
+  The application registry (`src/lib/fieldMapping/canonical.ts`) grades each field by what its
+  absence costs — see "Canonical field tiers" below
 - **reportAnalysis** — AI analysis of received reports (summary, alignment, impact quantity)
 - **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance
 - **awardLetter** — the letter a grantee is emailed when awarded. `src/lib/awardLetter` renders it

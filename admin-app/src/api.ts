@@ -14,6 +14,14 @@ export interface CanonicalField {
   key: string
   label: string
   required: boolean
+  /**
+   * How much the field's absence costs: `required` blocks the application, `one_of`
+   * blocks it only if no sibling in `oneOfGroup` resolves, `expected` never blocks.
+   * Optional because the report registry is still two-tier and omits it.
+   */
+  tier?: 'required' | 'one_of' | 'expected'
+  /** Index of the one-of group this field belongs to; null for every other field. */
+  oneOfGroup?: number | null
   description?: string
 }
 

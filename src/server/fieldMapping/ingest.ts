@@ -32,6 +32,7 @@ import {
   CANONICAL_FIELD_BY_KEY,
   CANONICAL_KEYS,
   REQUIRED_CANONICAL_KEYS,
+  unmetOneOfGroups,
   type LookupResult,
   type ProposalMap,
 } from '../../lib/fieldMapping'
@@ -193,10 +194,20 @@ export async function processIngest(
   //    that resolved to an invalid value (e.g. an amount that won't parse) is
   //    treated as unresolved → needs_review. We can only attempt validation when
   //    the round programme is known.
+  //
+  //    A one-of group with no member resolved holds the submission too. Neither
+  //    `charityNumber` nor `companyNumber` is required on its own — an applicant may
+  //    hold either — but with neither there is no registry to screen against, so due
+  //    diligence can never run for this application. Left as two plain optionals that
+  //    promoted quietly, which is how a submission reached an admin looking screened
+  //    when it had never been checked at all. Holding costs a reviewer a few seconds
+  //    and the pair is usually one ambiguous label away from resolving.
+  const unmetGroups = unmetOneOfGroups(Object.keys(resolved))
+
   let status: IngestStatus
   let validInput: ReturnType<typeof CreateApplicationSchema.safeParse> | null = null
 
-  if (unresolvedRequired.length === 0 && roundProgrammeId) {
+  if (unresolvedRequired.length === 0 && unmetGroups.length === 0 && roundProgrammeId) {
     validInput = CreateApplicationSchema.safeParse(
       buildCanonicalInput(roundProgrammeId, resolved, responses),
     )

@@ -24,6 +24,7 @@ import {
   findActiveRoundProgrammeByName,
 } from '../applications/create'
 import { CreateApplicationSchema } from '../../lib/validators/application'
+import { describeOneOfGroup, unmetOneOfGroups } from '../../lib/fieldMapping'
 import type { ResolveInput } from '../../lib/validators/ingest'
 
 export type ResolveResult =
@@ -33,6 +34,24 @@ export type ResolveResult =
     }
   | { ok: false; error: 'invalid'; fields: Array<{ field: string; message: string }> }
   | { ok: true; applicationId: string }
+
+/**
+ * The one-of groups a reviewer's mapping leaves unsatisfied, as validation issues.
+ *
+ * The pipeline holds a submission that resolved neither member of a group; without the
+ * same check here a reviewer could clear the queue by leaving the pair blank and create
+ * exactly the un-screenable application the hold exists to prevent. Reported through the
+ * normal `invalid` channel so the admin app renders it like any other field error.
+ */
+function oneOfIssues(mapping: ResolveInput['mapping']): Array<{ field: string; message: string }> {
+  const chosen = Object.entries(mapping)
+    .filter(([, sourceKey]) => sourceKey)
+    .map(([canonical]) => canonical)
+  return unmetOneOfGroups(chosen).map((group) => ({
+    field: group[0]!,
+    message: `Map a ${describeOneOfGroup(group)} — without one of them this application can never be screened for due diligence.`,
+  }))
+}
 
 /** Persist reviewer-confirmed mappings to the foundation's lookup table. */
 async function persistLookups(clientId: string, input: ResolveInput, actor: string | null) {
@@ -101,12 +120,14 @@ export async function resolveIngest(
   const candidate = buildCanonicalInput(roundProgrammeId, resolved, responses)
 
   const parsed = CreateApplicationSchema.safeParse(candidate)
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: 'invalid',
-      fields: parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
-    }
+  const issues = [
+    ...(parsed.success
+      ? []
+      : parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message }))),
+    ...oneOfIssues(input.mapping),
+  ]
+  if (!parsed.success || issues.length > 0) {
+    return { ok: false, error: 'invalid', fields: issues }
   }
 
   // Persist confirmed mappings to the foundation's lookup table.

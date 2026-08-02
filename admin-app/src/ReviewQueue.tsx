@@ -131,6 +131,22 @@ function IngestCard({
     setAddToLookup(Object.fromEntries(mappedKeys.map((k) => [k, !allTicked])))
   }
 
+  // One-of groups (charity number / company number) with nothing chosen. The server
+  // refuses these, so surfacing them here is only about saying so before the click
+  // rather than after — a reviewer who leaves both blank is usually looking at one
+  // ambiguous label ("Organisation registration number") and needs to pick a register,
+  // not to be told the request failed.
+  const unmetOneOf = useMemo(() => {
+    const groups = new Map<number, CanonicalField[]>()
+    for (const f of canonicalFields) {
+      if (f.oneOfGroup == null) continue
+      const list = groups.get(f.oneOfGroup) ?? []
+      list.push(f)
+      groups.set(f.oneOfGroup, list)
+    }
+    return [...groups.values()].filter((g) => !g.some((f) => mapping[f.key]))
+  }, [canonicalFields, mapping])
+
   async function remove() {
     const msg =
       row.status === 'received'
@@ -280,6 +296,18 @@ function IngestCard({
                   <label className="col-span-3 text-xs font-medium text-gray-700">
                     {f.label}
                     {f.required && <span className="ml-0.5 text-red-500">*</span>}
+                    {f.oneOfGroup != null && (
+                      <span
+                        className={`ml-1 rounded-sm px-1 py-0.5 text-[10px] ${
+                          unmetOneOf.some((g) => g.some((x) => x.key === f.key))
+                            ? 'bg-red-50 text-red-600'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                        title="One of this pair must be mapped — without either, due diligence can never run."
+                      >
+                        1 of 2
+                      </span>
+                    )}
                   </label>
                   <select
                     disabled={row.status === 'complete'}
@@ -323,6 +351,18 @@ function IngestCard({
               )
             })}
           </div>
+
+          {row.status !== 'complete' &&
+            unmetOneOf.map((group) => (
+              <p
+                key={group.map((f) => f.key).join('-')}
+                className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800"
+              >
+                Map <strong>{group.map((f) => f.label.toLowerCase()).join(' or ')}</strong> — with
+                neither there is no register to check, so this application can never be screened for
+                due diligence.
+              </p>
+            ))}
 
           {err && <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{err}</p>}
 

@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Card, Tabs, type TabItem } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
-import { CANONICAL_FIELDS } from '../../lib/fieldMapping/canonical'
+import {
+  CANONICAL_FIELDS,
+  REQUIRED_ONE_OF_GROUPS,
+  describeOneOfGroup,
+  type FieldTier,
+} from '../../lib/fieldMapping/canonical'
 import { REPORT_CANONICAL_FIELDS } from '../../lib/fieldMapping/reportCanonical'
 
 export const Route = createFileRoute('/_authenticated/settings/submissions')({
@@ -14,10 +19,35 @@ export const Route = createFileRoute('/_authenticated/settings/submissions')({
 })
 
 // Both registries share a shape, so one table renders either. Reading them straight
-// from the mapper's source of truth means this page cannot drift out of date.
-type Field = { key: string; label: string; required: boolean; description: string }
+// from the mapper's source of truth means this page cannot drift out of date — which
+// matters more now that this page IS the spec a foundation builds their form against.
+//
+// The report registry is still two-tier (`required: boolean`), so it is normalised into
+// the same three-tier shape for display rather than each registry growing its own table.
+type Field = {
+  key: string
+  label: string
+  tier: FieldTier
+  description: string
+  /** What stops working without it — shown to a foundation deciding whether to send it. */
+  degrades?: string
+}
 
 type Kind = 'applications' | 'reports'
+
+const TIER_BADGE: Record<FieldTier, { label: string; className: string } | null> = {
+  required: {
+    label: 'Required',
+    className: 'bg-[#FEF0E6] text-[#B45309]',
+  },
+  one_of: {
+    label: 'One of a pair',
+    className: 'bg-[#FEF7EB] text-[#9B6916]',
+  },
+  // No badge: an `expected` field is genuinely optional to send. Its cost is spelled
+  // out in the description instead, where it reads as guidance rather than a demand.
+  expected: null,
+}
 
 const TABS: TabItem<Kind>[] = [
   { id: 'applications', label: 'Applications' },
@@ -29,13 +59,20 @@ const ENDPOINTS = {
     path: '/api/apply',
     blurb:
       'Post a completed application. Every field you send is matched to one of the fields below, including your own application reference.',
-    fields: CANONICAL_FIELDS as unknown as Field[],
+    fields: CANONICAL_FIELDS as Field[],
   },
   reports: {
     path: '/api/submit-report',
     blurb:
       'Post a grant report. Reports link to a grant automatically when your application reference matches one we already hold; anything else waits in the Reports queue for an admin.',
-    fields: REPORT_CANONICAL_FIELDS as unknown as Field[],
+    fields: REPORT_CANONICAL_FIELDS.map(
+      (f): Field => ({
+        key: f.key,
+        label: f.label,
+        tier: f.required ? 'required' : 'expected',
+        description: f.description,
+      }),
+    ),
   },
 }
 
@@ -80,8 +117,16 @@ function Submissions() {
             </p>
             <p>
               Fields marked <span className="font-medium text-[#141C24]">Required</span> must be
-              present and understood before a submission can go through. The rest are optional and
-              simply enrich the record.
+              present and understood before a submission can go through. Where a field is marked{' '}
+              <span className="font-medium text-[#141C24]">One of a pair</span>, at least one of the
+              two must be present — neither is needed on its own, but a submission with neither is
+              held for review.
+            </p>
+            <p>
+              Everything else is optional to send. Some of it still earns its place: each field
+              below says what we can do with it, and what we can't do without it. A submission
+              missing one of those goes through, and the application says plainly what is
+              unavailable as a result — nothing is dropped quietly.
             </p>
           </Card>
         </section>
@@ -102,18 +147,37 @@ function Submissions() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-medium text-gray-700">Fields we recognise</h2>
+          {tab === 'applications' &&
+            REQUIRED_ONE_OF_GROUPS.map((group) => (
+              <p
+                key={group.join('-')}
+                className="rounded-[12px] bg-[#FEF7EB] px-4 py-3 text-sm leading-relaxed text-[#9B6916]"
+              >
+                Send a <strong>{describeOneOfGroup(group)}</strong>. Applicants hold one or the
+                other, so neither is required by itself — but with neither there is no register to
+                check, and the application can never be screened for due diligence. A submission
+                with neither waits in the review queue.
+              </p>
+            ))}
           <Card className="divide-y divide-gray-100">
             {active.fields.map((f) => (
               <div key={f.key} className="px-5 py-4">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-sm font-medium text-[#141C24]">{f.label}</span>
-                  {f.required && (
-                    <span className="rounded-full bg-[#FEF0E6] px-2 py-0.5 text-[11px] font-medium text-[#B45309]">
-                      Required
+                  {TIER_BADGE[f.tier] && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TIER_BADGE[f.tier]!.className}`}
+                    >
+                      {TIER_BADGE[f.tier]!.label}
                     </span>
                   )}
                 </div>
                 <p className="mt-1 text-sm leading-relaxed text-[#637083]">{f.description}</p>
+                {f.degrades && (
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#9B6916]">
+                    If you don't send it: {f.degrades}
+                  </p>
+                )}
               </div>
             ))}
           </Card>
