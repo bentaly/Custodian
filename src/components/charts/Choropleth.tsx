@@ -29,6 +29,10 @@ const RAMP = ['#87B5A1', '#69A089', '#4B8B71', '#29765B', '#006145'] as const
 // "we funded nothing here" can never be misread as "we funded a little here".
 const EMPTY = '#F2F4F7'
 
+// The one country with a layer beneath it, so it is the one country on the
+// world map that drills rather than selects.
+const UK_ISO3 = 'GBR'
+
 export type MapView =
   | { kind: 'world' }
   | { kind: 'uk' }
@@ -159,6 +163,7 @@ export function Choropleth({
   values,
   selected,
   onSelect,
+  showWorld = false,
 }: {
   view: MapView
   onViewChange: (view: MapView) => void
@@ -166,6 +171,8 @@ export function Choropleth({
   values: Map<string, AreaDatum>
   selected: string | null
   onSelect: (key: string, name: string) => void
+  /** Offer the World tier. False when no grant carries a country to paint. */
+  showWorld?: boolean
 }) {
   const { data, error } = useGeo(view)
   const [hover, setHover] = useState<{ x: number; y: number; f: GeoFeature } | null>(null)
@@ -228,7 +235,7 @@ export function Choropleth({
 
   return (
     <div>
-      <Breadcrumb view={view} onViewChange={onViewChange} />
+      <Breadcrumb view={view} onViewChange={onViewChange} showWorld={showWorld} />
 
       <div ref={wrap} className="relative" onMouseLeave={() => setHover(null)}>
         <svg
@@ -245,7 +252,15 @@ export function Choropleth({
             const amount = datum?.amount ?? 0
             const b = bucketOf(amount, cuts)
             const isSel = selected === areaKey
-            const canDrill = view.kind === 'uk' && amount > 0
+            // Drilling down a level: a funded UK region opens its districts,
+            // and the UK on the world map opens the UK. Everything else is a
+            // leaf — there is no layer beneath a district or a foreign country.
+            const drillTo: MapView | null =
+              view.kind === 'uk' && amount > 0
+                ? { kind: 'region', region: f.properties.name }
+                : view.kind === 'world' && f.properties.code === UK_ISO3
+                  ? { kind: 'uk' }
+                  : null
             const interactive = amount > 0
 
             return (
@@ -283,14 +298,14 @@ export function Choropleth({
                 onClick={() => {
                   if (!interactive) return
                   onSelect(areaKey, f.properties.name)
-                  if (canDrill) onViewChange({ kind: 'region', region: f.properties.name })
+                  if (drillTo) onViewChange(drillTo)
                 }}
                 onKeyDown={(e) => {
                   if (e.key !== 'Enter' && e.key !== ' ') return
                   e.preventDefault()
                   if (!interactive) return
                   onSelect(areaKey, f.properties.name)
-                  if (canDrill) onViewChange({ kind: 'region', region: f.properties.name })
+                  if (drillTo) onViewChange(drillTo)
                 }}
               />
             )
@@ -316,6 +331,14 @@ export function Choropleth({
 
         {hover && <HoverCard hover={hover} values={values} areaKey={keyOf(hover.f, src.key)} />}
       </div>
+
+      {funded === 0 && (
+        <p className="mt-2 font-display text-[12px]" style={{ color: chart.sub }}>
+          {view.kind === 'world'
+            ? 'No grant in this slice records a country outside the UK.'
+            : 'No grant in this slice resolved to an area here.'}
+        </p>
+      )}
 
       <Legend cuts={cuts} hasEmpty={features.length > funded} />
     </div>
@@ -369,13 +392,19 @@ function HoverCard({
 function Breadcrumb({
   view,
   onViewChange,
+  showWorld,
 }: {
   view: MapView
   onViewChange: (view: MapView) => void
+  showWorld: boolean
 }) {
-  const crumbs: Array<{ label: string; to?: MapView }> = [
-    { label: 'World', to: view.kind === 'world' ? undefined : { kind: 'world' } },
-  ]
+  const crumbs: Array<{ label: string; to?: MapView }> = []
+  // The world tier is only offered when something can actually be painted on
+  // it. Delivery geography is UK-only today, so for most portfolios a World
+  // crumb would lead to a blank planet and read as a broken map.
+  if (showWorld) {
+    crumbs.push({ label: 'World', to: view.kind === 'world' ? undefined : { kind: 'world' } })
+  }
   if (view.kind !== 'world') {
     crumbs.push({
       label: 'United Kingdom',

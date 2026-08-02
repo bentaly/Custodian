@@ -462,12 +462,25 @@ function InsightsPage() {
     return acc
   })()
 
-  // Fall back to the sample portfolio only when NOTHING real is mappable, so
-  // invented figures can never sit alongside — or quietly stand in for — a real
-  // grant. `isDemo` drives the badge on the panel.
-  const hasRealGeo = fil.some((g) => g.region)
-  const isDemo = !hasRealGeo
-  const mapValues = hasRealGeo
+  // DEMO SWITCH — set to false to drive the map from real awards.
+  //
+  // While the map is being shown off, the sample portfolio drives it at every
+  // level, so all three tiers (including World, which no real grant can fill
+  // yet) have something to show. `realValues` above stays live and correct, so
+  // flipping this back is the only change needed.
+  //
+  // The "Sample data" badge is tied to this flag, NOT to whether real data
+  // happens to exist. These are invented funding figures on a screen whose job
+  // is reporting where a foundation's money actually went — while they are on
+  // screen, the screen has to say so.
+  const USE_SAMPLE_GEO = true
+
+  // Real grants that carry a country, i.e. whether the World tier has anything
+  // to paint. Zero today — no country is persisted on an application yet.
+  const realCountryCount = 0
+
+  const isDemo = USE_SAMPLE_GEO
+  const mapValues = !USE_SAMPLE_GEO
     ? realValues
     : mapView.kind === 'world'
       ? demoGeo.world()
@@ -854,7 +867,10 @@ function InsightsPage() {
           </div>
 
           {/* Giving by area */}
-          {(areaRanked.length > 0 || isDemo) && (
+          {/* Guarded on the slice, NOT on the current view's values: a view with
+              nothing to paint (e.g. World, before grants carry a country) must
+              render an empty map, never unmount the panel under the user. */}
+          {fil.length > 0 && (
             <Panel data-export-block>
               <PanelTitle
                 right={
@@ -883,6 +899,7 @@ function InsightsPage() {
                     values={mapValues}
                     selected={selArea}
                     onSelect={setSelArea}
+                    showWorld={isDemo || realCountryCount > 0}
                   />
                   <MapAttribution />
                 </div>
