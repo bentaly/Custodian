@@ -683,7 +683,18 @@ function InsightsPage() {
   )
   const reportsAnalysed = fil.reduce((s, g) => s + g.reportsAnalysed, 0)
 
-  const earliest = timelineRounds[0]?.name ?? null
+  // The "so far" of the title: the whole portfolio's scale, deliberately NOT the
+  // filtered slice — both halves of the sentence must count the same grants, and
+  // this one sits above the filters rather than under them. Dated rather than named
+  // after the earliest round, because a round's name ("Round 16 Jun") is a foundation's
+  // internal label, not a period a reader can place.
+  const firstDecision = items.reduce<string | null>(
+    (acc, g) => (acc === null || g.decisionAt < acc ? g.decisionAt : acc),
+    null,
+  )
+  const since = firstDecision
+    ? new Date(firstDecision).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    : null
 
   function setSearch(patch: Partial<InsightsSearch>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
@@ -726,12 +737,12 @@ function InsightsPage() {
           <span style={{ color: C.faint }}>so far</span>
         </h1>
         <div className="flex flex-wrap items-center gap-3">
-          {earliest && (
+          {since && (
             <span className="font-display text-[12px] font-medium">
               <span style={{ color: C.brand }}>
                 {items.length} grant{items.length !== 1 ? 's' : ''}
               </span>{' '}
-              <span style={{ color: C.faint }}>since {earliest}</span>
+              <span style={{ color: C.faint }}>since {since}</span>
             </span>
           )}
           {fil.length > 0 && (
