@@ -25,6 +25,7 @@ export function BarMeter({
   trackOpacity = 0.2,
   height = 24,
   barWidth = 3,
+  fill = false,
   animate = true,
   className = '',
 }: {
@@ -38,9 +39,19 @@ export function BarMeter({
   trackOpacity?: number
   height?: number
   barWidth?: number
+  /**
+   * Fixed-pitch mode (Figma's repeated bar tile): bars sit on a constant ~6.7px
+   * pitch and the strip is clipped to the container, so meters of different widths
+   * share one bar rhythm. Only for single-colour strips — clipping would distort
+   * the proportions of a multi-segment meter.
+   */
+  fill?: boolean
   animate?: boolean
   className?: string
 }) {
+  // Fill mode draws past the right edge and clips, so it needs more bars than the
+  // widest plausible container.
+  if (fill) bars = 160
   const colors: string[] = []
   if (segments && segments.length) {
     // Empty categories are dropped first: the last segment soaks up the rounding
@@ -67,13 +78,17 @@ export function BarMeter({
   }
 
   return (
-    <div className={`flex items-end justify-between ${className}`} style={{ height }}>
+    <div
+      className={`flex items-end ${fill ? 'gap-[3.68px] overflow-hidden' : 'justify-between'} ${className}`}
+      style={{ height }}
+    >
       {colors.slice(0, bars).map((c, i) => (
         <span
           key={i}
           className={animate ? 'tick' : ''}
           style={{
             width: barWidth,
+            flexShrink: 0,
             height: '100%',
             borderRadius: 9999,
             backgroundColor: c,

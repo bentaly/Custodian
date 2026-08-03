@@ -72,6 +72,9 @@ export const ApplicationFiltersSchema = z.object({
   scoreBand: ScoreBand.optional(),
   // Programme tag/theme — matches applications whose programme carries the tag.
   tag: z.string().min(1).max(100).optional(),
+  // Inclusive submission-date window, as calendar days (`yyyy-mm-dd`).
+  submittedFrom: z.iso.date().optional(),
+  submittedTo: z.iso.date().optional(),
   // Column sort. Only base-table columns are sortable; programme/theme are the
   // grouping (tabs) and filter axes.
   sortBy: z.enum(['organisation', 'amount', 'status', 'score', 'dueDiligence']).optional(),

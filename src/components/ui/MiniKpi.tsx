@@ -33,6 +33,23 @@ const VALUE_SIZE = {
   sm: 'font-display text-[16px] font-medium leading-snug',
 } as const
 
+/**
+ * The rest of the card's metrics follow the number's scale. `lg` is measured off
+ * the Figma card (128:39856): 24/12 padding inside the tinted panel, a 14px
+ * supporting line, and a 14px footer beside a 20px icon. `sm` keeps the tighter
+ * scale the list screens' stat rows were built at.
+ */
+const SCALE = {
+  lg: {
+    panel: 'px-3 py-6',
+    sub: 'text-[14px]',
+    footer: 'px-3 py-3',
+    label: 'text-[14px]',
+    icon: 20,
+  },
+  sm: { panel: 'p-4', sub: 'text-xs', footer: 'px-4 py-3', label: 'text-[13px]', icon: 16 },
+} as const
+
 export function MiniKpi({
   tint,
   icon,
@@ -60,13 +77,14 @@ export function MiniKpi({
   /** Extra content inside the tinted panel — a meter, chips, a progress bar. */
   children?: ReactNode
 }) {
+  const scale = SCALE[size]
   return (
     <div
       className="flex flex-col rounded-[20px] border bg-white p-1"
       style={{ borderColor: C.line }}
     >
       <div
-        className="relative overflow-hidden rounded-2xl p-4"
+        className={`relative overflow-hidden rounded-2xl ${scale.panel}`}
         style={{ backgroundColor: tint.bg }}
       >
         {/* Figma "Mask group" (112:802): a radial accent gradient shown *through* a dot
@@ -90,15 +108,18 @@ export function MiniKpi({
           >
             {value}
           </div>
-          <div className="mt-1.5 truncate text-xs font-medium" style={{ color: subColor ?? C.sub }}>
+          <div
+            className={`mt-1 truncate font-medium ${scale.sub}`}
+            style={{ color: subColor ?? C.sub }}
+          >
             {sub}
           </div>
           {children}
         </div>
       </div>
-      <div className="flex items-center gap-2 px-4 py-3">
-        <HugeiconsIcon icon={icon} className="h-4 w-4" strokeWidth={1.6} style={{ color: C.sub }} />
-        <span className="text-[13px] font-medium" style={{ color: C.ink }}>
+      <div className={`flex items-center gap-2 ${scale.footer}`}>
+        <HugeiconsIcon icon={icon} size={scale.icon} strokeWidth={1.6} style={{ color: C.sub }} />
+        <span className={`font-medium ${scale.label}`} style={{ color: C.ink }}>
           {label}
         </span>
       </div>

@@ -20,8 +20,10 @@ import { ApplicationStatus, ScoreBand } from '../../lib/validators/application'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import {
   DataTable,
+  DateRangePicker,
   EmptyState,
   ExportButton,
+  FilterPill,
   StatusPill,
   RoundSelect,
   Tabs,
@@ -50,6 +52,8 @@ type SortKey = 'organisation' | 'amount' | 'status' | 'score' | 'dueDiligence'
 type SortDir = 'asc' | 'desc'
 const SORT_KEYS: SortKey[] = ['organisation', 'amount', 'status', 'score', 'dueDiligence']
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
 type ApplicationsSearch = {
   roundId?: string
   programmeId?: string
@@ -57,6 +61,9 @@ type ApplicationsSearch = {
   scoreBand?: ScoreBand
   tag?: string
   q?: string
+  /** Inclusive submission-date window (`yyyy-mm-dd`). */
+  from?: string
+  to?: string
   sortBy?: SortKey
   sortDir?: SortDir
   page?: number
@@ -72,6 +79,8 @@ export const Route = createFileRoute('/_authenticated/applications/')({
       scoreBand: ScoreBand.optional().catch(undefined).parse(search.scoreBand),
       tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
       q: typeof search.q === 'string' && search.q ? search.q : undefined,
+      from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
+      to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
       sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
       sortDir:
         search.sortDir === 'asc' || search.sortDir === 'desc'
@@ -87,6 +96,8 @@ export const Route = createFileRoute('/_authenticated/applications/')({
     scoreBand: search.scoreBand,
     tag: search.tag,
     q: search.q,
+    from: search.from,
+    to: search.to,
     sortBy: search.sortBy,
     sortDir: search.sortDir,
     page: search.page,
@@ -124,6 +135,8 @@ export const Route = createFileRoute('/_authenticated/applications/')({
           scoreBand: deps.scoreBand,
           tag: deps.tag,
           q: deps.q,
+          submittedFrom: deps.from,
+          submittedTo: deps.to,
           sortBy: deps.sortBy,
           sortDir: deps.sortDir,
         },
@@ -213,52 +226,6 @@ function exportCsv(items: AppItem[], filename: string) {
 // ─── Header controls ─────────────────────────────────────────────────────────────
 
 // Filter dropdown pill (Status / Theme / AI score) — Figma style, native <select> over it.
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: string | undefined
-  options: Array<{ value: string; label: string }>
-  onChange: (v: string | undefined) => void
-}) {
-  const current = options.find((o) => o.value === value)
-  return (
-    <div className="relative shrink-0">
-      <div
-        className="flex h-8 items-center gap-1 rounded-lg border bg-white pl-2 pr-1.5"
-        style={{
-          borderColor: current ? C.brand : C.line,
-          backgroundColor: current ? C.brandBg : '#fff',
-        }}
-      >
-        <span
-          className="whitespace-nowrap font-display text-[14px] font-medium"
-          style={{ color: current ? C.brand : C.ink }}
-        >
-          {current ? current.label : label}
-        </span>
-        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={current ? C.brand : C.sub} />
-      </div>
-      <select
-        aria-label={label}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-        className="absolute inset-0 w-full cursor-pointer opacity-0"
-      >
-        <option value="">All {label.toLowerCase()}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
 // ─── Round budget (single dominos bar for the selected round) ────────────────────
 
 type BudgetRow = Awaited<ReturnType<typeof getRoundBudgetSummary>>[number]
@@ -647,7 +614,8 @@ function ApplicationsList() {
   const navigate = useNavigate({ from: '/applications/' })
   const router = useRouter()
   const search = Route.useSearch()
-  const { roundId, programmeId, status, scoreBand, tag, q, sortBy, sortDir, page } = search
+  const { roundId, programmeId, status, scoreBand, tag, q, from, to, sortBy, sortDir, page } =
+    search
   const { items, total, rounds, budgetSummary } = Route.useLoaderData()
 
   const currentPage = page ?? 1
@@ -672,7 +640,7 @@ function ApplicationsList() {
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     setSelected(new Set())
-  }, [roundId, programmeId, status, scoreBand, tag, q, page])
+  }, [roundId, programmeId, status, scoreBand, tag, q, from, to, page])
 
   const visibleRounds = rounds
     .filter((r) => getRoundStatus(r) !== 'upcoming')
@@ -909,25 +877,29 @@ function ApplicationsList() {
       >
         {/* Filter dropdowns */}
         <div className="flex flex-wrap items-center justify-end gap-3 p-4">
-          <FilterSelect
-            label="Status"
-            value={status}
-            options={STATUS_OPTIONS}
-            onChange={setStatus}
-          />
+          <FilterPill label="Status" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
           {tags.length > 0 && (
-            <FilterSelect
+            <FilterPill
               label="Theme"
               value={tag}
               options={tags.map((t) => ({ value: t, label: t }))}
               onChange={setTag}
             />
           )}
-          <FilterSelect
+          <FilterPill
             label="AI score"
             value={scoreBand}
             options={SCORE_BAND_OPTIONS}
             onChange={setScoreBand}
+          />
+          <DateRangePicker
+            value={{ from, to }}
+            onChange={(next) =>
+              navigate({
+                search: (prev) => ({ ...prev, from: next.from, to: next.to, page: undefined }),
+              })
+            }
+            allLabel="Any date"
           />
         </div>
 

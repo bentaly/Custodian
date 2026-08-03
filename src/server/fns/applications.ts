@@ -1,7 +1,7 @@
 import { conflict, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, count, inArray, sql, ne, ilike, gte, lt, isNotNull, desc } from 'drizzle-orm'
+import { and, eq, count, inArray, sql, ne, ilike, gte, lt, lte, isNotNull, desc } from 'drizzle-orm'
 import { getDb } from '../db'
 import {
   applications,
@@ -80,9 +80,17 @@ export const listApplications = createServerFn({ method: 'GET' })
 
     // Everything except the status filter — used both for the status-tab counts
     // (so each tab reflects the other active filters) and as the base of `where`.
+    // The date window is inclusive of both calendar days, so `to` runs to the end
+    // of that day rather than to midnight at its start.
     const baseWhere = and(
       roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
       filters.q ? ilike(applications.organisationName, `%${filters.q}%`) : undefined,
+      filters.submittedFrom
+        ? gte(applications.submittedAt, new Date(`${filters.submittedFrom}T00:00:00.000Z`))
+        : undefined,
+      filters.submittedTo
+        ? lte(applications.submittedAt, new Date(`${filters.submittedTo}T23:59:59.999Z`))
+        : undefined,
       scoreBandFilter,
     )
 
