@@ -3,6 +3,26 @@ import { z } from 'zod'
 export const ApplicationStatus = z.enum(['for_review', 'shortlisted', 'awarded', 'declined'])
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
+/**
+ * The one place a status value becomes prose. Anything shown to a user goes
+ * through here — the header search used to capitalise the raw value and printed
+ * "For_review" at people.
+ *
+ * The applications table's own pill deliberately says "In review" instead (Figma
+ * calls it that in a row context); everything else uses these.
+ */
+const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  for_review: 'For review',
+  shortlisted: 'Shortlisted',
+  awarded: 'Awarded',
+  declined: 'Declined',
+}
+export function applicationStatusLabel(status: string): string {
+  return STATUS_LABELS[status as ApplicationStatus] ?? status
+}
+export const APPLICATION_STATUS_OPTIONS: Array<{ value: ApplicationStatus; label: string }> =
+  ApplicationStatus.options.map((value) => ({ value, label: STATUS_LABELS[value] }))
+
 // A single project-budget line. `amount` is in pounds (GBP) to the penny —
 // decimals allowed — consistent with `amountRequested`/`amountAwarded`, which are
 // `numeric`, not minor units. `details` preserves any further fields the

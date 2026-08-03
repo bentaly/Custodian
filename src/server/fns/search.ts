@@ -5,6 +5,7 @@ import { getDb } from '../db'
 import { applications, awards, reports, programmes, rounds } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
+import { applicationStatusLabel } from '../../lib/validators/application'
 
 const PER_GROUP = 5
 
@@ -18,10 +19,6 @@ export type SearchResult = {
   subtitle: string | null
   /** A short qualifier — a status, or "Ref <externalApplicationId>" when the match was on the ref. */
   badge: string | null
-}
-
-function statusLabel(status: string) {
-  return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 // App-wide autocomplete behind the header search box. Runs a handful of scoped,
@@ -121,7 +118,7 @@ export const globalSearch = createServerFn({ method: 'GET' })
         id: a.id,
         title: a.organisationName,
         subtitle: [programmeName, roundName].filter(Boolean).join(' · ') || null,
-        badge: statusLabel(a.status),
+        badge: applicationStatusLabel(a.status),
       })
     }
 

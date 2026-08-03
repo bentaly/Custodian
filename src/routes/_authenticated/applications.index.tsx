@@ -16,7 +16,11 @@ import {
 import { listMyRounds } from '../../server/fns/rounds'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus } from '../../lib/roundStatus'
-import { ApplicationStatus, ScoreBand } from '../../lib/validators/application'
+import {
+  APPLICATION_STATUS_OPTIONS,
+  ApplicationStatus,
+  ScoreBand,
+} from '../../lib/validators/application'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import {
   DataTable,
@@ -162,13 +166,6 @@ const SCORE_BAND_OPTIONS: Array<{ value: ScoreBand; label: string }> = [
   { value: '80to89', label: '80–89' },
   { value: '70to79', label: '70–79' },
   { value: 'below70', label: 'Below 70' },
-]
-
-const STATUS_OPTIONS: Array<{ value: ApplicationStatus; label: string }> = [
-  { value: 'for_review', label: 'For review' },
-  { value: 'shortlisted', label: 'Shortlisted' },
-  { value: 'awarded', label: 'Awarded' },
-  { value: 'declined', label: 'Declined' },
 ]
 
 // Application status → pill. Colours follow the Figma table (amber "in review",
@@ -877,7 +874,12 @@ function ApplicationsList() {
       >
         {/* Filter dropdowns */}
         <div className="flex flex-wrap items-center justify-end gap-3 p-4">
-          <FilterPill label="Status" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+          <FilterPill
+            label="Status"
+            value={status}
+            options={APPLICATION_STATUS_OPTIONS}
+            onChange={setStatus}
+          />
           {tags.length > 0 && (
             <FilterPill
               label="Theme"
