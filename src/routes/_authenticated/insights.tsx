@@ -724,7 +724,7 @@ function InsightsPage() {
   return (
     <div className="flex flex-col gap-4">
       {/* Header — the title and the export of exactly what's on screen */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap justify-between gap-3">
         <h1 className="font-display text-[20px] font-medium">
           <span style={{ color: C.ink }}>The story </span>
           <span style={{ color: C.faint }}>so far</span>

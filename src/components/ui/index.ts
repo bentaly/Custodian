@@ -22,7 +22,9 @@ export { ErrorNote } from './ErrorNote'
 export { Boundary } from './Boundary'
 export { RouteError } from './RouteError'
 export { RoundSelect, roundStatusLabel } from './RoundSelect'
+export { SelectPill, type SelectPillOption } from './SelectPill'
 export { FilterPill } from './FilterPill'
+export { Pagination } from './Pagination'
 export {
   DateRangePicker,
   formatDateRange,
