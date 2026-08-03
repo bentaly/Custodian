@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
-  Files01Icon,
-  File01Icon,
-  Coins01Icon,
+  Audit02Icon,
   CheckListIcon,
   CheckmarkCircle02Icon,
   CheckmarkSquare01Icon,
@@ -163,7 +161,7 @@ function KpiCard({
   /** A node, not just a string, so a card can colour part of the line (see Reports). */
   sub: React.ReactNode
   subColor?: string
-  icon: typeof Files01Icon
+  icon: IconSvgElement
   label: string
   /** Optional right-hand footer note (Figma 393:7930) — e.g. the round in focus. */
   meta?: string | null
@@ -248,7 +246,7 @@ function DeskRow({
   to,
   search,
 }: {
-  icon: typeof Files01Icon
+  icon: IconSvgElement
   lead: string
   rest: string
   to: string
@@ -284,7 +282,7 @@ function DeskRow({
 // Figma 126:39615 — one neutral tile for every row, and a Gray/500 glyph in all of them.
 // The feed is a log, not a status board: colouring only the good/bad outcomes made the
 // rest look like a different kind of row rather than reading as one list.
-const LATELY_META: Record<string, { icon: typeof Files01Icon; verb: string }> = {
+const LATELY_META: Record<string, { icon: IconSvgElement; verb: string }> = {
   application_awarded: { icon: CheckmarkSquare01Icon, verb: 'awarded a grant to' },
   application_declined: { icon: CancelSquareIcon, verb: 'declined' },
   application_shortlisted: { icon: CheckmarkCircle02Icon, verb: 'shortlisted' },
@@ -341,7 +339,7 @@ function Dashboard() {
     })
   if (d.reportsToReview > 0)
     desk.push({
-      icon: File01Icon,
+      icon: Audit02Icon,
       lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`,
       rest: 'to review',
       to: '/reports',
@@ -414,7 +412,7 @@ function Dashboard() {
           value={String(d.pipeline.total)}
           sub={`+${d.submittedThisWeek} this week`}
           subColor={C.success}
-          icon={Files01Icon}
+          icon={NoteIcon}
           label="Applications"
           meta={round?.roundName}
           to="/applications"
@@ -444,7 +442,7 @@ function Dashboard() {
           tint={KPI.finance}
           value={fmtCompact(d.paymentsThisMonth.amount)}
           sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
-          icon={Coins01Icon}
+          icon={Wallet03Icon}
           label="Finance"
           to="/finance"
           meter={<BarMeter progress={financeProgress} color={KPI.finance.accent} />}
@@ -470,7 +468,7 @@ function Dashboard() {
               'up to date'
             )
           }
-          icon={File01Icon}
+          icon={Audit02Icon}
           label="Reports"
           to="/reports"
           meter={<BarMeter segments={toSegments(reportsCats)} color={KPI.reports.accent} />}
