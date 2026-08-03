@@ -63,6 +63,10 @@ const KPI = {
   reports: { bg: '#FDEFF2', border: '#F8D9E1', accent: '#F0537A' },
 }
 
+// The Reports card's two chip shades (Figma 126:34555 / 126:34511) — the light pink is
+// also the colour of the leading number in its sub-line.
+const REPORTS_CHIP = { toReview: '#F7A1C4', overdue: '#A34D68' }
+
 // Round donut / programme-bar palette.
 const PROG_COLORS = ['#4FBEE8', '#F48FB1', '#F5B851', '#8B7FF0', '#5BD1B0', '#F0876B']
 const ALLOCATE_LEFT = '#E9ECF1'
@@ -156,7 +160,8 @@ function KpiCard({
 }: {
   tint: { bg: string; border: string; accent: string }
   value: string
-  sub: string
+  /** A node, not just a string, so a card can colour part of the line (see Reports). */
+  sub: React.ReactNode
   subColor?: string
   icon: typeof Files01Icon
   label: string
@@ -364,23 +369,30 @@ function Dashboard() {
 
   // KPI category breakdowns — one source for both the chips and the bar-meter, so the
   // strip's colours always match the legend beneath it.
+  // Applications carries only the two ends of the pipeline it still owns — what has
+  // yet to be looked at, and what is dead. Everything in between (shortlisted, and the
+  // awarded that grew out of it) belongs to the Shortlist card, so the two cards read
+  // as one pipeline rather than counting the same application twice.
   const appsCats: Chip[] = [
     { label: 'to review', count: d.pipeline.for_review, color: KPI.apps.accent },
-    {
-      label: 'shortlisted',
-      count: d.pipeline.shortlisted,
-      color: withAlpha(KPI.apps.accent, 0.45),
-    },
-    { label: 'awarded', count: d.pipeline.awarded, color: C.success },
     { label: 'declined', count: d.pipeline.declined, color: C.danger },
   ]
+  // Approved is "the vote went its way", which stays true after the grant is minted —
+  // so an awarded application is still an approved one, just further along.
+  const approved = a.readyToAward.count + d.pipeline.awarded
+  // Solid green first, its own 30% tint second — the strip darkens toward the decided
+  // end, so the eye reads progress left to right.
   const reviewCats: Chip[] = [
-    { label: 'approved', count: a.readyToAward.count, color: C.success },
-    { label: 'to vote', count: d.awaitingVotes, color: C.warning },
+    { label: 'approved', count: approved, color: C.success },
+    { label: 'to vote', count: d.awaitingVotes, color: withAlpha(KPI.review.accent, 0.3) },
   ]
+  // Reports stays inside its own pink family (Figma 126:33904) rather than reaching for
+  // the global info/danger colours: on a strip of four cards the accent is what tells
+  // you *which* card you are reading, so a blue chip on the pink card reads as a
+  // different metric. Overdue is the deep rose end of the same family, not red.
   const reportsCats: Chip[] = [
-    { label: 'to review', count: d.reportsToReview, color: C.info },
-    { label: 'overdue', count: a.reportsOverdue.count, color: C.danger },
+    { label: 'to review', count: d.reportsToReview, color: REPORTS_CHIP.toReview },
+    { label: 'overdue', count: a.reportsOverdue.count, color: REPORTS_CHIP.overdue },
   ]
   const toSegments = (cats: Chip[]): BarSegment[] =>
     cats.map((c) => ({ value: c.count, color: c.color }))
@@ -414,7 +426,10 @@ function Dashboard() {
 
         <KpiCard
           tint={KPI.review}
-          value={String(a.shortlist.count)}
+          // The headline counts both chips, so the strip beneath it is the whole of
+          // this number and not a fraction of it. `proposed` stays the shortlist's own
+          // spend — an awarded grant is committed, not proposed.
+          value={String(d.awaitingVotes + approved)}
           sub={`${fmtCompact(a.shortlist.proposed)} proposed`}
           icon={CheckListIcon}
           label="Shortlist"
@@ -444,8 +459,17 @@ function Dashboard() {
         <KpiCard
           tint={KPI.reports}
           value={String(d.reportsToReview + a.reportsOverdue.count)}
-          sub={a.reportsOverdue.count > 0 ? `${a.reportsOverdue.count} overdue` : 'up to date'}
-          subColor={a.reportsOverdue.count > 0 ? C.danger : C.sub}
+          // Only the count carries the accent; the word stays Gray/500 (Figma 126:34510).
+          sub={
+            a.reportsOverdue.count > 0 ? (
+              <>
+                <span style={{ color: REPORTS_CHIP.toReview }}>{a.reportsOverdue.count}</span>{' '}
+                overdue
+              </>
+            ) : (
+              'up to date'
+            )
+          }
           icon={File01Icon}
           label="Reports"
           to="/reports"
