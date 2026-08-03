@@ -27,6 +27,8 @@ import { fmtCompact, fmtMoney } from '../../lib/format'
 // No screen-time AI: where a number's coverage is partial the denominator is stated.
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+/** Location-filter sentinel for grants with no resolvable delivery area. */
+const NO_REGION = 'none'
 
 type InsightsSearch = {
   /** Inclusive decision-date window (`yyyy-mm-dd`); absent = all time. */
@@ -515,6 +517,10 @@ function InsightsPage() {
   const regions = [
     ...new Set(items.map((g) => g.region).filter((r): r is string => Boolean(r))),
   ].sort()
+  // Grants whose delivery location never resolved are a real group a reader needs to
+  // reach — without an option for them they are simply missing from every location
+  // slice, which reads as "we fund nowhere else" rather than "we don't know".
+  const hasUnlocated = items.some((g) => !g.region)
 
   // ── The filtered slice every panel below describes ──
   // The date window is on the award decision — the moment the money was committed,
@@ -522,7 +528,7 @@ function InsightsPage() {
   const fil = items.filter((g) => {
     if (programmeId && g.programmeId !== programmeId) return false
     if (tag && !g.tags.includes(tag)) return false
-    if (region && g.region !== region) return false
+    if (region === NO_REGION ? Boolean(g.region) : region && g.region !== region) return false
     const day = g.decisionAt.slice(0, 10)
     if (from && day < from) return false
     if (to && day > to) return false
@@ -695,7 +701,7 @@ function InsightsPage() {
     ? (programmes.find((p) => p.id === programmeId)?.name ?? 'Selected programme')
     : 'All programmes'
   const themeLabel = tag ?? 'All themes'
-  const regionLabel = region ?? 'All locations'
+  const regionLabel = region === NO_REGION ? 'No location recorded' : (region ?? 'All locations')
   async function handleExport() {
     if (!exportRef.current) return
     setExporting(true)
@@ -735,8 +741,12 @@ function InsightsPage() {
 
       {/* Filters — the slice every panel below describes */}
       <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* A filter shows as soon as there is anything to pick. Hiding it until
+            there were two values meant Location vanished on any portfolio where
+            only one delivery area had resolved — which read as the filter not
+            existing rather than as the data being thin. */}
         <div className="flex flex-wrap items-center gap-3">
-          {programmes.length > 1 && (
+          {programmes.length > 0 && (
             <FilterPill
               label="Programme"
               clearLabel="All programmes"
@@ -745,7 +755,7 @@ function InsightsPage() {
               onChange={(v) => setSearch({ programmeId: v })}
             />
           )}
-          {allTags.length > 1 && (
+          {allTags.length > 0 && (
             <FilterPill
               label="Theme"
               clearLabel="All themes"
@@ -754,12 +764,15 @@ function InsightsPage() {
               onChange={(v) => setSearch({ tag: v })}
             />
           )}
-          {regions.length > 1 && (
+          {(regions.length > 0 || hasUnlocated) && (
             <FilterPill
               label="Location"
               clearLabel="All locations"
               value={region}
-              options={regions.map((r) => ({ value: r, label: r }))}
+              options={[
+                ...regions.map((r) => ({ value: r, label: r })),
+                ...(hasUnlocated ? [{ value: NO_REGION, label: 'No location recorded' }] : []),
+              ]}
               onChange={(v) => setSearch({ region: v })}
             />
           )}
