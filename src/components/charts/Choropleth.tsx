@@ -4,18 +4,23 @@ import { feature } from 'topojson-client'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import { chart, fmtMoney, tooltipBox } from './theme'
 
-// Choropleth — "where the money went", as boundaries rather than a tile grid.
+// Choropleth — "where the money went", drawn as the Figma's dot matrix.
 //
 // Deliberately not a map library. There is no basemap, no tile server and no
-// API key: every shape is an SVG <path> we style with the same tokens as every
-// other chart on the screen, which is why it can match the Figma instead of
-// fighting someone else's cartography. Boundaries are built by
-// `pnpm geo:build` into public/geo — see scripts/build-geo.ts.
+// API key: we own every mark on the screen and style it with the same tokens as
+// every other chart, which is why it can match the Figma instead of fighting
+// someone else's cartography. Boundaries are built by `pnpm geo:build` into
+// public/geo — see scripts/build-geo.ts.
+//
+// Nothing here paints a country. The boundaries are used twice — once to decide
+// which area each dot in a global lattice belongs to (see "Dot lattice"), and
+// once as an invisible hit layer so the whole area stays hoverable. Between
+// those two the shapes are never filled or stroked.
 //
 // Scale note: SVG hit-testing starts to feel sticky somewhere north of ~2,000
-// paths. The largest view here is the world at 177, and the busiest UK view is
-// all 361 LADs, so we are an order of magnitude clear. Going below LAD level
-// nationally (LSOAs are ~35k) would mean canvas or vector tiles instead.
+// paths. The hit layer is the only per-area path left — the world at 240, the
+// busiest UK view at 361 LADs — so we are an order of magnitude clear. Going
+// below LAD level nationally (LSOAs are ~35k) would mean canvas instead.
 
 // ─── Sequential ramp ────────────────────────────────────────────────────────────
 // Magnitude, so: one hue, five steps, light→dark, stepped in OKLab off the brand
@@ -27,14 +32,20 @@ const RAMP = ['#87B5A1', '#69A089', '#4B8B71', '#29765B', '#006145'] as const
 
 // Areas with no grants. Distinct from — and lighter than — every ramp step, so
 // "we funded nothing here" can never be misread as "we funded a little here".
-const EMPTY = '#F2F4F7'
+//
+// This is heavier than the gray a filled choropleth would use, and taken
+// straight from the Figma. A dot covers a fraction of the ink a filled region
+// does, so a colour that reads as "a quiet backdrop" at region size reads as
+// "nothing rendered" at 5px. The land has to stay visible for the funded dots
+// to have a shape to sit in.
+const EMPTY = '#BCD8CF'
 
 // The one country with a layer beneath it, so it is the one country on the
 // world map that drills rather than selects.
 const UK_ISO3 = 'GBR'
 
 // Frame shape for a zoomed country. Slightly landscape: it suits the majority
-// of countries and sits close enough to the UK view's 0.78 that switching
+// of countries and sits close enough to the UK view's 1.15 that switching
 // between tiers doesn't feel like the panel resized.
 const COUNTRY_ASPECT = 1.3
 
@@ -64,10 +75,16 @@ type GeoFeature = Feature<Geometry, GeoProps>
 // Aspect is per-view because one box cannot serve both: the UK is portrait and
 // the world is a wide letterbox, and a shared frame strands whichever one it
 // wasn't sized for in a sea of margin.
+//
+// The UK frames are deliberately wider than the UK itself. Matching Britain's
+// true 0.78 portrait proportion gives a technically perfect fit and a panel
+// two-thirds again as tall as the charts beside it, which dominates the screen
+// and pushes everything below it off the fold. Sizing them near-square costs
+// some margin either side of Scotland and buys back ~200px of page.
 const SOURCES = {
   world: { url: '/geo/world.json', object: 'countries', key: 'code', aspect: 1.9 },
-  uk: { url: '/geo/uk.json', object: 'regions', key: 'name', aspect: 0.78 },
-  lad: { url: '/geo/uk-lad.json', object: 'lads', key: 'code', aspect: 0.95 },
+  uk: { url: '/geo/uk.json', object: 'regions', key: 'name', aspect: 1.15 },
+  lad: { url: '/geo/uk-lad.json', object: 'lads', key: 'code', aspect: 1.15 },
 } as const
 
 function sourceFor(view: MapView) {
@@ -167,6 +184,117 @@ function bucketOf(value: number, cuts: number[]) {
   return Math.min(i, RAMP.length - 1)
 }
 
+// ─── Dot lattice ────────────────────────────────────────────────────────────────
+// The map is drawn as a halftone grid rather than filled shapes, per the Figma.
+//
+// The effect only holds if the lattice is *global* — one grid laid across the
+// whole frame, every dot taking the colour of whichever area it lands in. Dots
+// laid out per-country instead would fall out of step at every border and the
+// grid would break into visible seams. This is also why an SVG <pattern> fill
+// won't do it: a pattern clips to its shape, so every coastline would be a line
+// of half-dots, and the design's dots are whole.
+//
+// Sized from the Figma's ratio — a 6px dot on a 9px pitch, so the dot is a
+// third of the step — but the pitch itself has to vary, because that frame
+// holds one continent and ours has to hold anything from the planet to a
+// London borough. The whole world at the Figma's pitch turns Britain into two
+// dots; a single region at the world's pitch is a needlessly fussy stipple.
+const DOT_PITCH = { world: 4, near: 6 } as const
+const DOT_RATIO = 1 / 3
+
+function dotPitch(view: MapView) {
+  return view.kind === 'world' ? DOT_PITCH.world : DOT_PITCH.near
+}
+
+/** `rescued` marks a dot the grid never actually hit — see `buildLattice`. */
+type Dot = { x: number; y: number; key: string; rescued?: true }
+
+/**
+ * Which area each lattice point falls in.
+ *
+ * Answered by hit-testing the *projected* path on a throwaway canvas rather
+ * than inverting the projection and asking `geoContains`: it works in the same
+ * coordinate space as what we draw (so no antimeridian or out-of-domain
+ * special cases), and `isPointInPath` is native code. The bounding-box test in
+ * front of it is what makes this cheap — it rejects all but a couple of
+ * candidate areas per point with plain number comparisons, turning ~700k
+ * possible tests into a few thousand real ones.
+ *
+ * Depends only on geometry, never on the values, so re-colouring the map when a
+ * filter changes doesn't rebuild it.
+ */
+function buildLattice(
+  features: GeoFeature[],
+  pathFor: ReturnType<typeof geoPath>,
+  key: 'code' | 'name',
+  width: number,
+  height: number,
+  pitch: number,
+): Dot[] {
+  if (typeof document === 'undefined') return []
+  const ctx = document.createElement('canvas').getContext('2d')
+  if (!ctx) return []
+
+  const shapes = []
+  for (const f of features) {
+    const d = pathFor(f)
+    if (d) {
+      shapes.push({
+        key: keyOf(f, key),
+        bounds: pathFor.bounds(f),
+        centroid: pathFor.centroid(f),
+        path: new Path2D(d),
+        hit: false,
+      })
+    }
+  }
+
+  const dots: Dot[] = []
+  for (let y = pitch / 2; y < height; y += pitch) {
+    for (let x = pitch / 2; x < width; x += pitch) {
+      for (const s of shapes) {
+        const [[x0, y0], [x1, y1]] = s.bounds
+        if (x < x0 || x > x1 || y < y0 || y > y1) continue
+        if (!ctx.isPointInPath(s.path, x, y)) continue
+        dots.push({ x, y, key: s.key })
+        s.hit = true
+        break
+      }
+    }
+  }
+
+  // An area smaller than the pitch catches no lattice point and would vanish
+  // entirely — and on a map about where the money went, a *funded* area that
+  // renders as nothing is the one failure that matters. So anything the grid
+  // missed gets a single dot at its centroid, and is marked `rescued`.
+  //
+  // Marked rather than filtered here because that call needs the values, and
+  // the lattice deliberately doesn't know them — the caller drops rescued dots
+  // for unfunded areas. Keeping them all would stipple the Pacific with
+  // one-dot island nations, which reads as dirt on the screen rather than data.
+  for (const s of shapes) {
+    const [x, y] = s.centroid
+    if (s.hit || !Number.isFinite(x) || !Number.isFinite(y)) continue
+    dots.push({ x, y, key: s.key, rescued: true })
+  }
+
+  return dots
+}
+
+/**
+ * Many circles as one path string. Grouping dots by colour into a handful of
+ * compound paths keeps the map at a few DOM nodes instead of a few thousand
+ * `<circle>`s, which is what stops a filter change from janking.
+ */
+function circlesPath(dots: Dot[], r: number) {
+  const d2 = r * 2
+  let d = ''
+  for (const p of dots) {
+    d += `M${(p.x - r).toFixed(1)} ${p.y.toFixed(1)}a${r} ${r} 0 1 0 ${d2} 0a${r} ${r} 0 1 0 ${-d2} 0`
+  }
+  return d
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────────
 export function Choropleth({
   view,
@@ -247,10 +375,42 @@ export function Choropleth({
     return { features: feats, pathFor: geoPath(projection), height: h }
   }, [data, view, width, src.aspect])
 
+  const pitch = dotPitch(view)
+  const lattice = useMemo(
+    () => (pathFor ? buildLattice(features, pathFor, src.key, width, height, pitch) : []),
+    [features, pathFor, src.key, width, height, pitch],
+  )
+
   const cuts = useMemo(
     () => thresholds([...values.values()].map((v) => v.amount)),
     [values],
   )
+
+  // Dots grouped by the colour they'll be painted, so the map is a handful of
+  // compound paths. The selected area's dots are pulled into their own group at
+  // a larger radius — on a dot map that reads as "this cluster" more directly
+  // than any outline can, and it survives the area being unfunded, where a
+  // colour change would have nothing to say.
+  const layers = useMemo(() => {
+    const r = pitch * DOT_RATIO
+    const groups = new Map<string, { fill: string; r: number; dots: Dot[] }>()
+    for (const dot of lattice) {
+      const b = bucketOf(values.get(dot.key)?.amount ?? 0, cuts)
+      if (b < 0 && dot.rescued) continue
+      const isSel = selected === dot.key
+      const id = `${b}:${isSel}`
+      let g = groups.get(id)
+      if (!g) {
+        g = { fill: b < 0 ? EMPTY : RAMP[b]!, r: isSel ? r * 1.5 : r, dots: [] }
+        groups.set(id, g)
+      }
+      g.dots.push(dot)
+    }
+    // Selected last, so its larger dots are never clipped by a neighbour's.
+    return [...groups.entries()]
+      .map(([id, g]) => ({ id, ...g }))
+      .sort((a, b) => Number(a.id.endsWith('true')) - Number(b.id.endsWith('true')))
+  }, [lattice, values, cuts, selected, pitch])
 
   const total = useMemo(
     () => [...values.values()].reduce((s, v) => s + v.amount, 0),
@@ -284,14 +444,23 @@ export function Choropleth({
           role="img"
           aria-label={`Funding by area — ${funded} of ${features.length} areas funded, ${fmtMoney(total)} total`}
         >
+          {/* The map itself. */}
+          {layers.map((l) => (
+            <path key={l.id} d={circlesPath(l.dots, l.r)} fill={l.fill} pointerEvents="none" />
+          ))}
+
+          {/* Interaction and accessibility, on the real boundaries but invisible.
+              Dots are far too small and too many to be hit targets themselves,
+              and hovering the gaps between them would strobe the tooltip — so
+              the whole area stays hoverable exactly as it was when it was
+              filled. `pointerEvents="all"` is what makes an unpainted path
+              catch the mouse. */}
           {features.map((f) => {
             const d = pathFor(f)
             if (!d) return null
             const areaKey = keyOf(f, src.key)
             const datum = values.get(areaKey)
             const amount = datum?.amount ?? 0
-            const b = bucketOf(amount, cuts)
-            const isSel = selected === areaKey
             // Drilling down a level: a funded UK region opens its districts,
             // and the UK on the world map opens the UK. Everything else is a
             // leaf — there is no layer beneath a district or a foreign country.
@@ -314,17 +483,9 @@ export function Choropleth({
               <path
                 key={areaKey}
                 d={d}
-                fill={b < 0 ? EMPTY : RAMP[b]}
-                // A hairline in the surface colour is the 2px-gap rule at map
-                // scale: it keeps two same-bucket neighbours legible as two
-                // areas without drawing an outline that competes with the fill.
-                stroke="#fff"
-                strokeWidth={isSel ? 0 : 0.75}
-                style={{
-                  cursor: interactive ? 'pointer' : 'default',
-                  transition: 'fill 180ms ease',
-                  outline: 'none',
-                }}
+                fill="none"
+                pointerEvents="all"
+                style={{ cursor: interactive ? 'pointer' : 'default', outline: 'none' }}
                 // Only funded areas take focus. Making all 177 countries
                 // tabbable would bury the rest of the page under dead stops,
                 // and an unfunded area has nothing to show on activation.
@@ -358,23 +519,6 @@ export function Choropleth({
                 }}
               />
             )
-          })}
-
-          {/* Selection ring drawn last so it is never overpainted by a neighbour. */}
-          {features.map((f) => {
-            if (selected !== keyOf(f, src.key)) return null
-            const d = pathFor(f)
-            return d ? (
-              <path
-                key={`sel-${keyOf(f, src.key)}`}
-                d={d}
-                fill="none"
-                stroke={chart.ink}
-                strokeWidth={1.75}
-                strokeLinejoin="round"
-                pointerEvents="none"
-              />
-            ) : null
           })}
         </svg>
 
