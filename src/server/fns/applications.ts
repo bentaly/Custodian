@@ -144,6 +144,10 @@ export const getApplication = createServerFn({ method: 'GET' })
       where: (a, { eq }) => eq(a.id, data.id),
       with: {
         roundProgramme: { with: { programme: { with: { client: true } }, round: true } },
+        // Only for the detail header's link through to the grant. An awarded
+        // application's status is immutable here (see `updateApplicationStatus`), so
+        // the award screen is the only place its decision can still be acted on.
+        award: { columns: { id: true } },
       },
     })
     if (!application) throw notFoundError()

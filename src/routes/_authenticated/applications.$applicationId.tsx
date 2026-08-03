@@ -6,12 +6,14 @@ import {
   Coins01Icon,
   FolderLibraryIcon,
   UserGroupIcon,
+  UserGroup02Icon,
   ChartAverageIcon,
   File01Icon,
   Mail01Icon,
   CheckmarkCircle02Icon,
-  CancelCircleIcon,
-  InformationCircleIcon,
+  ArrowLeft01Icon,
+  Alert02Icon,
+  Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import {
   getApplication,
@@ -45,6 +47,7 @@ export const Route = createFileRoute('/_authenticated/applications/$applicationI
 // ─── Design tokens ───────────────────────────────────────────────────────────────
 const C = {
   ink: '#141C24',
+  ink700: '#344051',
   sub: '#637083',
   faint: '#97A1AF',
   line: '#E4E7EC',
@@ -61,14 +64,17 @@ const KPI = {
   programme: { bg: '#EDF9F1', accent: '#31A650' },
   area: { bg: '#FEF7EB', accent: '#F89828' },
   headroom: { bg: '#FDEFF2', accent: '#F0537A' },
+  community: { bg: '#EEF4FF', accent: '#4FBEE8' },
 }
 const BUDGET_COLORS = ['#8B7FF0', '#31A650', '#F5B851', '#F48FB1', '#4FBEE8', '#F0876B']
 
 // RAG colour for a 1–10 criterion score: 0–3 red, 4–6 amber, 7+ green.
+// The criterion palette is its own (Figma 435:38445) — a cooler teal and a warmer
+// amber than the status colours, so a bank of six bars doesn't read as six statuses.
 function ragColor(score: number) {
-  if (score >= 7) return C.success
-  if (score >= 4) return '#F5B851'
-  return C.danger
+  if (score >= 7) return '#1AB393'
+  if (score >= 4) return '#FABF24'
+  return '#DC2626'
 }
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
@@ -130,15 +136,73 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
-function HeaderChip({ color, children }: { color: string; children: React.ReactNode }) {
+/** The grey status pill in the header (Figma 435:42454) — a coloured dot and a label. */
+function StatusPill({ color, children }: { color: string; children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 font-display text-[13px] font-medium"
-      style={{ color: C.sub }}
+      className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 font-display text-[12px] font-medium"
+      style={{ backgroundColor: C.wash, color: C.sub }}
     >
-      <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
+      <span className="size-[3px] rounded-full" style={{ backgroundColor: color }} />
       {children}
     </span>
+  )
+}
+
+/** Header action button. `tone` picks the design's three treatments. */
+function HeaderButton({
+  tone,
+  icon,
+  onClick,
+  disabled,
+  title,
+  href,
+  children,
+}: {
+  tone: 'primary' | 'brand' | 'plain' | 'danger'
+  icon?: typeof File01Icon
+  onClick?: () => void
+  disabled?: boolean
+  title?: string
+  href?: string
+  children: React.ReactNode
+}) {
+  const style =
+    tone === 'primary'
+      ? { backgroundColor: C.brand, color: '#fff', borderColor: C.brand }
+      : tone === 'brand'
+        ? { backgroundColor: C.brandBg, color: C.brand, borderColor: C.brandBorder }
+        : tone === 'danger'
+          ? { backgroundColor: '#fff', color: C.danger, borderColor: C.line }
+          : { backgroundColor: '#fff', color: C.ink, borderColor: C.line }
+  const className =
+    'flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-3 font-display text-[14px] font-medium disabled:opacity-50'
+  const inner = (
+    <>
+      {icon && (
+        <HugeiconsIcon icon={icon} size={16} color={tone === 'plain' ? C.sub : 'currentColor'} />
+      )}
+      {children}
+    </>
+  )
+  if (href) {
+    return (
+      <a href={href} className={className} style={style} title={title}>
+        {inner}
+      </a>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={className}
+      style={style}
+      title={title}
+    >
+      {inner}
+    </button>
   )
 }
 
@@ -147,8 +211,8 @@ function HeaderChip({ color, children }: { color: string; children: React.ReactN
 // tooltip switched off.
 function ScoreRing({
   score,
-  size = 132,
-  thickness = 15,
+  size = 120,
+  thickness = 12,
 }: {
   score: number
   size?: number
@@ -166,14 +230,14 @@ function ScoreRing({
         { name: 'Remaining', value: 100 - pct, color: withAlpha(color, 0.15) },
       ]}
       center={
-        <div className="flex flex-col items-center">
+        <div className="flex items-baseline gap-1">
           <span
-            className="font-display text-[32px] font-medium leading-none"
+            className="font-display text-[24px] font-medium leading-none"
             style={{ color: C.ink }}
           >
             {score}
           </span>
-          <span className="mt-0.5 font-display text-[12px]" style={{ color: C.faint }}>
+          <span className="font-display text-[12px]" style={{ color: C.faint }}>
             /100
           </span>
         </div>
@@ -185,20 +249,23 @@ function ScoreRing({
 function CriterionBar({ label, score }: { label: string; score: number }) {
   const color = ragColor(score)
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-32 shrink-0 font-display text-[13px]" style={{ color: C.sub }}>
+    <div className="flex items-center gap-4">
+      <span
+        className="w-[104px] shrink-0 font-display text-[12px] font-medium"
+        style={{ color: C.ink }}
+      >
         {label}
       </span>
       <ProgressBar
         className="flex-1"
         value={score / 10}
         color={color}
-        track={withAlpha(color, 0.15)}
-        height={8}
+        track={withAlpha(color, 0.2)}
+        height={4}
       />
       <span
-        className="w-9 shrink-0 text-right font-display text-[13px] font-medium tabular-nums"
-        style={{ color: C.ink }}
+        className="w-8 shrink-0 text-right font-display text-[12px] font-medium tabular-nums"
+        style={{ color: C.sub }}
       >
         {score}/10
       </span>
@@ -221,6 +288,7 @@ function ApplicationDetail() {
   const isShortlisted = application.status === 'shortlisted'
   const isDeclined = application.status === 'declined'
   const isAwarded = application.status === 'awarded'
+  const awardId = application.award?.id ?? null
 
   const rp = application.roundProgramme
   const programme = rp.programme
@@ -237,18 +305,9 @@ function ApplicationDetail() {
   const scored = scoreStatus === 'scored' && score != null && scoreDetail != null
 
   const ddRecords = (application.dueDiligenceChecks as DueDiligenceCheckRecord[] | null) ?? []
-  const ddFlags = ddRecords.filter((r) => r.result === 'fail').length
 
   const deprivation = application.deprivationContext as DeprivationContext | null
   const depResolved = application.deprivationStatus === 'resolved' && deprivation != null
-  const depShare =
-    depResolved && deprivation.count > 0
-      ? Math.round(
-          (((deprivation.histogram[0] ?? 0) + (deprivation.histogram[1] ?? 0)) /
-            deprivation.count) *
-            100,
-        )
-      : null
   const region = application.deliveryRegion ?? application.deliveryArea ?? null
 
   const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
@@ -323,9 +382,20 @@ function ApplicationDetail() {
         ]}
       />
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
+      {/* Header — Figma 435:38405. The decision buttons live here now rather than in a
+          sidebar, so the whole page is one full-width column. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          to="/applications"
+          search={{ roundId: undefined }}
+          aria-label="Back to applications"
+          className="flex shrink-0 items-center justify-center rounded-lg border bg-white p-2"
+          style={{ borderColor: C.line }}
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={16} color={C.ink} />
+        </Link>
+
+        <div className="flex min-w-[240px] flex-1 items-center gap-2">
           <div
             className="flex size-10 shrink-0 items-center justify-center rounded-lg"
             style={{ backgroundColor: C.wash }}
@@ -334,11 +404,11 @@ function ApplicationDetail() {
               {initials(application.organisationName)}
             </span>
           </div>
-          <div>
-            <h1 className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+          <div className="min-w-0">
+            <h1 className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }}>
               {application.organisationName}
             </h1>
-            <p className="font-display text-[13px]" style={{ color: C.sub }}>
+            <p className="truncate font-display text-[12px]" style={{ color: C.sub }}>
               {[
                 programme.name,
                 application.charityNumber ? `Charity no. ${application.charityNumber}` : null,
@@ -350,48 +420,82 @@ function ApplicationDetail() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          {application.charityNumber && (
-            <HeaderChip color={C.success}>Registered charity</HeaderChip>
-          )}
-          <HeaderChip color={statusMeta.color}>{statusMeta.label}</HeaderChip>
-          <HeaderChip color={ddFlags > 0 ? C.danger : C.success}>
-            {ddFlags > 0
-              ? `${ddFlags} due diligence flag${ddFlags !== 1 ? 's' : ''}`
-              : 'No due diligence flags'}
-          </HeaderChip>
+
+        <StatusPill color={statusMeta.color}>{statusMeta.label}</StatusPill>
+
+        <div className="flex flex-wrap items-center gap-2">
           {/* A plain mailto rather than anything we send: this is the grants team
               picking up the phone, so it belongs in their own mail client with their
               own signature and a copy in their sent items. Hidden when the
               application carries no contact address. */}
           {application.applicantEmail && (
-            <a
+            <HeaderButton
+              tone="plain"
+              icon={Mail01Icon}
+              title={application.applicantEmail}
               href={`mailto:${encodeURIComponent(application.applicantEmail)}?subject=${encodeURIComponent(
                 `Your application to ${clientName ?? 'us'}${
                   application.externalApplicationId ? ` (${application.externalApplicationId})` : ''
                 }`,
               )}`}
-              className="flex h-9 items-center gap-2 rounded-lg border bg-white px-3"
-              style={{ borderColor: C.line }}
-              title={application.applicantEmail}
             >
-              <HugeiconsIcon icon={Mail01Icon} size={16} color={C.sub} />
-              <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
-                Email applicant
-              </span>
-            </a>
+              Email applicant
+            </HeaderButton>
           )}
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="flex h-9 items-center gap-2 rounded-lg border bg-white px-3"
-            style={{ borderColor: C.line }}
-          >
-            <HugeiconsIcon icon={File01Icon} size={16} color={C.sub} />
-            <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
-              View submission
-            </span>
-          </button>
+          <HeaderButton tone="brand" icon={File01Icon} onClick={() => setDrawerOpen(true)}>
+            View submission
+          </HeaderButton>
+          {isAwarded ? (
+            // Awarded is terminal *here*: `updateApplicationStatus` refuses to move an
+            // application with a live award row, so a status button or dropdown in this
+            // slot would be a control that can only ever error. The real onward action
+            // is the grant itself — that is where the schedule, the letter and (when it
+            // is built) cancelling live.
+            awardId ? (
+              <Link
+                to="/awards/$awardId"
+                params={{ awardId }}
+                className="flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-3 font-display text-[14px] font-medium"
+                style={{ backgroundColor: C.brand, borderColor: C.brand, color: '#fff' }}
+              >
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color="#fff" />
+                View award
+              </Link>
+            ) : (
+              // Awarded with no award row — not yet backfilled. State, not action.
+              <span
+                className="flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-3 font-display text-[14px] font-medium"
+                style={{ backgroundColor: C.brandBg, borderColor: C.brandBorder, color: C.brand }}
+              >
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={C.brand} />
+                Awarded
+              </span>
+            )
+          ) : (
+            <>
+              <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
+                {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
+              </HeaderButton>
+              <HeaderButton
+                tone={isShortlisted ? 'plain' : 'primary'}
+                onClick={handleShortlist}
+                disabled={shortlisting || isBudgetFull}
+                title={
+                  isBudgetFull
+                    ? 'Budget committed — no funds remaining in this programme'
+                    : undefined
+                }
+              >
+                {shortlisting
+                  ? '…'
+                  : isShortlisted
+                    ? 'Remove from shortlist'
+                    : isBudgetFull
+                      ? 'Budget full'
+                      : 'Shortlist'}
+              </HeaderButton>
+            </>
+          )}
         </div>
       </div>
 
@@ -409,407 +513,311 @@ function ApplicationDetail() {
       )}
 
       {/* Body */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* Main column */}
-        <div className="flex flex-col gap-4">
-          {/* AI Assessment */}
-          <Panel label="AI assessment">
-            <PanelTitle>AI Assessment</PanelTitle>
+      <div className="flex flex-col gap-4">
+        {/* AI Assessment */}
+        <Panel label="AI assessment">
+          <PanelTitle>AI Assessment</PanelTitle>
 
-            {scored ? (
-              <div className="flex flex-col gap-6 md:flex-row md:items-center">
-                <div className="flex items-center gap-4 md:w-[46%] md:shrink-0">
-                  <ScoreRing score={score} />
-                  <div>
-                    <p
-                      className="font-display text-[14px] leading-relaxed"
-                      style={{ color: C.sub }}
-                    >
-                      {scoreDetail.summary}
-                    </p>
-                    <span
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-display text-[12px] font-medium"
-                      style={{ backgroundColor: C.brandBg, color: C.brand }}
-                    >
-                      AI analysis{roundName ? ` · ${roundName}` : ''}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-1 flex-col gap-2.5">
-                  {CRITERION_ORDER.map((key) => {
-                    const c = scoreDetail.criteria[key]
-                    if (!c) return null
-                    return (
-                      <CriterionBar
-                        key={key}
-                        label={CRITERION_DEFINITIONS[key].label}
-                        score={c.score}
-                      />
-                    )
-                  })}
+          {scored ? (
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+              <div className="flex flex-1 items-center gap-4">
+                <ScoreRing score={score} />
+                <div>
+                  <p className="font-display text-[14px] leading-relaxed" style={{ color: C.sub }}>
+                    {scoreDetail.summary}
+                  </p>
+                  <span
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-display text-[12px] font-medium"
+                    style={{ backgroundColor: C.brandBg, color: C.brand }}
+                  >
+                    AI analysis{roundName ? ` · ${roundName}` : ''}
+                  </span>
                 </div>
               </div>
-            ) : (
-              <p className="font-display text-[14px]" style={{ color: C.sub }}>
-                {scoreStatus === 'error'
-                  ? 'Scoring failed — try re-scoring.'
-                  : 'This application has not been scored yet.'}
-              </p>
-            )}
-
-            {scored && scoreDetail.flags.length > 0 && (
-              <ul
-                className="mt-4 flex flex-col gap-1.5 border-t pt-4"
-                style={{ borderColor: C.line }}
-              >
-                {scoreDetail.flags.map((f, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 font-display text-[13px]"
-                    style={{ color: C.amber }}
-                  >
-                    <span className="mt-0.5">⚠</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-
-          {/* KPI cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MiniKpi
-              tint={KPI.amount}
-              icon={Coins01Icon}
-              label="Amount requested"
-              value={fmtCompact(amountRequested)}
-              sub={durationLabel(rp.grantDurationYears) ?? 'Duration not set'}
-            />
-            <MiniKpi
-              tint={KPI.programme}
-              icon={FolderLibraryIcon}
-              label="Programme"
-              value={programme.name}
-              sub={roundName ?? '—'}
-            />
-            <MiniKpi
-              tint={KPI.area}
-              icon={UserGroupIcon}
-              label="Beneficiaries"
-              value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
-              sub={proposedImpact != null ? `${unitLabel.toLowerCase()} · proposed` : 'not stated'}
-            />
-            <MiniKpi
-              tint={KPI.headroom}
-              icon={ChartAverageIcon}
-              label="Cost per beneficiary"
-              value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
-              sub={
-                costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'
-              }
-            />
-          </div>
-
-          {/* Project budget */}
-          <Panel label="Project budget">
-            <PanelTitle>Project budget</PanelTitle>
-            {budgetLines.length > 0 ? (
-              <>
-                <div className="mb-3 flex items-baseline justify-between">
-                  <span
-                    className="font-display text-[24px] font-medium leading-none"
-                    style={{ color: C.ink }}
-                  >
-                    {fmtMoney(budgetTotal)}
-                  </span>
-                  <span className="font-display text-[13px]" style={{ color: C.sub }}>
-                    {budgetLines.length} line{budgetLines.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <BarMeter
-                  bars={120}
-                  height={24}
-                  barWidth={3}
-                  className="mb-4 w-full"
-                  segments={budgetLines.map((l, i) => ({
-                    value: l.amount,
-                    color: BUDGET_COLORS[i % BUDGET_COLORS.length]!,
-                  }))}
-                />
-                <div className="flex flex-col gap-2.5">
-                  {budgetLines.map((l, i) => {
-                    const pct = budgetTotal > 0 ? Math.round((l.amount / budgetTotal) * 100) : 0
-                    return (
-                      <div key={i} className="flex items-center gap-3">
-                        <span
-                          className="size-2 shrink-0 rounded-[2px]"
-                          style={{ backgroundColor: BUDGET_COLORS[i % BUDGET_COLORS.length] }}
-                        />
-                        <span
-                          className="flex-1 truncate font-display text-[14px]"
-                          style={{ color: C.ink }}
-                          title={l.item}
-                        >
-                          {l.item}
-                        </span>
-                        <span
-                          className="w-24 text-right font-display text-[14px] font-medium tabular-nums"
-                          style={{ color: C.ink }}
-                        >
-                          {fmtMoney(l.amount)}
-                        </span>
-                        <span
-                          className="w-10 text-right font-display text-[13px] tabular-nums"
-                          style={{ color: C.faint }}
-                        >
-                          {pct}%
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            ) : (
-              <p className="font-display text-[14px]" style={{ color: C.sub }}>
-                No budget breakdown was provided with this application.
-              </p>
-            )}
-          </Panel>
-
-          {/* Due diligence checks */}
-          <Panel>
-            <PanelTitle
-              right={
-                <button
-                  type="button"
-                  onClick={handleRerunDD}
-                  disabled={rerunningDD}
-                  className="flex h-8 items-center rounded-lg border bg-white px-3 font-display text-[13px] font-medium disabled:opacity-60"
-                  style={{ borderColor: C.line, color: C.ink }}
-                >
-                  {rerunningDD ? 'Re-running…' : 'Re-run'}
-                </button>
-              }
-            >
-              Due diligence checks
-            </PanelTitle>
-            {ddRecords.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {ddRecords.map((r, i) => {
-                  const def = CHECK_DEFINITIONS[r.key]
-                  const ok = r.result === 'pass'
-                  const failed = r.result === 'fail'
-                  const color = ok ? C.success : failed ? C.danger : C.faint
+              <div className="flex flex-col gap-3 lg:w-[260px] lg:shrink-0">
+                {CRITERION_ORDER.map((key) => {
+                  const c = scoreDetail.criteria[key]
+                  if (!c) return null
                   return (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5"
-                      style={{ backgroundColor: C.wash }}
-                    >
-                      <span className="font-display text-[14px]" style={{ color: C.ink }}>
-                        {def?.label ?? r.key}
+                    <CriterionBar
+                      key={key}
+                      label={CRITERION_DEFINITIONS[key].label}
+                      score={c.score}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="font-display text-[14px]" style={{ color: C.sub }}>
+              {scoreStatus === 'error'
+                ? 'Scoring failed — try re-scoring.'
+                : 'This application has not been scored yet.'}
+            </p>
+          )}
+
+          {scored && scoreDetail.flags.length > 0 && (
+            <ul className="mt-4 flex flex-col gap-1.5">
+              {scoreDetail.flags.map((f, i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-1.5 rounded-lg p-1.5 font-display text-[12px] font-medium"
+                  style={{ backgroundColor: withAlpha(C.danger, 0.05), color: C.danger }}
+                >
+                  <HugeiconsIcon
+                    icon={Alert02Icon}
+                    size={16}
+                    color={C.danger}
+                    className="shrink-0"
+                  />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        {/* KPI cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <MiniKpi
+            tint={KPI.amount}
+            icon={Coins01Icon}
+            label="Amount requested"
+            value={fmtCompact(amountRequested)}
+            sub={durationLabel(rp.grantDurationYears) ?? 'Duration not set'}
+          />
+          <MiniKpi
+            tint={KPI.programme}
+            icon={FolderLibraryIcon}
+            label="Programme"
+            value={programme.name}
+            sub={roundName ?? '—'}
+          />
+          <MiniKpi
+            tint={KPI.area}
+            icon={UserGroupIcon}
+            label="Beneficiaries"
+            value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
+            sub={proposedImpact != null ? `${unitLabel.toLowerCase()} · proposed` : 'not stated'}
+          />
+          <MiniKpi
+            tint={KPI.headroom}
+            icon={ChartAverageIcon}
+            label="Cost per beneficiary"
+            value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
+            sub={costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'}
+          />
+          {/* The deprivation panel that used to sit in the sidebar. */}
+          <MiniKpi
+            tint={KPI.community}
+            icon={UserGroup02Icon}
+            label="Community context"
+            value={depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '—'}
+            sub={
+              depResolved
+                ? [deprivation.vintage, region].filter(Boolean).join(' · ')
+                : 'no delivery area'
+            }
+          />
+        </div>
+
+        {/* Application budget */}
+        <Panel label="Application budget">
+          <PanelTitle>Application budget</PanelTitle>
+          {budgetLines.length > 0 ? (
+            <>
+              <div className="mb-3 flex items-baseline justify-between">
+                <span
+                  className="font-display text-[24px] font-medium leading-none"
+                  style={{ color: C.ink }}
+                >
+                  {fmtMoney(budgetTotal)}
+                </span>
+                <span className="font-display text-[13px]" style={{ color: C.sub }}>
+                  {budgetLines.length} line{budgetLines.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <BarMeter
+                bars={120}
+                height={24}
+                barWidth={3}
+                className="mb-4 w-full"
+                segments={budgetLines.map((l, i) => ({
+                  value: l.amount,
+                  color: BUDGET_COLORS[i % BUDGET_COLORS.length]!,
+                }))}
+              />
+              <div className="flex flex-col gap-2.5">
+                {budgetLines.map((l, i) => {
+                  const pct = budgetTotal > 0 ? Math.round((l.amount / budgetTotal) * 100) : 0
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <span
+                        className="size-2 shrink-0 rounded-[2px]"
+                        style={{ backgroundColor: BUDGET_COLORS[i % BUDGET_COLORS.length] }}
+                      />
+                      <span
+                        className="flex-1 truncate font-display text-[14px]"
+                        style={{ color: C.ink }}
+                        title={l.item}
+                      >
+                        {l.item}
                       </span>
                       <span
-                        className="flex items-center gap-1.5 font-display text-[13px] font-medium"
-                        style={{ color }}
+                        className="w-24 text-right font-display text-[14px] font-medium tabular-nums"
+                        style={{ color: C.ink }}
                       >
-                        <HugeiconsIcon
-                          icon={failed ? CancelCircleIcon : CheckmarkCircle02Icon}
-                          size={16}
-                          color={color}
-                        />
-                        {r.detail ?? (ok ? 'Clear' : failed ? 'Flagged' : 'Unverified')}
+                        {fmtMoney(l.amount)}
+                      </span>
+                      <span
+                        className="w-10 text-right font-display text-[13px] tabular-nums"
+                        style={{ color: C.faint }}
+                      >
+                        {pct}%
                       </span>
                     </div>
                   )
                 })}
               </div>
-            ) : noRegistrationNumber ? (
-              // "Not screened yet" reads as pending. When there is no registration
-              // number it isn't pending — there is nothing to screen against, and
-              // re-running will never change that. Say which, so the fix is obvious.
-              <p className="font-display text-[14px]" style={{ color: C.sub }}>
-                Not screened — this submission has no charity number or company number, so there is
-                no register to check it against.
-              </p>
-            ) : (
-              <p className="font-display text-[14px]" style={{ color: C.sub }}>
-                Not screened yet.
-              </p>
-            )}
-          </Panel>
-
-          {/* Trustee vote — only once shortlisted (a vote precedes an award). */}
-          {isShortlisted && (
-            <Panel>
-              <VotingSection applicationId={application.id} userId={user.id} userRole={user.role} />
-            </Panel>
+            </>
+          ) : (
+            <p className="font-display text-[14px]" style={{ color: C.sub }}>
+              No budget breakdown was provided with this application.
+            </p>
           )}
-        </div>
+        </Panel>
 
-        {/* Sidebar */}
-        <div className="flex flex-col gap-4">
-          {/* Decision */}
-          <Panel>
-            <div className="mb-3 flex items-center gap-1.5">
-              <span
-                className="size-1.5 rounded-full"
-                style={{ backgroundColor: statusMeta.color }}
-              />
-              <span className="font-display text-[13px] font-medium" style={{ color: C.ink }}>
-                {statusMeta.label}
-                {roundName ? ` for ${roundName}` : ''}
-              </span>
-            </div>
-
-            {isAwarded ? (
-              <div
-                className="flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-[14px] font-medium"
-                style={{ backgroundColor: C.brandBg, color: C.brand }}
-              >
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color={C.brand} /> Awarded
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
+        {/* Due diligence checks */}
+        <Panel>
+          <PanelTitle
+            right={
+              <div className="flex items-center gap-3">
+                <span
+                  className="hidden font-display text-[12px] md:inline"
+                  style={{ color: C.sub }}
+                >
+                  These checks feed the due diligence marks shown in the applications list.
+                </span>
                 <button
                   type="button"
-                  onClick={handleShortlist}
-                  disabled={shortlisting || isBudgetFull}
-                  title={
-                    isBudgetFull
-                      ? 'Budget committed — no funds remaining in this programme'
-                      : undefined
-                  }
-                  className="flex h-10 items-center justify-center rounded-lg font-display text-[14px] font-medium disabled:opacity-50"
-                  style={
-                    isShortlisted
-                      ? { border: `1px solid ${C.line}`, color: C.ink, background: '#fff' }
-                      : { background: C.brand, color: '#fff' }
-                  }
+                  onClick={handleRerunDD}
+                  disabled={rerunningDD}
+                  className="flex h-8 shrink-0 items-center rounded-lg border bg-white px-3 font-display text-[13px] font-medium disabled:opacity-60"
+                  style={{ borderColor: C.line, color: C.ink }}
                 >
-                  {shortlisting
-                    ? '…'
-                    : isShortlisted
-                      ? 'Remove from shortlist'
-                      : isBudgetFull
-                        ? 'Budget full'
-                        : 'Add to shortlist'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDecline}
-                  disabled={declining}
-                  className="flex h-10 items-center justify-center rounded-lg font-display text-[14px] font-medium disabled:opacity-50"
-                  style={{
-                    border: `1px solid ${isDeclined ? withAlpha(C.danger, 0.3) : C.line}`,
-                    color: C.danger,
-                    background: isDeclined ? withAlpha(C.danger, 0.06) : '#fff',
-                  }}
-                >
-                  {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Move to declined'}
+                  {rerunningDD ? 'Re-running…' : 'Re-run'}
                 </button>
               </div>
-            )}
-
-            {depShare != null && (
-              <div
-                className="mt-3 flex items-start gap-2 rounded-lg p-3"
-                style={{ backgroundColor: C.wash }}
-              >
-                <HugeiconsIcon
-                  icon={InformationCircleIcon}
-                  size={16}
-                  color={C.sub}
-                  className="mt-0.5 shrink-0"
-                />
-                <p className="font-display text-[13px] leading-relaxed" style={{ color: C.sub }}>
-                  <span style={{ color: C.ink, fontWeight: 500 }}>{depShare}%</span> reaches IMD
-                  decile {deprivation!.min}–{deprivation!.max}
-                  {region ? `, concentrated in ${region}` : ''}.
-                </p>
-              </div>
-            )}
-          </Panel>
-
-          {/* Notes (comments) */}
-          <Panel>
-            <PanelTitle>Notes</PanelTitle>
-            <CommentsSection applicationId={application.id} userId={user.id} userRole={user.role} />
-          </Panel>
-
-          {/* Community context */}
-          {(scored || depResolved) && (
-            <Panel label="Community context">
-              <PanelTitle>Community context</PanelTitle>
-              {scored && scoreDetail.criteria.community_need && (
-                <div className="mb-2 flex items-baseline gap-2">
-                  <span className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
-                    {scoreDetail.criteria.community_need.score}/10
-                  </span>
-                  <span className="font-display text-[13px]" style={{ color: C.sub }}>
-                    community need
-                  </span>
-                </div>
-              )}
-              {depResolved && (
-                <p className="font-display text-[14px]" style={{ color: C.ink }}>
-                  Decile {deprivation.min}–{deprivation.max}
-                  <span style={{ color: C.sub }}>
-                    {' '}
-                    · {deprivation.vintage}
-                    {region ? ` · ${region}` : ''}
-                  </span>
-                </p>
-              )}
-            </Panel>
-          )}
-
-          {/* Not captured — the one place a silently-lost field becomes visible. */}
-          {gaps.any && (
-            <Panel label="Not captured">
-              <PanelTitle>Not captured</PanelTitle>
-              <p className="mb-2.5 font-display text-[13px]" style={{ color: C.sub }}>
-                This submission didn't include the following, so the features that use them are
-                unavailable on this application.
-              </p>
-              <div className="flex flex-col gap-2">
-                {[
-                  ...gaps.oneOf.map((g) => ({
-                    key: g.keys.join('-'),
-                    label: g.label.replace(/^./, (ch) => ch.toUpperCase()),
-                    degrades: g.degrades,
-                  })),
-                  ...gaps.expected.map((g) => ({
-                    key: g.key,
-                    label: g.label,
-                    degrades: g.degrades,
-                  })),
-                ].map((g) => (
+            }
+          >
+            Due diligence checks
+          </PanelTitle>
+          {ddRecords.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              {ddRecords.map((r, i) => {
+                const def = CHECK_DEFINITIONS[r.key]
+                const ok = r.result === 'pass'
+                const failed = r.result === 'fail'
+                const color = ok ? C.brand : failed ? C.danger : C.faint
+                return (
                   <div
-                    key={g.key}
-                    className="rounded-lg px-3 py-2.5"
+                    key={i}
+                    className="flex items-center justify-between gap-3 rounded-lg p-3"
                     style={{ backgroundColor: C.wash }}
                   >
-                    <div className="font-display text-[14px]" style={{ color: C.ink }}>
-                      {g.label}
-                    </div>
-                    <div className="mt-0.5 font-display text-[12.5px]" style={{ color: C.sub }}>
-                      {g.degrades}
-                    </div>
+                    <span
+                      className="font-display text-[12px] font-medium"
+                      style={{ color: failed ? C.danger : C.ink700 }}
+                    >
+                      {def?.label ?? r.key}
+                    </span>
+                    <span
+                      className="flex shrink-0 items-center gap-1 font-display text-[12px] font-medium"
+                      style={{ color }}
+                    >
+                      <HugeiconsIcon
+                        icon={failed ? Alert02Icon : Tick01Icon}
+                        size={16}
+                        color={color}
+                      />
+                      {r.detail ?? (ok ? 'Clear' : failed ? 'Flagged' : 'Unverified')}
+                    </span>
                   </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                className="mt-2.5 font-display text-[13px] font-medium"
-                style={{ color: C.brand }}
-              >
-                Check the submission →
-              </button>
-            </Panel>
+                )
+              })}
+            </div>
+          ) : noRegistrationNumber ? (
+            // "Not screened yet" reads as pending. When there is no registration
+            // number it isn't pending — there is nothing to screen against, and
+            // re-running will never change that. Say which, so the fix is obvious.
+            <p className="font-display text-[14px]" style={{ color: C.sub }}>
+              Not screened — this submission has no charity number or company number, so there is no
+              register to check it against.
+            </p>
+          ) : (
+            <p className="font-display text-[14px]" style={{ color: C.sub }}>
+              Not screened yet.
+            </p>
           )}
-        </div>
+        </Panel>
+
+        {/* Trustee vote — only once shortlisted (a vote precedes an award). */}
+        {isShortlisted && (
+          <Panel>
+            <VotingSection applicationId={application.id} userId={user.id} userRole={user.role} />
+          </Panel>
+        )}
+
+        {/* Not captured — the one place a silently-lost field becomes visible. */}
+        {gaps.any && (
+          <Panel label="Not captured">
+            <PanelTitle>Not captured</PanelTitle>
+            <p className="mb-2.5 font-display text-[13px]" style={{ color: C.sub }}>
+              This submission didn't include the following, so the features that use them are
+              unavailable on this application.
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {[
+                ...gaps.oneOf.map((g) => ({
+                  key: g.keys.join('-'),
+                  label: g.label.replace(/^./, (ch) => ch.toUpperCase()),
+                  degrades: g.degrades,
+                })),
+                ...gaps.expected.map((g) => ({
+                  key: g.key,
+                  label: g.label,
+                  degrades: g.degrades,
+                })),
+              ].map((g) => (
+                <div
+                  key={g.key}
+                  className="rounded-lg px-3 py-2.5"
+                  style={{ backgroundColor: C.wash }}
+                >
+                  <div className="font-display text-[14px]" style={{ color: C.ink }}>
+                    {g.label}
+                  </div>
+                  <div className="mt-0.5 font-display text-[12.5px]" style={{ color: C.sub }}>
+                    {g.degrades}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="mt-2.5 font-display text-[13px] font-medium"
+              style={{ color: C.brand }}
+            >
+              Check the submission →
+            </button>
+          </Panel>
+        )}
+
+        {/* Comments */}
+        <Panel label="Comments">
+          <CommentsSection applicationId={application.id} userId={user.id} userRole={user.role} />
+        </Panel>
       </div>
 
       <ApplicationDrawer
