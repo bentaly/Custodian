@@ -683,19 +683,6 @@ function InsightsPage() {
   )
   const reportsAnalysed = fil.reduce((s, g) => s + g.reportsAnalysed, 0)
 
-  // The "so far" of the title: the whole portfolio's scale, deliberately NOT the
-  // filtered slice — both halves of the sentence must count the same grants, and
-  // this one sits above the filters rather than under them. Dated rather than named
-  // after the earliest round, because a round's name ("Round 16 Jun") is a foundation's
-  // internal label, not a period a reader can place.
-  const firstDecision = items.reduce<string | null>(
-    (acc, g) => (acc === null || g.decisionAt < acc ? g.decisionAt : acc),
-    null,
-  )
-  const since = firstDecision
-    ? new Date(firstDecision).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-    : null
-
   function setSearch(patch: Partial<InsightsSearch>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
@@ -730,30 +717,20 @@ function InsightsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header — the portfolio's scale, and the export of exactly what's on screen */}
+      {/* Header — the title and the export of exactly what's on screen */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-[20px] font-medium">
           <span style={{ color: C.ink }}>The story </span>
           <span style={{ color: C.faint }}>so far</span>
         </h1>
-        <div className="flex flex-wrap items-center gap-3">
-          {since && (
-            <span className="font-display text-[12px] font-medium">
-              <span style={{ color: C.brand }}>
-                {items.length} grant{items.length !== 1 ? 's' : ''}
-              </span>{' '}
-              <span style={{ color: C.faint }}>since {since}</span>
-            </span>
-          )}
-          {fil.length > 0 && (
-            <ExportButton
-              onClick={handleExport}
-              busy={exporting}
-              label="Export PDF"
-              busyLabel="Preparing…"
-            />
-          )}
-        </div>
+        {fil.length > 0 && (
+          <ExportButton
+            onClick={handleExport}
+            busy={exporting}
+            label="Export PDF"
+            busyLabel="Preparing…"
+          />
+        )}
       </div>
 
       {/* Filters — the slice every panel below describes */}
