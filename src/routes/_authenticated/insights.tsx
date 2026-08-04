@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -6,12 +6,17 @@ import {
   UserGroupIcon,
   Location01Icon,
   ChartAverageIcon,
-  Download01Icon,
-  ArrowDown01Icon,
   ArrowRight01Icon,
   InformationCircleIcon,
 } from '@hugeicons/core-free-icons'
-import { EmptyState, MiniKpi } from '../../components/ui'
+import {
+  DateRangePicker,
+  EmptyState,
+  ExportButton,
+  FilterPill,
+  MiniKpi,
+  formatDateRange,
+} from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import {
   Choropleth,
@@ -19,6 +24,7 @@ import {
   useAreaNames,
   type MapView,
 } from '../../components/charts/Choropleth'
+import { DotGrid } from '../../components/charts/DotGrid'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
@@ -29,17 +35,25 @@ import { fmtCompact, fmtMoney } from '../../lib/format'
 // impact figures the report-analysis pipeline has already extracted and stored.
 // No screen-time AI: where a number's coverage is partial the denominator is stated.
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+/** Location-filter sentinel for grants with no resolvable delivery area. */
+const NO_REGION = 'none'
+
 type InsightsSearch = {
-  /** 'all' | '12m' | '24m' | a round id. */
-  range?: string
+  /** Inclusive decision-date window (`yyyy-mm-dd`); absent = all time. */
+  from?: string
+  to?: string
   programmeId?: string
+  tag?: string
   region?: string
 }
 
 export const Route = createFileRoute('/_authenticated/insights')({
   validateSearch: (search: Record<string, unknown>): InsightsSearch => ({
-    range: typeof search.range === 'string' && search.range ? search.range : undefined,
+    from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
+    to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
     programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
+    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
     region: typeof search.region === 'string' && search.region ? search.region : undefined,
   }),
   loader: async () => getInsights(),
@@ -130,7 +144,7 @@ function Panel({
 
 function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
       <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
         {children}
       </h2>
@@ -139,7 +153,6 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
-// Native <select> styled as a Figma filter pill.
 // A borderless stat (used inside a titled panel).
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
@@ -165,40 +178,48 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
 function DecileChart({ amounts, total, max }: { amounts: number[]; total: number; max: number }) {
   return (
     <div>
-      <div className="mt-2 flex h-40 items-end gap-2">
-        {amounts.map((amt, i) => {
-          const pct = total > 0 ? Math.round((amt / total) * 100) : 0
-          const h = Math.round((amt / max) * 100)
-          return (
-            <div
-              key={i}
-              className="group flex h-full flex-1 flex-col justify-end"
-              title={`Decile ${i + 1} · ${fmtMoney(amt)} · ${pct}%`}
-            >
-              {amt > 0 && pct >= 4 && (
-                <span
-                  className="mb-1 text-center font-display text-[10px]"
-                  style={{ color: C.faint }}
-                >
-                  {pct}%
-                </span>
-              )}
+      <div className="relative mt-2 h-40">
+        <DotGrid />
+        <div className="relative flex h-full items-end gap-2">
+          {amounts.map((amt, i) => {
+            const pct = total > 0 ? Math.round((amt / total) * 100) : 0
+            const h = Math.round((amt / max) * 100)
+            return (
               <div
-                className="mx-auto w-full max-w-[26px] rounded-t-md"
-                style={{
-                  height: `${Math.max(amt > 0 ? 3 : 0, h)}%`,
-                  backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2),
-                }}
-              />
-              <span
-                className="mt-1.5 text-center font-display text-[11px]"
-                style={{ color: C.sub }}
+                key={i}
+                className="group flex h-full flex-1 flex-col justify-end"
+                title={`Decile ${i + 1} · ${fmtMoney(amt)} · ${pct}%`}
               >
-                {i + 1}
-              </span>
-            </div>
-          )
-        })}
+                {amt > 0 && pct >= 4 && (
+                  <span
+                    className="mb-1 text-center font-display text-[12px]"
+                    style={{ color: C.faint }}
+                  >
+                    {pct}%
+                  </span>
+                )}
+                <div
+                  className="mx-auto w-full max-w-[26px] rounded-t-md"
+                  style={{
+                    height: `${Math.max(amt > 0 ? 3 : 0, h)}%`,
+                    backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2),
+                  }}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      <div className="mt-1.5 flex gap-2">
+        {amounts.map((_, i) => (
+          <span
+            key={i}
+            className="flex-1 text-center font-display text-[12px]"
+            style={{ color: C.sub }}
+          >
+            {i + 1}
+          </span>
+        ))}
       </div>
       <div className="mt-3 flex items-center gap-4">
         <span
@@ -223,48 +244,136 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
   )
 }
 
+// Commitment over time (Figma 128:42632 / 434:26775): the same per-round series in
+// two readings — Bars for "what did each round commit", Line for the shape of the
+// trend. Both sit on the shared dot-matrix backdrop with a 5-tick money axis.
+const PLOT_H = 206
+const AXIS_W = 40
 
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
+function CommitmentChart({
+  mode,
+  series,
+  max,
+  ticks,
 }: {
-  label: string
-  value: string | undefined
-  options: Array<{ value: string; label: string }>
-  onChange: (v: string | undefined) => void
+  mode: 'bars' | 'line'
+  series: Array<{ id: string; label: string; value: number }>
+  max: number
+  ticks: number[]
 }) {
-  const current = options.find((o) => o.value === value)
+  // Points are placed at band centres so the line and the bars share an x scale.
+  const step = 100 / series.length
+  const pts = series.map((p, i) => ({
+    ...p,
+    x: step * (i + 0.5),
+    y: 100 - (p.value / max) * 100,
+  }))
+
   return (
-    <div className="relative shrink-0">
-      <div
-        className="flex h-9 items-center gap-1 rounded-lg border bg-white pl-3 pr-2"
-        style={{ borderColor: C.line }}
-      >
-        <span
-          className="whitespace-nowrap font-display text-[14px] font-medium"
-          style={{ color: C.ink }}
-        >
-          {current ? current.label : label}
-        </span>
-        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.sub} />
+    <div>
+      <div className="flex" style={{ height: PLOT_H }}>
+        <div className="flex flex-col justify-between pr-2 text-right" style={{ width: AXIS_W }}>
+          {ticks.map((t) => (
+            <span
+              key={t}
+              className="font-display text-[12px] leading-none"
+              style={{ color: C.faint }}
+            >
+              {t === 0 ? '0' : fmtCompact(t).replace('£', '')}
+            </span>
+          ))}
+        </div>
+        <div className="relative flex-1">
+          <DotGrid />
+          {mode === 'bars' ? (
+            <div className="relative flex h-full items-end">
+              {series.map((p) => {
+                const h = (p.value / max) * 100
+                return (
+                  <div
+                    key={p.id}
+                    className="flex h-full flex-1 items-end justify-center"
+                    title={`${p.label} · ${fmtMoney(p.value)}`}
+                  >
+                    <div
+                      className="w-8 rounded-t-md"
+                      style={{ height: `${Math.max(1, h)}%`, backgroundColor: '#8B7FF0' }}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="relative h-full w-full">
+              {/* The path is drawn in a stretched 100×100 space; the markers are
+                  plain elements positioned over it, so they stay circular. */}
+              <svg
+                className="block h-full w-full"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                <path
+                  d={smoothPath(pts)}
+                  fill="none"
+                  stroke="#8B7FF0"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+              {pts.map((p) => (
+                <span
+                  key={p.id}
+                  title={`${p.label} · ${fmtMoney(p.value)}`}
+                  className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white"
+                  style={{ left: `${p.x}%`, top: `${p.y}%`, borderColor: '#8B7FF0' }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-      <select
-        aria-label={label}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-        className="absolute inset-0 w-full cursor-pointer opacity-0"
-      >
-        <option value="">{label}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
+
+      <div className="flex" style={{ paddingLeft: AXIS_W }}>
+        {series.map((p) => (
+          <div key={p.id} className="min-w-0 flex-1 px-1 text-center">
+            {mode === 'line' && (
+              <p className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }}>
+                {fmtCompact(p.value)}
+              </p>
+            )}
+            <p
+              className="truncate font-display text-[12px]"
+              style={{ color: C.sub }}
+              title={p.label}
+            >
+              {p.label}
+            </p>
+          </div>
         ))}
-      </select>
+      </div>
     </div>
   )
+}
+
+/** Catmull-Rom → cubic bézier: the design's eased curve through every point. */
+function smoothPath(pts: Array<{ x: number; y: number }>): string {
+  if (pts.length === 0) return ''
+  if (pts.length === 1) return `M ${pts[0]!.x} ${pts[0]!.y}`
+  let d = `M ${pts[0]!.x} ${pts[0]!.y}`
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i]!
+    const p1 = pts[i]!
+    const p2 = pts[i + 1]!
+    const p3 = pts[i + 2] ?? p2
+    const c1x = p1.x + (p2.x - p0.x) / 6
+    const c1y = p1.y + (p2.y - p0.y) / 6
+    const c2x = p2.x - (p3.x - p1.x) / 6
+    const c2y = p2.y - (p3.y - p1.y) / 6
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`
+  }
+  return d
 }
 
 // ─── Derivations (pure, over the filtered grant set) ─────────────────────────────
@@ -434,6 +543,22 @@ function sumImpact(grants: InsightsGrant[]): number {
   return grants.reduce((s, g) => s + (effImpact(g)?.value ?? 0), 0)
 }
 
+/** Round a chart's top gridline up to 1/2/5 × a power of ten, so ticks divide evenly. */
+function niceMax(n: number): number {
+  const pow = 10 ** Math.floor(Math.log10(n))
+  const step = [1, 2, 2.5, 5, 10].find((m) => n <= m * pow) ?? 10
+  return step * pow
+}
+
+/** "Community & Place + 1 other" — the programmes a theme's grants came from. */
+function programmeSummary(names: string[]): string {
+  const uniq = [...new Set(names)]
+  if (uniq.length === 0) return 'No programme recorded'
+  const [first, ...rest] = uniq
+  if (rest.length === 0) return first!
+  return `${first} + ${rest.length} other${rest.length !== 1 ? 's' : ''}`
+}
+
 /** Funding spread across deciles 1–10, weighting each grant's amount by its histogram. */
 function fundingByDecile(grants: InsightsGrant[]): number[] {
   const out = Array<number>(10).fill(0)
@@ -450,33 +575,35 @@ function fundingByDecile(grants: InsightsGrant[]): number[] {
 
 function InsightsPage() {
   const navigate = useNavigate({ from: '/insights' })
-  const { range, programmeId, region } = Route.useSearch()
+  const { from, to, programmeId, tag, region } = Route.useSearch()
   const { items } = Route.useLoaderData()
 
   // ── Filter options, derived from the data itself ──
-  const rounds = [...new Map(items.filter((g) => g.roundId).map((g) => [g.roundId!, g])).values()]
-    .map((g) => ({ id: g.roundId!, name: g.roundName ?? '—', openedAt: g.roundOpenedAt }))
-    .sort((a, b) => (b.openedAt ?? '').localeCompare(a.openedAt ?? ''))
   const programmes = [
     ...new Map(items.filter((g) => g.programmeId).map((g) => [g.programmeId!, g])).values(),
   ]
     .map((g) => ({ id: g.programmeId!, name: g.programmeName ?? '—' }))
     .sort((a, b) => a.name.localeCompare(b.name))
+  const allTags = [...new Set(items.flatMap((g) => g.tags))].sort()
   const regions = [
     ...new Set(items.map((g) => g.region).filter((r): r is string => Boolean(r))),
   ].sort()
+  // Grants whose delivery location never resolved are a real group a reader needs to
+  // reach — without an option for them they are simply missing from every location
+  // slice, which reads as "we fund nowhere else" rather than "we don't know".
+  const hasUnlocated = items.some((g) => !g.region)
 
   // ── The filtered slice every panel below describes ──
+  // The date window is on the award decision — the moment the money was committed,
+  // which is what every figure on this screen counts.
   const fil = items.filter((g) => {
     if (programmeId && g.programmeId !== programmeId) return false
-    if (region && g.region !== region) return false
-    if (!range || range === 'all') return true
-    if (range === '12m' || range === '24m') {
-      const cutoff = new Date()
-      cutoff.setMonth(cutoff.getMonth() - (range === '12m' ? 12 : 24))
-      return new Date(g.decisionAt) >= cutoff
-    }
-    return g.roundId === range
+    if (tag && !g.tags.includes(tag)) return false
+    if (region === NO_REGION ? Boolean(g.region) : region && g.region !== region) return false
+    const day = g.decisionAt.slice(0, 10)
+    if (from && day < from) return false
+    if (to && day > to) return false
+    return true
   })
 
   // ── Headline stats ──
@@ -527,7 +654,10 @@ function InsightsPage() {
     .sort((a, b) => b.committed - a.committed)
 
   // ── Commitment over time (by round, chronological) ──
-  const [chartMode, setChartMode] = useState<'bars' | 'cumulative'>('bars')
+  // Bars and Line plot the same series — what each round committed. (A cumulative
+  // mode was dropped: a running total answers a different question and read as if
+  // the round totals themselves were growing.)
+  const [chartMode, setChartMode] = useState<'bars' | 'line'>('bars')
   const timelineRounds = [
     ...new Map(fil.filter((g) => g.roundId).map((g) => [g.roundId!, g])).keys(),
   ]
@@ -544,31 +674,26 @@ function InsightsPage() {
       }
     })
     .sort((a, b) => (a.openedAt ?? '').localeCompare(b.openedAt ?? ''))
-  let running = 0
-  const commitSeries = timelineRounds.map((r) => {
-    running += r.total
-    return { label: r.name, bars: r.total, cumulative: running }
-  })
-  const chartMax = Math.max(
-    1,
-    ...commitSeries.map((p) => (chartMode === 'cumulative' ? p.cumulative : p.bars)),
-  )
+  const commitSeries = timelineRounds.map((r) => ({ id: r.id, label: r.name, value: r.total }))
+  // Axis ticks run 0 → a rounded-up maximum, so the gridline labels are readable
+  // numbers rather than whatever the tallest bar happens to be.
+  const chartMax = niceMax(Math.max(1, ...commitSeries.map((p) => p.value)))
+  const chartTicks = [4, 3, 2, 1, 0].map((i) => (chartMax * i) / 4)
 
   // ── Themes ──
   const tagNames = [...new Set(fil.flatMap((g) => g.tags))].sort()
   const themes = tagNames
     .map((t, i) => {
       const grants = fil.filter((g) => g.tags.includes(t))
-      const withQuote = [...grants]
-        .sort((a, b) => b.amountAwarded - a.amountAwarded)
-        .find((g) => g.impactQuote)
       return {
         tag: t,
         color: PALETTE[i % PALETTE.length]!,
         amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
         count: grants.length,
         people: sumImpact(grants.filter((g) => g.unitKey === 'people')),
-        quote: withQuote?.impactQuote ?? null,
+        programmes: programmeSummary(
+          grants.map((g) => g.programmeName).filter((n): n is string => Boolean(n)),
+        ),
       }
     })
     .sort((a, b) => b.amount - a.amount)
@@ -673,8 +798,6 @@ function InsightsPage() {
   )
   const reportsAnalysed = fil.reduce((s, g) => s + g.reportsAnalysed, 0)
 
-  const earliest = timelineRounds[0]?.name ?? null
-
   function setSearch(patch: Partial<InsightsSearch>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
@@ -682,25 +805,19 @@ function InsightsPage() {
   // ── PDF export ──
   const exportRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
-  const periodLabel =
-    !range || range === 'all'
-      ? 'All time'
-      : range === '12m'
-        ? 'Last 12 months'
-        : range === '24m'
-          ? 'Last 2 years'
-          : (rounds.find((r) => r.id === range)?.name ?? 'Selected round')
+  const periodLabel = formatDateRange({ from, to })
   const programmeLabel = programmeId
     ? (programmes.find((p) => p.id === programmeId)?.name ?? 'Selected programme')
     : 'All programmes'
-  const regionLabel = region ?? 'All regions'
+  const themeLabel = tag ?? 'All themes'
+  const regionLabel = region === NO_REGION ? 'No location recorded' : (region ?? 'All locations')
   async function handleExport() {
     if (!exportRef.current) return
     setExporting(true)
     try {
       await exportInsightsPdf(exportRef.current, {
         title: 'Insights',
-        filters: `${periodLabel} · ${programmeLabel} · ${regionLabel}`,
+        filters: `${periodLabel} · ${programmeLabel} · ${themeLabel} · ${regionLabel}`,
         summary: `${fil.length} award${fil.length !== 1 ? 's' : ''} · ${fmtCompact(committed)} committed`,
         generatedAt: new Date().toLocaleDateString('en-GB', {
           day: 'numeric',
@@ -715,60 +832,64 @@ function InsightsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Header — the title and the export of exactly what's on screen */}
+      <div className="flex flex-wrap justify-between gap-3">
         <h1 className="font-display text-[20px] font-medium">
           <span style={{ color: C.ink }}>The story </span>
           <span style={{ color: C.faint }}>so far</span>
         </h1>
-        <div className="flex flex-wrap items-center gap-3">
-          {earliest && (
-            <span className="font-display text-[13px] font-medium" style={{ color: C.brand }}>
-              {items.length} grant{items.length !== 1 ? 's' : ''} since {earliest}
-            </span>
-          )}
-          <FilterSelect
-            label="Period"
-            value={range}
-            options={[
-              { value: 'all', label: 'All time' },
-              { value: '12m', label: 'Last 12 months' },
-              { value: '24m', label: 'Last 2 years' },
-              ...rounds.map((r) => ({ value: r.id, label: r.name })),
-            ]}
-            onChange={(v) => setSearch({ range: v })}
+        {fil.length > 0 && (
+          <ExportButton
+            onClick={handleExport}
+            busy={exporting}
+            label="Export PDF"
+            busyLabel="Preparing…"
           />
-          {programmes.length > 1 && (
-            <FilterSelect
+        )}
+      </div>
+
+      {/* Filters — the slice every panel below describes */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* A filter shows as soon as there is anything to pick. Hiding it until
+            there were two values meant Location vanished on any portfolio where
+            only one delivery area had resolved — which read as the filter not
+            existing rather than as the data being thin. */}
+        <div className="flex flex-wrap items-center gap-3">
+          {programmes.length > 0 && (
+            <FilterPill
               label="Programme"
+              clearLabel="All programmes"
               value={programmeId}
               options={programmes.map((p) => ({ value: p.id, label: p.name }))}
               onChange={(v) => setSearch({ programmeId: v })}
             />
           )}
-          {regions.length > 1 && (
-            <FilterSelect
-              label="Region"
+          {allTags.length > 0 && (
+            <FilterPill
+              label="Theme"
+              clearLabel="All themes"
+              value={tag}
+              options={allTags.map((t) => ({ value: t, label: t }))}
+              onChange={(v) => setSearch({ tag: v })}
+            />
+          )}
+          {(regions.length > 0 || hasUnlocated) && (
+            <FilterPill
+              label="Location"
+              clearLabel="All locations"
               value={region}
-              options={regions.map((r) => ({ value: r, label: r }))}
+              options={[
+                ...regions.map((r) => ({ value: r, label: r })),
+                ...(hasUnlocated ? [{ value: NO_REGION, label: 'No location recorded' }] : []),
+              ]}
               onChange={(v) => setSearch({ region: v })}
             />
           )}
-          {fil.length > 0 && (
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={exporting}
-              className="flex h-9 items-center gap-2 rounded-lg border px-3 disabled:opacity-60"
-              style={{ backgroundColor: 'rgba(31,122,92,0.1)', borderColor: 'rgba(31,122,92,0.2)' }}
-            >
-              <span className="font-display text-[14px] font-medium" style={{ color: C.brand }}>
-                {exporting ? 'Preparing…' : 'Export PDF'}
-              </span>
-              <HugeiconsIcon icon={Download01Icon} size={18} color={C.brand} />
-            </button>
-          )}
         </div>
+        <DateRangePicker
+          value={{ from, to }}
+          onChange={(next) => setSearch({ from: next.from, to: next.to })}
+        />
       </div>
 
       {fil.length === 0 ? (
@@ -830,46 +951,58 @@ function InsightsPage() {
           {byProgramme.length > 0 && (
             <Panel data-export-block>
               <PanelTitle>Giving by programme</PanelTitle>
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 xl:grid-cols-5">
-                {byProgramme.map((p) => {
+              {/* Columns are sized by share of the total, so the row reads as one
+                  100%-wide bar broken into programmes — and each meter fills its
+                  column rather than leaving a fixed grid half-empty. */}
+              <div className="flex flex-col gap-5 sm:flex-row sm:gap-0">
+                {byProgramme.map((p, i) => {
                   const pct = committed > 0 ? Math.round((p.committed / committed) * 100) : 0
                   return (
-                    <div key={p.id}>
-                      <div className="flex items-baseline justify-between">
+                    <Fragment key={p.id}>
+                      {i > 0 && (
                         <span
-                          className="font-display text-[20px] font-medium"
+                          aria-hidden
+                          className="mx-4 hidden w-px shrink-0 sm:block"
+                          style={{ height: 56, backgroundColor: C.line }}
+                        />
+                      )}
+                      <div className="min-w-0" style={{ flex: `${Math.max(pct, 6)} 1 0%` }}>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span
+                            className="font-display text-[20px] font-medium"
+                            style={{ color: C.ink }}
+                          >
+                            {fmtCompact(p.committed)}
+                          </span>
+                          <span
+                            className="font-display text-[14px] font-medium"
+                            style={{ color: C.faint }}
+                          >
+                            {pct}%
+                          </span>
+                        </div>
+                        <BarMeter
+                          fill
+                          height={24}
+                          barWidth={3}
+                          className="my-2 w-full"
+                          segments={[{ value: 1, color: p.color }]}
+                        />
+                        <p
+                          className="truncate font-display text-[14px] font-medium"
                           style={{ color: C.ink }}
+                          title={p.name}
                         >
-                          {fmtCompact(p.committed)}
-                        </span>
-                        <span
-                          className="font-display text-[13px] font-medium"
-                          style={{ color: C.faint }}
-                        >
-                          {pct}%
-                        </span>
+                          {p.name}
+                        </p>
+                        <p className="truncate font-display text-[12px]" style={{ color: C.sub }}>
+                          {p.grants} grant{p.grants !== 1 ? 's' : ''}
+                          {p.people != null && p.people > 0
+                            ? ` · ${Math.round(p.people).toLocaleString('en-GB')} ${p.unitLabel.toLowerCase()}`
+                            : ''}
+                        </p>
                       </div>
-                      <BarMeter
-                        bars={48}
-                        height={22}
-                        barWidth={3}
-                        className="my-2 w-full"
-                        segments={[{ value: 1, color: p.color }]}
-                      />
-                      <p
-                        className="truncate font-display text-[14px] font-medium"
-                        style={{ color: C.ink }}
-                        title={p.name}
-                      >
-                        {p.name}
-                      </p>
-                      <p className="font-display text-[12px]" style={{ color: C.sub }}>
-                        {p.grants} grant{p.grants !== 1 ? 's' : ''}
-                        {p.people != null && p.people > 0
-                          ? ` · ${Math.round(p.people).toLocaleString('en-GB')} ${p.unitLabel.toLowerCase()}`
-                          : ''}
-                      </p>
-                    </div>
+                    </Fragment>
                   )
                 })}
               </div>
@@ -885,12 +1018,12 @@ function InsightsPage() {
                     className="flex items-center gap-0.5 rounded-lg p-0.5"
                     style={{ backgroundColor: C.wash }}
                   >
-                    {(['bars', 'cumulative'] as const).map((m) => (
+                    {(['bars', 'line'] as const).map((m) => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => setChartMode(m)}
-                        className="h-7 rounded-md px-2.5 font-display text-[13px] font-medium capitalize"
+                        className="h-7 rounded-lg px-2 font-display text-[14px] font-medium capitalize"
                         style={
                           chartMode === m
                             ? {
@@ -917,37 +1050,17 @@ function InsightsPage() {
                   No dated rounds in this slice.
                 </p>
               ) : (
-                <div className="mt-2 flex h-44 items-end gap-3">
-                  {commitSeries.map((p) => {
-                    const v = chartMode === 'cumulative' ? p.cumulative : p.bars
-                    const h = Math.round((v / chartMax) * 100)
-                    return (
-                      <div
-                        key={p.label}
-                        className="group flex h-full flex-1 flex-col justify-end"
-                        title={`${p.label} · ${fmtMoney(v)}`}
-                      >
-                        <span
-                          className="mb-1 text-center font-display text-[11px]"
-                          style={{ color: C.faint }}
-                        >
-                          {fmtCompact(v)}
-                        </span>
-                        <div
-                          className="mx-auto w-full max-w-[44px] rounded-t-md"
-                          style={{ height: `${Math.max(2, h)}%`, backgroundColor: '#8B7FF0' }}
-                        />
-                        <span
-                          className="mt-1.5 truncate text-center font-display text-[11px]"
-                          style={{ color: C.sub }}
-                          title={p.label}
-                        >
-                          {p.label}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
+                <>
+                  <p className="-mt-2 mb-4 font-display text-[12px]" style={{ color: C.sub }}>
+                    By grant round · £ committed
+                  </p>
+                  <CommitmentChart
+                    mode={chartMode}
+                    series={commitSeries}
+                    max={chartMax}
+                    ticks={chartTicks}
+                  />
+                </>
               )}
             </Panel>
 
@@ -961,24 +1074,34 @@ function InsightsPage() {
                   No programme tags set — add tags to programmes to see themed giving.
                 </p>
               ) : (
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-1">
                   {themes.map((t) => {
                     const pct = themedTotal > 0 ? Math.round((t.amount / themedTotal) * 100) : 0
                     return (
+                      // A white wrapper card holds the tinted headline and the line
+                      // beneath it — which names the programmes the theme spans, so a
+                      // theme is never just a percentage with no provenance.
                       <div
                         key={t.tag}
-                        className="rounded-xl p-3"
-                        style={{ backgroundColor: withAlpha(t.color, 0.1) }}
+                        className="flex flex-col gap-1 rounded-[16px] border bg-white px-1 pb-2 pt-1"
+                        style={{ borderColor: C.line }}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
+                        <div
+                          className="flex items-center gap-4 rounded-xl p-3"
+                          style={{ backgroundColor: withAlpha(t.color, 0.1) }}
+                        >
+                          <div className="min-w-0 flex-1">
                             <p
-                              className="font-display text-[14px] font-medium"
+                              className="truncate font-display text-[14px] font-medium"
                               style={{ color: C.ink }}
+                              title={t.tag}
                             >
                               {t.tag}
                             </p>
-                            <p className="font-display text-[12px]" style={{ color: C.sub }}>
+                            <p
+                              className="mt-1 truncate font-display text-[12px]"
+                              style={{ color: C.sub }}
+                            >
                               {t.count} grant{t.count !== 1 ? 's' : ''} · {fmtCompact(t.amount)}
                               {t.people > 0
                                 ? ` · ${Math.round(t.people).toLocaleString('en-GB')} people`
@@ -986,21 +1109,22 @@ function InsightsPage() {
                             </p>
                           </div>
                           <span
-                            className="shrink-0 font-display text-[22px] font-medium"
-                            style={{ color: C.faint }}
+                            className="shrink-0 font-display text-[24px] font-medium leading-none"
+                            style={{ color: t.color }}
                           >
                             {pct}
-                            <span className="text-[13px]">%</span>
+                            <span className="text-[16px]" style={{ color: C.faint }}>
+                              %
+                            </span>
                           </span>
                         </div>
-                        {t.quote && (
-                          <p
-                            className="mt-1.5 font-display text-[12px] italic"
-                            style={{ color: C.sub }}
-                          >
-                            “{t.quote}”
-                          </p>
-                        )}
+                        <p
+                          className="truncate px-3 font-display text-[12px]"
+                          style={{ color: C.sub }}
+                          title={t.programmes}
+                        >
+                          {t.programmes}
+                        </p>
                       </div>
                     )
                   })}

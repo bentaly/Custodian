@@ -28,6 +28,27 @@ export function fmtCompact(n: number): string {
   return neg ? `-${s}` : s
 }
 
+/**
+ * Compact age of a timestamp: `now` / `4h` / `2d` / `1w` / `3mo` / `2y`.
+ * The form the comment feed uses, where the exact minute never matters and the
+ * column is a few characters wide.
+ */
+export function fmtSince(date: Date | string): string {
+  const secs = Math.max(0, (Date.now() - new Date(date).getTime()) / 1000)
+  const mins = Math.floor(secs / 60)
+  if (mins < 1) return 'now'
+  if (mins < 60) return `${mins}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d`
+  const weeks = Math.floor(days / 7)
+  if (days < 30) return `${weeks}w`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo`
+  return `${Math.floor(days / 365)}y`
+}
+
 /** `12 Mar 2026`, or `—` when absent. */
 export function fmtDate(date: Date | string | null | undefined): string {
   if (!date) return '—'

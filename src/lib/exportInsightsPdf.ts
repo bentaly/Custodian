@@ -2,9 +2,16 @@
 // state of each panel as an image and stacks them under a vector header that
 // records the active filters — the "glossy screengrab for stakeholders" export.
 //
-// jspdf and html2canvas are heavy and reference `window`/`document` at import
+// jspdf and html2canvas-pro are heavy and reference `window`/`document` at import
 // time, so they are dynamically imported inside the handler: they never enter
 // the SSR/Workers bundle and only load when a user actually exports.
+//
+// It is html2canvas-**pro**, not html2canvas, and that is load-bearing: the
+// original's last release predates CSS Color 4, and it throws
+// `Attempting to parse an unsupported color function "oklch"` on any element it
+// walks. Tailwind v4 compiles its default palette to `oklch()`, so every export
+// died on the first panel. The fork parses oklch/lab/lch/color(); the API is
+// otherwise the same.
 import type { jsPDF as JsPDF } from 'jspdf'
 
 export type InsightsPdfMeta = {
@@ -25,7 +32,10 @@ const BLOCK_GAP = 14
 const EMERALD: [number, number, number] = [29, 158, 117]
 
 export async function exportInsightsPdf(root: HTMLElement, meta: InsightsPdfMeta) {
-  const [{ jsPDF }, html2canvasMod] = await Promise.all([import('jspdf'), import('html2canvas')])
+  const [{ jsPDF }, html2canvasMod] = await Promise.all([
+    import('jspdf'),
+    import('html2canvas-pro'),
+  ])
   const html2canvas = html2canvasMod.default
 
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' })

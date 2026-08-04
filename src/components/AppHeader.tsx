@@ -4,11 +4,11 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import type { IconSvgElement } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
-  ChampionIcon,
-  File01Icon,
-  Layers01Icon,
+  Audit02Icon,
   Loading03Icon,
+  MailOpenLoveIcon,
   Menu01Icon,
+  NoteIcon,
   Search01Icon,
   UserMultipleIcon,
 } from '@hugeicons/core-free-icons'
@@ -72,9 +72,11 @@ function roundStatusParts(rounds: HeaderRound[]) {
 }
 
 const GROUPS: { type: SearchResultType; label: string; icon: IconSvgElement }[] = [
-  { type: 'application', label: 'Applications', icon: File01Icon },
-  { type: 'award', label: 'Awards', icon: ChampionIcon },
-  { type: 'report', label: 'Reports', icon: Layers01Icon },
+  // Same concepts as the sidebar rail, so the same icons — a result row and the
+  // nav item it leads to must not be two different pictures of one thing.
+  { type: 'application', label: 'Applications', icon: NoteIcon },
+  { type: 'award', label: 'Awards', icon: MailOpenLoveIcon },
+  { type: 'report', label: 'Reports', icon: Audit02Icon },
   { type: 'programme', label: 'Programmes', icon: UserMultipleIcon },
   { type: 'round', label: 'Rounds', icon: Search01Icon },
 ]

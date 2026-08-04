@@ -3,15 +3,15 @@ import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { IconSvgElement } from '@hugeicons/react'
 import {
-  Award01Icon,
-  BankIcon,
+  Audit02Icon,
   Cancel01Icon,
+  ChartAverageIcon,
   CheckListIcon,
   DashboardSquare01Icon,
-  File01Icon,
-  Files01Icon,
+  MailOpenLoveIcon,
+  NoteIcon,
   Settings02Icon,
-  TradeUpIcon,
+  Wallet03Icon,
 } from '@hugeicons/core-free-icons'
 import { LogoMark } from './ui/LogoMark'
 
@@ -23,14 +23,19 @@ const itemClass =
 
 // One list, rendered twice — the desktop rail and the mobile drawer must never drift.
 // `search` carries the round filter that the list screens require in their route search.
+//
+// Icons are the ones named on the Figma rail (126:31806) — `note`, `wallet-03`,
+// `audit-02`, `chart-average` — not lookalikes. Shortlist and Awards are ours:
+// the design's rail is an older IA (Partnerships / Review / Giving) with no
+// counterpart for them.
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardSquare01Icon },
-  { to: '/applications', label: 'Applications', icon: Files01Icon, search: { roundId: undefined } },
+  { to: '/applications', label: 'Applications', icon: NoteIcon, search: { roundId: undefined } },
   { to: '/shortlist', label: 'Shortlist', icon: CheckListIcon, search: { roundId: undefined } },
-  { to: '/awards', label: 'Awards', icon: Award01Icon, search: { roundId: undefined } },
-  { to: '/finance', label: 'Finance', icon: BankIcon },
-  { to: '/reports', label: 'Reports', icon: File01Icon },
-  { to: '/insights', label: 'Insights', icon: TradeUpIcon },
+  { to: '/awards', label: 'Awards', icon: MailOpenLoveIcon, search: { roundId: undefined } },
+  { to: '/finance', label: 'Finance', icon: Wallet03Icon },
+  { to: '/reports', label: 'Reports', icon: Audit02Icon },
+  { to: '/insights', label: 'Insights', icon: ChartAverageIcon },
 ] as const satisfies readonly {
   to: string
   label: string

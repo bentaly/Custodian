@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { listComments, addComment, updateComment, deleteComment } from '../server/fns/comments'
-import { Button } from './ui'
+import { fmtSince } from '../lib/format'
+
+// Figma node 435:42458 — the full-width comment panel on the application detail
+// screen: composer on top, then every comment as a moss-washed card with the author
+// left and its age right. Deliberately unpaginated; a board's discussion of one
+// application is short, and paging it hid the thread behind a control.
 
 type Comment = {
   id: string
@@ -8,6 +13,18 @@ type Comment = {
   createdAt: string | Date
   updatedAt?: string | Date | null
   user: { id: string; name: string; role: string }
+}
+
+const C = {
+  ink: '#141C24',
+  sub: '#637083',
+  faint: '#97A1AF',
+  line: '#E4E7EC',
+  brand: '#1F7A5C',
+  brandBg: 'rgba(31, 122, 92, 0.1)',
+  brandBorder: 'rgba(31, 122, 92, 0.2)',
+  cardBg: 'rgba(31, 122, 92, 0.05)',
+  danger: '#FF4242',
 }
 
 const CAN_COMMENT = new Set(['superadmin', 'admin', 'trustee', 'finance'])
@@ -99,67 +116,101 @@ export function CommentsSection({
   }
 
   return (
-    <div>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Comments</h3>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+          Comments
+        </h2>
+        {!loading && comments.length > 0 && (
+          <span className="font-display text-[12px]" style={{ color: C.sub }}>
+            {comments.length} comment{comments.length !== 1 ? 's' : ''} in total
+          </span>
+        )}
+      </div>
+
+      {canComment && (
+        <form onSubmit={handleSubmit} className="flex flex-col items-start gap-2">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Add a comment for the panel…"
+            className="h-[120px] w-full resize-none rounded-[12px] border bg-white px-3 py-2 font-display text-[14px] focus:outline-hidden"
+            style={{ borderColor: C.line, color: C.ink }}
+          />
+          <button
+            type="submit"
+            disabled={submitting || !body.trim()}
+            className="flex h-10 items-center justify-center rounded-[12px] border px-3 font-display text-[14px] font-medium disabled:opacity-50"
+            style={{
+              backgroundColor: C.brandBg,
+              borderColor: C.brandBorder,
+              color: C.brand,
+            }}
+          >
+            {submitting ? 'Posting…' : 'Post comment'}
+          </button>
+        </form>
+      )}
 
       {loading ? (
-        <p className="text-sm text-gray-400">Loading…</p>
+        <p className="font-display text-[13px]" style={{ color: C.faint }}>
+          Loading…
+        </p>
+      ) : comments.length === 0 ? (
+        <p className="font-display text-[13px]" style={{ color: C.faint }}>
+          No comments yet.
+        </p>
       ) : (
-        <div className="space-y-2.5">
-          {comments.length === 0 && <p className="text-sm text-gray-400">No comments yet.</p>}
-
+        <div className="flex flex-col gap-2">
           {comments.map((c) => {
             const canEdit = c.user.id === userId
             const canDelete = c.user.id === userId || isAdmin
             const isEditing = editingId === c.id
             const busy = busyId === c.id
             return (
-              <div key={c.id} className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2.5">
-                <div className="mb-1.5 flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-gray-800">{c.user.name}</span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      padding: '1px 5px',
-                      borderRadius: 3,
-                      background: '#f0f0ec',
-                      color: '#777',
-                    }}
-                  >
-                    {roleLabel(c.user.role)}
+              <div
+                key={c.id}
+                className="flex flex-col gap-2 rounded-lg p-4"
+                style={{ backgroundColor: C.cardBg }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 font-display text-[12px]">
+                    <span className="font-medium" style={{ color: C.ink }}>
+                      {c.user.name}
+                    </span>
+                    <span style={{ color: C.faint }}>{roleLabel(c.user.role)}</span>
                   </span>
-                  <span className="ml-auto text-[10px] text-gray-400">
-                    {new Date(c.createdAt).toLocaleString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <span className="font-display text-[12px]" style={{ color: C.sub }}>
+                    {fmtSince(c.createdAt)}
                     {c.updatedAt && ' · edited'}
                   </span>
                 </div>
 
                 {isEditing ? (
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <textarea
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
-                      rows={2}
-                      className="w-full resize-none rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-gray-400 focus:outline-hidden"
+                      rows={3}
+                      className="w-full resize-none rounded-lg border bg-white px-3 py-2 font-display text-[12px] focus:outline-hidden"
+                      style={{ borderColor: C.line, color: C.ink }}
                     />
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-3">
                       <button
+                        type="button"
                         onClick={() => setEditingId(null)}
                         disabled={busy}
-                        className="rounded-sm px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+                        className="font-display text-[12px] font-medium disabled:opacity-50"
+                        style={{ color: C.sub }}
                       >
                         Cancel
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleSaveEdit(c.id)}
                         disabled={busy || !editBody.trim()}
-                        className="rounded-sm border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        className="font-display text-[12px] font-medium disabled:opacity-50"
+                        style={{ color: C.brand }}
                       >
                         {busy ? 'Saving…' : 'Save'}
                       </button>
@@ -167,25 +218,32 @@ export function CommentsSection({
                   </div>
                 ) : (
                   <>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                    <p
+                      className="whitespace-pre-wrap font-display text-[12px] leading-relaxed"
+                      style={{ color: C.sub }}
+                    >
                       {c.body}
                     </p>
                     {(canEdit || canDelete) && (
-                      <div className="mt-1.5 flex gap-3">
+                      <div className="flex gap-3">
                         {canEdit && (
                           <button
+                            type="button"
                             onClick={() => startEdit(c)}
                             disabled={busy}
-                            className="text-[11px] font-medium text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                            className="font-display text-[11px] font-medium disabled:opacity-50"
+                            style={{ color: C.faint }}
                           >
                             Edit
                           </button>
                         )}
                         {canDelete && (
                           <button
+                            type="button"
                             onClick={() => handleDelete(c.id)}
                             disabled={busy}
-                            className="text-[11px] font-medium text-gray-400 hover:text-red-600 disabled:opacity-50"
+                            className="font-display text-[11px] font-medium disabled:opacity-50"
+                            style={{ color: busy ? C.danger : C.faint }}
                           >
                             {busy ? 'Deleting…' : 'Delete'}
                           </button>
@@ -197,28 +255,6 @@ export function CommentsSection({
               </div>
             )
           })}
-
-          {canComment && (
-            <form onSubmit={handleSubmit} className="mt-1 space-y-2">
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Add a comment…"
-                rows={2}
-                className="w-full resize-none rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-gray-400 focus:outline-hidden"
-              />
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  size="sm"
-                  disabled={submitting || !body.trim()}
-                >
-                  {submitting ? 'Posting…' : 'Post comment'}
-                </Button>
-              </div>
-            </form>
-          )}
         </div>
       )}
     </div>

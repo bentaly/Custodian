@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
-  Files01Icon,
-  File01Icon,
-  Coins01Icon,
+  Audit02Icon,
   CheckListIcon,
   CheckmarkCircle02Icon,
   CheckmarkSquare01Icon,
@@ -62,6 +60,10 @@ const KPI = {
   finance: { bg: '#FEF7EB', border: '#F7E7C6', accent: '#F89828' },
   reports: { bg: '#FDEFF2', border: '#F8D9E1', accent: '#F0537A' },
 }
+
+// The Reports card's two chip shades (Figma 126:34555 / 126:34511) — the light pink is
+// also the colour of the leading number in its sub-line.
+const REPORTS_CHIP = { toReview: '#F7A1C4', overdue: '#A34D68' }
 
 // Round donut / programme-bar palette.
 const PROG_COLORS = ['#4FBEE8', '#F48FB1', '#F5B851', '#8B7FF0', '#5BD1B0', '#F0876B']
@@ -156,9 +158,10 @@ function KpiCard({
 }: {
   tint: { bg: string; border: string; accent: string }
   value: string
-  sub: string
+  /** A node, not just a string, so a card can colour part of the line (see Reports). */
+  sub: React.ReactNode
   subColor?: string
-  icon: typeof Files01Icon
+  icon: IconSvgElement
   label: string
   /** Optional right-hand footer note (Figma 393:7930) — e.g. the round in focus. */
   meta?: string | null
@@ -243,7 +246,7 @@ function DeskRow({
   to,
   search,
 }: {
-  icon: typeof Files01Icon
+  icon: IconSvgElement
   lead: string
   rest: string
   to: string
@@ -279,7 +282,7 @@ function DeskRow({
 // Figma 126:39615 — one neutral tile for every row, and a Gray/500 glyph in all of them.
 // The feed is a log, not a status board: colouring only the good/bad outcomes made the
 // rest look like a different kind of row rather than reading as one list.
-const LATELY_META: Record<string, { icon: typeof Files01Icon; verb: string }> = {
+const LATELY_META: Record<string, { icon: IconSvgElement; verb: string }> = {
   application_awarded: { icon: CheckmarkSquare01Icon, verb: 'awarded a grant to' },
   application_declined: { icon: CancelSquareIcon, verb: 'declined' },
   application_shortlisted: { icon: CheckmarkCircle02Icon, verb: 'shortlisted' },
@@ -336,7 +339,7 @@ function Dashboard() {
     })
   if (d.reportsToReview > 0)
     desk.push({
-      icon: File01Icon,
+      icon: Audit02Icon,
       lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`,
       rest: 'to review',
       to: '/reports',
@@ -364,23 +367,30 @@ function Dashboard() {
 
   // KPI category breakdowns — one source for both the chips and the bar-meter, so the
   // strip's colours always match the legend beneath it.
+  // Applications carries only the two ends of the pipeline it still owns — what has
+  // yet to be looked at, and what is dead. Everything in between (shortlisted, and the
+  // awarded that grew out of it) belongs to the Shortlist card, so the two cards read
+  // as one pipeline rather than counting the same application twice.
   const appsCats: Chip[] = [
     { label: 'to review', count: d.pipeline.for_review, color: KPI.apps.accent },
-    {
-      label: 'shortlisted',
-      count: d.pipeline.shortlisted,
-      color: withAlpha(KPI.apps.accent, 0.45),
-    },
-    { label: 'awarded', count: d.pipeline.awarded, color: C.success },
     { label: 'declined', count: d.pipeline.declined, color: C.danger },
   ]
+  // Approved is "the vote went its way", which stays true after the grant is minted —
+  // so an awarded application is still an approved one, just further along.
+  const approved = a.readyToAward.count + d.pipeline.awarded
+  // Solid green first, its own 30% tint second — the strip darkens toward the decided
+  // end, so the eye reads progress left to right.
   const reviewCats: Chip[] = [
-    { label: 'approved', count: a.readyToAward.count, color: C.success },
-    { label: 'to vote', count: d.awaitingVotes, color: C.warning },
+    { label: 'approved', count: approved, color: C.success },
+    { label: 'to vote', count: d.awaitingVotes, color: withAlpha(KPI.review.accent, 0.3) },
   ]
+  // Reports stays inside its own pink family (Figma 126:33904) rather than reaching for
+  // the global info/danger colours: on a strip of four cards the accent is what tells
+  // you *which* card you are reading, so a blue chip on the pink card reads as a
+  // different metric. Overdue is the deep rose end of the same family, not red.
   const reportsCats: Chip[] = [
-    { label: 'to review', count: d.reportsToReview, color: C.info },
-    { label: 'overdue', count: a.reportsOverdue.count, color: C.danger },
+    { label: 'to review', count: d.reportsToReview, color: REPORTS_CHIP.toReview },
+    { label: 'overdue', count: a.reportsOverdue.count, color: REPORTS_CHIP.overdue },
   ]
   const toSegments = (cats: Chip[]): BarSegment[] =>
     cats.map((c) => ({ value: c.count, color: c.color }))
@@ -402,7 +412,7 @@ function Dashboard() {
           value={String(d.pipeline.total)}
           sub={`+${d.submittedThisWeek} this week`}
           subColor={C.success}
-          icon={Files01Icon}
+          icon={NoteIcon}
           label="Applications"
           meta={round?.roundName}
           to="/applications"
@@ -414,7 +424,10 @@ function Dashboard() {
 
         <KpiCard
           tint={KPI.review}
-          value={String(a.shortlist.count)}
+          // The headline counts both chips, so the strip beneath it is the whole of
+          // this number and not a fraction of it. `proposed` stays the shortlist's own
+          // spend — an awarded grant is committed, not proposed.
+          value={String(d.awaitingVotes + approved)}
           sub={`${fmtCompact(a.shortlist.proposed)} proposed`}
           icon={CheckListIcon}
           label="Shortlist"
@@ -429,7 +442,7 @@ function Dashboard() {
           tint={KPI.finance}
           value={fmtCompact(d.paymentsThisMonth.amount)}
           sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
-          icon={Coins01Icon}
+          icon={Wallet03Icon}
           label="Finance"
           to="/finance"
           meter={<BarMeter progress={financeProgress} color={KPI.finance.accent} />}
@@ -444,9 +457,18 @@ function Dashboard() {
         <KpiCard
           tint={KPI.reports}
           value={String(d.reportsToReview + a.reportsOverdue.count)}
-          sub={a.reportsOverdue.count > 0 ? `${a.reportsOverdue.count} overdue` : 'up to date'}
-          subColor={a.reportsOverdue.count > 0 ? C.danger : C.sub}
-          icon={File01Icon}
+          // Only the count carries the accent; the word stays Gray/500 (Figma 126:34510).
+          sub={
+            a.reportsOverdue.count > 0 ? (
+              <>
+                <span style={{ color: REPORTS_CHIP.toReview }}>{a.reportsOverdue.count}</span>{' '}
+                overdue
+              </>
+            ) : (
+              'up to date'
+            )
+          }
+          icon={Audit02Icon}
           label="Reports"
           to="/reports"
           meter={<BarMeter segments={toSegments(reportsCats)} color={KPI.reports.accent} />}

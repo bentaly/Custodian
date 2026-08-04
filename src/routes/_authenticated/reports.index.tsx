@@ -6,7 +6,7 @@ import {
   type ReceivedStatus,
   type ReportRowStatus,
 } from '../../server/fns/reports'
-import { Alert02Icon, Calendar03Icon, File01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { Alert02Icon, Audit02Icon, Calendar03Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import {
   Badge,
   Button,
@@ -140,7 +140,7 @@ function ReportsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MiniKpi
           tint={KPI_TINTS.violet}
-          icon={File01Icon}
+          icon={Audit02Icon}
           label="Awaiting review"
           value={String(totals.received)}
           sub="received, not yet signed off"
