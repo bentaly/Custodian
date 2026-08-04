@@ -72,19 +72,15 @@ type GeoFeature = Feature<Geometry, GeoProps>
 // `DeliveryGeo.region` is a display string like "Yorkshire and The Humber", not
 // a code. Keying regions on `code` silently paints nothing.
 //
-// Aspect is per-view because one box cannot serve both: the UK is portrait and
-// the world is a wide letterbox, and a shared frame strands whichever one it
-// wasn't sized for in a sea of margin.
-//
-// The UK frames are deliberately wider than the UK itself. Matching Britain's
-// true 0.78 portrait proportion gives a technically perfect fit and a panel
-// two-thirds again as tall as the charts beside it, which dominates the screen
-// and pushes everything below it off the fold. Sizing them near-square costs
-// some margin either side of Scotland and buys back ~200px of page.
+// `aspect` is only a starting shape: the frame is fitted to the drawn content
+// (see the height calculation below), so these values are what the panel
+// reserves while the boundaries are still loading, and the fallback if a slice
+// has no measurable extent. Roughly right stops the panel jumping as the map
+// lands.
 const SOURCES = {
   world: { url: '/geo/world.json', object: 'countries', key: 'code', aspect: 1.9 },
-  uk: { url: '/geo/uk.json', object: 'regions', key: 'name', aspect: 1.15 },
-  lad: { url: '/geo/uk-lad.json', object: 'lads', key: 'code', aspect: 1.15 },
+  uk: { url: '/geo/uk.json', object: 'regions', key: 'name', aspect: 0.78 },
+  lad: { url: '/geo/uk-lad.json', object: 'lads', key: 'code', aspect: 1.1 },
 } as const
 
 function sourceFor(view: MapView) {
@@ -199,7 +195,7 @@ function bucketOf(value: number, cuts: number[]) {
 // holds one continent and ours has to hold anything from the planet to a
 // London borough. The whole world at the Figma's pitch turns Britain into two
 // dots; a single region at the world's pitch is a needlessly fussy stipple.
-const DOT_PITCH = { world: 4, near: 6 } as const
+const DOT_PITCH = { world: 4, near: 5 } as const
 const DOT_RATIO = 1 / 3
 
 function dotPitch(view: MapView) {
@@ -347,16 +343,6 @@ export function Choropleth({
       features: target,
     } as FeatureCollection
 
-    // A fixed frame, NOT one sized to the country's bounding box. Fitting the
-    // frame to each country was the obvious move and was wrong in use: Ukraine
-    // is wide and short, Bangladesh tall and narrow, so the panel lurched by
-    // hundreds of pixels on every click and the donut beside it jumped with it.
-    // The projection still fits the country inside this frame, so a tall
-    // country simply keeps margin either side — where its neighbours show, which
-    // is context rather than waste.
-    const aspect = view.kind === 'country' ? COUNTRY_ASPECT : src.aspect
-    const h = Math.round(width / aspect)
-
     // Equal-area throughout: a choropleth compares areas, and Mercator would
     // inflate Scotland and the high latitudes into a quiet lie about the data.
     const projection =
@@ -364,7 +350,46 @@ export function Choropleth({
         ? geoEqualEarth()
         : geoConicEqualArea().parallels([50, 60]).rotate([4.4, 0])
 
-    const pad = 8
+    // Frame shape, and the two views of it are opposites on purpose.
+    //
+    // A *zoomed country* keeps a fixed frame. Sizing it to each country's
+    // bounds was the obvious move and was wrong in use: Ukraine is wide and
+    // short, Bangladesh tall and narrow, so the panel lurched by hundreds of
+    // pixels on every click. It costs nothing here because the surrounding
+    // world is drawn too — a tall country keeps margin either side, and that
+    // margin is full of its neighbours.
+    //
+    // Everywhere else the frame is fitted to what is actually drawn, because
+    // there the margin is *empty*. A fixed aspect letterboxed the UK inside
+    // whatever box we had picked, and the leftover was pure whitespace on a
+    // panel with none to spare.
+    //
+    // The floor is not paranoia. The UK layer's bounding box is set by
+    // Shetland, ~150 miles off the north coast, so measured honestly the UK is
+    // 0.55 — and following that gives a map the height of a page, most of the
+    // extra being empty North Sea. Clamping trades a little margin either side
+    // of Britain for a panel that matches the list beside it. The ceiling is
+    // the same guard the other way, for a slice that is one thin coastal
+    // district.
+    let h: number
+    if (view.kind === 'country') {
+      h = Math.round(width / COUNTRY_ASPECT)
+    } else {
+      projection.fitExtent(
+        [
+          [0, 0],
+          [width, width],
+        ],
+        targetCollection,
+      )
+      const [[bx0, by0], [bx1, by1]] = geoPath(projection).bounds(targetCollection)
+      const natural = (bx1 - bx0) / (by1 - by0)
+      h = Math.round(width / Math.min(2.4, Math.max(0.72, natural || src.aspect)))
+    }
+
+    // Small: the dot lattice already inset by half a pitch, so the shape never
+    // touches the edge even at zero padding.
+    const pad = 4
     projection.fitExtent(
       [
         [pad, pad],

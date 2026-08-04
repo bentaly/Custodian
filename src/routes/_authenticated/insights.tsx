@@ -8,6 +8,8 @@ import {
   ChartAverageIcon,
   Download01Icon,
   ArrowDown01Icon,
+  ArrowRight01Icon,
+  InformationCircleIcon,
 } from '@hugeicons/core-free-icons'
 import { EmptyState, MiniKpi } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
@@ -268,6 +270,130 @@ function FilterSelect({
 
 // ─── Derivations (pure, over the filtered grant set) ─────────────────────────────
 
+// The ranked area list beside the map (Figma 434:37506).
+//
+// It earns its space by doing three jobs the map cannot. It *ranks* — a
+// choropleth can't, because the quantile buckets deliberately compress a skewed
+// distribution, so two regions an order of magnitude apart can share a colour.
+// It is the donut's legend, carrying the same palette swatch, without which the
+// ring beside it is an unreadable set of anonymous arcs. And it is the click
+// target for areas too small to hit on the map — at world level that is most of
+// them, and at district level it is every inner-London borough.
+//
+// Rows behave exactly like the map: one click selects *and* drills where a
+// level exists beneath. Two different rules for the same act, on the same
+// panel, would be the worse outcome.
+function AreaList({
+  areas,
+  total,
+  rest,
+  selected,
+  drillable,
+  onPick,
+}: {
+  areas: Array<{ code: string; name: string; amount: number; count: number; color: string }>
+  total: number
+  /** The tail the donut folds into one neutral arc; 0 to omit. Carried here
+   *  because that arc is otherwise an unlabelled grey wedge. */
+  rest: number
+  selected: string | null
+  /** Whether this tier has a level beneath it — chevrons and drilling. */
+  drillable: boolean
+  onPick: (code: string, name: string) => void
+}) {
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {areas.map((a) => {
+        const on = selected === a.code
+        const pct = total > 0 ? Math.round((a.amount / total) * 100) : 0
+        return (
+          <li key={a.code}>
+            <button
+              type="button"
+              onClick={() => onPick(a.code, a.name)}
+              aria-current={on || undefined}
+              className="flex w-full items-center gap-2.5 rounded-[10px] border px-2.5 py-2 text-left transition-colors"
+              style={{
+                borderColor: on ? C.brand : 'transparent',
+                backgroundColor: on ? '#fff' : undefined,
+              }}
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-[3px]"
+                style={{ backgroundColor: a.color }}
+              />
+              <span className="min-w-0 flex-1">
+                <span
+                  className="block truncate font-display text-[14px] font-medium"
+                  style={{ color: C.ink }}
+                >
+                  {a.name}
+                </span>
+                <span className="block font-display text-[12px]" style={{ color: C.faint }}>
+                  {fmtCompact(a.amount)} · {a.count} grant{a.count !== 1 ? 's' : ''} · {pct}%
+                </span>
+              </span>
+              {drillable && (
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={16}
+                  color={on ? C.brand : C.faint}
+                  className="shrink-0"
+                />
+              )}
+            </button>
+          </li>
+        )
+      })}
+
+      {rest > 0 && (
+        <li className="flex items-center gap-2.5 px-2.5 py-2">
+          <span className="size-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: C.line }} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-display text-[14px]" style={{ color: C.sub }}>
+              Other areas
+            </span>
+            <span className="block font-display text-[12px]" style={{ color: C.faint }}>
+              {fmtCompact(rest)}
+            </span>
+          </span>
+        </li>
+      )}
+    </ul>
+  )
+}
+
+// Deprivation reach for whatever the map is currently showing.
+//
+// Scoped to the view rather than the portfolio on purpose: the decile panel
+// further down already reports the portfolio-wide picture, so repeating that
+// number here would spend a line without adding a fact. Scoped, it answers the
+// question the map just raised — you drilled into a region, so how deprived is
+// *there*?
+//
+// UK-only, and not by omission: IMD is a UK index with no meaning in Ukraine or
+// Kenya, and deciles are per-nation, which is why the wording says "in its
+// nation" rather than implying one UK-wide ranking.
+function ImdNote({ pct }: { pct: number }) {
+  return (
+    <div
+      className="flex items-start gap-2 rounded-[10px] px-3 py-2.5"
+      style={{ backgroundColor: C.wash }}
+    >
+      <HugeiconsIcon
+        icon={InformationCircleIcon}
+        size={16}
+        color={C.sub}
+        className="mt-px shrink-0"
+      />
+      <p className="font-display text-[12px] leading-snug" style={{ color: C.sub }}>
+        <span style={{ color: C.ink, fontWeight: 500 }}>{pct}%</span> of mapped funding reaches IMD
+        deciles 1–2 — the most deprived fifth of areas in its nation.
+      </p>
+    </div>
+  )
+}
+
 function decileShare(g: InsightsGrant, maxDecile: number): number {
   if (!g.deprivation) return 0
   const total = g.deprivation.histogram.reduce((s, n) => s + n, 0)
@@ -510,6 +636,23 @@ function InsightsPage() {
       ? [{ name: 'Other areas', value: restAmount, color: C.line }]
       : []),
   ]
+
+  // IMD reach for the map's current view. Empty outside the UK — the index does
+  // not exist there — and empty when nothing in the slice resolved to an area,
+  // in which case the note simply doesn't render rather than showing 0%.
+  const imdScope =
+    mapView.kind === 'uk'
+      ? located
+      : mapView.kind === 'region'
+        ? located.filter((g) => g.region === mapView.region)
+        : []
+  const imdAmt = imdScope.reduce((s, g) => s + g.amountAwarded, 0)
+  const imdPct =
+    imdAmt > 0
+      ? Math.round(
+          (imdScope.reduce((s, g) => s + g.amountAwarded * decileShare(g, 2), 0) / imdAmt) * 100,
+        )
+      : null
 
   // ── Deprivation-decile distribution ──
   const decileAmounts = fundingByDecile(located)
@@ -890,7 +1033,12 @@ function InsightsPage() {
                 Giving by area
               </PanelTitle>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_1fr]">
+              {/* The map column is deliberately the narrower of the two. The UK
+                  is a portrait shape and the frame is fitted to it, so a wide
+                  column buys a very tall panel; a narrow one lets Britain fill
+                  its width and keeps the panel the height of the list beside
+                  it. */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
                 <div>
                   <Choropleth
                     view={mapView}
@@ -909,8 +1057,8 @@ function InsightsPage() {
                   <MapAttribution />
                 </div>
 
-                <div>
-                  <div className="flex items-center gap-5">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-center">
                     <Donut
                       data={areaDonut}
                       size={132}
@@ -929,63 +1077,29 @@ function InsightsPage() {
                         </div>
                       }
                     />
-                    <ul className="min-w-0 flex-1 space-y-1">
-                      {topAreas.map((a) => {
-                        const pct = areaTotal > 0 ? Math.round((a.amount / areaTotal) * 100) : 0
-                        const on = selArea === a.code
-                        return (
-                          <li key={a.code}>
-                            <button
-                              type="button"
-                              onClick={() => setSelArea(on ? null : a.code)}
-                              className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left transition-colors hover:bg-black/[0.03]"
-                              style={{ backgroundColor: on ? C.wash : undefined }}
-                            >
-                              <span
-                                className="size-2 shrink-0 rounded-[2px]"
-                                style={{ backgroundColor: a.color }}
-                              />
-                              <span
-                                className="min-w-0 flex-1 truncate font-display text-[13px]"
-                                style={{ color: C.ink }}
-                              >
-                                {a.name}
-                              </span>
-                              <span
-                                className="shrink-0 font-display text-[12px] tabular-nums"
-                                style={{ color: C.sub }}
-                              >
-                                {fmtCompact(a.amount)} · {pct}%
-                              </span>
-                            </button>
-                          </li>
-                        )
-                      })}
-                      {restAmount > 0 && (
-                        <li className="flex items-baseline gap-2 px-1 py-0.5">
-                          <span
-                            className="size-2 shrink-0 rounded-[2px]"
-                            style={{ backgroundColor: C.line }}
-                          />
-                          <span
-                            className="min-w-0 flex-1 truncate font-display text-[13px]"
-                            style={{ color: C.sub }}
-                          >
-                            Other areas
-                          </span>
-                          <span
-                            className="shrink-0 font-display text-[12px] tabular-nums"
-                            style={{ color: C.sub }}
-                          >
-                            {fmtCompact(restAmount)}
-                          </span>
-                        </li>
-                      )}
-                    </ul>
                   </div>
 
+                  <AreaList
+                    areas={topAreas}
+                    total={areaTotal}
+                    rest={restAmount}
+                    selected={selArea}
+                    // Only the UK tier has a level beneath it that a list row
+                    // can open. Districts are the floor, and the world tier's
+                    // rows are countries whose drill target is a zoom the map
+                    // owns — offering a chevron there would promise a
+                    // breakdown that does not exist.
+                    drillable={mapView.kind === 'uk'}
+                    onPick={(code, name) => {
+                      setSelArea(code)
+                      if (mapView.kind === 'uk') setMapView({ kind: 'region', region: name })
+                    }}
+                  />
+
+                  {imdPct !== null && <ImdNote pct={imdPct} />}
+
                   {unlocatedCount > 0 && (
-                    <p className="mt-3 font-display text-[12px]" style={{ color: C.faint }}>
+                    <p className="font-display text-[12px]" style={{ color: C.faint }}>
                       {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
                       location.
                     </p>
