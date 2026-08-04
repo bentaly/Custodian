@@ -1,7 +1,14 @@
 import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { anim, chart, fmtMoney, tooltipBox } from './theme'
 
-export type DonutSlice = { name: string; value: number; color: string }
+export type DonutSlice = {
+  name: string
+  value: number
+  color: string
+  /** Stable identity for cross-highlighting with a sibling map or list. Names
+   *  are display strings and can collide or be renamed; ids are the area key. */
+  areaId?: string
+}
 
 function DonutTooltip({
   active,
@@ -42,6 +49,8 @@ export function Donut({
   thickness = 16,
   center,
   tooltip = true,
+  highlight = null,
+  onHighlight,
 }: {
   data: DonutSlice[]
   size?: number
@@ -49,6 +58,9 @@ export function Donut({
   center?: React.ReactNode
   /** Money-formatted hover tooltip. Off for non-monetary uses (e.g. a score gauge). */
   tooltip?: boolean
+  /** Slice id held at full strength while the rest recede. */
+  highlight?: string | null
+  onHighlight?: (id: string | null) => void
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   const slices: DonutSlice[] =
@@ -57,7 +69,17 @@ export function Donut({
       : [{ name: 'Empty', value: 1, color: chart.allocateLeft }]
 
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+    <div
+      className="donut-wrap"
+      style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}
+    >
+      {/* The dim transition has to come from a stylesheet rule, not a `style`
+          prop on the Cell: Recharts drives its entry animation through the
+          sector's inline style, so passing `style` overwrites it every render
+          and freezes the ring at angle zero — it renders as a one-pixel
+          sliver. A rule matching the sector leaves that inline style alone,
+          and `fill-opacity` is not a property Recharts animates. */}
+      <style>{`.donut-wrap path { transition: fill-opacity 200ms ease; }`}</style>
       <PieChart width={size} height={size}>
         <Pie
           data={slices}
@@ -70,10 +92,18 @@ export function Donut({
           startAngle={90}
           endAngle={-270}
           stroke="none"
+          onMouseEnter={(_, i) => onHighlight?.(slices[i]?.areaId ?? null)}
+          onMouseLeave={() => onHighlight?.(null)}
           {...anim}
         >
           {slices.map((s, i) => (
-            <Cell key={i} fill={s.color} />
+            <Cell
+              key={i}
+              fill={s.color}
+              // Recede, don't vanish: the ring has to stay a whole ring, or
+              // hovering one area reads as the others losing their funding.
+              fillOpacity={highlight !== null && s.areaId !== highlight ? 0.6 : 1}
+            />
           ))}
         </Pie>
         {tooltip && total > 0 && (

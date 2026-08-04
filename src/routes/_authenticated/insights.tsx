@@ -1,10 +1,13 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Coins01Icon,
   UserGroupIcon,
   Location01Icon,
   ChartAverageIcon,
+  ArrowRight01Icon,
+  InformationCircleIcon,
 } from '@hugeicons/core-free-icons'
 import {
   DateRangePicker,
@@ -15,6 +18,14 @@ import {
   formatDateRange,
 } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
+import {
+  Choropleth,
+  MapAttribution,
+  UK_ISO3,
+  drillTarget,
+  useAreaNames,
+  type MapView,
+} from '../../components/charts/Choropleth'
 import { DotGrid } from '../../components/charts/DotGrid'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
@@ -367,86 +378,151 @@ function smoothPath(pts: Array<{ x: number; y: number }>): string {
   return d
 }
 
-// Schematic UK ITL1 tile-grid (a "for now" region map — dependency-free, data-bound).
-// Swap for a true silhouette SVG when one is exported from Figma.
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-const UK_TILES: Array<{ name: string; abbr: string; col: number; row: number }> = [
-  { name: 'Scotland', abbr: 'Sco', col: 3, row: 1 },
-  { name: 'North East', abbr: 'NE', col: 3, row: 2 },
-  { name: 'Northern Ireland', abbr: 'NI', col: 1, row: 3 },
-  { name: 'North West', abbr: 'NW', col: 2, row: 3 },
-  { name: 'Yorkshire and The Humber', abbr: 'Y&H', col: 3, row: 3 },
-  { name: 'Wales', abbr: 'Wal', col: 1, row: 4 },
-  { name: 'West Midlands', abbr: 'WM', col: 2, row: 4 },
-  { name: 'East Midlands', abbr: 'EM', col: 3, row: 4 },
-  { name: 'East of England', abbr: 'EoE', col: 4, row: 4 },
-  { name: 'South West', abbr: 'SW', col: 2, row: 5 },
-  { name: 'South East', abbr: 'SE', col: 3, row: 5 },
-  { name: 'London', abbr: 'Lon', col: 4, row: 5 },
-]
+// ─── Derivations (pure, over the filtered grant set) ─────────────────────────────
 
-function RegionTileMap({
-  data,
-  max,
-  active,
-  onSelect,
+// The ranked area list beside the map (Figma 434:37506).
+//
+// It earns its space by doing three jobs the map cannot. It *ranks* — a
+// choropleth can't, because the quantile buckets deliberately compress a skewed
+// distribution, so two regions an order of magnitude apart can share a colour.
+// It is the donut's legend, carrying the same palette swatch, without which the
+// ring beside it is an unreadable set of anonymous arcs. And it is the click
+// target for areas too small to hit on the map — at world level that is most of
+// them, and at district level it is every inner-London borough.
+//
+// Rows behave exactly like the map: one click selects *and* drills where a
+// level exists beneath. Two different rules for the same act, on the same
+// panel, would be the worse outcome.
+function AreaList({
+  areas,
+  total,
+  rest,
+  selected,
+  drillOf,
+  onPick,
+  highlight,
+  onHighlight,
 }: {
-  data: Map<string, { amount: number; count: number; name: string }>
-  max: number
-  active: string | null
-  onSelect: (name: string) => void
+  areas: Array<{ code: string; name: string; amount: number; count: number; color: string }>
+  total: number
+  /** The tail the donut folds into one neutral arc; 0 to omit. Carried here
+   *  because that arc is otherwise an unlabelled grey wedge. */
+  rest: number
+  selected: string | null
+  /** The tier this row opens, or null if it is a leaf. Per row rather than per
+   *  tier, because on the world map the UK drills and its neighbours only
+   *  zoom — so the chevron has to be earned row by row. */
+  drillOf: (code: string, name: string, funded: boolean) => MapView | null
+  onPick: (code: string, name: string, to: MapView | null) => void
+  /** Area held at full strength while the rest recede. */
+  highlight: string | null
+  onHighlight: (code: string | null) => void
 }) {
   return (
-    <div
-      className="grid gap-1.5"
-      style={{
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gridTemplateRows: 'repeat(5, minmax(0, 1fr))',
-      }}
-    >
-      {UK_TILES.map((t) => {
-        const d = data.get(norm(t.name))
-        const intensity = d ? 0.2 + 0.8 * (max > 0 ? d.amount / max : 0) : 0
-        const isActive = d != null && d.name === active
-        const light = intensity > 0.55
+    <ul className="flex flex-col gap-0.5" onMouseLeave={() => onHighlight(null)}>
+      {areas.map((a) => {
+        const on = selected === a.code
+        const pct = total > 0 ? Math.round((a.amount / total) * 100) : 0
+        const dim = highlight !== null && highlight !== a.code
+        const to = drillOf(a.code, a.name, a.amount > 0)
         return (
-          <button
-            key={t.name}
-            type="button"
-            disabled={!d}
-            onClick={() => d && onSelect(d.name)}
-            title={d ? `${d.name} · ${fmtCompact(d.amount)} · ${d.count}` : t.name}
-            className="flex aspect-square flex-col items-center justify-center rounded-lg p-1 transition-colors disabled:cursor-default"
-            style={{
-              gridColumn: t.col,
-              gridRow: t.row,
-              backgroundColor: d ? withAlpha(C.success, intensity) : C.wash,
-              outline: isActive ? `2px solid ${C.brand}` : 'none',
-              outlineOffset: -1,
-            }}
-          >
-            <span
-              className="font-display text-[12px] font-semibold"
-              style={{ color: light ? '#fff' : C.ink }}
+          <li key={a.code}>
+            <button
+              type="button"
+              onClick={() => onPick(a.code, a.name, to)}
+              onMouseEnter={() => onHighlight(a.code)}
+              onFocus={() => onHighlight(a.code)}
+              onBlur={() => onHighlight(null)}
+              aria-current={on || undefined}
+              title={`${a.name} · ${fmtCompact(a.amount)} · ${a.count} grant${a.count !== 1 ? 's' : ''} · ${pct}%`}
+              className="flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left"
+              style={{
+                borderColor: on ? C.brand : 'transparent',
+                backgroundColor: on ? '#fff' : highlight === a.code ? C.wash : undefined,
+                opacity: dim ? 0.6 : 1,
+                transition: 'opacity 200ms ease, background-color 150ms ease',
+              }}
             >
-              {t.abbr}
-            </span>
-            {d && (
               <span
-                className="font-display text-[9px]"
-                style={{ color: light ? 'rgba(255,255,255,0.85)' : C.sub }}
+                className="size-2.5 shrink-0 rounded-[3px]"
+                style={{ backgroundColor: a.color }}
+              />
+              <span
+                className="min-w-0 flex-1 truncate font-display text-[13px]"
+                style={{ color: C.ink }}
               >
-                {fmtCompact(d.amount)}
+                {a.name}
               </span>
-            )}
-          </button>
+              <span
+                className="shrink-0 font-display text-[12px] tabular-nums"
+                style={{ color: C.sub }}
+              >
+                {fmtCompact(a.amount)} · {a.count}
+              </span>
+              {to && (
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={14}
+                  color={on ? C.brand : C.faint}
+                  className="shrink-0"
+                />
+              )}
+            </button>
+          </li>
         )
       })}
-    </div>
+
+      {rest > 0 && (
+        <li className="flex items-center gap-2.5 px-2.5 py-1.5">
+          <span className="size-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: C.line }} />
+          <span
+            className="min-w-0 flex-1 truncate font-display text-[13px]"
+            style={{ color: C.sub }}
+          >
+            Other areas
+          </span>
+          <span
+            className="shrink-0 font-display text-[12px] tabular-nums"
+            style={{ color: C.faint }}
+          >
+            {fmtCompact(rest)}
+          </span>
+        </li>
+      )}
+    </ul>
   )
 }
 
-// ─── Derivations (pure, over the filtered grant set) ─────────────────────────────
+// Deprivation reach for whatever the map is currently showing.
+//
+// Scoped to the view rather than the portfolio on purpose: the decile panel
+// further down already reports the portfolio-wide picture, so repeating that
+// number here would spend a line without adding a fact. Scoped, it answers the
+// question the map just raised — you drilled into a region, so how deprived is
+// *there*?
+//
+// UK-only, and not by omission: IMD is a UK index with no meaning in Ukraine or
+// Kenya, and deciles are per-nation, which is why the wording says "in its
+// nation" rather than implying one UK-wide ranking.
+function ImdNote({ pct }: { pct: number }) {
+  return (
+    <div
+      className="flex items-start gap-2 rounded-[10px] px-3 py-2.5"
+      style={{ backgroundColor: C.wash }}
+    >
+      <HugeiconsIcon
+        icon={InformationCircleIcon}
+        size={16}
+        color={C.sub}
+        className="mt-px shrink-0"
+      />
+      <p className="font-display text-[12px] leading-snug" style={{ color: C.sub }}>
+        <span style={{ color: C.ink, fontWeight: 500 }}>{pct}%</span> of mapped funding reaches IMD
+        deciles 1–2 — the most deprived fifth of areas in its nation.
+      </p>
+    </div>
+  )
+}
 
 function decileShare(g: InsightsGrant, maxDecile: number): number {
   if (!g.deprivation) return 0
@@ -628,45 +704,105 @@ function InsightsPage() {
     .sort((a, b) => b.amount - a.amount)
   const themedTotal = themes.reduce((s, t) => s + t.amount, 0)
 
-  // ── Region + selected-region breakdown ──
-  const byRegion = regions
-    .map((r) => {
-      const grants = fil.filter((g) => g.region === r)
-      return {
-        name: r,
-        amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
-        count: grants.length,
-      }
-    })
-    .filter((r) => r.count > 0)
-    .sort((a, b) => b.amount - a.amount)
+  // ── Geography: the choropleth + its donut ──
+  //
+  // The map drills World → United Kingdom → one region's districts. Each level
+  // keys on a different field, so the values map is rebuilt per view rather than
+  // derived once: countries on ISO alpha-3, regions on the persisted region
+  // name, districts on the ONS LAD code.
+
+  // Does the portfolio reach outside the UK? This decides where the map opens
+  // — and only that. Every tier stays reachable whatever the answer: a funder
+  // working only in Britain should *land* on Britain, but "are we only funding
+  // Britain?" is a fair question to be able to ask the map out loud.
+  //
+  // Measured across every grant rather than the filtered slice, so narrowing a
+  // filter cannot pull the map out from under someone mid-read.
+  //
+  // A constant rather than a test, because there is currently nothing to test:
+  // an application records a region and a LAD but no country, so no grant can
+  // report a delivery outside the UK. It is named and wired up as a real
+  // condition anyway so the day `deliveryCountry` (ISO alpha-3, defaulting to
+  // GBR) lands, this line becomes
+  //   items.some((g) => g.country && g.country !== 'GBR')
+  // and nothing else on the screen has to change.
+  //
+  // Do NOT reach for `unlocatedCount` as a stand-in. A grant with no region is
+  // usually an unresolved UK postcode, not an overseas one, and treating those
+  // as international would open a wholly British portfolio on a blank world map.
+  const hasOverseas = false
+
+  const [mapView, setMapView] = useState<MapView>(() =>
+    hasOverseas ? { kind: 'world' } : { kind: 'uk' },
+  )
+  const [selArea, setSelArea] = useState<string | null>(null)
+  // Whichever of the map, donut or list the pointer is over. Hoisted here
+  // because the three are one exhibit: pointing at an area in any of them
+  // should answer "and where is that in the other two?".
+  const [hoverArea, setHoverArea] = useState<string | null>(null)
   const unlocatedCount = fil.filter((g) => !g.region).length
 
-  const [selRegion, setSelRegion] = useState<string | null>(null)
-  const activeRegion =
-    selRegion && byRegion.some((r) => r.name === selRegion)
-      ? selRegion
-      : (byRegion[0]?.name ?? null)
-  const regionByNorm = new Map(byRegion.map((r) => [norm(r.name), r]))
-  const maxRegionAmt = byRegion[0]?.amount ?? 1
-  const tiledNorms = new Set(UK_TILES.map((t) => norm(t.name)))
-  const unmatchedRegions = byRegion.filter((r) => !tiledNorms.has(norm(r.name)))
-  const regionGrants = fil.filter((g) => g.region === activeRegion)
-  const regionTotal = regionGrants.reduce((s, g) => s + g.amountAwarded, 0)
-  const byLad = [...new Map(regionGrants.map((g) => [g.ladName ?? '—', 0])).keys()]
-    .map((lad, i) => ({
-      name: lad,
-      color: PALETTE[i % PALETTE.length]!,
-      amount: regionGrants
-        .filter((g) => (g.ladName ?? '—') === lad)
-        .reduce((s, g) => s + g.amountAwarded, 0),
-    }))
+  // Roll grants up to whichever key the current view paints.
+  const mapValues = (() => {
+    const acc = new Map<string, { amount: number; count: number }>()
+    const add = (key: string | null, amount: number) => {
+      if (!key) return
+      const prev = acc.get(key) ?? { amount: 0, count: 0 }
+      acc.set(key, { amount: prev.amount + amount, count: prev.count + 1 })
+    }
+    for (const g of fil) {
+      if (mapView.kind === 'world' || mapView.kind === 'country') {
+        // Anything we can place is in Britain, because a region is the only
+        // location an application records. Rolling those up to GBR is not a
+        // guess — a resolved ONS region *is* a statement that the delivery is
+        // in the UK — and without it the world tier showed a British funder
+        // their own country unpainted, flatly contradicting the UK view one
+        // click below. An empty world map read as broken; this one reads as
+        // "all of it is here", which is the true answer.
+        if (g.region) add(UK_ISO3, g.amountAwarded)
+      } else if (mapView.kind === 'uk') add(g.region, g.amountAwarded)
+      else if (mapView.kind === 'region') {
+        if (g.region === mapView.region) add(g.ladCode, g.amountAwarded)
+      }
+    }
+    return acc
+  })()
+
+  // The donut mirrors whatever the map is showing: same slice of the portfolio,
+  // ranked, so the two halves of the panel can never disagree.
+  const areaRanked = [...mapValues.entries()]
+    .map(([code, v]) => ({ code, ...v }))
     .sort((a, b) => b.amount - a.amount)
-  const ladDonut: DonutSlice[] = byLad.map((l) => ({
-    name: l.name,
-    value: l.amount,
-    color: l.color,
+  const areaTotal = areaRanked.reduce((s, a) => s + a.amount, 0)
+  const areaNames = useAreaNames(mapView)
+  const topAreas = areaRanked.slice(0, PALETTE.length).map((a, i) => ({
+    ...a,
+    name: areaNames.get(a.code) ?? a.code,
+    color: PALETTE[i % PALETTE.length]!,
   }))
+  const restAmount = areaRanked.slice(PALETTE.length).reduce((s, a) => s + a.amount, 0)
+  const areaDonut: DonutSlice[] = [
+    ...topAreas.map((a) => ({ areaId: a.code, name: a.name, value: a.amount, color: a.color })),
+    // Never generate an 8th hue — the tail folds into one neutral "Other".
+    ...(restAmount > 0 ? [{ name: 'Other areas', value: restAmount, color: C.line }] : []),
+  ]
+
+  // IMD reach for the map's current view. Empty outside the UK — the index does
+  // not exist there — and empty when nothing in the slice resolved to an area,
+  // in which case the note simply doesn't render rather than showing 0%.
+  const imdScope =
+    mapView.kind === 'uk'
+      ? located
+      : mapView.kind === 'region'
+        ? located.filter((g) => g.region === mapView.region)
+        : []
+  const imdAmt = imdScope.reduce((s, g) => s + g.amountAwarded, 0)
+  const imdPct =
+    imdAmt > 0
+      ? Math.round(
+          (imdScope.reduce((s, g) => s + g.amountAwarded * decileShare(g, 2), 0) / imdAmt) * 100,
+        )
+      : null
 
   // ── Deprivation-decile distribution ──
   const decileAmounts = fundingByDecile(located)
@@ -1024,62 +1160,54 @@ function InsightsPage() {
             </Panel>
           </div>
 
-          {/* Giving by region */}
-          {byRegion.length > 0 && (
+          {/* Giving by area */}
+          {/* Guarded on the slice, NOT on the current view's values: a view with
+              nothing to paint (e.g. World, before grants carry a country) must
+              render an empty map, never unmount the panel under the user. */}
+          {fil.length > 0 && (
             <Panel data-export-block>
-              <PanelTitle>Giving by region</PanelTitle>
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Region tile-map */}
-                <div>
-                  <RegionTileMap
-                    data={regionByNorm}
-                    max={maxRegionAmt}
-                    active={activeRegion}
-                    onSelect={setSelRegion}
+              <PanelTitle>Giving by area</PanelTitle>
+
+              {/* The map column is deliberately the narrower of the two. The UK
+                  is a portrait shape and the frame is fitted to it, so a wide
+                  column buys a very tall panel; a narrow one lets Britain fill
+                  its width and keeps the panel the height of the list beside
+                  it. */}
+              <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
+                <div className="flex flex-col">
+                  <Choropleth
+                    view={mapView}
+                    onViewChange={(v) => {
+                      setMapView(v)
+                      // Zooming to a country keeps it selected, so the donut
+                      // beside the map highlights the place you just opened
+                      // instead of clearing under you.
+                      setSelArea(v.kind === 'country' ? v.code : null)
+                    }}
+                    values={mapValues}
+                    selected={selArea}
+                    onSelect={setSelArea}
+                    highlight={hoverArea}
+                    onHighlight={setHoverArea}
                   />
-                  {unmatchedRegions.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {unmatchedRegions.map((r) => {
-                        const on = r.name === activeRegion
-                        return (
-                          <button
-                            key={r.name}
-                            type="button"
-                            onClick={() => setSelRegion(r.name)}
-                            className="rounded-lg border px-2.5 py-1 font-display text-[13px]"
-                            style={{ borderColor: on ? C.brand : C.line, color: C.ink }}
-                          >
-                            {r.name} · {fmtCompact(r.amount)}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                  {unlocatedCount > 0 && (
-                    <p className="mt-3 font-display text-[12px]" style={{ color: C.faint }}>
-                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
-                      location.
-                    </p>
-                  )}
+                  <MapAttribution view={mapView} />
                 </div>
 
-                {/* Selected region donut + LAD breakdown */}
-                <div>
-                  <p className="mb-2 font-display text-[14px] font-medium" style={{ color: C.ink }}>
-                    {activeRegion}
-                  </p>
-                  <div className="flex items-center gap-5">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-center">
                     <Donut
-                      data={ladDonut}
+                      data={areaDonut}
                       size={132}
                       thickness={16}
+                      highlight={hoverArea}
+                      onHighlight={setHoverArea}
                       center={
                         <div className="text-center">
                           <div
                             className="font-display text-[20px] font-medium"
                             style={{ color: C.ink }}
                           >
-                            {fmtCompact(regionTotal)}
+                            {fmtCompact(areaTotal)}
                           </div>
                           <div className="font-display text-[12px]" style={{ color: C.faint }}>
                             committed
@@ -1087,33 +1215,38 @@ function InsightsPage() {
                         </div>
                       }
                     />
-                    <div className="flex-1">
-                      {byLad.map((l) => {
-                        const pct = regionTotal > 0 ? Math.round((l.amount / regionTotal) * 100) : 0
-                        return (
-                          <div key={l.name} className="mb-2 last:mb-0">
-                            <div className="flex items-baseline justify-between">
-                              <span className="font-display text-[13px]" style={{ color: C.ink }}>
-                                {l.name}
-                              </span>
-                              <span className="font-display text-[12px]" style={{ color: C.sub }}>
-                                {fmtCompact(l.amount)} · {pct}%
-                              </span>
-                            </div>
-                            <div
-                              className="mt-1 h-1.5 overflow-hidden rounded-full"
-                              style={{ backgroundColor: C.wash }}
-                            >
-                              <div
-                                className="h-full rounded-full bar-grow"
-                                style={{ width: `${Math.max(2, pct)}%`, backgroundColor: l.color }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
                   </div>
+
+                  <AreaList
+                    areas={topAreas}
+                    total={areaTotal}
+                    rest={restAmount}
+                    selected={selArea}
+                    highlight={hoverArea}
+                    onHighlight={setHoverArea}
+                    // Only the UK tier has a level beneath it that a list row
+                    // can open. Districts are the floor, and the world tier's
+                    // rows are countries whose drill target is a zoom the map
+                    // owns — offering a chevron there would promise a
+                    // breakdown that does not exist.
+                    // Rows act exactly as the same area does on the map — same
+                    // rule, from the same function, so the two halves of the
+                    // panel can never disagree about what a click means.
+                    drillOf={(code, name, funded) => drillTarget(mapView, code, name, funded)}
+                    onPick={(code, name, to) => {
+                      setSelArea(code)
+                      if (to) setMapView(to)
+                    }}
+                  />
+
+                  {imdPct !== null && <ImdNote pct={imdPct} />}
+
+                  {unlocatedCount > 0 && (
+                    <p className="font-display text-[12px]" style={{ color: C.faint }}>
+                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
+                      location.
+                    </p>
+                  )}
                 </div>
               </div>
             </Panel>

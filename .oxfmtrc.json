@@ -11,6 +11,7 @@
     "admin-app/wrangler.jsonc",
     "src/routeTree.gen.ts",
     "drizzle/migrations/**",
+    "public/geo/**",
     "dist/**",
     "admin-app/dist/**"
   ]
