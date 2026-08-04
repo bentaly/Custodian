@@ -705,7 +705,31 @@ function InsightsPage() {
   // keys on a different field, so the values map is rebuilt per view rather than
   // derived once: countries on ISO alpha-3, regions on the persisted region
   // name, districts on the ONS LAD code.
-  const [mapView, setMapView] = useState<MapView>({ kind: 'uk' })
+
+  // Does the portfolio reach outside the UK? This decides both where the map
+  // opens and whether the World tier is offered at all, because those are the
+  // same question: a funder working only in Britain should land on Britain, and
+  // never be given a crumb that leads to an empty planet.
+  //
+  // Measured across every grant rather than the filtered slice, so narrowing a
+  // filter cannot pull the map out from under someone mid-read.
+  //
+  // A constant rather than a test, because there is currently nothing to test:
+  // an application records a region and a LAD but no country, so no grant can
+  // report a delivery outside the UK. It is named and wired up as a real
+  // condition anyway so the day `deliveryCountry` (ISO alpha-3, defaulting to
+  // GBR) lands, this line becomes
+  //   items.some((g) => g.country && g.country !== 'GBR')
+  // and nothing else on the screen has to change.
+  //
+  // Do NOT reach for `unlocatedCount` as a stand-in. A grant with no region is
+  // usually an unresolved UK postcode, not an overseas one, and treating those
+  // as international would open a wholly British portfolio on a blank world map.
+  const hasOverseas = false
+
+  const [mapView, setMapView] = useState<MapView>(() =>
+    hasOverseas ? { kind: 'world' } : { kind: 'uk' },
+  )
   const [selArea, setSelArea] = useState<string | null>(null)
   // Whichever of the map, donut or list the pointer is over. Hoisted here
   // because the three are one exhibit: pointing at an area in any of them
@@ -733,11 +757,6 @@ function InsightsPage() {
     }
     return acc
   })()
-
-  // Whether the World tier has anything to paint. Zero until a grant carries a
-  // country, which is why the breadcrumb doesn't currently offer World: it
-  // would lead to a blank planet and read as a broken map.
-  const countryCount = mapView.kind === 'world' ? mapValues.size : 0
 
   // The donut mirrors whatever the map is showing: same slice of the portfolio,
   // ranked, so the two halves of the panel can never disagree.
@@ -1160,7 +1179,7 @@ function InsightsPage() {
                     values={mapValues}
                     selected={selArea}
                     onSelect={setSelArea}
-                    showWorld={countryCount > 0}
+                    showWorld={hasOverseas}
                     highlight={hoverArea}
                     onHighlight={setHoverArea}
                   />
