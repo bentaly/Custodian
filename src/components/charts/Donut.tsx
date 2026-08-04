@@ -69,7 +69,17 @@ export function Donut({
       : [{ name: 'Empty', value: 1, color: chart.allocateLeft }]
 
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+    <div
+      className="donut-wrap"
+      style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}
+    >
+      {/* The dim transition has to come from a stylesheet rule, not a `style`
+          prop on the Cell: Recharts drives its entry animation through the
+          sector's inline style, so passing `style` overwrites it every render
+          and freezes the ring at angle zero — it renders as a one-pixel
+          sliver. A rule matching the sector leaves that inline style alone,
+          and `fill-opacity` is not a property Recharts animates. */}
+      <style>{`.donut-wrap path { transition: fill-opacity 200ms ease; }`}</style>
       <PieChart width={size} height={size}>
         <Pie
           data={slices}
@@ -92,12 +102,7 @@ export function Donut({
               fill={s.color}
               // Recede, don't vanish: the ring has to stay a whole ring, or
               // hovering one area reads as the others losing their funding.
-              //
-              // No CSS transition here, however tempting. Recharts drives its
-              // entry animation through the sector's inline style, so passing
-              // `style` overwrites it every render and freezes the ring at
-              // angle zero — it renders as a one-pixel sliver.
-              fillOpacity={highlight !== null && s.areaId !== highlight ? 0.25 : 1}
+              fillOpacity={highlight !== null && s.areaId !== highlight ? 0.6 : 1}
             />
           ))}
         </Pie>

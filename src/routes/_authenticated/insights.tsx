@@ -321,32 +321,35 @@ function AreaList({
               onFocus={() => onHighlight(a.code)}
               onBlur={() => onHighlight(null)}
               aria-current={on || undefined}
-              className="flex w-full items-center gap-2.5 rounded-[10px] border px-2.5 py-2 text-left transition-all"
+              title={`${a.name} · ${fmtCompact(a.amount)} · ${a.count} grant${a.count !== 1 ? 's' : ''} · ${pct}%`}
+              className="flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left"
               style={{
                 borderColor: on ? C.brand : 'transparent',
                 backgroundColor: on ? '#fff' : highlight === a.code ? C.wash : undefined,
-                opacity: dim ? 0.4 : 1,
+                opacity: dim ? 0.6 : 1,
+                transition: 'opacity 200ms ease, background-color 150ms ease',
               }}
             >
               <span
                 className="size-2.5 shrink-0 rounded-[3px]"
                 style={{ backgroundColor: a.color }}
               />
-              <span className="min-w-0 flex-1">
-                <span
-                  className="block truncate font-display text-[14px] font-medium"
-                  style={{ color: C.ink }}
-                >
-                  {a.name}
-                </span>
-                <span className="block font-display text-[12px]" style={{ color: C.faint }}>
-                  {fmtCompact(a.amount)} · {a.count} grant{a.count !== 1 ? 's' : ''} · {pct}%
-                </span>
+              <span
+                className="min-w-0 flex-1 truncate font-display text-[13px]"
+                style={{ color: C.ink }}
+              >
+                {a.name}
+              </span>
+              <span
+                className="shrink-0 font-display text-[12px] tabular-nums"
+                style={{ color: C.sub }}
+              >
+                {fmtCompact(a.amount)} · {a.count}
               </span>
               {drillable && (
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
-                  size={16}
+                  size={14}
                   color={on ? C.brand : C.faint}
                   className="shrink-0"
                 />
@@ -357,15 +360,19 @@ function AreaList({
       })}
 
       {rest > 0 && (
-        <li className="flex items-center gap-2.5 px-2.5 py-2">
+        <li className="flex items-center gap-2.5 px-2.5 py-1.5">
           <span className="size-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: C.line }} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-[14px]" style={{ color: C.sub }}>
-              Other areas
-            </span>
-            <span className="block font-display text-[12px]" style={{ color: C.faint }}>
-              {fmtCompact(rest)}
-            </span>
+          <span
+            className="min-w-0 flex-1 truncate font-display text-[13px]"
+            style={{ color: C.sub }}
+          >
+            Other areas
+          </span>
+          <span
+            className="shrink-0 font-display text-[12px] tabular-nums"
+            style={{ color: C.faint }}
+          >
+            {fmtCompact(rest)}
           </span>
         </li>
       )}
@@ -1052,8 +1059,8 @@ function InsightsPage() {
                   column buys a very tall panel; a narrow one lets Britain fill
                   its width and keeps the panel the height of the list beside
                   it. */}
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
-                <div>
+              <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
+                <div className="flex flex-col">
                   <Choropleth
                     view={mapView}
                     onViewChange={(v) => {

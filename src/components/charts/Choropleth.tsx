@@ -90,6 +90,29 @@ function sourceFor(view: MapView) {
   return view.kind === 'uk' ? SOURCES.uk : SOURCES.lad
 }
 
+/**
+ * Every individual polygon across `features` whose projected area clears
+ * `minArea`. Used only to decide framing — see the call site for why the split
+ * to part level is load-bearing rather than tidy.
+ */
+function bigParts(features: GeoFeature[], path: ReturnType<typeof geoPath>, minArea: number) {
+  const out: Geometry[] = []
+  for (const f of features) {
+    const g = f.geometry
+    if (!g) continue
+    const polys: Geometry[] =
+      g.type === 'MultiPolygon'
+        ? g.coordinates.map((coordinates) => ({ type: 'Polygon', coordinates }) as Geometry)
+        : g.type === 'Polygon'
+          ? [g]
+          : []
+    for (const poly of polys) {
+      if (Math.abs(path.area(poly as Parameters<typeof path.area>[0])) >= minArea) out.push(poly)
+    }
+  }
+  return out
+}
+
 /** The value in `values` this feature is looked up by, per the view's key. */
 function keyOf(f: GeoFeature, key: 'code' | 'name') {
   return key === 'name' ? f.properties.name : f.properties.code
@@ -195,11 +218,26 @@ function bucketOf(value: number, cuts: number[]) {
 // holds one continent and ours has to hold anything from the planet to a
 // London borough. The whole world at the Figma's pitch turns Britain into two
 // dots; a single region at the world's pitch is a needlessly fussy stipple.
-const DOT_PITCH = { world: 3, near: 5 } as const
-const DOT_RATIO = 1 / 3
+const DOT_PITCH = { world: 2.5, near: 5 } as const
+
+// Dot diameter as a fraction of the pitch. The Figma's 6-on-9 is a third, which
+// is right at close range. The world tier needs a fatter dot: at a 2.5px pitch a
+// third-sized dot covers so little of its cell that continents read as a grey
+// wash rather than land, and the palest ramp step stops being visible at all.
+const DOT_RATIO = { world: 0.42, near: 1 / 3 } as const
+
+// How much an area recedes when a sibling is highlighted. Deliberately shallow:
+// the dimmed areas are still the map, and dropping them further reads as them
+// losing their funding rather than simply not being pointed at.
+const DIM = 0.6
+const DIM_MS = 200
 
 function dotPitch(view: MapView) {
   return view.kind === 'world' ? DOT_PITCH.world : DOT_PITCH.near
+}
+
+function dotRadius(view: MapView) {
+  return dotPitch(view) * (view.kind === 'world' ? DOT_RATIO.world : DOT_RATIO.near)
 }
 
 /** `rescued` marks a dot the grid never actually hit — see `buildLattice`. */
@@ -392,19 +430,24 @@ export function Choropleth({
       )
       const probe = geoPath(projection)
 
-      // Frame to the areas big enough to actually put a dot on the screen.
+      // Frame to the landmasses big enough to actually put dots on the screen.
       //
-      // Measured honestly, the world map's extremes are Wallis and Futuna on
-      // one side and Fiji on the other — Pacific specks a few pixels across.
-      // They set the bounding box, the projection dutifully fits to it, and
-      // then they are too small to catch a single lattice point, so a fifth of
-      // the frame is reserved for land that never renders. Filtering the fit
-      // target by "would this survive the lattice" hands that width back to the
-      // continents. Anything excluded still *draws* — it just no longer gets a
-      // vote on the framing, and may be clipped at the edge.
-      const big = target.filter((f) => Math.abs(probe.area(f)) >= pitch * pitch)
+      // Measured honestly, the world's bounding box runs from Wallis and Futuna
+      // to Fiji — Pacific specks a few pixels across. The projection fits to
+      // them faithfully, and then they are far too small to catch a single
+      // lattice point, so a fifth of the frame is reserved for land that never
+      // renders.
+      //
+      // The filter has to work per *polygon*, not per country, and that is not
+      // fussiness: with whole features the left edge stays pinned at the
+      // Aleutian Islands, because they belong to the United States, which is
+      // far too large to filter out and drags its bounds across the
+      // antimeridian with it. Splitting multipolygons lets Alaska's tail go
+      // while the mainland stays. Excluded parts still *draw* — they simply
+      // stop getting a vote on the framing, and may be clipped at the edge.
+      const big = bigParts(target, probe, (pitch * 2) ** 2)
       if (big.length > 0) {
-        fitTo = { type: 'FeatureCollection', features: big } as FeatureCollection
+        fitTo = { type: 'GeometryCollection', geometries: big } as unknown as FeatureCollection
       }
 
       const [[bx0, by0], [bx1, by1]] = probe.bounds(fitTo)
@@ -441,7 +484,7 @@ export function Choropleth({
   // than any outline can, and it survives the area being unfunded, where a
   // colour change would have nothing to say.
   const layers = useMemo(() => {
-    const r = pitch * DOT_RATIO
+    const r = dotRadius(view)
     const groups = new Map<string, { fill: string; r: number; opacity: number; dots: Dot[] }>()
     for (const dot of lattice) {
       const b = bucketOf(values.get(dot.key)?.amount ?? 0, cuts)
@@ -456,7 +499,7 @@ export function Choropleth({
         g = {
           fill: b < 0 ? EMPTY : RAMP[b]!,
           r: isSel ? r * 1.5 : r,
-          opacity: dim ? 0.35 : 1,
+          opacity: dim ? DIM : 1,
           dots: [],
         }
         groups.set(id, g)
@@ -467,7 +510,7 @@ export function Choropleth({
     return [...groups.entries()]
       .map(([id, g]) => ({ id, ...g }))
       .sort((a, b) => Number(a.id.split(':')[1] === 'true') - Number(b.id.split(':')[1] === 'true'))
-  }, [lattice, values, cuts, selected, pitch, highlight])
+  }, [lattice, values, cuts, selected, view, highlight])
 
   const total = useMemo(
     () => [...values.values()].reduce((s, v) => s + v.amount, 0),
@@ -492,12 +535,21 @@ export function Choropleth({
     : view.kind
 
   return (
-    <div>
-      <Breadcrumb view={view} onViewChange={onViewChange} showWorld={showWorld} />
+    // Full height so the map can sit centred against a taller sibling column,
+    // rather than hanging from the top with the imbalance pooled underneath it.
+    <div className="flex h-full flex-col">
+      {/* Breadcrumb and key share the top rule — where you are on the left,
+          how to read it on the right. The key used to sit under the map, which
+          put the one static thing on the panel at whatever height the current
+          geography happened to end at. */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <Breadcrumb view={view} onViewChange={onViewChange} showWorld={showWorld} />
+        <Legend cuts={cuts} hasEmpty={features.length > funded} />
+      </div>
 
       <div
         ref={wrap}
-        className="relative"
+        className="relative flex flex-1 items-center"
         onMouseLeave={() => {
           setHover(null)
           onHighlight?.(null)
@@ -541,7 +593,7 @@ export function Choropleth({
                 fill={l.fill}
                 fillOpacity={l.opacity}
                 pointerEvents="none"
-                style={{ transition: 'fill-opacity 140ms ease' }}
+                style={{ transition: `fill-opacity ${DIM_MS}ms ease` }}
               />
             ))}
           </g>
@@ -641,8 +693,6 @@ export function Choropleth({
               : 'No grant in this slice resolved to an area here.'}
         </p>
       )}
-
-      <Legend cuts={cuts} hasEmpty={features.length > funded} />
     </div>
   )
 }
@@ -749,7 +799,7 @@ function Breadcrumb({
 
 function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <div className="flex items-center gap-1.5">
         <span className="font-display text-[11px]" style={{ color: chart.faint }}>
           Less
