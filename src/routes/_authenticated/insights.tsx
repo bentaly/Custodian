@@ -21,6 +21,7 @@ import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import {
   Choropleth,
   MapAttribution,
+  UK_ISO3,
   useAreaNames,
   type MapView,
 } from '../../components/charts/Choropleth'
@@ -706,10 +707,10 @@ function InsightsPage() {
   // derived once: countries on ISO alpha-3, regions on the persisted region
   // name, districts on the ONS LAD code.
 
-  // Does the portfolio reach outside the UK? This decides both where the map
-  // opens and whether the World tier is offered at all, because those are the
-  // same question: a funder working only in Britain should land on Britain, and
-  // never be given a crumb that leads to an empty planet.
+  // Does the portfolio reach outside the UK? This decides where the map opens
+  // — and only that. Every tier stays reachable whatever the answer: a funder
+  // working only in Britain should *land* on Britain, but "are we only funding
+  // Britain?" is a fair question to be able to ask the map out loud.
   //
   // Measured across every grant rather than the filtered slice, so narrowing a
   // filter cannot pull the map out from under someone mid-read.
@@ -746,14 +747,19 @@ function InsightsPage() {
       acc.set(key, { amount: prev.amount + amount, count: prev.count + 1 })
     }
     for (const g of fil) {
-      if (mapView.kind === 'uk') add(g.region, g.amountAwarded)
+      if (mapView.kind === 'world' || mapView.kind === 'country') {
+        // Anything we can place is in Britain, because a region is the only
+        // location an application records. Rolling those up to GBR is not a
+        // guess — a resolved ONS region *is* a statement that the delivery is
+        // in the UK — and without it the world tier showed a British funder
+        // their own country unpainted, flatly contradicting the UK view one
+        // click below. An empty world map read as broken; this one reads as
+        // "all of it is here", which is the true answer.
+        if (g.region) add(UK_ISO3, g.amountAwarded)
+      } else if (mapView.kind === 'uk') add(g.region, g.amountAwarded)
       else if (mapView.kind === 'region') {
         if (g.region === mapView.region) add(g.ladCode, g.amountAwarded)
       }
-      // World and country: nothing to add. Delivery geography is UK-only today
-      // — an application records a region and a LAD but no country — so those
-      // tiers have no data rather than wrong data. Adding `deliveryCountry`
-      // (ISO alpha-3, defaulting to GBR) is what would make them real.
     }
     return acc
   })()
@@ -1179,7 +1185,6 @@ function InsightsPage() {
                     values={mapValues}
                     selected={selArea}
                     onSelect={setSelArea}
-                    showWorld={hasOverseas}
                     highlight={hoverArea}
                     onHighlight={setHoverArea}
                   />

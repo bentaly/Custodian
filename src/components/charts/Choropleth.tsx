@@ -42,7 +42,7 @@ const EMPTY = '#BCD8CF'
 
 // The one country with a layer beneath it, so it is the one country on the
 // world map that drills rather than selects.
-const UK_ISO3 = 'GBR'
+export const UK_ISO3 = 'GBR'
 
 // Frame shape for a zoomed country. Slightly landscape: it suits the majority
 // of countries and sits close enough to the UK view's 1.15 that switching
@@ -336,7 +336,6 @@ export function Choropleth({
   values,
   selected,
   onSelect,
-  showWorld = false,
   highlight = null,
   onHighlight,
 }: {
@@ -346,8 +345,6 @@ export function Choropleth({
   values: Map<string, AreaDatum>
   selected: string | null
   onSelect: (key: string, name: string) => void
-  /** Offer the World tier. False when no grant carries a country to paint. */
-  showWorld?: boolean
   /** Area to hold at full strength while everything else recedes. Driven by
    *  whichever of the map, donut or list the pointer is currently over. */
   highlight?: string | null
@@ -543,7 +540,7 @@ export function Choropleth({
           put the one static thing on the panel at whatever height the current
           geography happened to end at. */}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <Breadcrumb view={view} onViewChange={onViewChange} showWorld={showWorld} />
+        <Breadcrumb view={view} onViewChange={onViewChange} />
         <Legend cuts={cuts} hasEmpty={features.length > funded} />
       </div>
 
@@ -687,7 +684,7 @@ export function Choropleth({
       {funded === 0 && (
         <p className="mt-2 font-display text-[12px]" style={{ color: chart.sub }}>
           {view.kind === 'world'
-            ? 'No grant in this slice records a country outside the UK.'
+            ? 'No grant in this slice has a resolved delivery location.'
             : view.kind === 'country'
               ? `No grant in this slice was delivered in ${view.name}.`
               : 'No grant in this slice resolved to an area here.'}
@@ -744,19 +741,17 @@ function HoverCard({
 function Breadcrumb({
   view,
   onViewChange,
-  showWorld,
 }: {
   view: MapView
   onViewChange: (view: MapView) => void
-  showWorld: boolean
 }) {
   const crumbs: Array<{ label: string; to?: MapView }> = []
-  // The world tier is only offered when something can actually be painted on
-  // it. Delivery geography is UK-only today, so for most portfolios a World
-  // crumb would lead to a blank planet and read as a broken map.
-  if (showWorld) {
-    crumbs.push({ label: 'World', to: view.kind === 'world' ? undefined : { kind: 'world' } })
-  }
+  // World is always offered, including to a purely British portfolio. Which
+  // tier the map *opens* on follows the data; which tiers you may *reach* does
+  // not. Hiding the crumb left a UK-only funder standing on "United Kingdom"
+  // with nothing above it and no way to zoom out — and "are we only funding
+  // Britain?" is a fair question for the map to be able to answer out loud.
+  crumbs.push({ label: 'World', to: view.kind === 'world' ? undefined : { kind: 'world' } })
   if (view.kind === 'country') {
     crumbs.push({ label: view.name })
   }
