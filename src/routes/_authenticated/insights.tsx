@@ -19,7 +19,6 @@ import {
   useAreaNames,
   type MapView,
 } from '../../components/charts/Choropleth'
-import { demoGeo } from '../../lib/insights/demoGeo'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
@@ -590,7 +589,7 @@ function InsightsPage() {
   const unlocatedCount = fil.filter((g) => !g.region).length
 
   // Roll grants up to whichever key the current view paints.
-  const realValues = (() => {
+  const mapValues = (() => {
     const acc = new Map<string, { amount: number; count: number }>()
     const add = (key: string | null, amount: number) => {
       if (!key) return
@@ -602,40 +601,18 @@ function InsightsPage() {
       else if (mapView.kind === 'region') {
         if (g.region === mapView.region) add(g.ladCode, g.amountAwarded)
       }
-      // World: nothing to add yet. Delivery geography is UK-only today — there
-      // is no country on a grant — so the world tier has no real data to show
-      // rather than a wrong one. See demoGeo.ts.
+      // World and country: nothing to add. Delivery geography is UK-only today
+      // — an application records a region and a LAD but no country — so those
+      // tiers have no data rather than wrong data. Adding `deliveryCountry`
+      // (ISO alpha-3, defaulting to GBR) is what would make them real.
     }
     return acc
   })()
 
-  // DEMO SWITCH — set to false to drive the map from real awards.
-  //
-  // While the map is being shown off, the sample portfolio drives it at every
-  // level, so all three tiers (including World, which no real grant can fill
-  // yet) have something to show. `realValues` above stays live and correct, so
-  // flipping this back is the only change needed.
-  //
-  // The "Sample data" badge is tied to this flag, NOT to whether real data
-  // happens to exist. These are invented funding figures on a screen whose job
-  // is reporting where a foundation's money actually went — while they are on
-  // screen, the screen has to say so.
-  const USE_SAMPLE_GEO = true
-
-  // Real grants that carry a country, i.e. whether the World tier has anything
-  // to paint. Zero today — no country is persisted on an application yet.
-  const realCountryCount = 0
-
-  const isDemo = USE_SAMPLE_GEO
-  const mapValues = !USE_SAMPLE_GEO
-    ? realValues
-    : // A zoomed country is still the country layer — same keys as World, so it
-      // keeps the same values and the figures don't shift under the zoom.
-      mapView.kind === 'world' || mapView.kind === 'country'
-      ? demoGeo.world()
-      : mapView.kind === 'uk'
-        ? demoGeo.regions()
-        : demoGeo.districts(mapView.region)
+  // Whether the World tier has anything to paint. Zero until a grant carries a
+  // country, which is why the breadcrumb doesn't currently offer World: it
+  // would lead to a blank planet and read as a broken map.
+  const countryCount = mapView.kind === 'world' ? mapValues.size : 0
 
   // The donut mirrors whatever the map is showing: same slice of the portfolio,
   // ranked, so the two halves of the panel can never disagree.
@@ -1038,21 +1015,7 @@ function InsightsPage() {
               render an empty map, never unmount the panel under the user. */}
           {fil.length > 0 && (
             <Panel data-export-block>
-              <PanelTitle
-                right={
-                  isDemo ? (
-                    <span
-                      className="shrink-0 rounded-full px-2 py-0.5 font-display text-[11px] font-medium"
-                      style={{ backgroundColor: KPI.reach.bg, color: '#B26A05' }}
-                      title="No award in this slice has a resolved delivery location, so the map is showing a sample portfolio."
-                    >
-                      Sample data
-                    </span>
-                  ) : undefined
-                }
-              >
-                Giving by area
-              </PanelTitle>
+              <PanelTitle>Giving by area</PanelTitle>
 
               {/* The map column is deliberately the narrower of the two. The UK
                   is a portrait shape and the frame is fitted to it, so a wide
@@ -1073,7 +1036,7 @@ function InsightsPage() {
                     values={mapValues}
                     selected={selArea}
                     onSelect={setSelArea}
-                    showWorld={isDemo || realCountryCount > 0}
+                    showWorld={countryCount > 0}
                     highlight={hoverArea}
                     onHighlight={setHoverArea}
                   />
