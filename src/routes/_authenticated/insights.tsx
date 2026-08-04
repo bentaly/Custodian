@@ -22,6 +22,7 @@ import {
   Choropleth,
   MapAttribution,
   UK_ISO3,
+  drillTarget,
   useAreaNames,
   type MapView,
 } from '../../components/charts/Choropleth'
@@ -397,7 +398,7 @@ function AreaList({
   total,
   rest,
   selected,
-  drillable,
+  drillOf,
   onPick,
   highlight,
   onHighlight,
@@ -408,9 +409,11 @@ function AreaList({
    *  because that arc is otherwise an unlabelled grey wedge. */
   rest: number
   selected: string | null
-  /** Whether this tier has a level beneath it — chevrons and drilling. */
-  drillable: boolean
-  onPick: (code: string, name: string) => void
+  /** The tier this row opens, or null if it is a leaf. Per row rather than per
+   *  tier, because on the world map the UK drills and its neighbours only
+   *  zoom — so the chevron has to be earned row by row. */
+  drillOf: (code: string, name: string, funded: boolean) => MapView | null
+  onPick: (code: string, name: string, to: MapView | null) => void
   /** Area held at full strength while the rest recede. */
   highlight: string | null
   onHighlight: (code: string | null) => void
@@ -421,11 +424,12 @@ function AreaList({
         const on = selected === a.code
         const pct = total > 0 ? Math.round((a.amount / total) * 100) : 0
         const dim = highlight !== null && highlight !== a.code
+        const to = drillOf(a.code, a.name, a.amount > 0)
         return (
           <li key={a.code}>
             <button
               type="button"
-              onClick={() => onPick(a.code, a.name)}
+              onClick={() => onPick(a.code, a.name, to)}
               onMouseEnter={() => onHighlight(a.code)}
               onFocus={() => onHighlight(a.code)}
               onBlur={() => onHighlight(null)}
@@ -455,7 +459,7 @@ function AreaList({
               >
                 {fmtCompact(a.amount)} · {a.count}
               </span>
-              {drillable && (
+              {to && (
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
                   size={14}
@@ -780,9 +784,7 @@ function InsightsPage() {
   const areaDonut: DonutSlice[] = [
     ...topAreas.map((a) => ({ areaId: a.code, name: a.name, value: a.amount, color: a.color })),
     // Never generate an 8th hue — the tail folds into one neutral "Other".
-    ...(restAmount > 0
-      ? [{ name: 'Other areas', value: restAmount, color: C.line }]
-      : []),
+    ...(restAmount > 0 ? [{ name: 'Other areas', value: restAmount, color: C.line }] : []),
   ]
 
   // IMD reach for the map's current view. Empty outside the UK — the index does
@@ -1227,10 +1229,13 @@ function InsightsPage() {
                     // rows are countries whose drill target is a zoom the map
                     // owns — offering a chevron there would promise a
                     // breakdown that does not exist.
-                    drillable={mapView.kind === 'uk'}
-                    onPick={(code, name) => {
+                    // Rows act exactly as the same area does on the map — same
+                    // rule, from the same function, so the two halves of the
+                    // panel can never disagree about what a click means.
+                    drillOf={(code, name, funded) => drillTarget(mapView, code, name, funded)}
+                    onPick={(code, name, to) => {
                       setSelArea(code)
-                      if (mapView.kind === 'uk') setMapView({ kind: 'region', region: name })
+                      if (to) setMapView(to)
                     }}
                   />
 

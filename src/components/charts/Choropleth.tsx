@@ -113,6 +113,34 @@ function bigParts(features: GeoFeature[], path: ReturnType<typeof geoPath>, minA
   return out
 }
 
+/**
+ * The tier a click on `code` opens, or null if this area is a leaf.
+ *
+ * Exported because the map is not the only thing you can click: the ranked list
+ * beside it acts on the same areas, and a list row that merely highlighted
+ * while the identical shape on the map drilled would be the panel disagreeing
+ * with itself. One rule, one definition.
+ *
+ * `funded` gates the UK tier only. Opening an unfunded region's districts shows
+ * a screen of nothing; on the world map every country stays explorable, so the
+ * map does not collapse to only its funded corners.
+ */
+export function drillTarget(
+  view: MapView,
+  code: string,
+  name: string,
+  funded: boolean,
+): MapView | null {
+  if (view.kind === 'uk') return funded ? { kind: 'region', region: name } : null
+  if (view.kind === 'world' || view.kind === 'country') {
+    // The UK skips the country tier: it has real layers beneath it, and
+    // stopping at a flat national outline would hide them.
+    return code === UK_ISO3 ? { kind: 'uk' } : { kind: 'country', code, name }
+  }
+  // A district is the floor — nothing is mapped below LAD level.
+  return null
+}
+
 /** The value in `values` this feature is looked up by, per the view's key. */
 function keyOf(f: GeoFeature, key: 'code' | 'name') {
   return key === 'name' ? f.properties.name : f.properties.code
@@ -135,7 +163,8 @@ function loadGeo(url: string, object: string) {
       // topojson → geojson. The cast is safe by construction: build-geo.ts
       // filters every layer down to exactly the GeoProps fields.
       .then(
-        (topo) => feature(topo, topo.objects[object]) as unknown as FeatureCollection<Geometry, GeoProps>,
+        (topo) =>
+          feature(topo, topo.objects[object]) as unknown as FeatureCollection<Geometry, GeoProps>,
       )
     cache.set(key, hit)
   }
@@ -375,9 +404,7 @@ export function Choropleth({
     // What the projection is fitted to — which is NOT always what is drawn. A
     // country view draws the world and frames one country.
     const target =
-      view.kind === 'country'
-        ? data.features.filter((f) => f.properties.code === view.code)
-        : feats
+      view.kind === 'country' ? data.features.filter((f) => f.properties.code === view.code) : feats
     if (target.length === 0) return { features: feats, pathFor: null, height: fallbackHeight }
 
     const targetCollection = {
@@ -470,10 +497,7 @@ export function Choropleth({
     [features, pathFor, src.key, width, height, pitch],
   )
 
-  const cuts = useMemo(
-    () => thresholds([...values.values()].map((v) => v.amount)),
-    [values],
-  )
+  const cuts = useMemo(() => thresholds([...values.values()].map((v) => v.amount)), [values])
 
   // Dots grouped by the colour they'll be painted, so the map is a handful of
   // compound paths. The selected area's dots are pulled into their own group at
@@ -509,10 +533,7 @@ export function Choropleth({
       .sort((a, b) => Number(a.id.split(':')[1] === 'true') - Number(b.id.split(':')[1] === 'true'))
   }, [lattice, values, cuts, selected, view, highlight])
 
-  const total = useMemo(
-    () => [...values.values()].reduce((s, v) => s + v.amount, 0),
-    [values],
-  )
+  const total = useMemo(() => [...values.values()].reduce((s, v) => s + v.amount, 0), [values])
 
   if (error) {
     return (
@@ -527,9 +548,11 @@ export function Choropleth({
 
   const funded = features.filter((f) => (values.get(keyOf(f, src.key))?.amount ?? 0) > 0).length
   const viewKey =
-    view.kind === 'country' ? `country:${view.code}`
-    : view.kind === 'region' ? `region:${view.region}`
-    : view.kind
+    view.kind === 'country'
+      ? `country:${view.code}`
+      : view.kind === 'region'
+        ? `region:${view.region}`
+        : view.kind
 
   return (
     // Full height so the map can sit centred against a taller sibling column,
@@ -607,22 +630,8 @@ export function Choropleth({
             const areaKey = keyOf(f, src.key)
             const datum = values.get(areaKey)
             const amount = datum?.amount ?? 0
-            // Drilling down a level: a funded UK region opens its districts,
-            // and the UK on the world map opens the UK. Everything else is a
-            // leaf — there is no layer beneath a district or a foreign country.
-            const drillTo: MapView | null =
-              view.kind === 'uk' && amount > 0
-                ? { kind: 'region', region: f.properties.name }
-                : view.kind === 'world' || view.kind === 'country'
-                  ? f.properties.code === UK_ISO3
-                    // The UK skips the country tier: it has real layers beneath
-                    // it, and stopping at a flat national outline would hide them.
-                    ? { kind: 'uk' }
-                    : { kind: 'country', code: f.properties.code, name: f.properties.name }
-                  : null
+            const drillTo = drillTarget(view, f.properties.code, f.properties.name, amount > 0)
             // Unfunded areas are inert at UK levels — there is nothing to show.
-            // On the world map every country can still be zoomed to, so the
-            // whole map stays explorable rather than only its funded corners.
             const interactive = amount > 0 || drillTo !== null
 
             return (
