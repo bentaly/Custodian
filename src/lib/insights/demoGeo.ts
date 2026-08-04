@@ -36,7 +36,12 @@ const REGIONS: DemoArea[] = [
   { code: 'East of England', amount: 240_000, count: 5 },
   { code: 'North East', amount: 215_000, count: 4 },
   { code: 'Wales', amount: 180_000, count: 4 },
-  { code: 'East Midlands', amount: 165_000, count: 3 },
+  // East Midlands is deliberately absent, not forgotten. A demo where every
+  // region is funded never exercises the "No funding" colour, which is the one
+  // that has to survive being a 5px dot — and an unfunded region surrounded by
+  // funded ones is the only honest test of whether it reads as empty rather
+  // than as "a little". Its districts below are left in place, so drilling into
+  // a neighbouring region still behaves.
   { code: 'South West', amount: 120_000, count: 3 },
   { code: 'Northern Ireland', amount: 75_000, count: 2 },
 ]

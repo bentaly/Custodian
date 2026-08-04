@@ -1,7 +1,14 @@
 import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { anim, chart, fmtMoney, tooltipBox } from './theme'
 
-export type DonutSlice = { name: string; value: number; color: string }
+export type DonutSlice = {
+  name: string
+  value: number
+  color: string
+  /** Stable identity for cross-highlighting with a sibling map or list. Names
+   *  are display strings and can collide or be renamed; ids are the area key. */
+  areaId?: string
+}
 
 function DonutTooltip({
   active,
@@ -42,6 +49,8 @@ export function Donut({
   thickness = 16,
   center,
   tooltip = true,
+  highlight = null,
+  onHighlight,
 }: {
   data: DonutSlice[]
   size?: number
@@ -49,6 +58,9 @@ export function Donut({
   center?: React.ReactNode
   /** Money-formatted hover tooltip. Off for non-monetary uses (e.g. a score gauge). */
   tooltip?: boolean
+  /** Slice id held at full strength while the rest recede. */
+  highlight?: string | null
+  onHighlight?: (id: string | null) => void
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   const slices: DonutSlice[] =
@@ -70,10 +82,23 @@ export function Donut({
           startAngle={90}
           endAngle={-270}
           stroke="none"
+          onMouseEnter={(_, i) => onHighlight?.(slices[i]?.areaId ?? null)}
+          onMouseLeave={() => onHighlight?.(null)}
           {...anim}
         >
           {slices.map((s, i) => (
-            <Cell key={i} fill={s.color} />
+            <Cell
+              key={i}
+              fill={s.color}
+              // Recede, don't vanish: the ring has to stay a whole ring, or
+              // hovering one area reads as the others losing their funding.
+              //
+              // No CSS transition here, however tempting. Recharts drives its
+              // entry animation through the sector's inline style, so passing
+              // `style` overwrites it every render and freezes the ring at
+              // angle zero — it renders as a one-pixel sliver.
+              fillOpacity={highlight !== null && s.areaId !== highlight ? 0.25 : 1}
+            />
           ))}
         </Pie>
         {tooltip && total > 0 && (

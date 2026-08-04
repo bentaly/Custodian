@@ -290,6 +290,8 @@ function AreaList({
   selected,
   drillable,
   onPick,
+  highlight,
+  onHighlight,
 }: {
   areas: Array<{ code: string; name: string; amount: number; count: number; color: string }>
   total: number
@@ -300,22 +302,30 @@ function AreaList({
   /** Whether this tier has a level beneath it — chevrons and drilling. */
   drillable: boolean
   onPick: (code: string, name: string) => void
+  /** Area held at full strength while the rest recede. */
+  highlight: string | null
+  onHighlight: (code: string | null) => void
 }) {
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex flex-col gap-0.5" onMouseLeave={() => onHighlight(null)}>
       {areas.map((a) => {
         const on = selected === a.code
         const pct = total > 0 ? Math.round((a.amount / total) * 100) : 0
+        const dim = highlight !== null && highlight !== a.code
         return (
           <li key={a.code}>
             <button
               type="button"
               onClick={() => onPick(a.code, a.name)}
+              onMouseEnter={() => onHighlight(a.code)}
+              onFocus={() => onHighlight(a.code)}
+              onBlur={() => onHighlight(null)}
               aria-current={on || undefined}
-              className="flex w-full items-center gap-2.5 rounded-[10px] border px-2.5 py-2 text-left transition-colors"
+              className="flex w-full items-center gap-2.5 rounded-[10px] border px-2.5 py-2 text-left transition-all"
               style={{
                 borderColor: on ? C.brand : 'transparent',
-                backgroundColor: on ? '#fff' : undefined,
+                backgroundColor: on ? '#fff' : highlight === a.code ? C.wash : undefined,
+                opacity: dim ? 0.4 : 1,
               }}
             >
               <span
@@ -566,6 +576,10 @@ function InsightsPage() {
   // name, districts on the ONS LAD code.
   const [mapView, setMapView] = useState<MapView>({ kind: 'uk' })
   const [selArea, setSelArea] = useState<string | null>(null)
+  // Whichever of the map, donut or list the pointer is over. Hoisted here
+  // because the three are one exhibit: pointing at an area in any of them
+  // should answer "and where is that in the other two?".
+  const [hoverArea, setHoverArea] = useState<string | null>(null)
   const unlocatedCount = fil.filter((g) => !g.region).length
 
   // Roll grants up to whichever key the current view paints.
@@ -630,7 +644,7 @@ function InsightsPage() {
   }))
   const restAmount = areaRanked.slice(PALETTE.length).reduce((s, a) => s + a.amount, 0)
   const areaDonut: DonutSlice[] = [
-    ...topAreas.map((a) => ({ name: a.name, value: a.amount, color: a.color })),
+    ...topAreas.map((a) => ({ areaId: a.code, name: a.name, value: a.amount, color: a.color })),
     // Never generate an 8th hue — the tail folds into one neutral "Other".
     ...(restAmount > 0
       ? [{ name: 'Other areas', value: restAmount, color: C.line }]
@@ -1053,8 +1067,10 @@ function InsightsPage() {
                     selected={selArea}
                     onSelect={setSelArea}
                     showWorld={isDemo || realCountryCount > 0}
+                    highlight={hoverArea}
+                    onHighlight={setHoverArea}
                   />
-                  <MapAttribution />
+                  <MapAttribution view={mapView} />
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -1063,6 +1079,8 @@ function InsightsPage() {
                       data={areaDonut}
                       size={132}
                       thickness={16}
+                      highlight={hoverArea}
+                      onHighlight={setHoverArea}
                       center={
                         <div className="text-center">
                           <div
@@ -1084,6 +1102,8 @@ function InsightsPage() {
                     total={areaTotal}
                     rest={restAmount}
                     selected={selArea}
+                    highlight={hoverArea}
+                    onHighlight={setHoverArea}
                     // Only the UK tier has a level beneath it that a list row
                     // can open. Districts are the floor, and the world tier's
                     // rows are countries whose drill target is a zoom the map

@@ -195,7 +195,7 @@ function bucketOf(value: number, cuts: number[]) {
 // holds one continent and ours has to hold anything from the planet to a
 // London borough. The whole world at the Figma's pitch turns Britain into two
 // dots; a single region at the world's pitch is a needlessly fussy stipple.
-const DOT_PITCH = { world: 4, near: 5 } as const
+const DOT_PITCH = { world: 3, near: 5 } as const
 const DOT_RATIO = 1 / 3
 
 function dotPitch(view: MapView) {
@@ -299,6 +299,8 @@ export function Choropleth({
   selected,
   onSelect,
   showWorld = false,
+  highlight = null,
+  onHighlight,
 }: {
   view: MapView
   onViewChange: (view: MapView) => void
@@ -308,6 +310,10 @@ export function Choropleth({
   onSelect: (key: string, name: string) => void
   /** Offer the World tier. False when no grant carries a country to paint. */
   showWorld?: boolean
+  /** Area to hold at full strength while everything else recedes. Driven by
+   *  whichever of the map, donut or list the pointer is currently over. */
+  highlight?: string | null
+  onHighlight?: (key: string | null) => void
 }) {
   const { data, error } = useGeo(view)
   const [hover, setHover] = useState<{ x: number; y: number; f: GeoFeature } | null>(null)
@@ -315,6 +321,7 @@ export function Choropleth({
 
   const src = sourceFor(view)
   const width = 520
+  const pitch = dotPitch(view)
 
   const { features, pathFor, height } = useMemo(() => {
     const fallbackHeight = Math.round(width / src.aspect)
@@ -371,6 +378,7 @@ export function Choropleth({
     // of Britain for a panel that matches the list beside it. The ceiling is
     // the same guard the other way, for a slice that is one thin coastal
     // district.
+    let fitTo = targetCollection
     let h: number
     if (view.kind === 'country') {
       h = Math.round(width / COUNTRY_ASPECT)
@@ -382,7 +390,24 @@ export function Choropleth({
         ],
         targetCollection,
       )
-      const [[bx0, by0], [bx1, by1]] = geoPath(projection).bounds(targetCollection)
+      const probe = geoPath(projection)
+
+      // Frame to the areas big enough to actually put a dot on the screen.
+      //
+      // Measured honestly, the world map's extremes are Wallis and Futuna on
+      // one side and Fiji on the other — Pacific specks a few pixels across.
+      // They set the bounding box, the projection dutifully fits to it, and
+      // then they are too small to catch a single lattice point, so a fifth of
+      // the frame is reserved for land that never renders. Filtering the fit
+      // target by "would this survive the lattice" hands that width back to the
+      // continents. Anything excluded still *draws* — it just no longer gets a
+      // vote on the framing, and may be clipped at the edge.
+      const big = target.filter((f) => Math.abs(probe.area(f)) >= pitch * pitch)
+      if (big.length > 0) {
+        fitTo = { type: 'FeatureCollection', features: big } as FeatureCollection
+      }
+
+      const [[bx0, by0], [bx1, by1]] = probe.bounds(fitTo)
       const natural = (bx1 - bx0) / (by1 - by0)
       h = Math.round(width / Math.min(2.4, Math.max(0.72, natural || src.aspect)))
     }
@@ -395,12 +420,11 @@ export function Choropleth({
         [pad, pad],
         [width - pad, h - pad],
       ],
-      targetCollection,
+      fitTo,
     )
     return { features: feats, pathFor: geoPath(projection), height: h }
-  }, [data, view, width, src.aspect])
+  }, [data, view, width, src.aspect, pitch])
 
-  const pitch = dotPitch(view)
   const lattice = useMemo(
     () => (pathFor ? buildLattice(features, pathFor, src.key, width, height, pitch) : []),
     [features, pathFor, src.key, width, height, pitch],
@@ -418,15 +442,23 @@ export function Choropleth({
   // colour change would have nothing to say.
   const layers = useMemo(() => {
     const r = pitch * DOT_RATIO
-    const groups = new Map<string, { fill: string; r: number; dots: Dot[] }>()
+    const groups = new Map<string, { fill: string; r: number; opacity: number; dots: Dot[] }>()
     for (const dot of lattice) {
       const b = bucketOf(values.get(dot.key)?.amount ?? 0, cuts)
       if (b < 0 && dot.rescued) continue
       const isSel = selected === dot.key
-      const id = `${b}:${isSel}`
+      // Recede rather than disappear: a dimmed area still has to read as land,
+      // or highlighting one region punches a hole in the map.
+      const dim = highlight !== null && highlight !== dot.key
+      const id = `${b}:${isSel}:${dim}`
       let g = groups.get(id)
       if (!g) {
-        g = { fill: b < 0 ? EMPTY : RAMP[b]!, r: isSel ? r * 1.5 : r, dots: [] }
+        g = {
+          fill: b < 0 ? EMPTY : RAMP[b]!,
+          r: isSel ? r * 1.5 : r,
+          opacity: dim ? 0.35 : 1,
+          dots: [],
+        }
         groups.set(id, g)
       }
       g.dots.push(dot)
@@ -434,8 +466,8 @@ export function Choropleth({
     // Selected last, so its larger dots are never clipped by a neighbour's.
     return [...groups.entries()]
       .map(([id, g]) => ({ id, ...g }))
-      .sort((a, b) => Number(a.id.endsWith('true')) - Number(b.id.endsWith('true')))
-  }, [lattice, values, cuts, selected, pitch])
+      .sort((a, b) => Number(a.id.split(':')[1] === 'true') - Number(b.id.split(':')[1] === 'true'))
+  }, [lattice, values, cuts, selected, pitch, highlight])
 
   const total = useMemo(
     () => [...values.values()].reduce((s, v) => s + v.amount, 0),
@@ -454,12 +486,23 @@ export function Choropleth({
   if (!pathFor) return <Frame height={height}>{null}</Frame>
 
   const funded = features.filter((f) => (values.get(keyOf(f, src.key))?.amount ?? 0) > 0).length
+  const viewKey =
+    view.kind === 'country' ? `country:${view.code}`
+    : view.kind === 'region' ? `region:${view.region}`
+    : view.kind
 
   return (
     <div>
       <Breadcrumb view={view} onViewChange={onViewChange} showWorld={showWorld} />
 
-      <div ref={wrap} className="relative" onMouseLeave={() => setHover(null)}>
+      <div
+        ref={wrap}
+        className="relative"
+        onMouseLeave={() => {
+          setHover(null)
+          onHighlight?.(null)
+        }}
+      >
         <svg
           viewBox={`0 0 ${width} ${height}`}
           // Not `overflow: visible` — a zoomed country fits its own bounds, so
@@ -469,10 +512,39 @@ export function Choropleth({
           role="img"
           aria-label={`Funding by area — ${funded} of ${features.length} areas funded, ${fmtMoney(total)} total`}
         >
-          {/* The map itself. */}
-          {layers.map((l) => (
-            <path key={l.id} d={circlesPath(l.dots, l.r)} fill={l.fill} pointerEvents="none" />
-          ))}
+          {/* A zoom is the one moment the map genuinely changes place, so it
+              gets a beat: the new tier settles in rather than cutting. Held to
+              a fade and a slight scale on purpose — tweening the projection
+              itself would be the "real" answer and is a great deal of machinery
+              for a transition most people see once. Off under reduced motion. */}
+          <style>{`
+            @keyframes choro-in {
+              from { opacity: 0; transform: scale(0.965); }
+              to   { opacity: 1; transform: scale(1); }
+            }
+            .choro-layer { animation: choro-in 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+            @media (prefers-reduced-motion: reduce) { .choro-layer { animation: none; } }
+          `}</style>
+          {/* The map itself.
+              Re-keyed on the view so React remounts the group and the entry
+              animation replays — a drill is a change of place, and without a
+              beat between the two the map appears to teleport. */}
+          <g
+            key={viewKey}
+            className="choro-layer"
+            style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+          >
+            {layers.map((l) => (
+              <path
+                key={l.id}
+                d={circlesPath(l.dots, l.r)}
+                fill={l.fill}
+                fillOpacity={l.opacity}
+                pointerEvents="none"
+                style={{ transition: 'fill-opacity 140ms ease' }}
+              />
+            ))}
+          </g>
 
           {/* Interaction and accessibility, on the real boundaries but invisible.
               Dots are far too small and too many to be hit targets themselves,
@@ -526,10 +598,20 @@ export function Choropleth({
                 onMouseMove={(e) => {
                   const box = wrap.current?.getBoundingClientRect()
                   if (box) setHover({ x: e.clientX - box.left, y: e.clientY - box.top, f })
+                  onHighlight?.(areaKey)
                 }}
-                onMouseLeave={() => setHover(null)}
-                onFocus={() => setHover({ x: width / 2, y: 8, f })}
-                onBlur={() => setHover(null)}
+                onMouseLeave={() => {
+                  setHover(null)
+                  onHighlight?.(null)
+                }}
+                onFocus={() => {
+                  setHover({ x: width / 2, y: 8, f })
+                  onHighlight?.(areaKey)
+                }}
+                onBlur={() => {
+                  setHover(null)
+                  onHighlight?.(null)
+                }}
                 onClick={() => {
                   if (!interactive) return
                   onSelect(areaKey, f.properties.name)
@@ -715,14 +797,21 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
 }
 
 /**
- * Open Government Licence attribution for the ONS boundaries. This is a licence
- * condition, not a courtesy — render it wherever the UK layers are shown.
+ * Attribution for the ONS boundaries, which is a licence condition of OGL v3
+ * rather than a courtesy — so it renders wherever a UK layer is on screen and
+ * cannot be dropped for being ugly.
+ *
+ * It is scoped to the UK tiers precisely *because* it is not optional there:
+ * the world map is Natural Earth, which is public domain and explicitly asks
+ * for no credit, so carrying the ONS notice under a map of Africa was three
+ * lines of small print making a claim about data that wasn't on the screen.
  */
-export function MapAttribution() {
+export function MapAttribution({ view }: { view: MapView }) {
+  if (view.kind !== 'uk' && view.kind !== 'region') return null
   return (
     <p className="mt-2 font-display text-[10px] leading-snug" style={{ color: chart.faint }}>
       Contains OS data © Crown copyright and database right 2025. Source: ONS, licensed under the
-      Open Government Licence v3.0. Country boundaries: Natural Earth.
+      Open Government Licence v3.0.
     </p>
   )
 }
