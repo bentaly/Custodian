@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Building02Icon,
   Calendar03Icon,
+  DatabaseImportIcon,
   Idea01Icon,
   Key01Icon,
   Mail01Icon,
@@ -111,6 +112,14 @@ const GROUPS: Group[] = [
           'What to send us and what each field means — the endpoints, the format, and the full list of fields we recognise.',
         to: '/settings/submissions',
         icon: SourceCodeIcon,
+        adminOnly: true,
+      },
+      {
+        title: 'Data import',
+        description:
+          'Bring the grants you have already made into Custodian, so your payments, reports and totals are right from day one.',
+        to: '/settings/data-import',
+        icon: DatabaseImportIcon,
         adminOnly: true,
       },
     ],

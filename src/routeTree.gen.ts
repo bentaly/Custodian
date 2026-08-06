@@ -44,6 +44,7 @@ import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings.api-keys'
 import { Route as AuthenticatedSettingsAwardLetterRouteImport } from './routes/_authenticated/settings.award-letter'
+import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
@@ -257,6 +258,12 @@ const AuthenticatedSettingsAwardLetterRoute =
     path: '/award-letter',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsDataImportRoute =
+  AuthenticatedSettingsDataImportRouteImport.update({
+    id: '/data-import',
+    path: '/data-import',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsGivingStrategyRoute =
   AuthenticatedSettingsGivingStrategyRouteImport.update({
     id: '/giving-strategy',
@@ -406,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
+  '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -456,6 +464,7 @@ export interface FileRoutesByTo {
   '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
+  '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -516,6 +525,7 @@ export interface FileRoutesById {
   '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/_authenticated/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
+  '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -576,6 +586,7 @@ export interface FileRouteTypes {
     | '/rounds/$roundId'
     | '/settings/api-keys'
     | '/settings/award-letter'
+    | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/submissions'
     | '/settings/team'
@@ -626,6 +637,7 @@ export interface FileRouteTypes {
     | '/rounds/$roundId'
     | '/settings/api-keys'
     | '/settings/award-letter'
+    | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/submissions'
     | '/settings/team'
@@ -685,6 +697,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rounds/$roundId'
     | '/_authenticated/settings/api-keys'
     | '/_authenticated/settings/award-letter'
+    | '/_authenticated/settings/data-import'
     | '/_authenticated/settings/giving-strategy'
     | '/_authenticated/settings/submissions'
     | '/_authenticated/settings/team'
@@ -984,6 +997,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAwardLetterRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/data-import': {
+      id: '/_authenticated/settings/data-import'
+      path: '/data-import'
+      fullPath: '/settings/data-import'
+      preLoaderRoute: typeof AuthenticatedSettingsDataImportRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/giving-strategy': {
       id: '/_authenticated/settings/giving-strategy'
       path: '/giving-strategy'
@@ -1230,6 +1250,7 @@ const AuthenticatedRoundsRouteWithChildren =
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
   AuthenticatedSettingsAwardLetterRoute: typeof AuthenticatedSettingsAwardLetterRoute
+  AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
@@ -1240,6 +1261,7 @@ interface AuthenticatedSettingsRouteChildren {
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsApiKeysRoute: AuthenticatedSettingsApiKeysRoute,
   AuthenticatedSettingsAwardLetterRoute: AuthenticatedSettingsAwardLetterRoute,
+  AuthenticatedSettingsDataImportRoute: AuthenticatedSettingsDataImportRoute,
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,
   AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,

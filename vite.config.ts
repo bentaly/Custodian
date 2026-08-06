@@ -22,6 +22,15 @@ export default defineConfig(({ mode }) => {
       // Worker stack trace is minified single-letter noise.
       sourcemap: true,
     },
+    optimizeDeps: {
+      // ExcelJS is reached only through a dynamic import on the data-import screen, so
+      // Vite doesn't see it while crawling the entry graph at startup and would
+      // discover it mid-session — re-optimising, and reloading the page, the first time
+      // someone picks a file. Naming it here gets it pre-bundled instead. It is a large
+      // CJS dependency, so this also keeps that cost at dev-server start rather than in
+      // the middle of the flow. Production builds are unaffected.
+      include: ['exceljs'],
+    },
     plugins: [
       // Tailwind v4's Vite plugin, not the PostCSS one: Vite's built-in
       // postcss-import runs first and tries to resolve `@import 'tailwindcss'`

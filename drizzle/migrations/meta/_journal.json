@@ -379,6 +379,13 @@
       "when": 1786144849645,
       "tag": "0053_volatile_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1786299676204,
+      "tag": "0054_stale_magma",
+      "breakpoints": true
     }
   ]
 }

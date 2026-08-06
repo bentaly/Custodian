@@ -290,6 +290,54 @@ accepts **`awardId`**. The admin app declared and posted `grantId`, which typech
 and silently broke the whole report queue: no candidate ever matched a grant, nothing was ever
 pre-selected or badged, and every resolve came back "Grant not found for this client". The UI says
 "grant" because that is the domain word; the wire says `awardId`.
+## Onboarding data import
+
+`/settings/data-import` (admin-only) brings a foundation's existing grants in at onboarding, so
+Finance, Reports and Insights are right on day one rather than pretending their history began then.
+`src/lib/dataImport` is the pure half (column registry, matcher, parser, validator + the .xlsx
+reader/writer); `src/server/fns/dataImport.ts` is the IO.
+
+- **Scope it by lifecycle, not by "all history".** The pitch is *"start with the grants that still
+  owe you money or a report"* — without those the app is actively WRONG (it says nothing is due when
+  £400k is scheduled), whereas missing closed grants only makes lifetime totals short. Old
+  application text, votes and retrospective scores are deliberately never imported.
+- **One .xlsx workbook, three sheets** — Grants / Payments / Reports, joined on the foundation's own
+  reference. Payments and reports are one-row-per-item: a grant paid in six instalments cannot be
+  described by a single "paid to date" figure, because Finance needs each dated line to reconcile.
+- **The template is generated per client** (`buildTemplate`), after their programmes exist, so
+  Programme/Round/Status are **dropdowns of their real data**. That is what lets the import skip
+  column mapping entirely: a hidden `_Custodian` sheet fingerprints the file (version + clientId), so
+  on upload we either recognise it or refuse it. A file built for another tenant is rejected.
+- **Excel validation does not fire on PASTE**, and pasting from an old export is exactly what people
+  do. So `match.ts` resolves unmatched values: exact-after-normalisation applies silently, anything
+  else is *proposed* with a reason ("differs by one character") and confirmed by a human — per
+  DISTINCT value, so one click settles every row using it. Same rule as `report_ingests`: heuristics
+  never auto-link. No AI — the candidate set is five known strings.
+- **Blockers vs degradations** (`validate.ts`) reuses the tier model from the canonical registry for
+  the same reason. A missing delivery area states what it costs and imports anyway; holding a whole
+  portfolio over it would be disproportionate. The `degrades` wording is shared with the grant screen
+  so warning and reality agree.
+- **Reconciliation is the step that earns trust** — committed / paid / outstanding, checked against
+  their own ledger. Stored on the batch as CONFIRMED, never recomputed.
+- **`import_batches` makes it reversible.** Every created row carries `importBatchId`; `rollbackImport`
+  removes them unless a comment, vote, award letter or non-import report exists, at which point it is
+  live data. An import that cannot be undone gets treated as terrifying, so people stall.
+  Re-uploading the same reference REPLACES (delete + reinsert) rather than duplicating — that is the
+  phasing mechanism (live grants first, historic later). A batch whose rows a later import replaced
+  reads as "replaced by a later import" and offers no Undo.
+- **Three things an import must never do**, all easy to add by reflex: send award letters (127
+  charities emailed about grants from 2019), write `audit_log` rows (the feed would show 127 awards
+  "made today"), or go through `createAwards` (which enforces a trustee majority — right for a
+  decision, meaningless for a fact). Due diligence and deprivation are NOT auto-run either: screening
+  a back catalogue would be thousands of registry calls. The columns are captured so it can be run
+  per grant.
+- Imported rows are **marked permanently**. An imported grant has no responses, score, DD trail or
+  votes, and those blanks read as lost data unless the row says it predates Custodian.
+- Historic impact figures become a `reports` row with `matchMethod = 'import'` and no AI analysis, so
+  Insights (which already reads impact from reports) needs no special case.
+- ExcelJS is **browser-side** via dynamic import (a ~900KB route chunk) — parsing on the Worker would
+  mean pushing a binary through a request body. It is in `optimizeDeps.include` so dev doesn't
+  re-optimise mid-flow. The server re-validates everything; the browser is never the authority.
 
 ## Route structure
 
@@ -308,7 +356,8 @@ pre-selected or badged, and every resolve came back "Grant not found for this cl
   when the search param is absent. Screen headers put the `<h1>` first and the round pill on the row
   beneath it — match that on any new round-scoped screen
 - **Settings** (`/settings`) — a card-grid hub for everything that is configuration rather than daily
-  work. Sub-pages: `team`, `giving-strategy`, `voting`, `award-letter`, `api-keys`, `submissions`; it also links out
+  work. Sub-pages: `team`, `giving-strategy`, `voting`, `award-letter`, `api-keys`, `submissions`,
+  `data-import`; it also links out
   to the (unmoved) `/rounds` and `/programmes` routes, which is why those left the sidebar. Cards are
   filtered by role, so the hub is shown to everyone. `/users` is now a redirect to `/settings/team` —
   it was the old all-in-one "Organisation" screen

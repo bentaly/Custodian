@@ -357,6 +357,15 @@ export const applications = pgTable(
     deliveryRegion: text('delivery_region'),
     deliveryLadCode: text('delivery_lad_code'),
     deliveryLadName: text('delivery_lad_name'),
+    // Set when this row came from the onboarding data import rather than a real
+    // submission. Load-bearing beyond provenance: an imported application has no
+    // responses, no score, no due diligence trail and no votes, and those blanks read as
+    // LOST DATA unless the row can say it predates Custodian. It is also why imported
+    // grants sit out of measures like "promises kept" rather than counting as zero —
+    // a grant that never had a report is not a grant that failed.
+    importBatchId: uuid('import_batch_id').references(() => importBatches.id, {
+      onDelete: 'set null',
+    }),
     submittedAt: timestamp('submitted_at').notNull().defaultNow(),
     decisionAt: timestamp('decision_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -659,6 +668,13 @@ export const awards = pgTable(
     // When the award was generated (the grant's start). Mirrors the application's
     // decisionAt for application-derived awards.
     decisionAt: timestamp('decision_at').notNull().defaultNow(),
+    // Set when this grant was brought in by the onboarding import — see the matching
+    // column on `applications`. An imported award is deliberately NOT created through
+    // `createAwards`: that path enforces a trustee majority, which is right for a
+    // decision being made and meaningless for a fact being recorded.
+    importBatchId: uuid('import_batch_id').references(() => importBatches.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [
@@ -885,12 +901,71 @@ export const reports = pgTable(
     reviewedAt: timestamp('reviewed_at'),
     reviewedBy: text('reviewed_by'),
 
+    // Set when this row was created by the onboarding import to carry a historic impact
+    // figure the foundation already held. Such a row has `matchMethod = 'import'`, an
+    // `impactQuantity` and no AI analysis — there is no narrative to analyse, just a
+    // number someone typed. Recording it as a report rather than as a column on the award
+    // means Insights, which already reads impact from reports, needs no special case for
+    // imported history.
+    importBatchId: uuid('import_batch_id').references(() => importBatches.id, {
+      onDelete: 'set null',
+    }),
     submittedAt: timestamp('submitted_at').notNull().defaultNow(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   // Reports are always read through their grant — the Reports list, the award detail,
   // and the Insights impact rollup all start from an award.
   (t) => [index('reports_award_idx').on(t.awardId)],
+)
+
+// ─── Historical data import ─────────────────────────────────────────────────
+
+// Whether an import's rows are still live, or have been withdrawn again.
+//   committed   — the rows it created are in use
+//   rolled_back — the rows were removed; the batch is kept as a record that it happened
+export const importBatchStatusEnum = pgEnum('import_batch_status', ['committed', 'rolled_back'])
+
+// One run of the onboarding data import: a foundation's existing portfolio, brought in
+// from a spreadsheet so the app is accurate on the day they start rather than pretending
+// their history began then.
+//
+// The batch exists to make the import REVERSIBLE. Every row the run creates carries this
+// id, so the whole thing can be withdrawn in one go while nothing has been acted on. That
+// is not a nicety: an import that cannot be undone gets treated as irreversible and
+// terrifying, so people do a five-row test and stall for a month rather than committing
+// their real portfolio. Being able to say "you can undo this" is what makes the first
+// attempt cheap.
+//
+// The reconciliation figures are stored as they were CONFIRMED, not recomputed — they are
+// the record of what a finance lead signed off against their own ledger, and must not
+// drift as instalments are later marked paid.
+export const importBatches = pgTable(
+  'import_batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    status: importBatchStatusEnum('status').notNull().default('committed'),
+    // Original filename, so a client can tell two runs apart at a glance.
+    fileName: text('file_name'),
+    grantCount: integer('grant_count').notNull().default(0),
+    paymentCount: integer('payment_count').notNull().default(0),
+    reportCount: integer('report_count').notNull().default(0),
+    totalCommitted: numeric('total_committed').notNull().default('0'),
+    totalPaid: numeric('total_paid').notNull().default('0'),
+    totalOutstanding: numeric('total_outstanding').notNull().default('0'),
+    // The degradations the client accepted at the review step, kept so "we were never
+    // told this would be missing" can be answered.
+    acceptedWarnings: jsonb('accepted_warnings').$type<string[]>(),
+    createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+    // Denormalised so the history still names someone after the user is deleted.
+    createdByName: text('created_by_name'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    rolledBackAt: timestamp('rolled_back_at'),
+    rolledBackBy: text('rolled_back_by'),
+  },
+  (t) => [index('import_batches_client_created_idx').on(t.clientId, t.createdAt)],
 )
 
 // ─── Audit log ──────────────────────────────────────────────────────────────
@@ -1081,6 +1156,13 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
   user: one(users, { fields: [accounts.userId], references: [users.id] }),
+}))
+
+export const importBatchesRelations = relations(importBatches, ({ one, many }) => ({
+  client: one(clients, { fields: [importBatches.clientId], references: [clients.id] }),
+  createdByUser: one(users, { fields: [importBatches.createdBy], references: [users.id] }),
+  applications: many(applications),
+  awards: many(awards),
 }))
 
 export const auditLogRelations = relations(auditLog, ({ one }) => ({
