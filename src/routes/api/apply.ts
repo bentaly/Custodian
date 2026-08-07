@@ -3,6 +3,7 @@ import { saveIngest, processIngest } from '../../server/fieldMapping/ingest'
 import { runInBackground } from '../../server/background'
 import { authenticateApiKey } from '../../server/apiKeys'
 import { checkRateLimit } from '../../server/rateLimit'
+import { parseSubmissionPayload } from '../../lib/submissionPayload'
 
 // The single public submission entry. A foundation's intake integration posts the raw
 // application here, authenticated with `Authorization: Bearer <api key>` (generated on the
@@ -21,30 +22,9 @@ const CORS_HEADERS = {
 // names → values. There are no reserved top-level keys (the client comes from the API
 // key, and every field including the foundation's application reference is mapped). A
 // foundation may post JSON or a form encoding (urlencoded / multipart); form values
-// arrive as strings, which the mapper handles natively. Returns null for a body that
-// isn't a usable, non-empty object.
-async function parsePayload(request: Request): Promise<Record<string, unknown> | null> {
-  const contentType = request.headers.get('content-type') ?? ''
-  let payload: Record<string, unknown>
-  if (contentType.includes('application/json')) {
-    let body: unknown
-    try {
-      body = await request.json()
-    } catch {
-      return null
-    }
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return null
-    payload = body as Record<string, unknown>
-  } else {
-    // application/x-www-form-urlencoded or multipart/form-data.
-    try {
-      payload = Object.fromEntries(await request.formData())
-    } catch {
-      return null
-    }
-  }
-  return Object.keys(payload).length > 0 ? payload : null
-}
+// arrive as strings, which the mapper handles natively. Decoding is shared with
+// /api/submit-report — see `parseSubmissionPayload` for why the body, not the
+// Content-Type header, decides how it is read.
 
 function jsonResponse(data: unknown, status: number) {
   return new Response(JSON.stringify(data), {
@@ -85,7 +65,7 @@ export const Route = createFileRoute('/api/apply')({
           return tooManyRequests()
         }
 
-        const payload = await parsePayload(request)
+        const payload = await parseSubmissionPayload(request)
         if (!payload) {
           return jsonResponse({ error: 'Request body must contain application fields' }, 400)
         }

@@ -3,6 +3,7 @@ import { saveReportIngest, processReportIngest } from '../../server/reportMappin
 import { runInBackground } from '../../server/background'
 import { authenticateApiKey } from '../../server/apiKeys'
 import { checkRateLimit } from '../../server/rateLimit'
+import { parseSubmissionPayload } from '../../lib/submissionPayload'
 
 // The public grant-report submission entry — the report-side twin of /api/apply.
 // A foundation's report form posts the charity's answers here, authenticated with
@@ -20,28 +21,7 @@ const CORS_HEADERS = {
 // The body IS the payload — a flat object of the foundation's report-form field
 // names → values, JSON or form-encoded. No reserved keys: even the application
 // reference the report should carry (for auto-matching) is just a mapped field.
-async function parsePayload(request: Request): Promise<Record<string, unknown> | null> {
-  const contentType = request.headers.get('content-type') ?? ''
-  let payload: Record<string, unknown>
-  if (contentType.includes('application/json')) {
-    let body: unknown
-    try {
-      body = await request.json()
-    } catch {
-      return null
-    }
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return null
-    payload = body as Record<string, unknown>
-  } else {
-    // application/x-www-form-urlencoded or multipart/form-data.
-    try {
-      payload = Object.fromEntries(await request.formData())
-    } catch {
-      return null
-    }
-  }
-  return Object.keys(payload).length > 0 ? payload : null
-}
+// Decoding is shared with /api/apply — see `parseSubmissionPayload`.
 
 function jsonResponse(data: unknown, status: number) {
   return new Response(JSON.stringify(data), {
@@ -79,7 +59,7 @@ export const Route = createFileRoute('/api/submit-report')({
           return tooManyRequests()
         }
 
-        const payload = await parsePayload(request)
+        const payload = await parseSubmissionPayload(request)
         if (!payload) {
           return jsonResponse({ error: 'Request body must contain report fields' }, 400)
         }
