@@ -302,6 +302,12 @@ export const applications = pgTable(
     // to it — the applicant may be asking this funder to fund only part of the
     // budget. Never derive one from the other.
     budgetBreakdown: jsonb('budget_breakdown').$type<BudgetLine[]>(),
+    // A link to a budget document the applicant uploaded (a spreadsheet, typically),
+    // for foundations whose form asks for the budget as a file rather than as fields.
+    // Answers the same question as `budgetBreakdown` by other means — either one
+    // satisfies the pair — but is opaque to us: nothing reads the file, so it does not
+    // feed the budget UI or the Custodian score the way line items do.
+    budgetBreakdownLink: text('budget_breakdown_link'),
     // The impact the applicant PROPOSES to achieve, counted in the programme's own
     // impact unit (people / trees / hectares …). Application-level and forward-looking —
     // distinct from the ACTUAL impact captured later on grant reports (which is what

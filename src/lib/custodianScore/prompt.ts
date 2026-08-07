@@ -84,7 +84,22 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
       )}\n(This is the cost of the whole project. It need not equal the amount requested — ` +
       `the applicant may be asking this funder to fund only part of it, with the remainder matched ` +
       `or secured elsewhere. Do not treat a difference between the two as an error or inconsistency.)`
-    : ''
+    : input.budgetBreakdownLink
+      ? // The budget exists but as a file we cannot read. Left unsaid, `budget_quality`
+        // ("penalise vague, padded, or poorly justified costs") marks the application
+        // down for an omission the applicant never made — their form asked for an
+        // upload, not fields. But the opposite instruction is worse: told to disregard
+        // it, the model credits a budget it has not seen, and a rigorous spreadsheet
+        // scores the same as a blank one. So: neither penalise nor assume, and say so
+        // in the rationale, which an admin reads beside the document itself.
+        `\n\n## Project budget\nThe applicant supplied their budget as an attached document, which is NOT ` +
+        `available to you. This foundation's form asked for a file rather than itemised fields, so the ` +
+        `absence of a breakdown here is not an omission by the applicant: do not treat the budget as ` +
+        `missing, vague or unjustified. Equally, do not assume the document is thorough or well ` +
+        `costed — you have not seen it. Score budget quality only on the evidence you do have (the ` +
+        `amount requested against the scale and ambition described), and state in your reasoning that ` +
+        `the budget document was not reviewed.`
+      : ''
 
   return `# Funder mission
 ${mission}

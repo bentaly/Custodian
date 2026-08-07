@@ -26,6 +26,13 @@
 // be disproportionate: a foundation that doesn't ask for a delivery area shouldn't
 // have every application stuck in a queue, but nor should the deprivation lookup
 // silently never run. Promote, and say so.
+//
+// Two `expected` fields can also answer the same question by different means — a
+// budget sent as line items, or as a link to a spreadsheet. EXPECTED_ONE_OF_GROUPS
+// pairs those, so the "Not captured" panel reports the pair once and only when NEITHER
+// arrived. Reporting them separately would print "no view of what the money would be
+// spent on" directly beside the budget document, and a panel that cries wolf is one
+// admins learn to skim past — which would cost us the very thing it was built for.
 
 export type CanonicalFieldKey =
   | 'programmeName'
@@ -41,6 +48,7 @@ export type CanonicalFieldKey =
   | 'companyNumber'
   | 'deliveryArea'
   | 'budgetBreakdown'
+  | 'budgetBreakdownLink'
   | 'proposedImpactQuantity'
 
 /** How much a field's absence costs. See the header for what each tier means. */
@@ -171,7 +179,24 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'pairs. ' +
       'Do NOT map a single total figure — the overall ask is `amountRequested`, a separate field. ' +
       'Do NOT map a free-text narrative describing spending in prose; leave that unmapped so it ' +
-      'is kept as a form response.',
+      'is kept as a form response. ' +
+      'Do NOT map a URL or an uploaded file reference — a link is not line items, and mapping ' +
+      'one here would make the breakdown look captured when nothing can read it. Links belong ' +
+      'in `budgetBreakdownLink`.',
+  },
+  {
+    key: 'budgetBreakdownLink',
+    label: 'Budget document',
+    tier: 'expected',
+    degrades:
+      'Without it — and without a line-item breakdown — the application shows only the total ask, ' +
+      'with no view of what the money would be spent on.',
+    description:
+      'A LINK TO A BUDGET DOCUMENT the applicant uploaded or shared — a spreadsheet or similar ' +
+      'holding the project budget (e.g. a file-upload question on the foundation\'s form, which ' +
+      'typically arrives as a URL to the stored file). Map only an http(s) URL. ' +
+      'Do NOT map line items or category→amount pairs; a structured breakdown belongs in ' +
+      '`budgetBreakdown`. Do NOT map a link to something that is not the budget.',
   },
   {
     key: 'proposedImpactQuantity',
@@ -204,6 +229,32 @@ export const REQUIRED_CANONICAL_KEYS: CanonicalFieldKey[] = CANONICAL_FIELDS.fil
  * an application holding neither cannot be screened for due diligence at all.
  */
 export const REQUIRED_ONE_OF_GROUPS: CanonicalFieldKey[][] = [['charityNumber', 'companyNumber']]
+
+/**
+ * `expected` fields that answer the same question by different means, of which any one
+ * satisfies the rest. Unlike REQUIRED_ONE_OF_GROUPS these never block: an unsatisfied
+ * group is reported on the application, exactly as an ungrouped `expected` field is.
+ *
+ * The group carries its own `degrades` because the sentence is a property of the pair,
+ * not of either member — "without EITHER of these" is the only honest phrasing, and
+ * leaving it on the fields would print it twice or print the wrong half.
+ */
+export const EXPECTED_ONE_OF_GROUPS: Array<{
+  keys: CanonicalFieldKey[]
+  degrades: string
+}> = [
+  {
+    keys: ['budgetBreakdown', 'budgetBreakdownLink'],
+    degrades:
+      'Without either, the application shows only the total ask, with no view of what the ' +
+      'money would be spent on.',
+  },
+]
+
+/** Keys reported via a group, so `fieldGaps` doesn't also report them individually. */
+export const EXPECTED_GROUPED_KEYS: Set<CanonicalFieldKey> = new Set(
+  EXPECTED_ONE_OF_GROUPS.flatMap((g) => g.keys),
+)
 
 /**
  * Fields whose absence degrades a feature but must not block a submission. Surfaced on

@@ -5,6 +5,7 @@ import { SettingsPage } from '../../components/SettingsPage'
 import {
   CANONICAL_FIELDS,
   REQUIRED_ONE_OF_GROUPS,
+  EXPECTED_ONE_OF_GROUPS,
   describeOneOfGroup,
   type FieldTier,
 } from '../../lib/fieldMapping/canonical'
@@ -157,6 +158,19 @@ function Submissions() {
                 other, so neither is required by itself — but with neither there is no register to
                 check, and the application can never be screened for due diligence. A submission
                 with neither waits in the review queue.
+              </p>
+            ))}
+          {tab === 'applications' &&
+            EXPECTED_ONE_OF_GROUPS.map((group) => (
+              <p
+                key={group.keys.join('-')}
+                className="rounded-[12px] bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-600"
+              >
+                Send a <strong>{describeOneOfGroup(group.keys)}</strong> — either one answers the
+                question, so there is no need to send both. Unlike the pair above, neither holds a
+                submission: send neither and the application is still created, noting that no
+                budget was captured. A document is shown to reviewers as a link; only line items
+                feed the budget breakdown and the Custodian score.
               </p>
             ))}
           <Card className="divide-y divide-gray-100">

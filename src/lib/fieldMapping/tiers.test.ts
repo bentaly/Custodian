@@ -4,6 +4,7 @@ import {
   EXPECTED_CANONICAL_KEYS,
   REQUIRED_CANONICAL_KEYS,
   REQUIRED_ONE_OF_GROUPS,
+  EXPECTED_ONE_OF_GROUPS,
   describeOneOfGroup,
   unmetOneOfGroups,
 } from './canonical'
@@ -118,17 +119,80 @@ describe('fieldGaps', () => {
   })
 
   it('treats an empty budget array as not captured', () => {
+    // Reported through the budget group rather than as a lone field, since a document
+    // link would have answered the same question.
     const gaps = fieldGaps({ ...complete, budgetBreakdown: [] })
-    expect(gaps.expected.map((g) => g.key)).toEqual(['budgetBreakdown'])
+    expect(gaps.expected).toEqual([])
+    expect(gaps.expectedGroups.map((g) => g.keys)).toEqual([
+      ['budgetBreakdown', 'budgetBreakdownLink'],
+    ])
   })
 
   it('reports every gap at once', () => {
     const gaps = fieldGaps({})
     expect(gaps.any).toBe(true)
     expect(gaps.oneOf).toHaveLength(1)
-    expect(gaps.expected.map((g) => g.key)).toEqual([
+    expect(gaps.expectedGroups).toHaveLength(1)
+    expect(gaps.expected.map((g) => g.key)).toEqual(['deliveryArea', 'proposedImpactQuantity'])
+  })
+})
+
+describe('the budget pair', () => {
+  // A budget can arrive as line items or as an uploaded document. Either answers the
+  // question, so the gap panel must treat them as one thing — reporting them
+  // separately would print "no view of what the money would be spent on" beside the
+  // budget document itself, and a panel that cries wolf gets skimmed past.
+  const base = {
+    charityNumber: '1123456',
+    deliveryArea: 'Bradford',
+    proposedImpactQuantity: 340,
+  }
+  const LINES = [{ item: 'Staff costs', amount: 12000 }]
+  const LINK = 'https://api.typeform.com/responses/files/abc123/Project_Budget.ods'
+
+  it('groups the two budget fields without blocking the submission', () => {
+    expect(EXPECTED_ONE_OF_GROUPS.map((g) => g.keys)).toEqual([
+      ['budgetBreakdown', 'budgetBreakdownLink'],
+    ])
+    // The distinction that matters: `one_of` holds an ingest, `expected` never does.
+    // If this pair ever reached REQUIRED_ONE_OF_GROUPS, every foundation that doesn't
+    // ask for a budget would have every submission stuck in the review queue.
+    expect(REQUIRED_ONE_OF_GROUPS.flat()).not.toContain('budgetBreakdown')
+    expect(REQUIRED_ONE_OF_GROUPS.flat()).not.toContain('budgetBreakdownLink')
+    expect(unmetOneOfGroups(['charityNumber'])).toEqual([])
+  })
+
+  it('reports nothing when the breakdown is present', () => {
+    const gaps = fieldGaps({ ...base, budgetBreakdown: LINES })
+    expect(gaps.expectedGroups).toEqual([])
+  })
+
+  it('reports nothing when only the document link is present', () => {
+    const gaps = fieldGaps({ ...base, budgetBreakdownLink: LINK })
+    expect(gaps.expectedGroups).toEqual([])
+    expect(gaps.any).toBe(false)
+  })
+
+  it('reports once — not twice — when neither is present', () => {
+    const gaps = fieldGaps(base)
+    expect(gaps.expectedGroups).toHaveLength(1)
+    expect(gaps.expectedGroups[0]?.label).toBe('budget breakdown or budget document')
+    expect(gaps.expectedGroups[0]?.degrades).toMatch(/only the total ask/)
+    expect(gaps.any).toBe(true)
+  })
+
+  it('never lists a grouped field individually', () => {
+    // Both halves absent, and still neither appears in `expected`: the group speaks
+    // for them, or the panel would say the same thing twice.
+    const keys = fieldGaps(base).expected.map((g) => g.key)
+    expect(keys).not.toContain('budgetBreakdown')
+    expect(keys).not.toContain('budgetBreakdownLink')
+  })
+
+  it('still reports ungrouped expected fields on their own', () => {
+    const gaps = fieldGaps({ charityNumber: '1123456', budgetBreakdown: LINES })
+    expect(gaps.expected.map((g) => g.key).sort()).toEqual([
       'deliveryArea',
-      'budgetBreakdown',
       'proposedImpactQuantity',
     ])
   })

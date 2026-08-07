@@ -38,6 +38,7 @@ import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDi
 import { fieldGaps } from '../../lib/fieldMapping/gaps'
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
+import { budgetDocumentName } from '../../lib/budget/link'
 import { fmtCompact, fmtMoney } from '../../lib/format'
 import { C as TOKENS } from '../../components/ui/tokens'
 
@@ -303,6 +304,12 @@ function ApplicationDetail() {
   const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
   const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || amountRequested
 
+  // A budget sent as a file rather than as fields. Opaque to us — nothing reads it, so
+  // it feeds neither the breakdown above nor the Custodian score — but it answers the
+  // same question for a reader, which is why it satisfies the budget pair in `gaps`.
+  const budgetLink = application.budgetBreakdownLink ?? null
+  const budgetLinkName = budgetLink ? budgetDocumentName(budgetLink) : null
+
   // Beneficiaries + cost-per-beneficiary come from what the applicant PROPOSES on
   // this application (a forward-looking count in the programme's impact unit).
   const unitLabel = impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
@@ -323,6 +330,7 @@ function ApplicationDetail() {
     companyNumber: application.companyNumber,
     deliveryArea: application.deliveryArea,
     budgetBreakdown: budgetLines,
+    budgetBreakdownLink: application.budgetBreakdownLink,
     proposedImpactQuantity: application.proposedImpactQuantity,
   })
   const noRegistrationNumber = gaps.oneOf.length > 0
@@ -673,10 +681,28 @@ function ApplicationDetail() {
                 })}
               </div>
             </>
-          ) : (
+          ) : budgetLink ? null : (
             <p className="font-display text-[14px]" style={{ color: C.sub }}>
               No budget breakdown was provided with this application.
             </p>
+          )}
+          {budgetLink && (
+            <div className={budgetLines.length > 0 ? 'mt-3 border-t pt-3' : ''}>
+              <a
+                href={budgetLink}
+                target="_blank"
+                // Applicant-supplied URL: never hand the opener to it.
+                rel="noopener noreferrer"
+                className="font-display text-[14px] underline underline-offset-2"
+                style={{ color: C.ink }}
+              >
+                {budgetLinkName}
+              </a>
+              <p className="mt-1 font-display text-[13px]" style={{ color: C.sub }}>
+                The applicant supplied their budget as a document. It opens in a new tab and
+                isn't read by Custodian, so it doesn't feed the breakdown or the score.
+              </p>
+            </div>
           )}
         </Panel>
 
@@ -770,7 +796,7 @@ function ApplicationDetail() {
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {[
-                ...gaps.oneOf.map((g) => ({
+                ...[...gaps.oneOf, ...gaps.expectedGroups].map((g) => ({
                   key: g.keys.join('-'),
                   label: g.label.replace(/^./, (ch) => ch.toUpperCase()),
                   degrades: g.degrades,

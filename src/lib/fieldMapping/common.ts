@@ -150,6 +150,23 @@ export const COMMON_MAPPINGS: Partial<Record<CanonicalFieldKey, string[]>> = {
     'itemised costs',
     'line item budget',
   ],
+  // Names that unambiguously mean a FILE holding the budget, not the figures
+  // themselves. Every one of these says upload / file / document / attachment —
+  // a form asking "budget breakdown" wants fields, one asking "budget upload" wants
+  // a link, and only the second belongs here. Long question-style titles ("Please
+  // upload a budget relating to your funding request…") are left to the AI fallback
+  // rather than guessed at.
+  budgetBreakdownLink: [
+    'budget upload',
+    'upload budget',
+    'upload your budget',
+    'budget file',
+    'budget document',
+    'budget attachment',
+    'budget spreadsheet',
+    'attach budget',
+    'attach your budget',
+  ],
 }
 
 // Build the normalised lookup: normalised alias → canonical key. Guard against an

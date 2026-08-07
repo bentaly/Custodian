@@ -83,6 +83,7 @@ export async function createApplicationFromCanonical(
       organisationName: input.organisationName,
       amountRequested: input.amountRequested,
       budgetBreakdown: input.budgetBreakdown,
+      budgetBreakdownLink: input.budgetBreakdownLink,
       deliveryArea: input.deliveryArea,
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
@@ -113,6 +114,7 @@ export async function createApplicationFromCanonical(
       proposedImpactQuantity:
         input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
       budgetBreakdown: input.budgetBreakdown ?? null,
+      budgetBreakdownLink: input.budgetBreakdownLink ?? null,
       responses: input.responses,
       dueDiligenceStatus: dueDiligence.status,
       dueDiligenceChecks: dueDiligence.checks,

@@ -95,6 +95,7 @@ export function buildCanonicalInput(
     amountRequested: amount,
     proposedImpactQuantity,
     budgetBreakdown: budgetBreakdown ?? undefined,
+    budgetBreakdownLink: get('budgetBreakdownLink'),
     responses: allResponses,
   }
 }

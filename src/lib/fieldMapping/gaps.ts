@@ -18,6 +18,8 @@ import {
   CANONICAL_FIELDS,
   CANONICAL_FIELD_BY_KEY,
   REQUIRED_ONE_OF_GROUPS,
+  EXPECTED_ONE_OF_GROUPS,
+  EXPECTED_GROUPED_KEYS,
   describeOneOfGroup,
   type CanonicalFieldKey,
 } from './canonical'
@@ -37,8 +39,17 @@ export interface OneOfGap {
 }
 
 export interface FieldGaps {
-  /** `expected` fields with no value — the application exists, a feature is degraded. */
+  /**
+   * `expected` fields with no value — the application exists, a feature is degraded.
+   * Excludes members of an expected group, which are reported once via `expectedGroups`.
+   */
   expected: FieldGap[]
+  /**
+   * Expected groups with no member set (see EXPECTED_ONE_OF_GROUPS). Reported as one
+   * entry rather than per field: with a budget document attached, a separate "budget
+   * breakdown not captured" line would be printing a complaint next to its own answer.
+   */
+  expectedGroups: OneOfGap[]
   /**
    * One-of groups with no member set. On a NEW submission the pipeline holds these
    * rather than promoting, so a gap here means an application created before the rule
@@ -60,13 +71,21 @@ function isPresent(value: unknown): boolean {
 
 export function fieldGaps(values: Partial<Record<CanonicalFieldKey, unknown>>): FieldGaps {
   const expected: FieldGap[] = CANONICAL_FIELDS.filter(
-    (f) => f.tier === 'expected' && !isPresent(values[f.key]),
+    (f) => f.tier === 'expected' && !EXPECTED_GROUPED_KEYS.has(f.key) && !isPresent(values[f.key]),
   ).map((f) => ({
     key: f.key,
     label: f.label,
     // Every `expected` field carries `degrades` in the registry; the fallback keeps
     // this total rather than rendering an empty line if one is ever added without it.
     degrades: f.degrades ?? 'Some of this application is missing as a result.',
+  }))
+
+  const expectedGroups: OneOfGap[] = EXPECTED_ONE_OF_GROUPS.filter(
+    (group) => !group.keys.some((k) => isPresent(values[k])),
+  ).map((group) => ({
+    keys: group.keys,
+    label: describeOneOfGroup(group.keys),
+    degrades: group.degrades,
   }))
 
   const oneOf: OneOfGap[] = REQUIRED_ONE_OF_GROUPS.filter(
@@ -78,7 +97,12 @@ export function fieldGaps(values: Partial<Record<CanonicalFieldKey, unknown>>): 
       'Without one of them there is no register to check, so this application cannot be screened for due diligence.',
   }))
 
-  return { expected, oneOf, any: expected.length > 0 || oneOf.length > 0 }
+  return {
+    expected,
+    expectedGroups,
+    oneOf,
+    any: expected.length > 0 || expectedGroups.length > 0 || oneOf.length > 0,
+  }
 }
 
 /** Whether the registration pair is entirely absent — the due diligence precondition. */

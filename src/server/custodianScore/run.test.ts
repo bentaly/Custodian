@@ -14,6 +14,7 @@ const INPUT: CustodianScoreInput = {
   organisationName: 'Nature Learning Network',
   amountRequested: 35000,
   budgetBreakdown: null,
+  budgetBreakdownLink: null,
   deliveryArea: 'Yorkshire',
   charityNumber: '1234567',
   companyNumber: null,

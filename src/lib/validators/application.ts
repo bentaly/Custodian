@@ -68,6 +68,18 @@ export const CreateApplicationSchema = z.object({
   // be asking this funder for only part of the budget, so the lines legitimately
   // sum to more (or less) than the ask.
   budgetBreakdown: z.array(BudgetLineSchema).max(100).optional(),
+  // A link to a budget document, where the foundation's form asks for a file instead
+  // of fields. http(s) only: this is rendered as a link an admin clicks, and it
+  // arrives from an applicant-filled form, so anything else is refused rather than
+  // stored and put in front of someone.
+  budgetBreakdownLink: z
+    .string()
+    .url()
+    .max(2000)
+    .refine((u) => u.startsWith('http://') || u.startsWith('https://'), {
+      message: 'Budget document link must be an http(s) URL',
+    })
+    .optional(),
   responses: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
 })
 export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>

@@ -81,6 +81,11 @@ export interface CustodianScoreInput {
    *  whether the ask is costed credibly — and, where the lines exceed the ask, that
    *  this funder is being asked for part of a larger budget. */
   budgetBreakdown: BudgetLine[] | null | undefined
+  /** Set when the foundation's form asked for the budget as a FILE rather than as
+   *  fields. We can't read it, so it carries no budget content — its only job is to
+   *  stop `budget_quality` reading an absent breakdown as costs the applicant failed
+   *  to justify, when in fact they were never asked to itemise them. */
+  budgetBreakdownLink: string | null | undefined
   /** Area where the project is delivered (community served) — relevant when a
    *  programme has a geographic eligibility/priority. */
   deliveryArea: string | null | undefined

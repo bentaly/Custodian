@@ -372,6 +372,13 @@
       "when": 1786136165069,
       "tag": "0052_illegal_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1786144849645,
+      "tag": "0053_volatile_green_goblin",
+      "breakpoints": true
     }
   ]
 }
