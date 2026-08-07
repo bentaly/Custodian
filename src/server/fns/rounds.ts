@@ -8,20 +8,30 @@ import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { CreateRoundSchema, UpdateRoundSchema } from '../../lib/validators/round'
 
-export const listMyRounds = createServerFn({ method: 'GET' }).handler(async () => {
-  const user = await requireAuthUser()
-  if (!user.clientId) return []
-  return getDb().query.rounds.findMany({
-    where: (r, { eq }) => eq(r.clientId, user.clientId!),
-    orderBy: (r, { desc }) => [desc(r.createdAt)],
-    with: {
-      roundProgrammes: {
-        with: { programme: true },
-        orderBy: (rp, { asc }) => [asc(rp.createdAt)],
+/**
+ * The client's rounds. Archived ones are excluded unless asked for — an archived round
+ * must not appear in the round pill or a filter, but the Rounds screen still has to be
+ * able to show and un-archive it.
+ */
+export const listMyRounds = createServerFn({ method: 'GET' })
+  .validator(z.object({ includeArchived: z.boolean().optional() }).optional())
+  .handler(async ({ data }) => {
+    const user = await requireAuthUser()
+    if (!user.clientId) return []
+    return getDb().query.rounds.findMany({
+      where: (r, { eq, and, isNull }) =>
+        data?.includeArchived
+          ? eq(r.clientId, user.clientId!)
+          : and(eq(r.clientId, user.clientId!), isNull(r.archivedAt)),
+      orderBy: (r, { desc }) => [desc(r.createdAt)],
+      with: {
+        roundProgrammes: {
+          with: { programme: true },
+          orderBy: (rp, { asc }) => [asc(rp.createdAt)],
+        },
       },
-    },
+    })
   })
-})
 
 // Lightweight feed for the app-shell header's round-status line ("Spring 2026
 // closed · Summer 2027 opens in 11 days") — names and dates only, no programmes.
@@ -94,6 +104,33 @@ export const updateRound = createServerFn({ method: 'POST' })
     return round!
   })
 
+/**
+ * Retire a round, or bring it back. See `setProgrammeArchived` — same rule, same
+ * reason: a closed round's applications and awards are the record of a decision, so the
+ * ordinary "we're finished with this" is archiving, not deletion.
+ */
+export const setRoundArchived = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.uuid(), archived: z.boolean() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    const existing = await getDb().query.rounds.findFirst({
+      where: (r, { eq }) => eq(r.id, data.id),
+      columns: { clientId: true },
+    })
+    if (!existing) throw notFoundError()
+    assertClientAccess(user, existing.clientId)
+    await getDb()
+      .update(rounds)
+      .set({ archivedAt: data.archived ? new Date() : null })
+      .where(eq(rounds.id, data.id))
+    return { ok: true }
+  })
+
+/**
+ * Delete a round outright — only while it has no applications. Past that point
+ * `applications.round_programme_id` (ON DELETE RESTRICT) forbids it at the database,
+ * and archiving is what was actually wanted.
+ */
 export const deleteRound = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
@@ -109,11 +146,11 @@ export const deleteRound = createServerFn({ method: 'POST' })
     if (!round) throw notFoundError()
     // Scope non-superadmins to their own client.
     if (user.clientId && round.clientId !== user.clientId) throw forbidden()
-    // applications.roundProgrammeId is ON DELETE RESTRICT, so deleting a round that
-    // has applications would fail at the DB; surface a clear message instead.
     const hasApplications = round.roundProgrammes.some((rp) => rp.applications.length > 0)
     if (hasApplications) {
-      throw conflict('This round has applications and cannot be deleted.')
+      throw conflict(
+        'This round has applications, so it cannot be deleted. Archive it instead — it will disappear from the round pickers but keep its history.',
+      )
     }
     await getDb().delete(rounds).where(eq(rounds.id, data.id))
     return { ok: true }

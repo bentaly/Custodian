@@ -88,11 +88,24 @@ export async function computeGrantCandidates(
   clientId: string,
   hints: CandidateHints,
 ): Promise<GrantCandidate[]> {
+  // Every award the foundation has ever made is scored, so this asks for the four
+  // fields the scoring below reads and nothing else. Left as `SELECT *` it pulled each
+  // award's whole application — five jsonb columns of responses, AI analysis and budget
+  // lines — on every single report submission. That is tens of MB for a foundation with
+  // years of grants, spent inside a background pipeline where running out of memory
+  // would leave an ingest stuck at `received` with no one watching.
   const clientAwards = await getDb().query.awards.findMany({
     where: eq(awards.clientId, clientId),
+    columns: { id: true, amountAwarded: true, decisionAt: true },
     with: {
       application: {
-        with: { roundProgramme: { with: { programme: true } } },
+        columns: { charityNumber: true, organisationName: true },
+        with: {
+          roundProgramme: {
+            columns: { id: true },
+            with: { programme: { columns: { name: true } } },
+          },
+        },
       },
     },
   })

@@ -1,17 +1,12 @@
 import type { ReactNode } from 'react'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { withAlpha } from '../BarMeter'
+import { C } from './tokens'
 
 // The small sibling of the dashboard's KPI card (Figma 112:134): a white card with a
 // tinted inner panel — big number, supporting line, icon + label footer. Used as the
 // stat row above a list screen. Lifted out of Insights / the application detail, which
 // each had their own copy.
-
-const C = {
-  ink: '#141C24',
-  sub: '#637083',
-  line: '#E4E7EC',
-}
 
 /** The four pastel tints, in the order they read across a stat row. */
 export const KPI_TINTS = {

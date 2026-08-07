@@ -31,6 +31,7 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
 import { fmtCompact, fmtMoney } from '../../lib/format'
+import { C } from '../../components/ui/tokens'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
@@ -63,15 +64,6 @@ export const Route = createFileRoute('/_authenticated/insights')({
 })
 
 // ─── Design tokens ───────────────────────────────────────────────────────────────
-const C = {
-  ink: '#141C24',
-  sub: '#637083',
-  faint: '#97A1AF',
-  line: '#E4E7EC',
-  wash: '#F2F4F7',
-  brand: '#1F7A5C',
-  success: '#31A650',
-}
 const KPI = {
   committed: { bg: '#F5F4FF', accent: '#8B7FF0' },
   people: { bg: '#EDF9F1', accent: '#31A650' },

@@ -6,7 +6,9 @@ import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../
 import { Badge, Breadcrumb, Button, Card, EmptyState, Input, Label } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
-  loader: () => listMyRounds(),
+  // The management screen is the one place archived rounds must still be visible —
+  // otherwise archiving is indistinguishable from deleting, and irreversible in practice.
+  loader: () => listMyRounds({ data: { includeArchived: true } }),
   component: Rounds,
 })
 
@@ -121,7 +123,7 @@ function Rounds() {
                 key={round.id}
                 to="/rounds/$roundId"
                 params={{ roundId: round.id }}
-                className="block rounded-lg border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                className={`block rounded-lg border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50 ${round.archivedAt ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -133,6 +135,9 @@ function Rounds() {
                           <Badge className={ROUND_STATUS_COLORS[s]}>{ROUND_STATUS_LABELS[s]}</Badge>
                         )
                       })()}
+                      {round.archivedAt && (
+                        <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+                      )}
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
                       <span>

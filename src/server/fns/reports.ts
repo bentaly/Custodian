@@ -7,6 +7,7 @@ import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { dueStatus, type DueStatus } from '../../lib/schedule'
+import { paginate, PAGE_SIZE } from '../../lib/pagination'
 
 export type { DueStatus } from '../../lib/schedule'
 
@@ -26,140 +27,163 @@ export type { DueStatus } from '../../lib/schedule'
 export type ReceivedStatus = 'received' | 'reviewed'
 export type ReportRowStatus = ReceivedStatus | DueStatus
 
-export const listReports = createServerFn({ method: 'GET' }).handler(async () => {
-  const user = await requireAuthUser()
-  if (!user.clientId) return { items: [], upcoming: [], totals: emptyTotals() }
+export const listReports = createServerFn({ method: 'GET' })
+  .validator(
+    z
+      .object({
+        /** Which received-status tab is open; absent means all of them. */
+        status: z.enum(['received', 'reviewed']).optional(),
+        page: z.number().int().positive().optional(),
+      })
+      .optional(),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireAuthUser()
+    if (!user.clientId) {
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: PAGE_SIZE,
+        upcoming: [],
+        totals: emptyTotals(),
+      }
+    }
 
-  const clientAwards = await getDb().query.awards.findMany({
-    where: eq(awards.clientId, user.clientId),
-    with: {
-      application: {
-        columns: { id: true, organisationName: true, deliveryArea: true },
-        with: {
-          roundProgramme: {
-            columns: { id: true },
-            with: {
-              programme: { columns: { name: true, impactUnit: true, impactUnitLabel: true } },
-              round: { columns: { name: true } },
+    const clientAwards = await getDb().query.awards.findMany({
+      where: eq(awards.clientId, user.clientId),
+      with: {
+        application: {
+          columns: { id: true, organisationName: true, deliveryArea: true },
+          with: {
+            roundProgramme: {
+              columns: { id: true },
+              with: {
+                programme: { columns: { name: true, impactUnit: true, impactUnitLabel: true } },
+                round: { columns: { name: true } },
+              },
             },
           },
         },
+        schedule: true,
+        reports: true,
       },
-      schedule: true,
-      reports: true,
-    },
-  })
+    })
 
-  type SubmissionRow = (typeof clientAwards)[number]['reports'][number]
+    type SubmissionRow = (typeof clientAwards)[number]['reports'][number]
 
-  // Shape the submission into an explicitly serializable payload (raw rows carry
-  // loosely-typed jsonb that the server-fn serializer rejects).
-  function toSubmissionView(s: SubmissionRow) {
-    return {
-      id: s.id,
-      submittedAt: s.submittedAt.toISOString(),
-      impactSummary: s.impactSummary,
-      challenges: s.challenges,
-      lessons: s.lessons,
-      analysisStatus: s.analysisStatus,
-      aiSummary: s.aiSummary,
-      aiChallenges: s.aiChallenges,
-      aiLessons: s.aiLessons,
-      applicationAlignment: s.applicationAlignment,
-      programmeAlignment: s.programmeAlignment,
-      impactQuantity: s.impactQuantity,
-      impactQuantitySource: s.impactQuantitySource,
-      impactQuantityQuote: s.impactQuantityQuote,
-      impactUnitLabel: s.impactUnitLabel,
-      reviewedAt: s.reviewedAt ? s.reviewedAt.toISOString() : null,
-      reviewedBy: s.reviewedBy,
-      flags: ((s.analysisDetail as { flags?: string[] } | null)?.flags ?? []) as string[],
-    }
-  }
-  type SubmissionView = ReturnType<typeof toSubmissionView>
-
-  // Reports that have arrived — the screen's primary table.
-  const items: Array<{
-    key: string
-    awardId: string
-    applicationId: string
-    organisationName: string
-    programmeName: string | null
-    roundName: string | null
-    /** The schedule label this report answered, or "Unscheduled report". */
-    label: string
-    dueDate: string | null
-    submittedAt: string
-    status: ReceivedStatus
-    submission: SubmissionView
-  }> = []
-
-  // Dates still outstanding — the chase-list, shown in the drawer.
-  const upcoming: Array<{
-    key: string
-    awardId: string
-    applicationId: string
-    organisationName: string
-    programmeName: string | null
-    label: string
-    dueDate: string
-    status: DueStatus
-  }> = []
-
-  for (const g of clientAwards) {
-    const org = g.application.organisationName
-    const programmeName = g.application.roundProgramme?.programme?.name ?? null
-    const roundName = g.application.roundProgramme?.round?.name ?? null
-    const scheduleById = new Map(g.schedule.map((m) => [m.id, m]))
-
-    for (const s of g.reports) {
-      const milestone = s.scheduleId ? (scheduleById.get(s.scheduleId) ?? null) : null
-      items.push({
-        key: s.id,
-        awardId: g.id,
-        applicationId: g.application.id,
-        organisationName: org,
-        programmeName,
-        roundName,
-        label: milestone?.label ?? 'Unscheduled report',
-        dueDate: milestone?.dueDate ?? null,
+    // Shape the submission into an explicitly serializable payload (raw rows carry
+    // loosely-typed jsonb that the server-fn serializer rejects).
+    function toSubmissionView(s: SubmissionRow) {
+      return {
+        id: s.id,
         submittedAt: s.submittedAt.toISOString(),
-        status: s.reviewedAt ? 'reviewed' : 'received',
-        submission: toSubmissionView(s),
-      })
+        impactSummary: s.impactSummary,
+        challenges: s.challenges,
+        lessons: s.lessons,
+        analysisStatus: s.analysisStatus,
+        aiSummary: s.aiSummary,
+        aiChallenges: s.aiChallenges,
+        aiLessons: s.aiLessons,
+        applicationAlignment: s.applicationAlignment,
+        programmeAlignment: s.programmeAlignment,
+        impactQuantity: s.impactQuantity,
+        impactQuantitySource: s.impactQuantitySource,
+        impactQuantityQuote: s.impactQuantityQuote,
+        impactUnitLabel: s.impactUnitLabel,
+        reviewedAt: s.reviewedAt ? s.reviewedAt.toISOString() : null,
+        reviewedBy: s.reviewedBy,
+        flags: ((s.analysisDetail as { flags?: string[] } | null)?.flags ?? []) as string[],
+      }
+    }
+    type SubmissionView = ReturnType<typeof toSubmissionView>
+
+    // Reports that have arrived — the screen's primary table.
+    const items: Array<{
+      key: string
+      awardId: string
+      applicationId: string
+      organisationName: string
+      programmeName: string | null
+      roundName: string | null
+      /** The schedule label this report answered, or "Unscheduled report". */
+      label: string
+      dueDate: string | null
+      submittedAt: string
+      status: ReceivedStatus
+      submission: SubmissionView
+    }> = []
+
+    // Dates still outstanding — the chase-list, shown in the drawer.
+    const upcoming: Array<{
+      key: string
+      awardId: string
+      applicationId: string
+      organisationName: string
+      programmeName: string | null
+      label: string
+      dueDate: string
+      status: DueStatus
+    }> = []
+
+    for (const g of clientAwards) {
+      const org = g.application.organisationName
+      const programmeName = g.application.roundProgramme?.programme?.name ?? null
+      const roundName = g.application.roundProgramme?.round?.name ?? null
+      const scheduleById = new Map(g.schedule.map((m) => [m.id, m]))
+
+      for (const s of g.reports) {
+        const milestone = s.scheduleId ? (scheduleById.get(s.scheduleId) ?? null) : null
+        items.push({
+          key: s.id,
+          awardId: g.id,
+          applicationId: g.application.id,
+          organisationName: org,
+          programmeName,
+          roundName,
+          label: milestone?.label ?? 'Unscheduled report',
+          dueDate: milestone?.dueDate ?? null,
+          submittedAt: s.submittedAt.toISOString(),
+          status: s.reviewedAt ? 'reviewed' : 'received',
+          submission: toSubmissionView(s),
+        })
+      }
+
+      // A schedule row is outstanding until something ticks it off.
+      for (const m of g.schedule) {
+        if (m.submittedDate) continue
+        upcoming.push({
+          key: m.id,
+          awardId: g.id,
+          applicationId: g.application.id,
+          organisationName: org,
+          programmeName,
+          label: m.label,
+          dueDate: m.dueDate,
+          status: dueStatus(m.dueDate),
+        })
+      }
     }
 
-    // A schedule row is outstanding until something ticks it off.
-    for (const m of g.schedule) {
-      if (m.submittedDate) continue
-      upcoming.push({
-        key: m.id,
-        awardId: g.id,
-        applicationId: g.application.id,
-        organisationName: org,
-        programmeName,
-        label: m.label,
-        dueDate: m.dueDate,
-        status: dueStatus(m.dueDate),
-      })
+    // Most recently received first — the newest report is the one you came to read.
+    items.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+    // Most overdue first — the chase-list is ordered by urgency.
+    upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+
+    const totals = {
+      received: items.filter((i) => i.status === 'received').length,
+      reviewed: items.filter((i) => i.status === 'reviewed').length,
+      overdue: upcoming.filter((i) => i.status === 'overdue').length,
+      dueSoon: upcoming.filter((i) => i.status === 'due_soon').length,
+      outstanding: upcoming.length,
     }
-  }
 
-  // Most recently received first — the newest report is the one you came to read.
-  items.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
-  // Most overdue first — the chase-list is ordered by urgency.
-  upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-
-  const totals = {
-    received: items.filter((i) => i.status === 'received').length,
-    reviewed: items.filter((i) => i.status === 'reviewed').length,
-    overdue: upcoming.filter((i) => i.status === 'overdue').length,
-    dueSoon: upcoming.filter((i) => i.status === 'due_soon').length,
-    outstanding: upcoming.length,
-  }
-
-  return { items, upcoming, totals }
-})
+    // The tab is a server-side filter so that the page is a page of the tab, not a page
+    // of everything with the tab applied afterwards. `upcoming` is the drawer's
+    // chase-list — short by nature, and read as a whole — so it stays unpaged.
+    const filtered = data?.status ? items.filter((i) => i.status === data.status) : items
+    return { ...paginate(filtered, data?.page), upcoming, totals }
+  })
 
 function emptyTotals() {
   return { received: 0, reviewed: 0, overdue: 0, dueSoon: 0, outstanding: 0 }

@@ -17,7 +17,12 @@ import {
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
-    const [programmes, clientTags] = await Promise.all([listProgrammes(), listClientTags()])
+    // Archived programmes are shown here (dimmed) and nowhere else — see the round
+    // list for why.
+    const [programmes, clientTags] = await Promise.all([
+      listProgrammes({ data: { includeArchived: true } }),
+      listClientTags(),
+    ])
     return { programmes, clientTags }
   },
   component: Programmes,
@@ -160,7 +165,7 @@ function Programmes() {
                 key={programme.id}
                 to="/programmes/$programmeId"
                 params={{ programmeId: programme.id }}
-                className="block rounded-lg border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                className={`block rounded-lg border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50 ${programme.archivedAt ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
@@ -170,6 +175,9 @@ function Programmes() {
                         const { label, color } = getProgrammeRoundStatus(programme.roundProgrammes)
                         return <Badge className={color}>{label}</Badge>
                       })()}
+                      {programme.archivedAt && (
+                        <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+                      )}
                     </div>
                     {progTags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">

@@ -12,6 +12,7 @@ import {
   ThumbsUpDownIcon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
+import { C } from '../../components/ui/tokens'
 
 // The package declares IconSvgObject but doesn't export it; infer it from an icon.
 type IconSvg = typeof Target01Icon
@@ -22,13 +23,6 @@ export const Route = createFileRoute('/_authenticated/settings/')({
 
 // Same palette the dashboard pins down, so the whole app re-themes from one place
 // when the full Figma token set lands.
-const C = {
-  ink: '#141C24', // Gray/900
-  sub: '#637083', // Gray/500
-  line: '#E4E7EC', // Gray/200
-  accent: '#1F7A5C', // the sidebar's active green
-  accentWash: '#DFF3EA',
-}
 
 type Card = {
   title: string
@@ -132,14 +126,14 @@ function SettingsCard({ card }: { card: Card }) {
     >
       <span
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]"
-        style={{ backgroundColor: C.accentWash, color: C.accent }}
+        style={{ backgroundColor: C.brandWash, color: C.brand }}
       >
         <HugeiconsIcon icon={card.icon} className="h-5 w-5" strokeWidth={1.75} />
       </span>
       <span className="min-w-0">
         <span
           className="block text-[15px] font-semibold group-hover:underline"
-          style={{ color: C.accent }}
+          style={{ color: C.brand }}
         >
           {card.title}
         </span>
@@ -179,7 +173,7 @@ function Settings() {
             <div className="flex items-center gap-2.5">
               <span
                 className="flex h-7 w-7 items-center justify-center rounded-lg"
-                style={{ backgroundColor: C.accentWash, color: C.accent }}
+                style={{ backgroundColor: C.brandWash, color: C.brand }}
               >
                 <HugeiconsIcon icon={group.icon} className="h-4 w-4" strokeWidth={1.75} />
               </span>

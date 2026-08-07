@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { orNotFound } from '../../lib/loader'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { getRound, updateRound, deleteRound } from '../../server/fns/rounds'
+import { getRound, updateRound, deleteRound, setRoundArchived } from '../../server/fns/rounds'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import {
@@ -10,7 +10,8 @@ import {
   updateRoundProgramme,
   removeProgrammeFromRound,
 } from '../../server/fns/programmes'
-import { Breadcrumb, Button, Card, Input, Label } from '../../components/ui'
+import { GrantTermsFields } from '../../components/GrantTermsFields'
+import { Breadcrumb, Button, Card, ConfirmDialog, Input, Label, Select } from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/rounds/$roundId')({
   loader: async ({ params }) => {
@@ -41,84 +42,6 @@ function formatDate(date: Date | string | null | undefined): string | null {
   })
 }
 
-function GrantTermsFields({
-  budget,
-  onBudget,
-  maxGrantAmount,
-  onMaxGrantAmount,
-  grantDurationYears,
-  onGrantDurationYears,
-  budgetRequired,
-}: {
-  budget: string
-  onBudget: (v: string) => void
-  maxGrantAmount: string
-  onMaxGrantAmount: (v: string) => void
-  grantDurationYears: string
-  onGrantDurationYears: (v: string) => void
-  budgetRequired?: boolean
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <div>
-        <Label>
-          Total budget{budgetRequired && <span className="ml-0.5 text-red-400">*</span>}
-        </Label>
-        <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
-            £
-          </span>
-          <input
-            type="number"
-            value={budget}
-            onChange={(e) => onBudget(e.target.value)}
-            min="1"
-            step="1"
-            placeholder="0"
-            required={budgetRequired}
-            className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
-          />
-        </div>
-      </div>
-      <div>
-        <Label>Max per award</Label>
-        <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
-            £
-          </span>
-          <input
-            type="number"
-            value={maxGrantAmount}
-            onChange={(e) => onMaxGrantAmount(e.target.value)}
-            min="1"
-            step="1"
-            placeholder="0"
-            className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
-          />
-        </div>
-      </div>
-      <div>
-        <Label>Duration</Label>
-        <div className="relative">
-          <input
-            type="number"
-            value={grantDurationYears}
-            onChange={(e) => onGrantDurationYears(e.target.value)}
-            min="1"
-            max="20"
-            step="1"
-            placeholder="1"
-            className="w-full rounded-sm border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
-          />
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">
-            yrs
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function RoundDetail() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
@@ -130,6 +53,7 @@ function RoundDetail() {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deletingRound, setDeletingRound] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [archiving, setArchiving] = useState(false)
   const [roundName, setRoundName] = useState(round.name)
   const [roundOpenedAt, setRoundOpenedAt] = useState(toDateInput(round.openedAt))
   const [roundClosedAt, setRoundClosedAt] = useState(toDateInput(round.closedAt))
@@ -207,6 +131,16 @@ function RoundDetail() {
       router.invalidate()
     } finally {
       setRemovingProgrammeId(null)
+    }
+  }
+
+  async function handleArchive(archived: boolean) {
+    setArchiving(true)
+    try {
+      await setRoundArchived({ data: { id: round.id, archived } })
+      router.invalidate()
+    } finally {
+      setArchiving(false)
     }
   }
 
@@ -291,6 +225,11 @@ function RoundDetail() {
                     </span>
                   )
                 })()}
+                {round.archivedAt && (
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                    Archived
+                  </span>
+                )}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-gray-500">
                 {(round.openedAt || round.closedAt) && (
@@ -302,23 +241,31 @@ function RoundDetail() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {canManage && (
-                <button
-                  onClick={() => setEditingRound(true)}
-                  className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                >
+                <Button variant="secondary" size="xs" onClick={() => setEditingRound(true)}>
                   Edit
-                </button>
+                </Button>
+              )}
+              {canManage && (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => handleArchive(!round.archivedAt)}
+                  disabled={archiving}
+                >
+                  {archiving ? '…' : round.archivedAt ? 'Restore' : 'Archive'}
+                </Button>
               )}
               {canDelete && (
-                <button
+                <Button
+                  variant="dangerGhost"
+                  size="xs"
                   onClick={() => {
                     setDeleteError('')
                     setConfirmingDelete(true)
                   }}
-                  className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                 >
                   Delete
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -350,10 +297,9 @@ function RoundDetail() {
           >
             <div>
               <Label>Programme</Label>
-              <select
+              <Select
                 value={selectedProgrammeId}
                 onChange={(e) => setSelectedProgrammeId(e.target.value)}
-                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                 required
                 autoFocus
               >
@@ -363,7 +309,7 @@ function RoundDetail() {
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <GrantTermsFields
               budget={addBudget}
@@ -376,15 +322,12 @@ function RoundDetail() {
             />
             {addError && <p className="text-sm text-red-500">{addError}</p>}
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={addingProgramme}
-                className="rounded-sm bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-              >
+              <Button type="submit" size="sm" disabled={addingProgramme}>
                 {addingProgramme ? 'Adding…' : 'Add programme'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   setShowAddPicker(false)
                   setSelectedProgrammeId('')
@@ -393,10 +336,9 @@ function RoundDetail() {
                   setAddGrantDurationYears('')
                   setAddError('')
                 }}
-                className="rounded-sm border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}
@@ -430,42 +372,20 @@ function RoundDetail() {
         )}
       </div>
 
-      {confirmingDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => !deletingRound && setConfirmingDelete(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-sm font-semibold text-gray-900">Delete round</h2>
-            <p className="mt-2 text-sm text-gray-500">
-              Delete <span className="font-medium text-gray-700">{round.name}</span>? This also
-              removes its linked programmes from the round. This cannot be undone.
-            </p>
-            {deleteError && <p className="mt-3 text-sm text-red-500">{deleteError}</p>}
-            <div className="mt-5 flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setConfirmingDelete(false)}
-                disabled={deletingRound}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleDeleteRound}
-                disabled={deletingRound}
-              >
-                {deletingRound ? 'Deleting…' : 'Delete round'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="Delete round"
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={handleDeleteRound}
+        confirmLabel="Delete round"
+        busyLabel="Deleting…"
+        busy={deletingRound}
+        error={deleteError}
+      >
+        Delete <span className="font-medium text-gray-700">{round.name}</span>? This also removes
+        its linked programmes from the round, and cannot be undone. If the round has any history
+        worth keeping, archive it instead.
+      </ConfirmDialog>
     </div>
   )
 }
@@ -617,19 +537,12 @@ function ProgrammeCard({
           </div>
           {canManage && (
             <div className="flex shrink-0 gap-2">
-              <button
-                onClick={() => setEditing(true)}
-                className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-              >
+              <Button variant="secondary" size="xs" onClick={() => setEditing(true)}>
                 Edit
-              </button>
-              <button
-                onClick={onRemove}
-                disabled={removing}
-                className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-              >
+              </Button>
+              <Button variant="dangerGhost" size="xs" onClick={onRemove} disabled={removing}>
                 {removing ? 'Removing…' : 'Remove'}
-              </button>
+              </Button>
             </div>
           )}
         </div>

@@ -1,14 +1,9 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { C } from './tokens'
 
 // The app's pager (Figma 400:30554): a "Showing n of N" count on the left and a row
 // of 32px page chips on the right, the current page outlined in brand green.
-
-const C = {
-  sub: '#637083', // Gray/500
-  line: '#E4E7EC', // Gray/200
-  brand: '#1F7A5C',
-}
 
 const BOX = 'flex size-8 shrink-0 items-center justify-center rounded-lg border bg-white'
 

@@ -7,10 +7,13 @@ import {
   DataTable,
   Input,
   Label,
+  Pagination,
   StatusPill,
+  TextLink,
   type TableColumn,
 } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
+import { paginate } from '../../lib/pagination'
 
 export const Route = createFileRoute('/_authenticated/settings/api-keys')({
   beforeLoad: ({ context }) => {
@@ -33,6 +36,10 @@ function maskKey(last4: string) {
 function ApiKeys() {
   const router = useRouter()
   const { apiKeys } = Route.useLoaderData()
+  // Same paged contract as every other table, from the loaded set — see
+  // `settings/team` for why the page number stays out of the URL here.
+  const [page, setPage] = useState(1)
+  const keyPage = paginate(apiKeys, page)
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
@@ -121,13 +128,14 @@ function ApiKeys() {
       align: 'right',
       cell: (k) =>
         k.revokedAt ? null : (
-          <button
+          <Button
+            variant="dangerGhost"
+            size="xs"
             onClick={() => handleRevoke(k.id)}
             disabled={revokingId === k.id}
-            className="font-display text-[13px] text-red-600 hover:text-red-800 disabled:opacity-50"
           >
             {revokingId === k.id ? 'Revoking…' : 'Revoke'}
-          </button>
+          </Button>
         ),
     },
   ]
@@ -139,11 +147,8 @@ function ApiKeys() {
     >
       <div className="space-y-4">
         <p className="text-sm text-gray-500">
-          See{' '}
-          <Link to="/settings/submissions" className="font-medium text-[#1F7A5C] hover:underline">
-            Submitting applications
-          </Link>{' '}
-          for the endpoints and the fields we expect.
+          See <TextLink to="/settings/submissions">Submitting applications</TextLink> for the
+          endpoints and the fields we expect.
         </p>
 
         {newKey && (
@@ -155,26 +160,32 @@ function ApiKeys() {
               <code className="flex-1 overflow-x-auto rounded-sm border border-green-300 bg-white px-3 py-2 text-xs text-gray-900">
                 {newKey}
               </code>
-              <button
-                type="button"
-                onClick={copyKey}
-                className="shrink-0 rounded-sm bg-green-700 px-3 py-2 text-xs font-medium text-white hover:bg-green-800"
-              >
+              <Button size="sm" onClick={copyKey}>
                 {copied ? 'Copied' : 'Copy'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {apiKeys.length > 0 && (
-          <Card className="overflow-hidden">
-            <DataTable
-              columns={keyColumns}
-              rows={apiKeys}
-              rowKey={(k) => k.id}
-              rowClassName={(k) => (k.revokedAt ? 'opacity-50' : '')}
+          <>
+            <Card className="overflow-hidden">
+              <DataTable
+                columns={keyColumns}
+                rows={keyPage.items}
+                rowKey={(k) => k.id}
+                rowClassName={(k) => (k.revokedAt ? 'opacity-50' : '')}
+              />
+            </Card>
+            <Pagination
+              page={keyPage.page}
+              pageCount={Math.max(1, Math.ceil(keyPage.total / keyPage.pageSize))}
+              shown={keyPage.items.length}
+              total={keyPage.total}
+              noun="keys"
+              onChange={setPage}
             />
-          </Card>
+          </>
         )}
 
         <Card className="p-5">

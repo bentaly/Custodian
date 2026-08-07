@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { Button } from './ui'
 
 // Generic right-hand slide-over: backdrop, escape-to-close, sticky header.
@@ -51,15 +52,13 @@ export function Drawer({
             <h2 className="text-base font-semibold text-gray-900">{title}</h2>
             {subtitle && <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p>}
           </div>
-          <Button variant="icon" onClick={onClose}>
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={Cancel01Icon}
+            aria-label="Close"
+            onClick={onClose}
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>

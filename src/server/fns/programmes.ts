@@ -1,4 +1,4 @@
-import { forbidden, notFoundError } from '../../lib/errors'
+import { conflict, forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
@@ -13,17 +13,27 @@ import {
   UpdateRoundProgrammeSchema,
 } from '../../lib/validators/programme'
 
-export const listProgrammes = createServerFn({ method: 'GET' }).handler(async () => {
-  const user = await requireAuthUser()
-  if (!user.clientId) return []
-  return getDb().query.programmes.findMany({
-    where: (p, { eq }) => eq(p.clientId, user.clientId!),
-    with: {
-      roundProgrammes: { with: { round: true } },
-    },
-    orderBy: (p, { asc }) => [asc(p.name)],
+/**
+ * The client's programmes. Archived ones are excluded unless asked for: an archived
+ * programme must not appear in a picker or a filter, but the Programmes screen still
+ * has to be able to show — and un-archive — it.
+ */
+export const listProgrammes = createServerFn({ method: 'GET' })
+  .validator(z.object({ includeArchived: z.boolean().optional() }).optional())
+  .handler(async ({ data }) => {
+    const user = await requireAuthUser()
+    if (!user.clientId) return []
+    return getDb().query.programmes.findMany({
+      where: (p, { eq, and, isNull }) =>
+        data?.includeArchived
+          ? eq(p.clientId, user.clientId!)
+          : and(eq(p.clientId, user.clientId!), isNull(p.archivedAt)),
+      with: {
+        roundProgrammes: { with: { round: true } },
+      },
+      orderBy: (p, { asc }) => [asc(p.name)],
+    })
   })
-})
 
 export const getProgramme = createServerFn({ method: 'GET' })
   .validator(z.object({ id: z.uuid() }))
@@ -66,6 +76,63 @@ export const updateProgramme = createServerFn({ method: 'POST' })
       .where(eq(programmes.id, id))
       .returning()
     return programme!
+  })
+
+/**
+ * Retire a programme, or bring it back.
+ *
+ * This — not delete — is the ordinary way to stop offering a programme. Archiving keeps
+ * every application, award and budget that references it intact and readable, while
+ * removing it from the pickers and filters where it would otherwise invite new work.
+ * It is reversible, which is the whole point: "we're not running this again" is a
+ * decision foundations revisit.
+ */
+export const setProgrammeArchived = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.uuid(), archived: z.boolean() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    const existing = await getDb().query.programmes.findFirst({
+      where: (p, { eq }) => eq(p.id, data.id),
+      columns: { clientId: true },
+    })
+    if (!existing) throw notFoundError()
+    assertClientAccess(user, existing.clientId)
+    await getDb()
+      .update(programmes)
+      .set({ archivedAt: data.archived ? new Date() : null })
+      .where(eq(programmes.id, data.id))
+    return { ok: true }
+  })
+
+/**
+ * Delete a programme outright. Only possible while it has no history — the moment an
+ * application exists, `applications.round_programme_id` (ON DELETE RESTRICT) makes this
+ * impossible at the database, and rightly so: an award's amount means nothing without
+ * the programme budget it was set against. Archiving is the answer in that case, and
+ * the error says so.
+ */
+export const deleteProgramme = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    const programme = await getDb().query.programmes.findFirst({
+      where: (p, { eq }) => eq(p.id, data.id),
+      with: {
+        roundProgrammes: {
+          with: { applications: { columns: { id: true }, limit: 1 } },
+        },
+      },
+    })
+    if (!programme) throw notFoundError()
+    assertClientAccess(user, programme.clientId)
+    const hasApplications = programme.roundProgrammes.some((rp) => rp.applications.length > 0)
+    if (hasApplications) {
+      throw conflict(
+        'This programme has applications, so it cannot be deleted. Archive it instead — it will disappear from the pickers but keep its history.',
+      )
+    }
+    await getDb().delete(programmes).where(eq(programmes.id, data.id))
+    return { ok: true }
   })
 
 export const addProgrammeToRound = createServerFn({ method: 'POST' })

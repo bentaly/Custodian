@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { listComments, addComment, updateComment, deleteComment } from '../server/fns/comments'
 import { fmtSince } from '../lib/format'
+import { Button } from './ui'
+import { C as TOKENS } from './ui/tokens'
 
 // Figma node 435:42458 — the full-width comment panel on the application detail
 // screen: composer on top, then every comment as a moss-washed card with the author
@@ -16,15 +18,8 @@ type Comment = {
 }
 
 const C = {
-  ink: '#141C24',
-  sub: '#637083',
-  faint: '#97A1AF',
-  line: '#E4E7EC',
-  brand: '#1F7A5C',
-  brandBg: 'rgba(31, 122, 92, 0.1)',
-  brandBorder: 'rgba(31, 122, 92, 0.2)',
+  ...TOKENS,
   cardBg: 'rgba(31, 122, 92, 0.05)',
-  danger: '#FF4242',
 }
 
 const CAN_COMMENT = new Set(['superadmin', 'admin', 'trustee', 'finance'])
@@ -137,18 +132,9 @@ export function CommentsSection({
             className="h-[120px] w-full resize-none rounded-[12px] border bg-white px-3 py-2 font-display text-[14px] focus:outline-hidden"
             style={{ borderColor: C.line, color: C.ink }}
           />
-          <button
-            type="submit"
-            disabled={submitting || !body.trim()}
-            className="flex h-10 items-center justify-center rounded-[12px] border px-3 font-display text-[14px] font-medium disabled:opacity-50"
-            style={{
-              backgroundColor: C.brandBg,
-              borderColor: C.brandBorder,
-              color: C.brand,
-            }}
-          >
+          <Button variant="tinted" type="submit" disabled={submitting || !body.trim()}>
             {submitting ? 'Posting…' : 'Post comment'}
-          </button>
+          </Button>
         </form>
       )}
 
@@ -196,24 +182,23 @@ export function CommentsSection({
                       style={{ borderColor: C.line, color: C.ink }}
                     />
                     <div className="flex justify-end gap-3">
-                      <button
-                        type="button"
+                      <Button
+                        variant="text"
+                        size="xs"
                         onClick={() => setEditingId(null)}
                         disabled={busy}
-                        className="font-display text-[12px] font-medium disabled:opacity-50"
                         style={{ color: C.sub }}
                       >
                         Cancel
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="text"
+                        size="xs"
                         onClick={() => handleSaveEdit(c.id)}
                         disabled={busy || !editBody.trim()}
-                        className="font-display text-[12px] font-medium disabled:opacity-50"
-                        style={{ color: C.brand }}
                       >
                         {busy ? 'Saving…' : 'Save'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -227,26 +212,28 @@ export function CommentsSection({
                     {(canEdit || canDelete) && (
                       <div className="flex gap-3">
                         {canEdit && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="text"
+                            size="xs"
                             onClick={() => startEdit(c)}
                             disabled={busy}
-                            className="font-display text-[11px] font-medium disabled:opacity-50"
+                            className="text-[11px]"
                             style={{ color: C.faint }}
                           >
                             Edit
-                          </button>
+                          </Button>
                         )}
                         {canDelete && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="text"
+                            size="xs"
                             onClick={() => handleDelete(c.id)}
                             disabled={busy}
-                            className="font-display text-[11px] font-medium disabled:opacity-50"
+                            className="text-[11px]"
                             style={{ color: busy ? C.danger : C.faint }}
                           >
                             {busy ? 'Deleting…' : 'Delete'}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}

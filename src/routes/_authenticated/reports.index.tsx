@@ -14,6 +14,7 @@ import {
   EmptyState,
   KPI_TINTS,
   MiniKpi,
+  Pagination,
   StatusPill,
   Tabs,
   type TableColumn,
@@ -25,8 +26,20 @@ import { fmtDate } from '../../lib/format'
 // (the route's component uses this type), which resolves to `any`.
 type ReportItem = Awaited<ReturnType<typeof listReports>>['items'][number]
 
+type ReportsSearch = { tab?: ReceivedStatus; page?: number }
+
 export const Route = createFileRoute('/_authenticated/reports/')({
-  loader: async () => listReports(),
+  // The tab and the page live in the URL, so a report you were looking at is a link you
+  // can send someone — and so the loader can page on the server.
+  validateSearch: (search: Record<string, unknown>): ReportsSearch => ({
+    tab: search.tab === 'received' || search.tab === 'reviewed' ? search.tab : undefined,
+    page:
+      Number.isInteger(Number(search.page)) && Number(search.page) > 1
+        ? Number(search.page)
+        : undefined,
+  }),
+  loaderDeps: ({ search }) => ({ tab: search.tab, page: search.page }),
+  loader: async ({ deps }) => listReports({ data: { status: deps.tab, page: deps.page } }),
   component: ReportsPage,
 })
 
@@ -109,20 +122,27 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
 ]
 
 function ReportsPage() {
-  const { items, upcoming, totals } = Route.useLoaderData()
+  const { items, total, pageSize, upcoming, totals } = Route.useLoaderData()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('all')
+  const { tab: tabParam, page } = Route.useSearch()
+  const tab: Tab = tabParam ?? 'all'
   const [dueOpen, setDueOpen] = useState(false)
 
-  const filtered = tab === 'all' ? items : items.filter((i) => i.status === tab)
+  const currentPage = page ?? 1
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+
+  // Switching tab always starts at page 1 — page 3 of "All" is not page 3 of "Received".
+  function setTab(next: Tab) {
+    navigate({
+      to: '/reports',
+      search: { tab: next === 'all' ? undefined : next, page: undefined },
+    })
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-[21px] font-semibold text-gray-900">Reports</h1>
-          <p className="mt-0.5 text-sm text-gray-400">Reports received from grantees</p>
-        </div>
+        <h1 className="font-display text-[20px] font-medium text-[#141C24]">Reports</h1>
         <Button variant="secondary" onClick={() => setDueOpen(true)}>
           Outstanding
           {totals.outstanding > 0 && (
@@ -174,13 +194,13 @@ function ReportsPage() {
         value={tab}
         onChange={setTab}
         items={[
-          { id: 'all' as Tab, label: 'All', count: items.length },
+          { id: 'all' as Tab, label: 'All', count: totals.received + totals.reviewed },
           { id: 'received' as Tab, label: STATUS_LABELS.received, count: totals.received },
           { id: 'reviewed' as Tab, label: STATUS_LABELS.reviewed, count: totals.reviewed },
         ]}
       />
 
-      {filtered.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState>
           <p className="text-sm text-gray-500">No reports received yet.</p>
           <p className="mt-1 text-xs text-gray-400">
@@ -189,13 +209,25 @@ function ReportsPage() {
           </p>
         </EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
-          <DataTable
-            columns={REPORT_COLUMNS}
-            rows={filtered}
-            rowKey={(item) => item.key}
-            onRowClick={(item) =>
-              navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
+        <div className="flex flex-col gap-4">
+          <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+            <DataTable
+              columns={REPORT_COLUMNS}
+              rows={items}
+              rowKey={(item) => item.key}
+              onRowClick={(item) =>
+                navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
+              }
+            />
+          </div>
+          <Pagination
+            page={currentPage}
+            pageCount={pageCount}
+            shown={items.length}
+            total={total}
+            noun="reports"
+            onChange={(p) =>
+              navigate({ to: '/reports', search: { tab: tabParam, page: p > 1 ? p : undefined } })
             }
           />
         </div>

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { listClientUsers } from '../../server/fns/users'
 import { listInvitations, createInvitation } from '../../server/fns/invitations'
-import { Button, Card, DataTable, Input, Label } from '../../components/ui'
+import { Button, Card, DataTable, Input, Label, Pagination } from '../../components/ui'
+import { paginate } from '../../lib/pagination'
 import { SettingsPage } from '../../components/SettingsPage'
 import { ROLE_LABELS, INVITABLE_ROLES, type InviteRole } from '../../lib/roles'
 
@@ -28,6 +29,7 @@ function Team() {
   const { members, invites } = Route.useLoaderData()
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
+  const [page, setPage] = useState(1)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<InviteRole>('trustee')
   const [inviting, setInviting] = useState(false)
@@ -52,6 +54,11 @@ function Team() {
     }
   }
 
+  // Paged like every other table, but from the already-loaded set and with the page in
+  // local state rather than the URL: a team list is bounded by the foundation's own
+  // size, and page 2 of it is not somewhere anyone links to.
+  const memberPage = paginate(members, page)
+
   return (
     <SettingsPage
       title="Team members"
@@ -61,7 +68,7 @@ function Team() {
         <section>
           <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
             <DataTable
-              rows={members}
+              rows={memberPage.items}
               rowKey={(m) => m.id}
               columns={[
                 {
@@ -90,6 +97,16 @@ function Team() {
                   ),
                 },
               ]}
+            />
+          </div>
+          <div className="mt-4">
+            <Pagination
+              page={memberPage.page}
+              pageCount={Math.max(1, Math.ceil(memberPage.total / memberPage.pageSize))}
+              shown={memberPage.items.length}
+              total={memberPage.total}
+              noun="team members"
+              onChange={setPage}
             />
           </div>
         </section>

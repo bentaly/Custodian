@@ -75,14 +75,50 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
   const scope = await visibleRoundProgrammeIds(user)
   if (scope !== null && scope.length === 0) return { items: [] as InsightsGrant[] }
 
+  // Named columns, not the whole row. An application carries five jsonb blobs
+  // (`responses`, `custodian_score_detail`, `budget_breakdown`, …) that together are
+  // most of its ~2.5KB, and this query loads every awarded application a foundation
+  // has. Selecting the dozen fields actually read below is the difference between a
+  // few hundred KB and tens of MB once a foundation is making a thousand awards a year.
+  // `deprivationContext` is the one jsonb kept — the map is built from it.
   const apps = await getDb().query.applications.findMany({
     where: and(
       eq(applications.status, 'awarded'),
       scope ? inArray(applications.roundProgrammeId, scope) : undefined,
     ),
+    columns: {
+      id: true,
+      organisationName: true,
+      deliveryRegion: true,
+      deliveryNation: true,
+      deliveryLadCode: true,
+      deliveryLadName: true,
+      deprivationContext: true,
+      proposedImpactQuantity: true,
+      decisionAt: true,
+    },
     with: {
       roundProgramme: { with: { programme: true, round: true } },
-      award: { with: { schedule: true, reports: true } },
+      award: {
+        with: {
+          schedule: true,
+          // A report row averages ~4KB — mostly the grantee's narrative and the AI's
+          // analysis of it. Insights reads eight fields of it, so it asks for eight.
+          reports: {
+            columns: {
+              id: true,
+              scheduleId: true,
+              submittedAt: true,
+              analysisStatus: true,
+              impactQuantity: true,
+              impactQuantityQuote: true,
+              applicationAlignment: true,
+              aiSummary: true,
+              impactSummary: true,
+            },
+          },
+        },
+      },
     },
     orderBy: (a, { asc }) => [asc(a.decisionAt)],
   })

@@ -1,24 +1,18 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import { C } from './tokens'
 
 // The dropdown pill the round-scoped screens wear (Figma 184:13784 / 400:30227): a
 // bordered chip with a native <select> laid transparently over it, so keyboard and
 // mobile pickers come free.
 //
 // Two sizes, because the same control does two jobs on one screen. `md` is the
-// screen-level selector that sits beside the <h1> — 40px, a brand-tinted icon chip,
-// the value in brand green. `sm` is the in-card selector — 32px, no chip, an ink
-// label prefix and the value in gray, so it reads as "one of the card's controls"
-// rather than competing with the round pill above it.
-
-const C = {
-  ink: '#141C24', // Gray/900
-  sub: '#637083', // Gray/500
-  faint: '#97A1AF', // Gray/400
-  line: '#E4E7EC', // Gray/200
-  wash: '#F2F4F7', // Gray/100
-  brand: '#1F7A5C',
-}
+// screen-level selector that sits beside the <h1> — 40px, with a leading icon chip.
+// `sm` is the in-card selector — 32px, no chip, a label prefix — so it reads as "one of
+// the card's controls" rather than competing with the round pill above it.
+//
+// Both wear Gray/900 text and a Gray/900 caret, as every dropdown in the app does. The
+// green is reserved for the icon chip, which marks *what kind* of selector this is.
 
 type IconElement = Parameters<typeof HugeiconsIcon>[0]['icon']
 
@@ -83,7 +77,7 @@ export function SelectPill({
         )}
         <span
           className={`whitespace-nowrap font-display text-[14px] ${sm ? '' : 'font-medium'}`}
-          style={{ color: sm ? C.sub : C.brand }}
+          style={{ color: C.ink }}
         >
           {current?.label ?? placeholder ?? clearLabel ?? '—'}
         </span>
@@ -95,7 +89,7 @@ export function SelectPill({
             · {suffix}
           </span>
         )}
-        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.sub} />
+        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.ink} />
       </div>
       <select
         aria-label={ariaLabel}

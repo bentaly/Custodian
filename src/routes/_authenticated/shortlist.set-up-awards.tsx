@@ -6,7 +6,7 @@ import {
   listAwardCandidates,
 } from '../../server/fns/awardSetup'
 import { AwardLetterPreview } from '../../components/AwardLetterPreview'
-import { Breadcrumb, EmptyState } from '../../components/ui'
+import { Breadcrumb, Button, EmptyState } from '../../components/ui'
 import {
   DEFAULT_GRANT_CONDITIONS,
   renderAwardLetter,
@@ -1047,32 +1047,32 @@ function SetUpAwards() {
         )}
         {error && <p className="mb-3 text-[12px] text-[#A34D68]">{error}</p>}
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="secondary"
             onClick={() =>
               step === 1 ? navigate({ to: '/shortlist', search: { roundId } }) : setStep(step - 1)
             }
-            className="rounded-[11px] border border-[#E3E0D6] px-4 py-2.5 text-[13px] font-medium text-[#5A6660] hover:bg-[#FAF9F6]"
           >
             {step === 1 ? 'Cancel' : '← Back'}
-          </button>
+          </Button>
           {step < LAST_STEP ? (
-            <button
+            <Button
               onClick={() => setStep(step + 1)}
               disabled={selected.length === 0}
-              className="flex-1 rounded-[11px] bg-[#1F7A5C] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#17563F] disabled:opacity-50"
+              className="flex-1"
             >
               Continue →
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               onClick={handleConfirm}
               disabled={saving || problems.length > 0}
-              className="flex-1 rounded-[11px] bg-[#1F7A5C] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#17563F] disabled:opacity-50"
+              className="flex-1"
             >
               {saving
                 ? 'Creating…'
                 : `Confirm & send ${selected.length === 1 ? 'award letter' : `${selected.length} award letters`}`}
-            </button>
+            </Button>
           )}
         </div>
       </div>

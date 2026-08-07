@@ -6,21 +6,13 @@ import {
   ArrowUpDownIcon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
+import { C } from './tokens'
 
 // The one table style for the whole app — the Figma applications-list table:
 // a wash header row (Inter Display 14px medium), 64px hover rows, optional
 // sortable headers with an arrow affordance, an optional leading checkbox column,
 // and clickable rows. Each screen supplies typed column definitions with custom
 // cell renderers; the chrome stays identical everywhere.
-
-const C = {
-  ink: '#141C24',
-  sub: '#637083',
-  faint: '#97A1AF',
-  line: '#E4E7EC',
-  wash: '#F2F4F7',
-  brand: '#1F7A5C',
-}
 
 /** #rrggbb → rgba() at alpha. */
 function alpha(hex: string, a: number) {

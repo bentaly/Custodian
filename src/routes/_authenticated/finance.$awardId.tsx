@@ -4,7 +4,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { BankIcon, Calendar03Icon, Coins01Icon, Wallet01Icon } from '@hugeicons/core-free-icons'
 import { getFinanceGrant, type BankStatus } from '../../server/fns/finance'
 import { setInstalmentPaid, updateInstalment } from '../../server/fns/applications'
-import { Badge, Breadcrumb, Button, Card, KPI_TINTS, MiniKpi } from '../../components/ui'
+import { Badge, Breadcrumb, Button, Card, KPI_TINTS, MiniKpi, TextLink } from '../../components/ui'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/finance/$awardId')({
@@ -79,13 +79,9 @@ function FinanceGrantDetail() {
           <Badge className={GRANT_STATUS[grant.status]?.className ?? 'bg-gray-100 text-gray-600'}>
             {GRANT_STATUS[grant.status]?.label ?? grant.status}
           </Badge>
-          <Link
-            to="/awards/$awardId"
-            params={{ awardId: grant.id }}
-            className="text-xs font-medium text-emerald-700 hover:underline"
-          >
+          <TextLink to="/awards/$awardId" params={{ awardId: grant.id }} className="text-xs">
             Award record →
-          </Link>
+          </TextLink>
         </div>
       </div>
 
@@ -218,13 +214,9 @@ function PaymentsCard({ grant }: { grant: Grant }) {
       {grant.instalments.length === 0 ? (
         <p className="mt-4 text-sm text-gray-400">
           No instalments recorded. Add a schedule on the{' '}
-          <Link
-            to="/awards/$awardId"
-            params={{ awardId: grant.id }}
-            className="font-medium text-emerald-700 hover:underline"
-          >
+          <TextLink to="/awards/$awardId" params={{ awardId: grant.id }}>
             award record
-          </Link>
+          </TextLink>
           .
         </p>
       ) : (
@@ -301,19 +293,17 @@ function PaymentsCard({ grant }: { grant: Grant }) {
                     </div>
                     {grant.canEdit && (
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button
+                        <Button
                           onClick={() => togglePaid(inst.id, !inst.paidDate)}
                           disabled={busyId === inst.id}
-                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          variant="secondary"
+                          size="xs"
                         >
                           {inst.paidDate ? 'Undo' : 'Mark paid'}
-                        </button>
-                        <button
-                          onClick={() => beginEdit(inst)}
-                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                        >
+                        </Button>
+                        <Button onClick={() => beginEdit(inst)} variant="secondary" size="xs">
                           Edit
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -455,12 +445,9 @@ function BankCard({ grant }: { grant: Grant }) {
           mono
           action={
             bank.accountNumber ? (
-              <button
-                onClick={() => setRevealed((r) => !r)}
-                className="text-xs font-medium text-emerald-700 hover:underline"
-              >
+              <Button variant="text" size="xs" onClick={() => setRevealed((r) => !r)}>
                 {revealed ? 'Hide' : 'Show'}
-              </button>
+              </Button>
             ) : undefined
           }
         />
@@ -474,13 +461,12 @@ function BankCard({ grant }: { grant: Grant }) {
       {bank.status !== 'valid' && (
         <p className="mt-2 text-xs text-gray-400">
           Details come from the{' '}
-          <Link
+          <TextLink
             to="/applications/$applicationId"
             params={{ applicationId: grant.applicationId }}
-            className="font-medium text-emerald-700 hover:underline"
           >
             application
-          </Link>
+          </TextLink>
           {grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''} — ask the grantee
           to resubmit them.
         </p>

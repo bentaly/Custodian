@@ -9,6 +9,7 @@ import {
   ExportButton,
   KPI_TINTS,
   MiniKpi,
+  Pagination,
   StatusPill,
   Tabs,
   type TableColumn,
@@ -21,8 +22,21 @@ type FinanceData = Awaited<ReturnType<typeof listFinanceGrants>>
 type FinanceRow = FinanceData['items'][number]
 type Totals = FinanceData['totals']
 
+type FinanceSearch = { tab?: 'paid'; page?: number }
+
 export const Route = createFileRoute('/_authenticated/finance/')({
-  loader: async () => listFinanceGrants(),
+  // Tab and page in the URL: a paging state you cannot link to is a paging state you
+  // lose every time you open a grant and come back.
+  validateSearch: (search: Record<string, unknown>): FinanceSearch => ({
+    tab: search.tab === 'paid' ? 'paid' : undefined,
+    page:
+      Number.isInteger(Number(search.page)) && Number(search.page) > 1
+        ? Number(search.page)
+        : undefined,
+  }),
+  loaderDeps: ({ search }) => ({ tab: search.tab, page: search.page }),
+  loader: async ({ deps }) =>
+    listFinanceGrants({ data: { tab: deps.tab ?? 'to_pay', page: deps.page } }),
   component: FinancePage,
 })
 
@@ -213,30 +227,52 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
 type Tab = 'to_pay' | 'paid'
 
 function FinancePage() {
-  const { items, totals } = Route.useLoaderData()
+  const { items: rows, total, pageSize, tabCounts, totals } = Route.useLoaderData()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('to_pay')
+  const { tab: tabParam, page } = Route.useSearch()
+  const tab: Tab = tabParam ?? 'to_pay'
 
-  // "To pay" is anything still owing money; everything else — settled, and cancelled
-  // grants whose payments are history — sits under "Paid", so every grant appears
-  // under exactly one tab.
-  const toPay = items.filter((g) => g.status !== 'paid' && g.status !== 'cancelled')
-  const settled = items.filter((g) => g.status === 'paid' || g.status === 'cancelled')
-  const rows = tab === 'to_pay' ? toPay : settled
+  const currentPage = page ?? 1
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+
+  // The tab split ("to pay" is anything still owing; settled and cancelled grants sit
+  // under "Paid", so every grant appears under exactly one) now happens on the server,
+  // because a page has to be a page of the tab.
+  function setTab(next: Tab) {
+    navigate({
+      to: '/finance',
+      search: { tab: next === 'to_pay' ? undefined : next, page: undefined },
+    })
+  }
 
   const paidPct =
     totals.committed > 0 ? Math.round((totals.paidToDate / totals.committed) * 100) : 0
+
+  // The export is the whole tab, not the page on screen — a reconciliation file with 25
+  // of 300 rows in it would be worse than none.
+  const [exporting, setExporting] = useState(false)
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const all = await listFinanceGrants({ data: { tab, page: 1, pageSize: 10_000 } })
+      exportCsv(all.items, tab)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not export the payment list')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-[21px] font-semibold text-gray-900">Finance</h1>
+          <h1 className="font-display text-[20px] font-medium text-[#141C24]">Finance</h1>
           <p className="mt-0.5 text-sm text-gray-400">
             Grant payments · {totals.grantCount} live commitment{totals.grantCount === 1 ? '' : 's'}
           </p>
         </div>
-        <ExportButton onClick={() => exportCsv(rows, tab)} disabled={rows.length === 0} />
+        <ExportButton onClick={handleExport} busy={exporting} disabled={rows.length === 0} />
       </div>
 
       <StatCards totals={totals} paidPct={paidPct} />
@@ -248,8 +284,8 @@ function FinancePage() {
         value={tab}
         onChange={setTab}
         items={[
-          { id: 'to_pay', label: 'To pay', count: toPay.length },
-          { id: 'paid', label: 'Paid', count: settled.length },
+          { id: 'to_pay', label: 'To pay', count: tabCounts.to_pay },
+          { id: 'paid', label: 'Paid', count: tabCounts.paid },
         ]}
       />
 
@@ -266,13 +302,25 @@ function FinancePage() {
           </p>
         </EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
-          <DataTable
-            columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
-            rows={rows}
-            rowKey={(g) => g.awardId}
-            onRowClick={(g) =>
-              navigate({ to: '/finance/$awardId', params: { awardId: g.awardId } })
+        <div className="flex flex-col gap-4">
+          <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+            <DataTable
+              columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
+              rows={rows}
+              rowKey={(g) => g.awardId}
+              onRowClick={(g) =>
+                navigate({ to: '/finance/$awardId', params: { awardId: g.awardId } })
+              }
+            />
+          </div>
+          <Pagination
+            page={currentPage}
+            pageCount={pageCount}
+            shown={rows.length}
+            total={total}
+            noun="grants"
+            onChange={(p) =>
+              navigate({ to: '/finance', search: { tab: tabParam, page: p > 1 ? p : undefined } })
             }
           />
         </div>

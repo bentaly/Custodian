@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { C } from './tokens'
 
 // The app's date-range control (Figma 434:14112) — a filter pill that opens a
 // quick-ranges list beside a two-click calendar. Shared because it appears on
@@ -10,17 +11,6 @@ import { ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/c
 // Dates are plain `yyyy-mm-dd` strings, inclusive at both ends, and every
 // calculation runs in local time: a range the user picked in the UI must not
 // shift a day because of a UTC round-trip.
-
-const C = {
-  ink: '#141C24', // Gray/900
-  body: '#344051', // Gray/700
-  sub: '#637083', // Gray/500
-  faint: '#97A1AF', // Gray/400
-  muted: '#CED2DA', // Gray/300
-  line: '#E4E7EC', // Gray/200
-  brand: '#1F7A5C',
-  brandWash: '#DFF3EA',
-}
 
 /** Inclusive `yyyy-mm-dd` bounds. Both absent = no restriction ("All time"). */
 export type DateRange = { from?: string; to?: string }
@@ -187,6 +177,11 @@ export function DateRangePicker({
   const dayClass =
     'flex h-6 w-8 items-center justify-center rounded-[6px] font-display text-[12px] font-medium'
 
+  // The trigger is a `FilterPill` in every respect but the popover it opens, so it
+  // follows the same rule: Gray/900 text, glyph and caret in both states, and the brand
+  // tint on the surface once a range is set.
+  const on = value.from != null || value.to != null
+
   return (
     <div ref={rootRef} className="relative shrink-0">
       <button
@@ -194,19 +189,19 @@ export function DateRangePicker({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 items-center gap-1 rounded-lg border bg-white py-2 pl-2 pr-1.5"
-        style={{ borderColor: C.line }}
+        className="flex h-8 items-center gap-1 rounded-lg border py-2 pl-2 pr-1.5"
+        style={{ borderColor: on ? C.brand : C.line, backgroundColor: on ? C.brandBg : '#fff' }}
       >
         <span className="flex items-center gap-1.5">
-          <CalendarGlyph />
+          <CalendarGlyph color={C.ink} />
           <span
-            className="whitespace-nowrap font-display text-[12px] font-medium"
-            style={{ color: C.sub }}
+            className="whitespace-nowrap font-display text-[14px] font-medium"
+            style={{ color: C.ink }}
           >
             {formatDateRange(value, allLabel)}
           </span>
         </span>
-        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.sub} />
+        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.ink} />
       </button>
 
       {open && (
@@ -362,12 +357,12 @@ export function DateRangePicker({
 
 // The trigger's calendar glyph (Figma "calendar-04"). Drawn inline rather than
 // pulled from the icon set so the 16px box matches the design exactly.
-function CalendarGlyph() {
+function CalendarGlyph({ color = C.sub }: { color?: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2" y="3.3" width="12" height="11" rx="2.5" stroke={C.sub} strokeWidth="1.2" />
-      <path d="M2 6.8h12" stroke={C.sub} strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M5.3 1.8v2.6M10.7 1.8v2.6" stroke={C.sub} strokeWidth="1.2" strokeLinecap="round" />
+      <rect x="2" y="3.3" width="12" height="11" rx="2.5" stroke={color} strokeWidth="1.2" />
+      <path d="M2 6.8h12" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M5.3 1.8v2.6M10.7 1.8v2.6" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   )
 }

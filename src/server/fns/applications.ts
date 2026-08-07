@@ -28,6 +28,8 @@ import {
 } from '../../lib/validators/application'
 import { runDueDiligence } from '../dueDiligence/run'
 import { dueStatus, type ScheduleStatus } from '../../lib/schedule'
+import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
+import { paginate, PAGE_SIZE } from '../../lib/pagination'
 
 export const listApplications = createServerFn({ method: 'GET' })
   .validator(ApplicationFiltersSchema)
@@ -369,41 +371,66 @@ export const listAwards = createServerFn({ method: 'GET' })
       programmeId: z.uuid().optional(),
       tag: z.string().min(1).max(100).optional(),
       q: z.string().trim().min(1).max(255).optional(),
+      /** Award lifecycle, not application status — every row here is already awarded. */
+      status: z.enum(['active', 'completed', 'cancelled']).optional(),
+      /** Inclusive award-date window (`yyyy-mm-dd`), against the decision date. */
+      from: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+      to: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+      page: z.number().int().positive().optional(),
+      /** Raised only by the CSV export, which is the whole filtered set by definition. */
+      pageSize: z.number().int().positive().max(10_000).optional(),
     }),
   )
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
-    // Resolve the round/programme/tag filter to a set of round-programme ids, exactly
-    // as listApplications does (tag lives on the programme jsonb).
-    let filterIds: string[] | undefined
-    if (data.roundId || data.programmeId || data.tag) {
-      const conds = and(
-        data.roundId ? eq(roundProgrammes.roundId, data.roundId) : undefined,
-        data.programmeId ? eq(roundProgrammes.programmeId, data.programmeId) : undefined,
-        data.tag ? sql`${programmes.tags} @> ${JSON.stringify([data.tag])}::jsonb` : undefined,
-      )
-      const rows = data.tag
-        ? await getDb()
-            .select({ id: roundProgrammes.id })
-            .from(roundProgrammes)
-            .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
-            .where(conds)
-        : await getDb().select({ id: roundProgrammes.id }).from(roundProgrammes).where(conds)
-      filterIds = rows.map((r) => r.id)
+    // Only the *context* filter — the round — narrows the query. Everything else
+    // (programme, theme, status, dates, search) is applied below, after the facets have
+    // been counted, so the filter options describe the round you are in rather than
+    // shrinking as you use them.
+    let contextIds: string[] | undefined
+    if (data.roundId) {
+      const rows = await getDb()
+        .select({ id: roundProgrammes.id })
+        .from(roundProgrammes)
+        .where(eq(roundProgrammes.roundId, data.roundId))
+      contextIds = rows.map((r) => r.id)
     }
 
-    const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
+    const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), contextIds)
     if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) {
-      return { items: [], totals: emptyGrantTotals() }
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: PAGE_SIZE,
+        totals: emptyGrantTotals(),
+        facets: emptyFacets(),
+      }
     }
 
+    // Named columns, not the whole row — this loads every awarded application in scope
+    // in order to count facets and totals over all of them, and an application row is
+    // mostly jsonb (`responses`, `custodian_score_detail`, `budget_breakdown`, …) that
+    // no award list reads. See `src/lib/pagination.ts` on why the set is materialised.
     const apps = await getDb().query.applications.findMany({
       where: and(
         eq(applications.status, 'awarded'),
         roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
-        data.q ? ilike(applications.organisationName, `%${data.q}%`) : undefined,
       ),
+      columns: {
+        id: true,
+        organisationName: true,
+        deliveryRegion: true,
+        deliveryArea: true,
+        roundProgrammeId: true,
+      },
       with: {
         roundProgramme: { with: { programme: true, round: true } },
         award: { with: { instalments: true } },
@@ -413,8 +440,50 @@ export const listAwards = createServerFn({ method: 'GET' })
 
     // An awarded application without an award row hasn't been backfilled yet; skip it
     // rather than guess an amount.
-    const items = apps
-      .filter((a) => a.award)
+    const inScope = apps.filter((a) => a.award)
+
+    // Facets: what this round (or the whole portfolio) actually contains.
+    const facets = {
+      programmes: facetBy(inScope, (a) =>
+        a.roundProgramme?.programme
+          ? { value: a.roundProgramme.programme.id, label: a.roundProgramme.programme.name }
+          : null,
+      ),
+      themes: facetByMany(inScope, (a) =>
+        (((a.roundProgramme?.programme?.tags as string[] | null) ?? []) as string[]).map((t) => ({
+          value: t,
+          label: t,
+        })),
+      ),
+      statuses: facetBy(inScope, (a) => ({
+        value: a.award!.status,
+        label: GRANT_STATUS_LABELS[a.award!.status] ?? a.award!.status,
+      })),
+    }
+
+    // The transient filters. Applied here rather than in SQL because status and the
+    // award date live on `awards`, and because the KPI totals below are computed from
+    // `items` — filtering first is what keeps the cards agreeing with the table.
+    const inWindow = (decisionAt: Date | string | null) => {
+      if (!data.from && !data.to) return true
+      if (!decisionAt) return false
+      const day = new Date(decisionAt).toISOString().slice(0, 10)
+      return (!data.from || day >= data.from) && (!data.to || day <= data.to)
+    }
+    const needle = data.q?.toLowerCase()
+
+    const matched = inScope
+      .filter((a) => !data.programmeId || a.roundProgramme?.programmeId === data.programmeId)
+      .filter(
+        (a) =>
+          !data.tag ||
+          (((a.roundProgramme?.programme?.tags as string[] | null) ?? []) as string[]).includes(
+            data.tag,
+          ),
+      )
+      .filter((a) => !data.status || a.award!.status === data.status)
+      .filter((a) => inWindow(a.award!.decisionAt))
+      .filter((a) => !needle || a.organisationName.toLowerCase().includes(needle))
       .map((a) => {
         const award = a.award!
         const amountAwarded = parseFloat(award.amountAwarded)
@@ -440,25 +509,44 @@ export const listAwards = createServerFn({ method: 'GET' })
         }
       })
 
+    // Totals and facets describe every matching award; only `items` is a page. A KPI
+    // that changed when you turned the page would be reporting on the page, not the
+    // portfolio.
     const byProgrammeMap = new Map<string, number>()
-    for (const it of items) {
+    for (const it of matched) {
       const key = it.programmeName ?? 'Unattributed'
       byProgrammeMap.set(key, (byProgrammeMap.get(key) ?? 0) + it.amountAwarded)
     }
 
     const totals = {
-      totalAwarded: items.reduce((s, i) => s + i.amountAwarded, 0),
-      count: items.length,
-      multiYearCount: items.filter((i) => (i.durationYears ?? 0) > 1).length,
-      paidToDate: items.reduce((s, i) => s + i.paidToDate, 0),
-      outstanding: items.reduce((s, i) => s + i.outstanding, 0),
+      totalAwarded: matched.reduce((s, i) => s + i.amountAwarded, 0),
+      count: matched.length,
+      multiYearCount: matched.filter((i) => (i.durationYears ?? 0) > 1).length,
+      paidToDate: matched.reduce((s, i) => s + i.paidToDate, 0),
+      outstanding: matched.reduce((s, i) => s + i.outstanding, 0),
       byProgramme: [...byProgrammeMap.entries()]
         .map(([name, amount]) => ({ name, amount }))
         .sort((a, b) => b.amount - a.amount),
     }
 
-    return { items, totals }
+    const page = paginate(matched, data.page, data.pageSize)
+    return { ...page, totals, facets }
   })
+
+/** Award lifecycle labels, shared by the facet and the client's status pill. */
+export const GRANT_STATUS_LABELS: Record<string, string> = {
+  active: 'Active',
+  completed: 'Done',
+  cancelled: 'Cancelled',
+}
+
+function emptyFacets() {
+  return {
+    programmes: [] as FacetOption[],
+    themes: [] as FacetOption[],
+    statuses: [] as FacetOption[],
+  }
+}
 
 function emptyGrantTotals() {
   return {

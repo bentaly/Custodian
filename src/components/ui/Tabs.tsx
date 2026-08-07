@@ -2,13 +2,7 @@
 // tabs): a washed track holding 32px buttons, the active one lifted to white with a
 // hairline border, each optionally carrying a count.
 
-const C = {
-  ink: '#141C24',
-  sub: '#637083',
-  faint: '#97A1AF',
-  line: '#E4E7EC',
-  wash: '#F2F4F7',
-}
+import { C } from './tokens'
 
 export type TabItem<T> = {
   id: T

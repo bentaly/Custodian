@@ -1,50 +1,83 @@
-import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { BankIcon, Calendar03Icon, Coins01Icon, Target01Icon } from '@hugeicons/core-free-icons'
 import {
   DataTable,
+  DateRangePicker,
   EmptyState,
+  FilterPill,
   KPI_TINTS,
   MiniKpi,
-  Select,
+  Pagination,
+  SearchInput,
+  SelectPill,
   StatusPill,
   type TableColumn,
 } from '../../components/ui'
-import { listAwards } from '../../server/fns/applications'
+import { listAwards, GRANT_STATUS_LABELS } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
+import { facetLabel } from '../../lib/facets'
+import { C } from '../../components/ui/tokens'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
 
 type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
+type AwardStatus = 'active' | 'completed' | 'cancelled'
+
 type AwardsSearch = {
   roundId?: string
   programmeId?: string
   tag?: string
+  status?: AwardStatus
   q?: string
+  from?: string
+  to?: string
+  page?: number
 }
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled']
 
 export const Route = createFileRoute('/_authenticated/awards/')({
   validateSearch: (search: Record<string, unknown>): AwardsSearch => ({
     roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
     programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
     tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
+    status: AWARD_STATUSES.includes(search.status as AwardStatus)
+      ? (search.status as AwardStatus)
+      : undefined,
     q: typeof search.q === 'string' && search.q ? search.q : undefined,
+    from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
+    to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
+    page:
+      Number.isInteger(Number(search.page)) && Number(search.page) > 1
+        ? Number(search.page)
+        : undefined,
   }),
   loaderDeps: ({ search }) => ({
     roundId: search.roundId,
     programmeId: search.programmeId,
     tag: search.tag,
+    status: search.status,
     q: search.q,
+    from: search.from,
+    to: search.to,
+    page: search.page,
   }),
   loader: async ({ deps }) => {
+    // The filter options come back with the data (`facets`) — see `src/lib/facets.ts`.
+    // Nothing here has to know what programmes or themes exist; the awards say so.
     const [awardsData, rounds] = await Promise.all([
       listAwards({
         data: {
           roundId: deps.roundId,
           programmeId: deps.programmeId,
           tag: deps.tag,
+          status: deps.status,
           q: deps.q,
+          from: deps.from,
+          to: deps.to,
+          page: deps.page,
         },
       }),
       listMyRounds(),
@@ -54,16 +87,10 @@ export const Route = createFileRoute('/_authenticated/awards/')({
   component: AwardsPage,
 })
 
-const GRANT_STATUS_LABELS: Record<string, string> = {
-  active: 'Active',
-  completed: 'Done',
-  cancelled: 'Cancelled',
-}
-
 const GRANT_STATUS_HEX: Record<string, string> = {
-  active: '#31A650',
-  completed: '#637083',
-  cancelled: '#FF4242',
+  active: C.success,
+  completed: C.sub,
+  cancelled: C.danger,
 }
 
 const txtInk = 'font-display text-[14px] text-[#141C24]'
@@ -151,7 +178,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     cell: (g) => (
       <StatusPill
         label={GRANT_STATUS_LABELS[g.status] ?? g.status}
-        color={GRANT_STATUS_HEX[g.status] ?? '#637083'}
+        color={GRANT_STATUS_HEX[g.status] ?? C.sub}
       />
     ),
   },
@@ -226,22 +253,10 @@ function StatCards({ totals }: { totals: Totals }) {
 function AwardsPage() {
   const navigate = Route.useNavigate()
   const search = Route.useSearch()
-  const { roundId, programmeId, tag, q } = search
-  const { items, totals, rounds } = Route.useLoaderData()
-
-  // Debounced org-name search, mirroring the Applications list.
-  const [searchTerm, setSearchTerm] = useState(q ?? '')
-  useEffect(() => {
-    setSearchTerm(q ?? '')
-  }, [q])
-  useEffect(() => {
-    const next = searchTerm.trim() || undefined
-    if (next === (q ?? undefined)) return
-    const t = setTimeout(() => {
-      navigate({ search: (prev) => ({ ...prev, q: next }) })
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchTerm]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { roundId, programmeId, tag, status, q, from, to, page } = search
+  const { items, total, pageSize, totals, rounds, facets } = Route.useLoaderData()
+  const currentPage = page ?? 1
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
   const visibleRounds = rounds
     .filter((r) => getRoundStatus(r) !== 'upcoming')
@@ -252,105 +267,124 @@ function AwardsPage() {
     })
 
   const selectedRound = rounds.find((r) => r.id === roundId)
-  const programmes = selectedRound ? selectedRound.roundProgrammes.map((rp) => rp.programme) : []
-  const tags = [...new Set(programmes.flatMap((p) => (p.tags as string[] | null) ?? []))].sort()
 
-  function handleRoundChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  // Unlike the round-scoped screens this one starts across every round — a grants
+  // portfolio is the whole book of business, not one sitting's decisions — so the pill
+  // keeps an "All rounds" option rather than using `RoundSelect`, which has none.
+  const roundStatus = selectedRound ? getRoundStatus(selectedRound) : null
+  const metaLine = [
+    `${totals.count} award${totals.count !== 1 ? 's' : ''}`,
+    roundStatus === 'open' ? 'current round' : roundStatus === 'closed' ? 'closed' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  function handleRoundChange(nextRoundId: string) {
     navigate({
       search: (prev) => ({
         ...prev,
-        roundId: e.target.value || undefined,
+        roundId: nextRoundId || undefined,
         programmeId: undefined,
         tag: undefined,
+        page: undefined,
       }),
     })
   }
 
+  // Every filter change returns to page 1 — page 4 of the old result set is a different
+  // set of awards, and landing there silently is disorienting.
   function setProgramme(id: string | undefined) {
+    navigate({ search: (prev) => ({ ...prev, programmeId: id, page: undefined }) })
+  }
+
+  function setTag(value: string | undefined) {
+    navigate({ search: (prev) => ({ ...prev, tag: value, page: undefined }) })
+  }
+
+  function setStatus(value: string | undefined) {
     navigate({
-      search: (prev) => ({ ...prev, programmeId: prev.programmeId === id ? undefined : id }),
+      search: (prev) => ({ ...prev, status: (value as AwardStatus) || undefined, page: undefined }),
     })
   }
 
-  function setTag(value: string) {
-    navigate({ search: (prev) => ({ ...prev, tag: prev.tag === value ? undefined : value }) })
+  function goToPage(p: number) {
+    navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
   }
 
-  const pillBase = 'rounded-full border px-3 py-1 text-xs transition-colors'
-  const pillOn = 'border-emerald-600 bg-emerald-50 font-medium text-emerald-700'
-  const pillOff = 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-[21px] font-semibold text-gray-900">Awards</h1>
-          <p className="mt-0.5 text-sm text-gray-400">Every award made, across all rounds</p>
+    <div className="flex flex-col gap-4">
+      {/* Header — <h1>, then the round pill and the list's meta on the row beneath, as
+          on Applications. */}
+      <div className="flex flex-col gap-4">
+        <h1 className="font-display text-[20px] font-medium text-[#141C24]">Awards</h1>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {visibleRounds.length > 0 && (
+              <SelectPill
+                ariaLabel="Select round"
+                icon={Calendar03Icon}
+                options={visibleRounds.map((r) => ({ value: r.id, label: r.name }))}
+                value={roundId}
+                clearLabel="All rounds"
+                onChange={handleRoundChange}
+              />
+            )}
+            <span className="whitespace-nowrap font-display text-[12px] font-medium text-[#637083]">
+              {metaLine}
+            </span>
+          </div>
+          <SearchInput
+            value={q}
+            onChange={(next) =>
+              navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
+            }
+            placeholder="Search organisation…"
+          />
         </div>
-        {visibleRounds.length > 0 && (
-          <Select value={roundId ?? ''} onChange={handleRoundChange}>
-            <option value="">All rounds</option>
-            {visibleRounds.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-                {getRoundStatus(r) === 'open' ? ' (current)' : ''}
-              </option>
-            ))}
-          </Select>
-        )}
       </div>
 
       <StatCards totals={totals} />
 
-      {/* Filters: search, programme (per selected round), tag */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search organisation…"
-          className="w-56 rounded-sm border border-gray-200 px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
+      {/* Filters — the same row Applications and Insights wear. Each pill offers only
+          what the awards in view actually contain, with counts; a pill with nothing to
+          choose between isn't rendered at all. */}
+      <div className="flex flex-wrap items-center gap-3">
+        {facets.statuses.length > 1 && (
+          <FilterPill
+            label="Status"
+            clearLabel="All statuses"
+            value={status}
+            options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={setStatus}
+          />
+        )}
+        {facets.programmes.length > 1 && (
+          <FilterPill
+            label="Programme"
+            clearLabel="All programmes"
+            value={programmeId}
+            options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={setProgramme}
+          />
+        )}
+        {facets.themes.length > 1 && (
+          <FilterPill
+            label="Theme"
+            clearLabel="All themes"
+            value={tag}
+            options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={setTag}
+          />
+        )}
+        <DateRangePicker
+          value={{ from, to }}
+          onChange={(next) =>
+            navigate({
+              search: (prev) => ({ ...prev, from: next.from, to: next.to, page: undefined }),
+            })
+          }
+          allLabel="Any award date"
         />
-
-        {programmes.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-              Programme
-            </span>
-            <button
-              onClick={() => setProgramme(undefined)}
-              className={`${pillBase} ${programmeId === undefined ? pillOn : pillOff}`}
-            >
-              All
-            </button>
-            {programmes.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setProgramme(p.id)}
-                className={`${pillBase} ${programmeId === p.id ? pillOn : pillOff}`}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {tags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-              Tag
-            </span>
-            {tags.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTag(t)}
-                className={`${pillBase} ${tag === t ? pillOn : pillOff}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {items.length === 0 ? (
@@ -361,12 +395,24 @@ function AwardsPage() {
           </p>
         </EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
-          <DataTable
-            columns={AWARD_COLUMNS}
-            rows={items}
-            rowKey={(g) => g.awardId}
-            onRowClick={(g) => navigate({ to: '/awards/$awardId', params: { awardId: g.awardId } })}
+        <div className="flex flex-col gap-4">
+          <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+            <DataTable
+              columns={AWARD_COLUMNS}
+              rows={items}
+              rowKey={(g) => g.awardId}
+              onRowClick={(g) =>
+                navigate({ to: '/awards/$awardId', params: { awardId: g.awardId } })
+              }
+            />
+          </div>
+          <Pagination
+            page={currentPage}
+            pageCount={pageCount}
+            shown={items.length}
+            total={total}
+            noun="awards"
+            onChange={goToPage}
           />
         </div>
       )}

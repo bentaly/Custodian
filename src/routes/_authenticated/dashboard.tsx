@@ -21,6 +21,7 @@ import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
 import { fmtCompact } from '../../lib/format'
+import { C } from '../../components/ui/tokens'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>
 
@@ -41,17 +42,6 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
 // Centralised so the whole screen re-themes from one place when the full Figma token
 // set lands. The named greys/status colours are the current Figma variables; the KPI
 // tints and chart hues are picked to match the dashboard comp until they're tokenised.
-const C = {
-  ink: '#141C24', // Gray/900
-  sub: '#637083', // Gray/500
-  faint: '#98A2B3',
-  line: '#E4E7EC', // Gray/200
-  wash: '#F2F4F7', // Gray/100
-  success: '#31A650',
-  danger: '#FF4242',
-  warning: '#F89828',
-  info: '#3B82C4',
-}
 
 // KPI card tints: { bg, border, accent } per metric.
 const KPI = {

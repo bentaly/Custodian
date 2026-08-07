@@ -7,18 +7,10 @@ import { BarMeter } from '../../components/BarMeter'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { fmtCompact, fmtMoney } from '../../lib/format'
 import { EmptyState, KPI_TINTS, MiniKpi, RoundSelect, roundStatusLabel } from '../../components/ui'
+import { C } from '../../components/ui/tokens'
 
 // Design tokens (Figma variables — pinned until the token set lands), matching the
 // applications list so the two screens read as one app.
-const C = {
-  ink: '#141C24',
-  sub: '#637083',
-  faint: '#97A1AF',
-  line: '#E4E7EC',
-  brand: '#1F7A5C',
-  amber: '#9B6916',
-  danger: '#C0344F',
-}
 
 /** Rounds a shortlist can exist in — an upcoming round has nothing shortlisted yet. */
 function selectableRounds<

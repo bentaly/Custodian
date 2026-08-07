@@ -8,6 +8,7 @@ import { requireAuthUser } from '../session'
 import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
 import { checkBankAccount, type ModulusCheckStatus } from '../../lib/bankVerification'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
+import { paginate, PAGE_SIZE } from '../../lib/pagination'
 
 // Finance reads the same grants as Awards, but through the payments lens: one row per
 // grant, keyed on where its money is up to rather than on the decision that made it.
@@ -131,85 +132,122 @@ function summarisePayments(instalments: InstalmentRow[], cancelled: boolean) {
  * still reconciles) and never contribute to the overdue / due / outstanding totals —
  * there is nothing left to pay on them.
  */
-export const listFinanceGrants = createServerFn({ method: 'GET' }).handler(async () => {
-  const user = await requireAuthUser()
-  const roundProgrammeIds = await visibleRoundProgrammeIds(user)
-  if (roundProgrammeIds !== null && roundProgrammeIds.length === 0) {
-    return { items: [], totals: emptyTotals() }
-  }
-
-  const apps = await getDb().query.applications.findMany({
-    where: and(
-      eq(applications.status, 'awarded'),
-      roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
-    ),
-    with: {
-      roundProgramme: { with: { programme: true, round: true } },
-      award: { with: { instalments: true } },
-    },
-  })
-
-  const items = apps
-    .filter((a) => a.award)
-    .map((a) => {
-      const award = a.award!
-      const cancelled = award.status === 'cancelled'
-      const pay = summarisePayments(award.instalments, cancelled)
-      const committed = parseFloat(award.amountAwarded)
-      const bank = bankCheck(a)
+export const listFinanceGrants = createServerFn({ method: 'GET' })
+  .validator(
+    z
+      .object({
+        /** Which tab is open. "To pay" is anything still owing; "paid" is settled + cancelled. */
+        tab: z.enum(['to_pay', 'paid']).optional(),
+        page: z.number().int().positive().optional(),
+        /** Raised by the CSV export, which is the whole tab by definition. */
+        pageSize: z.number().int().positive().max(10_000).optional(),
+      })
+      .optional(),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireAuthUser()
+    const roundProgrammeIds = await visibleRoundProgrammeIds(user)
+    if (roundProgrammeIds !== null && roundProgrammeIds.length === 0) {
       return {
-        awardId: award.id,
-        applicationId: a.id,
-        organisationName: a.organisationName,
-        programmeName: a.roundProgramme?.programme?.name ?? null,
-        roundName: a.roundProgramme?.round?.name ?? null,
-        awardStatus: award.status,
-        decisionAt: award.decisionAt.toISOString(),
-        committed,
-        // Outstanding is measured against what was COMMITTED, not against the
-        // instalment plan — an unscheduled or short-scheduled grant still owes the
-        // full difference, and hiding that is exactly the gap finance cares about.
-        outstanding: cancelled ? 0 : committed - pay.paidToDate,
-        bank: { status: bank.status, last4: last4(a.bankAccountNumber) },
-        ...pay,
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: PAGE_SIZE,
+        tabCounts: { to_pay: 0, paid: 0 },
+        totals: emptyTotals(),
       }
-    })
-    // Payment order: the money you owe soonest, first. Dateless and unscheduled grants
-    // land at the end of the "to pay" list, and settled grants sort by most recently
-    // paid — the two tabs each read top-down as "what matters now".
-    .sort((x, y) => {
-      // A cancelled grant has no payment to chase, whatever its schedule still says.
-      const xd = x.awardStatus === 'cancelled' ? null : (x.nextPayment?.dueDate ?? null)
-      const yd = y.awardStatus === 'cancelled' ? null : (y.nextPayment?.dueDate ?? null)
-      if (xd && yd) return xd.localeCompare(yd)
-      if (xd) return -1
-      if (yd) return 1
-      return (y.lastPaidDate ?? '').localeCompare(x.lastPaidDate ?? '')
+    }
+
+    // Named columns — same reason as `listAwards`. The bank fields are needed for the
+    // modulus check; none of the jsonb is.
+    const apps = await getDb().query.applications.findMany({
+      where: and(
+        eq(applications.status, 'awarded'),
+        roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
+      ),
+      columns: {
+        id: true,
+        organisationName: true,
+        bankName: true,
+        bankAccountName: true,
+        bankSortCode: true,
+        bankAccountNumber: true,
+      },
+      with: {
+        roundProgramme: { with: { programme: true, round: true } },
+        award: { with: { instalments: true } },
+      },
     })
 
-  const payable = items.filter((i) => i.awardStatus !== 'cancelled')
-  const totals = {
-    grantCount: payable.length,
-    committed: payable.reduce((s, i) => s + i.committed, 0),
-    // Paid-to-date includes cancelled grants: that money genuinely went out.
-    paidToDate: items.reduce((s, i) => s + i.paidToDate, 0),
-    paidCount: items.reduce((s, i) => s + i.paidCount, 0),
-    outstanding: payable.reduce((s, i) => s + i.outstanding, 0),
-    overdueAmount: payable.reduce((s, i) => s + i.overdueAmount, 0),
-    overdueCount: payable.reduce((s, i) => s + i.overdueCount, 0),
-    overdueGrants: payable.filter((i) => i.overdueCount > 0).length,
-    dueSoonAmount: payable.reduce((s, i) => s + i.dueSoonAmount, 0),
-    dueSoonCount: payable.reduce((s, i) => s + i.dueSoonCount, 0),
-    unscheduledCount: payable.filter((i) => i.status === 'unscheduled').length,
-    // Grants still owing money whose bank details are missing or fail the modulus
-    // check — every one of them is a payment that cannot go out cleanly.
-    bankIssueCount: payable.filter(
-      (i) => i.status !== 'paid' && (i.bank.status === 'missing' || i.bank.status === 'invalid'),
-    ).length,
-  }
+    const items = apps
+      .filter((a) => a.award)
+      .map((a) => {
+        const award = a.award!
+        const cancelled = award.status === 'cancelled'
+        const pay = summarisePayments(award.instalments, cancelled)
+        const committed = parseFloat(award.amountAwarded)
+        const bank = bankCheck(a)
+        return {
+          awardId: award.id,
+          applicationId: a.id,
+          organisationName: a.organisationName,
+          programmeName: a.roundProgramme?.programme?.name ?? null,
+          roundName: a.roundProgramme?.round?.name ?? null,
+          awardStatus: award.status,
+          decisionAt: award.decisionAt.toISOString(),
+          committed,
+          // Outstanding is measured against what was COMMITTED, not against the
+          // instalment plan — an unscheduled or short-scheduled grant still owes the
+          // full difference, and hiding that is exactly the gap finance cares about.
+          outstanding: cancelled ? 0 : committed - pay.paidToDate,
+          bank: { status: bank.status, last4: last4(a.bankAccountNumber) },
+          ...pay,
+        }
+      })
+      // Payment order: the money you owe soonest, first. Dateless and unscheduled grants
+      // land at the end of the "to pay" list, and settled grants sort by most recently
+      // paid — the two tabs each read top-down as "what matters now".
+      .sort((x, y) => {
+        // A cancelled grant has no payment to chase, whatever its schedule still says.
+        const xd = x.awardStatus === 'cancelled' ? null : (x.nextPayment?.dueDate ?? null)
+        const yd = y.awardStatus === 'cancelled' ? null : (y.nextPayment?.dueDate ?? null)
+        if (xd && yd) return xd.localeCompare(yd)
+        if (xd) return -1
+        if (yd) return 1
+        return (y.lastPaidDate ?? '').localeCompare(x.lastPaidDate ?? '')
+      })
 
-  return { items, totals }
-})
+    const payable = items.filter((i) => i.awardStatus !== 'cancelled')
+    const totals = {
+      grantCount: payable.length,
+      committed: payable.reduce((s, i) => s + i.committed, 0),
+      // Paid-to-date includes cancelled grants: that money genuinely went out.
+      paidToDate: items.reduce((s, i) => s + i.paidToDate, 0),
+      paidCount: items.reduce((s, i) => s + i.paidCount, 0),
+      outstanding: payable.reduce((s, i) => s + i.outstanding, 0),
+      overdueAmount: payable.reduce((s, i) => s + i.overdueAmount, 0),
+      overdueCount: payable.reduce((s, i) => s + i.overdueCount, 0),
+      overdueGrants: payable.filter((i) => i.overdueCount > 0).length,
+      dueSoonAmount: payable.reduce((s, i) => s + i.dueSoonAmount, 0),
+      dueSoonCount: payable.reduce((s, i) => s + i.dueSoonCount, 0),
+      unscheduledCount: payable.filter((i) => i.status === 'unscheduled').length,
+      // Grants still owing money whose bank details are missing or fail the modulus
+      // check — every one of them is a payment that cannot go out cleanly.
+      bankIssueCount: payable.filter(
+        (i) => i.status !== 'paid' && (i.bank.status === 'missing' || i.bank.status === 'invalid'),
+      ).length,
+    }
+
+    // Each grant sits under exactly one tab; the counts are of the whole set so the tab
+    // labels don't describe the page. Totals likewise — the KPI row is the finance
+    // position, not this screenful of it.
+    const toPay = items.filter((g) => g.status !== 'paid' && g.status !== 'cancelled')
+    const settled = items.filter((g) => g.status === 'paid' || g.status === 'cancelled')
+    const tabCounts = { to_pay: toPay.length, paid: settled.length }
+    const rows = data?.tab === 'paid' ? settled : toPay
+
+    return { ...paginate(rows, data?.page, data?.pageSize), tabCounts, totals }
+  })
 
 function emptyTotals() {
   return {

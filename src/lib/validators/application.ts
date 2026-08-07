@@ -4,15 +4,18 @@ export const ApplicationStatus = z.enum(['for_review', 'shortlisted', 'awarded',
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
 
 /**
- * The one place a status value becomes prose. Anything shown to a user goes
- * through here — the header search used to capitalise the raw value and printed
- * "For_review" at people.
+ * The one place a status value becomes prose. Anything shown to a user goes through
+ * here — the header search used to capitalise the raw value and printed "For_review"
+ * at people.
  *
- * The applications table's own pill deliberately says "In review" instead (Figma
- * calls it that in a row context); everything else uses these.
+ * The table pill used to say "In review" while the filter said "For review", on the
+ * grounds that Figma labelled the row context differently. That is not a distinction a
+ * user can be expected to make: filtering by "For review" and reading "In review" in
+ * the resulting rows reads as two different states. One status, one name — and the
+ * screens now take it from here rather than keeping their own copy.
  */
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
-  for_review: 'For review',
+  for_review: 'In review',
   shortlisted: 'Shortlisted',
   awarded: 'Awarded',
   declined: 'Declined',

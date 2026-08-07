@@ -100,17 +100,14 @@ function ReportDetail() {
                 : STATUS_LABELS[report.status]}
           </span>
           {s && canReview && (
-            <button
+            <Button
+              variant={isReviewed ? 'secondary' : 'primary'}
+              size="sm"
               onClick={handleReview}
               disabled={reviewing}
-              className={`rounded border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
-                isReviewed
-                  ? 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                  : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
-              }`}
             >
               {reviewing ? '…' : isReviewed ? 'Undo review' : 'Mark as reviewed'}
-            </button>
+            </Button>
           )}
           {s && (
             <Button

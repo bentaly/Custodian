@@ -26,3 +26,6 @@ scripts/extract-form-headers.py
 
 # TanStack Router scratch dir (temp routeTree copies during regeneration)
 .tanstack/
+
+# Storybook build output
+storybook-static/

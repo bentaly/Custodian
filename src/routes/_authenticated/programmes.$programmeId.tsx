@@ -4,16 +4,29 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import {
   getProgramme,
   updateProgramme,
+  deleteProgramme,
+  setProgrammeArchived,
   listClientTags,
   addProgrammeToRound,
   removeProgrammeFromRound,
 } from '../../server/fns/programmes'
 import { listMyRounds } from '../../server/fns/rounds'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
+import { GrantTermsFields } from '../../components/GrantTermsFields'
 import { TagInput } from '../../components/TagInput'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { IMPACT_UNITS, DEFAULT_IMPACT_UNIT, impactUnitLabel } from '../../lib/impactUnits'
-import { Badge, Breadcrumb, Button, Card, Input, Label, Textarea } from '../../components/ui'
+import {
+  Badge,
+  Breadcrumb,
+  Button,
+  Card,
+  ConfirmDialog,
+  Input,
+  Label,
+  Select,
+  Textarea,
+} from '../../components/ui'
 
 export const Route = createFileRoute('/_authenticated/programmes/$programmeId')({
   loader: async ({ params }) => {
@@ -46,6 +59,11 @@ function ProgrammeDetail() {
   const [impactUnitCustom, setImpactUnitCustom] = useState(programme.impactUnitLabel ?? '')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [archiving, setArchiving] = useState(false)
 
   const [showAddRound, setShowAddRound] = useState(false)
   const [selectedRoundId, setSelectedRoundId] = useState('')
@@ -115,6 +133,28 @@ function ProgrammeDetail() {
     }
   }
 
+  async function handleArchive(archived: boolean) {
+    setArchiving(true)
+    try {
+      await setProgrammeArchived({ data: { id: programme.id, archived } })
+      router.invalidate()
+    } finally {
+      setArchiving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleteError('')
+    setDeleting(true)
+    try {
+      await deleteProgramme({ data: { id: programme.id } })
+      router.navigate({ to: '/programmes' })
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete programme')
+      setDeleting(false)
+    }
+  }
+
   const [removingRoundId, setRemovingRoundId] = useState<string | null>(null)
   async function handleRemoveFromRound(roundId: string) {
     setRemovingRoundId(roundId)
@@ -175,24 +215,20 @@ function ProgrammeDetail() {
                 </span>
               </Label>
               <div className="flex gap-2">
-                <select
-                  value={impactUnit}
-                  onChange={(e) => setImpactUnit(e.target.value)}
-                  className="rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
-                >
+                <Select value={impactUnit} onChange={(e) => setImpactUnit(e.target.value)}>
                   {IMPACT_UNITS.map((u) => (
                     <option key={u.key} value={u.key}>
                       {u.label}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {impactUnit === 'other' ? (
-                  <input
+                  <Input
                     type="text"
                     value={impactUnitCustom}
                     onChange={(e) => setImpactUnitCustom(e.target.value)}
                     placeholder="e.g. hectares of peatland restored"
-                    className="flex-1 rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
+                    className="flex-1"
                     required
                   />
                 ) : (
@@ -246,6 +282,11 @@ function ProgrammeDetail() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-semibold text-gray-900">{programme.name}</h1>
+                {programme.archivedAt && (
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                    Archived
+                  </span>
+                )}
               </div>
               {programme.description && (
                 <p className="mt-1 text-sm text-gray-500">{programme.description}</p>
@@ -270,12 +311,29 @@ function ProgrammeDetail() {
               </p>
             </div>
             {canManage && (
-              <button
-                onClick={() => setEditing(true)}
-                className="shrink-0 rounded-sm border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-              >
-                Edit
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button variant="secondary" size="xs" onClick={() => setEditing(true)}>
+                  Edit
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => handleArchive(!programme.archivedAt)}
+                  disabled={archiving}
+                >
+                  {archiving ? '…' : programme.archivedAt ? 'Restore' : 'Archive'}
+                </Button>
+                <Button
+                  variant="dangerGhost"
+                  size="xs"
+                  onClick={() => {
+                    setDeleteError('')
+                    setConfirmingDelete(true)
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -299,10 +357,9 @@ function ProgrammeDetail() {
           >
             <div>
               <Label>Round</Label>
-              <select
+              <Select
                 value={selectedRoundId}
                 onChange={(e) => setSelectedRoundId(e.target.value)}
-                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
                 required
               >
                 <option value="">Choose a round…</option>
@@ -311,62 +368,17 @@ function ProgrammeDetail() {
                     {r.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div>
-                <Label>Total budget</Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
-                    £
-                  </span>
-                  <input
-                    type="number"
-                    value={addBudget}
-                    onChange={(e) => setAddBudget(e.target.value)}
-                    min="0"
-                    step="1"
-                    placeholder="0"
-                    className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>Max per award</Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">
-                    £
-                  </span>
-                  <input
-                    type="number"
-                    value={addMaxGrantAmount}
-                    onChange={(e) => setAddMaxGrantAmount(e.target.value)}
-                    min="0"
-                    step="1"
-                    placeholder="0"
-                    className="w-full rounded-sm border border-gray-300 py-2 pl-6 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>Duration</Label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={addGrantDurationYears}
-                    onChange={(e) => setAddGrantDurationYears(e.target.value)}
-                    min="1"
-                    max="20"
-                    step="1"
-                    placeholder="1"
-                    className="w-full rounded-sm border border-gray-300 py-2 pl-3 pr-10 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400"
-                  />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">
-                    yrs
-                  </span>
-                </div>
-              </div>
-            </div>
+            <GrantTermsFields
+              budget={addBudget}
+              onBudget={setAddBudget}
+              maxGrantAmount={addMaxGrantAmount}
+              onMaxGrantAmount={setAddMaxGrantAmount}
+              grantDurationYears={addGrantDurationYears}
+              onGrantDurationYears={setAddGrantDurationYears}
+              budgetRequired
+            />
             {addRoundError && <p className="text-sm text-red-500">{addRoundError}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={addingRound}>
@@ -416,19 +428,41 @@ function ProgrammeDetail() {
                   </Badge>
                 </div>
                 {canManage && (
-                  <button
+                  <Button
+                    variant="dangerGhost"
+                    size="xs"
                     onClick={() => handleRemoveFromRound(round.id)}
                     disabled={removingRoundId === round.id}
-                    className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50"
                   >
                     {removingRoundId === round.id ? 'Removing…' : 'Remove'}
-                  </button>
+                  </Button>
                 )}
               </Card>
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="Delete programme"
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={handleDelete}
+        confirmLabel="Delete programme"
+        busyLabel="Deleting…"
+        busy={deleting}
+        error={deleteError}
+      >
+        Delete <span className="font-medium text-gray-700">{programme.name}</span>?
+        {programme.roundProgrammes.length > 0 && (
+          <>
+            {' '}
+            It is in {programme.roundProgrammes.length} round
+            {programme.roundProgrammes.length === 1 ? '' : 's'}, and their budgets go with it.
+          </>
+        )}{' '}
+        This cannot be undone — archive it instead if any of it is worth keeping.
+      </ConfirmDialog>
     </div>
   )
 }

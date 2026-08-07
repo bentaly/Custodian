@@ -208,6 +208,11 @@ export const rounds = pgTable('rounds', {
   name: text('name').notNull(),
   openedAt: timestamp('opened_at'),
   closedAt: timestamp('closed_at'),
+  // Retired, not removed. A round that has applications can never be deleted — its
+  // applications and awards are financial records that must keep pointing at the round
+  // they were judged in — so "I'm done with this" is expressed by archiving: hidden
+  // from every picker and list, still rendered wherever its history is shown.
+  archivedAt: timestamp('archived_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -227,6 +232,10 @@ export const programmes = pgTable('programmes', {
   // Free-text PLURAL noun phrase when impactUnit = 'other', e.g. "hectares of
   // peatland restored". Used verbatim for display and extraction; never inflected.
   impactUnitLabel: text('impact_unit_label'),
+  // See `rounds.archived_at` — same rule: a programme with grants against it stays,
+  // because its awards reference it through `round_programmes` for the budget they
+  // were judged against.
+  archivedAt: timestamp('archived_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -251,93 +260,118 @@ export const roundProgrammes = pgTable(
     grantDurationYears: integer('grant_duration_years'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [unique('round_programmes_uniq').on(t.roundId, t.programmeId)],
+  (t) => [
+    unique('round_programmes_uniq').on(t.roundId, t.programmeId),
+    // The unique constraint above indexes (round_id, programme_id), which serves
+    // round-first lookups. Going the other way — "which rounds is this programme in?",
+    // the programme detail screen and the programme filter — needs its own.
+    index('round_programmes_programme_idx').on(t.programmeId),
+  ],
 )
 
-export const applications = pgTable('applications', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  roundProgrammeId: uuid('round_programme_id')
-    .notNull()
-    .references(() => roundProgrammes.id, { onDelete: 'restrict' }),
-  // The foundation's OWN application reference (distinct from our `id`). Set when
-  // an application arrives via the field-mapping ingest path; nullable because
-  // applications submitted directly (canonical form) have no external reference.
-  externalApplicationId: text('external_application_id'),
-  organisationName: text('organisation_name').notNull(),
-  // The applicant's contact email address. Required for every new application (a
-  // required canonical field), but the column is nullable so it can be added without
-  // backfilling existing rows.
-  applicantEmail: text('applicant_email'),
-  // Registration numbers drive due diligence routing. Both nullable: a CIO has
-  // only a charity number, a CIC only a company number, and some entities are
-  // dual-registered and have both.
-  charityNumber: text('charity_number'),
-  companyNumber: text('company_number'),
-  bankName: text('bank_name'),
-  bankAccountName: text('bank_account_name'),
-  bankAccountNumber: text('bank_account_number'),
-  bankSortCode: text('bank_sort_code'),
-  amountRequested: numeric('amount_requested').notNull(),
-  // The PROJECT budget as line items, in whole pounds. Nullable — not every
-  // foundation collects one, and it is captured only when the incoming form has a
-  // structured breakdown (a prose budget narrative stays in `responses`).
-  // NB: these lines are NOT a decomposition of `amountRequested` and need not sum
-  // to it — the applicant may be asking this funder to fund only part of the
-  // budget. Never derive one from the other.
-  budgetBreakdown: jsonb('budget_breakdown').$type<BudgetLine[]>(),
-  // The impact the applicant PROPOSES to achieve, counted in the programme's own
-  // impact unit (people / trees / hectares …). Application-level and forward-looking —
-  // distinct from the ACTUAL impact captured later on grant reports (which is what
-  // Insights aggregates). Drives the detail-page "Beneficiaries" / "Cost per
-  // beneficiary" figures. Nullable — not every foundation collects it.
-  proposedImpactQuantity: numeric('proposed_impact_quantity'),
-  // Free-text area where the funded PROJECT is delivered — the community served (e.g.
-  // "Bradford", "BD1 1AA", "Yorkshire"), NOT where the organisation is based. Captured
-  // from the incoming application; nullable as not every foundation collects it. Drives
-  // the deprivation context below.
-  // NB: the physical column keeps its original name `geography` (a logical-only rename,
-  // to avoid a data-losing column rename migration); the app refers to it as deliveryArea.
-  deliveryArea: text('geography'),
-  responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
-  status: applicationStatusEnum('status').notNull().default('for_review'),
-  // Summary outcome of the automated due diligence screening — cheap to read for
-  // the applications list/detail indicator without parsing the checks array.
-  dueDiligenceStatus: dueDiligenceStatusEnum('due_diligence_status').notNull().default('pending'),
-  // Individual check results. `level` and `label` are intentionally NOT stored —
-  // they are UI concerns derived from `key` via the definitions registry in
-  // src/lib/dueDiligence. We persist only what was actually checked and its outcome.
-  dueDiligenceChecks: jsonb('due_diligence_checks').$type<DueDiligenceCheckRecord[]>(),
-  dueDiligenceCheckedAt: timestamp('due_diligence_checked_at'),
-  // AI "Custodian score" assessment. `custodianScore` is the denormalised
-  // composite (0–100) kept in its own column for cheap list reads and sorting;
-  // the per-criterion breakdown, summary, and flags live in `custodianScoreDetail`.
-  custodianScoreStatus: custodianScoreStatusEnum('custodian_score_status')
-    .notNull()
-    .default('pending'),
-  custodianScore: integer('custodian_score'),
-  custodianScoreDetail: jsonb('custodian_score_detail').$type<CustodianScoreDetail>(),
-  custodianScoredAt: timestamp('custodian_scored_at'),
-  // Deprivation context derived from `deliveryArea`. `deprivationStatus` is the
-  // denormalised outcome for cheap list reads; `deprivationContext` holds the full
-  // result (decile range, nation, vintage, matched area — or the reason it could not
-  // be resolved). Decile data itself comes from our own `deprivation_areas` table
-  // (latest per-nation index), NOT from the geocoding API.
-  deprivationStatus: deprivationStatusEnum('deprivation_status').notNull().default('pending'),
-  deprivationContext: jsonb('deprivation_context').$type<DeprivationResult>(),
-  deprivationResolvedAt: timestamp('deprivation_resolved_at'),
-  // Administrative location of the delivery area, captured during deprivation
-  // resolution (from the matched small area / reverse geocode) — independent of the
-  // decile, for portfolio breakdowns like "funding by region / district". Region is
-  // England's 9 regions ("Wales" for Welsh areas); null for Scotland/NI (group those
-  // by nation). District (LAD) is null for region-level matches that span many LADs.
-  deliveryNation: deprivationNationEnum('delivery_nation'),
-  deliveryRegion: text('delivery_region'),
-  deliveryLadCode: text('delivery_lad_code'),
-  deliveryLadName: text('delivery_lad_name'),
-  submittedAt: timestamp('submitted_at').notNull().defaultNow(),
-  decisionAt: timestamp('decision_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+export const applications = pgTable(
+  'applications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roundProgrammeId: uuid('round_programme_id')
+      .notNull()
+      .references(() => roundProgrammes.id, { onDelete: 'restrict' }),
+    // The foundation's OWN application reference (distinct from our `id`). Set when
+    // an application arrives via the field-mapping ingest path; nullable because
+    // applications submitted directly (canonical form) have no external reference.
+    externalApplicationId: text('external_application_id'),
+    organisationName: text('organisation_name').notNull(),
+    // The applicant's contact email address. Required for every new application (a
+    // required canonical field), but the column is nullable so it can be added without
+    // backfilling existing rows.
+    applicantEmail: text('applicant_email'),
+    // Registration numbers drive due diligence routing. Both nullable: a CIO has
+    // only a charity number, a CIC only a company number, and some entities are
+    // dual-registered and have both.
+    charityNumber: text('charity_number'),
+    companyNumber: text('company_number'),
+    bankName: text('bank_name'),
+    bankAccountName: text('bank_account_name'),
+    bankAccountNumber: text('bank_account_number'),
+    bankSortCode: text('bank_sort_code'),
+    amountRequested: numeric('amount_requested').notNull(),
+    // The PROJECT budget as line items, in whole pounds. Nullable — not every
+    // foundation collects one, and it is captured only when the incoming form has a
+    // structured breakdown (a prose budget narrative stays in `responses`).
+    // NB: these lines are NOT a decomposition of `amountRequested` and need not sum
+    // to it — the applicant may be asking this funder to fund only part of the
+    // budget. Never derive one from the other.
+    budgetBreakdown: jsonb('budget_breakdown').$type<BudgetLine[]>(),
+    // The impact the applicant PROPOSES to achieve, counted in the programme's own
+    // impact unit (people / trees / hectares …). Application-level and forward-looking —
+    // distinct from the ACTUAL impact captured later on grant reports (which is what
+    // Insights aggregates). Drives the detail-page "Beneficiaries" / "Cost per
+    // beneficiary" figures. Nullable — not every foundation collects it.
+    proposedImpactQuantity: numeric('proposed_impact_quantity'),
+    // Free-text area where the funded PROJECT is delivered — the community served (e.g.
+    // "Bradford", "BD1 1AA", "Yorkshire"), NOT where the organisation is based. Captured
+    // from the incoming application; nullable as not every foundation collects it. Drives
+    // the deprivation context below.
+    // NB: the physical column keeps its original name `geography` (a logical-only rename,
+    // to avoid a data-losing column rename migration); the app refers to it as deliveryArea.
+    deliveryArea: text('geography'),
+    responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
+    status: applicationStatusEnum('status').notNull().default('for_review'),
+    // Summary outcome of the automated due diligence screening — cheap to read for
+    // the applications list/detail indicator without parsing the checks array.
+    dueDiligenceStatus: dueDiligenceStatusEnum('due_diligence_status').notNull().default('pending'),
+    // Individual check results. `level` and `label` are intentionally NOT stored —
+    // they are UI concerns derived from `key` via the definitions registry in
+    // src/lib/dueDiligence. We persist only what was actually checked and its outcome.
+    dueDiligenceChecks: jsonb('due_diligence_checks').$type<DueDiligenceCheckRecord[]>(),
+    dueDiligenceCheckedAt: timestamp('due_diligence_checked_at'),
+    // AI "Custodian score" assessment. `custodianScore` is the denormalised
+    // composite (0–100) kept in its own column for cheap list reads and sorting;
+    // the per-criterion breakdown, summary, and flags live in `custodianScoreDetail`.
+    custodianScoreStatus: custodianScoreStatusEnum('custodian_score_status')
+      .notNull()
+      .default('pending'),
+    custodianScore: integer('custodian_score'),
+    custodianScoreDetail: jsonb('custodian_score_detail').$type<CustodianScoreDetail>(),
+    custodianScoredAt: timestamp('custodian_scored_at'),
+    // Deprivation context derived from `deliveryArea`. `deprivationStatus` is the
+    // denormalised outcome for cheap list reads; `deprivationContext` holds the full
+    // result (decile range, nation, vintage, matched area — or the reason it could not
+    // be resolved). Decile data itself comes from our own `deprivation_areas` table
+    // (latest per-nation index), NOT from the geocoding API.
+    deprivationStatus: deprivationStatusEnum('deprivation_status').notNull().default('pending'),
+    deprivationContext: jsonb('deprivation_context').$type<DeprivationResult>(),
+    deprivationResolvedAt: timestamp('deprivation_resolved_at'),
+    // Administrative location of the delivery area, captured during deprivation
+    // resolution (from the matched small area / reverse geocode) — independent of the
+    // decile, for portfolio breakdowns like "funding by region / district". Region is
+    // England's 9 regions ("Wales" for Welsh areas); null for Scotland/NI (group those
+    // by nation). District (LAD) is null for region-level matches that span many LADs.
+    deliveryNation: deprivationNationEnum('delivery_nation'),
+    deliveryRegion: text('delivery_region'),
+    deliveryLadCode: text('delivery_lad_code'),
+    deliveryLadName: text('delivery_lad_name'),
+    submittedAt: timestamp('submitted_at').notNull().defaultNow(),
+    decisionAt: timestamp('decision_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // Postgres indexes primary keys and unique constraints on its own but NEVER foreign
+  // keys, so without these every list query is a sequential scan of the whole table —
+  // invisible at a few hundred rows, linear thereafter.
+  (t) => [
+    // `round_programme_id` is the tenancy filter on every list query; adding `status`
+    // serves the status filter and tab counts from the same index. A query on
+    // `round_programme_id` alone still uses it — a composite index works on any
+    // leading subset of its columns.
+    index('applications_scope_status_idx').on(t.roundProgrammeId, t.status),
+    // The applications list filters by scope and orders by newest first; with the sort
+    // column in the index, Postgres reads a page in order instead of sorting the lot.
+    index('applications_scope_submitted_idx').on(t.roundProgrammeId, t.submittedAt),
+    // The foundation's own reference, looked up on every report ingest to auto-link a
+    // submission to its grant.
+    index('applications_external_id_idx').on(t.externalApplicationId),
+  ],
+)
 
 // ─── BetterAuth tables ────────────────────────────────────────────────────────
 
@@ -525,20 +559,25 @@ export const deprivationAreas = pgTable(
   ],
 )
 
-export const applicationComments = pgTable('application_comments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id')
-    .notNull()
-    .references(() => applications.id, { onDelete: 'cascade' }),
-  userId: text('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  body: text('body').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  // Set when a comment is edited in place; null for never-edited comments. Drives
-  // the "(edited)" marker in the UI.
-  updatedAt: timestamp('updated_at'),
-})
+export const applicationComments = pgTable(
+  'application_comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    applicationId: uuid('application_id')
+      .notNull()
+      .references(() => applications.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    // Set when a comment is edited in place; null for never-edited comments. Drives
+    // the "(edited)" marker in the UI.
+    updatedAt: timestamp('updated_at'),
+  },
+  // The discussion thread on an application detail page.
+  (t) => [index('application_comments_application_idx').on(t.applicationId)],
+)
 
 export const applicationVotes = pgTable(
   'application_votes',
@@ -616,9 +655,13 @@ export const awards = pgTable(
     decisionAt: timestamp('decision_at').notNull().defaultNow(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  // One grant per application — the `award: one(...)` relation and every money
-  // rollup assume it; a double-submitted award set-up must hit this wall.
-  (t) => [unique('awards_application_uniq').on(t.applicationId)],
+  (t) => [
+    // One grant per application — the `award: one(...)` relation and every money
+    // rollup assume it; a double-submitted award set-up must hit this wall.
+    unique('awards_application_uniq').on(t.applicationId),
+    // Insights and Reports read a whole foundation's grants, newest decisions first.
+    index('awards_client_decision_idx').on(t.clientId, t.decisionAt),
+  ],
 )
 
 // One scheduled instalment of a grant. Promoted out of the old
@@ -626,17 +669,22 @@ export const awards = pgTable(
 // marked paid independently and aggregated across the portfolio (paid-to-date,
 // outstanding). `dueDate`/`paidDate` are ISO yyyy-mm-dd strings; `dueDate` is null for
 // "date TBC", `paidDate` is null until the instalment is paid.
-export const awardInstalments = pgTable('award_instalments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  awardId: uuid('award_id')
-    .notNull()
-    .references(() => awards.id, { onDelete: 'cascade' }),
-  instalmentNo: integer('instalment_no').notNull(),
-  amount: numeric('amount').notNull(),
-  dueDate: text('due_date'),
-  paidDate: text('paid_date'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+export const awardInstalments = pgTable(
+  'award_instalments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    awardId: uuid('award_id')
+      .notNull()
+      .references(() => awards.id, { onDelete: 'cascade' }),
+    instalmentNo: integer('instalment_no').notNull(),
+    amount: numeric('amount').notNull(),
+    dueDate: text('due_date'),
+    paidDate: text('paid_date'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // Every payment rollup — Finance, Awards, the dashboard — groups instalments by award.
+  (t) => [index('award_instalments_award_idx').on(t.awardId)],
+)
 
 // One date an award expects a report on. Promoted out of the old
 // `applications.reporting_schedule` jsonb so each expectation is a first-class row that
@@ -646,16 +694,21 @@ export const awardInstalments = pgTable('award_instalments', {
 // report always has a date. (It was briefly nullable for "date TBC", but the award
 // form never allowed it, so a dateless row could not be created anyway.)
 // `submittedDate` is null until a report arrives against it.
-export const reportSchedule = pgTable('report_schedule', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  awardId: uuid('award_id')
-    .notNull()
-    .references(() => awards.id, { onDelete: 'cascade' }),
-  label: text('label').notNull(),
-  dueDate: text('due_date').notNull(),
-  submittedDate: text('submitted_date'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+export const reportSchedule = pgTable(
+  'report_schedule',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    awardId: uuid('award_id')
+      .notNull()
+      .references(() => awards.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    dueDate: text('due_date').notNull(),
+    submittedDate: text('submitted_date'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // The Reports screen walks every award's milestones to work out what is outstanding.
+  (t) => [index('report_schedule_award_idx').on(t.awardId)],
+)
 
 // The award letter issued to a grantee — the document that tells a charity it has the
 // money and on what terms.
@@ -742,91 +795,97 @@ export const reportIngests = pgTable('report_ingests', {
 // in `report_ingests`). Carries the AI analysis: summary, alignment against the
 // application's promises and the programme's goal, and the extracted impact
 // quantity in the programme's impact unit (which feeds Insights).
-export const reports = pgTable('reports', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  awardId: uuid('award_id')
-    .notNull()
-    .references(() => awards.id, { onDelete: 'cascade' }),
-  // The reporting milestone this submission satisfied (earliest open one at the
-  // time of linking); null when the grant had no open milestones left.
-  scheduleId: uuid('schedule_id').references(() => reportSchedule.id, {
-    onDelete: 'set null',
-  }),
-  matchMethod: reportMatchMethodEnum('match_method').notNull(),
+export const reports = pgTable(
+  'reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    awardId: uuid('award_id')
+      .notNull()
+      .references(() => awards.id, { onDelete: 'cascade' }),
+    // The reporting milestone this submission satisfied (earliest open one at the
+    // time of linking); null when the grant had no open milestones left.
+    scheduleId: uuid('schedule_id').references(() => reportSchedule.id, {
+      onDelete: 'set null',
+    }),
+    matchMethod: reportMatchMethodEnum('match_method').notNull(),
 
-  // ── Canonical report fields (see src/lib/fieldMapping/reportCanonical.ts) ──
-  externalApplicationId: text('external_application_id'),
-  organisationName: text('organisation_name').notNull(),
-  charityNumber: text('charity_number'),
-  companyNumber: text('company_number'),
-  programmeName: text('programme_name'),
-  // Amount as stated on the report — kept for cross-checking against the grant's
-  // amountAwarded (a mismatch is a wrong-link signal), not a source of truth.
-  amountAwarded: numeric('amount_awarded'),
-  awardDate: text('award_date'),
-  awardEndDate: text('award_end_date'),
-  contactName: text('contact_name'),
-  contactEmail: text('contact_email'),
-  contactPhone: text('contact_phone'),
-  grantTitle: text('grant_title'),
-  grantPurpose: text('grant_purpose'),
-  impactSummary: text('impact_summary').notNull(),
-  challenges: text('challenges'),
-  lessons: text('lessons'),
-  caseStudies: text('case_studies'),
-  testimonials: text('testimonials'),
-  otherComments: text('other_comments'),
-  // Directly-asked beneficiary count ("How many young people benefited?"). When the
-  // programme measures impact in people, this charity-typed number beats AI extraction.
-  beneficiaryCount: integer('beneficiary_count'),
-  deliveryArea: text('delivery_area'),
-  // Everything from the payload that didn't map to a canonical field. All of it is
-  // still fed to the AI analysis. Same shape as applications.responses.
-  responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
+    // ── Canonical report fields (see src/lib/fieldMapping/reportCanonical.ts) ──
+    externalApplicationId: text('external_application_id'),
+    organisationName: text('organisation_name').notNull(),
+    charityNumber: text('charity_number'),
+    companyNumber: text('company_number'),
+    programmeName: text('programme_name'),
+    // Amount as stated on the report — kept for cross-checking against the grant's
+    // amountAwarded (a mismatch is a wrong-link signal), not a source of truth.
+    amountAwarded: numeric('amount_awarded'),
+    awardDate: text('award_date'),
+    awardEndDate: text('award_end_date'),
+    contactName: text('contact_name'),
+    contactEmail: text('contact_email'),
+    contactPhone: text('contact_phone'),
+    grantTitle: text('grant_title'),
+    grantPurpose: text('grant_purpose'),
+    impactSummary: text('impact_summary').notNull(),
+    challenges: text('challenges'),
+    lessons: text('lessons'),
+    caseStudies: text('case_studies'),
+    testimonials: text('testimonials'),
+    otherComments: text('other_comments'),
+    // Directly-asked beneficiary count ("How many young people benefited?"). When the
+    // programme measures impact in people, this charity-typed number beats AI extraction.
+    beneficiaryCount: integer('beneficiary_count'),
+    deliveryArea: text('delivery_area'),
+    // Everything from the payload that didn't map to a canonical field. All of it is
+    // still fed to the AI analysis. Same shape as applications.responses.
+    responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
 
-  // ── AI analysis ──
-  analysisStatus: reportAnalysisStatusEnum('analysis_status').notNull().default('pending'),
-  aiSummary: text('ai_summary'),
-  applicationAlignment: jsonb('application_alignment').$type<{
-    score: number
-    narrative: string
-    promisesKept: string[]
-    promisesUnmet: string[]
-  }>(),
-  programmeAlignment: jsonb('programme_alignment').$type<{
-    score: number
-    narrative: string
-  }>(),
-  // AI summaries of challenges faced and lessons learned, drawn from anywhere in
-  // the report (not just the dedicated fields — foundations' forms scatter these).
-  // Null = the report genuinely mentions none.
-  aiChallenges: text('ai_challenges'),
-  aiLessons: text('ai_lessons'),
-  // The resolved impact quantity in the programme's unit; null = no quantity found
-  // (surfaced as such — never coerced to zero, so Insights isn't dragged down).
-  impactQuantity: numeric('impact_quantity'),
-  // 'reported' (charity-typed beneficiaryCount) or 'ai' (extracted from narrative).
-  impactQuantitySource: text('impact_quantity_source'),
-  // Verbatim supporting quote from the report so a human can verify at a glance.
-  impactQuantityQuote: text('impact_quantity_quote'),
-  // Programme's impact unit label at analysis time, denormalised so the figure
-  // stays interpretable even if the programme's unit is changed later.
-  impactUnitLabel: text('impact_unit_label'),
-  // Flags and error detail from the analysis run (mirrors custodianScoreDetail).
-  analysisDetail: jsonb('analysis_detail').$type<Record<string, unknown>>(),
-  analysedAt: timestamp('analysed_at'),
+    // ── AI analysis ──
+    analysisStatus: reportAnalysisStatusEnum('analysis_status').notNull().default('pending'),
+    aiSummary: text('ai_summary'),
+    applicationAlignment: jsonb('application_alignment').$type<{
+      score: number
+      narrative: string
+      promisesKept: string[]
+      promisesUnmet: string[]
+    }>(),
+    programmeAlignment: jsonb('programme_alignment').$type<{
+      score: number
+      narrative: string
+    }>(),
+    // AI summaries of challenges faced and lessons learned, drawn from anywhere in
+    // the report (not just the dedicated fields — foundations' forms scatter these).
+    // Null = the report genuinely mentions none.
+    aiChallenges: text('ai_challenges'),
+    aiLessons: text('ai_lessons'),
+    // The resolved impact quantity in the programme's unit; null = no quantity found
+    // (surfaced as such — never coerced to zero, so Insights isn't dragged down).
+    impactQuantity: numeric('impact_quantity'),
+    // 'reported' (charity-typed beneficiaryCount) or 'ai' (extracted from narrative).
+    impactQuantitySource: text('impact_quantity_source'),
+    // Verbatim supporting quote from the report so a human can verify at a glance.
+    impactQuantityQuote: text('impact_quantity_quote'),
+    // Programme's impact unit label at analysis time, denormalised so the figure
+    // stays interpretable even if the programme's unit is changed later.
+    impactUnitLabel: text('impact_unit_label'),
+    // Flags and error detail from the analysis run (mirrors custodianScoreDetail).
+    analysisDetail: jsonb('analysis_detail').$type<Record<string, unknown>>(),
+    analysedAt: timestamp('analysed_at'),
 
-  // Human sign-off: an admin marking the report as reviewed. Null = awaiting
-  // review. Drives the 'reviewed' status on the Reports screen.
-  reviewedAt: timestamp('reviewed_at'),
-  reviewedBy: text('reviewed_by'),
+    // Human sign-off: an admin marking the report as reviewed. Null = awaiting
+    // review. Drives the 'reviewed' status on the Reports screen.
+    reviewedAt: timestamp('reviewed_at'),
+    reviewedBy: text('reviewed_by'),
 
-  submittedAt: timestamp('submitted_at').notNull().defaultNow(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+    submittedAt: timestamp('submitted_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // Reports are always read through their grant — the Reports list, the award detail,
+  // and the Insights impact rollup all start from an award.
+  (t) => [index('reports_award_idx').on(t.awardId)],
+)
 
 // ─── Audit log ──────────────────────────────────────────────────────────────
 

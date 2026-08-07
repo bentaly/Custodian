@@ -8,22 +8,10 @@ import type { DeprivationResult } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney } from '../../lib/format'
 import { initials } from '../ui'
+import { C } from '../ui/tokens'
 
 // Design tokens (Figma variables — pinned until the token set lands). Same set the
 // applications list and settings hub use, so the screens read as one app.
-const C = {
-  ink: '#141C24', // Gray/900
-  sub: '#637083', // Gray/500
-  faint: '#97A1AF', // Gray/400
-  line: '#E4E7EC', // Gray/200
-  wash: '#F2F4F7', // Gray/100
-  brand: '#1F7A5C',
-  brandWash: '#EDF6F2',
-  amber: '#9B6916',
-  amberWash: '#FEF7EB',
-  danger: '#C0344F',
-  dangerWash: '#FDEFF2',
-}
 
 /** The order the criteria read in — the registry's own order. */
 const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<

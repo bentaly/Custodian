@@ -358,6 +358,20 @@
       "when": 1785532857343,
       "tag": "0050_classy_phalanx",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1786054454841,
+      "tag": "0051_yummy_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1786136165069,
+      "tag": "0052_illegal_proudstar",
+      "breakpoints": true
     }
   ]
 }

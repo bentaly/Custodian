@@ -25,19 +25,21 @@ import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { Boundary, Breadcrumb, MiniKpi } from '../../components/ui'
+import { Boundary, Breadcrumb, Button, MiniKpi } from '../../components/ui'
 import { Donut } from '../../components/charts/Donut'
 import {
   CRITERION_DEFINITIONS,
   CRITERION_ORDER,
   type CustodianScoreDetail,
 } from '../../lib/custodianScore'
+import { applicationStatusLabel } from '../../lib/validators/application'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
 import { fieldGaps } from '../../lib/fieldMapping/gaps'
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { fmtCompact, fmtMoney } from '../../lib/format'
+import { C as TOKENS } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => orNotFound(getApplication({ data: { id: params.applicationId } })),
@@ -46,18 +48,8 @@ export const Route = createFileRoute('/_authenticated/applications/$applicationI
 
 // ─── Design tokens ───────────────────────────────────────────────────────────────
 const C = {
-  ink: '#141C24',
+  ...TOKENS,
   ink700: '#344051',
-  sub: '#637083',
-  faint: '#97A1AF',
-  line: '#E4E7EC',
-  wash: '#F2F4F7',
-  brand: '#1F7A5C',
-  brandBg: 'rgba(31, 122, 92, 0.1)',
-  brandBorder: 'rgba(31, 122, 92, 0.2)',
-  success: '#31A650',
-  amber: '#9B6916',
-  danger: '#FF4242',
 }
 const KPI = {
   amount: { bg: '#F5F4FF', accent: '#8B7FF0' },
@@ -149,7 +141,18 @@ function StatusPill({ color, children }: { color: string; children: React.ReactN
   )
 }
 
-/** Header action button. `tone` picks the design's three treatments. */
+/**
+ * Header action. `tone` is this screen's older vocabulary for what are now `Button`
+ * variants; it stays only because one of these actions is a mailto link, which has to
+ * render as an `<a>` while looking identical to the buttons beside it.
+ */
+const HEADER_TONE = {
+  primary: 'primary',
+  brand: 'tinted',
+  plain: 'secondary',
+  danger: 'dangerGhost',
+} as const
+
 function HeaderButton({
   tone,
   icon,
@@ -159,7 +162,7 @@ function HeaderButton({
   href,
   children,
 }: {
-  tone: 'primary' | 'brand' | 'plain' | 'danger'
+  tone: keyof typeof HEADER_TONE
   icon?: typeof File01Icon
   onClick?: () => void
   disabled?: boolean
@@ -167,42 +170,29 @@ function HeaderButton({
   href?: string
   children: React.ReactNode
 }) {
-  const style =
-    tone === 'primary'
-      ? { backgroundColor: C.brand, color: '#fff', borderColor: C.brand }
-      : tone === 'brand'
-        ? { backgroundColor: C.brandBg, color: C.brand, borderColor: C.brandBorder }
-        : tone === 'danger'
-          ? { backgroundColor: '#fff', color: C.danger, borderColor: C.line }
-          : { backgroundColor: '#fff', color: C.ink, borderColor: C.line }
-  const className =
-    'flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-3 font-display text-[14px] font-medium disabled:opacity-50'
-  const inner = (
-    <>
-      {icon && (
-        <HugeiconsIcon icon={icon} size={16} color={tone === 'plain' ? C.sub : 'currentColor'} />
-      )}
-      {children}
-    </>
-  )
+  const variant = HEADER_TONE[tone]
   if (href) {
+    // Same box as `Button`'s md size, on an anchor.
+    const style =
+      variant === 'tinted'
+        ? { backgroundColor: C.brandBg, color: C.brand, borderColor: C.brandBorder }
+        : { backgroundColor: '#fff', color: C.ink, borderColor: C.line }
     return (
-      <a href={href} className={className} style={style} title={title}>
-        {inner}
+      <a
+        href={href}
+        title={title}
+        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-4 font-display text-[14px] font-medium"
+        style={style}
+      >
+        {icon && <HugeiconsIcon icon={icon} size={18} color="currentColor" />}
+        {children}
       </a>
     )
   }
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={className}
-      style={style}
-      title={title}
-    >
-      {inner}
-    </button>
+    <Button variant={variant} icon={icon} onClick={onClick} disabled={disabled} title={title}>
+      {children}
+    </Button>
   )
 }
 
@@ -365,13 +355,16 @@ function ApplicationDetail() {
   const handleRerunDD = () =>
     act(setRerunningDD, () => rerunDueDiligence({ data: { id: application.id } }))
 
-  const statusMeta = isAwarded
-    ? { label: 'Awarded', color: C.brand }
+  // Colour is this screen's; the wording comes from the status registry, so the header
+  // pill says exactly what the list and its filter say.
+  const statusColor = isAwarded
+    ? C.brand
     : isShortlisted
-      ? { label: 'Shortlisted', color: C.success }
+      ? C.success
       : isDeclined
-        ? { label: 'Declined', color: C.danger }
-        : { label: 'In review', color: C.amber }
+        ? C.danger
+        : C.amber
+  const statusMeta = { label: applicationStatusLabel(application.status), color: statusColor }
 
   return (
     <div className="flex flex-col gap-4">
@@ -698,15 +691,14 @@ function ApplicationDetail() {
                 >
                   These checks feed the due diligence marks shown in the applications list.
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={handleRerunDD}
                   disabled={rerunningDD}
-                  className="flex h-8 shrink-0 items-center rounded-lg border bg-white px-3 font-display text-[13px] font-medium disabled:opacity-60"
-                  style={{ borderColor: C.line, color: C.ink }}
                 >
                   {rerunningDD ? 'Re-running…' : 'Re-run'}
-                </button>
+                </Button>
               </div>
             }
           >
@@ -803,14 +795,9 @@ function ApplicationDetail() {
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              className="mt-2.5 font-display text-[13px] font-medium"
-              style={{ color: C.brand }}
-            >
+            <Button variant="text" size="xs" onClick={() => setDrawerOpen(true)} className="mt-2.5">
               Check the submission →
-            </button>
+            </Button>
           </Panel>
         )}
 

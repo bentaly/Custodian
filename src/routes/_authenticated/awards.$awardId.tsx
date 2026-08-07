@@ -20,6 +20,7 @@ import {
   EmptyState,
   KPI_TINTS,
   MiniKpi,
+  TextLink,
 } from '../../components/ui'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
@@ -218,7 +219,7 @@ function AwardLetterCard({ award }: { award: AwardData }) {
         <h2 className="text-sm font-semibold text-gray-900">Award letter</h2>
         <div className="flex items-center gap-2">
           <Badge className={status.className}>{status.label}</Badge>
-          <Button variant="link" size="sm" onClick={() => setOpen(!open)}>
+          <Button variant="text" size="sm" onClick={() => setOpen(!open)}>
             {open ? 'Hide' : 'Read the letter'}
           </Button>
         </div>
@@ -381,19 +382,17 @@ function PaymentsCard({ award }: { award: AwardData }) {
                     </div>
                     {award.canEditPayments && (
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button
+                        <Button
                           onClick={() => togglePaid(inst.id, !inst.paidDate)}
                           disabled={busyId === inst.id}
-                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          variant="secondary"
+                          size="xs"
                         >
                           {inst.paidDate ? 'Undo' : 'Mark paid'}
-                        </button>
-                        <button
-                          onClick={() => beginEdit(inst)}
-                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                        >
+                        </Button>
+                        <Button onClick={() => beginEdit(inst)} variant="secondary" size="xs">
                           Edit
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -501,12 +500,9 @@ function ReportingCard({ award }: { award: AwardData }) {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">Reporting schedule</h2>
         {award.canEdit && !adding && (
-          <button
-            onClick={beginAdd}
-            className="text-xs font-medium text-emerald-700 hover:underline"
-          >
+          <Button variant="text" size="xs" onClick={beginAdd}>
             + Add date
-          </button>
+          </Button>
         )}
       </div>
 
@@ -533,20 +529,18 @@ function ReportingCard({ award }: { award: AwardData }) {
                     </div>
                     {award.canEdit && (
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button
-                          onClick={() => beginEdit(m)}
-                          className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                        >
+                        <Button onClick={() => beginEdit(m)} variant="secondary" size="xs">
                           Edit
-                        </button>
+                        </Button>
                         {!m.submittedDate && (
-                          <button
+                          <Button
                             onClick={() => remove(m.id)}
                             disabled={busyId === m.id}
-                            className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
+                            variant="dangerGhost"
+                            size="xs"
                           >
                             Remove
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
@@ -638,13 +632,13 @@ function ApplicationCard({ award }: { award: AwardData }) {
     <Card className="px-5 py-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">Source application</h2>
-        <Link
+        <TextLink
           to="/applications/$applicationId"
           params={{ applicationId: a.id }}
-          className="text-xs font-medium text-emerald-700 hover:underline"
+          className="text-xs"
         >
           View application →
-        </Link>
+        </TextLink>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
         <Field label="Requested" value={fmtMoney(a.amountRequested)} />

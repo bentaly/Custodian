@@ -4,7 +4,6 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowRight01Icon,
   Cancel01Icon,
-  Search01Icon,
   CheckmarkCircle02Icon,
   CancelCircleIcon,
   Alert02Icon,
@@ -20,6 +19,7 @@ import { getRoundStatus } from '../../lib/roundStatus'
 import {
   APPLICATION_STATUS_OPTIONS,
   ApplicationStatus,
+  applicationStatusLabel,
   ScoreBand,
 } from '../../lib/validators/application'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
@@ -30,30 +30,22 @@ import {
   ExportButton,
   FilterPill,
   Pagination,
+  SearchInput,
   StatusPill,
   RoundSelect,
   SelectPill,
   type TableColumn,
 } from '../../components/ui'
 import { fmtAmount, fmtCompact } from '../../lib/format'
+import { C as TOKENS } from '../../components/ui/tokens'
 
 const PAGE_SIZE = 25
 
 // ─── Design tokens (Figma variables — pinned until the token set lands) ──────────
 const C = {
-  ink: '#141C24', // Gray/900
-  sub: '#637083', // Gray/500
-  faint: '#97A1AF', // Gray/400
-  line: '#E4E7EC', // Gray/200
-  wash: '#F2F4F7', // Gray/100
-  brand: '#1F7A5C',
-  brandBg: 'rgba(31, 122, 92, 0.1)',
-  brandBorder: 'rgba(31, 122, 92, 0.2)',
-  success: '#31A650',
-  amber: '#9B6916',
-  danger: '#FF4242',
-  bar: '#17211D', // the dark selection bar
-  mint: '#8AE8C6', // its meta text
+  ...TOKENS,
+  bar: '#17211D', // the dark selection bar,
+  mint: '#8AE8C6', // its meta text,
 }
 
 type SortKey = 'organisation' | 'amount' | 'status' | 'score' | 'dueDiligence'
@@ -172,13 +164,15 @@ const SCORE_BAND_OPTIONS: Array<{ value: ScoreBand; label: string }> = [
   { value: 'below70', label: 'Below 70' },
 ]
 
-// Application status → pill. Colours follow the Figma table (amber "in review",
-// green shortlisted, brand-green awarded, red declined).
-const STATUS_PILL: Record<string, { label: string; color: string }> = {
-  for_review: { label: 'In review', color: C.amber },
-  shortlisted: { label: 'Shortlisted', color: C.success },
-  awarded: { label: 'Awarded', color: C.brand },
-  declined: { label: 'Declined', color: C.danger },
+// Application status → pill colour. Colours follow the Figma table (amber in review,
+// green shortlisted, brand-green awarded, red declined). The *label* is not repeated
+// here — it comes from `applicationStatusLabel`, so the pill and the filter that
+// produced the row can never disagree.
+const STATUS_COLOR: Record<string, string> = {
+  for_review: C.amber,
+  shortlisted: C.success,
+  awarded: C.brand,
+  declined: C.danger,
 }
 
 // ─── CSV export ────────────────────────────────────────────────────────────────
@@ -209,7 +203,7 @@ function exportCsv(items: AppItem[], filename: string) {
       ((a.roundProgramme?.programme?.tags as string[] | null) ?? []).join('; '),
       a.custodianScoreStatus === 'scored' && a.custodianScore != null ? a.custodianScore : '',
       a.dueDiligenceStatus ?? '',
-      STATUS_PILL[a.status]?.label ?? a.status,
+      applicationStatusLabel(a.status),
     ]
       .map(esc)
       .join(','),
@@ -473,8 +467,12 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     width: 'sm:w-[130px]',
     sortable: true,
     cell: (app) => {
-      const s = STATUS_PILL[app.status] ?? { label: app.status, color: C.sub }
-      return <StatusPill label={s.label} color={s.color} />
+      return (
+        <StatusPill
+          label={applicationStatusLabel(app.status)}
+          color={STATUS_COLOR[app.status] ?? C.sub}
+        />
+      )
     },
   },
   {
@@ -544,20 +542,6 @@ function ApplicationsList() {
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-
-  // Debounced local state for the organisation search box.
-  const [searchTerm, setSearchTerm] = useState(q ?? '')
-  useEffect(() => {
-    setSearchTerm(q ?? '')
-  }, [q])
-  useEffect(() => {
-    const next = searchTerm.trim() || undefined
-    if (next === (q ?? undefined)) return
-    const t = setTimeout(() => {
-      navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchTerm]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Row selection (scoped to the current page) + bulk shortlist.
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
@@ -773,20 +757,13 @@ function ApplicationsList() {
               {metaLine}
             </span>
           </div>
-          <div
-            className="flex h-10 w-full min-w-0 items-center gap-2 rounded-[12px] px-3 sm:w-auto"
-            style={{ backgroundColor: C.wash }}
-          >
-            <HugeiconsIcon icon={Search01Icon} size={16} color={C.sub} />
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search organisation or ID…"
-              className="w-full min-w-0 bg-transparent font-display text-[14px] outline-hidden placeholder:text-[#637083] sm:w-52"
-              style={{ color: C.ink }}
-            />
-          </div>
+          <SearchInput
+            value={q}
+            onChange={(next) =>
+              navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
+            }
+            placeholder="Search organisation or ID…"
+          />
         </div>
       </div>
 
