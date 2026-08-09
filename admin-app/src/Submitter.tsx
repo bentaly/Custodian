@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { API_BASE } from './api'
+import { API_BASE, useApplyApiKey } from './api'
 
 // Verified against the live registers — handy presets for exercising each
 // due diligence outcome from the form.
@@ -114,9 +114,9 @@ interface BudgetLineInput {
 export function Submitter() {
   const [allRounds, setAllRounds] = useState<RoundSummary[]>([])
   const [clientId, setClientId] = useState<string | null>(null)
-  // The client is now resolved from the API key (Authorization: Bearer …), not the
-  // body. Persisted locally so it survives reloads of this dev tool.
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('apply_api_key') ?? '')
+  // The client is resolved from the API key (Authorization: Bearer …), not the body.
+  // Owned by the Testing screen and shared with every other submitter.
+  const [apiKey] = useApplyApiKey()
   const [roundId, setRoundId] = useState<string | null>(null)
   const [round, setRound] = useState<Round | null>(null)
   const [programmeId, setProgrammeId] = useState<string | null>(null)
@@ -184,8 +184,7 @@ export function Submitter() {
 
     try {
       if (!round || !programme) throw new Error('No round or programme selected')
-      if (!apiKey.trim())
-        throw new Error('Enter an API key (generate one on the Organisation screen)')
+      if (!apiKey.trim()) throw new Error('Set an API key in the box above the tabs')
       const selectedProgramme = programme
 
       // Structured budget breakdown, sent as a real array under the canonical key
@@ -304,25 +303,6 @@ export function Submitter() {
         </button>
       )}
       <div className={`mb-8 ${result ? 'hidden' : ''}`}>
-        <div className="mb-4">
-          <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
-            API key
-          </label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => {
-              setApiKey(e.target.value)
-              localStorage.setItem('apply_api_key', e.target.value)
-            }}
-            placeholder="cust_sk_…  (generate on the Organisation screen)"
-            className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
-          />
-          <p className="mt-1 text-xs text-gray-400">
-            Sent as <code>Authorization: Bearer …</code>. Determines which client the submission
-            belongs to.
-          </p>
-        </div>
         <div className="flex flex-wrap gap-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">

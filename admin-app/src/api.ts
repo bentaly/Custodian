@@ -7,6 +7,70 @@ import { useEffect, useState } from 'react'
 export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:5174'
 export const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN ?? ''
 
+// ─── Submission API key ──────────────────────────────────────────────────────
+//
+// The key the TEST submitters send to /api/apply and /api/submit-report as
+// `Authorization: Bearer …`. Unlike ADMIN_TOKEN this is a foundation's own key, so
+// it names which client a test submission lands under.
+//
+// Build-time default (`VITE_APPLY_API_KEY` in .env.local) with a localStorage
+// override, rather than localStorage alone: a fresh browser profile or a cleared
+// site data meant re-generating a key in the main app before you could send a single
+// test submission, and the key was typed separately into three different tabs.
+const APPLY_KEY_STORAGE = 'apply_api_key'
+export const DEFAULT_APPLY_API_KEY = import.meta.env.VITE_APPLY_API_KEY ?? ''
+
+export function getApplyApiKey(): string {
+  return localStorage.getItem(APPLY_KEY_STORAGE) ?? DEFAULT_APPLY_API_KEY
+}
+
+export function setApplyApiKey(key: string) {
+  // Clearing the box falls back to the build-time key rather than to nothing.
+  if (key) localStorage.setItem(APPLY_KEY_STORAGE, key)
+  else localStorage.removeItem(APPLY_KEY_STORAGE)
+  for (const fn of applyKeyListeners) fn(getApplyApiKey())
+}
+
+const applyKeyListeners = new Set<(key: string) => void>()
+
+/** The current submission API key, shared across every submitter tab. */
+export function useApplyApiKey(): [string, (key: string) => void] {
+  const [key, setKey] = useState(getApplyApiKey)
+  useEffect(() => {
+    applyKeyListeners.add(setKey)
+    return () => {
+      applyKeyListeners.delete(setKey)
+    }
+  }, [])
+  return [key, setApplyApiKey]
+}
+
+/** POST a raw payload to a public key-authed endpoint, the way a foundation would. */
+export async function submitWithApiKey(
+  path: '/api/apply' | '/api/submit-report',
+  payload: unknown,
+  apiKey: string,
+): Promise<{ status: string; ingestId?: string; reportIngestId?: string }> {
+  if (!apiKey.trim()) {
+    throw new Error(
+      'No API key. Set one in the key box above, or bake one in as VITE_APPLY_API_KEY in admin-app/.env.local.',
+    )
+  }
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    const detail = data?.fields
+      ? `${data.error}: ${data.fields.map((f: { field: string; message: string }) => `${f.field} (${f.message})`).join(', ')}`
+      : (data?.error ?? `HTTP ${res.status}`)
+    throw new Error(detail)
+  }
+  return data
+}
+
 // The canonical field registry is the main app's source of truth
 // (src/lib/fieldMapping/canonical.ts). Rather than copy it here and let it drift, we
 // fetch it from /api/admin/canonical-fields. Cached at module scope so it's loaded once.
@@ -115,9 +179,36 @@ export async function adminDelete<T = unknown>(path: string): Promise<T> {
   }).then(parse)
 }
 
+export type IngestStatus = 'received' | 'needs_review' | 'ai_proposed' | 'complete'
+
+// ─── Why a submission is where it is ─────────────────────────────────────────
+//
+// Computed by the main app (src/server/fieldMapping/diagnose.ts) and attached to
+// every ingest row. Not derivable here: the reasons come from the zod validators
+// and the programmes table, neither of which this app can see.
+export type BlockerCode =
+  | 'pipeline_running'
+  | 'pipeline_stalled'
+  | 'programme_unmapped'
+  | 'programme_unknown'
+  | 'programme_not_open'
+  | 'required_unmapped'
+  | 'one_of_unmet'
+  | 'invalid_value'
+  | 'grant_unmatched'
+
+export interface Blocker {
+  code: BlockerCode
+  severity: 'blocking' | 'info'
+  title: string
+  detail: string
+  fix: string
+  fields?: Array<{ key: string; label: string; message?: string }>
+}
+
 export interface IngestRow {
   id: string
-  status: 'received' | 'needs_review' | 'ai_proposed' | 'complete'
+  status: IngestStatus
   rawPayload: Record<string, unknown>
   proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
   resolved: Record<string, string> | null
@@ -125,18 +216,46 @@ export interface IngestRow {
   roundProgrammeId: string | null
   createdAt: string
   client: { id: string; name: string }
+  blockers: Blocker[]
 }
 
-// The foundation's application reference is just the `externalApplicationId` canonical
-// field — no dedicated column. Derive it from the stored mapping (sourceKey → canonical)
-// and the raw payload, for display.
-export function externalIdOf(row: IngestRow): string | null {
-  const entry = Object.entries(row.resolved ?? {}).find(
-    ([, canonical]) => canonical === 'externalApplicationId',
-  )
+/** The canonical fields a blocker points at, for highlighting the mapping grid. */
+export function blockedFieldKeys(blockers: Blocker[] | undefined): Set<string> {
+  const keys = new Set<string>()
+  for (const b of blockers ?? []) {
+    if (b.severity !== 'blocking') continue
+    for (const f of b.fields ?? []) keys.add(f.key)
+  }
+  return keys
+}
+
+// Nothing on an ingest row has its own column — the foundation's application
+// reference, the organisation name and the rest are all just canonical fields. Read
+// one back out of the stored mapping (sourceKey → canonical) plus the raw payload.
+export function resolvedValue(
+  row: { resolved: Record<string, string> | null; rawPayload: Record<string, unknown> },
+  canonicalKey: string,
+): string | null {
+  const entry = Object.entries(row.resolved ?? {}).find(([, canonical]) => canonical === canonicalKey)
   if (!entry) return null
   const value = row.rawPayload[entry[0]]
   return value == null || value === '' ? null : String(value)
+}
+
+export function externalIdOf(row: IngestRow): string | null {
+  return resolvedValue(row, 'externalApplicationId')
+}
+
+/** How long ago, in words. Queue rows are always read as "how stale is this". */
+export function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(ms / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
 export interface MappingRow {
@@ -189,14 +308,20 @@ export function useReportCanonicalFields(): CanonicalField[] {
 
 export interface ReportIngestRow {
   id: string
-  status: 'received' | 'needs_review' | 'ai_proposed' | 'complete'
+  status: IngestStatus
   rawPayload: Record<string, unknown>
   proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
   resolved: Record<string, string> | null
-  matchCandidates: Array<{ grantId: string; score: number; reasons: string[] }> | null
+  // `awardId`, not `grantId` — this is the shape `computeGrantCandidates` stores and
+  // `ResolveReportSchema` accepts. It was declared as `grantId` here, which silently
+  // broke both ends: no candidate ever matched a grant in the picker (so nothing was
+  // ever pre-selected or badged), and resolve posted a body the server ignored, so
+  // every held report failed with "Grant not found for this client".
+  matchCandidates: Array<{ awardId: string; score: number; reasons: string[] }> | null
   reportId: string | null
   createdAt: string
   client: { id: string; name: string }
+  blockers: Blocker[]
 }
 
 /** A client's grant, flattened for the report match picker. */

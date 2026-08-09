@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../../server/db'
 import { reportIngests } from '../../../drizzle/schema'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
+import { diagnoseReportIngests } from '../../server/reportMapping/diagnose'
 
 const STATUSES = new Set(['received', 'needs_review', 'ai_proposed', 'complete'])
 
@@ -27,7 +28,13 @@ export const Route = createFileRoute('/api/admin/report-ingests')({
           orderBy: (i, { desc }) => [desc(i.createdAt)],
           with: { client: { columns: { id: true, name: true } } },
         })
-        return adminJson(rows, 200)
+
+        // See admin.ingests.ts — each row explains why it is held.
+        const diagnosis = await diagnoseReportIngests(rows)
+        return adminJson(
+          rows.map((row) => ({ ...row, blockers: diagnosis.get(row.id) ?? [] })),
+          200,
+        )
       },
     },
   },

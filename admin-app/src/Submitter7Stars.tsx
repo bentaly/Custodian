@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { API_BASE } from './api'
+import { API_BASE, useApplyApiKey } from './api'
 
 // ─── 7stars foundation "Social Impact" test submitter ────────────────────────
 //
@@ -476,7 +476,8 @@ interface SubmitResult {
 }
 
 export function Submitter7Stars() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('apply_api_key') ?? '')
+  // Owned by the Testing screen and shared with every other submitter.
+  const [apiKey] = useApplyApiKey()
   const [programmeName, setProgrammeName] = useState('Social Impact Funding')
   const [presetKey, setPresetKey] = useState(PRESETS[0]!.key)
   const [values, setValues] = useState<Record<string, string>>(() => ({ ...PRESETS[0]!.values }))
@@ -492,8 +493,7 @@ export function Submitter7Stars() {
     setResult(null)
 
     try {
-      if (!apiKey.trim())
-        throw new Error('Enter an API key (generate one on the Organisation screen)')
+      if (!apiKey.trim()) throw new Error('Set an API key in the box above the tabs')
       // The payload mirrors a Gravity Forms webhook export: the form's own
       // labels as keys, plus the numeric Entry Id Gravity assigns. Only
       // programmeName is integration config rather than a form field.
@@ -563,21 +563,6 @@ export function Submitter7Stars() {
           </p>
 
           <div className="mt-6 mb-8 space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
-                API key
-              </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value)
-                  localStorage.setItem('apply_api_key', e.target.value)
-                }}
-                placeholder="cust_sk_…  (generate on the Organisation screen)"
-                className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
-              />
-            </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500 uppercase tracking-wide">
                 Programme name (integration config, not a form field)

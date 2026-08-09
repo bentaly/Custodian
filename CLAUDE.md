@@ -89,7 +89,7 @@ bounce/return-path subdomain, so never put it in a From address. Set in both Wor
 `.env`, so local sends fall back to `onboarding@resend.dev`, which Resend only delivers to the
 account owner's own address; set it locally before testing any outbound mail).
 
-The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the main app's `ADMIN_API_TOKEN`, and `VITE_API_BASE` pointing at the target main app. Locally these live in `admin-app/.env.local` (gitignored); in Cloudflare they're build-env vars on the admin project.
+The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the main app's `ADMIN_API_TOKEN`, and `VITE_API_BASE` pointing at the target main app. Locally these live in `admin-app/.env.local` (gitignored); in Cloudflare they're build-env vars on the admin project. `VITE_APPLY_API_KEY` is optional and quite different in kind — a **foundation's** `cust_sk_…` key, not a platform secret — used by the Testing screen and by "Edit & resend" so a test submission can be sent without generating a key first. It must belong to a client on the backend `VITE_API_BASE` names.
 
 `BETTER_AUTH_URL` must be `https://custodian.bental.workers.dev` in production — if wrong, Google OAuth returns "Account not linked".
 
@@ -205,7 +205,8 @@ canonical fields (`CreateApplicationSchema`).
   admin-only, scoped to the caller's client).
 - UI: **Settings → API keys** (`/settings/api-keys`), admin-only. `/settings/submissions` documents
   the endpoints and renders the canonical field registries, so those docs cannot drift from the mapper.
-- Test/dev submitter: `admin-app/src/Submitter.tsx` has an API key field (stored in localStorage).
+- Test/dev submitters live on the admin app's **Testing** screen; the key is entered once there
+  (or baked in as `VITE_APPLY_API_KEY`) and shared by all of them — see "The admin app" below.
 - Missing/invalid/revoked key → 401. `/api/apply` is rate-limited two ways (`src/server/rateLimit.ts`,
   bindings in `wrangler.toml`): a per-IP volumetric backstop before auth (`APPLY_IP_LIMITER`) and a
   per-client fairness limit after (`APPLY_KEY_LIMITER`). Degrades open — no binding (local dev) or a
@@ -246,6 +247,49 @@ foundation never asked** — that equivalence is what made the original bug invi
 `/settings/submissions` renders the tiers straight from the registry, so the published spec cannot
 drift from the mapper. The admin review queue gets group membership via `oneOfGroup` on
 `/api/admin/canonical-fields` rather than inferring it from `tier`.
+
+## The admin app (`admin-app/`)
+
+A separate Vite SPA (not part of the main app's routing), Cloudflare Access-gated, talking to
+`/api/admin/*` with `x-admin-token`. It is where **we** operate the platform: clear held
+submissions, provision foundations, teach field mappings, and send test data.
+
+Navigation is grouped rather than a flat tab row — **Queues** (Overview, Applications, Grant
+reports), **Configuration** (Foundations, Field mappings), **Testing** (Send test data) — with a
+count on each queue so a stuck submission announces itself. Shared pieces live in `src/ui.tsx`;
+`src/queues.ts` holds one shared fetch of the three *active* statuses feeding both the sidebar
+counts and the Overview, so a badge and the list behind it can never disagree.
+
+### Blockers: why a submission is held
+
+`processIngest` knows exactly why it is holding a row and then discards it, storing a bare
+`needs_review`. **`src/server/fieldMapping/diagnose.ts`** (and its report twin) re-derives the
+reasons from what IS stored — raw payload, resolved map, round programme, status — and
+`/api/admin/ingests` attaches them to every row as `blockers`. The admin app renders them as the
+"why this is here / what to do" panel on each card, and buckets the queues by blocker code.
+
+Re-deriving rather than storing a column is deliberate: the answer can never go stale against the
+registry or the validators, and rows held before this existed explain themselves too. Blockers are
+**advice to a human, never a gate** — the gates stay in `ingest.ts` and `resolve.ts`.
+
+The codes worth knowing: `pipeline_running` vs `pipeline_stalled` (same `received` status, but one
+wants patience and the other only moves via Reprocess — five minutes apart, `STUCK_AFTER_MS`);
+`programme_unknown` vs `programme_not_open` (rename the programme vs reopen the round — different
+remedies, so not one "out of round" message); `required_unmapped`; `one_of_unmet`; `invalid_value`;
+and reports-only `grant_unmatched`. **`invalid_value` is the one that justifies the module**: a
+field that maps but holds a value the validators reject leaves a mapping grid that looks complete,
+so the row sat in `needs_review` looking ready to promote with nothing anywhere saying otherwise.
+
+If you add a blocker code, add it to `IngestBlockerCode` in `diagnose.ts` **and** `BlockerCode` in
+`admin-app/src/api.ts` — the admin app cannot import the main app's source.
+
+### Naming trap: `awardId`, not `grantId`
+
+`computeGrantCandidates` stores `matchCandidates` keyed on **`awardId`**, and `ResolveReportSchema`
+accepts **`awardId`**. The admin app declared and posted `grantId`, which typechecked on both sides
+and silently broke the whole report queue: no candidate ever matched a grant, nothing was ever
+pre-selected or badged, and every resolve came back "Grant not found for this client". The UI says
+"grant" because that is the domain word; the wire says `awardId`.
 
 ## Route structure
 

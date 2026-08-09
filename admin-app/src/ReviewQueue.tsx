@@ -1,78 +1,207 @@
+// ─── Application queue ───────────────────────────────────────────────────────
+//
+// Where a submission goes when the pipeline could not finish it. The old version
+// showed a status word, a grid of dropdowns and four unlabelled buttons, and left
+// the operator to infer from that what had gone wrong — which was impossible for
+// validation failures, since a row whose amount reads "£15,000 (approx)" has a
+// mapping grid indistinguishable from one that is ready to promote.
+//
+// So every card now leads with WHY it is held (from the server's diagnosis), the
+// mapping grid highlights the fields that diagnosis names, and every action states
+// what it will do before you press it.
+//
+// The old separate "Out of round" tab is folded in as a filter: it was the same
+// table under a different query (`needs_review` with a null roundProgrammeId), and
+// splitting it across two screens meant a submission could be held for BOTH reasons
+// and appear complete on whichever screen you happened to open. Its edit-and-resend
+// editor survives as an action on any card.
+
 import { useEffect, useMemo, useState } from 'react'
+import type { QueueFocus } from './App'
 import {
   adminDelete,
   adminGet,
   adminPost,
+  blockedFieldKeys,
   externalIdOf,
+  getApplyApiKey,
+  resolvedValue,
+  submitWithApiKey,
+  timeAgo,
   useCanonicalFields,
   type CanonicalField,
   type IngestRow,
 } from './api'
+import { useQueues } from './queues'
+import {
+  Action,
+  BlockerPanel,
+  Button,
+  Callout,
+  Card,
+  EmptyState,
+  Loading,
+  Page,
+  PayloadViewer,
+  SectionHeading,
+  StatusPill,
+} from './ui'
 
-type StatusFilter = 'needs_review' | 'ai_proposed' | 'complete' | 'received' | 'all'
-
-const STATUS_STYLES: Record<IngestRow['status'], string> = {
-  received: 'border-gray-200 bg-gray-50 text-gray-500',
-  needs_review: 'border-amber-200 bg-amber-50 text-amber-800',
-  ai_proposed: 'border-blue-200 bg-blue-50 text-blue-700',
-  complete: 'border-green-200 bg-green-50 text-green-800',
-}
-
-export function ReviewQueue() {
-  const [status, setStatus] = useState<StatusFilter>('needs_review')
-  const [rows, setRows] = useState<IngestRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export function ReviewQueue({
+  focus,
+  onFocusChange,
+}: {
+  focus: QueueFocus
+  onFocusChange: (f: QueueFocus) => void
+}) {
+  const { buckets, snapshot, loading, error, reload } = useQueues()
   const canonicalFields = useCanonicalFields()
 
-  function load() {
-    setLoading(true)
-    setError(null)
-    const q = status === 'all' ? '' : `?status=${status}`
-    adminGet<IngestRow[]>(`/api/admin/ingests${q}`)
-      .then(setRows)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false))
-  }
+  // `complete` rows are history and are not in the shared active snapshot — fetched
+  // only when someone asks to look at them.
+  const [done, setDone] = useState<IngestRow[] | null>(null)
+  const [doneError, setDoneError] = useState<string | null>(null)
+  useEffect(() => {
+    if (focus !== 'done' || done) return
+    adminGet<IngestRow[]>('/api/admin/ingests?status=complete')
+      .then(setDone)
+      .catch((e: Error) => setDoneError(e.message))
+  }, [focus, done])
 
-  useEffect(load, [status])
+  const active = snapshot?.applications ?? []
+  const filters: Array<{ key: QueueFocus; label: string; rows: IngestRow[]; blurb: string }> = [
+    {
+      key: 'held',
+      label: 'Needs mapping',
+      rows: buckets.needsMapping,
+      blurb:
+        'A required field could not be matched, both register numbers are missing, or a mapped value fails validation. Fix the mapping below and resolve.',
+    },
+    {
+      key: 'out-of-round',
+      label: 'Out of round',
+      rows: buckets.outOfRound,
+      blurb:
+        'These name a programme that does not exist for the foundation, or one whose round is not open. The mapping grid cannot fix that — correct the name with Edit & resend, or open the round and reprocess.',
+    },
+    {
+      key: 'stalled',
+      label: 'Stalled',
+      rows: buckets.stalled,
+      blurb:
+        'The background pipeline crashed on these. The payload is intact and nothing was created — Reprocess runs it again, inline, so you see what happens.',
+    },
+    {
+      key: 'confirm',
+      label: 'To confirm',
+      rows: buckets.awaitingConfirmation,
+      blurb:
+        'The application already exists — the AI was confident enough to create it. Agree the mapping (and teach it to the lookup table) to close these off.',
+    },
+    {
+      key: 'processing',
+      label: 'Processing',
+      rows: buckets.processing,
+      blurb: 'Arrived moments ago and still moving through the pipeline. Nothing to do.',
+    },
+    {
+      key: 'all',
+      label: 'Everything active',
+      rows: active,
+      blurb: 'Every submission not yet finished, whatever the reason.',
+    },
+    {
+      key: 'done',
+      label: 'Done',
+      rows: done ?? [],
+      blurb: 'Mapped, created and confirmed. Kept for audit; the mapping is read-only.',
+    },
+  ]
+
+  // A focus arriving from the Overview may not be one this screen offers.
+  const current = filters.find((f) => f.key === focus) ?? filters[0]!
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1">
-          {(['needs_review', 'ai_proposed', 'complete', 'received', 'all'] as StatusFilter[]).map(
-            (s) => (
-              <button
-                key={s}
-                onClick={() => setStatus(s)}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  status === s
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-600 ring-1 ring-gray-200'
-                }`}
-              >
-                {s.replace('_', ' ')}
-              </button>
-            ),
-          )}
-        </div>
+    <Page
+      title="Applications"
+      intro="Incoming grant applications the pipeline could not file on its own. Each card says why it is here and what will happen if you act on it."
+      actions={
+        <Button onClick={reload} busy={loading} busyLabel="Refreshing">
+          Refresh
+        </Button>
+      }
+    >
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {filters.map((f) => {
+          const selected = f.key === current.key
+          const count = f.key === 'done' ? done?.length : f.rows.length
+          return (
+            <button
+              key={f.key}
+              onClick={() => onFocusChange(f.key)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                selected
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+              }`}
+            >
+              {f.label}
+              {count !== undefined && (
+                <span className={selected ? 'ml-1.5 opacity-70' : 'ml-1.5 text-slate-400'}>
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
-      {loading && <p className="text-sm text-gray-500">Loading…</p>}
+      <p className="mb-5 max-w-3xl text-xs leading-relaxed text-slate-500">{current.blurb}</p>
+
       {error && (
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">Error: {error}</p>
+        <div className="mb-4">
+          <Callout tone="danger" title="Could not load the queue">
+            {error}
+          </Callout>
+        </div>
       )}
-      {!loading && !error && rows.length === 0 && (
-        <p className="rounded-lg bg-white p-8 text-center text-sm text-gray-400 ring-1 ring-gray-200">
-          Nothing here.
-        </p>
+      {doneError && focus === 'done' && (
+        <div className="mb-4">
+          <Callout tone="danger" title="Could not load completed submissions">
+            {doneError}
+          </Callout>
+        </div>
       )}
 
-      {rows.map((row) => (
-        <IngestCard key={row.id} row={row} canonicalFields={canonicalFields} onResolved={load} />
-      ))}
-    </div>
+      {loading && !snapshot && <Loading what="Loading submissions" />}
+      {focus === 'done' && !done && !doneError && <Loading what="Loading history" />}
+
+      {(focus !== 'done' || done) && current.rows.length === 0 && (
+        <EmptyState
+          title={`Nothing in ${current.label.toLowerCase()}`}
+          detail={
+            current.key === 'held' || current.key === 'out-of-round'
+              ? 'Nothing is waiting on you in this bucket.'
+              : undefined
+          }
+        />
+      )}
+
+      <div className="space-y-3">
+        {current.rows.map((row) => (
+          <IngestCard
+            key={row.id}
+            row={row}
+            canonicalFields={canonicalFields}
+            readOnly={row.status === 'complete'}
+            onChanged={() => {
+              setDone(null)
+              reload()
+            }}
+          />
+        ))}
+      </div>
+    </Page>
   )
 }
 
@@ -86,13 +215,16 @@ function previewValue(v: unknown): string {
 function IngestCard({
   row,
   canonicalFields,
-  onResolved,
+  readOnly,
+  onChanged,
 }: {
   row: IngestRow
   canonicalFields: CanonicalField[]
-  onResolved: () => void
+  readOnly: boolean
+  onChanged: () => void
 }) {
   const [open, setOpen] = useState(row.status === 'needs_review')
+  const [editing, setEditing] = useState(false)
   const payloadKeys = useMemo(() => Object.keys(row.rawPayload), [row.rawPayload])
 
   // Invert the stored resolved map (sourceKey → canonical) to canonical → sourceKey.
@@ -118,13 +250,14 @@ function IngestCard({
       return changed ? next : prev
     })
   }, [canonicalFields, resolvedByCanonical, row.proposed])
+
   const [addToLookup, setAddToLookup] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  // "Select all" for the lookup ticks: every canonical field with a chosen source.
   const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => mapping[k])
   const allTicked = mappedKeys.length > 0 && mappedKeys.every((k) => addToLookup[k])
   function toggleAllLookups() {
@@ -132,10 +265,9 @@ function IngestCard({
   }
 
   // One-of groups (charity number / company number) with nothing chosen. The server
-  // refuses these, so surfacing them here is only about saying so before the click
-  // rather than after — a reviewer who leaves both blank is usually looking at one
-  // ambiguous label ("Organisation registration number") and needs to pick a register,
-  // not to be told the request failed.
+  // refuses these; surfacing it here is about saying so before the click rather than
+  // after — a reviewer who leaves both blank is usually looking at one ambiguous
+  // label ("Organisation registration number") and needs to pick a register.
   const unmetOneOf = useMemo(() => {
     const groups = new Map<number, CanonicalField[]>()
     for (const f of canonicalFields) {
@@ -146,6 +278,18 @@ function IngestCard({
     }
     return [...groups.values()].filter((g) => !g.some((f) => mapping[f.key]))
   }, [canonicalFields, mapping])
+
+  // Fields the server's diagnosis is complaining about, so the grid can point at them.
+  const flagged = useMemo(() => blockedFieldKeys(row.blockers), [row.blockers])
+  const fieldMessages = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const b of row.blockers) for (const f of b.fields ?? []) if (f.message) m[f.key] = f.message
+    return m
+  }, [row.blockers])
+
+  const organisation = resolvedValue(row, 'organisationName')
+  const stalled = row.blockers.some((b) => b.code === 'pipeline_stalled')
+  const headline = row.blockers.find((b) => b.severity === 'blocking') ?? row.blockers[0]
 
   async function remove() {
     const msg =
@@ -159,7 +303,7 @@ function IngestCard({
     setErr(null)
     try {
       await adminDelete(`/api/admin/ingests/${row.id}`)
-      onResolved()
+      onChanged()
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -172,17 +316,18 @@ function IngestCard({
   async function reprocess() {
     setReprocessing(true)
     setErr(null)
+    setNotice(null)
     try {
       const result = await adminPost<{ status: string; applicationId: string | null }>(
         `/api/admin/ingests/${row.id}/reprocess`,
         {},
       )
-      // A run that mapped cleanly promotes straight to an application; one that didn't
-      // lands in this queue as needs_review. Either way the list needs refreshing.
-      if (result.status === 'needs_review') {
-        setErr('Reprocessed — the submission needs review; its mapping is below.')
-      }
-      onResolved()
+      setNotice(
+        result.status === 'needs_review'
+          ? 'Reprocessed — it still cannot be filed automatically. The reasons are above; resolve it by hand.'
+          : `Reprocessed — promoted to an application (${result.status}).`,
+      )
+      onChanged()
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -193,6 +338,7 @@ function IngestCard({
   async function resolve() {
     setSaving(true)
     setErr(null)
+    setNotice(null)
     try {
       const cleanMapping: Record<string, string> = {}
       for (const [k, v] of Object.entries(mapping)) if (v) cleanMapping[k] = v
@@ -200,7 +346,7 @@ function IngestCard({
         mapping: cleanMapping,
         addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && mapping[k]),
       })
-      onResolved()
+      onChanged()
     } catch (e) {
       const fields = (e as { fields?: Array<{ field: string; message: string }> }).fields
       setErr(
@@ -213,194 +359,310 @@ function IngestCard({
     }
   }
 
+  const canResolve = row.status !== 'complete' && row.status !== 'received'
+
   return (
-    <div className="rounded-lg bg-white ring-1 ring-gray-200">
+    <Card>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left"
       >
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-gray-900">
-            {row.client.name}
-            <span className="ml-2 text-gray-400">{externalIdOf(row) ?? '(no ext id)'}</span>
+          <p className="truncate text-sm font-medium text-slate-900">
+            {organisation ?? '(organisation not mapped)'}
+            <span className="ml-2 font-normal text-slate-400">{row.client.name}</span>
           </p>
-          <p className="text-xs text-gray-400">{new Date(row.createdAt).toLocaleString('en-GB')}</p>
+          <p className="mt-0.5 text-xs text-slate-400">
+            {externalIdOf(row) ?? 'no reference'} · {timeAgo(row.createdAt)} ·{' '}
+            {payloadKeys.length} fields
+          </p>
+          {headline && !open && (
+            <p
+              className={`mt-1.5 truncate text-xs font-medium ${
+                headline.severity === 'blocking' ? 'text-amber-700' : 'text-slate-500'
+              }`}
+            >
+              {headline.title}
+            </p>
+          )}
         </div>
-        <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}
-        >
-          {row.status.replace('_', ' ')}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusPill status={row.status} stalled={stalled} />
+          <span className="text-xs text-slate-300">{open ? '▾' : '▸'}</span>
+        </div>
       </button>
 
-      {open && row.status === 'received' && (
-        <div className="border-t border-gray-100 px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-gray-500">
-              Processing — mapping, scoring and due diligence are running in the background. Refresh
-              in a minute; a row still here after that means the pipeline crashed, and Reprocess
-              will run it again.
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={reprocess}
-                disabled={reprocessing}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 disabled:opacity-60"
-              >
-                {reprocessing ? 'Reprocessing…' : 'Reprocess'}
-              </button>
-              <DeleteButton onClick={remove} deleting={deleting} />
-            </div>
-          </div>
-          {err && <p className="mt-3 text-xs text-red-600">{err}</p>}
-        </div>
-      )}
+      {open && (
+        <div className="space-y-5 border-t border-slate-100 px-4 py-4">
+          <BlockerPanel blockers={row.blockers} />
 
-      {open && row.status !== 'received' && (
-        <div className="space-y-4 border-t border-gray-100 px-4 py-4">
-          {row.status === 'complete' ? (
-            <p className="text-xs text-gray-500">
-              Resolved → application {row.applicationId}. Mapping shown for reference.
-            </p>
-          ) : row.applicationId ? (
-            <p className="text-xs text-gray-500">
-              The application was already created from the AI-proposed mapping (application{' '}
-              {row.applicationId}). Review the mapping below, tick “lookup” for anything worth
-              teaching, then confirm.
-            </p>
-          ) : (
-            <p className="text-xs text-gray-500">
-              Map each required field to an incoming value, then resolve to create the application.
-              Tick “add to lookup” to teach the foundation’s table.
-            </p>
-          )}
+          {notice && <Callout tone="success">{notice}</Callout>}
+          {err && <Callout tone="danger">{err}</Callout>}
 
-          {row.status !== 'complete' && mappedKeys.length > 0 && (
-            <button
-              type="button"
-              onClick={toggleAllLookups}
-              className="text-xs text-indigo-600 hover:text-indigo-800"
-            >
-              {allTicked ? 'Untick all lookups' : 'Tick all lookups'}
-            </button>
-          )}
-
-          <div className="space-y-2">
-            {canonicalFields.map((f) => {
-              const chosen = mapping[f.key] ?? ''
-              const proposal = row.proposed?.[f.key]
-              const preview = chosen ? previewValue(row.rawPayload[chosen]) : ''
-              return (
-                <div key={f.key} className="grid grid-cols-12 items-center gap-2">
-                  <label className="col-span-3 text-xs font-medium text-gray-700">
-                    {f.label}
-                    {f.required && <span className="ml-0.5 text-red-500">*</span>}
-                    {f.oneOfGroup != null && (
-                      <span
-                        className={`ml-1 rounded-sm px-1 py-0.5 text-[10px] ${
-                          unmetOneOf.some((g) => g.some((x) => x.key === f.key))
-                            ? 'bg-red-50 text-red-600'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                        title="One of this pair must be mapped — without either, due diligence can never run."
-                      >
-                        1 of 2
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    disabled={row.status === 'complete'}
-                    value={chosen}
-                    onChange={(e) => setMapping((m) => ({ ...m, [f.key]: e.target.value }))}
-                    className="col-span-4 rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-50"
-                  >
-                    <option value="">— none —</option>
-                    {payloadKeys.map((k) => (
-                      <option key={k} value={k}>
-                        {k}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="col-span-3 truncate text-xs text-gray-500" title={preview}>
-                    {preview}
-                  </span>
-                  <div className="col-span-2 flex items-center gap-1 text-xs">
-                    {proposal?.sourceKey && (
-                      <span
-                        className="rounded-sm bg-blue-50 px-1.5 py-0.5 text-blue-600"
-                        title={`AI suggested “${proposal.sourceKey}”`}
-                      >
-                        AI {Math.round(proposal.confidence * 100)}%
-                      </span>
-                    )}
-                    {row.status !== 'complete' && chosen && (
-                      <label className="flex items-center gap-1 text-gray-500">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(addToLookup[f.key])}
-                          onChange={(e) =>
-                            setAddToLookup((s) => ({ ...s, [f.key]: e.target.checked }))
-                          }
-                        />
-                        lookup
-                      </label>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {row.status !== 'complete' &&
-            unmetOneOf.map((group) => (
-              <p
-                key={group.map((f) => f.key).join('-')}
-                className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800"
-              >
-                Map <strong>{group.map((f) => f.label.toLowerCase()).join(' or ')}</strong> — with
-                neither there is no register to check, so this application can never be screened for
-                due diligence.
+          {/* The mapping grid is meaningless for a row that never got mapped. */}
+          {row.status !== 'received' && (
+            <div>
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <SectionHeading>Field mapping</SectionHeading>
+                {!readOnly && mappedKeys.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={toggleAllLookups}>
+                    {allTicked ? 'Untick all lookups' : 'Tick all lookups'}
+                  </Button>
+                )}
+              </div>
+              <p className="mb-3 text-xs leading-relaxed text-slate-500">
+                Left: the canonical field the app stores. Middle: which of this submission's
+                incoming fields holds it. Ticking <strong>lookup</strong> teaches this foundation's
+                table, so the same incoming field name maps itself next time — the only thing that
+                stops a queue like this filling up again.
               </p>
-            ))}
 
-          {err && <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{err}</p>}
+              <div className="space-y-1.5">
+                {canonicalFields.map((f) => {
+                  const chosen = mapping[f.key] ?? ''
+                  const proposal = row.proposed?.[f.key]
+                  const preview = chosen ? previewValue(row.rawPayload[chosen]) : ''
+                  const isFlagged = flagged.has(f.key)
+                  const message = fieldMessages[f.key]
+                  return (
+                    <div
+                      key={f.key}
+                      className={`grid grid-cols-12 items-center gap-2 rounded-md px-1.5 py-1 ${
+                        isFlagged ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''
+                      }`}
+                    >
+                      <label className="col-span-3 text-xs font-medium text-slate-700">
+                        {f.label}
+                        {f.required && (
+                          <span className="ml-0.5 text-rose-500" title="Required — blocks promotion">
+                            *
+                          </span>
+                        )}
+                        {f.oneOfGroup != null && (
+                          <span
+                            className={`ml-1 rounded-sm px-1 py-0.5 text-[10px] ${
+                              unmetOneOf.some((g) => g.some((x) => x.key === f.key))
+                                ? 'bg-rose-50 text-rose-600'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}
+                            title="One of this pair must be mapped — without either, due diligence can never run."
+                          >
+                            1 of 2
+                          </span>
+                        )}
+                        {message && (
+                          <span className="mt-0.5 block font-normal text-[10px] text-amber-700">
+                            {message}
+                          </span>
+                        )}
+                      </label>
+                      <select
+                        disabled={readOnly}
+                        value={chosen}
+                        onChange={(e) => setMapping((m) => ({ ...m, [f.key]: e.target.value }))}
+                        className="col-span-4 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm disabled:bg-slate-50 disabled:text-slate-500"
+                      >
+                        <option value="">— none —</option>
+                        {payloadKeys.map((k) => (
+                          <option key={k} value={k}>
+                            {k}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="col-span-3 truncate text-xs text-slate-500" title={preview}>
+                        {preview}
+                      </span>
+                      <div className="col-span-2 flex items-center justify-end gap-1.5 text-xs">
+                        {proposal?.sourceKey && (
+                          <span
+                            className="rounded-sm bg-sky-50 px-1.5 py-0.5 text-sky-700"
+                            title={`AI suggested “${proposal.sourceKey}” with ${Math.round(proposal.confidence * 100)}% confidence`}
+                          >
+                            AI {Math.round(proposal.confidence * 100)}%
+                          </span>
+                        )}
+                        {!readOnly && chosen && (
+                          <label
+                            className="flex cursor-pointer items-center gap-1 text-slate-500"
+                            title="Remember this incoming field name for this foundation"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(addToLookup[f.key])}
+                              onChange={(e) =>
+                                setAddToLookup((s) => ({ ...s, [f.key]: e.target.checked }))
+                              }
+                            />
+                            lookup
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
-          <div className="flex items-center justify-between gap-3">
-            {row.status !== 'complete' ? (
-              <button
+          <PayloadViewer payload={row.rawPayload} />
+
+          {editing && (
+            <ResendEditor
+              row={row}
+              onCancel={() => setEditing(false)}
+              onDone={() => {
+                setEditing(false)
+                onChanged()
+              }}
+            />
+          )}
+
+          {row.applicationId && (
+            <Callout tone="info">
+              An application already exists for this submission —{' '}
+              <span className="font-mono">{row.applicationId}</span>. Resolving confirms the
+              mapping; it does not create a second one.
+            </Callout>
+          )}
+
+          <div className="space-y-2.5 border-t border-slate-100 pt-4">
+            <SectionHeading>Actions</SectionHeading>
+            {canResolve && (
+              <Action
+                variant="primary"
+                label={row.applicationId ? 'Confirm mapping' : 'Resolve'}
+                busy={saving}
+                busyLabel={row.applicationId ? 'Confirming' : 'Resolving'}
                 onClick={resolve}
-                disabled={saving}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-              >
-                {saving
-                  ? row.applicationId
-                    ? 'Confirming…'
-                    : 'Resolving…'
-                  : row.applicationId
-                    ? 'Confirm mapping'
-                    : 'Resolve → create application'}
-              </button>
-            ) : (
-              <span />
+                description={
+                  row.applicationId
+                    ? 'Saves any ticked lookups and marks this done. No second application is created.'
+                    : 'Creates the application from the mapping above, runs due diligence and the Custodian score, and saves any ticked lookups. It becomes visible to the foundation immediately.'
+                }
+              />
             )}
-            <DeleteButton onClick={remove} deleting={deleting} />
+            <Action
+              label="Reprocess"
+              busy={reprocessing}
+              busyLabel="Reprocessing"
+              onClick={reprocess}
+              description="Runs the whole pipeline again from the raw payload, inline, and reports the outcome here. Use after fixing something outside this app — reopening a round, adding a lookup, restoring an API key."
+            />
+            <Action
+              label={editing ? 'Close editor' : 'Edit & resend'}
+              onClick={() => setEditing((e) => !e)}
+              description="Correct the raw data — usually a programme name that matched nothing — and post it back through /api/apply as a fresh submission. This row is deleted once the new one is accepted."
+            />
+            <Action
+              variant="danger"
+              label="Delete"
+              busy={deleting}
+              busyLabel="Deleting"
+              onClick={remove}
+              description={
+                row.applicationId
+                  ? 'Removes this row and its application, with any comments and votes. Refused if a grant has been awarded against it.'
+                  : 'Removes this row for good. The submission is not recoverable — the foundation would have to send it again.'
+              }
+            />
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
-function DeleteButton({ onClick, deleting }: { onClick: () => void; deleting: boolean }) {
+/**
+ * Edit the raw payload and post it back through the public endpoint. Lifted out of
+ * the old Out-of-round screen, where it was the only way to fix a mis-named
+ * programme — and where it posted to /api/apply with no Authorization header, so it
+ * had returned 401 for every operator since API-key auth landed.
+ */
+function ResendEditor({
+  row,
+  onCancel,
+  onDone,
+}: {
+  row: IngestRow
+  onCancel: () => void
+  onDone: () => void
+}) {
+  const [fields, setFields] = useState(() =>
+    Object.entries(row.rawPayload).map(([key, value]) => ({
+      key,
+      value: typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value ?? ''),
+    })),
+  )
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const update = (i: number, k: 'key' | 'value', val: string) =>
+    setFields((f) => f.map((r, idx) => (idx === i ? { ...r, [k]: val } : r)))
+  const removeRow = (i: number) => setFields((f) => f.filter((_, idx) => idx !== i))
+  const addRow = () => setFields((f) => [...f, { key: '', value: '' }])
+
+  async function resend() {
+    setBusy(true)
+    setErr(null)
+    try {
+      const payload = Object.fromEntries(
+        fields.filter((f) => f.key.trim()).map((f) => [f.key.trim(), f.value]),
+      )
+      // The key both authenticates the call and names the client, so a resend without
+      // one is a 401 — not a validation error, which is why it used to look like the
+      // payload was at fault.
+      await submitWithApiKey('/api/apply', payload, getApplyApiKey())
+      // The resend created a fresh ingest; drop this stale held one.
+      await adminDelete(`/api/admin/ingests/${row.id}`)
+      onDone()
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={deleting}
-      className="shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-xs text-gray-500 hover:border-red-300 hover:text-red-600 disabled:opacity-60"
-    >
-      {deleting ? 'Deleting…' : 'Delete'}
-    </button>
+    <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+      <div>
+        <SectionHeading>Edit & resend</SectionHeading>
+        <p className="text-xs leading-relaxed text-slate-500">
+          Sent as a brand new submission under the API key set on the Testing screen — which decides
+          which foundation it lands under, so make sure it is {row.client.name}'s key.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        {fields.map((f, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input
+              value={f.key}
+              onChange={(e) => update(i, 'key', e.target.value)}
+              className="w-1/3 rounded-md border border-slate-300 bg-white px-2 py-1.5 font-mono text-xs"
+            />
+            <input
+              value={f.value}
+              onChange={(e) => update(i, 'value', e.target.value)}
+              className="flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            />
+            <Button size="sm" variant="danger" onClick={() => removeRow(i)}>
+              ✕
+            </Button>
+          </div>
+        ))}
+        <Button variant="ghost" size="sm" onClick={addRow}>
+          + Add field
+        </Button>
+      </div>
+
+      {err && <Callout tone="danger">{err}</Callout>}
+
+      <div className="flex gap-2">
+        <Button variant="primary" onClick={resend} busy={busy} busyLabel="Resending">
+          Resend through the pipeline
+        </Button>
+        <Button onClick={onCancel}>Cancel</Button>
+      </div>
+    </div>
   )
 }
