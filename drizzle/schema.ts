@@ -981,6 +981,7 @@ export const auditActionEnum = pgEnum('audit_action', [
   'application_declined',
   'application_shortlisted',
   'application_commented',
+  'application_registration_set',
 ])
 
 export const auditLog = pgTable(

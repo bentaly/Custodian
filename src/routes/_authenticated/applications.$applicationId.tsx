@@ -118,6 +118,108 @@ function Panel({
   )
 }
 
+/**
+ * The way out of the one dead end due diligence has: an application with no
+ * registration number can never be screened, and pressing Re-run reads the same empty
+ * columns and returns "not screened" forever.
+ *
+ * Two routes lead here, and neither can be fixed upstream. A grant imported from a
+ * foundation's back catalogue arrives already awarded and deliberately unscreened, and
+ * the import treats a missing number as a degradation rather than a blocker — refusing
+ * history is not an option. And an application awarded before the one-of gate existed
+ * has its ingest mapping frozen, because the award letter was written from those
+ * figures. A registration number is not one of those figures, and a grantee still
+ * receiving instalments is exactly the one worth screening late.
+ */
+function ScreenWithNumber({
+  applicationId,
+  canEdit,
+}: {
+  applicationId: string
+  canEdit: boolean
+}) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [charityNumber, setCharityNumber] = useState('')
+  const [companyNumber, setCompanyNumber] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    setBusy(true)
+    setError(null)
+    try {
+      await rerunDueDiligence({ data: { id: applicationId, charityNumber, companyNumber } })
+      await router.invalidate()
+      setOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <p className="font-display text-[14px]" style={{ color: C.sub }}>
+        Not screened — this application has no charity number or company number, so there is no
+        register to check it against. Re-running will not change that.
+      </p>
+      {canEdit && !open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-2 font-display text-[13px] font-medium underline underline-offset-2"
+          style={{ color: C.brand }}
+        >
+          Add a registration number and screen now
+        </button>
+      )}
+      {open && (
+        <div className="mt-3 flex flex-col gap-2">
+          <p className="font-display text-[12px]" style={{ color: C.sub }}>
+            Give whichever the organisation holds — either alone is enough. The checks run
+            immediately, and the number is recorded against this application.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={charityNumber}
+              onChange={(e) => setCharityNumber(e.target.value)}
+              placeholder="Charity number (e.g. 219279 or SC003558)"
+              className="min-w-56 flex-1 rounded-lg border px-3 py-2 font-display text-[13px]"
+              style={{ borderColor: C.line }}
+            />
+            <input
+              value={companyNumber}
+              onChange={(e) => setCompanyNumber(e.target.value)}
+              placeholder="Company number (e.g. 03782379)"
+              className="min-w-56 flex-1 rounded-lg border px-3 py-2 font-display text-[13px]"
+              style={{ borderColor: C.line }}
+            />
+          </div>
+          {error && (
+            <p className="font-display text-[12px]" style={{ color: C.danger }}>
+              {error}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={submit}
+              disabled={busy || (!charityNumber.trim() && !companyNumber.trim())}
+            >
+              {busy ? 'Screening…' : 'Save and screen'}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
@@ -767,11 +869,12 @@ function ApplicationDetail() {
           ) : noRegistrationNumber ? (
             // "Not screened yet" reads as pending. When there is no registration
             // number it isn't pending — there is nothing to screen against, and
-            // re-running will never change that. Say which, so the fix is obvious.
-            <p className="font-display text-[14px]" style={{ color: C.sub }}>
-              Not screened — this submission has no charity number or company number, so there is no
-              register to check it against.
-            </p>
+            // re-running will never change that. Say which, and offer the only thing
+            // that does: supplying the number here, which screens on the spot.
+            <ScreenWithNumber
+              applicationId={application.id}
+              canEdit={user.role === 'admin' || user.role === 'superadmin'}
+            />
           ) : (
             <p className="font-display text-[14px]" style={{ color: C.sub }}>
               Not screened yet.

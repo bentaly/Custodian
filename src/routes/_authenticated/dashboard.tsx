@@ -277,6 +277,10 @@ const LATELY_META: Record<string, { icon: IconSvgElement; verb: string }> = {
   application_declined: { icon: CancelSquareIcon, verb: 'declined' },
   application_shortlisted: { icon: CheckmarkCircle02Icon, verb: 'shortlisted' },
   application_commented: { icon: BubbleChatIcon, verb: 'commented on' },
+  application_registration_set: {
+    icon: Audit02Icon,
+    verb: 'added a registration number and screened',
+  },
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────────

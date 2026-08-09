@@ -298,6 +298,23 @@ application the mapping is frozen** (`already_awarded`), since the award letter 
 those figures. An invalid or empty mapping is refused rather than partially applied, so a client
 that posts `{}` before the canonical registry loads cannot blank a live application.
 
+### Screening an application that never captured a registration number
+
+`rerunDueDiligence` takes optional `charityNumber` / `companyNumber`. Without them it re-checks
+what is on the row; with them it **writes them first**, which is the only way out of the one dead
+end due diligence has — with both columns NULL a re-run reads the same nothing and returns `review`
+with zero checks however often it is pressed. Surfaced on the application screen exactly where that
+message appears, so the fix sits with the problem. Clearing both is refused; supplying them writes
+an `application_registration_set` audit row (a statement about who is being funded, not a typo fix).
+
+Two routes reach that dead end and **neither can be fixed upstream**, which is why this exists
+despite the one-of gate covering new submissions: a grant imported from a back catalogue arrives
+already awarded and deliberately unscreened, and the import treats a missing number as a
+degradation rather than a blocker (refusing history is not an option); and anything awarded before
+the one-of gate has its mapping frozen by the rule above. Allowed after an award on purpose — a
+registration number is not a figure the award letter was written from, and a grantee still
+receiving instalments is precisely the one worth screening late.
+
 ### Naming trap: `awardId`, not `grantId`
 
 `computeGrantCandidates` stores `matchCandidates` keyed on **`awardId`**, and `ResolveReportSchema`

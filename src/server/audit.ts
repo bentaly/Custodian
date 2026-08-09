@@ -7,6 +7,10 @@ export type AuditAction =
   | 'application_declined'
   | 'application_shortlisted'
   | 'application_commented'
+  // An admin supplied a charity/company number that was never captured, so the
+  // grantee could finally be screened. A statement about who is being funded, not a
+  // typo fix, which is why it is in the feed rather than only in the column.
+  | 'application_registration_set'
 
 /**
  * Record a human action against an application in the audit log — the source of the

@@ -386,6 +386,13 @@
       "when": 1786299676204,
       "tag": "0054_stale_magma",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1786316130142,
+      "tag": "0055_wooden_madelyne_pryor",
+      "breakpoints": true
     }
   ]
 }

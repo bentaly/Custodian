@@ -183,8 +183,31 @@ export const getApplication = createServerFn({ method: 'GET' })
     return { ...application, roundProgrammeCommitted: committed ? parseFloat(committed) : 0 }
   })
 
+/**
+ * Re-run the register checks, optionally supplying the numbers to check against.
+ *
+ * Without the numbers this is a plain retry, for a check that failed on a network
+ * blip. With them it is the only way to screen an application that never captured a
+ * registration number — and re-running alone cannot help there, because it reads the
+ * same NULL columns and returns `review` with no checks, however many times it is
+ * pressed. That dead end is reachable two ways: a grant imported from a foundation's
+ * back catalogue (born awarded, deliberately unscreened, and the workbook treats a
+ * missing number as a degradation rather than a blocker, because refusing history is
+ * not an option), and any application awarded before the one-of gate existed.
+ *
+ * Deliberately allowed after an award, unlike rewriting an ingest's mapping: a
+ * registration number is not a figure the award letter was written from, and a grantee
+ * you are still paying instalments to is exactly the one worth screening late.
+ */
 export const rerunDueDiligence = createServerFn({ method: 'POST' })
-  .validator(z.object({ id: z.uuid() }))
+  .validator(
+    z.object({
+      id: z.uuid(),
+      // Absent = re-check whatever is already on the application.
+      charityNumber: z.string().max(50).trim().optional(),
+      companyNumber: z.string().max(50).trim().optional(),
+    }),
+  )
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
     await assertApplicationAccess(user, data.id)
@@ -194,21 +217,49 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
     })
     if (!application) throw notFoundError()
 
+    const supplied = data.charityNumber !== undefined || data.companyNumber !== undefined
+    const charityNumber = supplied
+      ? (data.charityNumber?.trim() ?? '') || null
+      : application.charityNumber
+    const companyNumber = supplied
+      ? (data.companyNumber?.trim() ?? '') || null
+      : application.companyNumber
+
+    // Clearing both would deliberately make the application unscreenable — the exact
+    // state the one-of tier exists to prevent. Refuse rather than quietly comply.
+    if (supplied && !charityNumber && !companyNumber) {
+      throw new Error(
+        'Give a charity number or a company number — with neither there is no register to check against.',
+      )
+    }
+
     const result = await runDueDiligence({
-      charityNumber: application.charityNumber,
-      companyNumber: application.companyNumber,
+      charityNumber,
+      companyNumber,
       amountRequested: Number(application.amountRequested),
     })
 
     const [updated] = await getDb()
       .update(applications)
       .set({
+        ...(supplied ? { charityNumber, companyNumber } : {}),
         dueDiligenceStatus: result.status,
         dueDiligenceChecks: result.checks,
         dueDiligenceCheckedAt: new Date(result.checkedAt),
       })
       .where(eq(applications.id, data.id))
       .returning()
+
+    // Supplying a registration number against an existing grant is a judgement a person
+    // made about who they are funding, so it belongs in the feed, not just in a column.
+    if (supplied) {
+      await recordAudit({
+        actorUserId: user.id,
+        action: 'application_registration_set',
+        applicationId: data.id,
+        metadata: { charityNumber, companyNumber, dueDiligenceStatus: result.status },
+      })
+    }
     return updated!
   })
 
