@@ -193,7 +193,6 @@ export function ReviewQueue({
             key={row.id}
             row={row}
             canonicalFields={canonicalFields}
-            readOnly={row.status === 'complete'}
             onChanged={() => {
               setDone(null)
               reload()
@@ -203,6 +202,12 @@ export function ReviewQueue({
       </div>
     </Page>
   )
+}
+
+/** "a", "a and b", "a, b and c" — British English, no Oxford comma. */
+function formatList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? ''
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 }
 
 /** Render a raw payload value for the reviewer. Structured values (a budget
@@ -215,14 +220,17 @@ function previewValue(v: unknown): string {
 function IngestCard({
   row,
   canonicalFields,
-  readOnly,
   onChanged,
 }: {
   row: IngestRow
   canonicalFields: CanonicalField[]
-  readOnly: boolean
   onChanged: () => void
 }) {
+  // Nothing here is read-only any more, including a filed submission: a mapping
+  // mistake does not stop being a mistake once the row says Done, and the only way to
+  // fix one used to be deleting the application and asking the foundation to resubmit.
+  // The server refuses if a grant has since been awarded from it.
+  const readOnly = false
   const [open, setOpen] = useState(row.status === 'needs_review')
   const [editing, setEditing] = useState(false)
   const payloadKeys = useMemo(() => Object.keys(row.rawPayload), [row.rawPayload])
@@ -255,8 +263,13 @@ function IngestCard({
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+
+  // Outcomes are kept per action, not per card: the message has to appear beside the
+  // button that caused it, or a failure at the bottom of a long card announces itself
+  // somewhere off-screen and the button just looks inert.
+  const [resolveMsg, setResolveMsg] = useState<{ error?: string; notice?: string } | null>(null)
+  const [reprocessMsg, setReprocessMsg] = useState<{ error?: string; notice?: string } | null>(null)
+  const [deleteMsg, setDeleteMsg] = useState<{ error?: string } | null>(null)
 
   const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => mapping[k])
   const allTicked = mappedKeys.length > 0 && mappedKeys.every((k) => addToLookup[k])
@@ -300,12 +313,12 @@ function IngestCard({
           : 'Delete this ingest?'
     if (!window.confirm(msg)) return
     setDeleting(true)
-    setErr(null)
+    setDeleteMsg(null)
     try {
       await adminDelete(`/api/admin/ingests/${row.id}`)
       onChanged()
     } catch (e) {
-      setErr((e as Error).message)
+      setDeleteMsg({ error: (e as Error).message })
     } finally {
       setDeleting(false)
     }
@@ -315,21 +328,21 @@ function IngestCard({
   // the server, so the outcome is reported here rather than needing another refresh.
   async function reprocess() {
     setReprocessing(true)
-    setErr(null)
-    setNotice(null)
+    setReprocessMsg(null)
     try {
       const result = await adminPost<{ status: string; applicationId: string | null }>(
         `/api/admin/ingests/${row.id}/reprocess`,
         {},
       )
-      setNotice(
-        result.status === 'needs_review'
-          ? 'Reprocessed — it still cannot be filed automatically. The reasons are above; resolve it by hand.'
-          : `Reprocessed — promoted to an application (${result.status}).`,
-      )
+      setReprocessMsg({
+        notice:
+          result.status === 'needs_review'
+            ? 'Reprocessed — it still cannot be filed automatically. The reasons are above; resolve it by hand.'
+            : `Reprocessed — promoted to an application (${result.status}).`,
+      })
       onChanged()
     } catch (e) {
-      setErr((e as Error).message)
+      setReprocessMsg({ error: (e as Error).message })
     } finally {
       setReprocessing(false)
     }
@@ -337,29 +350,44 @@ function IngestCard({
 
   async function resolve() {
     setSaving(true)
-    setErr(null)
-    setNotice(null)
+    setResolveMsg(null)
     try {
       const cleanMapping: Record<string, string> = {}
       for (const [k, v] of Object.entries(mapping)) if (v) cleanMapping[k] = v
-      await adminPost(`/api/admin/ingests/${row.id}/resolve`, {
-        mapping: cleanMapping,
-        addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && mapping[k]),
-      })
+      const result = await adminPost<{ applicationId: string; updated: boolean; rerun: string[] }>(
+        `/api/admin/ingests/${row.id}/resolve`,
+        {
+          mapping: cleanMapping,
+          addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && mapping[k]),
+        },
+      )
+      // Say what a confirm actually did to the application. "Confirmed" alone left the
+      // reviewer unable to tell a correction that landed from one that went nowhere.
+      if (row.applicationId) {
+        setResolveMsg({
+          notice: result.updated
+            ? `Mapping corrected and applied to the application${
+                result.rerun.length ? `; re-ran ${formatList(result.rerun)}.` : '.'
+              }`
+            : 'Saved. The mapping was unchanged, so the application is as it was.',
+        })
+      }
       onChanged()
     } catch (e) {
       const fields = (e as { fields?: Array<{ field: string; message: string }> }).fields
-      setErr(
-        fields?.length
+      setResolveMsg({
+        error: fields?.length
           ? `${(e as Error).message}: ${fields.map((f) => `${f.field} (${f.message})`).join(', ')}`
           : (e as Error).message,
-      )
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  const canResolve = row.status !== 'complete' && row.status !== 'received'
+  // Everything except a row still in the pipeline can be resolved or re-resolved.
+  const canResolve = row.status !== 'received'
+  const isRefiling = row.status === 'complete'
 
   return (
     <Card>
@@ -395,9 +423,6 @@ function IngestCard({
       {open && (
         <div className="space-y-5 border-t border-slate-100 px-4 py-4">
           <BlockerPanel blockers={row.blockers} />
-
-          {notice && <Callout tone="success">{notice}</Callout>}
-          {err && <Callout tone="danger">{err}</Callout>}
 
           {/* The mapping grid is meaningless for a row that never got mapped. */}
           {row.status !== 'received' && (
@@ -530,14 +555,18 @@ function IngestCard({
             {canResolve && (
               <Action
                 variant="primary"
-                label={row.applicationId ? 'Confirm mapping' : 'Resolve'}
+                label={isRefiling ? 'Re-apply mapping' : row.applicationId ? 'Confirm mapping' : 'Resolve'}
                 busy={saving}
-                busyLabel={row.applicationId ? 'Confirming' : 'Resolving'}
+                busyLabel={isRefiling ? 'Applying' : row.applicationId ? 'Confirming' : 'Resolving'}
                 onClick={resolve}
+                error={resolveMsg?.error}
+                notice={resolveMsg?.notice}
                 description={
-                  row.applicationId
-                    ? 'Saves any ticked lookups and marks this done. No second application is created.'
-                    : 'Creates the application from the mapping above, runs due diligence and the Custodian score, and saves any ticked lookups. It becomes visible to the foundation immediately.'
+                  isRefiling
+                    ? 'Corrects an already-filed application: writes the mapping above over it and re-runs due diligence, the score or the deprivation lookup if their inputs changed. Refused once a grant has been awarded from it, since the award letter was written from these figures.'
+                    : row.applicationId
+                      ? 'Applies any corrections above to the existing application — re-running due diligence, the score or the deprivation lookup if their inputs changed — saves ticked lookups, and marks this done. No second application is created.'
+                      : 'Creates the application from the mapping above, runs due diligence and the Custodian score, and saves any ticked lookups. It becomes visible to the foundation immediately.'
                 }
               />
             )}
@@ -546,7 +575,14 @@ function IngestCard({
               busy={reprocessing}
               busyLabel="Reprocessing"
               onClick={reprocess}
-              description="Runs the whole pipeline again from the raw payload, inline, and reports the outcome here. Use after fixing something outside this app — reopening a round, adding a lookup, restoring an API key."
+              error={reprocessMsg?.error}
+              notice={reprocessMsg?.notice}
+              disabled={row.status !== 'received'}
+              description={
+                row.status === 'received'
+                  ? 'Runs the whole pipeline again from the raw payload, inline, and reports the outcome here. Use after fixing something outside this app — reopening a round, adding a lookup, restoring an API key.'
+                  : 'Only available while a submission is still stuck at “received”. This one has already been through the pipeline — to re-apply a corrected mapping use Confirm, or Edit & resend to put fresh data through.'
+              }
             />
             <Action
               label={editing ? 'Close editor' : 'Edit & resend'}
@@ -559,6 +595,7 @@ function IngestCard({
               busy={deleting}
               busyLabel="Deleting"
               onClick={remove}
+              error={deleteMsg?.error}
               description={
                 row.applicationId
                   ? 'Removes this row and its application, with any comments and votes. Refused if a grant has been awarded against it.'

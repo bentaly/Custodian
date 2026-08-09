@@ -212,10 +212,18 @@ export function Button({
 }
 
 /**
- * An action with its consequence spelled out beside it. The queue's actions are not
- * self-explanatory — "Reprocess" and "Resolve" both sound like "make this go away",
- * but one re-runs a pipeline and the other creates a live application — and guessing
- * wrong is not free.
+ * An action with its consequence spelled out beside it, and its own outcome reported
+ * underneath it.
+ *
+ * The queue's actions are not self-explanatory — "Reprocess" and "Resolve" both sound
+ * like "make this go away", but one re-runs a pipeline and the other creates a live
+ * application — and guessing wrong is not free.
+ *
+ * `error` and `notice` belong to the individual action rather than the card because a
+ * single shared message box at the top of a long card puts the answer a scroll away
+ * from the button that produced it: press Reprocess at the bottom of an open card and
+ * "this submission has already been processed" appears somewhere above the fold, so
+ * the button looks like it did nothing at all.
  */
 export function Action({
   label,
@@ -225,6 +233,8 @@ export function Action({
   busyLabel,
   variant = 'secondary',
   disabled,
+  error,
+  notice,
 }: {
   label: string
   description: string
@@ -233,20 +243,29 @@ export function Action({
   busyLabel?: string
   variant?: keyof typeof BUTTON_VARIANTS
   disabled?: boolean
+  error?: string | null
+  notice?: string | null
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <Button
-        variant={variant}
-        onClick={onClick}
-        busy={busy}
-        busyLabel={busyLabel}
-        disabled={disabled}
-        className="w-40"
-      >
-        {label}
-      </Button>
-      <p className="pt-1.5 text-xs leading-relaxed text-slate-500">{description}</p>
+    <div>
+      <div className="flex items-start gap-3">
+        <Button
+          variant={variant}
+          onClick={onClick}
+          busy={busy}
+          busyLabel={busyLabel}
+          disabled={disabled}
+          className="w-40"
+        >
+          {label}
+        </Button>
+        <p className="pt-1.5 text-xs leading-relaxed text-slate-500">{description}</p>
+      </div>
+      {(error || notice) && (
+        <div className="mt-1.5 ml-[10.75rem]">
+          <Callout tone={error ? 'danger' : 'success'}>{error ?? notice}</Callout>
+        </div>
+      )}
     </div>
   )
 }

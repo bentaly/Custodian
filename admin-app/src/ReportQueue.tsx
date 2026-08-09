@@ -224,7 +224,12 @@ function ReportCard({
   const [addToLookup, setAddToLookup] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
+  // Per-action, so an outcome lands beside the button that caused it — see ui.tsx.
+  const [resolveMsg, setResolveMsg] = useState<{ error?: string; notice?: string } | null>(null)
+  const [deleteMsg, setDeleteMsg] = useState<{ error?: string } | null>(null)
+  // The grant list is loaded when the card opens, so its failure belongs with the
+  // picker rather than with either button.
+  const [grantsErr, setGrantsErr] = useState<string | null>(null)
 
   // Grant matching: load the client's grants when the card opens (once), pre-selecting
   // the top-ranked candidate. `awardId` is the key the server stores and accepts — it
@@ -238,7 +243,7 @@ function ReportCard({
     if (!open || !needsMatch || grants) return
     adminGet<GrantOption[]>(`/api/admin/awards?clientId=${row.client.id}`)
       .then(setGrants)
-      .catch((e: Error) => setErr(e.message))
+      .catch((e: Error) => setGrantsErr(e.message))
   }, [open, needsMatch, grants, row.client.id])
 
   const candidateById = useMemo(() => {
@@ -283,12 +288,12 @@ function ReportCard({
           : 'Delete this report?'
     if (!window.confirm(msg)) return
     setDeleting(true)
-    setErr(null)
+    setDeleteMsg(null)
     try {
       await adminDelete(`/api/admin/report-ingests/${row.id}`)
       onChanged()
     } catch (e) {
-      setErr((e as Error).message)
+      setDeleteMsg({ error: (e as Error).message })
     } finally {
       setDeleting(false)
     }
@@ -296,7 +301,7 @@ function ReportCard({
 
   async function resolve() {
     setSaving(true)
-    setErr(null)
+    setResolveMsg(null)
     try {
       if (needsMatch && !awardId) throw new Error('Pick the grant this report belongs to')
       const cleanMapping: Record<string, string> = {}
@@ -309,11 +314,11 @@ function ReportCard({
       onChanged()
     } catch (e) {
       const fields = (e as { fields?: Array<{ field: string; message: string }> }).fields
-      setErr(
-        fields?.length
+      setResolveMsg({
+        error: fields?.length
           ? `${(e as Error).message}: ${fields.map((f) => `${f.field} (${f.message})`).join(', ')}`
           : (e as Error).message,
-      )
+      })
     } finally {
       setSaving(false)
     }
@@ -353,8 +358,6 @@ function ReportCard({
       {open && (
         <div className="space-y-5 border-t border-slate-100 px-4 py-4">
           <BlockerPanel blockers={row.blockers} />
-
-          {err && <Callout tone="danger">{err}</Callout>}
 
           {row.status !== 'received' && (
             <div>
@@ -444,7 +447,13 @@ function ReportCard({
               >
                 Which grant is this report for?
               </SectionHeading>
-              {!grants && <Loading what="Loading grants" />}
+              {!grants && !grantsErr && <Loading what="Loading grants" />}
+              {grantsErr && (
+                <Callout tone="danger" title="Could not load this foundation's grants">
+                  {grantsErr} — without the list there is nothing to pick from, so this report
+                  cannot be resolved until it loads.
+                </Callout>
+              )}
               {grants && grants.length === 0 && (
                 <Callout tone="warn">
                   This foundation has no grants on record, so there is nothing to attach this report
@@ -511,6 +520,8 @@ function ReportCard({
                 busy={saving}
                 busyLabel={row.reportId ? 'Confirming' : 'Resolving'}
                 onClick={resolve}
+                error={resolveMsg?.error}
+                notice={resolveMsg?.notice}
                 description={
                   row.reportId
                     ? 'Saves any ticked lookups and marks this done.'
@@ -524,6 +535,7 @@ function ReportCard({
               busy={deleting}
               busyLabel="Deleting"
               onClick={remove}
+              error={deleteMsg?.error}
               description={
                 row.reportId
                   ? 'Removes this row and its submission. The reporting milestone it ticked reopens.'

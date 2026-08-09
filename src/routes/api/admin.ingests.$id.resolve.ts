@@ -37,6 +37,14 @@ export const Route = createFileRoute('/api/admin/ingests/$id/resolve')({
           if (result.error === 'not_found') return adminJson({ error: 'Not found' }, 404)
           if (result.error === 'already_resolved')
             return adminJson({ error: 'Already resolved' }, 409)
+          if (result.error === 'already_awarded')
+            return adminJson(
+              {
+                error:
+                  'A grant has been awarded from this application, so its mapping can no longer be changed — the award letter was written from these figures.',
+              },
+              409,
+            )
           if (result.error === 'processing')
             return adminJson({ error: 'Still processing — try again shortly' }, 409)
           if (result.error === 'invalid')
@@ -47,7 +55,14 @@ export const Route = createFileRoute('/api/admin/ingests/$id/resolve')({
           return adminJson({ error: 'Round programme no longer exists' }, 409)
         }
 
-        return adminJson({ applicationId: result.applicationId }, 200)
+        return adminJson(
+          {
+            applicationId: result.applicationId,
+            updated: result.updated ?? false,
+            rerun: result.rerun ?? [],
+          },
+          200,
+        )
       },
     },
   },

@@ -283,6 +283,21 @@ so the row sat in `needs_review` looking ready to promote with nothing anywhere 
 If you add a blocker code, add it to `IngestBlockerCode` in `diagnose.ts` **and** `BlockerCode` in
 `admin-app/src/api.ts` — the admin app cannot import the main app's source.
 
+### Confirming a mapping REWRITES the application
+
+`resolveIngest`'s confirm branch (an ingest that already has an `applicationId`) does not just
+tick the row complete — it re-applies the reviewer's mapping via `updateApplicationFromCanonical`,
+and re-runs due diligence / the Custodian score / the deprivation lookup **where their inputs
+changed**. It used to discard `input.mapping` entirely, so mapping the charity number the model
+missed and pressing Confirm left the column NULL and the application permanently unscreenable —
+the mapping equivalent of a lost field, on a screen that said "confirmed".
+
+A `complete` ingest can be re-confirmed too (the mapping stays editable), because a mistake does not
+stop being one once the row is filed. The gate is money: **once a grant has been awarded from the
+application the mapping is frozen** (`already_awarded`), since the award letter was written from
+those figures. An invalid or empty mapping is refused rather than partially applied, so a client
+that posts `{}` before the canonical registry loads cannot blank a live application.
+
 ### Naming trap: `awardId`, not `grantId`
 
 `computeGrantCandidates` stores `matchCandidates` keyed on **`awardId`**, and `ResolveReportSchema`
@@ -290,6 +305,7 @@ accepts **`awardId`**. The admin app declared and posted `grantId`, which typech
 and silently broke the whole report queue: no candidate ever matched a grant, nothing was ever
 pre-selected or badged, and every resolve came back "Grant not found for this client". The UI says
 "grant" because that is the domain word; the wire says `awardId`.
+
 ## Onboarding data import
 
 `/settings/data-import` (admin-only) brings a foundation's existing grants in at onboarding, so
