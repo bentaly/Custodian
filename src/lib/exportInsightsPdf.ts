@@ -71,7 +71,10 @@ export async function exportInsightsPdf(root: HTMLElement, meta: InsightsPdfMeta
   for (const block of blocks) {
     const canvas = await html2canvas(block, {
       scale: 2,
-      backgroundColor: '#ffffff',
+      // LITERAL hex, not `var(--color-white)`. This is an html2canvas option parsed by
+      // its own colour parser, not a CSS property the browser resolves — a `var()` here
+      // fails to parse and the page renders on a transparent/black ground.
+      backgroundColor: '#FFFFFF',
       useCORS: true,
       logging: false,
     })

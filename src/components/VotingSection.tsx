@@ -58,23 +58,23 @@ export function VotingSection({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <h3 className="text-label font-semibold uppercase tracking-wide text-gray-400">
           Trustee votes
         </h3>
         {data.votes.length > 0 && (
-          <div className="flex gap-2 text-xs">
-            <span className="font-semibold text-emerald-700">{yesCount} yes</span>
+          <div className="flex gap-2 text-label">
+            <span className="font-semibold text-success">{yesCount} yes</span>
             <span className="text-gray-300">·</span>
-            <span className="font-semibold text-red-600">{noCount} no</span>
+            <span className="font-semibold text-danger">{noCount} no</span>
           </div>
         )}
       </div>
 
       {canAdminVote && (
-        <p className="mb-2 text-xs text-gray-400">You can record votes on behalf of trustees.</p>
+        <p className="mb-2 text-label text-gray-400">You can record votes on behalf of trustees.</p>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-gray-100">
+      <div className="overflow-hidden rounded-chip border border-gray-100">
         {data.trustees.map((trustee, i) => {
           const vote = voteMap.get(trustee.id)
           const isMe = trustee.id === userId
@@ -88,9 +88,9 @@ export function VotingSection({
                 i < data.trustees.length - 1 ? 'border-b border-gray-100' : ''
               }`}
             >
-              <span className="text-sm text-gray-700">
+              <span className="text-body text-gray-700">
                 {trustee.name}
-                {isMe && <span className="ml-1 text-xs text-gray-400">(you)</span>}
+                {isMe && <span className="ml-1 text-label text-gray-400">(you)</span>}
               </span>
 
               {canSetThisVote ? (
@@ -98,10 +98,10 @@ export function VotingSection({
                   <button
                     onClick={() => handleVote('yes', isMe ? undefined : trustee.id)}
                     disabled={voting}
-                    className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`rounded-chip px-2.5 py-1 text-label font-medium transition-colors ${
                       vote === 'yes'
-                        ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border border-gray-200 text-gray-500 hover:border-emerald-200 hover:text-emerald-700'
+                        ? 'border border-success/20 bg-success/10 text-success'
+                        : 'border border-gray-200 text-gray-500 hover:border-success/20 hover:text-success'
                     }`}
                   >
                     Yes
@@ -109,10 +109,10 @@ export function VotingSection({
                   <button
                     onClick={() => handleVote('no', isMe ? undefined : trustee.id)}
                     disabled={voting}
-                    className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`rounded-chip px-2.5 py-1 text-label font-medium transition-colors ${
                       vote === 'no'
-                        ? 'border border-red-200 bg-red-50 text-red-600'
-                        : 'border border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600'
+                        ? 'border border-danger/20 bg-danger/10 text-danger'
+                        : 'border border-gray-200 text-gray-500 hover:border-danger/20 hover:text-danger'
                     }`}
                   >
                     No
@@ -120,14 +120,14 @@ export function VotingSection({
                 </div>
               ) : vote ? (
                 <span
-                  className={`text-xs font-medium ${
-                    vote === 'yes' ? 'text-emerald-700' : 'text-red-600'
+                  className={`text-label font-medium ${
+                    vote === 'yes' ? 'text-success' : 'text-danger'
                   }`}
                 >
                   {vote === 'yes' ? '✓ Yes' : '✗ No'}
                 </span>
               ) : (
-                <span className="text-xs text-gray-300">—</span>
+                <span className="text-label text-gray-300">—</span>
               )}
             </div>
           )

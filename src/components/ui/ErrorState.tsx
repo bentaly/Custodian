@@ -34,19 +34,19 @@ const FACES: Record<number, Face> = {
     icon: LockKeyIcon,
     title: 'That belongs to another organisation',
     body: "You can only see records belonging to your own foundation.",
-    tint: 'bg-amber-50 text-amber-600',
+    tint: 'bg-warning/10 text-warning',
   },
   401: {
     icon: UserLock01Icon,
     title: 'Please sign in again',
     body: 'Your session has expired.',
-    tint: 'bg-amber-50 text-amber-600',
+    tint: 'bg-warning/10 text-warning',
   },
   500: {
     icon: Alert02Icon,
     title: 'Something went wrong at our end',
     body: 'This has been reported. Trying again often works.',
-    tint: 'bg-red-50 text-red-500',
+    tint: 'bg-danger/10 text-danger',
   },
 }
 
@@ -89,7 +89,7 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center rounded-lg border border-dashed border-gray-200 bg-white text-center',
+        'flex flex-col items-center rounded-card border border-dashed border-gray-200 bg-white text-center',
         isPanel ? 'px-5 py-8' : 'px-6 py-16',
         className,
       )}
@@ -107,8 +107,8 @@ export function ErrorState({
 
       <h2
         className={cn(
-          'font-display font-semibold text-ink',
-          isPanel ? 'mt-3 text-[15px]' : 'mt-5 text-[22px]',
+          'font-display font-semibold text-gray-900',
+          isPanel ? 'mt-3 text-body' : 'mt-5 text-heading',
         )}
       >
         {title ?? face.title}
@@ -116,8 +116,8 @@ export function ErrorState({
 
       <p
         className={cn(
-          'mt-1.5 max-w-md leading-relaxed text-ink-muted',
-          isPanel ? 'text-[13px]' : 'text-[15px]',
+          'mt-1.5 max-w-md leading-relaxed text-gray-500',
+          isPanel ? 'text-body' : 'text-body',
         )}
       >
         {status === 500 ? face.body : detail}
@@ -147,10 +147,10 @@ export function ErrorState({
 
       {trace ? (
         <details className="mt-6 w-full text-left">
-          <summary className="cursor-pointer text-xs font-medium text-ink-muted hover:text-ink">
+          <summary className="cursor-pointer text-label font-medium text-gray-500 hover:text-gray-900">
             Technical detail (superadmin only)
           </summary>
-          <pre className="mt-2 max-h-80 overflow-auto rounded-md bg-gray-900 p-3 text-left text-[11px] leading-relaxed text-gray-100">
+          <pre className="mt-2 max-h-80 overflow-auto rounded-chip bg-gray-900 p-3 text-left text-label leading-relaxed text-gray-100">
             {trace}
           </pre>
         </details>

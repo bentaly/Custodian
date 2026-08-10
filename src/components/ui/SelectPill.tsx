@@ -54,14 +54,14 @@ export function SelectPill({
       <div
         className={
           sm
-            ? 'flex h-8 items-center gap-1 rounded-lg border bg-white pl-2 pr-1.5'
-            : 'flex h-10 items-center gap-2 rounded-[12px] border bg-white py-1 pl-1 pr-3'
+            ? 'flex h-8 items-center gap-1 rounded-chip border bg-white pl-2 pr-1.5'
+            : 'flex h-10 items-center gap-2 rounded-control border bg-white py-1 pl-1 pr-3'
         }
         style={{ borderColor: C.line }}
       >
         {!sm && icon && (
           <div
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+            className="flex size-8 shrink-0 items-center justify-center rounded-chip"
             style={{ backgroundColor: C.wash }}
           >
             <HugeiconsIcon icon={icon} size={16} color={C.brand} />
@@ -69,21 +69,21 @@ export function SelectPill({
         )}
         {label && (
           <span
-            className="whitespace-nowrap font-display text-[14px] font-medium"
+            className="whitespace-nowrap font-display text-body font-medium"
             style={{ color: C.ink }}
           >
             {label}:
           </span>
         )}
         <span
-          className={`whitespace-nowrap font-display text-[14px] ${sm ? '' : 'font-medium'}`}
+          className={`whitespace-nowrap font-display text-body ${sm ? '' : 'font-medium'}`}
           style={{ color: C.ink }}
         >
           {current?.label ?? placeholder ?? clearLabel ?? '—'}
         </span>
         {suffix && (
           <span
-            className="whitespace-nowrap font-display text-[12px] font-medium"
+            className="whitespace-nowrap font-display text-label font-medium"
             style={{ color: C.faint }}
           >
             · {suffix}

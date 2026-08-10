@@ -12,8 +12,8 @@ export type ReportAnalysisStatus = 'pending' | 'analysed' | 'error'
 
 const STATUS_META: Record<ReportAnalysisStatus, { label: string; className: string }> = {
   pending: { label: 'Not analysed', className: 'bg-gray-100 text-gray-500' },
-  analysed: { label: 'Analysed', className: 'bg-green-50 text-green-700' },
-  error: { label: 'Analysis failed', className: 'bg-red-50 text-red-600' },
+  analysed: { label: 'Analysed', className: 'bg-success/10 text-success' },
+  error: { label: 'Analysis failed', className: 'bg-danger/10 text-danger' },
 }
 
 export interface ReportAnalysisData {
@@ -36,9 +36,9 @@ export interface ReportAnalysisData {
 
 /** Per-alignment 1–10 colour band, matching the Custodian score criterion bands. */
 function alignmentClasses(score: number): { text: string; bar: string } {
-  if (score >= 8) return { text: 'text-green-700', bar: 'bg-green-600' }
-  if (score >= 5) return { text: 'text-amber-700', bar: 'bg-amber-500' }
-  return { text: 'text-red-600', bar: 'bg-red-500' }
+  if (score >= 8) return { text: 'text-success', bar: 'bg-success' }
+  if (score >= 5) return { text: 'text-warning', bar: 'bg-warning' }
+  return { text: 'text-danger', bar: 'bg-danger' }
 }
 
 function AlignmentBlock({
@@ -55,14 +55,14 @@ function AlignmentBlock({
   const cls = alignmentClasses(score)
   return (
     <div>
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-label">
         <span className="text-gray-600">{title}</span>
         <span className={`font-semibold ${cls.text}`}>{score}/10</span>
       </div>
-      <div className="mt-0.5 h-1.5 overflow-hidden rounded-sm bg-gray-100">
-        <div className={`h-full rounded-sm ${cls.bar}`} style={{ width: `${score * 10}%` }} />
+      <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
+        <div className={`h-full rounded-full ${cls.bar}`} style={{ width: `${score * 10}%` }} />
       </div>
-      {narrative && <p className="mt-1.5 text-xs leading-relaxed text-gray-600">{narrative}</p>}
+      {narrative && <p className="mt-1.5 text-label leading-relaxed text-gray-600">{narrative}</p>}
       {children}
     </div>
   )
@@ -87,12 +87,12 @@ export function ReportAnalysisPanel({
     <Card>
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-medium text-gray-900">Report analysis</h2>
+          <h2 className="text-body font-medium text-gray-900">Report analysis</h2>
           <Badge className={meta.className}>{meta.label}</Badge>
         </div>
         <div className="flex items-center gap-3">
           {analysedAt && (
-            <span className="text-xs text-gray-400">
+            <span className="text-label text-gray-400">
               Analysed {new Date(analysedAt).toLocaleDateString('en-GB')}
             </span>
           )}
@@ -101,7 +101,7 @@ export function ReportAnalysisPanel({
       </div>
 
       {status !== 'analysed' || !a ? (
-        <p className="px-5 py-6 text-sm text-gray-500">
+        <p className="px-5 py-6 text-body text-gray-500">
           {status === 'error' ? 'Analysis failed. Try re-running.' : 'Not yet analysed.'}
         </p>
       ) : (
@@ -111,15 +111,15 @@ export function ReportAnalysisPanel({
             <div className="flex flex-col items-center">
               <div
                 className="flex h-16 min-w-16 flex-col items-center justify-center rounded-full px-3"
-                style={{ border: `3px solid ${a.impactQuantity != null ? '#0F6E56' : '#d1d5db'}` }}
+                style={{ border: `3px solid ${a.impactQuantity != null ? 'var(--color-brand)' : 'var(--color-gray-300)'}` }}
               >
-                <span className="text-2xl font-light leading-none">
+                <span className="text-heading font-light leading-none">
                   {a.impactQuantity != null
                     ? Number(a.impactQuantity).toLocaleString('en-GB')
                     : '—'}
                 </span>
               </div>
-              <span className="mt-1.5 text-center text-[10px] uppercase tracking-wide text-gray-400">
+              <span className="mt-1.5 text-center text-label uppercase tracking-wide text-gray-400">
                 {a.impactUnitLabel ?? 'Impact'}
                 {a.impactQuantity != null && (
                   <>
@@ -129,12 +129,12 @@ export function ReportAnalysisPanel({
                 )}
               </span>
               {a.impactQuantity == null && (
-                <span className="mt-1 text-center text-[10px] text-gray-400">
+                <span className="mt-1 text-center text-label text-gray-400">
                   No quantity evidenced in the report
                 </span>
               )}
               {a.impactQuantityQuote && (
-                <p className="mt-2 border-l-2 border-gray-200 pl-2 text-[11px] italic leading-snug text-gray-500">
+                <p className="mt-2 border-l-2 border-gray-200 pl-2 text-label italic leading-snug text-gray-500">
                   “{a.impactQuantityQuote}”
                 </p>
               )}
@@ -162,25 +162,25 @@ export function ReportAnalysisPanel({
           <div className="min-w-0 flex-1 space-y-4">
             {a.aiSummary && (
               <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
                   AI assessment summary
                 </h3>
-                <p className="text-sm leading-relaxed text-gray-700">{a.aiSummary}</p>
+                <p className="text-body leading-relaxed text-gray-700">{a.aiSummary}</p>
               </div>
             )}
 
             {a.applicationAlignment && (
               <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
                   Against the application
                 </h3>
-                <p className="text-sm leading-relaxed text-gray-600">
+                <p className="text-body leading-relaxed text-gray-600">
                   {a.applicationAlignment.narrative}
                 </p>
                 {a.applicationAlignment.promisesKept.length > 0 && (
                   <ul className="mt-1.5 space-y-1">
                     {a.applicationAlignment.promisesKept.map((p, i) => (
-                      <li key={i} className="text-xs text-green-700">
+                      <li key={i} className="text-label text-success">
                         ✓ {p}
                       </li>
                     ))}
@@ -189,7 +189,7 @@ export function ReportAnalysisPanel({
                 {a.applicationAlignment.promisesUnmet.length > 0 && (
                   <ul className="mt-1.5 space-y-1">
                     {a.applicationAlignment.promisesUnmet.map((p, i) => (
-                      <li key={i} className="text-xs text-amber-700">
+                      <li key={i} className="text-label text-warning">
                         ⚠ {p}
                       </li>
                     ))}
@@ -200,10 +200,10 @@ export function ReportAnalysisPanel({
 
             {a.programmeAlignment && (
               <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
                   Against the programme
                 </h3>
-                <p className="text-sm leading-relaxed text-gray-600">
+                <p className="text-body leading-relaxed text-gray-600">
                   {a.programmeAlignment.narrative}
                 </p>
               </div>
@@ -213,31 +213,31 @@ export function ReportAnalysisPanel({
               <div className="grid gap-4 sm:grid-cols-2">
                 {a.aiChallenges && (
                   <div>
-                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
                       Challenges
                     </h3>
-                    <p className="text-xs leading-relaxed text-gray-600">{a.aiChallenges}</p>
+                    <p className="text-label leading-relaxed text-gray-600">{a.aiChallenges}</p>
                   </div>
                 )}
                 {a.aiLessons && (
                   <div>
-                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
                       Lessons learned
                     </h3>
-                    <p className="text-xs leading-relaxed text-gray-600">{a.aiLessons}</p>
+                    <p className="text-label leading-relaxed text-gray-600">{a.aiLessons}</p>
                   </div>
                 )}
               </div>
             )}
 
             {a.flags.length > 0 && (
-              <div className="rounded-md bg-amber-50 px-3 py-2.5">
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+              <div className="rounded-chip bg-warning/10 px-3 py-2.5">
+                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-warning">
                   Flags to check
                 </h3>
                 <ul className="space-y-1">
                   {a.flags.map((f, i) => (
-                    <li key={i} className="text-xs leading-relaxed text-amber-800">
+                    <li key={i} className="text-label leading-relaxed text-warning">
                       {f}
                     </li>
                   ))}

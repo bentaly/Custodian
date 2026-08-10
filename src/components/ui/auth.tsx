@@ -22,17 +22,17 @@ export function AuthInput({
   return (
     <div>
       {label && (
-        <label htmlFor={inputId} className="mb-1.5 block text-[13px] font-medium text-ink-soft">
+        <label htmlFor={inputId} className="mb-1.5 block text-body font-medium text-gray-700">
           {label}
         </label>
       )}
       <input
         id={inputId}
         className={cn(
-          'w-full rounded-xl border border-hairline bg-canvas px-3.5 py-3 text-[15px] text-ink',
-          'placeholder:text-ink-muted/60',
+          'w-full rounded-control border border-gray-200 bg-background px-3.5 py-3 text-body text-gray-900',
+          'placeholder:text-gray-500/60',
           'transition-colors duration-150',
-          'focus:border-moss-600 focus:bg-white focus:outline-hidden focus:ring-4 focus:ring-moss-100',
+          'focus:border-brand focus:bg-white focus:outline-hidden focus:ring-4 focus:ring-brand/20',
           className,
         )}
         {...props}
@@ -54,9 +54,9 @@ export function AuthButton({
       type="submit"
       disabled={loading || disabled}
       className={cn(
-        'w-full rounded-xl bg-ink px-4 py-3 text-[15px] font-medium text-white',
-        'transition-colors duration-150 hover:bg-ink-soft',
-        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-moss-100',
+        'w-full rounded-control bg-gray-900 px-4 py-3 text-body font-medium text-white',
+        'transition-colors duration-150 hover:bg-gray-700',
+        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-brand/20',
         'disabled:cursor-not-allowed disabled:opacity-40',
         className,
       )}
@@ -82,10 +82,10 @@ export function GoogleButton({
       onClick={onClick}
       disabled={loading}
       className={cn(
-        'flex w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-white px-4 py-3',
-        'text-[15px] font-medium text-ink-soft',
-        'transition-colors duration-150 hover:bg-canvas',
-        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-moss-100',
+        'flex w-full items-center justify-center gap-2.5 rounded-control border border-gray-200 bg-white px-4 py-3',
+        'text-body font-medium text-gray-700',
+        'transition-colors duration-150 hover:bg-background',
+        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-brand/20',
         'disabled:opacity-50',
       )}
     >
@@ -116,10 +116,10 @@ export function Divider({ children }: { children: ReactNode }) {
   return (
     <div className="relative">
       <div className="absolute inset-0 flex items-center" aria-hidden>
-        <div className="w-full border-t border-hairline" />
+        <div className="w-full border-t border-gray-200" />
       </div>
       <div className="relative flex justify-center">
-        <span className="bg-white px-3 text-[13px] text-ink-muted">{children}</span>
+        <span className="bg-white px-3 text-body text-gray-500">{children}</span>
       </div>
     </div>
   )
@@ -130,8 +130,8 @@ export function Notice({ tone, children }: { tone: 'error' | 'success'; children
     <p
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
-        'mt-5 rounded-xl px-3.5 py-3 text-[14px] leading-relaxed',
-        tone === 'error' ? 'bg-tile-blush text-[#A3283F]' : 'bg-moss-100 text-moss-700',
+        'mt-5 rounded-control px-3.5 py-3 text-body leading-relaxed',
+        tone === 'error' ? 'bg-accent-blush/20 text-danger' : 'bg-brand-secondary text-brand',
       )}
     >
       {children}

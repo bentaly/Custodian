@@ -45,8 +45,8 @@ const PAGE_SIZE = 25
 // ─── Design tokens (Figma variables — pinned until the token set lands) ──────────
 const C = {
   ...TOKENS,
-  bar: '#17211D', // the dark selection bar,
-  mint: '#8AE8C6', // its meta text,
+  bar: 'var(--color-gray-900)', // the dark selection bar,
+  mint: 'var(--color-brand-light)', // its meta text,
 }
 
 type SortKey = 'organisation' | 'amount' | 'status' | 'score' | 'dueDiligence'
@@ -239,8 +239,8 @@ function BudgetLegend({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="size-2 rounded-[2px]" style={{ backgroundColor: color }} />
-      <span className="font-display text-[14px] font-medium" style={{ color: C.faint }}>
+      <span className="size-2 rounded-swatch" style={{ backgroundColor: color }} />
+      <span className="font-display text-body font-medium" style={{ color: C.faint }}>
         <span style={{ color: C.ink }}>{fmtAmount(amount)}</span> {label}
         {count != null ? ` (${count})` : ''}
       </span>
@@ -259,19 +259,19 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
 
   return (
     <div
-      className="flex flex-col gap-4 rounded-[16px] border bg-white p-4"
+      className="flex flex-col gap-4 rounded-card border bg-white p-4"
       style={{ borderColor: C.line }}
     >
-      <p className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+      <p className="font-display text-title font-medium" style={{ color: C.ink }}>
         {title}
       </p>
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <p className="font-display text-[24px] font-medium leading-none" style={{ color: C.ink }}>
+          <p className="font-display text-heading font-medium leading-none" style={{ color: C.ink }}>
             {fmtCompact(committed)}
           </p>
-          <p className="font-display text-[14px]" style={{ color: C.sub }}>
+          <p className="font-display text-body" style={{ color: C.sub }}>
             {fmtAmount(committed)} committed of {fmtAmount(totalBudget)}
           </p>
         </div>
@@ -347,7 +347,7 @@ function AiScoreCell({
         )}
       </div>
       {has && (
-        <span className="font-display text-[14px] font-medium" style={{ color: C.ink }}>
+        <span className="font-display text-body font-medium" style={{ color: C.ink }}>
           {score}
         </span>
       )}
@@ -393,10 +393,10 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       return (
         <div className="flex items-center gap-2">
           <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+            className="flex size-10 shrink-0 items-center justify-center rounded-chip"
             style={{ backgroundColor: C.wash }}
           >
-            <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
+            <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
               {initials(app.organisationName)}
             </span>
           </div>
@@ -405,12 +405,12 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
               to="/applications/$applicationId"
               params={{ applicationId: app.id }}
               onClick={(e) => e.stopPropagation()}
-              className="block truncate font-display text-[14px] font-medium hover:underline"
+              className="block truncate font-display text-body font-medium hover:underline"
               style={{ color: C.ink }}
             >
               {app.organisationName}
             </Link>
-            <p className="truncate font-display text-[12px]" style={{ color: C.sub }}>
+            <p className="truncate font-display text-label" style={{ color: C.sub }}>
               {subline}
             </p>
           </div>
@@ -424,7 +424,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     width: 'sm:w-[130px]',
     sortable: true,
     cell: (app) => (
-      <span className="font-display text-[14px] font-medium tabular-nums" style={{ color: C.ink }}>
+      <span className="font-display text-body font-medium tabular-nums" style={{ color: C.ink }}>
         {fmtAmount(app.amountRequested)}
       </span>
     ),
@@ -435,7 +435,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     header: 'Programme',
     width: 'sm:w-[200px]',
     cell: (app) => (
-      <span className="font-display text-[14px]" style={{ color: C.ink }}>
+      <span className="font-display text-body" style={{ color: C.ink }}>
         {app.roundProgramme?.programme?.name ?? '—'}
       </span>
     ),
@@ -449,13 +449,13 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       const themes = (app.roundProgramme?.programme?.tags as string[] | null) ?? []
       if (themes.length === 0) {
         return (
-          <span className="font-display text-[14px]" style={{ color: C.faint }}>
+          <span className="font-display text-body" style={{ color: C.faint }}>
             —
           </span>
         )
       }
       return (
-        <span className="font-display text-[14px]" style={{ color: C.sub }}>
+        <span className="font-display text-body" style={{ color: C.sub }}>
           {themes[0]}
           {themes.length > 1 && <span style={{ color: C.faint }}> +{themes.length - 1}</span>}
         </span>
@@ -504,9 +504,9 @@ type SettableStatus = Exclude<ApplicationStatus, 'awarded'>
 function BulkStatusMenu({ busy, onPick }: { busy: boolean; onPick: (s: SettableStatus) => void }) {
   return (
     <div className="relative shrink-0">
-      <div className="flex h-8 items-center gap-1 rounded-md bg-white pl-3 pr-2">
+      <div className="flex h-8 items-center gap-1 rounded-chip bg-white pl-3 pr-2">
         <span
-          className="whitespace-nowrap font-display text-[14px] font-medium"
+          className="whitespace-nowrap font-display text-body font-medium"
           style={{ color: C.ink }}
         >
           {busy ? 'Updating…' : 'Change status'}
@@ -672,6 +672,7 @@ function ApplicationsList() {
   }
 
   const allSelected = items.length > 0 && items.every((a) => selected.has(a.id))
+  const someSelected = items.some((a) => selected.has(a.id))
   function toggleAll() {
     setSelected((prev) =>
       items.every((a) => prev.has(a.id)) ? new Set() : new Set(items.map((a) => a.id)),
@@ -740,7 +741,7 @@ function ApplicationsList() {
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <h1 className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+        <h1 className="font-display text-heading font-medium" style={{ color: C.ink }}>
           Applications
         </h1>
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -754,7 +755,7 @@ function ApplicationsList() {
               />
             )}
             <span
-              className="whitespace-nowrap font-display text-[12px] font-medium"
+              className="whitespace-nowrap font-display text-label font-medium"
               style={{ color: C.sub }}
             >
               {metaLine}
@@ -775,7 +776,7 @@ function ApplicationsList() {
           rows themselves, and — only while rows are selected — what you can do
           to them. */}
       <div
-        className="flex flex-col gap-4 rounded-[16px] border bg-white p-4"
+        className="flex flex-col gap-4 rounded-card border bg-white p-4"
         style={{ borderColor: C.line }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -830,7 +831,7 @@ function ApplicationsList() {
           />
         </div>
 
-        <div className="overflow-hidden rounded-[12px] border" style={{ borderColor: C.line }}>
+        <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
           <DataTable
             columns={APPLICATION_COLUMNS}
             rows={items}
@@ -844,12 +845,13 @@ function ApplicationsList() {
               isSelected: (app) => selected.has(app.id),
               toggle: (app) => toggleOne(app.id),
               allSelected,
+              someSelected,
               toggleAll,
             }}
             empty={
               <div className="p-4">
                 <EmptyState>
-                  <p className="font-display text-[14px]" style={{ color: C.sub }}>
+                  <p className="font-display text-body" style={{ color: C.sub }}>
                     No applications match these filters.
                   </p>
                 </EmptyState>
@@ -861,19 +863,19 @@ function ApplicationsList() {
         {/* Selection toolbar — sits under the table, beside the rows it acts on */}
         {selected.size > 0 && (
           <div
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg p-2"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-chip p-2"
             style={{ backgroundColor: C.bar }}
           >
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setSelected(new Set())}
-                className="flex h-8 shrink-0 items-center gap-1 rounded-md bg-white/10 pl-1.5 pr-2 font-display text-[14px] font-medium text-white"
+                className="flex h-8 shrink-0 items-center gap-1 rounded-chip bg-white/10 pl-1.5 pr-2 font-display text-body font-medium text-white"
               >
                 <HugeiconsIcon icon={Cancel01Icon} size={16} color="#fff" />
                 Clear
               </button>
-              <span className="font-display text-[12px] font-medium" style={{ color: C.mint }}>
+              <span className="font-display text-label font-medium" style={{ color: C.mint }}>
                 {selected.size} selected · {fmtAmount(combinedAsk)} combined ask
               </span>
             </div>

@@ -53,13 +53,13 @@ export function CodeInput({
             <div
               key={i}
               className={cn(
-                'flex h-14 flex-1 items-center justify-center rounded-xl border text-[22px] font-semibold tabular-nums transition-all duration-150',
+                'flex h-14 flex-1 items-center justify-center rounded-control border text-heading font-semibold tabular-nums transition-all duration-150',
                 // Filled segments light up mint, the way the meter's ticks light up —
                 // grey would read as disabled rather than entered.
                 value[i]
-                  ? 'border-moss-100 bg-moss-100 text-ink'
-                  : 'border-hairline bg-canvas text-ink-muted',
-                active && 'border-moss-600 bg-white ring-4 ring-moss-100',
+                  ? 'border-brand/20 bg-brand-secondary text-gray-900'
+                  : 'border-gray-200 bg-background text-gray-500',
+                active && 'border-brand bg-white ring-4 ring-brand/20',
                 disabled && 'opacity-50',
               )}
             >

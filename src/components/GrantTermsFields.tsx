@@ -11,7 +11,7 @@ import { Input, Label } from './ui'
 // the programme, or the year — three different numbers.
 
 function Hint({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1 text-xs text-gray-400">{children}</p>
+  return <p className="mt-1 text-label text-gray-400">{children}</p>
 }
 
 export function GrantTermsFields({
@@ -35,10 +35,10 @@ export function GrantTermsFields({
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div>
         <Label>
-          Total budget{budgetRequired && <span className="ml-0.5 text-red-400">*</span>}
+          Total budget{budgetRequired && <span className="ml-0.5 text-danger">*</span>}
         </Label>
         <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-display text-[14px] text-[#97A1AF]">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-display text-body text-gray-400">
             £
           </span>
           <Input
@@ -60,7 +60,7 @@ export function GrantTermsFields({
       <div>
         <Label>Max per award</Label>
         <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-display text-[14px] text-[#97A1AF]">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-display text-body text-gray-400">
             £
           </span>
           <Input
@@ -88,7 +88,7 @@ export function GrantTermsFields({
             placeholder="1"
             className="pr-10"
           />
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-display text-[14px] text-[#97A1AF]">
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-display text-body text-gray-400">
             yrs
           </span>
         </div>

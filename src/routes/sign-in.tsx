@@ -156,12 +156,12 @@ function SignInPage() {
 
   return (
     <AuthShell>
-      <h1 className="font-display text-[32px] font-semibold text-ink">{heading}</h1>
-      {sub && <p className="mt-2 text-[15px] leading-relaxed text-ink-muted">{sub}</p>}
+      <h1 className="font-display text-display font-semibold text-gray-900">{heading}</h1>
+      {sub && <p className="mt-2 text-body leading-relaxed text-gray-500">{sub}</p>}
 
       {(mode === 'code-verify' || mode === 'reset-verify') && (
-        <p className="mt-2 text-[15px] leading-relaxed text-ink-muted">
-          If an account exists for <span className="font-medium text-ink">{email}</span>, we've sent
+        <p className="mt-2 text-body leading-relaxed text-gray-500">
+          If an account exists for <span className="font-medium text-gray-900">{email}</span>, we've sent
           it a 6-digit code. It expires in 5 minutes.
         </p>
       )}
@@ -193,13 +193,13 @@ function SignInPage() {
 
             <div>
               <div className="mb-1.5 flex items-baseline justify-between">
-                <label htmlFor="password" className="text-[13px] font-medium text-ink-soft">
+                <label htmlFor="password" className="text-body font-medium text-gray-700">
                   Password
                 </label>
                 <button
                   type="button"
                   onClick={() => switchMode('reset-request')}
-                  className="text-[13px] font-medium text-moss-700 hover:text-moss-600"
+                  className="text-body font-medium text-brand hover:text-brand"
                 >
                   Forgot?
                 </button>
@@ -241,7 +241,7 @@ function SignInPage() {
               required
             />
             <MethodToggle mode="code" onChange={() => switchMode('password')} />
-            <p className="text-[13px] leading-relaxed text-ink-muted">
+            <p className="text-body leading-relaxed text-gray-500">
               We'll email you a 6-digit code — no password needed.
             </p>
             <AuthButton loading={loading} loadingLabel="Sending…">
@@ -316,9 +316,9 @@ function SignInPage() {
  */
 function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange: () => void }) {
   const base =
-    'flex-1 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150'
+    'flex-1 rounded-chip px-3 py-1.5 text-body font-medium transition-colors duration-150'
   return (
-    <div className="flex gap-1 rounded-xl border border-hairline bg-moss-50 p-1" role="tablist">
+    <div className="flex gap-1 rounded-control border border-gray-200 bg-brand/5 p-1" role="tablist">
       <button
         type="button"
         role="tab"
@@ -326,8 +326,8 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
         onClick={mode === 'password' ? undefined : onChange}
         className={
           mode === 'password'
-            ? `${base} bg-white text-ink shadow-xs`
-            : `${base} text-ink-muted hover:text-ink-soft`
+            ? `${base} bg-white text-gray-900 shadow-xs`
+            : `${base} text-gray-500 hover:text-gray-700`
         }
       >
         Password
@@ -339,8 +339,8 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
         onClick={mode === 'code' ? undefined : onChange}
         className={
           mode === 'code'
-            ? `${base} bg-white text-ink shadow-xs`
-            : `${base} text-ink-muted hover:text-ink-soft`
+            ? `${base} bg-white text-gray-900 shadow-xs`
+            : `${base} text-gray-500 hover:text-gray-700`
         }
       >
         Email code
@@ -354,7 +354,7 @@ function BackLink({ onClick, children }: { onClick: () => void; children: React.
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-[13px] text-ink-muted hover:text-ink"
+      className="w-full text-body text-gray-500 hover:text-gray-900"
     >
       {children}
     </button>

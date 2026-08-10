@@ -20,8 +20,8 @@ export function SettingsPage({
   return (
     <div className="max-w-3xl">
       <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, ...crumbs, { label: title }]} />
-      <h1 className="mt-3 text-2xl font-semibold text-[#141C24]">{title}</h1>
-      {description && <p className="mt-1 text-sm text-[#637083]">{description}</p>}
+      <h1 className="mt-3 text-heading font-semibold text-gray-900">{title}</h1>
+      {description && <p className="mt-1 text-body text-gray-500">{description}</p>}
       <div className="mt-8">{children}</div>
     </div>
   )

@@ -31,7 +31,7 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
 import { fmtCompact, fmtMoney } from '../../lib/format'
-import { C } from '../../components/ui/tokens'
+import { C, PROGRAMME_COLORS } from '../../components/ui/tokens'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
@@ -65,19 +65,19 @@ export const Route = createFileRoute('/_authenticated/insights')({
 
 // ─── Design tokens ───────────────────────────────────────────────────────────────
 const KPI = {
-  committed: { bg: '#F5F4FF', accent: '#8B7FF0' },
-  people: { bg: '#EDF9F1', accent: '#31A650' },
-  reach: { bg: '#FEF7EB', accent: '#F89828' },
-  avg: { bg: '#FDEFF2', accent: '#F0537A' },
+  committed: { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', accent: 'var(--color-accent-violet)' },
+  people: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', accent: 'var(--color-success)' },
+  reach: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', accent: 'var(--color-warning)' },
+  avg: { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', accent: 'var(--color-danger)' },
 }
-const PALETTE = ['#31A650', '#4FA8E8', '#F48FB1', '#F5B851', '#8B7FF0', '#4FBEE8', '#F0876B']
+const PALETTE = PROGRAMME_COLORS
 // Rotating pastel tints for the round grant cards.
 const CARD_TINTS = [
-  { bg: '#F5F4FF', ink: '#6E63D6' },
-  { bg: '#EDF9F1', ink: '#1F7A5C' },
-  { bg: '#FEF7EB', ink: '#B4741A' },
-  { bg: '#FDEFF2', ink: '#C64B72' },
-  { bg: '#EEF7FC', ink: '#2F7CB8' },
+  { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', ink: 'var(--color-accent-violet)' },
+  { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', ink: 'var(--color-brand)' },
+  { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', ink: 'var(--color-warning)' },
+  { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', ink: 'var(--color-danger)' },
+  { bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)', ink: 'var(--color-info)' },
 ]
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ function Panel({
   return (
     <div
       ref={innerRef}
-      className={`rounded-[16px] border bg-white p-4 ${className}`}
+      className={`rounded-card border bg-white p-4 ${className}`}
       style={{ borderColor: C.line }}
       {...rest}
     >
@@ -139,7 +139,7 @@ function Panel({
 function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
-      <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
         {children}
       </h2>
       {right}
@@ -151,16 +151,16 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div>
-      <p className="font-display text-[13px] font-medium" style={{ color: C.sub }}>
+      <p className="font-display text-body font-medium" style={{ color: C.sub }}>
         {label}
       </p>
       <p
-        className="mt-1 font-display text-[24px] font-semibold leading-none"
+        className="mt-1 font-display text-heading font-semibold leading-none"
         style={{ color: C.ink }}
       >
         {value}
       </p>
-      <p className="mt-1 font-display text-[12px]" style={{ color: C.faint }}>
+      <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
         {sub}
       </p>
     </div>
@@ -186,14 +186,14 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
               >
                 {amt > 0 && pct >= 4 && (
                   <span
-                    className="mb-1 text-center font-display text-[12px]"
+                    className="mb-1 text-center font-display text-label"
                     style={{ color: C.faint }}
                   >
                     {pct}%
                   </span>
                 )}
                 <div
-                  className="mx-auto w-full max-w-[26px] rounded-t-md"
+                  className="mx-auto w-full max-w-[26px] rounded-t-chip"
                   style={{
                     height: `${Math.max(amt > 0 ? 3 : 0, h)}%`,
                     backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2),
@@ -208,7 +208,7 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
         {amounts.map((_, i) => (
           <span
             key={i}
-            className="flex-1 text-center font-display text-[12px]"
+            className="flex-1 text-center font-display text-label"
             style={{ color: C.sub }}
           >
             {i + 1}
@@ -217,18 +217,18 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
       </div>
       <div className="mt-3 flex items-center gap-4">
         <span
-          className="flex items-center gap-1.5 font-display text-[12px]"
+          className="flex items-center gap-1.5 font-display text-label"
           style={{ color: C.sub }}
         >
-          <span className="size-2 rounded-[2px]" style={{ backgroundColor: C.brand }} /> Most
+          <span className="size-2 rounded-swatch" style={{ backgroundColor: C.brand }} /> Most
           deprived 40%
         </span>
         <span
-          className="flex items-center gap-1.5 font-display text-[12px]"
+          className="flex items-center gap-1.5 font-display text-label"
           style={{ color: C.sub }}
         >
           <span
-            className="size-2 rounded-[2px]"
+            className="size-2 rounded-swatch"
             style={{ backgroundColor: withAlpha(C.success, 0.2) }}
           />{' '}
           Deciles 5–10
@@ -270,7 +270,7 @@ function CommitmentChart({
           {ticks.map((t) => (
             <span
               key={t}
-              className="font-display text-[12px] leading-none"
+              className="font-display text-label leading-none"
               style={{ color: C.faint }}
             >
               {t === 0 ? '0' : fmtCompact(t).replace('£', '')}
@@ -290,8 +290,8 @@ function CommitmentChart({
                     title={`${p.label} · ${fmtMoney(p.value)}`}
                   >
                     <div
-                      className="w-8 rounded-t-md"
-                      style={{ height: `${Math.max(1, h)}%`, backgroundColor: '#8B7FF0' }}
+                      className="w-8 rounded-t-chip"
+                      style={{ height: `${Math.max(1, h)}%`, backgroundColor: 'var(--color-accent-violet)' }}
                     />
                   </div>
                 )
@@ -310,7 +310,7 @@ function CommitmentChart({
                 <path
                   d={smoothPath(pts)}
                   fill="none"
-                  stroke="#8B7FF0"
+                  stroke="var(--color-accent-violet)"
                   strokeWidth={2}
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
@@ -321,7 +321,7 @@ function CommitmentChart({
                   key={p.id}
                   title={`${p.label} · ${fmtMoney(p.value)}`}
                   className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white"
-                  style={{ left: `${p.x}%`, top: `${p.y}%`, borderColor: '#8B7FF0' }}
+                  style={{ left: `${p.x}%`, top: `${p.y}%`, borderColor: 'var(--color-accent-violet)' }}
                 />
               ))}
             </div>
@@ -333,12 +333,12 @@ function CommitmentChart({
         {series.map((p) => (
           <div key={p.id} className="min-w-0 flex-1 px-1 text-center">
             {mode === 'line' && (
-              <p className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }}>
+              <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
                 {fmtCompact(p.value)}
               </p>
             )}
             <p
-              className="truncate font-display text-[12px]"
+              className="truncate font-display text-label"
               style={{ color: C.sub }}
               title={p.label}
             >
@@ -427,7 +427,7 @@ function AreaList({
               onBlur={() => onHighlight(null)}
               aria-current={on || undefined}
               title={`${a.name} · ${fmtCompact(a.amount)} · ${a.count} grant${a.count !== 1 ? 's' : ''} · ${pct}%`}
-              className="flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left"
+              className="flex w-full items-center gap-2.5 rounded-chip border px-2.5 py-1.5 text-left"
               style={{
                 borderColor: on ? C.brand : 'transparent',
                 backgroundColor: on ? '#fff' : highlight === a.code ? C.wash : undefined,
@@ -436,17 +436,17 @@ function AreaList({
               }}
             >
               <span
-                className="size-2.5 shrink-0 rounded-[3px]"
+                className="size-2.5 shrink-0 rounded-swatch"
                 style={{ backgroundColor: a.color }}
               />
               <span
-                className="min-w-0 flex-1 truncate font-display text-[13px]"
+                className="min-w-0 flex-1 truncate font-display text-body"
                 style={{ color: C.ink }}
               >
                 {a.name}
               </span>
               <span
-                className="shrink-0 font-display text-[12px] tabular-nums"
+                className="shrink-0 font-display text-label tabular-nums"
                 style={{ color: C.sub }}
               >
                 {fmtCompact(a.amount)} · {a.count}
@@ -466,15 +466,15 @@ function AreaList({
 
       {rest > 0 && (
         <li className="flex items-center gap-2.5 px-2.5 py-1.5">
-          <span className="size-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: C.line }} />
+          <span className="size-2.5 shrink-0 rounded-swatch" style={{ backgroundColor: C.line }} />
           <span
-            className="min-w-0 flex-1 truncate font-display text-[13px]"
+            className="min-w-0 flex-1 truncate font-display text-body"
             style={{ color: C.sub }}
           >
             Other areas
           </span>
           <span
-            className="shrink-0 font-display text-[12px] tabular-nums"
+            className="shrink-0 font-display text-label tabular-nums"
             style={{ color: C.faint }}
           >
             {fmtCompact(rest)}
@@ -499,7 +499,7 @@ function AreaList({
 function ImdNote({ pct }: { pct: number }) {
   return (
     <div
-      className="flex items-start gap-2 rounded-[10px] px-3 py-2.5"
+      className="flex items-start gap-2 rounded-control px-3 py-2.5"
       style={{ backgroundColor: C.wash }}
     >
       <HugeiconsIcon
@@ -508,7 +508,7 @@ function ImdNote({ pct }: { pct: number }) {
         color={C.sub}
         className="mt-px shrink-0"
       />
-      <p className="font-display text-[12px] leading-snug" style={{ color: C.sub }}>
+      <p className="font-display text-label leading-snug" style={{ color: C.sub }}>
         <span style={{ color: C.ink, fontWeight: 500 }}>{pct}%</span> of mapped funding reaches IMD
         deciles 1–2 — the most deprived fifth of areas in its nation.
       </p>
@@ -853,7 +853,7 @@ function InsightsPage() {
     <div className="flex flex-col gap-4">
       {/* Header — the title and the export of exactly what's on screen */}
       <div className="flex flex-wrap justify-between gap-3">
-        <h1 className="font-display text-[20px] font-medium">
+        <h1 className="font-display text-heading font-medium">
           <span style={{ color: C.ink }}>The story </span>
           <span style={{ color: C.faint }}>so far</span>
         </h1>
@@ -913,10 +913,10 @@ function InsightsPage() {
 
       {fil.length === 0 ? (
         <EmptyState>
-          <p className="font-display text-[14px]" style={{ color: C.sub }}>
+          <p className="font-display text-body" style={{ color: C.sub }}>
             No awards match these filters.
           </p>
-          <p className="mt-1 font-display text-[12px]" style={{ color: C.faint }}>
+          <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
             Insights build up as awards are made and grant reports are analysed.
           </p>
         </EmptyState>
@@ -988,13 +988,13 @@ function InsightsPage() {
                       <div className="min-w-0" style={{ flex: `${Math.max(pct, 6)} 1 0%` }}>
                         <div className="flex items-baseline justify-between gap-2">
                           <span
-                            className="font-display text-[20px] font-medium"
+                            className="font-display text-heading font-medium"
                             style={{ color: C.ink }}
                           >
                             {fmtCompact(p.committed)}
                           </span>
                           <span
-                            className="font-display text-[14px] font-medium"
+                            className="font-display text-body font-medium"
                             style={{ color: C.faint }}
                           >
                             {pct}%
@@ -1008,13 +1008,13 @@ function InsightsPage() {
                           segments={[{ value: 1, color: p.color }]}
                         />
                         <p
-                          className="truncate font-display text-[14px] font-medium"
+                          className="truncate font-display text-body font-medium"
                           style={{ color: C.ink }}
                           title={p.name}
                         >
                           {p.name}
                         </p>
-                        <p className="truncate font-display text-[12px]" style={{ color: C.sub }}>
+                        <p className="truncate font-display text-label" style={{ color: C.sub }}>
                           {p.grants} grant{p.grants !== 1 ? 's' : ''}
                           {p.people != null && p.people > 0
                             ? ` · ${Math.round(p.people).toLocaleString('en-GB')} ${p.unitLabel.toLowerCase()}`
@@ -1034,7 +1034,7 @@ function InsightsPage() {
               <PanelTitle
                 right={
                   <div
-                    className="flex items-center gap-0.5 rounded-lg p-0.5"
+                    className="flex items-center gap-0.5 rounded-chip p-0.5"
                     style={{ backgroundColor: C.wash }}
                   >
                     {(['bars', 'line'] as const).map((m) => (
@@ -1042,7 +1042,7 @@ function InsightsPage() {
                         key={m}
                         type="button"
                         onClick={() => setChartMode(m)}
-                        className="h-7 rounded-lg px-2 font-display text-[14px] font-medium capitalize"
+                        className="h-7 rounded-chip px-2 font-display text-body font-medium capitalize"
                         style={
                           chartMode === m
                             ? {
@@ -1063,14 +1063,14 @@ function InsightsPage() {
               </PanelTitle>
               {commitSeries.length === 0 ? (
                 <p
-                  className="py-10 text-center font-display text-[14px]"
+                  className="py-10 text-center font-display text-body"
                   style={{ color: C.faint }}
                 >
                   No dated rounds in this slice.
                 </p>
               ) : (
                 <>
-                  <p className="-mt-2 mb-4 font-display text-[12px]" style={{ color: C.sub }}>
+                  <p className="-mt-2 mb-4 font-display text-label" style={{ color: C.sub }}>
                     By grant round · £ committed
                   </p>
                   <CommitmentChart
@@ -1087,7 +1087,7 @@ function InsightsPage() {
               <PanelTitle>Themes</PanelTitle>
               {themes.length === 0 ? (
                 <p
-                  className="py-10 text-center font-display text-[14px]"
+                  className="py-10 text-center font-display text-body"
                   style={{ color: C.faint }}
                 >
                   No programme tags set — add tags to programmes to see themed giving.
@@ -1102,23 +1102,23 @@ function InsightsPage() {
                       // theme is never just a percentage with no provenance.
                       <div
                         key={t.tag}
-                        className="flex flex-col gap-1 rounded-[16px] border bg-white px-1 pb-2 pt-1"
+                        className="flex flex-col gap-1 rounded-card border bg-white px-1 pb-2 pt-1"
                         style={{ borderColor: C.line }}
                       >
                         <div
-                          className="flex items-center gap-4 rounded-xl p-3"
+                          className="flex items-center gap-4 rounded-control p-3"
                           style={{ backgroundColor: withAlpha(t.color, 0.1) }}
                         >
                           <div className="min-w-0 flex-1">
                             <p
-                              className="truncate font-display text-[14px] font-medium"
+                              className="truncate font-display text-body font-medium"
                               style={{ color: C.ink }}
                               title={t.tag}
                             >
                               {t.tag}
                             </p>
                             <p
-                              className="mt-1 truncate font-display text-[12px]"
+                              className="mt-1 truncate font-display text-label"
                               style={{ color: C.sub }}
                             >
                               {t.count} grant{t.count !== 1 ? 's' : ''} · {fmtCompact(t.amount)}
@@ -1128,17 +1128,17 @@ function InsightsPage() {
                             </p>
                           </div>
                           <span
-                            className="shrink-0 font-display text-[24px] font-medium leading-none"
+                            className="shrink-0 font-display text-heading font-medium leading-none"
                             style={{ color: t.color }}
                           >
                             {pct}
-                            <span className="text-[16px]" style={{ color: C.faint }}>
+                            <span className="text-title" style={{ color: C.faint }}>
                               %
                             </span>
                           </span>
                         </div>
                         <p
-                          className="truncate px-3 font-display text-[12px]"
+                          className="truncate px-3 font-display text-label"
                           style={{ color: C.sub }}
                           title={t.programmes}
                         >
@@ -1196,12 +1196,12 @@ function InsightsPage() {
                       center={
                         <div className="text-center">
                           <div
-                            className="font-display text-[20px] font-medium"
+                            className="font-display text-heading font-medium"
                             style={{ color: C.ink }}
                           >
                             {fmtCompact(areaTotal)}
                           </div>
-                          <div className="font-display text-[12px]" style={{ color: C.faint }}>
+                          <div className="font-display text-label" style={{ color: C.faint }}>
                             committed
                           </div>
                         </div>
@@ -1234,7 +1234,7 @@ function InsightsPage() {
                   {imdPct !== null && <ImdNote pct={imdPct} />}
 
                   {unlocatedCount > 0 && (
-                    <p className="font-display text-[12px]" style={{ color: C.faint }}>
+                    <p className="font-display text-label" style={{ color: C.faint }}>
                       {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
                       location.
                     </p>
@@ -1250,20 +1250,20 @@ function InsightsPage() {
               <PanelTitle>Funding by deprivation decile</PanelTitle>
               {locatedAmt === 0 ? (
                 <p
-                  className="py-10 text-center font-display text-[14px]"
+                  className="py-10 text-center font-display text-body"
                   style={{ color: C.faint }}
                 >
                   No resolved delivery locations in this slice.
                 </p>
               ) : (
                 <>
-                  <p className="-mt-1 mb-1 font-display text-[12px]" style={{ color: C.sub }}>
+                  <p className="-mt-1 mb-1 font-display text-label" style={{ color: C.sub }}>
                     Decile 1 is the most deprived 10% of areas in its nation
                     {vintages.length ? ` · ${vintages.join(', ')}` : ''}
                   </p>
                   <DecileChart amounts={decileAmounts} total={locatedAmt} max={decileMax} />
                   {unlocatedCount > 0 && (
-                    <p className="mt-2 font-display text-[11px]" style={{ color: C.faint }}>
+                    <p className="mt-2 font-display text-label" style={{ color: C.faint }}>
                       {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable
                       location excluded.
                     </p>
@@ -1328,12 +1328,12 @@ function InsightsPage() {
                           style={{ backgroundColor: C.brand }}
                         />
                         <span
-                          className="font-display text-[14px] font-medium"
+                          className="font-display text-body font-medium"
                           style={{ color: C.ink }}
                         >
                           {r.name}
                         </span>
-                        <span className="font-display text-[12px]" style={{ color: C.sub }}>
+                        <span className="font-display text-label" style={{ color: C.sub }}>
                           {r.grants.length} grant{r.grants.length !== 1 ? 's' : ''} ·{' '}
                           {fmtCompact(r.total)}
                         </span>
@@ -1372,27 +1372,27 @@ function RoundGrantCard({
     <Link
       to="/applications/$applicationId"
       params={{ applicationId: g.applicationId }}
-      className="block rounded-2xl p-4 transition-shadow hover:shadow-xs"
+      className="block rounded-card p-4 transition-shadow hover:shadow-xs"
       style={{ backgroundColor: tint.bg }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }}>
+          <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
             {g.organisationName}
           </p>
-          <p className="font-display text-[12px]" style={{ color: C.sub }}>
+          <p className="font-display text-label" style={{ color: C.sub }}>
             {eff
               ? `${Math.round(eff.value).toLocaleString('en-GB')} ${g.unitLabel.toLowerCase()}${eff.source === 'proposed' ? ' (proposed)' : ''}`
               : 'no report yet'}
           </p>
         </div>
-        <span className="shrink-0 font-display text-[18px] font-medium" style={{ color: tint.ink }}>
+        <span className="shrink-0 font-display text-heading font-medium" style={{ color: tint.ink }}>
           {fmtCompact(g.amountAwarded)}
         </span>
       </div>
       {detail && (
         <p
-          className="mt-3 truncate font-display text-[12px]"
+          className="mt-3 truncate font-display text-label"
           style={{ color: C.sub }}
           title={detail}
         >

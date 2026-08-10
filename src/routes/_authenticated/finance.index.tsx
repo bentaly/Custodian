@@ -67,12 +67,12 @@ const STATUS_LABELS: Record<FinanceStatus, string> = {
 }
 
 const STATUS_HEX: Record<FinanceStatus, string> = {
-  overdue: '#FF4242',
-  due_soon: '#9B6916',
-  scheduled: '#637083',
-  unscheduled: '#B54708',
-  paid: '#31A650',
-  cancelled: '#97A1AF',
+  overdue: 'var(--color-danger)',
+  due_soon: 'var(--color-warning)',
+  scheduled: 'var(--color-gray-500)',
+  unscheduled: 'var(--color-warning)',
+  paid: 'var(--color-success)',
+  cancelled: 'var(--color-gray-400)',
 }
 
 const BANK_ISSUE_LABELS: Partial<Record<BankStatus, string>> = {
@@ -81,7 +81,7 @@ const BANK_ISSUE_LABELS: Partial<Record<BankStatus, string>> = {
   unchecked: 'Unverified',
 }
 
-const txtSub = 'font-display text-[14px] text-[#637083]'
+const txtSub = 'font-display text-body text-gray-500'
 
 // ─── Columns ─────────────────────────────────────────────────────────────────
 
@@ -93,7 +93,7 @@ const ORGANISATION: TableColumn<FinanceRow> = {
       to="/finance/$awardId"
       params={{ awardId: g.awardId }}
       onClick={(e) => e.stopPropagation()}
-      className="font-display text-[14px] font-medium text-[#141C24] hover:underline"
+      className="font-display text-body font-medium text-gray-900 hover:underline"
     >
       {g.organisationName}
     </Link>
@@ -113,7 +113,7 @@ const COMMITTED: TableColumn<FinanceRow> = {
   width: 'sm:w-[120px]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
-    <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">
+    <span className="whitespace-nowrap font-display text-body font-medium text-gray-900">
       {fmtMoney(g.committed)}
     </span>
   ),
@@ -129,7 +129,7 @@ const PAID: TableColumn<FinanceRow> = {
     <div className="whitespace-nowrap">
       <span className={txtSub}>{g.paidToDate > 0 ? fmtMoney(g.paidToDate) : '—'}</span>
       {g.instalmentCount > 0 && (
-        <span className="ml-1 font-display text-[12px] text-[#97A1AF]">
+        <span className="ml-1 font-display text-label text-gray-400">
           {g.paidCount}/{g.instalmentCount}
         </span>
       )}
@@ -146,15 +146,15 @@ const BANK: TableColumn<FinanceRow> = {
     const issue = BANK_ISSUE_LABELS[g.bank.status]
     if (!issue) {
       return (
-        <span className="whitespace-nowrap font-display text-[14px] tabular-nums text-[#637083]">
+        <span className="whitespace-nowrap font-display text-body tabular-nums text-gray-500">
           ••••{g.bank.last4 ?? '—'}
         </span>
       )
     }
     return (
       <span
-        className="whitespace-nowrap font-display text-[13px] font-medium"
-        style={{ color: g.bank.status === 'missing' ? '#B54708' : '#FF4242' }}
+        className="whitespace-nowrap font-display text-body font-medium"
+        style={{ color: g.bank.status === 'missing' ? 'var(--color-warning)' : 'var(--color-danger)' }}
       >
         {issue}
       </span>
@@ -182,17 +182,17 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
     cellClassName: 'tabular-nums',
     cell: (g) => {
       if (!g.nextPayment) {
-        return <span className="font-display text-[14px] text-[#97A1AF]">No schedule</span>
+        return <span className="font-display text-body text-gray-400">No schedule</span>
       }
       const rel = relativeDays(g.nextPayment.dueDate)
       return (
         <div className="whitespace-nowrap">
-          <div className="font-display text-[14px] font-medium text-[#141C24]">
+          <div className="font-display text-body font-medium text-gray-900">
             {fmtMoney(g.nextPayment.amount)}
           </div>
           <div
-            className="font-display text-[12px]"
-            style={{ color: rel?.overdue ? '#FF4242' : '#97A1AF' }}
+            className="font-display text-label"
+            style={{ color: rel?.overdue ? 'var(--color-danger)' : 'var(--color-gray-400)' }}
           >
             {g.nextPayment.dueDate
               ? `${fmtDate(g.nextPayment.dueDate)} · ${rel!.text}`
@@ -267,8 +267,8 @@ function FinancePage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-[20px] font-medium text-[#141C24]">Finance</h1>
-          <p className="mt-0.5 text-sm text-gray-400">
+          <h1 className="font-display text-heading font-medium text-gray-900">Finance</h1>
+          <p className="mt-0.5 text-body text-gray-400">
             Grant payments · {totals.grantCount} live commitment{totals.grantCount === 1 ? '' : 's'}
           </p>
         </div>
@@ -291,19 +291,19 @@ function FinancePage() {
 
       {rows.length === 0 ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">
+          <p className="text-body text-gray-500">
             {tab === 'to_pay'
               ? 'Nothing outstanding — every grant is paid up.'
               : 'No payments made yet.'}
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-label text-gray-400">
             Grants appear here as soon as an award is generated, with the instalment schedule set on
             the award.
           </p>
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+          <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
             <DataTable
               columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
               rows={rows}
@@ -337,7 +337,7 @@ function StatCards({ totals, paidPct }: { totals: Totals; paidPct: number }) {
         icon={Alert02Icon}
         label="Overdue"
         value={fmtCompact(totals.overdueAmount)}
-        valueColor={totals.overdueAmount > 0 ? '#FF4242' : undefined}
+        valueColor={totals.overdueAmount > 0 ? 'var(--color-danger)' : undefined}
         sub={
           totals.overdueCount === 0
             ? 'nothing past its due date'
@@ -390,8 +390,8 @@ function Attention({ totals }: { totals: Totals }) {
     )
   }
   return (
-    <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3">
-      <p className="text-sm text-amber-800">
+    <div className="rounded-control border border-warning/20 bg-warning/10 px-4 py-3">
+      <p className="text-body text-warning">
         <span className="font-medium">Needs attention · </span>
         {parts.join(' · ')}. These cannot be paid until fixed.
       </p>

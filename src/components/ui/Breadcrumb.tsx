@@ -52,7 +52,7 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
             <li key={`${item.label}-${i}`} className="flex items-center gap-2">
               {last || !item.to ? (
                 <span
-                  className="font-display text-[12px] whitespace-nowrap"
+                  className="font-display text-label whitespace-nowrap"
                   style={{ color: last ? C.faint : C.body }}
                   aria-current={last ? 'page' : undefined}
                 >
@@ -64,7 +64,7 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
                 <Link
                   to={item.to}
                   search={item.search}
-                  className="font-display text-[12px] whitespace-nowrap text-[#344051] hover:text-[#141C24]"
+                  className="font-display text-label whitespace-nowrap text-gray-700 hover:text-gray-900"
                 >
                   {item.label}
                 </Link>

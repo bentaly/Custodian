@@ -22,11 +22,11 @@ const STATUS_LABELS: Record<ReportRowStatus, string> = {
 }
 
 const STATUS_COLORS: Record<ReportRowStatus, string> = {
-  overdue: 'border-red-200 bg-red-50 text-red-700',
-  due_soon: 'border-amber-200 bg-amber-50 text-amber-700',
+  overdue: 'border-danger/20 bg-danger/10 text-danger',
+  due_soon: 'border-warning/20 bg-warning/10 text-warning',
   upcoming: 'border-gray-200 bg-gray-50 text-gray-600',
-  received: 'border-blue-200 bg-blue-50 text-blue-700',
-  reviewed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  received: 'border-info/20 bg-info/10 text-info',
+  reviewed: 'border-success/20 bg-success/10 text-success',
 }
 
 function ReportDetail() {
@@ -61,8 +61,8 @@ function ReportDetail() {
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{report.organisationName}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+          <h1 className="text-heading font-semibold text-gray-900">{report.organisationName}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-gray-500">
             <span>
               <span className="text-gray-400">Report </span>
               <span className="font-medium text-gray-700">{report.label}</span>
@@ -90,7 +90,7 @@ function ReportDetail() {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`rounded-sm border px-3 py-1.5 text-sm font-medium ${STATUS_COLORS[report.status]}`}
+            className={`rounded-chip border px-3 py-1.5 text-body font-medium ${STATUS_COLORS[report.status]}`}
             title={isReviewed && s?.reviewedBy ? `Reviewed by ${s.reviewedBy}` : undefined}
           >
             {report.status === 'received'
@@ -129,7 +129,7 @@ function ReportDetail() {
           <Link
             to="/applications/$applicationId"
             params={{ applicationId: report.applicationId }}
-            className="rounded-sm border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-chip border border-gray-200 px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-50"
           >
             View application
           </Link>
@@ -138,12 +138,12 @@ function ReportDetail() {
 
       {!s ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">
+          <p className="text-body text-gray-500">
             {report.status === 'overdue'
               ? 'This report is overdue — no submission has been received.'
               : 'No submission received yet.'}
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-label text-gray-400">
             Submitted reports are matched to this grant automatically and will appear here.
           </p>
         </EmptyState>
@@ -198,7 +198,7 @@ function AwardReports({
 
   return (
     <Card className="px-5 py-4">
-      <h2 className="text-sm font-semibold text-gray-900">Other reports on this award</h2>
+      <h2 className="text-body font-semibold text-gray-900">Other reports on this award</h2>
 
       {siblings.length > 0 && (
         <ul className="mt-3 divide-y divide-gray-100">
@@ -207,10 +207,10 @@ function AwardReports({
               <Link
                 to="/reports/$reportKey"
                 params={{ reportKey: r.key }}
-                className="flex items-center justify-between gap-3 text-sm hover:underline"
+                className="flex items-center justify-between gap-3 text-body hover:underline"
               >
                 <span className="truncate font-medium text-gray-900">{r.label}</span>
-                <span className="shrink-0 text-xs text-gray-500">
+                <span className="shrink-0 text-label text-gray-500">
                   Received {fmtDate(r.submittedAt)}
                 </span>
               </Link>
@@ -221,14 +221,14 @@ function AwardReports({
 
       {outstanding.length > 0 && (
         <>
-          <p className="mt-4 text-[11px] uppercase tracking-wide text-gray-400">Still to come</p>
+          <p className="mt-4 text-label uppercase tracking-wide text-gray-400">Still to come</p>
           <ul className="mt-1 divide-y divide-gray-100">
             {outstanding.map((m) => (
-              <li key={m.key} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <li key={m.key} className="flex items-center justify-between gap-3 py-2 text-body">
                 <span className="truncate text-gray-600">{m.label}</span>
                 <span
-                  className={`shrink-0 text-xs ${
-                    m.status === 'overdue' ? 'font-medium text-red-600' : 'text-gray-500'
+                  className={`shrink-0 text-label ${
+                    m.status === 'overdue' ? 'font-medium text-danger' : 'text-gray-500'
                   }`}
                 >
                   Due {fmtDate(m.dueDate)}

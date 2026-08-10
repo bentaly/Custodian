@@ -17,7 +17,7 @@ export function ErrorNote({ error, className }: { error: unknown; className?: st
   return (
     <p
       className={cn(
-        'flex items-start gap-2 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[13px] leading-relaxed text-red-700',
+        'flex items-start gap-2 rounded-chip border border-danger/20 bg-danger/10 px-3 py-2 text-body leading-relaxed text-danger',
         className,
       )}
       role="alert"

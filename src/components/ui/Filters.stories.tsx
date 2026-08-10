@@ -76,12 +76,12 @@ export const IdleAndChosen: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className="w-16 font-display text-[12px] text-[#97A1AF]">idle</span>
+        <span className="w-16 font-display text-label text-gray-400">idle</span>
         <FilterPill label="Status" value={undefined} options={STATUSES} onChange={() => {}} />
         <DateRangePicker value={{}} onChange={() => {}} allLabel="Any date" />
       </div>
       <div className="flex items-center gap-3">
-        <span className="w-16 font-display text-[12px] text-[#97A1AF]">chosen</span>
+        <span className="w-16 font-display text-label text-gray-400">chosen</span>
         <FilterPill label="Status" value="shortlisted" options={STATUSES} onChange={() => {}} />
         <DateRangePicker
           value={{ from: '2026-08-17', to: '2026-08-18' }}

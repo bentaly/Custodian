@@ -16,22 +16,22 @@ import { Badge, Card } from './ui'
 
 const STATUS_META: Record<CustodianScoreStatus, { label: string; className: string }> = {
   pending: { label: 'Not scored', className: 'bg-gray-100 text-gray-500' },
-  scored: { label: 'Scored', className: 'bg-green-50 text-green-700' },
-  error: { label: 'Scoring failed', className: 'bg-red-50 text-red-600' },
+  scored: { label: 'Scored', className: 'bg-success/10 text-success' },
+  error: { label: 'Scoring failed', className: 'bg-danger/10 text-danger' },
 }
 
 /** Composite 0–100 colour band. */
 function compositeColor(score: number): string {
-  if (score >= 75) return '#0F6E56'
-  if (score >= 50) return '#854F0B'
-  return '#A32D2D'
+  if (score >= 75) return 'var(--color-brand)'
+  if (score >= 50) return 'var(--color-warning)'
+  return 'var(--color-danger)'
 }
 
 /** Per-criterion 1–10 colour band (text classes). */
 function criterionClasses(score: number): { text: string; bar: string } {
-  if (score >= 8) return { text: 'text-green-700', bar: 'bg-green-600' }
-  if (score >= 5) return { text: 'text-amber-700', bar: 'bg-amber-500' }
-  return { text: 'text-red-600', bar: 'bg-red-500' }
+  if (score >= 8) return { text: 'text-success', bar: 'bg-success' }
+  if (score >= 5) return { text: 'text-warning', bar: 'bg-warning' }
+  return { text: 'text-danger', bar: 'bg-danger' }
 }
 
 export function CustodianScorePanel({
@@ -54,12 +54,12 @@ export function CustodianScorePanel({
     <Card>
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-medium text-gray-900">Custodian score</h2>
+          <h2 className="text-body font-medium text-gray-900">Custodian score</h2>
           <Badge className={meta.className}>{meta.label}</Badge>
         </div>
         <div className="flex items-center gap-3">
           {scoredAt && (
-            <span className="text-xs text-gray-400">
+            <span className="text-label text-gray-400">
               Scored {new Date(scoredAt).toLocaleDateString('en-GB')}
             </span>
           )}
@@ -68,7 +68,7 @@ export function CustodianScorePanel({
       </div>
 
       {status !== 'scored' || score == null || !detail ? (
-        <p className="px-5 py-6 text-sm text-gray-500">
+        <p className="px-5 py-6 text-body text-gray-500">
           {status === 'error'
             ? `Scoring failed${detail?.error ? ` — ${detail.error}` : ''}. Try re-running.`
             : 'Not yet scored.'}
@@ -82,10 +82,10 @@ export function CustodianScorePanel({
                 className="flex h-16 w-16 flex-col items-center justify-center rounded-full"
                 style={{ border: `3px solid ${compositeColor(score)}` }}
               >
-                <span className="text-2xl font-light leading-none">{score}</span>
-                <span className="text-[10px] text-gray-400">/100</span>
+                <span className="text-heading font-light leading-none">{score}</span>
+                <span className="text-label text-gray-400">/100</span>
               </div>
-              <span className="mt-1.5 text-[10px] uppercase tracking-wide text-gray-400">
+              <span className="mt-1.5 text-label uppercase tracking-wide text-gray-400">
                 AI composite score
               </span>
             </div>
@@ -98,13 +98,13 @@ export function CustodianScorePanel({
                 const cls = criterionClasses(c.score)
                 return (
                   <li key={key} title={c.rationale}>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="text-gray-600">{def.label}</span>
                       <span className={`font-semibold ${cls.text}`}>{c.score}/10</span>
                     </div>
-                    <div className="mt-0.5 h-1.5 overflow-hidden rounded-sm bg-gray-100">
+                    <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
                       <div
-                        className={`h-full rounded-sm ${cls.bar}`}
+                        className={`h-full rounded-full ${cls.bar}`}
                         style={{ width: `${c.score * 10}%` }}
                       />
                     </div>
@@ -117,27 +117,27 @@ export function CustodianScorePanel({
           {/* Summary + flags */}
           <div className="flex-1 space-y-4">
             <div>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+              <h3 className="mb-2 text-label font-medium uppercase tracking-wide text-gray-400">
                 AI assessment summary
               </h3>
-              <div className="rounded-md bg-gray-50 p-3">
-                <span className="mb-1.5 inline-block rounded-sm bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+              <div className="rounded-chip bg-gray-50 p-3">
+                <span className="mb-1.5 inline-block rounded-chip bg-success/10 px-1.5 py-0.5 text-label font-semibold text-success">
                   AI analysis
                 </span>
-                <p className="text-sm leading-relaxed text-gray-700">{detail.summary}</p>
+                <p className="text-body leading-relaxed text-gray-700">{detail.summary}</p>
               </div>
             </div>
 
             {detail.flags.length > 0 && (
               <div>
-                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+                <h3 className="mb-2 text-label font-medium uppercase tracking-wide text-gray-400">
                   Flags to review
                 </h3>
                 <ul className="space-y-1.5">
                   {detail.flags.map((flag, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 rounded-sm bg-amber-50 px-2.5 py-1.5 text-sm text-amber-800"
+                      className="flex items-start gap-2 rounded-chip bg-warning/10 px-2.5 py-1.5 text-body text-warning"
                     >
                       <span className="mt-0.5 shrink-0">⚠</span>
                       <span>{flag}</span>

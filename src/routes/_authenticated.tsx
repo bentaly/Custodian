@@ -61,13 +61,13 @@ function ImpersonationBanner() {
   }
 
   return (
-    <div className="flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm text-white">
+    <div className="flex items-center justify-center gap-3 bg-warning px-4 py-2 text-body text-white">
       <span>
         Impersonating <span className="font-medium">{data?.user?.email}</span>
       </span>
       <button
         onClick={handleStop}
-        className="rounded-sm bg-amber-600 px-2 py-0.5 text-xs font-medium hover:bg-amber-700"
+        className="rounded-chip bg-warning px-2 py-0.5 text-label font-medium hover:bg-warning"
       >
         Stop impersonating
       </button>

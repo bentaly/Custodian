@@ -6,7 +6,7 @@ import { C, CONTROL, type ControlSize } from './tokens'
 // The app's one button, in the Figma vocabulary the dashboard / applications /
 // insights screens established: 32px or 40px tall, 8px or 12px radius, `font-display`
 // at 14px medium, and the single brand green — never the old Tailwind gray-900 +
-// `rounded-sm` look, which is what "some screens look different" came from.
+// 4px-radius look, which is what "some screens look different" came from.
 //
 // Variants say what the button *is*, not what it looks like:
 //
@@ -44,7 +44,7 @@ const VARIANT: Record<ButtonVariant, { className: string; style: React.CSSProper
     style: { backgroundColor: C.brand },
   },
   secondary: {
-    className: 'border bg-white font-medium transition-colors hover:bg-[#F9FAFB]',
+    className: 'border bg-white font-medium transition-colors hover:bg-gray-50',
     style: { borderColor: C.line, color: C.ink },
   },
   tinted: {
@@ -56,11 +56,11 @@ const VARIANT: Record<ButtonVariant, { className: string; style: React.CSSProper
     style: { backgroundColor: C.danger },
   },
   dangerGhost: {
-    className: 'border bg-white font-medium transition-colors hover:bg-[#FDEFF2]',
+    className: 'border bg-white font-medium transition-colors hover:bg-danger/10',
     style: { borderColor: C.line, color: C.danger },
   },
   ghost: {
-    className: 'font-medium transition-colors hover:bg-[#F2F4F7]',
+    className: 'font-medium transition-colors hover:bg-gray-100',
     style: { color: C.ink },
   },
   text: {
@@ -72,15 +72,15 @@ const VARIANT: Record<ButtonVariant, { className: string; style: React.CSSProper
 // `xs` is the in-table/in-card action — below the design's two control heights, kept
 // because a 32px button inside a table row crowds it.
 const SIZE: Record<ButtonSize, { box: string; square: string; text: string }> = {
-  xs: { box: 'h-7 rounded-lg px-2.5', square: 'size-7 rounded-lg', text: 'text-[13px]' },
+  xs: { box: 'h-7 rounded-chip px-2.5', square: 'size-7 rounded-chip', text: 'text-body' },
   sm: {
     box: `${CONTROL.sm.height} ${CONTROL.sm.radius} ${CONTROL.sm.padding}`,
-    square: 'size-8 rounded-lg',
+    square: 'size-8 rounded-chip',
     text: CONTROL.sm.text,
   },
   md: {
     box: `${CONTROL.md.height} ${CONTROL.md.radius} ${CONTROL.md.padding}`,
-    square: 'size-10 rounded-[12px]',
+    square: 'size-10 rounded-control',
     text: CONTROL.md.text,
   },
 }

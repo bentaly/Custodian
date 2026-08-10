@@ -40,7 +40,7 @@ import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
 import { fmtCompact, fmtMoney } from '../../lib/format'
-import { C as TOKENS } from '../../components/ui/tokens'
+import { C as TOKENS, PROGRAMME_COLORS } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => orNotFound(getApplication({ data: { id: params.applicationId } })),
@@ -50,24 +50,24 @@ export const Route = createFileRoute('/_authenticated/applications/$applicationI
 // ─── Design tokens ───────────────────────────────────────────────────────────────
 const C = {
   ...TOKENS,
-  ink700: '#344051',
+  ink700: 'var(--color-gray-700)',
 }
 const KPI = {
-  amount: { bg: '#F5F4FF', accent: '#8B7FF0' },
-  programme: { bg: '#EDF9F1', accent: '#31A650' },
-  area: { bg: '#FEF7EB', accent: '#F89828' },
-  headroom: { bg: '#FDEFF2', accent: '#F0537A' },
-  community: { bg: '#EEF4FF', accent: '#4FBEE8' },
+  amount: { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', accent: 'var(--color-accent-violet)' },
+  programme: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', accent: 'var(--color-success)' },
+  area: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', accent: 'var(--color-warning)' },
+  headroom: { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', accent: 'var(--color-danger)' },
+  community: { bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)', accent: 'var(--color-accent-sky)' },
 }
-const BUDGET_COLORS = ['#8B7FF0', '#31A650', '#F5B851', '#F48FB1', '#4FBEE8', '#F0876B']
+const BUDGET_COLORS = PROGRAMME_COLORS
 
 // RAG colour for a 1–10 criterion score: 0–3 red, 4–6 amber, 7+ green.
 // The criterion palette is its own (Figma 435:38445) — a cooler teal and a warmer
 // amber than the status colours, so a bank of six bars doesn't read as six statuses.
 function ragColor(score: number) {
-  if (score >= 7) return '#1AB393'
-  if (score >= 4) return '#FABF24'
-  return '#DC2626'
+  if (score >= 7) return 'var(--color-success)'
+  if (score >= 4) return 'var(--color-warning)'
+  return 'var(--color-danger)'
 }
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ function Panel({
 }) {
   return (
     <div
-      className={`rounded-[16px] border bg-white p-4 ${className}`}
+      className={`rounded-card border bg-white p-4 ${className}`}
       style={{ borderColor: C.line }}
     >
       <Boundary label={label}>{children}</Boundary>
@@ -155,7 +155,7 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
 
   return (
     <div>
-      <p className="font-display text-[14px]" style={{ color: C.sub }}>
+      <p className="font-display text-body" style={{ color: C.sub }}>
         Not screened — this application has no charity number or company number, so there is no
         register to check it against. Re-running will not change that.
       </p>
@@ -163,7 +163,7 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-2 font-display text-[13px] font-medium underline underline-offset-2"
+          className="mt-2 font-display text-body font-medium underline underline-offset-2"
           style={{ color: C.brand }}
         >
           Add a registration number and screen now
@@ -171,7 +171,7 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
       )}
       {open && (
         <div className="mt-3 flex flex-col gap-2">
-          <p className="font-display text-[12px]" style={{ color: C.sub }}>
+          <p className="font-display text-label" style={{ color: C.sub }}>
             Give whichever the organisation holds — either alone is enough. The checks run
             immediately, and the number is recorded against this application.
           </p>
@@ -180,19 +180,19 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
               value={charityNumber}
               onChange={(e) => setCharityNumber(e.target.value)}
               placeholder="Charity number (e.g. 219279 or SC003558)"
-              className="min-w-56 flex-1 rounded-lg border px-3 py-2 font-display text-[13px]"
+              className="min-w-56 flex-1 rounded-chip border px-3 py-2 font-display text-body"
               style={{ borderColor: C.line }}
             />
             <input
               value={companyNumber}
               onChange={(e) => setCompanyNumber(e.target.value)}
               placeholder="Company number (e.g. 03782379)"
-              className="min-w-56 flex-1 rounded-lg border px-3 py-2 font-display text-[13px]"
+              className="min-w-56 flex-1 rounded-chip border px-3 py-2 font-display text-body"
               style={{ borderColor: C.line }}
             />
           </div>
           {error && (
-            <p className="font-display text-[12px]" style={{ color: C.danger }}>
+            <p className="font-display text-label" style={{ color: C.danger }}>
               {error}
             </p>
           )}
@@ -217,7 +217,7 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
 function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
-      <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
         {children}
       </h2>
       {right}
@@ -229,7 +229,7 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
 function StatusPill({ color, children }: { color: string; children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 font-display text-[12px] font-medium"
+      className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 font-display text-label font-medium"
       style={{ backgroundColor: C.wash, color: C.sub }}
     >
       <span className="size-[3px] rounded-full" style={{ backgroundColor: color }} />
@@ -278,7 +278,7 @@ function HeaderButton({
       <a
         href={href}
         title={title}
-        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-4 font-display text-[14px] font-medium"
+        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-control border px-4 font-display text-body font-medium"
         style={style}
       >
         {icon && <HugeiconsIcon icon={icon} size={18} color="currentColor" />}
@@ -319,12 +319,12 @@ function ScoreRing({
       center={
         <div className="flex items-baseline gap-1">
           <span
-            className="font-display text-[24px] font-medium leading-none"
+            className="font-display text-heading font-medium leading-none"
             style={{ color: C.ink }}
           >
             {score}
           </span>
-          <span className="font-display text-[12px]" style={{ color: C.faint }}>
+          <span className="font-display text-label" style={{ color: C.faint }}>
             /100
           </span>
         </div>
@@ -338,7 +338,7 @@ function CriterionBar({ label, score }: { label: string; score: number }) {
   return (
     <div className="flex items-center gap-4">
       <span
-        className="w-[104px] shrink-0 font-display text-[12px] font-medium"
+        className="w-[104px] shrink-0 font-display text-label font-medium"
         style={{ color: C.ink }}
       >
         {label}
@@ -351,7 +351,7 @@ function CriterionBar({ label, score }: { label: string; score: number }) {
         height={4}
       />
       <span
-        className="w-8 shrink-0 text-right font-display text-[12px] font-medium tabular-nums"
+        className="w-8 shrink-0 text-right font-display text-label font-medium tabular-nums"
         style={{ color: C.sub }}
       >
         {score}/10
@@ -487,7 +487,7 @@ function ApplicationDetail() {
           to="/applications"
           search={{ roundId: undefined }}
           aria-label="Back to applications"
-          className="flex shrink-0 items-center justify-center rounded-lg border bg-white p-2"
+          className="flex shrink-0 items-center justify-center rounded-chip border bg-white p-2"
           style={{ borderColor: C.line }}
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} size={16} color={C.ink} />
@@ -495,18 +495,18 @@ function ApplicationDetail() {
 
         <div className="flex min-w-[240px] flex-1 items-center gap-2">
           <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+            className="flex size-10 shrink-0 items-center justify-center rounded-chip"
             style={{ backgroundColor: C.wash }}
           >
-            <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
+            <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
               {initials(application.organisationName)}
             </span>
           </div>
           <div className="min-w-0">
-            <h1 className="truncate font-display text-[14px] font-medium" style={{ color: C.ink }}>
+            <h1 className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
               {application.organisationName}
             </h1>
-            <p className="truncate font-display text-[12px]" style={{ color: C.sub }}>
+            <p className="truncate font-display text-label" style={{ color: C.sub }}>
               {[
                 programme.name,
                 application.charityNumber ? `Charity no. ${application.charityNumber}` : null,
@@ -553,7 +553,7 @@ function ApplicationDetail() {
               <Link
                 to="/awards/$awardId"
                 params={{ awardId }}
-                className="flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-3 font-display text-[14px] font-medium"
+                className="flex h-10 shrink-0 items-center gap-2 rounded-control border px-3 font-display text-body font-medium"
                 style={{ backgroundColor: C.brand, borderColor: C.brand, color: '#fff' }}
               >
                 <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color="#fff" />
@@ -562,7 +562,7 @@ function ApplicationDetail() {
             ) : (
               // Awarded with no award row — not yet backfilled. State, not action.
               <span
-                className="flex h-10 shrink-0 items-center gap-2 rounded-[12px] border px-3 font-display text-[14px] font-medium"
+                className="flex h-10 shrink-0 items-center gap-2 rounded-control border px-3 font-display text-body font-medium"
                 style={{ backgroundColor: C.brandBg, borderColor: C.brandBorder, color: C.brand }}
               >
                 <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={C.brand} />
@@ -599,7 +599,7 @@ function ApplicationDetail() {
 
       {error && (
         <div
-          className="rounded-lg border px-3 py-2 font-display text-[13px]"
+          className="rounded-chip border px-3 py-2 font-display text-body"
           style={{
             borderColor: withAlpha(C.danger, 0.3),
             backgroundColor: withAlpha(C.danger, 0.06),
@@ -619,7 +619,7 @@ function ApplicationDetail() {
         {grantPurpose && (
           <Panel label="grant purpose">
             <PanelTitle>Grant purpose</PanelTitle>
-            <p className="font-display text-[14px] leading-relaxed" style={{ color: C.ink }}>
+            <p className="font-display text-body leading-relaxed" style={{ color: C.ink }}>
               {grantPurpose}
             </p>
           </Panel>
@@ -634,11 +634,11 @@ function ApplicationDetail() {
               <div className="flex flex-1 items-center gap-4">
                 <ScoreRing score={score} />
                 <div>
-                  <p className="font-display text-[14px] leading-relaxed" style={{ color: C.sub }}>
+                  <p className="font-display text-body leading-relaxed" style={{ color: C.sub }}>
                     {scoreDetail.summary}
                   </p>
                   <span
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-display text-[12px] font-medium"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-display text-label font-medium"
                     style={{ backgroundColor: C.brandBg, color: C.brand }}
                   >
                     AI analysis{roundName ? ` · ${roundName}` : ''}
@@ -660,7 +660,7 @@ function ApplicationDetail() {
               </div>
             </div>
           ) : (
-            <p className="font-display text-[14px]" style={{ color: C.sub }}>
+            <p className="font-display text-body" style={{ color: C.sub }}>
               {scoreStatus === 'error'
                 ? 'Scoring failed — try re-scoring.'
                 : 'This application has not been scored yet.'}
@@ -672,7 +672,7 @@ function ApplicationDetail() {
               {scoreDetail.flags.map((f, i) => (
                 <li
                   key={i}
-                  className="flex items-center gap-1.5 rounded-lg p-1.5 font-display text-[12px] font-medium"
+                  className="flex items-center gap-1.5 rounded-chip p-1.5 font-display text-label font-medium"
                   style={{ backgroundColor: withAlpha(C.danger, 0.05), color: C.danger }}
                 >
                   <HugeiconsIcon
@@ -739,12 +739,12 @@ function ApplicationDetail() {
             <>
               <div className="mb-3 flex items-baseline justify-between">
                 <span
-                  className="font-display text-[24px] font-medium leading-none"
+                  className="font-display text-heading font-medium leading-none"
                   style={{ color: C.ink }}
                 >
                   {fmtMoney(budgetTotal)}
                 </span>
-                <span className="font-display text-[13px]" style={{ color: C.sub }}>
+                <span className="font-display text-body" style={{ color: C.sub }}>
                   {budgetLines.length} line{budgetLines.length !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -764,24 +764,24 @@ function ApplicationDetail() {
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <span
-                        className="size-2 shrink-0 rounded-[2px]"
+                        className="size-2 shrink-0 rounded-swatch"
                         style={{ backgroundColor: BUDGET_COLORS[i % BUDGET_COLORS.length] }}
                       />
                       <span
-                        className="flex-1 truncate font-display text-[14px]"
+                        className="flex-1 truncate font-display text-body"
                         style={{ color: C.ink }}
                         title={l.item}
                       >
                         {l.item}
                       </span>
                       <span
-                        className="w-24 text-right font-display text-[14px] font-medium tabular-nums"
+                        className="w-24 text-right font-display text-body font-medium tabular-nums"
                         style={{ color: C.ink }}
                       >
                         {fmtMoney(l.amount)}
                       </span>
                       <span
-                        className="w-10 text-right font-display text-[13px] tabular-nums"
+                        className="w-10 text-right font-display text-body tabular-nums"
                         style={{ color: C.faint }}
                       >
                         {pct}%
@@ -792,7 +792,7 @@ function ApplicationDetail() {
               </div>
             </>
           ) : budgetLink ? null : (
-            <p className="font-display text-[14px]" style={{ color: C.sub }}>
+            <p className="font-display text-body" style={{ color: C.sub }}>
               No budget breakdown was provided with this application.
             </p>
           )}
@@ -803,12 +803,12 @@ function ApplicationDetail() {
                 target="_blank"
                 // Applicant-supplied URL: never hand the opener to it.
                 rel="noopener noreferrer"
-                className="font-display text-[14px] underline underline-offset-2"
+                className="font-display text-body underline underline-offset-2"
                 style={{ color: C.ink }}
               >
                 {budgetLinkName}
               </a>
-              <p className="mt-1 font-display text-[13px]" style={{ color: C.sub }}>
+              <p className="mt-1 font-display text-body" style={{ color: C.sub }}>
                 The applicant supplied their budget as a document. It opens in a new tab and isn't
                 read by Custodian, so it doesn't feed the breakdown or the score.
               </p>
@@ -822,7 +822,7 @@ function ApplicationDetail() {
             right={
               <div className="flex items-center gap-3">
                 <span
-                  className="hidden font-display text-[12px] md:inline"
+                  className="hidden font-display text-label md:inline"
                   style={{ color: C.sub }}
                 >
                   These checks feed the due diligence marks shown in the applications list.
@@ -850,17 +850,17 @@ function ApplicationDetail() {
                 return (
                   <div
                     key={i}
-                    className="flex items-center justify-between gap-3 rounded-lg p-3"
+                    className="flex items-center justify-between gap-3 rounded-chip p-3"
                     style={{ backgroundColor: C.wash }}
                   >
                     <span
-                      className="font-display text-[12px] font-medium"
+                      className="font-display text-label font-medium"
                       style={{ color: failed ? C.danger : C.ink700 }}
                     >
                       {def?.label ?? r.key}
                     </span>
                     <span
-                      className="flex shrink-0 items-center gap-1 font-display text-[12px] font-medium"
+                      className="flex shrink-0 items-center gap-1 font-display text-label font-medium"
                       style={{ color }}
                     >
                       <HugeiconsIcon
@@ -884,7 +884,7 @@ function ApplicationDetail() {
               canEdit={user.role === 'admin' || user.role === 'superadmin'}
             />
           ) : (
-            <p className="font-display text-[14px]" style={{ color: C.sub }}>
+            <p className="font-display text-body" style={{ color: C.sub }}>
               Not screened yet.
             </p>
           )}
@@ -901,7 +901,7 @@ function ApplicationDetail() {
         {gaps.any && (
           <Panel label="Not captured">
             <PanelTitle>Not captured</PanelTitle>
-            <p className="mb-2.5 font-display text-[13px]" style={{ color: C.sub }}>
+            <p className="mb-2.5 font-display text-body" style={{ color: C.sub }}>
               This submission didn't include the following, so the features that use them are
               unavailable on this application.
             </p>
@@ -920,13 +920,13 @@ function ApplicationDetail() {
               ].map((g) => (
                 <div
                   key={g.key}
-                  className="rounded-lg px-3 py-2.5"
+                  className="rounded-chip px-3 py-2.5"
                   style={{ backgroundColor: C.wash }}
                 >
-                  <div className="font-display text-[14px]" style={{ color: C.ink }}>
+                  <div className="font-display text-body" style={{ color: C.ink }}>
                     {g.label}
                   </div>
-                  <div className="mt-0.5 font-display text-[12.5px]" style={{ color: C.sub }}>
+                  <div className="mt-0.5 font-display text-label" style={{ color: C.sub }}>
                     {g.degrades}
                   </div>
                 </div>

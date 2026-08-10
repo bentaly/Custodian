@@ -39,11 +39,11 @@ type Kind = 'applications' | 'reports'
 const TIER_BADGE: Record<FieldTier, { label: string; className: string } | null> = {
   required: {
     label: 'Required',
-    className: 'bg-[#FEF0E6] text-[#B45309]',
+    className: 'bg-warning/10 text-warning',
   },
   one_of: {
     label: 'One of a pair',
-    className: 'bg-[#FEF7EB] text-[#9B6916]',
+    className: 'bg-warning/10 text-warning',
   },
   // No badge: an `expected` field is genuinely optional to send. Its cost is spelled
   // out in the description instead, where it reads as guidance rather than a demand.
@@ -79,7 +79,7 @@ const ENDPOINTS = {
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="rounded-sm bg-gray-100 px-1.5 py-0.5 font-mono text-[12px] text-[#141C24]">
+    <code className="rounded-chip bg-gray-100 px-1.5 py-0.5 font-mono text-label text-gray-900">
       {children}
     </code>
   )
@@ -103,8 +103,8 @@ function Submissions() {
     >
       <div className="space-y-8">
         <section className="space-y-3">
-          <h2 className="text-sm font-medium text-gray-700">How it works</h2>
-          <Card className="space-y-3 p-5 text-sm leading-relaxed text-[#475467]">
+          <h2 className="text-body font-medium text-gray-700">How it works</h2>
+          <Card className="space-y-3 p-4 text-body leading-relaxed text-gray-600">
             <p>
               Send us a flat object of your own field names and their values — there are no reserved
               keys and no wrapper to build. We match each of your field names to one of the fields
@@ -117,9 +117,9 @@ function Submissions() {
               a queue rather than being guessed at.
             </p>
             <p>
-              Fields marked <span className="font-medium text-[#141C24]">Required</span> must be
+              Fields marked <span className="font-medium text-gray-900">Required</span> must be
               present and understood before a submission can go through. Where a field is marked{' '}
-              <span className="font-medium text-[#141C24]">One of a pair</span>, at least one of the
+              <span className="font-medium text-gray-900">One of a pair</span>, at least one of the
               two must be present — neither is needed on its own, but a submission with neither is
               held for review.
             </p>
@@ -136,23 +136,23 @@ function Submissions() {
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-medium text-gray-700">
+            <h2 className="text-body font-medium text-gray-700">
               Endpoint <Code>POST {active.path}</Code>
             </h2>
-            <p className="mt-1 text-sm text-gray-500">{active.blurb}</p>
+            <p className="mt-1 text-body text-gray-500">{active.blurb}</p>
           </div>
-          <pre className="overflow-x-auto rounded-[12px] border border-[#E4E7EC] bg-[#141C24] p-4 font-mono text-[12px] leading-relaxed text-[#E4E7EC]">
+          <pre className="overflow-x-auto rounded-control border border-gray-200 bg-gray-900 p-4 font-mono text-label leading-relaxed text-gray-200">
             {example}
           </pre>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-medium text-gray-700">Fields we recognise</h2>
+          <h2 className="text-body font-medium text-gray-700">Fields we recognise</h2>
           {tab === 'applications' &&
             REQUIRED_ONE_OF_GROUPS.map((group) => (
               <p
                 key={group.join('-')}
-                className="rounded-[12px] bg-[#FEF7EB] px-4 py-3 text-sm leading-relaxed text-[#9B6916]"
+                className="rounded-control bg-warning/10 px-4 py-3 text-body leading-relaxed text-warning"
               >
                 Send a <strong>{describeOneOfGroup(group)}</strong>. Applicants hold one or the
                 other, so neither is required by itself — but with neither there is no register to
@@ -164,7 +164,7 @@ function Submissions() {
             EXPECTED_ONE_OF_GROUPS.map((group) => (
               <p
                 key={group.keys.join('-')}
-                className="rounded-[12px] bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-600"
+                className="rounded-control bg-gray-50 px-4 py-3 text-body leading-relaxed text-gray-600"
               >
                 Send a <strong>{describeOneOfGroup(group.keys)}</strong> — either one answers the
                 question, so there is no need to send both. Unlike the pair above, neither holds a
@@ -177,18 +177,18 @@ function Submissions() {
             {active.fields.map((f) => (
               <div key={f.key} className="px-5 py-4">
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-sm font-medium text-[#141C24]">{f.label}</span>
+                  <span className="text-body font-medium text-gray-900">{f.label}</span>
                   {TIER_BADGE[f.tier] && (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TIER_BADGE[f.tier]!.className}`}
+                      className={`rounded-full px-2 py-0.5 text-label font-medium ${TIER_BADGE[f.tier]!.className}`}
                     >
                       {TIER_BADGE[f.tier]!.label}
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-sm leading-relaxed text-[#637083]">{f.description}</p>
+                <p className="mt-1 text-body leading-relaxed text-gray-500">{f.description}</p>
                 {f.degrades && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-[#9B6916]">
+                  <p className="mt-1.5 text-body leading-relaxed text-warning">
                     If you don't send it: {f.degrades}
                   </p>
                 )}

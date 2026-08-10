@@ -72,19 +72,19 @@ function Stepper({ step }: { step: Step }) {
         return (
           <div key={s.key} className="flex items-center">
             <span
-              className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-semibold"
+              className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-label font-semibold"
               style={
                 active
                   ? { backgroundColor: C.brand, color: '#fff' }
                   : done
                     ? { backgroundColor: C.brandWash, color: C.brand }
-                    : { backgroundColor: '#F1F2F4', color: '#A6AEBB' }
+                    : { backgroundColor: 'var(--color-gray-100)', color: 'var(--color-gray-400)' }
               }
             >
               {done ? '✓' : i + 1}
             </span>
             <span
-              className="ml-2 text-xs"
+              className="ml-2 text-label"
               style={{ color: active ? C.ink : C.sub, fontWeight: active ? 500 : 400 }}
             >
               {s.label}
@@ -109,12 +109,12 @@ function Panel({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-[14px] border bg-white p-5" style={{ borderColor: C.line }}>
-      <h2 className="text-[15px] font-semibold" style={{ color: C.ink }}>
+    <section className="rounded-card border bg-white p-4" style={{ borderColor: C.line }}>
+      <h2 className="text-body font-semibold" style={{ color: C.ink }}>
         {title}
       </h2>
       {description && (
-        <p className="mt-1 text-[13px] leading-relaxed" style={{ color: C.sub }}>
+        <p className="mt-1 text-body leading-relaxed" style={{ color: C.sub }}>
           {description}
         </p>
       )}
@@ -136,23 +136,23 @@ function Figure({
 }) {
   return (
     <div
-      className="rounded-[12px] border p-4"
+      className="rounded-control border p-4"
       style={{
         borderColor: emphasis ? C.brandWash : C.line,
-        backgroundColor: emphasis ? '#FAFDFB' : '#fff',
+        backgroundColor: emphasis ? 'var(--color-background)' : '#fff',
       }}
     >
-      <div className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: C.sub }}>
+      <div className="text-label font-semibold tracking-wide uppercase" style={{ color: C.sub }}>
         {label}
       </div>
       <div
-        className="font-display mt-1.5 text-[22px] leading-none font-medium"
+        className="font-display mt-1.5 text-heading leading-none font-medium"
         style={{ color: emphasis ? C.brand : C.ink }}
       >
         {value}
       </div>
       {sub && (
-        <div className="mt-1 text-[12px]" style={{ color: C.sub }}>
+        <div className="mt-1 text-label" style={{ color: C.sub }}>
           {sub}
         </div>
       )}
@@ -174,7 +174,7 @@ function IssueRow({
   const blocker = kind === 'blocker'
   return (
     <li
-      className="flex gap-3 rounded-[10px] border p-3.5"
+      className="flex gap-3 rounded-control border p-3.5"
       style={{
         borderColor: blocker ? ERROR_BORDER : WARN_BORDER,
         backgroundColor: blocker ? C.dangerWash : C.amberWash,
@@ -187,14 +187,14 @@ function IssueRow({
         style={{ color: blocker ? C.danger : C.amber }}
       />
       <div className="min-w-0">
-        <div className="text-[13px] font-medium" style={{ color: blocker ? C.danger : C.amber }}>
+        <div className="text-body font-medium" style={{ color: blocker ? C.danger : C.amber }}>
           {message}
         </div>
-        <div className="mt-0.5 text-[12.5px] leading-relaxed" style={{ color: C.sub }}>
+        <div className="mt-0.5 text-label leading-relaxed" style={{ color: C.sub }}>
           {detail}
         </div>
         {rows.length > 0 && (
-          <div className="mt-1.5 text-[11.5px]" style={{ color: C.sub }}>
+          <div className="mt-1.5 text-label" style={{ color: C.sub }}>
             {rows.length === 1 ? 'Row ' : 'Rows '}
             {rows.slice(0, 12).join(', ')}
             {rows.length > 12 && ` and ${rows.length - 12} more`}
@@ -390,10 +390,10 @@ function DataImport() {
   return (
     <div className="max-w-4xl">
       <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Data import' }]} />
-      <h1 className="mt-3 text-2xl font-semibold" style={{ color: C.ink }}>
+      <h1 className="mt-3 text-heading font-semibold" style={{ color: C.ink }}>
         Data import
       </h1>
-      <p className="mt-1 max-w-2xl text-sm leading-relaxed" style={{ color: C.sub }}>
+      <p className="mt-1 max-w-2xl text-body leading-relaxed" style={{ color: C.sub }}>
         Bring the grants you have already made into Custodian, so your payments, reports and totals
         are right from the day you start. Begin with the grants that still owe you money or a report
         — you can come back and add the rest later.
@@ -405,7 +405,7 @@ function DataImport() {
 
       {error && (
         <div
-          className="mt-6 rounded-[10px] border px-4 py-3 text-[13px]"
+          className="mt-6 rounded-control border px-4 py-3 text-body"
           style={{ borderColor: ERROR_BORDER, backgroundColor: C.dangerWash, color: C.danger }}
         >
           {error}
@@ -437,7 +437,7 @@ function DataImport() {
                       {busy === 'template' ? 'Building…' : 'Download template'}
                     </span>
                   </Button>
-                  <span className="text-[12.5px]" style={{ color: C.sub }}>
+                  <span className="text-label" style={{ color: C.sub }}>
                     {context.programmes.length} programme
                     {context.programmes.length === 1 ? '' : 's'} · {context.rounds.length} round
                     {context.rounds.length === 1 ? '' : 's'}
@@ -448,16 +448,16 @@ function DataImport() {
                   {(['grants', 'payments', 'reports'] as const).map((key) => (
                     <div
                       key={key}
-                      className="rounded-[10px] border p-3.5"
+                      className="rounded-control border p-3.5"
                       style={{ borderColor: C.line }}
                     >
-                      <div className="text-[13px] font-semibold" style={{ color: C.brand }}>
+                      <div className="text-body font-semibold" style={{ color: C.brand }}>
                         {SHEETS[key].title}
                       </div>
-                      <div className="mt-1 text-[12px] leading-relaxed" style={{ color: C.sub }}>
+                      <div className="mt-1 text-label leading-relaxed" style={{ color: C.sub }}>
                         {SHEETS[key].blurb}
                       </div>
-                      <div className="mt-2.5 text-[11.5px]" style={{ color: C.sub }}>
+                      <div className="mt-2.5 text-label" style={{ color: C.sub }}>
                         {SHEETS[key].columns.filter((c) => c.tier === 'required').length} required
                         column
                         {SHEETS[key].columns.filter((c) => c.tier === 'required').length === 1
@@ -486,19 +486,19 @@ function DataImport() {
                     const file = e.dataTransfer.files?.[0]
                     if (file) void handleFile(file)
                   }}
-                  className="rounded-[12px] border-2 border-dashed px-6 py-10 text-center transition-colors"
+                  className="rounded-control border-2 border-dashed px-6 py-10 text-center transition-colors"
                   style={{
                     borderColor: dragging ? C.brand : C.line,
-                    backgroundColor: dragging ? '#FAFDFB' : '#FCFCFD',
+                    backgroundColor: dragging ? 'var(--color-background)' : 'var(--color-background)',
                   }}
                 >
                   <HugeiconsIcon
                     icon={Upload04Icon}
                     className="mx-auto h-7 w-7"
                     strokeWidth={1.5}
-                    style={{ color: dragging ? C.brand : '#A6AEBB' }}
+                    style={{ color: dragging ? C.brand : 'var(--color-gray-400)' }}
                   />
-                  <div className="mt-3 text-[13.5px]" style={{ color: C.ink }}>
+                  <div className="mt-3 text-body" style={{ color: C.ink }}>
                     {busy === 'upload' ? (
                       'Reading your workbook…'
                     ) : (
@@ -514,7 +514,7 @@ function DataImport() {
                       </>
                     )}
                   </div>
-                  <div className="mt-1 text-[12px]" style={{ color: C.sub }}>
+                  <div className="mt-1 text-label" style={{ color: C.sub }}>
                     Excel workbooks (.xlsx) only
                   </div>
                   <input
@@ -541,7 +541,7 @@ function DataImport() {
       {/* ── Step 2: review ── */}
       {step === 'review' && prepared && (
         <div className="mt-6 space-y-5">
-          <div className="flex items-center gap-2 text-[13px]" style={{ color: C.sub }}>
+          <div className="flex items-center gap-2 text-body" style={{ color: C.sub }}>
             <HugeiconsIcon icon={File01Icon} className="h-4 w-4" strokeWidth={1.8} />
             {fileName} · {prepared.reconciliation.grants} grants, {prepared.reconciliation.payments}{' '}
             payments, {prepared.reconciliation.reportMilestones} reporting milestones
@@ -557,14 +557,14 @@ function DataImport() {
                 {openProgrammes.map((r) => (
                   <div
                     key={`p-${r.value}`}
-                    className="flex flex-wrap items-center gap-3 rounded-[10px] border p-3"
+                    className="flex flex-wrap items-center gap-3 rounded-control border p-3"
                     style={{ borderColor: C.line }}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium" style={{ color: C.ink }}>
+                      <div className="text-body font-medium" style={{ color: C.ink }}>
                         “{r.value}”
                       </div>
-                      <div className="text-[11.5px]" style={{ color: C.sub }}>
+                      <div className="text-label" style={{ color: C.sub }}>
                         Programme · {r.rowCount} row{r.rowCount === 1 ? '' : 's'}
                         {r.reason && ` · ${r.reason}`}
                       </div>
@@ -574,7 +574,7 @@ function DataImport() {
                       onChange={(e) =>
                         setProgrammeChoice((prev) => ({ ...prev, [r.value]: e.target.value }))
                       }
-                      className="rounded-md border px-2.5 py-1.5 text-[12.5px]"
+                      className="rounded-chip border px-2.5 py-1.5 text-label"
                       style={{ borderColor: C.line, color: C.ink }}
                     >
                       <option value="">Choose a programme…</option>
@@ -590,14 +590,14 @@ function DataImport() {
                 {openRounds.map((r) => (
                   <div
                     key={`r-${r.value}`}
-                    className="flex flex-wrap items-center gap-3 rounded-[10px] border p-3"
+                    className="flex flex-wrap items-center gap-3 rounded-control border p-3"
                     style={{ borderColor: C.line }}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium" style={{ color: C.ink }}>
+                      <div className="text-body font-medium" style={{ color: C.ink }}>
                         “{r.value}”
                       </div>
-                      <div className="text-[11.5px]" style={{ color: C.sub }}>
+                      <div className="text-label" style={{ color: C.sub }}>
                         Round · {r.rowCount} row{r.rowCount === 1 ? '' : 's'}
                         {r.reason && ` · ${r.reason}`}
                       </div>
@@ -612,7 +612,7 @@ function DataImport() {
                           [r.value]: e.target.value === '__new__' ? null : e.target.value,
                         }))
                       }
-                      className="rounded-md border px-2.5 py-1.5 text-[12.5px]"
+                      className="rounded-chip border px-2.5 py-1.5 text-label"
                       style={{ borderColor: C.line, color: C.ink }}
                     >
                       <option value="__new__">Create “{r.value}” as a new round</option>
@@ -656,7 +656,7 @@ function DataImport() {
 
           {blockers.length === 0 && degradations.length === 0 && (
             <Panel title="Nothing to flag">
-              <div className="flex items-center gap-2.5 text-[13px]" style={{ color: C.brand }}>
+              <div className="flex items-center gap-2.5 text-body" style={{ color: C.brand }}>
                 <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-5 w-5" strokeWidth={1.8} />
                 Every row read cleanly, with nothing missing.
               </div>
@@ -669,7 +669,7 @@ function DataImport() {
             </Button>
             <div className="flex items-center gap-3">
               {unresolved > 0 && (
-                <span className="text-[12.5px]" style={{ color: C.sub }}>
+                <span className="text-label" style={{ color: C.sub }}>
                   {unresolved} name{unresolved === 1 ? '' : 's'} still to confirm
                 </span>
               )}
@@ -715,7 +715,7 @@ function DataImport() {
           </Panel>
 
           <Panel title="What happens when you confirm">
-            <ul className="space-y-2 text-[13px] leading-relaxed" style={{ color: C.sub }}>
+            <ul className="space-y-2 text-body leading-relaxed" style={{ color: C.sub }}>
               <li>
                 Every grant is marked as imported, permanently, so its blanks read as history rather
                 than missing data.
@@ -764,7 +764,7 @@ function DataImport() {
               >
                 <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-5 w-5" strokeWidth={1.8} />
               </span>
-              <div className="text-[13.5px] leading-relaxed" style={{ color: C.ink }}>
+              <div className="text-body leading-relaxed" style={{ color: C.ink }}>
                 {result.grants} grants, {result.payments} payments and {result.reportMilestones}{' '}
                 reporting milestones are now in Custodian.
                 {result.replaced > 0 &&
@@ -782,10 +782,10 @@ function DataImport() {
               description="These grants arrived without a reference of their own. A charity needs to quote its reference for a future report to link itself automatically, so keep this list."
             >
               <div
-                className="max-h-64 overflow-y-auto rounded-[10px] border"
+                className="max-h-64 overflow-y-auto rounded-control border"
                 style={{ borderColor: C.line }}
               >
-                <table className="w-full text-[12.5px]">
+                <table className="w-full text-label">
                   <tbody>
                     {result.generatedReferences.map((g) => (
                       <tr
@@ -845,16 +845,16 @@ function History({
           return (
             <div
               key={b.id}
-              className="flex flex-wrap items-center gap-3 rounded-[10px] border p-3.5"
+              className="flex flex-wrap items-center gap-3 rounded-control border p-3.5"
               style={{ borderColor: C.line, opacity: spent ? 0.6 : 1 }}
             >
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-medium" style={{ color: C.ink }}>
+                <div className="text-body font-medium" style={{ color: C.ink }}>
                   {b.grantCount} grants · {fmtMoney(b.totalCommitted)} committed
                   {undone && ' · undone'}
                   {superseded && ' · replaced by a later import'}
                 </div>
-                <div className="mt-0.5 text-[11.5px]" style={{ color: C.sub }}>
+                <div className="mt-0.5 text-label" style={{ color: C.sub }}>
                   {new Date(b.createdAt).toLocaleDateString('en-GB', {
                     day: 'numeric',
                     month: 'short',

@@ -26,8 +26,8 @@ export const Route = createFileRoute('/_authenticated/settings/api-keys')({
 
 type ApiKeyRow = ReturnType<typeof Route.useLoaderData>['apiKeys'][number]
 
-const cellInk = 'font-display text-[14px] font-medium text-[#141C24]'
-const cellSub = 'font-display text-[14px] text-[#637083]'
+const cellInk = 'font-display text-body font-medium text-gray-900'
+const cellSub = 'font-display text-body text-gray-500'
 
 function maskKey(last4: string) {
   return `cust_sk_••••${last4}`
@@ -90,7 +90,7 @@ function ApiKeys() {
       id: 'key',
       hideBelow: 'sm',
       header: 'Key',
-      cell: (k) => <span className="font-mono text-[13px] text-[#637083]">{maskKey(k.last4)}</span>,
+      cell: (k) => <span className="font-mono text-body text-gray-500">{maskKey(k.last4)}</span>,
     },
     {
       id: 'created',
@@ -116,9 +116,9 @@ function ApiKeys() {
       width: 'sm:w-[120px]',
       cell: (k) =>
         k.revokedAt ? (
-          <StatusPill label="Revoked" color="#637083" />
+          <StatusPill label="Revoked" color="var(--color-gray-500)" />
         ) : (
-          <StatusPill label="Active" color="#31A650" />
+          <StatusPill label="Active" color="var(--color-success)" />
         ),
     },
     {
@@ -146,18 +146,18 @@ function ApiKeys() {
       description="Keys authenticate your intake integration when it posts applications or reports to Custodian. Send the key from your server in the Authorization header — never expose one in browser code."
     >
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">
+        <p className="text-body text-gray-500">
           See <TextLink to="/settings/submissions">Submitting applications</TextLink> for the
           endpoints and the fields we expect.
         </p>
 
         {newKey && (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-            <p className="text-sm font-medium text-green-800">
+          <div className="rounded-card border border-success/20 bg-success/10 p-4">
+            <p className="text-body font-medium text-success">
               Key created — copy it now. You won't be able to see it again.
             </p>
             <div className="mt-2 flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto rounded-sm border border-green-300 bg-white px-3 py-2 text-xs text-gray-900">
+              <code className="flex-1 overflow-x-auto rounded-chip border border-success/20 bg-white px-3 py-2 text-label text-gray-900">
                 {newKey}
               </code>
               <Button size="sm" onClick={copyKey}>
@@ -188,7 +188,7 @@ function ApiKeys() {
           </>
         )}
 
-        <Card className="p-5">
+        <Card className="p-4">
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
             <div className="min-w-48 flex-1">
               <Label>Key name</Label>
@@ -203,7 +203,7 @@ function ApiKeys() {
               {creating ? 'Generating…' : 'Generate key'}
             </Button>
           </form>
-          {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+          {error && <p className="mt-2 text-body text-danger">{error}</p>}
         </Card>
       </div>
     </SettingsPage>

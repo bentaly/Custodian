@@ -20,6 +20,6 @@ export const ROUND_STATUS_LABELS: Record<RoundStatus, string> = {
 
 export const ROUND_STATUS_COLORS: Record<RoundStatus, string> = {
   upcoming: 'bg-gray-100 text-gray-600',
-  open: 'bg-green-100 text-green-700',
-  closed: 'bg-red-100 text-red-600',
+  open: 'bg-success/10 text-success',
+  closed: 'bg-danger/10 text-danger',
 }

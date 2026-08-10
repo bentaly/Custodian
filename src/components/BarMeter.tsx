@@ -8,20 +8,20 @@
 
 export type BarSegment = { value: number; color: string }
 
-/** #rrggbb → rgba() at the given alpha. */
-export function withAlpha(hex: string, alpha: number) {
-  const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+/** Any CSS colour → the same colour at the given alpha.
+ *
+ *  Uses `color-mix` rather than parsing hex digits: every colour in the app is now a
+ *  `var(--color-*)` token, and the old hex maths silently produced `rgba(NaN, NaN, NaN)`
+ *  the moment it was handed one — a bar that renders as nothing at all. */
+export function withAlpha(color: string, alpha: number) {
+  return `color-mix(in srgb, ${color} ${alpha * 100}%, transparent)`
 }
 
 export function BarMeter({
   bars = 32,
   segments,
   progress,
-  color = '#8B7FF0',
+  color = 'var(--color-accent-violet)',
   trackOpacity = 0.2,
   height = 24,
   barWidth = 3,

@@ -75,13 +75,13 @@ export function TagInput({
   return (
     <div className="relative">
       <div
-        className="flex min-h-[40px] cursor-text flex-wrap gap-1.5 rounded-sm border border-gray-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-gray-400"
+        className="flex min-h-[40px] cursor-text flex-wrap gap-1.5 rounded-chip border border-gray-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-gray-400"
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
           <span
             key={tag}
-            className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700"
+            className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-label font-medium text-gray-700"
           >
             {tag}
             <button
@@ -120,7 +120,7 @@ export function TagInput({
             }, 150)
           }
           onKeyDown={handleKeyDown}
-          className="min-w-24 flex-1 border-none bg-transparent text-sm outline-hidden"
+          className="min-w-24 flex-1 border-none bg-transparent text-body outline-hidden"
           placeholder={value.length === 0 ? placeholder : ''}
         />
       </div>
@@ -129,7 +129,7 @@ export function TagInput({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-10 mt-1 w-full rounded-sm border border-gray-200 bg-white shadow-xs"
+          className="absolute z-10 mt-1 w-full rounded-chip border border-gray-200 bg-white shadow-xs"
         >
           {options.map((opt, i) => (
             <li
@@ -139,7 +139,7 @@ export function TagInput({
               aria-selected={i === activeIndex}
               onMouseDown={() => addTag(opt.value)}
               onMouseEnter={() => setActiveIndex(i)}
-              className={`cursor-pointer px-3 py-2 text-left text-sm ${
+              className={`cursor-pointer px-3 py-2 text-left text-body ${
                 i === activeIndex ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
               } ${i === options.length - 1 && showCreate ? 'text-gray-500' : ''}`}
             >

@@ -81,7 +81,7 @@ const STEPS = [
 const LAST_STEP = STEPS.length
 
 const inputClass =
-  'rounded-md border border-[#E3E0D6] px-2.5 py-1.5 text-[12.5px] text-[#3C453F] focus:outline-hidden focus:ring-2 focus:ring-[#1F7A5C]/30'
+  'rounded-chip border border-gray-200 px-2.5 py-1.5 text-label text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-brand/30'
 
 function Stepper({ step, onGoto }: { step: number; onGoto: (n: number) => void }) {
   return (
@@ -97,23 +97,23 @@ function Stepper({ step, onGoto }: { step: number; onGoto: (n: number) => void }
               disabled={s.n > step}
             >
               <span
-                className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-semibold ${
+                className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-label font-semibold ${
                   active
-                    ? 'bg-[#1F7A5C] text-white'
+                    ? 'bg-brand text-white'
                     : done
-                      ? 'bg-[#DFF3EA] text-[#1F7A5C]'
-                      : 'bg-[#F1EFE9] text-[#B4B0A4]'
+                      ? 'bg-brand-secondary text-brand'
+                      : 'bg-gray-100 text-gray-400'
                 }`}
               >
                 {done ? '✓' : s.n}
               </span>
               <span
-                className={`text-xs ${active ? 'font-medium text-[#202823]' : 'text-[#9CA49E]'}`}
+                className={`text-label ${active ? 'font-medium text-gray-900' : 'text-gray-400'}`}
               >
                 {s.label}
               </span>
             </button>
-            {i < STEPS.length - 1 && <span className="mx-1.5 h-px w-6 bg-[#ECEAE3]" />}
+            {i < STEPS.length - 1 && <span className="mx-1.5 h-px w-6 bg-gray-200" />}
           </div>
         )
       })}
@@ -123,7 +123,7 @@ function Stepper({ step, onGoto }: { step: number; onGoto: (n: number) => void }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[.05em] text-[#9CA49E]">
+    <div className="mb-1.5 text-label font-bold uppercase tracking-[.05em] text-gray-400">
       {children}
     </div>
   )
@@ -141,10 +141,10 @@ function Choice({
   return (
     <button
       onClick={onClick}
-      className={`rounded-md border px-3.5 py-1.5 text-[12.5px] transition-colors ${
+      className={`rounded-chip border px-3.5 py-1.5 text-label transition-colors ${
         on
-          ? 'border-[#1F7A5C] bg-[#DFF3EA] font-semibold text-[#1F7A5C]'
-          : 'border-[#E3E0D6] bg-white text-[#5A6660] hover:bg-[#FAF9F6]'
+          ? 'border-brand bg-brand-secondary font-semibold text-brand'
+          : 'border-gray-200 bg-white text-gray-600 hover:bg-surface'
       }`}
     >
       {children}
@@ -355,27 +355,27 @@ function SetUpAwards() {
             { label: 'Set up awards' },
           ]}
         />
-        <h1 className="mt-3 font-display text-[28px] text-[#202823]">
+        <h1 className="mt-3 font-display text-heading text-gray-900">
           {result.created === 1 ? 'Award created' : `${result.created} awards created`}
         </h1>
-        <p className="mt-1 text-sm text-[#5A6660]">
+        <p className="mt-1 text-body text-gray-600">
           {fmtMoney(result.totalCommitted)} committed. Award letters are on their way to the
           grantees — each one is saved against its award, where you can read it and resend it.
         </p>
 
         {failures.length > 0 && (
-          <div className="mt-5 rounded-xl border border-[#F0D3DC] bg-[#FBEEF2] p-4">
-            <div className="text-[12.5px] font-bold text-[#A34D68]">
+          <div className="mt-5 rounded-control border border-danger/20 bg-danger/10 p-4">
+            <div className="text-label font-bold text-danger">
               {failures.length} could not be awarded
             </div>
             <ul className="mt-2 space-y-1">
               {failures.map((f) => (
-                <li key={f.applicationId} className="text-[12px] text-[#A34D68]">
+                <li key={f.applicationId} className="text-label text-danger">
                   <strong>{f.organisationName}</strong> — {f.error}
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-[11.5px] text-[#A34D68]">
+            <p className="mt-2 text-label text-danger">
               Everything else went through. These are unchanged and still on the shortlist.
             </p>
           </div>
@@ -385,14 +385,14 @@ function SetUpAwards() {
           <Link
             to="/awards"
             search={{ roundId: undefined, programmeId: undefined, tag: undefined, q: undefined }}
-            className="rounded-[11px] bg-[#1F7A5C] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#17563F]"
+            className="rounded-control bg-brand px-4 py-2.5 text-body font-bold text-white hover:bg-[#17563F]"
           >
             View awards →
           </Link>
           <Link
             to="/shortlist"
             search={{ roundId }}
-            className="rounded-[11px] border border-[#E3E0D6] px-4 py-2.5 text-[13px] font-medium text-[#5A6660] hover:bg-[#FAF9F6]"
+            className="rounded-control border border-gray-200 px-4 py-2.5 text-body font-medium text-gray-600 hover:bg-surface"
           >
             Back to shortlist
           </Link>
@@ -412,15 +412,15 @@ function SetUpAwards() {
           ]}
         />
         <EmptyState className="mt-4">
-          <p className="text-sm font-medium text-gray-500">Nothing is ready to award</p>
-          <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-gray-400">
+          <p className="text-body font-medium text-gray-500">Nothing is ready to award</p>
+          <p className="mx-auto mt-1 max-w-md text-label leading-relaxed text-gray-400">
             An application appears here once a majority of trustees have voted in favour of it on
             the Shortlist. Nothing in this round has cleared that bar yet.
           </p>
           <Link
             to="/shortlist"
             search={{ roundId }}
-            className="mt-4 inline-block rounded-sm border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            className="mt-4 inline-block rounded-control border border-gray-200 px-4 py-2 text-body text-gray-600 hover:bg-gray-50"
           >
             Back to shortlist
           </Link>
@@ -437,8 +437,8 @@ function SetUpAwards() {
           { label: 'Set up awards' },
         ]}
       />
-      <h1 className="mt-3 font-display text-[28px] text-[#202823]">Set up awards</h1>
-      <p className="mb-6 mt-1 text-sm text-[#5A6660]">
+      <h1 className="mt-3 font-display text-heading text-gray-900">Set up awards</h1>
+      <p className="mb-6 mt-1 text-body text-gray-600">
         Turn board-approved applications into live grants: settle the amounts, set the terms and
         payment schedule, then issue the award letters.
       </p>
@@ -448,7 +448,7 @@ function SetUpAwards() {
       {/* ── 1. Grants: what each organisation gets, and what for ── */}
       {step === 1 && (
         <div className="space-y-3">
-          <p className="text-[12.5px] text-[#5A6660]">
+          <p className="text-label text-gray-600">
             {candidates.length === 1
               ? 'One application has the trustee majority it needs.'
               : `${candidates.length} applications have the trustee majority they need.`}{' '}
@@ -461,8 +461,8 @@ function SetUpAwards() {
             return (
               <div
                 key={c.id}
-                className={`rounded-xl border bg-white transition-colors ${
-                  g.selected ? 'border-[#1F7A5C]' : 'border-[#ECEAE3]'
+                className={`rounded-control border bg-white transition-colors ${
+                  g.selected ? 'border-brand' : 'border-gray-200'
                 }`}
               >
                 <div className="flex items-start gap-3 px-4 py-3">
@@ -470,38 +470,38 @@ function SetUpAwards() {
                     onClick={() => setGrant(c.id, { selected: !g.selected })}
                     aria-pressed={g.selected}
                     aria-label={`${g.selected ? 'Exclude' : 'Include'} ${c.organisationName}`}
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] text-white ${
-                      g.selected ? 'border-[#1F7A5C] bg-[#1F7A5C]' : 'border-[#D6D2C6] bg-white'
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-label text-white ${
+                      g.selected ? 'border-brand bg-brand' : 'border-gray-300 bg-white'
                     }`}
                   >
                     {g.selected ? '✓' : ''}
                   </button>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13.5px] font-semibold text-[#17211D]">
+                    <div className="text-body font-semibold text-gray-900">
                       {c.organisationName}
                     </div>
-                    <div className="mt-0.5 text-[10.5px] text-[#9CA49E]">
+                    <div className="mt-0.5 text-label text-gray-400">
                       {[c.programmeName, c.roundName, c.deliveryArea, c.externalApplicationId]
                         .filter(Boolean)
                         .join(' · ')}
                     </div>
-                    <div className="mt-0.5 text-[10.5px] text-[#9CA49E]">
+                    <div className="mt-0.5 text-label text-gray-400">
                       {c.yesVotes} of {c.trusteeCount} trustees in favour
                     </div>
                     {g.selected && !c.applicantEmail && (
-                      <div className="mt-1 text-[11px] font-medium text-[#8A6A1F]">
+                      <div className="mt-1 text-label font-medium text-warning">
                         No contact email on this application — the letter will be saved but not
                         sent.
                       </div>
                     )}
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="mb-1 text-[10px] uppercase tracking-wide text-[#9CA49E]">
+                    <div className="mb-1 text-label uppercase tracking-wide text-gray-400">
                       Requested {fmtMoney(c.amountRequested)}
                     </div>
                     {g.selected ? (
                       <div className="relative">
-                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[12.5px] text-[#9CA49E]">
+                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-label text-gray-400">
                           £
                         </span>
                         <input
@@ -514,13 +514,13 @@ function SetUpAwards() {
                         />
                       </div>
                     ) : (
-                      <div className="text-[12px] text-[#B4B0A4]">Not being awarded</div>
+                      <div className="text-label text-gray-400">Not being awarded</div>
                     )}
                   </div>
                 </div>
 
                 {g.selected && (
-                  <div className="border-t border-[#F1EFE9] px-4 py-3">
+                  <div className="border-t border-gray-100 px-4 py-3">
                     <textarea
                       value={g.purpose}
                       onChange={(e) => setGrant(c.id, { purpose: e.target.value })}
@@ -546,7 +546,7 @@ function SetUpAwards() {
       {/* ── 2. Terms: shared dates and conditions, and the payment schedule ── */}
       {step === 2 && (
         <div className="space-y-5">
-          <p className="text-[12.5px] text-[#5A6660]">
+          <p className="text-label text-gray-600">
             {selected.length === 1
               ? 'Set the terms for this award.'
               : `Set the terms shared by all ${selected.length} awards. Any schedule you hand-edit stays with its own grant.`}
@@ -562,7 +562,7 @@ function SetUpAwards() {
                 aria-label="Grant start date"
                 className={inputClass}
               />
-              <p className="mt-1 max-w-[15rem] text-[11px] text-[#9CA49E]">
+              <p className="mt-1 max-w-[15rem] text-label text-gray-400">
                 When the grant period begins. It appears on the award letter.
               </p>
             </div>
@@ -575,7 +575,7 @@ function SetUpAwards() {
                 aria-label="First payment date"
                 className={inputClass}
               />
-              <p className="mt-1 max-w-[15rem] text-[11px] text-[#9CA49E]">
+              <p className="mt-1 max-w-[15rem] text-label text-gray-400">
                 {terms.firstPaymentDate === terms.startDate
                   ? 'Follows the start date. Change it to pay later.'
                   : 'Set apart from the start date.'}
@@ -635,17 +635,17 @@ function SetUpAwards() {
                 const expanded = selected.length === 1 || openSchedule === c.id || g.custom
 
                 return (
-                  <div key={c.id} className="rounded-xl border border-[#ECEAE3] bg-white">
+                  <div key={c.id} className="rounded-control border border-gray-200 bg-white">
                     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                       <button
                         onClick={() => setOpenSchedule(expanded && !g.custom ? null : c.id)}
                         disabled={selected.length === 1}
                         className="min-w-0 flex-1 text-left disabled:cursor-default"
                       >
-                        <span className="block truncate text-[12.5px] font-medium text-[#202823]">
+                        <span className="block truncate text-label font-medium text-gray-900">
                           {c.organisationName}
                         </span>
-                        <span className="block truncate text-[11px] text-[#9CA49E]">
+                        <span className="block truncate text-label text-gray-400">
                           {fmtMoney(amount)} ·{' '}
                           {schedule.length === 1
                             ? 'single payment'
@@ -657,14 +657,14 @@ function SetUpAwards() {
                       {g.custom ? (
                         <button
                           onClick={() => setGrant(c.id, { custom: false, rows: [] })}
-                          className="shrink-0 text-[11.5px] font-medium text-[#9CA49E] hover:text-[#5A6660]"
+                          className="shrink-0 text-label font-medium text-gray-400 hover:text-gray-600"
                         >
                           Reset to the shared terms
                         </button>
                       ) : (
                         <button
                           onClick={() => enterCustom(c)}
-                          className="shrink-0 text-[11.5px] font-semibold text-[#1F7A5C] hover:underline"
+                          className="shrink-0 text-label font-semibold text-brand hover:underline"
                         >
                           Need a custom split? →
                         </button>
@@ -672,16 +672,16 @@ function SetUpAwards() {
                     </div>
 
                     {expanded && (
-                      <div className="border-t border-[#F1EFE9] bg-[#FCFCFA] px-3.5 py-3">
+                      <div className="border-t border-gray-100 bg-background px-3.5 py-3">
                         {g.custom ? (
                           <div className="space-y-1.5">
                             {g.rows.map((r, i) => (
                               <div key={i} className="flex items-center gap-2">
-                                <span className="w-4 shrink-0 text-[11px] text-[#9CA49E]">
+                                <span className="w-4 shrink-0 text-label text-gray-400">
                                   {i + 1}
                                 </span>
                                 <div className="relative w-28 shrink-0">
-                                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[12.5px] text-[#9CA49E]">
+                                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-label text-gray-400">
                                     £
                                   </span>
                                   <input
@@ -719,7 +719,7 @@ function SetUpAwards() {
                                         rows: g.rows.filter((_, idx) => idx !== i),
                                       })
                                     }
-                                    className="shrink-0 rounded p-1 text-[#C9C4B6] hover:bg-[#FBEEF2] hover:text-[#A34D68]"
+                                    className="shrink-0 rounded-chip p-1 text-gray-300 hover:bg-danger/10 hover:text-danger"
                                     aria-label={`Remove instalment ${i + 1}`}
                                   >
                                     ✕
@@ -733,13 +733,13 @@ function SetUpAwards() {
                                 onClick={() =>
                                   setGrant(c.id, { rows: [...g.rows, { amount: '0', date: '' }] })
                                 }
-                                className="text-[12px] font-semibold text-[#1F7A5C] hover:underline"
+                                className="text-label font-semibold text-brand hover:underline"
                               >
                                 + Add instalment
                               </button>
                               <button
                                 onClick={() => splitEvenly(c)}
-                                className="text-[12px] font-medium text-[#5A6660] hover:text-[#202823]"
+                                className="text-label font-medium text-gray-600 hover:text-gray-900"
                               >
                                 Split evenly
                               </button>
@@ -749,10 +749,10 @@ function SetUpAwards() {
                                 and it is much easier to fix while you are looking at it
                                 than to decode from a validation message on the last step. */}
                             <div
-                              className={`mt-1 flex items-center justify-between rounded-lg px-3 py-2 text-[12px] ${
+                              className={`mt-1 flex items-center justify-between rounded-chip px-3 py-2 text-label ${
                                 reconciled
-                                  ? 'bg-[#DFF3EA] text-[#1F7A5C]'
-                                  : 'bg-[#FAEEDA] text-[#854F0B]'
+                                  ? 'bg-brand-secondary text-brand'
+                                  : 'bg-warning/10 text-warning'
                               }`}
                             >
                               <span>
@@ -767,7 +767,7 @@ function SetUpAwards() {
                               </span>
                             </div>
                             {!allPositive && (
-                              <p className="text-[11.5px] text-[#854F0B]">
+                              <p className="text-label text-warning">
                                 Every instalment must be more than £0.
                               </p>
                             )}
@@ -775,23 +775,23 @@ function SetUpAwards() {
                         ) : (
                           <dl className="space-y-1">
                             {schedule.map((r, i) => (
-                              <div key={i} className="flex justify-between text-[12px]">
-                                <dt className="text-[#5A6660]">
+                              <div key={i} className="flex justify-between text-label">
+                                <dt className="text-gray-600">
                                   Instalment {i + 1} of {schedule.length}
                                 </dt>
                                 <dd className="flex gap-3">
-                                  <span className="font-medium text-[#202823]">
+                                  <span className="font-medium text-gray-900">
                                     {fmtMoney(r.amount)}
                                   </span>
-                                  <span className="w-24 text-right text-[11px] text-[#9CA49E]">
+                                  <span className="w-24 text-right text-label text-gray-400">
                                     {r.date ? fmtDate(r.date) : 'Date TBC'}
                                   </span>
                                 </dd>
                               </div>
                             ))}
-                            <div className="mt-1 flex justify-between border-t border-[#ECEAE3] pt-1.5 text-[12px]">
-                              <span className="text-[#5A6660]">Total</span>
-                              <span className="font-semibold text-[#1F7A5C]">
+                            <div className="mt-1 flex justify-between border-t border-gray-200 pt-1.5 text-label">
+                              <span className="text-gray-600">Total</span>
+                              <span className="font-semibold text-brand">
                                 {fmtMoney(allocated)}
                               </span>
                             </div>
@@ -807,7 +807,7 @@ function SetUpAwards() {
 
           <div>
             <FieldLabel>Reporting milestones</FieldLabel>
-            <p className="mb-2 text-[11px] text-[#9CA49E]">
+            <p className="mb-2 text-label text-gray-400">
               The dates you expect a report on. They appear on every letter and in the Reports
               screen once the grants are live.
             </p>
@@ -849,7 +849,7 @@ function SetUpAwards() {
                         reporting: t.reporting.filter((_, idx) => idx !== i),
                       }))
                     }
-                    className="shrink-0 rounded p-1 text-[#C9C4B6] hover:bg-[#FBEEF2] hover:text-[#A34D68]"
+                    className="shrink-0 rounded-chip p-1 text-gray-300 hover:bg-danger/10 hover:text-danger"
                     aria-label="Remove milestone"
                   >
                     ✕
@@ -861,7 +861,7 @@ function SetUpAwards() {
               onClick={() =>
                 setTerms((t) => ({ ...t, reporting: [...t.reporting, { label: '', date: '' }] }))
               }
-              className="mt-2 text-[12.5px] font-semibold text-[#1F7A5C] hover:underline"
+              className="mt-2 text-label font-semibold text-brand hover:underline"
             >
               + Add reporting milestone
             </button>
@@ -869,7 +869,7 @@ function SetUpAwards() {
 
           <div>
             <FieldLabel>Conditions of grant</FieldLabel>
-            <div className="overflow-hidden rounded-xl border border-[#ECEAE3]">
+            <div className="overflow-hidden rounded-control border border-gray-200">
               <label
                 aria-label="Attach your standard conditions"
                 className="flex cursor-pointer items-center gap-3 px-3.5 py-3"
@@ -880,35 +880,35 @@ function SetUpAwards() {
                   onChange={(e) =>
                     setTerms((t) => ({ ...t, useStandardConditions: e.target.checked }))
                   }
-                  className="h-4 w-4 accent-[#1F7A5C]"
+                  className="h-4 w-4 accent-brand"
                 />
                 <span className="flex-1">
-                  <span className="block text-[12.5px] font-medium text-[#202823]">
+                  <span className="block text-label font-medium text-gray-900">
                     Attach your standard conditions
                   </span>
-                  <span className="block text-[11px] text-[#9CA49E]">
+                  <span className="block text-label text-gray-400">
                     {conditions.length} clause{conditions.length === 1 ? '' : 's'} · they appear on
                     every award letter
                   </span>
                 </span>
               </label>
               {terms.useStandardConditions && (
-                <div className="border-t border-[#F1EFE9] bg-[#FCFCFA] px-3.5 py-3">
-                  <ol className="list-decimal space-y-1.5 pl-4 text-[11.5px] leading-relaxed text-[#5A6660]">
+                <div className="border-t border-gray-100 bg-background px-3.5 py-3">
+                  <ol className="list-decimal space-y-1.5 pl-4 text-label leading-relaxed text-gray-600">
                     {conditions.map((c, i) => (
                       <li key={i}>{c}</li>
                     ))}
                   </ol>
                   <Link
                     to="/settings/award-letter"
-                    className="mt-2.5 inline-block text-[12px] font-semibold text-[#1F7A5C] hover:underline"
+                    className="mt-2.5 inline-block text-label font-semibold text-brand hover:underline"
                   >
                     Edit your standard conditions in Settings →
                   </Link>
                 </div>
               )}
             </div>
-            <p className="mt-1.5 text-[11px] text-[#9CA49E]">
+            <p className="mt-1.5 text-label text-gray-400">
               A condition that applies to one grant alone goes on that grant, back in step 1.
             </p>
           </div>
@@ -918,7 +918,7 @@ function SetUpAwards() {
       {/* ── 3. Letters ── */}
       {step === 3 && (
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border border-[#ECEAE3] bg-white">
+          <div className="overflow-hidden rounded-control border border-gray-200 bg-white">
             {[
               {
                 l: selected.length === 1 ? 'Award' : 'Awards in this batch',
@@ -950,15 +950,15 @@ function SetUpAwards() {
               <div
                 key={row.l}
                 className={`flex items-center justify-between px-4 py-3 ${
-                  i < all.length - 1 ? 'border-b border-[#F1EFE9]' : ''
-                } ${row.emph ? 'bg-[#FAF9F6]' : ''}`}
+                  i < all.length - 1 ? 'border-b border-gray-100' : ''
+                } ${row.emph ? 'bg-surface' : ''}`}
               >
-                <span className="text-[12.5px] text-[#5A6660]">{row.l}</span>
+                <span className="text-label text-gray-600">{row.l}</span>
                 <span
                   className={
                     row.emph
-                      ? 'font-display text-[15px] text-[#1F7A5C]'
-                      : 'text-[13px] font-medium text-[#202823]'
+                      ? 'font-display text-body text-brand'
+                      : 'text-body font-medium text-gray-900'
                   }
                 >
                   {row.v}
@@ -969,22 +969,22 @@ function SetUpAwards() {
 
           <div>
             <FieldLabel>Award letters</FieldLabel>
-            <p className="mb-2 text-[11.5px] text-[#9CA49E]">
+            <p className="mb-2 text-label text-gray-400">
               Sent from{' '}
-              <strong className="text-[#5A6660]">
+              <strong className="text-gray-600">
                 {letterSettings?.senderName || letterSettings?.foundationName || 'your foundation'}
               </strong>
               {letterSettings?.replyTo ? (
                 <>
                   , with replies going to{' '}
-                  <strong className="text-[#5A6660]">{letterSettings.replyTo}</strong>
+                  <strong className="text-gray-600">{letterSettings.replyTo}</strong>
                 </>
               ) : (
                 <>
                   . No reply-to address is set, so replies come back to Custodian —{' '}
                   <Link
                     to="/settings/award-letter"
-                    className="font-semibold text-[#1F7A5C] hover:underline"
+                    className="font-semibold text-brand hover:underline"
                   >
                     set one in Settings
                   </Link>
@@ -992,35 +992,35 @@ function SetUpAwards() {
                 </>
               )}
             </p>
-            <div className="overflow-hidden rounded-xl border border-[#ECEAE3] bg-white">
+            <div className="overflow-hidden rounded-control border border-gray-200 bg-white">
               {selected.map((c, i) => {
                 const letter = letterFor(c)
                 const open = openLetter === c.id
                 return (
                   <div
                     key={c.id}
-                    className={i < selected.length - 1 ? 'border-b border-[#F1EFE9]' : ''}
+                    className={i < selected.length - 1 ? 'border-b border-gray-100' : ''}
                   >
                     <button
                       onClick={() => setOpenLetter(open ? null : c.id)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#FCFCFA]"
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-background"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[12.5px] font-medium text-[#202823]">
+                        <span className="block truncate text-label font-medium text-gray-900">
                           {c.organisationName}
                         </span>
-                        <span className="block truncate text-[11px] text-[#9CA49E]">
+                        <span className="block truncate text-label text-gray-400">
                           {c.applicantEmail ?? 'No contact email — will be saved, not sent'}
                         </span>
                       </span>
-                      <span className="shrink-0 text-[11.5px] font-semibold text-[#1F7A5C]">
+                      <span className="shrink-0 text-label font-semibold text-brand">
                         {open ? 'Hide' : 'Preview'}
                       </span>
                     </button>
                     {open && (
-                      <div className="border-t border-[#F1EFE9] bg-[#FCFCFA] px-4 py-4">
-                        <div className="mb-2 text-[11px] text-[#9CA49E]">
-                          Subject: <span className="text-[#5A6660]">{letter.subject}</span>
+                      <div className="border-t border-gray-100 bg-background px-4 py-4">
+                        <div className="mb-2 text-label text-gray-400">
+                          Subject: <span className="text-gray-600">{letter.subject}</span>
                         </div>
                         <AwardLetterPreview bodyText={letter.bodyText} />
                       </div>
@@ -1032,7 +1032,7 @@ function SetUpAwards() {
           </div>
 
           {missingPurpose.length > 0 && (
-            <div className="rounded-xl bg-[#FAEEDA] px-4 py-3 text-[12px] leading-relaxed text-[#854F0B]">
+            <div className="rounded-control bg-warning/10 px-4 py-3 text-label leading-relaxed text-warning">
               {missingPurpose.length === 1
                 ? `${missingPurpose[0]!.organisationName} has no grant purpose — its letter will read “[not set]”.`
                 : `${missingPurpose.length} grants have no purpose — their letters will read “[not set]”.`}{' '}
@@ -1043,17 +1043,17 @@ function SetUpAwards() {
       )}
 
       {/* ── Footer ── */}
-      <div className="mt-6 border-t border-[#ECEAE3] pt-4">
+      <div className="mt-6 border-t border-gray-200 pt-4">
         {problems.length > 0 && step === LAST_STEP && (
           <ul className="mb-3 space-y-1">
             {problems.map((p) => (
-              <li key={p} className="text-[12px] text-[#A34D68]">
+              <li key={p} className="text-label text-danger">
                 {p}
               </li>
             ))}
           </ul>
         )}
-        {error && <p className="mb-3 text-[12px] text-[#A34D68]">{error}</p>}
+        {error && <p className="mb-3 text-label text-danger">{error}</p>}
         <div className="flex gap-2">
           <Button
             variant="secondary"

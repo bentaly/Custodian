@@ -167,7 +167,7 @@ function RoundDetail() {
       />
 
       {/* Round header */}
-      <Card className="p-5">
+      <Card className="p-4">
         {editingRound ? (
           <form onSubmit={handleSaveRound} className="space-y-4">
             <div>
@@ -190,7 +190,7 @@ function RoundDetail() {
                 required
               />
             </div>
-            {roundError && <p className="text-sm text-red-500">{roundError}</p>}
+            {roundError && <p className="text-body text-danger">{roundError}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={savingRound}>
                 {savingRound ? 'Saving…' : 'Save'}
@@ -214,24 +214,24 @@ function RoundDetail() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-semibold text-gray-900">{round.name}</h1>
+                <h1 className="text-heading font-semibold text-gray-900">{round.name}</h1>
                 {(() => {
                   const s = getRoundStatus(round)
                   return (
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ROUND_STATUS_COLORS[s]}`}
+                      className={`rounded-full px-2.5 py-0.5 text-label font-medium ${ROUND_STATUS_COLORS[s]}`}
                     >
                       {ROUND_STATUS_LABELS[s]}
                     </span>
                   )
                 })()}
                 {round.archivedAt && (
-                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-label font-medium text-gray-500">
                     Archived
                   </span>
                 )}
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-gray-500">
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-body text-gray-500">
                 {(round.openedAt || round.closedAt) && (
                   <span>
                     {formatDate(round.openedAt) ?? '—'} → {formatDate(round.closedAt) ?? '—'}
@@ -275,10 +275,10 @@ function RoundDetail() {
       {/* Programmes */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">Programmes</h2>
+          <h2 className="text-body font-semibold text-gray-700">Programmes</h2>
           <div className="flex items-center gap-2">
             {canManage && (
-              <Link to="/programmes" className="text-xs text-gray-500 hover:text-gray-700">
+              <Link to="/programmes" className="text-label text-gray-500 hover:text-gray-700">
                 Manage programmes →
               </Link>
             )}
@@ -293,7 +293,7 @@ function RoundDetail() {
         {showAddPicker && (
           <form
             onSubmit={handleAddProgramme}
-            className="rounded-lg border border-gray-300 bg-white p-4 space-y-4"
+            className="rounded-card border border-gray-300 bg-white p-4 space-y-4"
           >
             <div>
               <Label>Programme</Label>
@@ -320,7 +320,7 @@ function RoundDetail() {
               onGrantDurationYears={setAddGrantDurationYears}
               budgetRequired
             />
-            {addError && <p className="text-sm text-red-500">{addError}</p>}
+            {addError && <p className="text-body text-danger">{addError}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={addingProgramme}>
                 {addingProgramme ? 'Adding…' : 'Add programme'}
@@ -344,10 +344,10 @@ function RoundDetail() {
         )}
 
         {round.roundProgrammes.length === 0 && !showAddPicker ? (
-          <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-10 text-center">
-            <p className="text-sm text-gray-500">No programmes linked to this round.</p>
+          <div className="rounded-chip border border-dashed border-gray-200 bg-white px-6 py-10 text-center">
+            <p className="text-body text-gray-500">No programmes linked to this round.</p>
             {canManage && (
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-body text-gray-400">
                 <Link to="/programmes" className="underline hover:text-gray-600">
                   Create a programme
                 </Link>{' '}
@@ -447,7 +447,7 @@ function ProgrammeCard({
     <Card className="px-5 py-4">
       {editing ? (
         <form onSubmit={handleSave} className="space-y-3">
-          <p className="text-sm font-medium text-gray-700">{programme.name}</p>
+          <p className="text-body font-medium text-gray-700">{programme.name}</p>
           <GrantTermsFields
             budget={editBudget}
             onBudget={setEditBudget}
@@ -457,7 +457,7 @@ function ProgrammeCard({
             onGrantDurationYears={setEditGrantDurationYears}
             budgetRequired
           />
-          {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+          {saveError && <p className="text-body text-danger">{saveError}</p>}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
@@ -483,7 +483,7 @@ function ProgrammeCard({
             <Link
               to="/programmes/$programmeId"
               params={{ programmeId: programme.id }}
-              className="text-sm font-medium text-gray-900 hover:underline"
+              className="text-body font-medium text-gray-900 hover:underline"
             >
               {programme.name}
             </Link>
@@ -492,7 +492,7 @@ function ProgrammeCard({
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                    className="rounded-full bg-gray-100 px-2.5 py-0.5 text-label text-gray-600"
                   >
                     {tag}
                   </span>
@@ -500,33 +500,33 @@ function ProgrammeCard({
               </div>
             )}
             {programme.goal && (
-              <p className="mt-2 line-clamp-2 text-xs text-gray-400">
+              <p className="mt-2 line-clamp-2 text-label text-gray-400">
                 {programme.goal.replace(/[#*_~`[\]]/g, '').trim()}
               </p>
             )}
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-gray-100 pt-3">
               <div>
-                <span className="text-xs text-gray-400">Budget </span>
-                <span className="text-xs font-medium text-gray-700">
+                <span className="text-label text-gray-400">Budget </span>
+                <span className="text-label font-medium text-gray-700">
                   £{budget.toLocaleString()}
                 </span>
               </div>
               {maxGrant !== null && (
                 <div>
-                  <span className="text-xs text-gray-400">Max award </span>
-                  <span className="text-xs font-medium text-gray-700">
+                  <span className="text-label text-gray-400">Max award </span>
+                  <span className="text-label font-medium text-gray-700">
                     £{maxGrant.toLocaleString()}
                   </span>
                 </div>
               )}
               {duration !== null && (
                 <div>
-                  <span className="text-xs text-gray-400">Duration </span>
-                  <span className="text-xs font-medium text-gray-700">
+                  <span className="text-label text-gray-400">Duration </span>
+                  <span className="text-label font-medium text-gray-700">
                     {duration} {duration === 1 ? 'yr' : 'yrs'}
                   </span>
                   {maxGrant !== null && duration > 1 && (
-                    <span className="text-xs text-gray-400">
+                    <span className="text-label text-gray-400">
                       {' '}
                       (£{(maxGrant / duration).toLocaleString()}/yr)
                     </span>

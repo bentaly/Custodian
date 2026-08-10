@@ -1,12 +1,8 @@
 import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  ArrowUp01Icon,
-  ArrowDown01Icon,
-  ArrowUpDownIcon,
-  Tick02Icon,
-} from '@hugeicons/core-free-icons'
+import { ArrowUp01Icon, ArrowDown01Icon, ArrowUpDownIcon } from '@hugeicons/core-free-icons'
 import { C } from './tokens'
+import { Checkbox } from './Checkbox'
 
 // The one table style for the whole app — the Figma applications-list table:
 // a wash header row (Inter Display 14px medium), 64px hover rows, optional
@@ -14,13 +10,10 @@ import { C } from './tokens'
 // and clickable rows. Each screen supplies typed column definitions with custom
 // cell renderers; the chrome stays identical everywhere.
 
-/** #rrggbb → rgba() at alpha. */
-function alpha(hex: string, a: number) {
-  const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${a})`
+/** Any CSS colour → the same colour at alpha. `color-mix`, not hex maths, because the
+ *  colours handed in are `var(--color-*)` tokens. */
+function alpha(color: string, a: number) {
+  return `color-mix(in srgb, ${color} ${a * 100}%, transparent)`
 }
 
 /** The app's status pill — a coloured dot + label on a 10%-tint background. Every
@@ -28,11 +21,11 @@ function alpha(hex: string, a: number) {
 export function StatusPill({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[20px] px-2"
+      className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
       style={{ backgroundColor: alpha(color, 0.1) }}
     >
       <span className="size-[3px] rounded-full" style={{ backgroundColor: color }} />
-      <span className="font-display text-[12px] font-medium" style={{ color }}>
+      <span className="font-display text-label font-medium" style={{ color }}>
         {label}
       </span>
     </span>
@@ -80,35 +73,33 @@ export type TableSelection<T> = {
   isSelected: (row: T) => boolean
   toggle: (row: T) => void
   allSelected: boolean
+  /** Some-but-not-all: the header box shows a dash and announces as `mixed`. Without it
+   *  a partial selection reads as "nothing selected". */
+  someSelected?: boolean
   toggleAll: () => void
 }
 
-function CheckBox({
+/** Row/header checkbox. The visual and the semantics both live in `Checkbox`; this only
+ *  stops the click reaching the row's own `onRowClick`. */
+function CellCheckbox({
   checked,
+  indeterminate,
   onToggle,
   label,
 }: {
   checked: boolean
+  indeterminate?: boolean
   onToggle: () => void
   label: string
 }) {
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        onToggle()
-      }}
-      aria-pressed={checked}
+    <Checkbox
+      checked={checked}
+      indeterminate={indeterminate}
+      onChange={onToggle}
+      onClick={(e) => e.stopPropagation()}
       aria-label={label}
-      className="flex size-5 items-center justify-center rounded-[6px] border transition-colors"
-      style={{
-        borderColor: checked ? C.brand : C.line,
-        backgroundColor: checked ? C.brand : '#fff',
-      }}
-    >
-      {checked && <HugeiconsIcon icon={Tick02Icon} size={12} color="#fff" />}
-    </button>
+    />
   )
 }
 
@@ -125,7 +116,7 @@ function HeaderCell<T>({
   const base = `px-3 ${alignCls} ${col.width ?? ''} ${col.hideBelow ? HIDE_BELOW[col.hideBelow] : ''}`
   if (!col.sortable || !onSort) {
     return (
-      <th className={`${base} font-display text-[14px] font-medium`} style={{ color: C.ink }}>
+      <th className={`${base} font-display text-body font-medium`} style={{ color: C.ink }}>
         {col.header}
       </th>
     )
@@ -136,7 +127,7 @@ function HeaderCell<T>({
       <button
         type="button"
         onClick={() => onSort(col.id)}
-        className={`group inline-flex items-center gap-1 font-display text-[14px] font-medium ${col.align === 'right' ? 'flex-row-reverse' : ''}`}
+        className={`group inline-flex items-center gap-1 font-display text-body font-medium ${col.align === 'right' ? 'flex-row-reverse' : ''}`}
         style={{ color: C.ink }}
       >
         {col.header}
@@ -189,10 +180,11 @@ export function DataTable<T>({
           <tr className="h-10" style={{ backgroundColor: C.wash }}>
             {selection && (
               <th className="w-11 px-3">
-                <CheckBox
+                <CellCheckbox
                   checked={selection.allSelected}
+                  indeterminate={!selection.allSelected && (selection.someSelected ?? false)}
                   onToggle={selection.toggleAll}
-                  label="Select all"
+                  label="Select all rows"
                 />
               </th>
             )}
@@ -206,11 +198,11 @@ export function DataTable<T>({
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={`h-16 transition-colors hover:bg-[#F9FAFB] ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(row) ?? ''}`}
+              className={`h-16 transition-colors hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(row) ?? ''}`}
             >
               {selection && (
                 <td className="w-11 px-3 align-middle" onClick={(e) => e.stopPropagation()}>
-                  <CheckBox
+                  <CellCheckbox
                     checked={selection.isSelected(row)}
                     onToggle={() => selection.toggle(row)}
                     label="Select row"

@@ -56,7 +56,7 @@ function Pill({ tone, children }: { tone: 'brand' | 'amber' | 'grey'; children: 
         : { backgroundColor: C.wash, color: C.sub }
   return (
     <span
-      className="whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold"
+      className="whitespace-nowrap rounded-full px-2.5 py-1 text-label font-semibold"
       style={style}
     >
       {children}
@@ -76,19 +76,19 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   return (
     <div className="min-w-0">
       <div
-        className="text-[11px] font-medium uppercase tracking-[.04em]"
+        className="text-label font-medium uppercase tracking-[.04em]"
         style={{ color: C.faint }}
       >
         {label}
       </div>
       <div
-        className="mt-0.5 truncate font-display text-[15px] font-medium"
+        className="mt-0.5 truncate font-display text-body font-medium"
         style={{ color: C.ink }}
       >
         {value}
       </div>
       {sub && (
-        <div className="truncate text-[11px]" style={{ color: C.sub }}>
+        <div className="truncate text-label" style={{ color: C.sub }}>
           {sub}
         </div>
       )}
@@ -99,7 +99,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 function CriterionBar({ label, score }: { label: string; score: number | null }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-baseline justify-between gap-2 text-[11px]">
+      <div className="flex items-baseline justify-between gap-2 text-label">
         <span className="truncate" style={{ color: C.sub }}>
           {label}
         </span>
@@ -201,17 +201,17 @@ export function VoteCard({
   }
 
   return (
-    <div className="rounded-[20px] border bg-white p-1" style={{ borderColor: C.line }}>
+    <div className="rounded-pill border bg-white p-1" style={{ borderColor: C.line }}>
       <div className="flex flex-col gap-0 lg:flex-row">
         {/* ── The application ── */}
         <div className="min-w-0 flex-1 p-4">
           {/* Identity */}
           <div className="flex items-start gap-3">
             <div
-              className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+              className="flex size-10 shrink-0 items-center justify-center rounded-chip"
               style={{ backgroundColor: C.wash }}
             >
-              <span className="font-display text-[14px] font-semibold" style={{ color: C.ink }}>
+              <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
                 {initials(app.organisationName)}
               </span>
             </div>
@@ -220,7 +220,7 @@ export function VoteCard({
                 <Link
                   to="/applications/$applicationId"
                   params={{ applicationId: app.id }}
-                  className="font-display text-[16px] font-medium hover:underline"
+                  className="font-display text-title font-medium hover:underline"
                   style={{ color: C.ink }}
                 >
                   {app.organisationName}
@@ -228,15 +228,15 @@ export function VoteCard({
                 {programme?.name && <Pill tone="grey">{programme.name}</Pill>}
                 <StatusPill app={app} />
               </div>
-              <div className="mt-0.5 truncate text-[12px]" style={{ color: C.sub }}>
+              <div className="mt-0.5 truncate text-label" style={{ color: C.sub }}>
                 {subline || '—'}
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <div className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+              <div className="font-display text-heading font-medium" style={{ color: C.ink }}>
                 {fmtMoney(amount)}
               </div>
-              <div className="text-[11px]" style={{ color: C.faint }}>
+              <div className="text-label" style={{ color: C.faint }}>
                 requested{years ? ` · over ${years} yr${years > 1 ? 's' : ''}` : ''}
               </div>
             </div>
@@ -244,8 +244,8 @@ export function VoteCard({
 
           {/* Stat strip — the tinted panel the app's KPI cards use */}
           <div
-            className="mt-4 grid grid-cols-2 gap-4 rounded-2xl p-4 sm:grid-cols-4"
-            style={{ backgroundColor: '#FAFBFC' }}
+            className="mt-4 grid grid-cols-2 gap-4 rounded-card p-4 sm:grid-cols-4"
+            style={{ backgroundColor: 'var(--color-gray-50)' }}
           >
             <Stat
               label="Custodian score"
@@ -284,12 +284,12 @@ export function VoteCard({
           {app.grantPurpose && (
             <div className="mt-4">
               <div
-                className="text-[11px] font-semibold uppercase tracking-[.04em]"
+                className="text-label font-semibold uppercase tracking-[.04em]"
                 style={{ color: C.faint }}
               >
                 Grant purpose
               </div>
-              <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: C.ink }}>
+              <p className="mt-1.5 text-body leading-relaxed" style={{ color: C.ink }}>
                 {app.grantPurpose}
               </p>
             </div>
@@ -299,12 +299,12 @@ export function VoteCard({
           {detail?.summary && (
             <div className="mt-4">
               <div
-                className="text-[11px] font-semibold uppercase tracking-[.04em]"
+                className="text-label font-semibold uppercase tracking-[.04em]"
                 style={{ color: C.faint }}
               >
                 AI assessment
               </div>
-              <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: C.sub }}>
+              <p className="mt-1.5 text-body leading-relaxed" style={{ color: C.sub }}>
                 {detail.summary}
               </p>
             </div>
@@ -312,16 +312,16 @@ export function VoteCard({
 
           {/* Concerns the model raised — the thing a board most wants surfaced */}
           {flags.length > 0 && (
-            <div className="mt-3 rounded-xl px-3.5 py-2.5" style={{ backgroundColor: C.amberWash }}>
+            <div className="mt-3 rounded-control px-3.5 py-2.5" style={{ backgroundColor: C.amberWash }}>
               <div className="flex items-center gap-1.5">
                 <HugeiconsIcon icon={Alert02Icon} size={14} color={C.amber} strokeWidth={1.8} />
-                <span className="text-[11px] font-semibold" style={{ color: C.amber }}>
+                <span className="text-label font-semibold" style={{ color: C.amber }}>
                   {flags.length === 1 ? 'One thing to check' : `${flags.length} things to check`}
                 </span>
               </div>
               <ul className="mt-1.5 space-y-1">
                 {flags.map((f, i) => (
-                  <li key={i} className="text-[12px] leading-relaxed" style={{ color: C.amber }}>
+                  <li key={i} className="text-label leading-relaxed" style={{ color: C.amber }}>
                     {f}
                   </li>
                 ))}
@@ -334,14 +334,14 @@ export function VoteCard({
             <div className="mt-4">
               <div className="flex items-baseline justify-between">
                 <span
-                  className="text-[11px] font-semibold uppercase tracking-[.04em]"
+                  className="text-label font-semibold uppercase tracking-[.04em]"
                   style={{ color: C.faint }}
                 >
                   Scoring
                 </span>
                 <button
                   onClick={() => setShowAll(!showAll)}
-                  className="text-[12px] font-medium hover:underline"
+                  className="text-label font-medium hover:underline"
                   style={{ color: C.brand }}
                 >
                   {showAll ? 'Show less' : `All ${CRITERION_KEYS.length} criteria`}
@@ -362,7 +362,7 @@ export function VoteCard({
                     const rationale = detail.criteria[key]?.rationale
                     if (!rationale) return null
                     return (
-                      <div key={key} className="text-[12px] leading-relaxed">
+                      <div key={key} className="text-label leading-relaxed">
                         <dt className="inline font-medium" style={{ color: C.ink }}>
                           {CRITERION_DEFINITIONS[key].label}.{' '}
                         </dt>
@@ -380,23 +380,23 @@ export function VoteCard({
 
         {/* ── The vote ── */}
         <div
-          className="flex w-full flex-col rounded-2xl p-4 lg:w-[268px] lg:shrink-0"
+          className="flex w-full flex-col rounded-card p-4 lg:w-[268px] lg:shrink-0"
           style={{ backgroundColor: C.wash }}
         >
           <div className="flex items-baseline justify-between">
             <span
-              className="text-[11px] font-semibold uppercase tracking-[.04em]"
+              className="text-label font-semibold uppercase tracking-[.04em]"
               style={{ color: C.faint }}
             >
               Board votes
             </span>
-            <span className="text-[11px] font-medium" style={{ color: C.sub }}>
+            <span className="text-label font-medium" style={{ color: C.sub }}>
               {app.votes.length} of {app.trusteeCount}
             </span>
           </div>
 
           {trustees.length === 0 ? (
-            <p className="mt-3 text-[12px] leading-relaxed" style={{ color: C.sub }}>
+            <p className="mt-3 text-label leading-relaxed" style={{ color: C.sub }}>
               No trustees have been added yet, so nothing can be approved.{' '}
               <Link
                 to="/settings/team"
@@ -413,13 +413,13 @@ export function VoteCard({
                 return (
                   <div key={t.id} className="flex items-center gap-2">
                     <span
-                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-[9px] font-semibold"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-label font-semibold"
                       style={{ color: C.sub }}
                     >
                       {initials(t.name)}
                     </span>
                     <span
-                      className="min-w-0 flex-1 truncate text-[12px]"
+                      className="min-w-0 flex-1 truncate text-label"
                       style={{ color: C.ink, fontWeight: t.id === userId ? 600 : 400 }}
                     >
                       {t.id === userId ? 'You' : t.name}
@@ -430,7 +430,7 @@ export function VoteCard({
                           onClick={() => handleVote('yes', t.id)}
                           disabled={busy}
                           aria-label={`Approve on behalf of ${t.name}`}
-                          className="rounded-md px-1.5 py-0.5 disabled:opacity-50"
+                          className="rounded-chip px-1.5 py-0.5 disabled:opacity-50"
                           style={{ backgroundColor: vote === 'yes' ? C.brandWash : 'transparent' }}
                         >
                           <HugeiconsIcon
@@ -444,7 +444,7 @@ export function VoteCard({
                           onClick={() => handleVote('no', t.id)}
                           disabled={busy}
                           aria-label={`Decline on behalf of ${t.name}`}
-                          className="rounded-md px-1.5 py-0.5 disabled:opacity-50"
+                          className="rounded-chip px-1.5 py-0.5 disabled:opacity-50"
                           style={{ backgroundColor: vote === 'no' ? C.dangerWash : 'transparent' }}
                         >
                           <HugeiconsIcon
@@ -457,7 +457,7 @@ export function VoteCard({
                       </span>
                     ) : (
                       <span
-                        className="shrink-0 text-[11px] font-medium"
+                        className="shrink-0 text-label font-medium"
                         style={{
                           color: vote === 'yes' ? C.brand : vote === 'no' ? C.danger : C.faint,
                         }}
@@ -478,13 +478,13 @@ export function VoteCard({
                   placeholder="Add a comment…"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  className="h-[54px] w-full resize-none rounded-[10px] border bg-white px-2.5 py-2 text-[12px] focus:outline-hidden focus:ring-2 focus:ring-[#1F7A5C]/25"
+                  className="h-[54px] w-full resize-none rounded-control border bg-white px-2.5 py-2 text-label focus:outline-hidden focus:ring-2 focus:ring-brand/25"
                   style={{ borderColor: C.line, color: C.ink }}
                 />
                 <button
                   onClick={() => handleVote('yes')}
                   disabled={busy}
-                  className="flex items-center justify-center gap-1.5 rounded-[10px] py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 rounded-control py-2.5 text-body font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: C.brand }}
                 >
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={1.8} />
@@ -493,7 +493,7 @@ export function VoteCard({
                 <button
                   onClick={() => handleVote('no')}
                   disabled={busy}
-                  className="flex items-center justify-center gap-1.5 rounded-[10px] border bg-white py-2.5 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 rounded-control border bg-white py-2.5 text-body font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{
                     borderColor: myVote === 'no' ? C.danger : C.line,
                     color: C.danger,
@@ -506,19 +506,19 @@ export function VoteCard({
               </>
             )}
             {canVoteForTrustees && (
-              <p className="text-[11px] leading-snug" style={{ color: C.sub }}>
+              <p className="text-label leading-snug" style={{ color: C.sub }}>
                 You are recording votes on trustees’ behalf.
               </p>
             )}
             {error && (
-              <p className="text-[11px]" style={{ color: C.danger }}>
+              <p className="text-label" style={{ color: C.danger }}>
                 {error}
               </p>
             )}
             <Link
               to="/applications/$applicationId"
               params={{ applicationId: app.id }}
-              className="py-1 text-center text-[12px] font-medium hover:underline"
+              className="py-1 text-center text-label font-medium hover:underline"
               style={{ color: C.brand }}
             >
               View full application →

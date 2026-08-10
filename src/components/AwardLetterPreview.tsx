@@ -16,7 +16,7 @@ export function AwardLetterPreview({
 }) {
   const blocks = bodyText.split(/\n{2,}/)
   return (
-    <div className={`text-[12.5px] leading-relaxed text-[#3C453F] ${className}`}>
+    <div className={`text-label leading-relaxed text-gray-700 ${className}`}>
       {blocks.map((block, i) => {
         const lines = block.split('\n').filter((l) => l.trim())
         const numbered = lines.length > 1 && lines.every((l) => /^\d+\.\s/.test(l.trim()))

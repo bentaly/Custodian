@@ -54,11 +54,11 @@ export function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative w-full max-w-sm rounded-lg bg-white p-5 shadow-xl"
+        className="relative w-full max-w-sm rounded-card bg-white p-4 shadow-xl"
       >
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-        <div className="mt-2 text-sm text-gray-500">{children}</div>
-        {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+        <h2 className="text-body font-semibold text-gray-900">{title}</h2>
+        <div className="mt-2 text-body text-gray-500">{children}</div>
+        {error && <p className="mt-3 text-body text-danger">{error}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
             Cancel

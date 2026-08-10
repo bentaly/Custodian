@@ -5,7 +5,7 @@ import { C } from './tokens'
 // The app's pager (Figma 400:30554): a "Showing n of N" count on the left and a row
 // of 32px page chips on the right, the current page outlined in brand green.
 
-const BOX = 'flex size-8 shrink-0 items-center justify-center rounded-lg border bg-white'
+const BOX = 'flex size-8 shrink-0 items-center justify-center rounded-chip border bg-white'
 
 /**
  * The page numbers to render: three at each end, or the current page flanked by its
@@ -38,7 +38,7 @@ export function Pagination({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="font-display text-[12px]" style={{ color: C.sub }}>
+      <p className="font-display text-label" style={{ color: C.sub }}>
         Showing{' '}
         <span className="font-medium" style={{ color: C.brand }}>
           {shown} of {total}
@@ -64,7 +64,7 @@ export function Pagination({
               p === '…' ? (
                 <span
                   key={`gap-${i}`}
-                  className={`${BOX} font-display text-[14px] font-medium`}
+                  className={`${BOX} font-display text-body font-medium`}
                   style={{ borderColor: C.line, color: C.sub }}
                 >
                   …
@@ -76,7 +76,7 @@ export function Pagination({
                   onClick={() => onChange(p)}
                   aria-label={`Page ${p}`}
                   aria-current={p === page ? 'page' : undefined}
-                  className={`${BOX} font-display text-[14px] font-medium`}
+                  className={`${BOX} font-display text-body font-medium`}
                   style={{
                     borderColor: p === page ? C.brand : C.line,
                     color: p === page ? C.brand : C.sub,

@@ -47,7 +47,7 @@ export function SearchInput({
 
   return (
     <div
-      className={`flex h-10 w-full min-w-0 items-center gap-2 rounded-[12px] px-3 sm:w-auto ${className}`}
+      className={`flex h-10 w-full min-w-0 items-center gap-2 rounded-control px-3 sm:w-auto ${className}`}
       style={{ backgroundColor: C.wash }}
     >
       <HugeiconsIcon icon={Search01Icon} size={16} color={C.ink} />
@@ -57,7 +57,7 @@ export function SearchInput({
         onChange={(e) => setTerm(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
-        className="w-full min-w-0 bg-transparent font-display text-[14px] outline-hidden placeholder:text-[#637083] sm:w-52"
+        className="w-full min-w-0 bg-transparent font-display text-body outline-hidden placeholder:text-gray-500 sm:w-52"
         style={{ color: C.ink }}
       />
     </div>

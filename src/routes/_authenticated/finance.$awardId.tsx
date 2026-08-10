@@ -15,24 +15,24 @@ export const Route = createFileRoute('/_authenticated/finance/$awardId')({
 type Grant = Awaited<ReturnType<typeof getFinanceGrant>>
 
 const PAY_STATUS = {
-  paid: { label: 'Paid', className: 'bg-emerald-50 text-emerald-700' },
-  overdue: { label: 'Overdue', className: 'bg-red-50 text-red-600' },
-  due_soon: { label: 'Due soon', className: 'bg-amber-50 text-amber-700' },
+  paid: { label: 'Paid', className: 'bg-success/10 text-success' },
+  overdue: { label: 'Overdue', className: 'bg-danger/10 text-danger' },
+  due_soon: { label: 'Due soon', className: 'bg-warning/10 text-warning' },
   upcoming: { label: 'Upcoming', className: 'bg-gray-100 text-gray-500' },
   tbc: { label: 'Date TBC', className: 'bg-gray-100 text-gray-400' },
 }
 
 const GRANT_STATUS = {
-  overdue: { label: 'Payment overdue', className: 'bg-red-50 text-red-600' },
-  due_soon: { label: 'Payment due soon', className: 'bg-amber-50 text-amber-700' },
+  overdue: { label: 'Payment overdue', className: 'bg-danger/10 text-danger' },
+  due_soon: { label: 'Payment due soon', className: 'bg-warning/10 text-warning' },
   scheduled: { label: 'Scheduled', className: 'bg-gray-100 text-gray-600' },
-  unscheduled: { label: 'No payment schedule', className: 'bg-amber-50 text-amber-700' },
-  paid: { label: 'Paid in full', className: 'bg-emerald-50 text-emerald-700' },
+  unscheduled: { label: 'No payment schedule', className: 'bg-warning/10 text-warning' },
+  paid: { label: 'Paid in full', className: 'bg-success/10 text-success' },
   cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-500' },
 }
 
 const inputClass =
-  'rounded-sm border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400'
+  'rounded-chip border border-gray-200 px-2.5 py-1.5 text-body focus:outline-hidden focus:ring-2 focus:ring-gray-400'
 
 function FinanceGrantDetail() {
   const grant = Route.useLoaderData()
@@ -45,10 +45,10 @@ function FinanceGrantDetail() {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-[21px] font-semibold text-gray-900">
+          <h1 className="font-display text-heading font-semibold text-gray-900">
             {grant.organisationName}
           </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-gray-500">
             {grant.programmeName && (
               <span>
                 <span className="text-gray-400">Programme </span>
@@ -79,7 +79,7 @@ function FinanceGrantDetail() {
           <Badge className={GRANT_STATUS[grant.status]?.className ?? 'bg-gray-100 text-gray-600'}>
             {GRANT_STATUS[grant.status]?.label ?? grant.status}
           </Badge>
-          <TextLink to="/awards/$awardId" params={{ awardId: grant.id }} className="text-xs">
+          <TextLink to="/awards/$awardId" params={{ awardId: grant.id }} className="text-label">
             Award record →
           </TextLink>
         </div>
@@ -116,7 +116,7 @@ function FinanceGrantDetail() {
           icon={Calendar03Icon}
           label="Next payment"
           value={grant.nextPayment ? fmtMoney(grant.nextPayment.amount) : '—'}
-          valueColor={grant.status === 'overdue' ? '#FF4242' : undefined}
+          valueColor={grant.status === 'overdue' ? 'var(--color-danger)' : undefined}
           sub={
             grant.nextPayment
               ? grant.nextPayment.dueDate
@@ -191,20 +191,20 @@ function PaymentsCard({ grant }: { grant: Grant }) {
   return (
     <Card className="px-5 py-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Payment schedule</h2>
-        <span className="text-xs text-gray-400">
+        <h2 className="text-body font-semibold text-gray-900">Payment schedule</h2>
+        <span className="text-label text-gray-400">
           {fmtMoney(grant.paidToDate)} of {fmtMoney(grant.scheduledTotal)} scheduled
         </span>
       </div>
 
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
-        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
       </div>
 
       {/* The plan and the promise are separate numbers, and they drift: an award can be
           committed at £60k with only £40k of instalments written down. */}
       {Math.round(grant.unallocated) !== 0 && (
-        <p className="mt-3 rounded-[10px] bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p className="mt-3 rounded-control bg-warning/10 px-3 py-2 text-label text-warning">
           {grant.unallocated > 0
             ? `${fmtMoney(grant.unallocated)} of the committed amount is not on the schedule yet.`
             : `The schedule is ${fmtMoney(-grant.unallocated)} more than the committed amount.`}
@@ -212,7 +212,7 @@ function PaymentsCard({ grant }: { grant: Grant }) {
       )}
 
       {grant.instalments.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-400">
+        <p className="mt-4 text-body text-gray-400">
           No instalments recorded. Add a schedule on the{' '}
           <TextLink to="/awards/$awardId" params={{ awardId: grant.id }}>
             award record
@@ -242,7 +242,7 @@ function PaymentsCard({ grant }: { grant: Grant }) {
     if (count === 0) return null
     return (
       <div className="mt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        <p className="text-label font-semibold uppercase tracking-wide text-gray-400">
           {title} <span className="tabular-nums text-gray-300">{count}</span>
         </p>
         <ul className="divide-y divide-gray-100">
@@ -252,7 +252,7 @@ function PaymentsCard({ grant }: { grant: Grant }) {
               <li key={inst.id} className="py-2.5">
                 {editId === inst.id ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-gray-400">#{inst.instalmentNo}</span>
+                    <span className="text-label text-gray-400">#{inst.instalmentNo}</span>
                     <input
                       type="number"
                       value={draftAmount}
@@ -280,11 +280,11 @@ function PaymentsCard({ grant }: { grant: Grant }) {
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">#{inst.instalmentNo}</span>
+                      <span className="text-label text-gray-400">#{inst.instalmentNo}</span>
                       <span className="font-medium tabular-nums text-gray-900">
                         {fmtMoney(inst.amount)}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-label text-gray-500">
                         {inst.paidDate
                           ? `Paid ${fmtDate(inst.paidDate)}`
                           : `Due ${fmtDate(inst.dueDate)}`}
@@ -349,44 +349,44 @@ function ReadinessCard({ grant }: { grant: Grant }) {
 
   return (
     <Card className="px-5 py-4">
-      <h2 className="text-sm font-semibold text-gray-900">Payment readiness</h2>
+      <h2 className="text-body font-semibold text-gray-900">Payment readiness</h2>
       <ul className="mt-3 space-y-2.5">
         {steps.map((s) => (
           <li key={s.name} className="flex items-start gap-2.5">
             <span
-              className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+              className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-label font-semibold ${
                 s.done
-                  ? 'bg-emerald-50 text-emerald-700'
+                  ? 'bg-success/10 text-success'
                   : s.warn
-                    ? 'bg-red-50 text-red-600'
+                    ? 'bg-danger/10 text-danger'
                     : 'bg-gray-100 text-gray-400'
               }`}
             >
               {s.done ? '✓' : s.warn ? '!' : '·'}
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900">{s.name}</p>
-              <p className={`text-xs ${s.warn ? 'text-red-600' : 'text-gray-400'}`}>{s.detail}</p>
+              <p className="text-body font-medium text-gray-900">{s.name}</p>
+              <p className={`text-label ${s.warn ? 'text-danger' : 'text-gray-400'}`}>{s.detail}</p>
             </div>
           </li>
         ))}
       </ul>
       {grant.nextPayment && (
         <div
-          className={`mt-3 rounded-[10px] px-3 py-2.5 ${
-            grant.status === 'overdue' ? 'bg-red-50' : 'bg-gray-50'
+          className={`mt-3 rounded-control px-3 py-2.5 ${
+            grant.status === 'overdue' ? 'bg-danger/10' : 'bg-gray-50'
           }`}
         >
-          <p className={`text-xs ${grant.status === 'overdue' ? 'text-red-700' : 'text-gray-500'}`}>
+          <p className={`text-label ${grant.status === 'overdue' ? 'text-danger' : 'text-gray-500'}`}>
             Next payment
           </p>
           <p
-            className={`text-sm font-semibold ${
-              grant.status === 'overdue' ? 'text-red-700' : 'text-gray-900'
+            className={`text-body font-semibold ${
+              grant.status === 'overdue' ? 'text-danger' : 'text-gray-900'
             }`}
           >
             {fmtMoney(grant.nextPayment.amount)}
-            <span className="ml-1.5 text-xs font-normal">
+            <span className="ml-1.5 text-label font-normal">
               {grant.nextPayment.dueDate ? `due ${fmtDate(grant.nextPayment.dueDate)}` : 'date TBC'}
             </span>
           </p>
@@ -406,9 +406,9 @@ const BANK_DETAIL_TEXT: Record<BankStatus, string> = {
 }
 
 const BANK_BADGE: Record<BankStatus, { label: string; className: string }> = {
-  valid: { label: 'Modulus check passed', className: 'bg-emerald-50 text-emerald-700' },
-  invalid: { label: 'Modulus check failed', className: 'bg-red-50 text-red-600' },
-  unchecked: { label: 'Not checkable', className: 'bg-amber-50 text-amber-700' },
+  valid: { label: 'Modulus check passed', className: 'bg-success/10 text-success' },
+  invalid: { label: 'Modulus check failed', className: 'bg-danger/10 text-danger' },
+  unchecked: { label: 'Not checkable', className: 'bg-warning/10 text-warning' },
   missing: { label: 'Not provided', className: 'bg-gray-100 text-gray-500' },
 }
 
@@ -429,7 +429,7 @@ function BankCard({ grant }: { grant: Grant }) {
   return (
     <Card className="px-5 py-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">Bank details</h2>
+        <h2 className="text-body font-semibold text-gray-900">Bank details</h2>
         <Badge className={badge.className}>{badge.label}</Badge>
       </div>
 
@@ -453,13 +453,13 @@ function BankCard({ grant }: { grant: Grant }) {
         />
       </dl>
 
-      <p className="mt-3 text-xs text-gray-400">
+      <p className="mt-3 text-label text-gray-400">
         {BANK_DETAIL_TEXT[bank.status]}. The check confirms the numbers are a valid pair, not who
         owns the account.
       </p>
 
       {bank.status !== 'valid' && (
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-label text-gray-400">
           Details come from the{' '}
           <TextLink
             to="/applications/$applicationId"
@@ -488,9 +488,9 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-xs text-gray-400">{label}</dt>
+      <dt className="text-label text-gray-400">{label}</dt>
       <dd className="flex items-baseline gap-2">
-        <span className={`text-sm text-gray-900 ${mono ? 'font-mono tabular-nums' : ''}`}>
+        <span className={`text-body text-gray-900 ${mono ? 'font-mono tabular-nums' : ''}`}>
           {value}
         </span>
         {action}
@@ -510,10 +510,10 @@ function BudgetCard({ grant }: { grant: Grant }) {
 
   return (
     <Card className="px-5 py-4">
-      <h2 className="text-sm font-semibold text-gray-900">
+      <h2 className="text-body font-semibold text-gray-900">
         Programme budget{grant.programmeName ? ` · ${grant.programmeName}` : ''}
       </h2>
-      <div className="mt-3 flex justify-between text-xs">
+      <div className="mt-3 flex justify-between text-label">
         <span className="text-gray-500">Committed</span>
         <span className="font-medium tabular-nums text-gray-700">
           {fmtMoney(b.committed)} / {fmtMoney(b.budget)}
@@ -522,19 +522,19 @@ function BudgetCard({ grant }: { grant: Grant }) {
       {/* Paid sits inside committed: the darker bar is money out, the lighter is promised. */}
       <div className="relative mt-1.5 h-2 overflow-hidden rounded-full bg-gray-100">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-emerald-200"
+          className="absolute inset-y-0 left-0 rounded-full bg-success/10"
           style={{ width: `${committedPct}%` }}
         />
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-emerald-500"
+          className="absolute inset-y-0 left-0 rounded-full bg-success"
           style={{ width: `${paidPct}%` }}
         />
       </div>
-      <div className="mt-1.5 flex justify-between text-xs text-gray-400">
+      <div className="mt-1.5 flex justify-between text-label text-gray-400">
         <span>{fmtMoney(b.paidToDate)} paid</span>
         <span>{fmtMoney(Math.max(0, b.budget - b.committed))} uncommitted</span>
       </div>
-      <p className="mt-2.5 text-xs text-gray-400">
+      <p className="mt-2.5 text-label text-gray-400">
         This grant is {share}% of the {b.grantCount} award{b.grantCount === 1 ? '' : 's'} committed
         from this round programme.
       </p>

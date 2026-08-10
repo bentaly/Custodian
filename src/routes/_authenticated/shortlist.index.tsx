@@ -94,7 +94,7 @@ function ShortlistPage() {
     <div className="flex flex-col gap-4">
       {/* ── Header: title, then the round pill beneath it (as Applications) ── */}
       <div className="flex flex-col gap-4">
-        <h1 className="font-display text-[20px] font-medium" style={{ color: C.ink }}>
+        <h1 className="font-display text-heading font-medium" style={{ color: C.ink }}>
           Shortlist
         </h1>
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -108,7 +108,7 @@ function ShortlistPage() {
               />
             )}
             <span
-              className="whitespace-nowrap font-display text-[12px] font-medium"
+              className="whitespace-nowrap font-display text-label font-medium"
               style={{ color: C.sub }}
             >
               {metaLine}
@@ -118,7 +118,7 @@ function ShortlistPage() {
             <Link
               to="/shortlist/set-up-awards"
               search={{ roundId }}
-              className="rounded-[12px] px-4 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+              className="rounded-control px-4 py-2.5 text-body font-semibold text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: C.brand }}
             >
               Set up {approved.length === 1 ? 'award' : `${approved.length} awards`} →
@@ -129,14 +129,14 @@ function ShortlistPage() {
 
       {items.length === 0 ? (
         <EmptyState>
-          <p className="text-sm font-medium text-gray-500">Nothing shortlisted in this round</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="text-body font-medium text-gray-500">Nothing shortlisted in this round</p>
+          <p className="mt-1 text-label text-gray-400">
             Open an application and add it to the shortlist to bring it to the board.
           </p>
           <Link
             to="/applications"
             search={{ roundId }}
-            className="mt-4 inline-block rounded-sm border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            className="mt-4 inline-block rounded-control border border-gray-200 px-4 py-2 text-body text-gray-600 hover:bg-gray-50"
           >
             Go to Applications →
           </Link>
@@ -154,7 +154,7 @@ function ShortlistPage() {
             >
               <div className="mt-3 space-y-1.5">
                 {budgets.slice(0, 4).map((b) => (
-                  <div key={b.roundProgrammeId} className="flex justify-between gap-2 text-[11px]">
+                  <div key={b.roundProgrammeId} className="flex justify-between gap-2 text-label">
                     <span className="truncate" style={{ color: C.sub }}>
                       {b.programmeName}
                     </span>
@@ -187,7 +187,7 @@ function ShortlistPage() {
                     const spend = b.committed + b.proposed
                     return (
                       <div key={b.roundProgrammeId}>
-                        <div className="flex justify-between gap-2 text-[11px]">
+                        <div className="flex justify-between gap-2 text-label">
                           <span className="truncate" style={{ color: C.sub }}>
                             {b.programmeName}
                           </span>
@@ -209,14 +209,14 @@ function ShortlistPage() {
                           bars={24}
                           segments={[
                             { value: b.committed, color: C.brand },
-                            { value: b.proposed, color: spend > budget ? C.danger : '#7FC3A6' },
+                            { value: b.proposed, color: spend > budget ? C.danger : 'var(--color-gray-400)' },
                             { value: Math.max(0, budget - spend), color: C.line },
                           ]}
                         />
                       </div>
                     )
                   })}
-                  <p className="pt-0.5 text-[10.5px]" style={{ color: C.faint }}>
+                  <p className="pt-0.5 text-label" style={{ color: C.faint }}>
                     {fmtMoney(committedTotal)} already committed this round
                   </p>
                 </div>
@@ -230,7 +230,7 @@ function ShortlistPage() {
               value={`${approved.length} of ${items.length}`}
               sub="approved and ready to award"
             >
-              <div className="mt-3 space-y-1.5 text-[11px]">
+              <div className="mt-3 space-y-1.5 text-label">
                 {oneShort.length > 0 && (
                   <div style={{ color: C.amber }}>
                     <strong>{oneShort.length}</strong> one vote short
@@ -244,7 +244,7 @@ function ShortlistPage() {
                 {outstandingByTrustee.length > 0 && (
                   <div className="border-t pt-1.5" style={{ borderColor: C.line }}>
                     <div
-                      className="mb-1 text-[10px] font-semibold uppercase tracking-[.04em]"
+                      className="mb-1 text-label font-semibold uppercase tracking-[.04em]"
                       style={{ color: C.faint }}
                     >
                       Still to vote

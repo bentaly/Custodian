@@ -130,23 +130,23 @@ function SettingsCard({ card }: { card: Card }) {
   return (
     <Link
       to={card.to}
-      className="group flex gap-4 rounded-[16px] border p-5 transition-colors hover:border-[#1F7A5C]/40 hover:bg-[#FCFDFC]"
+      className="group flex gap-4 rounded-card border p-4 transition-colors hover:border-brand/40 hover:bg-background"
       style={{ borderColor: C.line }}
     >
       <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control"
         style={{ backgroundColor: C.brandWash, color: C.brand }}
       >
         <HugeiconsIcon icon={card.icon} className="h-5 w-5" strokeWidth={1.75} />
       </span>
       <span className="min-w-0">
         <span
-          className="block text-[15px] font-semibold group-hover:underline"
+          className="block text-body font-semibold group-hover:underline"
           style={{ color: C.brand }}
         >
           {card.title}
         </span>
-        <span className="mt-1 block text-[13px] leading-relaxed" style={{ color: C.sub }}>
+        <span className="mt-1 block text-body leading-relaxed" style={{ color: C.sub }}>
           {card.description}
         </span>
       </span>
@@ -167,10 +167,10 @@ function Settings() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-2xl font-semibold" style={{ color: C.ink }}>
+      <h1 className="text-heading font-semibold" style={{ color: C.ink }}>
         Settings
       </h1>
-      <p className="mt-1 text-sm" style={{ color: C.sub }}>
+      <p className="mt-1 text-body" style={{ color: C.sub }}>
         {isAdmin
           ? 'Manage how your foundation funds, decides and receives applications.'
           : 'How your foundation funds and decides. Ask an admin to change any of it.'}
@@ -181,12 +181,12 @@ function Settings() {
           <section key={group.title}>
             <div className="flex items-center gap-2.5">
               <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg"
+                className="flex h-7 w-7 items-center justify-center rounded-chip"
                 style={{ backgroundColor: C.brandWash, color: C.brand }}
               >
                 <HugeiconsIcon icon={group.icon} className="h-4 w-4" strokeWidth={1.75} />
               </span>
-              <h2 className="text-[17px] font-semibold" style={{ color: C.ink }}>
+              <h2 className="text-title font-semibold" style={{ color: C.ink }}>
                 {group.title}
               </h2>
             </div>

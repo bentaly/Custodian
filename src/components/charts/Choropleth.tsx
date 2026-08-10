@@ -28,7 +28,7 @@ import { chart, fmtMoney, tooltipBox } from './theme'
 // light end ≥ 2:1 on white, single hue — spread is 1°). Do not hand-tweak a step
 // without re-running that check; the light end in particular sits deliberately
 // close to its 2:1 floor and a "nicer" paler green would disappear on the panel.
-const RAMP = ['#87B5A1', '#69A089', '#4B8B71', '#29765B', '#006145'] as const
+const RAMP = ['var(--color-gray-400)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)'] as const
 
 // Areas with no grants. Distinct from — and lighter than — every ramp step, so
 // "we funded nothing here" can never be misread as "we funded a little here".
@@ -38,7 +38,7 @@ const RAMP = ['#87B5A1', '#69A089', '#4B8B71', '#29765B', '#006145'] as const
 // does, so a colour that reads as "a quiet backdrop" at region size reads as
 // "nothing rendered" at 5px. The land has to stay visible for the funded dots
 // to have a shape to sit in.
-const EMPTY = '#BCD8CF'
+const EMPTY = 'var(--color-gray-300)'
 
 // The one country with a layer beneath it, so it is the one country on the
 // world map that drills rather than selects.
@@ -538,7 +538,7 @@ export function Choropleth({
   if (error) {
     return (
       <Frame height={height}>
-        <p className="font-display text-[13px]" style={{ color: chart.sub }}>
+        <p className="font-display text-body" style={{ color: chart.sub }}>
           Couldn’t load the map boundaries.
         </p>
       </Frame>
@@ -691,7 +691,7 @@ export function Choropleth({
       </div>
 
       {funded === 0 && (
-        <p className="mt-2 font-display text-[12px]" style={{ color: chart.sub }}>
+        <p className="mt-2 font-display text-label" style={{ color: chart.sub }}>
           {view.kind === 'world'
             ? 'No grant in this slice has a resolved delivery location.'
             : view.kind === 'country'
@@ -706,7 +706,7 @@ export function Choropleth({
 function Frame({ height, children }: { height: number; children: React.ReactNode }) {
   return (
     <div
-      className="flex items-center justify-center rounded-xl"
+      className="flex items-center justify-center rounded-control"
       style={{ height, backgroundColor: chart.dot }}
     >
       {children}
@@ -777,7 +777,7 @@ function Breadcrumb({
       {crumbs.map((c, i) => (
         <span key={c.label} className="flex items-center gap-1">
           {i > 0 && (
-            <span className="font-display text-[12px]" style={{ color: chart.faint }}>
+            <span className="font-display text-label" style={{ color: chart.faint }}>
               ›
             </span>
           )}
@@ -785,13 +785,13 @@ function Breadcrumb({
             <button
               type="button"
               onClick={() => onViewChange(c.to!)}
-              className="rounded font-display text-[12px] underline-offset-2 hover:underline"
+              className="rounded-chip font-display text-label underline-offset-2 hover:underline"
               style={{ color: chart.sub }}
             >
               {c.label}
             </button>
           ) : (
-            <span className="font-display text-[12px] font-medium" style={{ color: chart.ink }}>
+            <span className="font-display text-label font-medium" style={{ color: chart.ink }}>
               {c.label}
             </span>
           )}
@@ -805,7 +805,7 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <div className="flex items-center gap-1.5">
-        <span className="font-display text-[11px]" style={{ color: chart.faint }}>
+        <span className="font-display text-label" style={{ color: chart.faint }}>
           Less
         </span>
         <span className="flex">
@@ -833,7 +833,7 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
             />
           ))}
         </span>
-        <span className="font-display text-[11px]" style={{ color: chart.faint }}>
+        <span className="font-display text-label" style={{ color: chart.faint }}>
           More
         </span>
       </div>
@@ -841,7 +841,7 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
       {hasEmpty && (
         <span className="flex items-center gap-1.5">
           <span style={{ width: 10, height: 10, borderRadius: 3, background: EMPTY }} />
-          <span className="font-display text-[11px]" style={{ color: chart.faint }}>
+          <span className="font-display text-label" style={{ color: chart.faint }}>
             No funding
           </span>
         </span>
@@ -863,7 +863,7 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
 export function MapAttribution({ view }: { view: MapView }) {
   if (view.kind !== 'uk' && view.kind !== 'region') return null
   return (
-    <p className="mt-2 font-display text-[10px] leading-snug" style={{ color: chart.faint }}>
+    <p className="mt-2 font-display text-label leading-snug" style={{ color: chart.faint }}>
       Contains OS data © Crown copyright and database right 2025. Source: ONS, licensed under the
       Open Government Licence v3.0.
     </p>

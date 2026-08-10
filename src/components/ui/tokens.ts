@@ -1,43 +1,65 @@
-// The Figma variables, in one place.
+// The Figma colour variables, for the places a Tailwind class cannot reach: inline
+// `style` objects, Recharts props, SVG attributes. Everything else should use the
+// utility (`text-gray-500`), not `C.sub` — same token either way.
 //
-// Until the design token set lands, every screen has been re-declaring its own `C`
-// object of hex codes — which is how the app ended up with two button vocabularies and
-// a date pill in the wrong grey. Shared components import from here; a screen that
-// still has a local `C` should be migrated to it rather than extended.
+// No hex codes live here any more. Each entry points at the custom property defined in
+// `styles/globals.css`, which is the single transcription of the Figma variables; a
+// token changed there changes here, and there is no second copy to drift.
 //
-// Greys are Figma's Gray/N scale. `brand` is the one green, with its 10%/20% washes for
-// tinted surfaces and its 5% for hovers.
+// Tints follow the ladder the comps use — brand at 5% for a surface, 10% for a fill,
+// 20% for a border (nodes 222:1026, 217:664) — expressed with `color-mix` so they
+// derive from the token rather than being separate frozen values.
+
+/** A token at a percentage of itself — the tint ladder, as ALPHA rather than a
+ *  composite over white, which is what the comps use (`rgba(31,122,92,0.1)`). The
+ *  difference shows the moment a tinted thing sits on anything but a white surface. */
+export const tint = (token: string, pct: number) =>
+  `color-mix(in srgb, var(--color-${token}) ${pct}%, transparent)`
 
 export const C = {
-  ink: '#141C24', // Gray/900 — all body text, every icon, every dropdown caret
-  body: '#344051', // Gray/700
-  sub: '#637083', // Gray/500 — secondary text, placeholders
-  faint: '#97A1AF', // Gray/400 — meta, disabled
-  muted: '#CED2DA', // Gray/300
-  line: '#E4E7EC', // Gray/200 — every border
-  wash: '#F2F4F7', // Gray/100 — filled inputs, avatar tiles
-  white: '#FFFFFF',
+  ink: 'var(--color-gray-900)', // body text, icons, dropdown carets
+  body: 'var(--color-gray-700)',
+  sub: 'var(--color-gray-500)', // secondary text, placeholders
+  faint: 'var(--color-gray-400)', // meta, disabled
+  muted: 'var(--color-gray-300)',
+  line: 'var(--color-gray-200)', // every border
+  wash: 'var(--color-gray-100)', // filled inputs, avatar tiles
+  white: 'var(--color-white)',
 
-  brand: '#1F7A5C',
-  brandHover: '#17563F',
-  brandBg: 'rgba(31, 122, 92, 0.1)',
-  brandBorder: 'rgba(31, 122, 92, 0.2)',
-  brandWash: '#EDF6F2',
+  brand: 'var(--color-brand)',
+  brandWash: tint('brand', 5), // a surface carrying brand meaning
+  brandBg: tint('brand', 10), // a filled chip or tinted button
+  brandBorder: tint('brand', 20),
 
-  success: '#31A650',
-  amber: '#9B6916',
-  amberWash: '#FEF7EB',
-  danger: '#FF4242',
-  dangerWash: '#FDEFF2',
-  warning: '#F89828',
-  info: '#3B82C4',
+  success: 'var(--color-success)',
+  successWash: tint('success', 10),
+  warning: 'var(--color-warning)',
+  warningWash: tint('warning', 10),
+  danger: 'var(--color-danger)',
+  dangerWash: tint('danger', 10),
+  info: 'var(--color-info)',
+  infoWash: tint('info', 10),
+
+  /** Alias kept because a dozen call sites say `amber` for the warning hue. */
+  amber: 'var(--color-warning)',
+  amberWash: tint('warning', 10),
 } as const
 
-// Two values were in circulation for each of `danger` and `faint` when this file was
-// written. The ones above are the pair the Figma-correct screens use (dashboard,
-// applications, insights); `#C0344F` and `#98A2B3` were the strays, on Shortlist/VoteCard
-// and the dashboard respectively. Change the red here if the deeper one is preferred —
-// that is the point of it being in one place.
+// The four semantic hues are FILL colours: none reaches 4.5:1 as text on white or on its
+// own 10% wash, so status pills built from them fail WCAG AA. This is deliberate as of
+// 2026-08-10 — the Figma values are used as-is rather than inventing darker foregrounds,
+// and the designer has been asked for an accessible text variant of each. When those
+// arrive they belong in `globals.css` as `--color-*-fg`, not as literals here.
+
+/** The colours a foundation picks a programme's colour from — the Figma Accent family
+ *  plus Semantic/Success, exactly the five bound on the Programmes comp (674:33847). */
+export const PROGRAMME_COLORS = [
+  'var(--color-accent-sky)',
+  'var(--color-success)',
+  'var(--color-accent-blush)',
+  'var(--color-accent-amber)',
+  'var(--color-accent-violet)',
+] as const
 
 /**
  * The two control heights the design uses, and the radius each one wears: 32px
@@ -45,8 +67,8 @@ export const C = {
  * 12px-rounded (screen-level buttons, the search field, the round pill).
  */
 export const CONTROL = {
-  sm: { height: 'h-8', radius: 'rounded-lg', text: 'text-[14px]', padding: 'px-3' },
-  md: { height: 'h-10', radius: 'rounded-[12px]', text: 'text-[14px]', padding: 'px-4' },
+  sm: { height: 'h-8', radius: 'rounded-chip', text: 'text-body', padding: 'px-3' },
+  md: { height: 'h-10', radius: 'rounded-control', text: 'text-body', padding: 'px-4' },
 } as const
 
 export type ControlSize = keyof typeof CONTROL

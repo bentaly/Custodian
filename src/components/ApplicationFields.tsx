@@ -31,7 +31,7 @@ function fmtAmount(v: string | null) {
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</h3>
+      <h3 className="mb-3 text-label font-semibold uppercase tracking-wide text-gray-400">{title}</h3>
       {children}
     </section>
   )
@@ -39,11 +39,11 @@ export function Section({ title, children }: { title: string; children: React.Re
 
 export function KeyValueCard({ rows }: { rows: FieldRow[] }) {
   return (
-    <div className="rounded-lg border border-gray-200">
+    <div className="rounded-chip border border-gray-200">
       {rows.map((r) => (
         <div
           key={r.label}
-          className="flex justify-between gap-4 border-b border-gray-100 px-4 py-2.5 text-sm last:border-b-0"
+          className="flex justify-between gap-4 border-b border-gray-100 px-4 py-2.5 text-body last:border-b-0"
         >
           <span className="text-gray-500">{r.label}</span>
           <span className="text-right font-medium text-gray-900">{r.value || '—'}</span>
@@ -79,10 +79,10 @@ export function ApplicationFields({ application }: { application: ApplicationFie
 
       {budget.length > 0 && (
         <Section title="Project budget">
-          <div className="rounded-lg border border-gray-200">
+          <div className="rounded-chip border border-gray-200">
             {budget.map((l, i) => (
               <div key={i} className="border-b border-gray-100 px-4 py-2.5">
-                <div className="flex justify-between gap-4 text-sm">
+                <div className="flex justify-between gap-4 text-body">
                   <span className="text-gray-500">{l.item}</span>
                   <span className="text-right font-medium tabular-nums text-gray-900">
                     {formatPounds(l.amount)}
@@ -93,7 +93,7 @@ export function ApplicationFields({ application }: { application: ApplicationFie
                 {l.details && l.details.length > 0 && (
                   <dl className="mt-1.5 space-y-0.5">
                     {l.details.map((d, j) => (
-                      <div key={j} className="flex gap-2 text-xs text-gray-400">
+                      <div key={j} className="flex gap-2 text-label text-gray-400">
                         <dt className="shrink-0">{d.label}:</dt>
                         <dd className="whitespace-pre-wrap text-gray-500">{d.value}</dd>
                       </div>
@@ -102,7 +102,7 @@ export function ApplicationFields({ application }: { application: ApplicationFie
                 )}
               </div>
             ))}
-            <div className="flex justify-between gap-4 px-4 py-2.5 text-sm">
+            <div className="flex justify-between gap-4 px-4 py-2.5 text-body">
               <span className="font-medium text-gray-900">Total project budget</span>
               <span className="text-right font-semibold tabular-nums text-gray-900">
                 {formatPounds(budgetTotal(budget))}
@@ -111,7 +111,7 @@ export function ApplicationFields({ application }: { application: ApplicationFie
           </div>
           {/* The budget covers the whole project; the ask may be a part of it. Said
               plainly so a total above "Amount requested" doesn't read as an error. */}
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-label text-gray-400">
             The cost of the whole project — this need not match the amount requested.
           </p>
         </Section>
@@ -125,13 +125,13 @@ export function ApplicationFields({ application }: { application: ApplicationFie
 
       <Section title="Form responses">
         {responses.length === 0 ? (
-          <p className="text-sm text-gray-400">No form responses recorded.</p>
+          <p className="text-body text-gray-400">No form responses recorded.</p>
         ) : (
           <dl className="space-y-5">
             {responses.map((r, i) => (
               <div key={i}>
-                <dt className="mb-1 text-xs font-medium text-gray-500">{r.label}</dt>
-                <dd className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                <dt className="mb-1 text-label font-medium text-gray-500">{r.label}</dt>
+                <dd className="whitespace-pre-wrap text-body leading-relaxed text-gray-700">
                   {r.value || '—'}
                 </dd>
               </div>

@@ -59,13 +59,13 @@ const COLUMNS: TableColumn<Row>[] = [
     header: 'Organisation',
     sortable: true,
     cell: (r) => (
-      <span className="font-display text-[14px] font-medium text-[#141C24]">{r.organisation}</span>
+      <span className="font-display text-body font-medium text-gray-900">{r.organisation}</span>
     ),
   },
   {
     id: 'programme',
     header: 'Programme',
-    cell: (r) => <span className="font-display text-[14px] text-[#637083]">{r.programme}</span>,
+    cell: (r) => <span className="font-display text-body text-gray-500">{r.programme}</span>,
   },
   {
     id: 'amount',
@@ -73,7 +73,7 @@ const COLUMNS: TableColumn<Row>[] = [
     width: 'sm:w-[130px]',
     sortable: true,
     cell: (r) => (
-      <span className="font-display text-[14px] font-medium tabular-nums text-[#141C24]">
+      <span className="font-display text-body font-medium tabular-nums text-gray-900">
         {r.amount}
       </span>
     ),
@@ -89,7 +89,7 @@ const COLUMNS: TableColumn<Row>[] = [
 export const Table: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+      <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
         <DataTable columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} />
       </div>
       <Pagination page={1} pageCount={4} shown={3} total={87} noun="awards" onChange={() => {}} />
@@ -100,7 +100,7 @@ export const Table: Story = {
 /** Selection turns the first column into checkboxes; the toolbar is the screen's own. */
 export const TableWithSelection: Story = {
   render: () => (
-    <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+    <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
       <DataTable
         columns={COLUMNS}
         rows={ROWS}
@@ -121,8 +121,8 @@ export const TableWithSelection: Story = {
 export const Empty: Story = {
   render: () => (
     <EmptyState>
-      <p className="text-sm text-gray-500">No awards match these filters.</p>
-      <p className="mt-1 text-xs text-gray-400">
+      <p className="text-body text-gray-500">No awards match these filters.</p>
+      <p className="mt-1 text-label text-gray-400">
         Awards appear here as soon as one is generated after the trustee vote.
       </p>
     </EmptyState>
@@ -197,7 +197,7 @@ export const Pills: Story = {
       <StatusPill label="Awarded" color={C.brand} />
       <StatusPill label="Declined" color={C.danger} />
       <Badge className="bg-gray-100 text-gray-600">Closed</Badge>
-      <Badge className="bg-green-100 text-green-700">In open round</Badge>
+      <Badge className="bg-success/10 text-success">In open round</Badge>
     </div>
   ),
 }

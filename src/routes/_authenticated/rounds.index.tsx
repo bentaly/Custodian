@@ -64,8 +64,8 @@ function Rounds() {
       <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Rounds' }]} />
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Funding Rounds</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-heading font-semibold text-gray-900">Funding Rounds</h1>
+          <p className="mt-1 text-body text-gray-500">
             Manage your organisation's funding rounds and programmes
           </p>
         </div>
@@ -73,8 +73,8 @@ function Rounds() {
       </div>
 
       {showCreate && (
-        <Card className="p-5">
-          <h2 className="mb-4 text-sm font-medium text-gray-700">Create funding round</h2>
+        <Card className="p-4">
+          <h2 className="mb-4 text-body font-medium text-gray-700">Create funding round</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
               <Label>Round name</Label>
@@ -97,7 +97,7 @@ function Rounds() {
                 required
               />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-body text-danger">{error}</p>}
             <div className="flex gap-2">
               <Button type="submit" disabled={creating}>
                 {creating ? 'Creating…' : 'Create round'}
@@ -112,9 +112,9 @@ function Rounds() {
 
       {rounds.length === 0 && !showCreate ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No funding rounds yet.</p>
+          <p className="text-body text-gray-500">No funding rounds yet.</p>
           {canManage && (
-            <p className="mt-1 text-sm text-gray-400">Create your first round to get started.</p>
+            <p className="mt-1 text-body text-gray-400">Create your first round to get started.</p>
           )}
         </EmptyState>
       ) : (
@@ -127,12 +127,12 @@ function Rounds() {
                 key={round.id}
                 to="/rounds/$roundId"
                 params={{ roundId: round.id }}
-                className={`block rounded-lg border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50 ${round.archivedAt ? 'opacity-60' : ''}`}
+                className={`block rounded-card border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50 ${round.archivedAt ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{round.name}</span>
+                      <span className="text-body font-medium text-gray-900">{round.name}</span>
                       {(() => {
                         const s = getRoundStatus(round)
                         return (
@@ -143,7 +143,7 @@ function Rounds() {
                         <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
                       )}
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
+                    <div className="mt-1 flex items-center gap-3 text-label text-gray-400">
                       <span>
                         {round.roundProgrammes.length}{' '}
                         {round.roundProgrammes.length === 1 ? 'programme' : 'programmes'}
@@ -155,7 +155,7 @@ function Rounds() {
                       )}
                     </div>
                   </div>
-                  <span className="text-xs text-gray-400">→</span>
+                  <span className="text-label text-gray-400">→</span>
                 </div>
               </Link>
             )

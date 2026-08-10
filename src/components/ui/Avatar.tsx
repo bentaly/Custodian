@@ -40,7 +40,7 @@ export function Avatar({
   }
   return (
     <span
-      className={`flex shrink-0 items-center justify-center rounded-full bg-[#DFF3EA] font-semibold text-[#1F7A5C] ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-brand-secondary font-semibold text-brand ${className}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.375) }}
     >
       {initials(name)}

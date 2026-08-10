@@ -54,7 +54,7 @@ export const GrantTerms: Story = {
     const [max, setMax] = useState('50000')
     const [years, setYears] = useState('3')
     return (
-      <Card className="max-w-3xl p-5">
+      <Card className="max-w-3xl p-4">
         <GrantTermsFields
           budget={budget}
           onBudget={setBudget}

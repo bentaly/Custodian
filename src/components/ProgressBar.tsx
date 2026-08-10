@@ -5,7 +5,7 @@
 export function ProgressBar({
   value,
   color,
-  track = '#F2F4F7',
+  track = 'var(--color-gray-100)',
   height = 6,
   delay = 0,
   animate = true,

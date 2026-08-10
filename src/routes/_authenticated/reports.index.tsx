@@ -52,20 +52,20 @@ const STATUS_LABELS: Record<ReportRowStatus, string> = {
 }
 
 const STATUS_COLORS: Record<ReportRowStatus, string> = {
-  overdue: 'bg-red-50 text-red-700',
-  due_soon: 'bg-amber-50 text-amber-700',
+  overdue: 'bg-danger/10 text-danger',
+  due_soon: 'bg-warning/10 text-warning',
   upcoming: 'bg-gray-100 text-gray-600',
-  received: 'bg-blue-50 text-blue-700',
-  reviewed: 'bg-emerald-50 text-emerald-700',
+  received: 'bg-info/10 text-info',
+  reviewed: 'bg-success/10 text-success',
 }
 
 // Hex per status for the shared StatusPill (dot + tinted background).
 const STATUS_HEX: Record<ReportRowStatus, string> = {
-  overdue: '#FF4242',
-  due_soon: '#9B6916',
-  upcoming: '#637083',
-  received: '#3B82C4',
-  reviewed: '#31A650',
+  overdue: 'var(--color-danger)',
+  due_soon: 'var(--color-warning)',
+  upcoming: 'var(--color-gray-500)',
+  received: 'var(--color-info)',
+  reviewed: 'var(--color-success)',
 }
 
 type Tab = 'all' | ReceivedStatus
@@ -80,7 +80,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
         to="/reports/$reportKey"
         params={{ reportKey: item.key }}
         onClick={(e) => e.stopPropagation()}
-        className="font-display text-[14px] font-medium text-[#141C24] hover:underline"
+        className="font-display text-body font-medium text-gray-900 hover:underline"
       >
         {item.organisationName}
       </Link>
@@ -91,14 +91,14 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     hideBelow: 'lg',
     header: 'Programme',
     cell: (item) => (
-      <span className="font-display text-[14px] text-[#637083]">{item.programmeName ?? '—'}</span>
+      <span className="font-display text-body text-gray-500">{item.programmeName ?? '—'}</span>
     ),
   },
   {
     id: 'report',
     hideBelow: 'sm',
     header: 'Report',
-    cell: (item) => <span className="font-display text-[14px] text-[#637083]">{item.label}</span>,
+    cell: (item) => <span className="font-display text-body text-gray-500">{item.label}</span>,
   },
   {
     id: 'received',
@@ -106,7 +106,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     header: 'Received',
     width: 'sm:w-[160px]',
     cell: (item) => (
-      <span className="whitespace-nowrap font-display text-[14px] text-[#637083]">
+      <span className="whitespace-nowrap font-display text-body text-gray-500">
         {fmtDate(item.submittedAt)}
       </span>
     ),
@@ -142,13 +142,13 @@ function ReportsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="font-display text-[20px] font-medium text-[#141C24]">Reports</h1>
+        <h1 className="font-display text-heading font-medium text-gray-900">Reports</h1>
         <Button variant="secondary" onClick={() => setDueOpen(true)}>
           Outstanding
           {totals.outstanding > 0 && (
             <span
-              className={`ml-2 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
-                totals.overdue > 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
+              className={`ml-2 rounded-full px-1.5 py-0.5 text-label font-semibold ${
+                totals.overdue > 0 ? 'bg-danger/10 text-danger' : 'bg-gray-100 text-gray-600'
               }`}
             >
               {totals.outstanding}
@@ -177,7 +177,7 @@ function ReportsPage() {
           icon={Alert02Icon}
           label="Overdue"
           value={String(totals.overdue)}
-          valueColor={totals.overdue > 0 ? '#FF4242' : undefined}
+          valueColor={totals.overdue > 0 ? 'var(--color-danger)' : undefined}
           sub="follow-up needed"
         />
         <MiniKpi
@@ -202,15 +202,15 @@ function ReportsPage() {
 
       {items.length === 0 ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No reports received yet.</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="text-body text-gray-500">No reports received yet.</p>
+          <p className="mt-1 text-label text-gray-400">
             Reports appear here as soon as a grantee submits one. Dates you are still waiting on are
             under “Outstanding”.
           </p>
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+          <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
             <DataTable
               columns={REPORT_COLUMNS}
               rows={items}
@@ -270,7 +270,7 @@ function OutstandingDrawer({
     >
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {rows.length === 0 ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-body text-gray-500">
             Every scheduled report has been received. New dates appear here when an award is
             generated.
           </p>
@@ -279,8 +279,8 @@ function OutstandingDrawer({
             {rows.map((r) => (
               <li key={r.key} className="flex items-start justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-900">{r.organisationName}</p>
-                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                  <p className="truncate text-body font-medium text-gray-900">{r.organisationName}</p>
+                  <p className="mt-0.5 truncate text-label text-gray-500">
                     {r.label}
                     {r.programmeName ? ` · ${r.programmeName}` : ''}
                   </p>
@@ -288,8 +288,8 @@ function OutstandingDrawer({
                 <div className="shrink-0 text-right">
                   <Badge className={STATUS_COLORS[r.status]}>{STATUS_LABELS[r.status]}</Badge>
                   <p
-                    className={`mt-1 whitespace-nowrap text-xs ${
-                      r.status === 'overdue' ? 'font-medium text-red-600' : 'text-gray-500'
+                    className={`mt-1 whitespace-nowrap text-label ${
+                      r.status === 'overdue' ? 'font-medium text-danger' : 'text-gray-500'
                     }`}
                   >
                     {fmtDate(r.dueDate)}

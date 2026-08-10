@@ -12,24 +12,85 @@
 @theme {
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
 
-  --color-canvas: #fafbfa;
-  --color-hairline: #edf0ef;
-  /* The hairline as it reads on the moss panel — the plain one disappears against it. */
-  --color-hairline-moss: #dfe9e1;
+  /* Corner radius, from the Figma. The comps use exactly five values, and each one
+     means a kind of thing rather than a size — so they are named for the thing. Read
+     off nodes 217:82 (header), 217:652 (page header row), 222:1026 (right rail),
+     674:33865 (card) and the style-guide page 679:35170.
 
-  --color-ink: #101828;
-  --color-ink-muted: #5f6b76;
-  --color-ink-soft: #3d4852;
+     `--radius-*: initial` DELETES Tailwind's stock scale (`rounded-sm`…`rounded-3xl`)
+     rather than remapping it. A stray stock class then generates no CSS at all and shows
+     up as a square corner — a visible failure — instead of quietly rendering at an
+     off-Figma size. These five are the only radii the app can express. `rounded-full`
+     and `rounded-none` survive: they are static utilities, not part of this namespace. */
+  /* Type ramp. The comps never declared text styles, so this is read off the screens
+     themselves (Programmes 674:33847, Application Details 217:4, Dashboard 126:31795)
+     and confirmed as the intended set on 2026-08-10. Five steps, named for the role.
 
-  --color-moss-50: #f0f3f1;
-  --color-moss-100: #dff0e7;
-  --color-moss-600: #1c6b4f;
-  --color-moss-700: #17795a;
+     Deleted rather than extended, same as the radii: `text-sm`/`text-2xl` and friends
+     generate nothing, so a size outside the ramp fails visibly. Sizes carry no paired
+     line-height — the comps set none, so leading stays the element's own. */
+  --text-*: initial;
+  --text-label: 12px; /* field labels, meta, status pills */
+  --text-body: 14px; /* body copy, values, item titles, button labels */
+  --text-title: 16px; /* card titles */
+  --text-heading: 20px; /* page titles */
+  --text-display: 32px; /* KPI numbers and other hero figures */
 
-  --color-tile-lavender: #eeeefb;
-  --color-tile-mint: #e9f7ef;
-  --color-tile-cream: #fdf6e3;
-  --color-tile-blush: #fdf0f4;
+  --radius-*: initial;
+  --radius-swatch: 2px; /* programme colour squares, chart legend keys */
+  --radius-chip: 8px; /* 32px controls, avatar tiles, inline note panels */
+  --radius-control: 12px; /* 40px controls — buttons, inputs, the search field */
+  --radius-card: 16px; /* cards, sections, dialogs */
+  --radius-pill: 20px; /* status pills and badges */
+
+  /* Colour, from the Figma variables (style guide 679:35170, read via the Figma MCP).
+     These 25 are the entire palette — `--color-*: initial` deletes Tailwind's stock
+     colours below, so `bg-gray-50` or `text-red-600` generate nothing and fail visibly
+     rather than shipping a hue no designer chose.
+
+     Figma's names are kept verbatim, minus the group prefix, so a value can be traced
+     back to the variable it came from without a translation table. */
+  --color-*: initial;
+
+  /* Brand */
+  --color-brand: #1f7a5c; /* Brand/Primary */
+  --color-brand-light: #8ae8c6; /* Brand/Primary Light */
+  --color-brand-secondary: #dff3ea; /* Brand/Secondary */
+
+  /* Foundation */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-background: #fcfcfc; /* the page behind everything */
+  --color-surface: #f6f6f6; /* a panel raised off the background */
+
+  /* Semantic. NOTE: these are FILL colours — none of the four reaches 4.5:1 against
+     white or against its own 10% wash, so as pill/label text they fail WCAG AA. Used
+     as-is by decision (2026-08-10) rather than inventing darker foregrounds; the
+     designer has been asked for an accessible text variant of each. */
+  --color-success: #31a650;
+  --color-warning: #f89828;
+  --color-danger: #ff4242;
+  --color-info: #5a87fc;
+
+  /* Accent — the palette a foundation picks a programme's colour from (see the
+     Programmes screen, 674:33847, where each swatch binds one of these). */
+  --color-accent-sky: #37d1f7;
+  --color-accent-blush: #f7a1c4;
+  --color-accent-amber: #fdc86f;
+  --color-accent-violet: #7a7bef;
+
+  /* Gray. Figma's own scale — very close to Tailwind's but consistently cooler, so
+     these names shadow the stock ones rather than sitting alongside them. */
+  --color-gray-900: #141c24; /* body text, icons */
+  --color-gray-800: #202b37;
+  --color-gray-700: #344051; /* values, item titles */
+  --color-gray-600: #414e62; /* descriptions */
+  --color-gray-500: #637083; /* labels, secondary text, placeholders */
+  --color-gray-400: #97a1af; /* meta, disabled */
+  --color-gray-300: #ced2da;
+  --color-gray-200: #e4e7ec; /* every border */
+  --color-gray-100: #f2f4f7; /* filled inputs, avatar tiles */
+  --color-gray-50: #f9fafb;
 }
 
 /*
@@ -50,18 +111,26 @@
   }
 }
 
+/* `font-display` is now a no-op for the optical size — every element already renders at
+   opsz 32 (see `html` below). Kept because ~210 call sites use it, and because the
+   tighter tracking it applies is still a heading affordance. */
 @utility font-display {
-  /* Inter Display, explicitly: pin the optical size to the display end rather than
-     letting it interpolate. Headings only — at body sizes this cut is too tight. */
-  font-variation-settings: 'opsz' 32;
   letter-spacing: -0.025em;
 }
 
 @layer base {
   html {
-    /* Let Inter's opsz axis track font-size: body copy gets the Text cut, large
-       headings drift toward Display without loading a second font file. */
-    font-optical-sizing: auto;
+    /* Inter Display everywhere, which is what the comps specify — every text node in
+       the Figma is "Inter Display", including 12px labels.
+       "Inter Display" is not a second typeface: Inter is one variable font with an
+       `opsz` (optical size) axis, and Display is that axis pinned to 32 rather than
+       tracking font-size. The file we already load carries `opsz 14–32`, so this costs
+       no extra bytes and no extra request.
+       The trade-off is real and was accepted deliberately: against opsz 14, opsz 32 is
+       ~7.5% narrower with a ~5.5% smaller x-height, which is the wrong direction for
+       12px label text. Revisit if the designer confirms Display was a deliberate choice
+       rather than a pick from Figma's font menu. */
+    font-variation-settings: 'opsz' 32;
     -webkit-font-smoothing: antialiased;
   }
 }

@@ -113,11 +113,11 @@ export function CommentsSection({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+        <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
           Comments
         </h2>
         {!loading && comments.length > 0 && (
-          <span className="font-display text-[12px]" style={{ color: C.sub }}>
+          <span className="font-display text-label" style={{ color: C.sub }}>
             {comments.length} comment{comments.length !== 1 ? 's' : ''} in total
           </span>
         )}
@@ -129,7 +129,7 @@ export function CommentsSection({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Add a comment for the panel…"
-            className="h-[120px] w-full resize-none rounded-[12px] border bg-white px-3 py-2 font-display text-[14px] focus:outline-hidden"
+            className="h-[120px] w-full resize-none rounded-control border bg-white px-3 py-2 font-display text-body focus:outline-hidden"
             style={{ borderColor: C.line, color: C.ink }}
           />
           <Button variant="tinted" type="submit" disabled={submitting || !body.trim()}>
@@ -139,11 +139,11 @@ export function CommentsSection({
       )}
 
       {loading ? (
-        <p className="font-display text-[13px]" style={{ color: C.faint }}>
+        <p className="font-display text-body" style={{ color: C.faint }}>
           Loading…
         </p>
       ) : comments.length === 0 ? (
-        <p className="font-display text-[13px]" style={{ color: C.faint }}>
+        <p className="font-display text-body" style={{ color: C.faint }}>
           No comments yet.
         </p>
       ) : (
@@ -156,17 +156,17 @@ export function CommentsSection({
             return (
               <div
                 key={c.id}
-                className="flex flex-col gap-2 rounded-lg p-4"
+                className="flex flex-col gap-2 rounded-chip p-4"
                 style={{ backgroundColor: C.cardBg }}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 font-display text-[12px]">
+                  <span className="flex items-center gap-2 font-display text-label">
                     <span className="font-medium" style={{ color: C.ink }}>
                       {c.user.name}
                     </span>
                     <span style={{ color: C.faint }}>{roleLabel(c.user.role)}</span>
                   </span>
-                  <span className="font-display text-[12px]" style={{ color: C.sub }}>
+                  <span className="font-display text-label" style={{ color: C.sub }}>
                     {fmtSince(c.createdAt)}
                     {c.updatedAt && ' · edited'}
                   </span>
@@ -178,7 +178,7 @@ export function CommentsSection({
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
                       rows={3}
-                      className="w-full resize-none rounded-lg border bg-white px-3 py-2 font-display text-[12px] focus:outline-hidden"
+                      className="w-full resize-none rounded-chip border bg-white px-3 py-2 font-display text-label focus:outline-hidden"
                       style={{ borderColor: C.line, color: C.ink }}
                     />
                     <div className="flex justify-end gap-3">
@@ -204,7 +204,7 @@ export function CommentsSection({
                 ) : (
                   <>
                     <p
-                      className="whitespace-pre-wrap font-display text-[12px] leading-relaxed"
+                      className="whitespace-pre-wrap font-display text-label leading-relaxed"
                       style={{ color: C.sub }}
                     >
                       {c.body}
@@ -217,7 +217,7 @@ export function CommentsSection({
                             size="xs"
                             onClick={() => startEdit(c)}
                             disabled={busy}
-                            className="text-[11px]"
+                            className="text-label"
                             style={{ color: C.faint }}
                           >
                             Edit
@@ -229,7 +229,7 @@ export function CommentsSection({
                             size="xs"
                             onClick={() => handleDelete(c.id)}
                             disabled={busy}
-                            className="text-[11px]"
+                            className="text-label"
                             style={{ color: busy ? C.danger : C.faint }}
                           >
                             {busy ? 'Deleting…' : 'Delete'}

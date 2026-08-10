@@ -8,7 +8,7 @@ import { cn } from './cn'
 export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', className)}
+      className={cn('inline-flex rounded-full px-2 py-0.5 text-label font-medium', className)}
       {...props}
     />
   )

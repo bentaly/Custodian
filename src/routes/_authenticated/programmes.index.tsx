@@ -38,13 +38,13 @@ function getProgrammeRoundStatus(
   }>,
 ) {
   if (roundProgrammes.some((rp) => getRoundStatus(rp.round) === 'open'))
-    return { label: 'In open round', color: 'bg-green-100 text-green-700' }
+    return { label: 'In open round', color: 'bg-success/10 text-success' }
   if (roundProgrammes.length > 0)
     return {
       label: `${roundProgrammes.length} round${roundProgrammes.length > 1 ? 's' : ''}`,
       color: 'bg-gray-100 text-gray-500',
     }
-  return { label: 'No round', color: 'bg-amber-50 text-amber-600' }
+  return { label: 'No round', color: 'bg-warning/10 text-warning' }
 }
 
 function Programmes() {
@@ -92,8 +92,8 @@ function Programmes() {
       <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Programmes' }]} />
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Programmes</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-heading font-semibold text-gray-900">Programmes</h1>
+          <p className="mt-1 text-body text-gray-500">
             Define giving programmes and add them to funding rounds
           </p>
         </div>
@@ -101,8 +101,8 @@ function Programmes() {
       </div>
 
       {showCreate && (
-        <Card className="p-5">
-          <h2 className="mb-4 text-sm font-medium text-gray-700">Create programme</h2>
+        <Card className="p-4">
+          <h2 className="mb-4 text-body font-medium text-gray-700">Create programme</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
               <Label>Name</Label>
@@ -139,7 +139,7 @@ function Programmes() {
               </Label>
               <RichTextEditor key="create" defaultValue={goal} onChange={setGoal} />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-body text-danger">{error}</p>}
             <div className="flex gap-2">
               <Button type="submit" disabled={creating}>
                 {creating ? 'Creating…' : 'Create programme'}
@@ -154,9 +154,9 @@ function Programmes() {
 
       {programmes.length === 0 && !showCreate ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No programmes yet.</p>
+          <p className="text-body text-gray-500">No programmes yet.</p>
           {canManage && (
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-body text-gray-400">
               Create your first programme to get started.
             </p>
           )}
@@ -170,12 +170,12 @@ function Programmes() {
                 key={programme.id}
                 to="/programmes/$programmeId"
                 params={{ programmeId: programme.id }}
-                className={`block rounded-lg border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50 ${programme.archivedAt ? 'opacity-60' : ''}`}
+                className={`block rounded-card border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-50 ${programme.archivedAt ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{programme.name}</span>
+                      <span className="text-body font-medium text-gray-900">{programme.name}</span>
                       {(() => {
                         const { label, color } = getProgrammeRoundStatus(programme.roundProgrammes)
                         return <Badge className={color}>{label}</Badge>
@@ -189,7 +189,7 @@ function Programmes() {
                         {progTags.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                            className="rounded-full bg-gray-100 px-2.5 py-0.5 text-label text-gray-600"
                           >
                             {tag}
                           </span>
@@ -197,7 +197,7 @@ function Programmes() {
                       </div>
                     )}
                   </div>
-                  <span className="text-xs text-gray-400">→</span>
+                  <span className="text-label text-gray-400">→</span>
                 </div>
               </Link>
             )

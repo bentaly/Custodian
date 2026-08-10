@@ -143,8 +143,8 @@ function Profile() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
-      <p className="mt-1 text-sm text-gray-500">Your account details</p>
+      <h1 className="text-heading font-semibold text-gray-900">Profile</h1>
+      <p className="mt-1 text-body text-gray-500">Your account details</p>
 
       <div className="mt-8 space-y-6">
         <div className="flex items-center gap-4">
@@ -164,13 +164,13 @@ function Profile() {
                   type="button"
                   onClick={handlePhotoRemove}
                   disabled={photoBusy}
-                  className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  className="text-body text-gray-500 hover:text-gray-700 disabled:opacity-50"
                 >
                   Remove
                 </button>
               )}
             </div>
-            <p className="mt-1.5 text-xs text-gray-500">
+            <p className="mt-1.5 text-label text-gray-500">
               JPEG, PNG or WebP, up to 10MB. You can reposition it after choosing.
             </p>
           </div>
@@ -182,7 +182,7 @@ function Profile() {
             className="hidden"
           />
         </div>
-        {photoError && <p className="text-sm text-red-500">{photoError}</p>}
+        {photoError && <p className="text-body text-danger">{photoError}</p>}
         {source && (
           <AvatarCropper
             source={source}
@@ -194,7 +194,7 @@ function Profile() {
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <label className="block text-body font-medium text-gray-700">Name</label>
             <Input
               type="text"
               value={name}
@@ -204,22 +204,22 @@ function Profile() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-body font-medium text-gray-700">Email</label>
             <input
               type="email"
               value={user.email}
               readOnly
-              className="mt-1 w-full rounded-sm border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 cursor-not-allowed"
+              className="mt-1 w-full rounded-chip border border-gray-200 bg-gray-50 px-3 py-2 text-body text-gray-500 cursor-not-allowed"
             />
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-body text-danger">{error}</p>}
           <Button type="submit" disabled={saving || name === user.name}>
             {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
           </Button>
         </form>
 
         <div className="border-t border-gray-100 pt-6 space-y-3">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-body">
             <span className="text-gray-500">Role</span>
             <span className="font-medium text-gray-800">{ROLE_LABELS[user.role] ?? user.role}</span>
           </div>
@@ -227,31 +227,31 @@ function Profile() {
 
         {user.role === 'superadmin' && (
           <div className="border-t border-gray-100 pt-6">
-            <h2 className="text-sm font-semibold text-gray-900">Log in as a foundation</h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <h2 className="text-body font-semibold text-gray-900">Log in as a foundation</h2>
+            <p className="mt-1 text-label text-gray-500">
               See a foundation's data as one of its members. Create foundations from the admin app.
             </p>
-            {impersonateError && <p className="mt-2 text-sm text-red-500">{impersonateError}</p>}
+            {impersonateError && <p className="mt-2 text-body text-danger">{impersonateError}</p>}
             <div className="mt-3 space-y-3">
-              {clients.length === 0 && <p className="text-sm text-gray-500">No foundations yet.</p>}
+              {clients.length === 0 && <p className="text-body text-gray-500">No foundations yet.</p>}
               {clients.map((client) => (
-                <div key={client.id} className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-sm font-medium text-gray-900">{client.name}</p>
+                <div key={client.id} className="rounded-card border border-gray-200 p-3">
+                  <p className="text-body font-medium text-gray-900">{client.name}</p>
                   <div className="mt-2 space-y-1">
                     {client.users.length === 0 && (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-label text-gray-400">
                         No members yet — admin invite pending.
                       </p>
                     )}
                     {client.users.map((u) => (
-                      <div key={u.id} className="flex items-center justify-between text-sm">
+                      <div key={u.id} className="flex items-center justify-between text-body">
                         <span className="text-gray-600">
                           {u.name} · <span className="text-gray-400">{u.email}</span>
                         </span>
                         <button
                           onClick={() => handleImpersonate(u.id)}
                           disabled={impersonatingId !== null}
-                          className="rounded-sm border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          className="rounded-chip border border-gray-300 px-2 py-1 text-label text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                         >
                           {impersonatingId === u.id ? 'Signing in…' : 'Log in as'}
                         </button>

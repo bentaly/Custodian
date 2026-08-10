@@ -8,10 +8,10 @@ import { cn } from './cn'
 // If it navigates it is a `TextLink` — focusable as a link, announced as a link,
 // middle-clickable, copyable — and if it acts on this page it is a `Button`, whatever
 // it looks like. Before this the app had text buttons called "link" and hand-styled
-// anchors repeating `text-emerald-700 hover:underline`, and no way to tell which was
+// anchors repeating `text-success hover:underline`, and no way to tell which was
 // which without reading the handler.
 
-const TEXT_LINK = 'font-display font-medium text-[#1F7A5C] hover:underline'
+const TEXT_LINK = 'font-display font-medium text-brand hover:underline'
 
 /** In-app navigation. Takes TanStack Router's `to` / `params` / `search`. */
 export function TextLink({ className, ...props }: LinkComponentProps<'a'>) {

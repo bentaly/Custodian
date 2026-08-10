@@ -21,7 +21,7 @@ import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
 import { fmtCompact } from '../../lib/format'
-import { C } from '../../components/ui/tokens'
+import { C, PROGRAMME_COLORS, tint as T } from '../../components/ui/tokens'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>
 
@@ -45,19 +45,19 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
 
 // KPI card tints: { bg, border, accent } per metric.
 const KPI = {
-  apps: { bg: '#F5F4FF', border: '#E7E4FB', accent: '#8B7FF0' },
-  review: { bg: '#EDF9F1', border: '#D5EFDE', accent: '#31A650' },
-  finance: { bg: '#FEF7EB', border: '#F7E7C6', accent: '#F89828' },
-  reports: { bg: '#FDEFF2', border: '#F8D9E1', accent: '#F0537A' },
+  apps: { bg: T('accent-violet', 10), border: T('accent-violet', 20), accent: 'var(--color-accent-violet)' },
+  review: { bg: T('success', 10), border: T('success', 20), accent: 'var(--color-success)' },
+  finance: { bg: T('warning', 10), border: T('warning', 20), accent: 'var(--color-warning)' },
+  reports: { bg: T('danger', 10), border: T('danger', 20), accent: 'var(--color-danger)' },
 }
 
 // The Reports card's two chip shades (Figma 126:34555 / 126:34511) — the light pink is
 // also the colour of the leading number in its sub-line.
-const REPORTS_CHIP = { toReview: '#F7A1C4', overdue: '#A34D68' }
+const REPORTS_CHIP = { toReview: 'var(--color-accent-blush)', overdue: 'var(--color-danger)' }
 
 // Round donut / programme-bar palette.
-const PROG_COLORS = ['#4FBEE8', '#F48FB1', '#F5B851', '#8B7FF0', '#5BD1B0', '#F0876B']
-const ALLOCATE_LEFT = '#E9ECF1'
+const PROG_COLORS = PROGRAMME_COLORS
+const ALLOCATE_LEFT = 'var(--color-gray-200)'
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ const plural = (n: number) => (n !== 1 ? 's' : '')
 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border bg-white p-4 ${className}`} style={{ borderColor: C.line }}>
+    <div className={`rounded-card border bg-white p-4 ${className}`} style={{ borderColor: C.line }}>
       {children}
     </div>
   )
@@ -101,7 +101,7 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
 function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
         {children}
       </h2>
       {right}
@@ -118,7 +118,7 @@ function Chips({ chips }: { chips: Chip[] }) {
   if (!shown.length) return null
   return (
     <div
-      className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs"
+      className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-label"
       style={{ color: C.sub }}
     >
       {shown.map((c) => (
@@ -164,12 +164,12 @@ function KpiCard({
     <Link
       to={to}
       search={search}
-      className="flex flex-col rounded-[20px] border bg-white p-1 transition-shadow hover:shadow-xs"
+      className="flex flex-col rounded-pill border bg-white p-1 transition-shadow hover:shadow-xs"
       style={{ borderColor: C.line }}
     >
       {/* Tinted inner panel (Figma 112:134) — inset 4px, holds the number/meter/chips. */}
       <div
-        className="relative overflow-hidden rounded-2xl p-4"
+        className="relative overflow-hidden rounded-card p-4"
         style={{ backgroundColor: tint.bg }}
       >
         {/* Figma "Mask group" (112:802): a radial accent gradient shown *through* a dot
@@ -188,12 +188,12 @@ function KpiCard({
         <div className="relative z-10">
           {/* Figma 112:739 — Inter Display Medium 32, Gray/900. */}
           <div
-            className="font-display text-[32px] font-medium leading-none"
+            className="font-display text-display font-medium leading-none"
             style={{ color: C.ink }}
           >
             {value}
           </div>
-          <div className="mt-1.5 text-xs font-medium" style={{ color: subColor ?? C.sub }}>
+          <div className="mt-1.5 text-label font-medium" style={{ color: subColor ?? C.sub }}>
             {sub}
           </div>
           <div className="mt-3">{meter}</div>
@@ -209,12 +209,12 @@ function KpiCard({
             strokeWidth={1.6}
             style={{ color: C.sub }}
           />
-          <span className="truncate text-sm font-medium" style={{ color: C.ink }}>
+          <span className="truncate text-body font-medium" style={{ color: C.ink }}>
             {label}
           </span>
         </span>
         {meta && (
-          <span className="shrink-0 truncate text-xs font-medium" style={{ color: C.sub }}>
+          <span className="shrink-0 truncate text-label font-medium" style={{ color: C.sub }}>
             {meta}
           </span>
         )}
@@ -227,7 +227,7 @@ function KpiCard({
 
 // Figma 126:34573 — a neutral 40px tile (Gray/50 wash, Gray/500 glyph), 14px medium
 // copy with the lead in Gray/900 and the rest in Gray/500, and a chevron affordance.
-const DESK_TILE = '#F6F6F6'
+const DESK_TILE = 'var(--color-surface)'
 
 function DeskRow({
   icon,
@@ -246,15 +246,15 @@ function DeskRow({
     <Link
       to={to}
       search={search}
-      className="flex items-center gap-4 rounded-xl px-2 py-2 transition-colors hover:bg-[#FAFAFB]"
+      className="flex items-center gap-4 rounded-control px-2 py-2 transition-colors hover:bg-gray-50"
     >
       <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip"
         style={{ backgroundColor: DESK_TILE }}
       >
         <HugeiconsIcon icon={icon} className="h-5 w-5" strokeWidth={1.5} style={{ color: C.sub }} />
       </span>
-      <span className="min-w-0 flex-1 text-sm font-medium" style={{ color: C.sub }}>
+      <span className="min-w-0 flex-1 text-body font-medium" style={{ color: C.sub }}>
         <span style={{ color: C.ink }}>{lead}</span> {rest}
       </span>
       <HugeiconsIcon
@@ -394,8 +394,8 @@ function Dashboard() {
   return (
     <div className="space-y-4">
       {/* Greeting — Figma: 20px medium, prefix grey (#97A1AF), name Gray/900 */}
-      <h1 className="font-display text-[20px] font-medium">
-        <span style={{ color: '#97A1AF' }}>{greeting()}, </span>
+      <h1 className="font-display text-heading font-medium">
+        <span style={{ color: 'var(--color-gray-400)' }}>{greeting()}, </span>
         <span style={{ color: C.ink }}>{firstName(d.name)}</span>
       </h1>
 
@@ -441,7 +441,7 @@ function Dashboard() {
           to="/finance"
           meter={<BarMeter progress={financeProgress} color={KPI.finance.accent} />}
         >
-          <p className="mt-3 text-xs" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
+          <p className="mt-3 text-label" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
             {d.bankIssues > 0
               ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}`
               : 'Bank details verified'}
@@ -476,8 +476,8 @@ function Dashboard() {
         <Panel>
           <PanelTitle>On your desk</PanelTitle>
           {desk.length === 0 ? (
-            <div className="flex items-center gap-3 py-6 text-sm" style={{ color: C.sub }}>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <div className="flex items-center gap-3 py-6 text-body" style={{ color: C.sub }}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-success">
                 ✓
               </span>
               You’re all caught up — nothing needs action right now.
@@ -498,7 +498,7 @@ function Dashboard() {
                 right={
                   roundDaysLeft != null && (
                     <span
-                      className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                      className="rounded-full px-2.5 py-1 text-label font-medium"
                       style={{ backgroundColor: C.wash, color: C.sub }}
                     >
                       {roundDaysLeft > 0 ? `${roundDaysLeft} days left` : 'closed'}
@@ -508,7 +508,7 @@ function Dashboard() {
               >
                 {round.roundName}
               </PanelTitle>
-              <p className="-mt-2 mb-4 text-xs" style={{ color: C.sub }}>
+              <p className="-mt-2 mb-4 text-label" style={{ color: C.sub }}>
                 {fmtCompact(round.committed)} committed of {fmtCompact(round.budget)} budget
               </p>
               <div className="flex items-center gap-6">
@@ -516,11 +516,11 @@ function Dashboard() {
                   data={donutData}
                   center={
                     <>
-                      <div className="text-2xl font-semibold" style={{ color: C.ink }}>
+                      <div className="text-heading font-semibold" style={{ color: C.ink }}>
                         {roundPct}%
                       </div>
                       <div
-                        className="mt-0.5 text-center text-[11px] leading-tight"
+                        className="mt-0.5 text-center text-label leading-tight"
                         style={{ color: C.sub }}
                       >
                         {fmtCompact(roundLeft)} left
@@ -532,17 +532,17 @@ function Dashboard() {
                 />
                 <div className="min-w-0 flex-1 space-y-3.5">
                   {round.programmes.length === 0 && (
-                    <p className="text-sm" style={{ color: C.faint }}>
+                    <p className="text-body" style={{ color: C.faint }}>
                       No programmes in this round yet.
                     </p>
                   )}
                   {round.programmes.map((p, i) => (
                     <div key={p.name}>
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-xs font-medium" style={{ color: C.ink }}>
+                        <span className="truncate text-label font-medium" style={{ color: C.ink }}>
                           {p.name}
                         </span>
-                        <span className="shrink-0 text-xs font-medium" style={{ color: C.sub }}>
+                        <span className="shrink-0 text-label font-medium" style={{ color: C.sub }}>
                           {fmtCompact(p.committed)} / {fmtCompact(p.budget)}
                         </span>
                       </div>
@@ -562,7 +562,7 @@ function Dashboard() {
           ) : (
             <>
               <PanelTitle>Current round</PanelTitle>
-              <p className="py-8 text-center text-sm" style={{ color: C.faint }}>
+              <p className="py-8 text-center text-body" style={{ color: C.faint }}>
                 No active round.
               </p>
             </>
@@ -579,7 +579,7 @@ function Dashboard() {
         <Panel>
           <PanelTitle>Lately</PanelTitle>
           {d.lately.length === 0 ? (
-            <p className="py-4 text-sm" style={{ color: C.faint }}>
+            <p className="py-4 text-body" style={{ color: C.faint }}>
               No activity yet.
             </p>
           ) : (
@@ -591,7 +591,7 @@ function Dashboard() {
                 const inner = (
                   <>
                     <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip"
                       style={{ backgroundColor: DESK_TILE }}
                     >
                       <HugeiconsIcon
@@ -602,13 +602,13 @@ function Dashboard() {
                       />
                     </span>
                     <span
-                      className="min-w-0 flex-1 text-xs font-medium leading-snug"
+                      className="min-w-0 flex-1 text-label font-medium leading-snug"
                       style={{ color: C.sub }}
                     >
                       <span style={{ color: C.ink }}>{ev.actorName ?? 'Someone'}</span> {meta.verb}{' '}
                       <span style={{ color: C.ink }}>{org}</span>
                     </span>
-                    <span className="shrink-0 text-xs font-medium" style={{ color: C.sub }}>
+                    <span className="shrink-0 text-label font-medium" style={{ color: C.sub }}>
                       {relativeTime(ev.at)}
                     </span>
                   </>
@@ -618,7 +618,7 @@ function Dashboard() {
                     key={ev.id}
                     to="/applications/$applicationId"
                     params={{ applicationId: ev.applicationId }}
-                    className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[#FAFAFB]"
+                    className="flex items-center gap-3 rounded-chip px-2 py-2 transition-colors hover:bg-gray-50"
                   >
                     {inner}
                   </Link>
@@ -651,15 +651,15 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-[16px] font-medium" style={{ color: C.ink }}>
+        <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
           Giving so far
         </h2>
-        <div className="inline-flex rounded-lg p-0.5" style={{ backgroundColor: C.wash }}>
+        <div className="inline-flex rounded-chip p-0.5" style={{ backgroundColor: C.wash }}>
           {ranges.map((r) => (
             <button
               key={r.key}
               onClick={() => setRange(r.key)}
-              className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+              className="rounded-chip px-2.5 py-1 text-label font-medium transition-colors"
               style={
                 range === r.key
                   ? {
@@ -677,17 +677,17 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
       </div>
 
       <div className="flex items-baseline gap-3">
-        <span className="text-[34px] font-semibold leading-none" style={{ color: C.ink }}>
+        <span className="text-display font-semibold leading-none" style={{ color: C.ink }}>
           {fmtCompact(headline)}
         </span>
         {giving.quarter > 0 && (
-          <span className="flex items-center gap-1 text-sm font-medium">
+          <span className="flex items-center gap-1 text-body font-medium">
             <span style={{ color: C.success }}>+{fmtCompact(giving.quarter)}</span>
             <span style={{ color: C.sub }}>this quarter</span>
           </span>
         )}
       </div>
-      <p className="mt-1.5 text-xs" style={{ color: C.sub }}>
+      <p className="mt-1.5 text-label" style={{ color: C.sub }}>
         across {giving.grants} grant{plural(giving.grants)}
       </p>
 
@@ -695,7 +695,7 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
         {series.length > 0 ? (
           <GivingArea data={series} />
         ) : (
-          <p className="py-10 text-center text-sm" style={{ color: C.faint }}>
+          <p className="py-10 text-center text-body" style={{ color: C.faint }}>
             No giving recorded in this period yet.
           </p>
         )}
@@ -733,24 +733,24 @@ function Onboarding({ name }: { name: string }) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-[26px] font-semibold tracking-tight" style={{ color: C.ink }}>
+        <h1 className="text-heading font-semibold tracking-tight" style={{ color: C.ink }}>
           {greeting()}, {firstName(name)}.
         </h1>
-        <p className="mt-0.5 text-sm" style={{ color: C.sub }}>
+        <p className="mt-0.5 text-body" style={{ color: C.sub }}>
           Let’s get your foundation set up
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         {steps.map((s) => (
-          <UiCard key={s.n} className="p-5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-700">
+          <UiCard key={s.n} className="p-4">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-body font-semibold text-success">
               {s.n}
             </span>
-            <p className="mt-3 text-sm font-medium text-gray-900">{s.title}</p>
-            <p className="mt-1 text-xs text-gray-500">{s.body}</p>
+            <p className="mt-3 text-body font-medium text-gray-900">{s.title}</p>
+            <p className="mt-1 text-label text-gray-500">{s.body}</p>
             <Link
               to={s.to}
-              className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:text-emerald-800"
+              className="mt-3 inline-block text-label font-medium text-success hover:text-success"
             >
               {s.cta} →
             </Link>

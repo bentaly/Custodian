@@ -93,8 +93,8 @@ const GRANT_STATUS_HEX: Record<string, string> = {
   cancelled: C.danger,
 }
 
-const txtInk = 'font-display text-[14px] text-[#141C24]'
-const txtSub = 'font-display text-[14px] text-[#637083]'
+const txtInk = 'font-display text-body text-gray-900'
+const txtSub = 'font-display text-body text-gray-500'
 
 const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   {
@@ -105,7 +105,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
         to="/awards/$awardId"
         params={{ awardId: g.awardId }}
         onClick={(e) => e.stopPropagation()}
-        className="font-display text-[14px] font-medium text-[#141C24] hover:underline"
+        className="font-display text-body font-medium text-gray-900 hover:underline"
       >
         {g.organisationName}
       </Link>
@@ -134,7 +134,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     header: 'Amount',
     cellClassName: 'tabular-nums',
     cell: (g) => (
-      <span className="whitespace-nowrap font-display text-[14px] font-medium text-[#141C24]">
+      <span className="whitespace-nowrap font-display text-body font-medium text-gray-900">
         {fmtMoney(g.amountAwarded)}
       </span>
     ),
@@ -151,7 +151,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
           className={`whitespace-nowrap ${txtSub}`}
           title={`${g.paidCount} of ${g.instalmentCount} instalments paid`}
         >
-          {fmtCompact(g.paidToDate)} <span className="text-[#97A1AF]">/ {g.instalmentCount}</span>
+          {fmtCompact(g.paidToDate)} <span className="text-gray-400">/ {g.instalmentCount}</span>
         </span>
       ),
   },
@@ -226,7 +226,7 @@ function StatCards({ totals }: { totals: Totals }) {
               const pct = topTotal > 0 ? Math.round((p.amount / topTotal) * 100) : 0
               return (
                 <div key={p.name}>
-                  <div className="flex justify-between text-[11px]">
+                  <div className="flex justify-between text-label">
                     <span className="truncate text-gray-500" title={p.name}>
                       {p.name}
                     </span>
@@ -316,7 +316,7 @@ function AwardsPage() {
       {/* Header — <h1>, then the round pill and the list's meta on the row beneath, as
           on Applications. */}
       <div className="flex flex-col gap-4">
-        <h1 className="font-display text-[20px] font-medium text-[#141C24]">Awards</h1>
+        <h1 className="font-display text-heading font-medium text-gray-900">Awards</h1>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {visibleRounds.length > 0 && (
@@ -329,7 +329,7 @@ function AwardsPage() {
                 onChange={handleRoundChange}
               />
             )}
-            <span className="whitespace-nowrap font-display text-[12px] font-medium text-[#637083]">
+            <span className="whitespace-nowrap font-display text-label font-medium text-gray-500">
               {metaLine}
             </span>
           </div>
@@ -389,14 +389,14 @@ function AwardsPage() {
 
       {items.length === 0 ? (
         <EmptyState>
-          <p className="text-sm text-gray-500">No awards match these filters.</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="text-body text-gray-500">No awards match these filters.</p>
+          <p className="mt-1 text-label text-gray-400">
             Awards appear here as soon as one is generated after the trustee vote.
           </p>
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-[16px] border border-[#E4E7EC] bg-white">
+          <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
             <DataTable
               columns={AWARD_COLUMNS}
               rows={items}

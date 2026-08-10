@@ -49,7 +49,7 @@ function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
     <div className="flex items-center gap-3">
       <LogoMark className={size === 'lg' ? 'h-11 w-11' : 'h-9 w-9'} />
       <span
-        className={`font-semibold tracking-tight text-ink ${size === 'lg' ? 'text-[24px]' : 'text-[19px]'}`}
+        className={`font-semibold tracking-tight text-gray-900 ${size === 'lg' ? 'text-heading' : 'text-heading'}`}
       >
         Custodian
       </span>
@@ -71,13 +71,13 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
       {/* Two-column: a fixed-width column that scrolls within itself if `compact:`
           can't shrink the copy enough. Stacked: full width, flowing with the page. */}
-      <aside className="relative flex w-full shrink-0 flex-col border-t border-hairline-moss bg-moss-50 px-6 py-10 lg:w-[52%] lg:max-w-[860px] lg:overflow-y-auto lg:border-t-0 lg:border-r lg:p-10 2xl:p-14 compact:p-7">
+      <aside className="relative flex w-full shrink-0 flex-col border-t border-brand/20 bg-brand/5 px-6 py-10 lg:w-[52%] lg:max-w-[860px] lg:overflow-y-auto lg:border-t-0 lg:border-r lg:p-10 2xl:p-14 compact:p-7">
         {/* The dotted grid from behind the dashboard's giving chart. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
-            backgroundImage: 'radial-gradient(#D2E2D6 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(var(--color-gray-300) 1px, transparent 1px)',
             backgroundSize: '22px 22px',
           }}
         />
@@ -88,8 +88,13 @@ export function AuthShell({ children }: { children: ReactNode }) {
             <Wordmark />
           </div>
 
+          {/* The one deliberate exception to the type ramp. This is the signed-out brand
+              panel — marketing copy, not product chrome, and the only screen with no
+              Figma design. It scales fluidly with the viewport (and compacts again on a
+              short one), which no fixed ramp step can do; pinning it to `text-display`
+              would either overflow the panel or leave it undersized on a wide display. */}
           <h2
-            className="font-display max-w-[21ch] text-[clamp(28px,2.7vw,42px)] font-semibold leading-[1.06] text-ink lg:mt-8 compact:mt-6 compact:text-[clamp(26px,2.4vw,34px)]"
+            className="font-display max-w-[21ch] text-[clamp(28px,2.7vw,42px)] font-semibold leading-[1.06] text-gray-900 lg:mt-8 compact:mt-6 compact:text-[clamp(26px,2.4vw,34px)]"
             style={{ letterSpacing: '-0.035em', textWrap: 'pretty' }}
           >
             The entire grant lifecycle, for the whole foundation team.
@@ -99,25 +104,25 @@ export function AuthShell({ children }: { children: ReactNode }) {
             {STAGES.map((stage, i) => (
               <li
                 key={stage.title}
-                className="grid grid-cols-[30px_1fr] gap-4 border-t border-hairline-moss py-3.5 last:border-b compact:py-2.5"
+                className="grid grid-cols-[30px_1fr] gap-4 border-t border-brand/20 py-3.5 last:border-b compact:py-2.5"
               >
                 <span
                   aria-hidden
-                  className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-moss-100 text-[13px] font-bold text-moss-700"
+                  className="flex h-[30px] w-[30px] items-center justify-center rounded-chip bg-brand-secondary text-body font-bold text-brand"
                 >
                   {i + 1}
                 </span>
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="text-[16px] font-semibold tracking-tight text-ink">
+                    <span className="text-title font-semibold tracking-tight text-gray-900">
                       {stage.title}
                     </span>
-                    <span className="rounded-full bg-moss-100 px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.09em] text-moss-700">
+                    <span className="rounded-full bg-brand-secondary px-2 py-[3px] text-label font-bold uppercase tracking-[0.09em] text-brand">
                       {stage.badge}
                     </span>
                   </div>
                   <p
-                    className="mt-1 text-[14px] leading-[1.5] text-ink-muted"
+                    className="mt-1 text-body leading-[1.5] text-gray-500"
                     style={{ textWrap: 'pretty' }}
                   >
                     {stage.body}
@@ -127,15 +132,15 @@ export function AuthShell({ children }: { children: ReactNode }) {
             ))}
           </ol>
 
-          <div className="mt-6 flex items-start gap-3.5 rounded-2xl border border-hairline-moss bg-white p-4 compact:mt-4 compact:p-3.5">
+          <div className="mt-6 flex items-start gap-3.5 rounded-card border border-brand/20 bg-white p-4 compact:mt-4 compact:p-3.5">
             <span
               aria-hidden
-              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-moss-700 text-[10px] font-extrabold tracking-wide text-white"
+              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip bg-brand text-label font-extrabold tracking-wide text-white"
             >
               AI
             </span>
-            <p className="text-[14px] leading-[1.55] text-ink-muted" style={{ textWrap: 'pretty' }}>
-              <strong className="font-semibold text-ink">
+            <p className="text-body leading-[1.55] text-gray-500" style={{ textWrap: 'pretty' }}>
+              <strong className="font-semibold text-gray-900">
                 AI runs through all five stages, not bolted on to one.
               </strong>{' '}
               It reads, scores, summarises and checks — with every judgement traceable to the
@@ -143,7 +148,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             </p>
           </div>
 
-          <p className="mt-auto pt-6 text-[13px] text-ink-muted compact:pt-4">
+          <p className="mt-auto pt-6 text-body text-gray-500 compact:pt-4">
             Custodian is invite-only. Your administrator can send you an invitation.
           </p>
         </div>

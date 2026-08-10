@@ -31,14 +31,14 @@ export function FilterPill({
   return (
     <div className="relative shrink-0">
       <div
-        className="flex h-8 items-center gap-1 rounded-lg border py-2 pl-2 pr-1.5"
+        className="flex h-8 items-center gap-1 rounded-chip border py-2 pl-2 pr-1.5"
         style={{
           borderColor: current ? C.brand : C.line,
           backgroundColor: current ? C.brandBg : C.white,
         }}
       >
         <span
-          className="whitespace-nowrap font-display text-[14px] font-medium"
+          className="whitespace-nowrap font-display text-body font-medium"
           style={{ color: C.ink }}
         >
           {current ? current.label : label}

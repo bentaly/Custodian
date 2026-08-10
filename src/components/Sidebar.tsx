@@ -19,7 +19,7 @@ import { LogoMark } from './ui/LogoMark'
 // #E4E7EC = Gray/200, #141C24 = Gray/900 — the real design variables, so matching them
 // exactly now makes the eventual token swap a clean find-and-replace.
 const itemClass =
-  'flex items-center gap-3 rounded-xl p-3 text-[14px] font-medium text-[#637083] hover:bg-moss-50 hover:text-ink-soft [&.active]:bg-[#DFF3EA] [&.active]:text-[#1F7A5C]'
+  'flex items-center gap-3 rounded-control p-3 text-body font-medium text-gray-500 hover:bg-brand/5 hover:text-gray-700 [&.active]:bg-brand-secondary [&.active]:text-brand'
 
 // One list, rendered twice — the desktop rail and the mobile drawer must never drift.
 // `search` carries the round filter that the list screens require in their route search.
@@ -65,7 +65,7 @@ function NavBody({ onNavigate }: { onNavigate?: () => void }) {
       {/* Settings sits apart at the foot of the rail: it is where the app is
           configured (rounds, programmes, the team), not somewhere you work. Shown to
           everyone — the hub itself filters its cards by role. */}
-      <div className="border-t border-[#E4E7EC] px-4 py-4">
+      <div className="border-t border-gray-200 px-4 py-4">
         <Link to="/settings" onClick={onNavigate} className={itemClass}>
           <HugeiconsIcon icon={Settings02Icon} className="h-5 w-5" strokeWidth={1.75} />
           Settings
@@ -99,10 +99,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
 
   return (
     <>
-      <aside className="hidden w-64 shrink-0 flex-col bg-[#FCFCFC] lg:flex">
-        <div className="flex h-[74px] items-center gap-2 border-b border-[#E4E7EC] px-4">
+      <aside className="hidden w-64 shrink-0 flex-col bg-background lg:flex">
+        <div className="flex h-[74px] items-center gap-2 border-b border-gray-200 px-4">
           <LogoMark />
-          <span className="text-[20px] font-semibold text-[#141C24]">Custodian</span>
+          <span className="text-heading font-semibold text-gray-900">Custodian</span>
         </div>
         <NavBody />
       </aside>
@@ -123,18 +123,18 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
         // tab order while closed — `aria-hidden` alone would still let a keyboard
         // user tab into off-screen links.
         inert={!mobileOpen}
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-[#FCFCFC] shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-[74px] items-center gap-2 border-b border-[#E4E7EC] px-4">
+        <div className="flex h-[74px] items-center gap-2 border-b border-gray-200 px-4">
           <LogoMark />
-          <span className="text-[20px] font-semibold text-[#141C24]">Custodian</span>
+          <span className="text-heading font-semibold text-gray-900">Custodian</span>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="ml-auto flex size-9 items-center justify-center rounded-xl text-[#637083] hover:bg-[#F2F4F7]"
+            className="ml-auto flex size-9 items-center justify-center rounded-control text-gray-500 hover:bg-gray-100"
           >
             <HugeiconsIcon icon={Cancel01Icon} className="h-5 w-5" strokeWidth={1.75} />
           </button>

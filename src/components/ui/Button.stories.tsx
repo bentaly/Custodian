@@ -43,7 +43,7 @@ export const Sizes: Story = {
     <div className="flex flex-col gap-4">
       {(['md', 'sm', 'xs'] as const).map((size) => (
         <div key={size} className="flex items-center gap-3">
-          <span className="w-8 font-display text-[12px] text-[#97A1AF]">{size}</span>
+          <span className="w-8 font-display text-label text-gray-400">{size}</span>
           <Button size={size} variant="primary">
             Award grant
           </Button>
@@ -82,12 +82,12 @@ export const TextButtonVsLink: Story = {
   render: () => (
     <div className="flex flex-col items-start gap-3">
       <Button variant="text" onClick={() => {}}>
-        Check the submission → <span className="text-[#97A1AF]">(opens a drawer — button)</span>
+        Check the submission → <span className="text-gray-400">(opens a drawer — button)</span>
       </Button>
       {/* `TextLink` is the in-app version and needs a router, so the story shows its
           external twin — same styling, same element. */}
       <ExternalTextLink href="#">
-        Award record → <span className="text-[#97A1AF]">(goes somewhere — anchor)</span>
+        Award record → <span className="text-gray-400">(goes somewhere — anchor)</span>
       </ExternalTextLink>
     </div>
   ),

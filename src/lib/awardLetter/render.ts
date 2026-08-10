@@ -176,20 +176,21 @@ export function awardLetterHtml(bodyText: string): string {
             `<li style="margin:0 0 8px;line-height:1.55;">${escapeHtml(l.trim().replace(/^\d+\.\s*/, ''))}</li>`,
         )
         .join('')
-      return `<ol style="margin:0 0 16px;padding-left:20px;color:#3C453F;font-size:14px;">${items}</ol>`
+      // Literal hex, not tokens: this HTML is emailed (see lib/email.ts).
+      return `<ol style="margin:0 0 16px;padding-left:20px;color:#344051;font-size:14px;">${items}</ol>`
     }
     if (lines.length > 1) {
-      return `<p style="margin:0 0 16px;line-height:1.6;color:#3C453F;font-size:14px;">${lines
+      return `<p style="margin:0 0 16px;line-height:1.6;color:#344051;font-size:14px;">${lines
         .map((l) => escapeHtml(l.trim()))
         .join('<br />')}</p>`
     }
-    return `<p style="margin:0 0 16px;line-height:1.6;color:#3C453F;font-size:14px;">${escapeHtml(
+    return `<p style="margin:0 0 16px;line-height:1.6;color:#344051;font-size:14px;">${escapeHtml(
       (lines[0] ?? '').trim(),
     )}</p>`
   })
 
   return [
-    '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:640px;margin:0 auto;padding:32px 24px;color:#3C453F;">',
+    '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:640px;margin:0 auto;padding:32px 24px;color:#344051;">',
     blocks.join(''),
     '</div>',
   ].join('')

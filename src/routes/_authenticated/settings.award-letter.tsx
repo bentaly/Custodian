@@ -21,7 +21,7 @@ export const Route = createFileRoute('/_authenticated/settings/award-letter')({
 })
 
 const inputClass =
-  'w-full rounded-md border border-[#E3E0D6] px-3 py-2 text-sm text-[#3C453F] focus:outline-hidden focus:ring-2 focus:ring-[#1F7A5C]/30'
+  'w-full rounded-chip border border-gray-200 px-3 py-2 text-body text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-brand/30'
 
 /** A worked example, so the preview shows a real letter rather than token names. */
 const SAMPLE = {
@@ -103,14 +103,14 @@ function AwardLetterSettings() {
       <div className="space-y-8">
         {/* ── How it is sent ── */}
         <section>
-          <h2 className="text-[15px] font-semibold text-[#141C24]">How it is sent</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-[#637083]">
+          <h2 className="text-body font-semibold text-gray-900">How it is sent</h2>
+          <p className="mt-1 text-body leading-relaxed text-gray-500">
             The letter goes out under your foundation’s name, and replies come back to you.
           </p>
           <div className="mt-4 space-y-4">
             <div>
               <label className="block">
-                <span className="mb-1.5 block text-[13px] font-medium text-[#141C24]">
+                <span className="mb-1.5 block text-body font-medium text-gray-900">
                   Sender name
                 </span>
                 <input
@@ -120,7 +120,7 @@ function AwardLetterSettings() {
                   className={inputClass}
                 />
               </label>
-              <p className="mt-1 text-xs text-[#637083]">
+              <p className="mt-1 text-label text-gray-500">
                 Shown as the sender. The email itself is sent by Custodian’s mail service — mail
                 providers check the sending domain against its DNS records, so a letter claiming to
                 come from your own domain would be treated as forged and land in spam.
@@ -128,7 +128,7 @@ function AwardLetterSettings() {
             </div>
             <div>
               <label className="block">
-                <span className="mb-1.5 block text-[13px] font-medium text-[#141C24]">
+                <span className="mb-1.5 block text-body font-medium text-gray-900">
                   Reply-to address
                 </span>
                 <input
@@ -139,13 +139,13 @@ function AwardLetterSettings() {
                   className={inputClass}
                 />
               </label>
-              <p className="mt-1 text-xs text-[#637083]">
+              <p className="mt-1 text-label text-gray-500">
                 Where a grantee’s reply lands. Set this — without it, replies come back to Custodian
                 rather than to you.
               </p>
             </div>
             <label className="block">
-              <span className="mb-1.5 block text-[13px] font-medium text-[#141C24]">Signed by</span>
+              <span className="mb-1.5 block text-body font-medium text-gray-900">Signed by</span>
               <input
                 value={signatory}
                 onChange={(e) => setSignatory(e.target.value)}
@@ -159,43 +159,43 @@ function AwardLetterSettings() {
         {/* ── The letter ── */}
         <section>
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-[15px] font-semibold text-[#141C24]">The letter</h2>
+            <h2 className="text-body font-semibold text-gray-900">The letter</h2>
             {!usingDefaultTemplate && (
               <button
                 onClick={() => setTemplate(DEFAULT_AWARD_LETTER_TEMPLATE)}
-                className="text-xs font-medium text-[#637083] hover:text-[#141C24]"
+                className="text-label font-medium text-gray-500 hover:text-gray-900"
               >
                 Reset to Custodian’s standard letter
               </button>
             )}
           </div>
-          <p className="mt-1 text-[13px] leading-relaxed text-[#637083]">
+          <p className="mt-1 text-body leading-relaxed text-gray-500">
             Write it as you would write a letter. Anything in double braces is filled in per award.
           </p>
           <textarea
             value={template}
             onChange={(e) => setTemplate(e.target.value)}
             spellCheck
-            className={`${inputClass} mt-3 min-h-[380px] font-mono text-[12.5px] leading-relaxed`}
+            className={`${inputClass} mt-3 min-h-[380px] font-mono text-label leading-relaxed`}
           />
-          <p className="mt-1.5 text-xs text-[#637083]">
+          <p className="mt-1.5 text-label text-gray-500">
             {usingDefaultTemplate
               ? 'You are using Custodian’s standard letter. Edit it to make it yours.'
               : 'You are using your own letter.'}
           </p>
 
-          <details className="mt-4 rounded-lg border border-[#E4E7EC] bg-[#FCFCFA]">
-            <summary className="cursor-pointer px-4 py-2.5 text-[13px] font-medium text-[#141C24]">
+          <details className="mt-4 rounded-chip border border-gray-200 bg-background">
+            <summary className="cursor-pointer px-4 py-2.5 text-body font-medium text-gray-900">
               What you can put in braces
             </summary>
-            <div className="border-t border-[#E4E7EC] px-4 py-3">
+            <div className="border-t border-gray-200 px-4 py-3">
               <dl className="space-y-2">
                 {AWARD_LETTER_TOKENS.map((t) => (
-                  <div key={t.name} className="flex gap-3 text-xs">
-                    <dt className="w-[170px] shrink-0 font-mono text-[#1F7A5C]">
+                  <div key={t.name} className="flex gap-3 text-label">
+                    <dt className="w-[170px] shrink-0 font-mono text-brand">
                       {`{{${t.name}}}`}
                     </dt>
-                    <dd className="text-[#637083]">{t.description}</dd>
+                    <dd className="text-gray-500">{t.description}</dd>
                   </div>
                 ))}
               </dl>
@@ -206,32 +206,32 @@ function AwardLetterSettings() {
         {/* ── Conditions ── */}
         <section>
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-[15px] font-semibold text-[#141C24]">Conditions of grant</h2>
+            <h2 className="text-body font-semibold text-gray-900">Conditions of grant</h2>
             <button
               onClick={() => setConditions(DEFAULT_GRANT_CONDITIONS)}
-              className="text-xs font-medium text-[#637083] hover:text-[#141C24]"
+              className="text-label font-medium text-gray-500 hover:text-gray-900"
             >
               Reset to Custodian’s standard conditions
             </button>
           </div>
-          <p className="mt-1 text-[13px] leading-relaxed text-[#637083]">
+          <p className="mt-1 text-body leading-relaxed text-gray-500">
             Attached to every award letter, in this order. You can switch them off for a particular
             batch, and add a condition to a single grant, during award set-up.
           </p>
           <div className="mt-3 space-y-2">
             {conditions.map((c, i) => (
               <div key={i} className="flex items-start gap-2">
-                <span className="w-4 shrink-0 pt-2 text-xs text-[#98A2B3]">{i + 1}</span>
+                <span className="w-4 shrink-0 pt-2 text-label text-gray-400">{i + 1}</span>
                 <textarea
                   value={c}
                   onChange={(e) =>
                     setConditions(conditions.map((x, idx) => (idx === i ? e.target.value : x)))
                   }
-                  className={`${inputClass} min-h-[62px] resize-y text-[13px] leading-relaxed`}
+                  className={`${inputClass} min-h-[62px] resize-y text-body leading-relaxed`}
                 />
                 <button
                   onClick={() => setConditions(conditions.filter((_, idx) => idx !== i))}
-                  className="mt-1.5 shrink-0 rounded p-1 text-[#C9C4B6] hover:bg-red-50 hover:text-red-600"
+                  className="mt-1.5 shrink-0 rounded-chip p-1 text-gray-300 hover:bg-danger/10 hover:text-danger"
                   aria-label={`Remove condition ${i + 1}`}
                 >
                   ✕
@@ -258,7 +258,7 @@ function AwardLetterSettings() {
             </Button>
           </div>
           {conditions.length === 0 && (
-            <p className="mt-2 text-xs text-amber-700">
+            <p className="mt-2 text-label text-warning">
               No standard conditions. Your award letters will carry only whatever you add to an
               individual grant.
             </p>
@@ -267,23 +267,23 @@ function AwardLetterSettings() {
 
         {/* ── Preview ── */}
         <section>
-          <h2 className="text-[15px] font-semibold text-[#141C24]">Preview</h2>
-          <p className="mt-1 text-[13px] text-[#637083]">
+          <h2 className="text-body font-semibold text-gray-900">Preview</h2>
+          <p className="mt-1 text-body text-gray-500">
             A worked example, with a made-up grant filled in.
           </p>
-          <div className="mt-3 rounded-lg border border-[#E4E7EC] bg-white p-6">
-            <div className="mb-4 border-b border-[#F1EFE9] pb-3 text-xs text-[#98A2B3]">
-              Subject: <span className="text-[#637083]">{preview.subject}</span>
+          <div className="mt-3 rounded-card border border-gray-200 bg-white p-4">
+            <div className="mb-4 border-b border-gray-100 pb-3 text-label text-gray-400">
+              Subject: <span className="text-gray-500">{preview.subject}</span>
             </div>
             <AwardLetterPreview bodyText={preview.bodyText} />
           </div>
         </section>
 
-        <div className="sticky bottom-0 -mx-1 flex items-center gap-3 border-t border-[#E4E7EC] bg-white/95 px-1 py-3 backdrop-blur">
+        <div className="sticky bottom-0 -mx-1 flex items-center gap-3 border-t border-gray-200 bg-white/95 px-1 py-3 backdrop-blur">
           <Button onClick={handleSave} disabled={saving}>
             {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </Button>
-          {error && <span className="text-xs text-red-600">{error}</span>}
+          {error && <span className="text-label text-danger">{error}</span>}
         </div>
       </div>
     </SettingsPage>

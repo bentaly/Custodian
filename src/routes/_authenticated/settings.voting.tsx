@@ -39,16 +39,16 @@ function Voting() {
       title="Voting"
       description="Trustees vote yes or no on shortlisted applications, and a majority is needed before a grant can be awarded."
     >
-      <Card className="flex items-center justify-between p-5">
+      <Card className="flex items-center justify-between p-4">
         <div className="pr-4">
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-body font-medium text-gray-700">
             Allow admins to vote on behalf of trustees
           </p>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-0.5 text-body text-gray-500">
             When enabled, admins can record yes/no votes for any trustee on an application — useful
             when a trustee sends their decision outside the platform.
           </p>
-          {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+          {error && <p className="mt-1 text-label text-danger">{error}</p>}
         </div>
         <button
           type="button"

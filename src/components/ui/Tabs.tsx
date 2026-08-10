@@ -28,7 +28,7 @@ export function Tabs<T>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="flex w-fit max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-lg p-0.5"
+      className="flex w-fit max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-chip p-0.5"
       style={{ backgroundColor: C.wash }}
     >
       {items.map((t) => {
@@ -40,18 +40,18 @@ export function Tabs<T>({
             role="tab"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-chip px-2"
             style={on ? { backgroundColor: '#fff', border: `1px solid ${C.line}` } : undefined}
           >
             <span
-              className="whitespace-nowrap font-display text-[14px] font-medium"
+              className="whitespace-nowrap font-display text-body font-medium"
               style={{ color: on ? C.ink : C.sub }}
             >
               {t.label}
             </span>
             {t.count !== undefined && (
               <span
-                className="font-display text-[14px] font-medium tabular-nums"
+                className="font-display text-body font-medium tabular-nums"
                 style={{ color: C.faint }}
               >
                 {t.count}

@@ -32,22 +32,22 @@ export const Route = createFileRoute('/_authenticated/awards/$awardId')({
 type AwardData = Awaited<ReturnType<typeof getAward>>
 
 const AWARD_STATUS: Record<string, { label: string; className: string }> = {
-  active: { label: 'Active', className: 'bg-emerald-50 text-emerald-700' },
+  active: { label: 'Active', className: 'bg-success/10 text-success' },
   completed: { label: 'Done', className: 'bg-gray-100 text-gray-600' },
-  cancelled: { label: 'Cancelled', className: 'bg-red-50 text-red-600' },
+  cancelled: { label: 'Cancelled', className: 'bg-danger/10 text-danger' },
 }
 
 const SCHED_STATUS = {
-  paid: { label: 'Paid', className: 'bg-emerald-50 text-emerald-700' },
-  submitted: { label: 'Received', className: 'bg-blue-50 text-blue-700' },
-  overdue: { label: 'Overdue', className: 'bg-red-50 text-red-600' },
-  due_soon: { label: 'Due soon', className: 'bg-amber-50 text-amber-700' },
+  paid: { label: 'Paid', className: 'bg-success/10 text-success' },
+  submitted: { label: 'Received', className: 'bg-info/10 text-info' },
+  overdue: { label: 'Overdue', className: 'bg-danger/10 text-danger' },
+  due_soon: { label: 'Due soon', className: 'bg-warning/10 text-warning' },
   upcoming: { label: 'Upcoming', className: 'bg-gray-100 text-gray-500' },
   tbc: { label: 'Date TBC', className: 'bg-gray-100 text-gray-400' },
 }
 
 const inputClass =
-  'rounded-sm border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-400'
+  'rounded-chip border border-gray-200 px-2.5 py-1.5 text-body focus:outline-hidden focus:ring-2 focus:ring-gray-400'
 
 function AwardDetail() {
   const award = Route.useLoaderData()
@@ -65,10 +65,10 @@ function AwardDetail() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-[21px] font-semibold text-gray-900">
+          <h1 className="font-display text-heading font-semibold text-gray-900">
             {award.organisationName}
           </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-gray-500">
             {award.programmeName && (
               <span>
                 <span className="text-gray-400">Programme </span>
@@ -138,11 +138,11 @@ function AwardDetail() {
           grant report is read against, so it belongs above the mechanics. */}
       {award.purpose && (
         <Card className="px-5 py-4">
-          <h2 className="text-sm font-semibold text-gray-900">Grant purpose</h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{award.purpose}</p>
+          <h2 className="text-body font-semibold text-gray-900">Grant purpose</h2>
+          <p className="mt-1.5 text-body leading-relaxed text-gray-600">{award.purpose}</p>
           {award.specialCondition && (
-            <p className="mt-3 border-t border-gray-100 pt-3 text-sm leading-relaxed text-gray-600">
-              <span className="text-[11px] uppercase tracking-wide text-gray-400">
+            <p className="mt-3 border-t border-gray-100 pt-3 text-body leading-relaxed text-gray-600">
+              <span className="text-label uppercase tracking-wide text-gray-400">
                 Condition specific to this grant
               </span>
               <br />
@@ -169,9 +169,9 @@ function AwardDetail() {
 // ─── Award letter ────────────────────────────────────────────────────────────
 
 const LETTER_STATUS: Record<string, { label: string; className: string }> = {
-  sent: { label: 'Sent', className: 'bg-emerald-50 text-emerald-700' },
-  draft: { label: 'Not sent', className: 'bg-amber-50 text-amber-700' },
-  failed: { label: 'Failed to send', className: 'bg-red-50 text-red-600' },
+  sent: { label: 'Sent', className: 'bg-success/10 text-success' },
+  draft: { label: 'Not sent', className: 'bg-warning/10 text-warning' },
+  failed: { label: 'Failed to send', className: 'bg-danger/10 text-danger' },
 }
 
 /**
@@ -202,8 +202,8 @@ function AwardLetterCard({ award }: { award: AwardData }) {
   if (!letter) {
     return (
       <Card className="px-5 py-4">
-        <h2 className="text-sm font-semibold text-gray-900">Award letter</h2>
-        <p className="mt-1.5 text-xs leading-relaxed text-gray-400">
+        <h2 className="text-body font-semibold text-gray-900">Award letter</h2>
+        <p className="mt-1.5 text-label leading-relaxed text-gray-400">
           No letter was issued for this grant. Letters are written and sent during award set-up —
           awards made before that existed have none.
         </p>
@@ -216,7 +216,7 @@ function AwardLetterCard({ award }: { award: AwardData }) {
   return (
     <Card className="px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-900">Award letter</h2>
+        <h2 className="text-body font-semibold text-gray-900">Award letter</h2>
         <div className="flex items-center gap-2">
           <Badge className={status.className}>{status.label}</Badge>
           <Button variant="text" size="sm" onClick={() => setOpen(!open)}>
@@ -225,7 +225,7 @@ function AwardLetterCard({ award }: { award: AwardData }) {
         </div>
       </div>
 
-      <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-400">
+      <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-label text-gray-400">
         <span>
           To <span className="text-gray-600">{letter.recipientEmail ?? 'nobody — no address'}</span>
         </span>
@@ -242,14 +242,14 @@ function AwardLetterCard({ award }: { award: AwardData }) {
       </div>
 
       {letter.status !== 'sent' && letter.failureReason && (
-        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p className="mt-2 rounded-chip bg-warning/10 px-3 py-2 text-label text-warning">
           {letter.failureReason}
         </p>
       )}
 
       {open && (
-        <div className="mt-3 rounded-lg border border-gray-100 bg-[#FCFCFA] px-5 py-4">
-          <div className="mb-3 border-b border-gray-100 pb-2 text-xs text-gray-400">
+        <div className="mt-3 rounded-card border border-gray-100 bg-background px-5 py-4">
+          <div className="mb-3 border-b border-gray-100 pb-2 text-label text-gray-400">
             Subject: <span className="text-gray-600">{letter.subject}</span>
           </div>
           <AwardLetterPreview bodyText={letter.bodyText} />
@@ -261,7 +261,7 @@ function AwardLetterCard({ award }: { award: AwardData }) {
           <Button variant="secondary" size="sm" onClick={handleResend} disabled={busy}>
             {busy ? 'Sending…' : letter.status === 'sent' ? 'Send again' : 'Send now'}
           </Button>
-          {error && <span className="text-xs text-red-600">{error}</span>}
+          {error && <span className="text-label text-danger">{error}</span>}
         </div>
       )}
     </Card>
@@ -316,8 +316,8 @@ function PaymentsCard({ award }: { award: AwardData }) {
   return (
     <Card className="px-5 py-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Payments</h2>
-        <span className="text-xs text-gray-400">
+        <h2 className="text-body font-semibold text-gray-900">Payments</h2>
+        <span className="text-label text-gray-400">
           {award.paidCount}/{award.instalmentCount} instalments
         </span>
       </div>
@@ -325,15 +325,15 @@ function PaymentsCard({ award }: { award: AwardData }) {
       {/* Progress */}
       <div className="mt-3 flex items-center gap-2.5">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
-          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
         </div>
-        <span className="shrink-0 text-xs tabular-nums text-gray-500">
+        <span className="shrink-0 text-label tabular-nums text-gray-500">
           {fmtMoney(award.paidToDate)} / {fmtMoney(award.scheduledTotal)}
         </span>
       </div>
 
       {award.instalments.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-400">No instalment schedule recorded.</p>
+        <p className="mt-4 text-body text-gray-400">No instalment schedule recorded.</p>
       ) : (
         <ul className="mt-3 divide-y divide-gray-100">
           {award.instalments.map((inst) => {
@@ -343,7 +343,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
               <li key={inst.id} className="py-2.5">
                 {editing ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-gray-400">#{inst.instalmentNo}</span>
+                    <span className="text-label text-gray-400">#{inst.instalmentNo}</span>
                     <input
                       type="number"
                       value={draftAmount}
@@ -371,9 +371,9 @@ function PaymentsCard({ award }: { award: AwardData }) {
                 ) : (
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">#{inst.instalmentNo}</span>
+                      <span className="text-label text-gray-400">#{inst.instalmentNo}</span>
                       <span className="font-medium text-gray-900">{fmtMoney(inst.amount)}</span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-label text-gray-500">
                         {inst.paidDate
                           ? `Paid ${fmtDate(inst.paidDate)}`
                           : `Due ${fmtDate(inst.dueDate)}`}
@@ -498,7 +498,7 @@ function ReportingCard({ award }: { award: AwardData }) {
   return (
     <Card className="px-5 py-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Reporting schedule</h2>
+        <h2 className="text-body font-semibold text-gray-900">Reporting schedule</h2>
         {award.canEdit && !adding && (
           <Button variant="text" size="xs" onClick={beginAdd}>
             + Add date
@@ -507,7 +507,7 @@ function ReportingCard({ award }: { award: AwardData }) {
       </div>
 
       {award.reportingMilestones.length === 0 && !adding ? (
-        <p className="mt-4 text-sm text-gray-400">No reporting dates set.</p>
+        <p className="mt-4 text-body text-gray-400">No reporting dates set.</p>
       ) : (
         <ul className="mt-3 divide-y divide-gray-100">
           {award.reportingMilestones.map((m) => {
@@ -520,7 +520,7 @@ function ReportingCard({ award }: { award: AwardData }) {
                   <div className="flex items-center justify-between gap-3 py-2.5">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="truncate font-medium text-gray-900">{m.label}</span>
-                      <span className="shrink-0 text-xs text-gray-500">
+                      <span className="shrink-0 text-label text-gray-500">
                         {m.submittedDate
                           ? `Received ${fmtDate(m.submittedDate)}`
                           : `Due ${fmtDate(m.dueDate)}`}
@@ -562,10 +562,10 @@ function ReportsCard({ award }: { award: AwardData }) {
   if (award.reports.length === 0) {
     return (
       <Card className="px-5 py-4">
-        <h2 className="text-sm font-semibold text-gray-900">Reports received</h2>
+        <h2 className="text-body font-semibold text-gray-900">Reports received</h2>
         <EmptyState className="mt-3 py-8">
-          <p className="text-sm text-gray-500">No reports received yet.</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="text-body text-gray-500">No reports received yet.</p>
+          <p className="mt-1 text-label text-gray-400">
             Submitted reports are matched to this award automatically and will appear here.
           </p>
         </EmptyState>
@@ -575,7 +575,7 @@ function ReportsCard({ award }: { award: AwardData }) {
 
   return (
     <Card className="px-5 py-4">
-      <h2 className="text-sm font-semibold text-gray-900">Reports received</h2>
+      <h2 className="text-body font-semibold text-gray-900">Reports received</h2>
       <ul className="mt-3 divide-y divide-gray-100">
         {award.reports.map((r) => (
           <li key={r.id} className="py-3">
@@ -590,29 +590,29 @@ function ReportsCard({ award }: { award: AwardData }) {
                   <Badge
                     className={
                       r.status === 'reviewed'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-blue-50 text-blue-700'
+                        ? 'bg-success/10 text-success'
+                        : 'bg-info/10 text-info'
                     }
                   >
                     {r.status === 'reviewed' ? 'Reviewed' : 'Received'}
                   </Badge>
                 </div>
-                <p className="mt-1 line-clamp-2 text-sm text-gray-600">
+                <p className="mt-1 line-clamp-2 text-body text-gray-600">
                   {r.aiSummary ?? r.impactSummary}
                 </p>
               </div>
               <div className="shrink-0 text-right">
                 {r.impactQuantity != null && (
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-body font-semibold text-gray-900">
                     {Number(r.impactQuantity).toLocaleString('en-GB')}
                     {r.impactUnitLabel && (
-                      <span className="ml-1 text-xs font-normal text-gray-400">
+                      <span className="ml-1 text-label font-normal text-gray-400">
                         {r.impactUnitLabel}
                       </span>
                     )}
                   </p>
                 )}
-                <p className="mt-0.5 text-xs text-gray-400">{fmtDate(r.submittedAt)}</p>
+                <p className="mt-0.5 text-label text-gray-400">{fmtDate(r.submittedAt)}</p>
               </div>
             </Link>
           </li>
@@ -631,16 +631,16 @@ function ApplicationCard({ award }: { award: AwardData }) {
   return (
     <Card className="px-5 py-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Source application</h2>
+        <h2 className="text-body font-semibold text-gray-900">Source application</h2>
         <TextLink
           to="/applications/$applicationId"
           params={{ applicationId: a.id }}
-          className="text-xs"
+          className="text-label"
         >
           View application →
         </TextLink>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-body sm:grid-cols-4">
         <Field label="Requested" value={fmtMoney(a.amountRequested)} />
         <Field
           label="Awarded"
@@ -673,9 +673,9 @@ function ApplicationCard({ award }: { award: AwardData }) {
 function Field({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="text-label uppercase tracking-wide text-gray-400">{label}</p>
       <p className="mt-0.5 font-medium text-gray-900">{value}</p>
-      {sub && <p className="text-xs text-gray-400">{sub}</p>}
+      {sub && <p className="text-label text-gray-400">{sub}</p>}
     </div>
   )
 }

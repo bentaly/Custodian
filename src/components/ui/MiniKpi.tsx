@@ -10,10 +10,10 @@ import { C } from './tokens'
 
 /** The four pastel tints, in the order they read across a stat row. */
 export const KPI_TINTS = {
-  violet: { bg: '#F5F4FF', accent: '#8B7FF0' },
-  green: { bg: '#EDF9F1', accent: '#31A650' },
-  amber: { bg: '#FEF7EB', accent: '#F89828' },
-  pink: { bg: '#FDEFF2', accent: '#F0537A' },
+  violet: { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', accent: 'var(--color-accent-violet)' },
+  green: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', accent: 'var(--color-success)' },
+  amber: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', accent: 'var(--color-warning)' },
+  pink: { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', accent: 'var(--color-danger)' },
 } as const
 
 export type KpiTint = { bg: string; accent: string }
@@ -24,8 +24,8 @@ export type KpiTint = { bg: string; accent: string }
  * 16px figure every other screen's stat cards use.
  */
 const VALUE_SIZE = {
-  lg: 'font-display text-[32px] font-medium leading-none',
-  sm: 'font-display text-[16px] font-medium leading-snug',
+  lg: 'font-display text-display font-medium leading-none',
+  sm: 'font-display text-title font-medium leading-snug',
 } as const
 
 /**
@@ -37,12 +37,12 @@ const VALUE_SIZE = {
 const SCALE = {
   lg: {
     panel: 'px-3 py-6',
-    sub: 'text-[14px]',
+    sub: 'text-body',
     footer: 'px-3 py-3',
-    label: 'text-[14px]',
+    label: 'text-body',
     icon: 20,
   },
-  sm: { panel: 'p-4', sub: 'text-xs', footer: 'px-4 py-3', label: 'text-[13px]', icon: 16 },
+  sm: { panel: 'p-4', sub: 'text-label', footer: 'px-4 py-3', label: 'text-body', icon: 16 },
 } as const
 
 export function MiniKpi({
@@ -75,11 +75,11 @@ export function MiniKpi({
   const scale = SCALE[size]
   return (
     <div
-      className="flex flex-col rounded-[20px] border bg-white p-1"
+      className="flex flex-col rounded-pill border bg-white p-1"
       style={{ borderColor: C.line }}
     >
       <div
-        className={`relative overflow-hidden rounded-2xl ${scale.panel}`}
+        className={`relative overflow-hidden rounded-card ${scale.panel}`}
         style={{ backgroundColor: tint.bg }}
       >
         {/* Figma "Mask group" (112:802): a radial accent gradient shown *through* a dot

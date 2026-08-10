@@ -179,7 +179,7 @@ function ProgrammeDetail() {
       />
 
       {/* Programme header */}
-      <Card className="p-5">
+      <Card className="p-4">
         {editing ? (
           <form onSubmit={handleSave} className="space-y-4">
             <div>
@@ -232,13 +232,13 @@ function ProgrammeDetail() {
                     required
                   />
                 ) : (
-                  <span className="self-center text-xs text-gray-400">
+                  <span className="self-center text-label text-gray-400">
                     {IMPACT_UNITS.find((u) => u.key === impactUnit)?.hint}
                   </span>
                 )}
               </div>
               {impactUnit === 'other' && (
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-label text-gray-400">
                   Use a plural phrase that reads as "number of…" — it appears on Insights and guides
                   how grant reports are read.
                 </p>
@@ -254,7 +254,7 @@ function ProgrammeDetail() {
               <RichTextEditor key={programme.id} defaultValue={goal} onChange={setGoal} />
             </div>
 
-            {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+            {saveError && <p className="text-body text-danger">{saveError}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={saving}>
                 {saving ? 'Saving…' : 'Save'}
@@ -281,29 +281,29 @@ function ProgrammeDetail() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-semibold text-gray-900">{programme.name}</h1>
+                <h1 className="text-heading font-semibold text-gray-900">{programme.name}</h1>
                 {programme.archivedAt && (
-                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-label font-medium text-gray-500">
                     Archived
                   </span>
                 )}
               </div>
               {programme.description && (
-                <p className="mt-1 text-sm text-gray-500">{programme.description}</p>
+                <p className="mt-1 text-body text-gray-500">{programme.description}</p>
               )}
               {tags_.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {tags_.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                      className="rounded-full bg-gray-100 px-2.5 py-0.5 text-label text-gray-600"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
               )}
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-label text-gray-400">
                 Impact measured in{' '}
                 <span className="font-medium text-gray-500">
                   {impactUnitLabel(programme.impactUnit, programme.impactUnitLabel).toLowerCase()}
@@ -342,7 +342,7 @@ function ProgrammeDetail() {
       {/* Rounds */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">Rounds</h2>
+          <h2 className="text-body font-semibold text-gray-700">Rounds</h2>
           {canManage && !showAddRound && availableRounds.length > 0 && (
             <Button size="sm" onClick={() => setShowAddRound(true)}>
               Add to round
@@ -353,7 +353,7 @@ function ProgrammeDetail() {
         {showAddRound && (
           <form
             onSubmit={handleAddToRound}
-            className="rounded-lg border border-gray-300 bg-white p-4 space-y-4"
+            className="rounded-card border border-gray-300 bg-white p-4 space-y-4"
           >
             <div>
               <Label>Round</Label>
@@ -379,7 +379,7 @@ function ProgrammeDetail() {
               onGrantDurationYears={setAddGrantDurationYears}
               budgetRequired
             />
-            {addRoundError && <p className="text-sm text-red-500">{addRoundError}</p>}
+            {addRoundError && <p className="text-body text-danger">{addRoundError}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={addingRound}>
                 {addingRound ? 'Adding…' : 'Add to round'}
@@ -403,10 +403,10 @@ function ProgrammeDetail() {
         )}
 
         {programme.roundProgrammes.length === 0 && !showAddRound ? (
-          <div className="rounded-lg border border-dashed border-gray-200 bg-white px-6 py-8 text-center">
-            <p className="text-sm text-gray-500">Not in any round.</p>
+          <div className="rounded-chip border border-dashed border-gray-200 bg-white px-6 py-8 text-center">
+            <p className="text-body text-gray-500">Not in any round.</p>
             {canManage && availableRounds.length > 0 && (
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-body text-gray-400">
                 Add this programme to a round to start accepting applications.
               </p>
             )}
@@ -419,7 +419,7 @@ function ProgrammeDetail() {
                   <Link
                     to="/rounds/$roundId"
                     params={{ roundId: round.id }}
-                    className="text-sm font-medium text-gray-900 hover:underline"
+                    className="text-body font-medium text-gray-900 hover:underline"
                   >
                     {round.name}
                   </Link>

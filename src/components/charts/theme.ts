@@ -3,18 +3,18 @@
 // The named greys/status hues mirror the Figma variables; the purple + palette are the
 // current comp approximations until those are tokenised.
 export const chart = {
-  ink: '#141C24',
-  sub: '#637083',
-  faint: '#98A2B3',
-  grid: '#EAECF0',
+  ink: 'var(--color-gray-900)',
+  sub: 'var(--color-gray-500)',
+  faint: 'var(--color-gray-400)',
+  grid: 'var(--color-gray-200)',
   /** Gray/100 — the dot-grid plot backdrop. */
-  dot: '#F2F4F7',
-  purple: '#8B7FF0',
-  success: '#31A650',
-  danger: '#FF4242',
-  warning: '#F89828',
-  info: '#3B82C4',
-  allocateLeft: '#E9ECF1',
+  dot: 'var(--color-gray-100)',
+  purple: 'var(--color-accent-violet)',
+  success: 'var(--color-success)',
+  danger: 'var(--color-danger)',
+  warning: 'var(--color-warning)',
+  info: 'var(--color-info)',
+  allocateLeft: 'var(--color-gray-200)',
 }
 
 // On-load animation — one timing shared by every chart.

@@ -175,7 +175,7 @@ export function DateRangePicker({
   }
 
   const dayClass =
-    'flex h-6 w-8 items-center justify-center rounded-[6px] font-display text-[12px] font-medium'
+    'flex h-6 w-8 items-center justify-center rounded-chip font-display text-label font-medium'
 
   // The trigger is a `FilterPill` in every respect but the popover it opens, so it
   // follows the same rule: Gray/900 text, glyph and caret in both states, and the brand
@@ -189,13 +189,13 @@ export function DateRangePicker({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 items-center gap-1 rounded-lg border py-2 pl-2 pr-1.5"
+        className="flex h-8 items-center gap-1 rounded-chip border py-2 pl-2 pr-1.5"
         style={{ borderColor: on ? C.brand : C.line, backgroundColor: on ? C.brandBg : '#fff' }}
       >
         <span className="flex items-center gap-1.5">
           <CalendarGlyph color={C.ink} />
           <span
-            className="whitespace-nowrap font-display text-[14px] font-medium"
+            className="whitespace-nowrap font-display text-body font-medium"
             style={{ color: C.ink }}
           >
             {formatDateRange(value, allLabel)}
@@ -208,12 +208,12 @@ export function DateRangePicker({
         <div
           role="dialog"
           aria-label="Select a date range"
-          className={`absolute top-full z-50 mt-2 flex overflow-hidden rounded-[16px] border bg-white shadow-[0px_11px_24px_rgba(0,0,0,0.1),0px_43px_43px_rgba(0,0,0,0.09)] ${align === 'right' ? 'right-0' : 'left-0'}`}
+          className={`absolute top-full z-50 mt-2 flex overflow-hidden rounded-card border bg-white shadow-[0px_11px_24px_rgba(0,0,0,0.1),0px_43px_43px_rgba(0,0,0,0.09)] ${align === 'right' ? 'right-0' : 'left-0'}`}
           style={{ borderColor: C.line }}
         >
           {/* Quick ranges */}
           <div className="flex flex-col gap-1.5 border-r p-3" style={{ borderColor: C.line }}>
-            <span className="font-display text-[12px] font-medium" style={{ color: C.faint }}>
+            <span className="font-display text-label font-medium" style={{ color: C.faint }}>
               Quick ranges
             </span>
             <div className="flex flex-col items-stretch">
@@ -229,7 +229,7 @@ export function DateRangePicker({
                       setPendingStart(false)
                       if (r.from) setMonth(startOfMonth(parseIso(r.from)))
                     }}
-                    className="flex h-8 items-center whitespace-nowrap rounded-lg p-2 text-left font-display text-[14px] font-medium"
+                    className="flex h-8 items-center whitespace-nowrap rounded-chip p-2 text-left font-display text-body font-medium"
                     style={{
                       backgroundColor: on ? C.brandWash : undefined,
                       color: on ? C.brand : C.sub,
@@ -249,19 +249,19 @@ export function DateRangePicker({
                 type="button"
                 aria-label="Previous month"
                 onClick={() => setMonth(addMonths(month, -1))}
-                className="flex size-8 items-center justify-center rounded-lg border bg-white"
+                className="flex size-8 items-center justify-center rounded-chip border bg-white"
                 style={{ borderColor: C.line }}
               >
                 <HugeiconsIcon icon={ArrowLeft01Icon} size={16} color={C.ink} />
               </button>
-              <span className="font-display text-[12px] font-medium" style={{ color: C.ink }}>
+              <span className="font-display text-label font-medium" style={{ color: C.ink }}>
                 {MONTHS[month.getMonth()]} {month.getFullYear()}
               </span>
               <button
                 type="button"
                 aria-label="Next month"
                 onClick={() => setMonth(addMonths(month, 1))}
-                className="flex size-8 items-center justify-center rounded-lg border bg-white"
+                className="flex size-8 items-center justify-center rounded-chip border bg-white"
                 style={{ borderColor: C.line }}
               >
                 <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={C.ink} />
@@ -311,19 +311,19 @@ export function DateRangePicker({
 
             <div className="flex w-full items-center">
               <span
-                className="flex h-8 flex-1 items-center justify-center rounded-lg border bg-white px-2 font-display text-[12px] font-medium"
+                className="flex h-8 flex-1 items-center justify-center rounded-chip border bg-white px-2 font-display text-label font-medium"
                 style={{ borderColor: C.line, color: C.body }}
               >
                 {draft.from ? fmtDay(draft.from) : '—'}
               </span>
               <span
-                className="flex size-8 items-center justify-center font-display text-[12px] font-medium"
+                className="flex size-8 items-center justify-center font-display text-label font-medium"
                 style={{ color: C.ink }}
               >
                 -
               </span>
               <span
-                className="flex h-8 flex-1 items-center justify-center rounded-lg border bg-white px-2 font-display text-[12px] font-medium"
+                className="flex h-8 flex-1 items-center justify-center rounded-chip border bg-white px-2 font-display text-label font-medium"
                 style={{ borderColor: C.line, color: C.body }}
               >
                 {draft.to ? fmtDay(draft.to) : '—'}
@@ -334,7 +334,7 @@ export function DateRangePicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex h-8 items-center rounded-lg border bg-white px-3 font-display text-[14px] font-medium"
+                className="flex h-8 items-center rounded-chip border bg-white px-3 font-display text-body font-medium"
                 style={{ borderColor: C.line, color: C.brand }}
               >
                 Cancel
@@ -342,7 +342,7 @@ export function DateRangePicker({
               <button
                 type="button"
                 onClick={apply}
-                className="flex h-8 items-center rounded-lg px-3 font-display text-[14px] font-medium text-white"
+                className="flex h-8 items-center rounded-chip px-3 font-display text-body font-medium text-white"
                 style={{ backgroundColor: C.brand }}
               >
                 Apply
