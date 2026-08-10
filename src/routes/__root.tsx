@@ -19,6 +19,16 @@ export const Route = createRootRoute({
       { title: 'Custodian' },
     ],
     links: [
+      // The Custodian mark (same drawing as `LogoMark`). The SVG is what every current
+      // browser picks — it stays crisp at any density and needs no size variants. The
+      // .ico is the fallback for anything that ignores `image/svg+xml`, and is also what
+      // crawlers and feed readers fetch from the bare `/favicon.ico` path they assume
+      // exists. `apple-touch-icon.png` is not optional in the same way: iOS home-screen
+      // and macOS bookmark icons are PNG-only, and its background is full-bleed because
+      // iOS applies its own rounded mask (the chip's own radius would show as an inset).
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'icon', href: '/favicon.ico', sizes: '32x32' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       {
         rel: 'preconnect',
         href: 'https://fonts.googleapis.com',
