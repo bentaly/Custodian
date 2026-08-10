@@ -15,6 +15,7 @@ import {
 import { CADENCES, buildSchedule, cadenceMonths, type CadenceKey } from '../../lib/awardSchedule'
 import { fmtDate, fmtMoney } from '../../lib/format'
 import { todayIso } from '../../lib/schedule'
+import { longerTimeout } from '../../lib/requestTimeout'
 
 export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -327,6 +328,10 @@ function SetUpAwards() {
             }
           }),
         },
+        // Each grant is written in its own batch, so a whole shortlist takes far longer
+        // than a single mutation — and this is the screen where being cut off early
+        // would be most alarming.
+        headers: longerTimeout(120_000),
       })
       setResult(response)
     } catch (err) {

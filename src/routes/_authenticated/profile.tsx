@@ -12,6 +12,7 @@ import {
 } from '../../lib/avatar'
 import { AvatarCropper } from '../../components/AvatarCropper'
 import { Avatar, Button, Input } from '../../components/ui'
+import { longerTimeout } from '../../lib/requestTimeout'
 
 export const Route = createFileRoute('/_authenticated/profile')({
   // Impersonation targets are only needed for platform superadmins; everyone
@@ -92,7 +93,12 @@ function Profile() {
     setPhotoError('')
     try {
       const prepared = await cropAvatar(source, crop)
-      const { image } = await updateProfilePhoto({ data: prepared })
+      // Uploading image bytes takes longer than the default deadline the fetch wrapper
+      // applies (see lib/requestTimeout) — but it still gets one.
+      const { image } = await updateProfilePhoto({
+        data: prepared,
+        headers: longerTimeout(60_000),
+      })
       setPhoto(image)
       closeCropper()
       // The header reads `user.image` from route context, which the router must refetch.

@@ -4,6 +4,7 @@ import { listMyRounds, createRound } from '../../server/fns/rounds'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { Badge, Breadcrumb, Button, Card, EmptyState, Input, Label } from '../../components/ui'
+import { messageFor } from '../../lib/errors'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
   // The management screen is the one place archived rounds must still be visible —
@@ -50,7 +51,10 @@ function Rounds() {
       })
       router.navigate({ to: '/rounds/$roundId', params: { roundId: round.id } })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create round')
+      setError(messageFor(err))
+    } finally {
+      // See the same `finally` on the programmes screen: the round exists by now, and a
+      // stalled navigation must not leave the button spinning forever.
       setCreating(false)
     }
   }

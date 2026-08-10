@@ -1,6 +1,7 @@
 import { captureException } from '@sentry/cloudflare'
 import { AppError, isAppError, statusOf } from '../lib/errors'
 import { isRouterControlFlow } from '../lib/sentry'
+import { databaseTimeout } from './db'
 import { getAuthUser } from './session'
 
 /**
@@ -30,12 +31,26 @@ export async function toClientError(err: unknown): Promise<unknown> {
     return clientError(status, (err as Error).message)
   }
 
+  // A database timeout is a fault — it belongs in Sentry — but unlike the rest of the
+  // 5xx family its message is written for the user and says what to do next, so it is
+  // kept rather than replaced with the generic copy. Read and write are told apart
+  // because only one of them leaves a question about what happened: a write that timed
+  // out may still have committed (see `databaseTimeout`).
+  const timeout = databaseTimeout(err)
+  if (timeout) {
+    reportServerError(err)
+    return clientError(
+      503,
+      timeout.isWrite
+        ? 'Timed out — refresh to check whether this saved.'
+        : 'The database did not respond in time. Please try again.',
+    )
+  }
+
   // Anything else is a fault. Report it, then decide how much to hand back.
   reportServerError(err)
 
-  const trace = (await callerMaySeeTrace())
-    ? formatTrace(err)
-    : null
+  const trace = (await callerMaySeeTrace()) ? formatTrace(err) : null
 
   return clientError(500, 'Something went wrong at our end. Please try again.', trace)
 }

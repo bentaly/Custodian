@@ -3,6 +3,7 @@ import { createIsomorphicFn } from '@tanstack/react-start'
 import { routeTree } from './routeTree.gen'
 import { RouteError } from './components/ui/RouteError'
 import { notFoundError } from './lib/errors'
+import { installRequestTimeout } from './lib/requestTimeout'
 
 /**
  * Start Sentry as early as the browser runs any app code.
@@ -19,8 +20,23 @@ const initSentry = createIsomorphicFn().client(() => {
   void import('./lib/sentry.client').then((m) => m.initSentryClient())
 })
 
+/**
+ * Put a deadline on every request to our own server, before the router makes any.
+ *
+ * Client-only for the same reason as Sentry above, but with more at stake: on the
+ * server this same global `fetch` is how the Worker reaches Neon, Companies House and
+ * Resend, which carry their own bounds and must not inherit a browser's.
+ *
+ * Imported statically, unlike Sentry: a dynamic import installs a tick late, and the
+ * requests it would miss are the first page's loaders — exactly the ones that hung on
+ * 9 Aug. The module has no browser-only dependency to keep out of the server graph, and
+ * does nothing at import time.
+ */
+const initRequestTimeout = createIsomorphicFn().client(installRequestTimeout)
+
 export function getRouter() {
   initSentry()
+  initRequestTimeout()
 
   const router = createRouter({
     routeTree,

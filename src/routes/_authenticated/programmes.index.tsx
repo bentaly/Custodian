@@ -14,6 +14,7 @@ import {
   Label,
   Textarea,
 } from '../../components/ui'
+import { messageFor } from '../../lib/errors'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
@@ -77,7 +78,11 @@ function Programmes() {
       })
       router.navigate({ to: '/programmes/$programmeId', params: { programmeId: programme.id } })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create programme')
+      setError(messageFor(err))
+    } finally {
+      // In `finally`, not the `catch`: the programme is created by this point, but the
+      // navigation that follows runs three more server calls, and if any of those stall
+      // the button would otherwise read "Creating…" for as long as the tab stays open.
       setCreating(false)
     }
   }

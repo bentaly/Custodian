@@ -51,6 +51,16 @@ export default Sentry.withSentry(
     // so the build itself cannot tell staging from prod.
     environment: env.SENTRY_ENVIRONMENT ?? 'development',
     tracesSampleRate: 0,
+    // Which outbound requests may carry `sentry-trace` / `baggage` headers. The SDK
+    // enables its Fetch integration by default and, left unset, this defaults to
+    // *everything* — so our Neon queries, Charity Commission and Companies House
+    // lookups, postcodes.io, Anthropic and Resend calls were all being stamped with
+    // tracing headers none of them asked for. Restrict it to our own hosts.
+    tracePropagationTargets: [
+      /^https:\/\/custodian\.fund/,
+      /^https:\/\/custodian(-staging)?\.bental\.workers\.dev/,
+      /^\//,
+    ],
     sendDefaultPii: false,
     // Browser and Worker errors share one Sentry project — tag which half threw.
     initialScope: { tags: { side: 'worker' } },

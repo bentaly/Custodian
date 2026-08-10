@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   forbidden,
+  isAbort,
   isAppError,
   messageFor,
   notFoundError,
@@ -81,5 +82,29 @@ describe('serverStackOf', () => {
 
   it('treats an empty trace as absent', () => {
     expect(serverStackOf(Object.assign(new Error('x'), { serverStack: '' }))).toBeNull()
+  })
+})
+
+describe('isAbort', () => {
+  // A request that was cut short never rejects with anything the user could act on:
+  // an AbortSignal.timeout gives a DOMException whose own text is "signal is aborted
+  // without reason". This is the one failure the 9 Aug incident could NOT produce a
+  // message for, because nothing threw at all until the deadline existed.
+  it('recognises both a deadline and a cancellation', () => {
+    expect(isAbort(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))).toBe(true)
+    expect(isAbort(Object.assign(new Error('aborted'), { name: 'AbortError' }))).toBe(true)
+  })
+
+  it('leaves ordinary failures alone', () => {
+    expect(isAbort(new Error('boom'))).toBe(false)
+    expect(isAbort(forbidden())).toBe(false)
+    expect(isAbort(null)).toBe(false)
+  })
+
+  it('tells the user to look before acting again, rather than nothing at all', () => {
+    const timedOut = Object.assign(new Error('signal is aborted without reason'), {
+      name: 'TimeoutError',
+    })
+    expect(messageFor(timedOut)).toBe('Timed out — refresh to check whether this saved.')
   })
 })

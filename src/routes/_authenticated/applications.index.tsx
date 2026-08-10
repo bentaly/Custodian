@@ -38,6 +38,7 @@ import {
 } from '../../components/ui'
 import { fmtAmount, fmtCompact } from '../../lib/format'
 import { C as TOKENS } from '../../components/ui/tokens'
+import { longerTimeout } from '../../lib/requestTimeout'
 
 const PAGE_SIZE = 25
 
@@ -721,6 +722,8 @@ function ApplicationsList() {
     try {
       const all = await listApplications({
         data: { page: 1, pageSize: 10_000, roundId, programmeId },
+        // Up to 10,000 rows in one read — longer than the wrapper's default deadline.
+        headers: longerTimeout(60_000),
       })
       const scope = programmeId
         ? budgetSummary.find((r) => r.programmeId === programmeId)?.programmeName

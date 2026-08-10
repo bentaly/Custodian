@@ -70,12 +70,30 @@ export function serverStackOf(err: unknown): string | null {
 }
 
 /**
+ * A request that was cut short rather than answered — our own client-side deadline
+ * (`requestTimeout`), or the user navigating away mid-flight. The two are
+ * indistinguishable from here and the advice is the same either way: nobody knows
+ * whether the server acted, so look before acting again.
+ */
+export function isAbort(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    ((err as { name?: unknown }).name === 'TimeoutError' ||
+      (err as { name?: unknown }).name === 'AbortError')
+  )
+}
+
+/**
  * User-facing copy. An `AppError`'s own message is written for the user and is used
  * verbatim; anything else is an unhandled fault whose message could contain a SQL
  * fragment or an API key, so it is replaced wholesale.
  */
 export function messageFor(err: unknown): string {
   if (isAppError(err) && err instanceof Error && err.message) return err.message
+  // A DOMException's own text ("signal is aborted without reason") tells the user
+  // nothing they can act on.
+  if (isAbort(err)) return 'Timed out — refresh to check whether this saved.'
   const status = statusOf(err)
   if (status >= 400 && status < 500 && err instanceof Error && err.message) {
     return err.message
