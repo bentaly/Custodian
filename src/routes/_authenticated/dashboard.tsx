@@ -576,61 +576,67 @@ function Dashboard() {
           <GivingSoFar giving={d.giving} />
         </Panel>
 
-        <Panel>
-          <PanelTitle>Lately</PanelTitle>
-          {d.lately.length === 0 ? (
-            <p className="py-4 text-body" style={{ color: C.faint }}>
-              No activity yet.
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {d.lately.map((ev) => {
-                const meta = LATELY_META[ev.action]
-                if (!meta) return null
-                const org = ev.organisationName ?? 'an application'
-                const inner = (
-                  <>
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip"
-                      style={{ backgroundColor: DESK_TILE }}
-                    >
-                      <HugeiconsIcon
-                        icon={meta.icon}
-                        className="h-5 w-5"
-                        strokeWidth={1.5}
+        {/* The feed must not set the row height — a busy week would leave "Giving so far"
+            stretched with dead space beneath the chart. Taking the panel out of flow leaves
+            the cell sized by the chart alone, and the feed scrolls inside it. Below lg the
+            two panels are stacked, so the panel goes back in flow and grows naturally. */}
+        <div className="relative">
+          <Panel className="flex flex-col lg:absolute lg:inset-0">
+            <PanelTitle>Lately</PanelTitle>
+            {d.lately.length === 0 ? (
+              <p className="py-4 text-body" style={{ color: C.faint }}>
+                No activity yet.
+              </p>
+            ) : (
+              <div className="-mx-2 min-h-0 flex-1 space-y-1 overflow-y-auto px-2">
+                {d.lately.map((ev) => {
+                  const meta = LATELY_META[ev.action]
+                  if (!meta) return null
+                  const org = ev.organisationName ?? 'an application'
+                  const inner = (
+                    <>
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip"
+                        style={{ backgroundColor: DESK_TILE }}
+                      >
+                        <HugeiconsIcon
+                          icon={meta.icon}
+                          className="h-5 w-5"
+                          strokeWidth={1.5}
+                          style={{ color: C.sub }}
+                        />
+                      </span>
+                      <span
+                        className="min-w-0 flex-1 text-label font-medium leading-snug"
                         style={{ color: C.sub }}
-                      />
-                    </span>
-                    <span
-                      className="min-w-0 flex-1 text-label font-medium leading-snug"
-                      style={{ color: C.sub }}
+                      >
+                        <span style={{ color: C.ink }}>{ev.actorName ?? 'Someone'}</span>{' '}
+                        {meta.verb} <span style={{ color: C.ink }}>{org}</span>
+                      </span>
+                      <span className="shrink-0 text-label font-medium" style={{ color: C.sub }}>
+                        {relativeTime(ev.at)}
+                      </span>
+                    </>
+                  )
+                  return ev.applicationId ? (
+                    <Link
+                      key={ev.id}
+                      to="/applications/$applicationId"
+                      params={{ applicationId: ev.applicationId }}
+                      className="flex items-center gap-3 rounded-chip px-2 py-2 transition-colors hover:bg-gray-50"
                     >
-                      <span style={{ color: C.ink }}>{ev.actorName ?? 'Someone'}</span> {meta.verb}{' '}
-                      <span style={{ color: C.ink }}>{org}</span>
-                    </span>
-                    <span className="shrink-0 text-label font-medium" style={{ color: C.sub }}>
-                      {relativeTime(ev.at)}
-                    </span>
-                  </>
-                )
-                return ev.applicationId ? (
-                  <Link
-                    key={ev.id}
-                    to="/applications/$applicationId"
-                    params={{ applicationId: ev.applicationId }}
-                    className="flex items-center gap-3 rounded-chip px-2 py-2 transition-colors hover:bg-gray-50"
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div key={ev.id} className="flex items-center gap-3 px-2 py-2">
-                    {inner}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </Panel>
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div key={ev.id} className="flex items-center gap-3 px-2 py-2">
+                      {inner}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Panel>
+        </div>
       </div>
     </div>
   )
