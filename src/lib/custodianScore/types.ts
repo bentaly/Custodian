@@ -60,6 +60,13 @@ export interface CustodianScoreResult {
   /** Composite 0–100, or null when not scored. */
   score: number | null
   detail: CustodianScoreDetail | null
+  /**
+   * One sentence saying what the money would fund — see `applications.grantPurpose`.
+   * Deliberately OUTSIDE `detail`: it is not part of the assessment (it makes no
+   * judgement), it lives in its own column, and it is the one thing here that ends up
+   * in a letter to a grantee. Null unless status is 'scored'.
+   */
+  grantPurpose: string | null
   scoredAt: string
 }
 

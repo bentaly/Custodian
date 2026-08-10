@@ -334,7 +334,11 @@ export const commitImport = createServerFn({ method: 'POST' })
         // (NOT NULL). Every screen reading it is showing what was awarded anyway.
         amountRequested: String(grant.amountAwarded),
         deliveryArea: grant.deliveryArea,
-        purpose: undefined,
+        // The purpose the foundation recorded in their own ledger. It goes on the
+        // application as well as the award because it is the same statement, and
+        // because it is the only thing an imported row can say about what the money
+        // funded — the score below never runs, so nothing else would fill that panel.
+        grantPurpose: grant.purpose,
         status: 'awarded',
         // Deliberately left at their defaults (`pending`): due diligence and the
         // deprivation lookup re-derive themselves from the registration number and the

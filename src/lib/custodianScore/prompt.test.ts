@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildUserPrompt } from './prompt'
+import { buildSystemPrompt, buildUserPrompt } from './prompt'
 import type { CustodianScoreInput } from './types'
 
 const base: CustodianScoreInput = {
@@ -75,5 +75,30 @@ describe('buildUserPrompt — budget', () => {
     })
     expect(prompt).toContain('Staff costs')
     expect(prompt).not.toMatch(/not.*available to you/i)
+  })
+})
+
+// The purpose is the one model output that leaves the building: an admin may accept it
+// unedited in award set-up, and it is then quoted in the letter the grantee receives.
+// Assessment language there ("a strong, well-evidenced proposal") would read as the
+// foundation praising the grantee inside what is effectively a contractual clause.
+describe('buildSystemPrompt — grant purpose', () => {
+  const prompt = buildSystemPrompt()
+
+  it('asks for it separately from the assessment', () => {
+    expect(prompt).toMatch(/state the grant purpose/i)
+    expect(prompt).toMatch(/NOT part of your assessment/i)
+  })
+
+  it('rules out evaluative language', () => {
+    expect(prompt).toMatch(/no evaluation, praise, hedging or scoring words/i)
+  })
+
+  it('asks for a complete sentence, since it is rendered as its own block', () => {
+    expect(prompt).toMatch(/complete sentence beginning with the organisation/i)
+  })
+
+  it('forbids inventing detail the application does not give', () => {
+    expect(prompt).toMatch(/rather than (guessing|inventing detail)/i)
   })
 })

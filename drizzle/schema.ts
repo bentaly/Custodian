@@ -340,6 +340,16 @@ export const applications = pgTable(
     custodianScore: integer('custodian_score'),
     custodianScoreDetail: jsonb('custodian_score_detail').$type<CustodianScoreDetail>(),
     custodianScoredAt: timestamp('custodian_scored_at'),
+    // One sentence saying what the money would fund, written by the same model call
+    // that scores the application. Its own column rather than a field in
+    // `custodianScoreDetail` for two reasons: it survives a failed re-score (which
+    // replaces the detail blob wholesale), and it is a statement of fact rather than
+    // part of the assessment — it makes no judgement and carries no score. Read on the
+    // shortlist card and the application screen, and pre-fills the purpose in award
+    // set-up, where an admin edits it before it reaches the award letter. The award
+    // keeps its OWN copy from that point on: editing the letter's wording must not
+    // rewrite what the AI made of the application.
+    grantPurpose: text('grant_purpose'),
     // Deprivation context derived from `deliveryArea`. `deprivationStatus` is the
     // denormalised outcome for cheap list reads; `deprivationContext` holds the full
     // result (decile range, nation, vintage, matched area — or the reason it could not

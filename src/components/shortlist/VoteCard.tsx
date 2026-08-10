@@ -30,6 +30,7 @@ export type VoteCardApplication = {
   custodianScore: number | null
   custodianScoreDetail: CustodianScoreDetail | null
   custodianScoreStatus: string
+  grantPurpose: string | null
   deprivationContext: DeprivationResult | null
   dueDiligenceStatus: string
   proposedImpactQuantity: string | null
@@ -277,6 +278,22 @@ export function VoteCard({
               sub={app.charityNumber ?? app.companyNumber ?? undefined}
             />
           </div>
+
+          {/* What the money would fund. Above the assessment on purpose: a board reads
+              what is being proposed before it reads what we made of it. */}
+          {app.grantPurpose && (
+            <div className="mt-4">
+              <div
+                className="text-[11px] font-semibold uppercase tracking-[.04em]"
+                style={{ color: C.faint }}
+              >
+                Grant purpose
+              </div>
+              <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: C.ink }}>
+                {app.grantPurpose}
+              </p>
+            </div>
+          )}
 
           {/* AI assessment */}
           {detail?.summary && (

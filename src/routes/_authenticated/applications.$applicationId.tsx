@@ -131,13 +131,7 @@ function Panel({
  * figures. A registration number is not one of those figures, and a grantee still
  * receiving instalments is exactly the one worth screening late.
  */
-function ScreenWithNumber({
-  applicationId,
-  canEdit,
-}: {
-  applicationId: string
-  canEdit: boolean
-}) {
+function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; canEdit: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [charityNumber, setCharityNumber] = useState('')
@@ -396,6 +390,7 @@ function ApplicationDetail() {
   const score = application.custodianScore
   const scoreDetail = application.custodianScoreDetail as CustodianScoreDetail | null
   const scored = scoreStatus === 'scored' && score != null && scoreDetail != null
+  const grantPurpose = application.grantPurpose?.trim() || null
 
   const ddRecords = (application.dueDiligenceChecks as DueDiligenceCheckRecord[] | null) ?? []
 
@@ -617,6 +612,19 @@ function ApplicationDetail() {
 
       {/* Body */}
       <div className="flex flex-col gap-4">
+        {/* What the money would fund — stated before anything we made of it. Its own
+            panel rather than a line inside the assessment below, because it is a
+            statement of fact carrying no judgement, and because it is present on rows
+            the score is missing from (an imported grant, a failed scoring run). */}
+        {grantPurpose && (
+          <Panel label="grant purpose">
+            <PanelTitle>Grant purpose</PanelTitle>
+            <p className="font-display text-[14px] leading-relaxed" style={{ color: C.ink }}>
+              {grantPurpose}
+            </p>
+          </Panel>
+        )}
+
         {/* AI Assessment */}
         <Panel label="AI assessment">
           <PanelTitle>AI Assessment</PanelTitle>
@@ -801,8 +809,8 @@ function ApplicationDetail() {
                 {budgetLinkName}
               </a>
               <p className="mt-1 font-display text-[13px]" style={{ color: C.sub }}>
-                The applicant supplied their budget as a document. It opens in a new tab and
-                isn't read by Custodian, so it doesn't feed the breakdown or the score.
+                The applicant supplied their budget as a document. It opens in a new tab and isn't
+                read by Custodian, so it doesn't feed the breakdown or the score.
               </p>
             </div>
           )}

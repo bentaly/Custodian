@@ -74,6 +74,9 @@ async function main() {
         custodianScore: result.score,
         custodianScoreDetail: result.detail,
         custodianScoredAt: new Date(result.scoredAt),
+        // Kept only when the run produced one, so a failed re-score doesn't blank a
+        // purpose that is already on the row.
+        ...(result.grantPurpose ? { grantPurpose: result.grantPurpose } : {}),
       })
       .where(eq(schema.applications.id, app.id))
     const headline = result.status === 'scored' ? `${result.score}/100` : result.status

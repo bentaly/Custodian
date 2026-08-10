@@ -70,7 +70,7 @@ export async function runCustodianScore(
 
   // Not configured yet → leave as pending (re-runnable) rather than erroring.
   if (!opts.assess && !isAnthropicConfigured()) {
-    return { status: 'pending', score: null, detail: null, scoredAt }
+    return { status: 'pending', score: null, detail: null, grantPurpose: null, scoredAt }
   }
 
   const assess = opts.assess ?? liveAssessor
@@ -93,6 +93,7 @@ export async function runCustodianScore(
         flags: output.flags ?? [],
         model: SCORING_MODEL,
       },
+      grantPurpose: output.grantPurpose?.trim() || null,
       scoredAt,
     }
   } catch (e) {
@@ -106,6 +107,9 @@ export async function runCustodianScore(
         model: SCORING_MODEL,
         error: e instanceof Error ? e.message : String(e),
       },
+      // Null rather than a placeholder: callers must not overwrite a purpose they
+      // already hold with the output of a run that failed.
+      grantPurpose: null,
       scoredAt,
     }
   }

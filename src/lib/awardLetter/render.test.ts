@@ -11,7 +11,10 @@ const input: AwardLetterInput = {
   organisationName: 'Pennine Youth Alliance',
   foundationName: 'Rothbury Family Foundation',
   amountAwarded: 38000,
-  purpose: 'early intervention youth work in Calderdale',
+  // A complete sentence, as the grant purpose is now written: the default letter sets
+  // it out as its own block rather than running it on after "towards".
+  purpose:
+    'Pennine Youth Alliance will deliver early intervention youth work with 11–16 year olds in Calderdale over 12 months.',
   startDate: '2026-08-01',
   programmeName: 'Young People & Education',
   roundName: 'Spring 2026',
@@ -98,7 +101,11 @@ describe('renderAwardLetter', () => {
     expect(letter.subject).toBe('Your grant from Rothbury Family Foundation')
     expect(letter.bodyText).toContain('Dear Pennine Youth Alliance,')
     expect(letter.bodyText).toContain('a grant of £38,000')
-    expect(letter.bodyText).toContain('towards early intervention youth work in Calderdale')
+    // The purpose is set out as its own paragraph — it is the clause the conditions
+    // bind to, so it must be quotable rather than buried mid-sentence.
+    expect(letter.bodyText).toContain(
+      'The grant is made towards the following purpose:\n\nPennine Youth Alliance will deliver',
+    )
     expect(letter.bodyText).toContain('two instalments')
     expect(letter.bodyText).toContain('1. £19,000 — 1 Aug 2026')
     expect(letter.bodyText).toContain('Interim report — 1 Feb 2027')
@@ -120,8 +127,10 @@ describe('renderAwardLetter', () => {
   })
 
   it("uses the foundation's overrides when set", () => {
+    // A foundation writing their own template may still run the purpose on inline, so
+    // this one carries a noun phrase rather than the default's standalone sentence.
     const letter = renderAwardLetter({
-      input,
+      input: { ...input, purpose: 'early intervention youth work in Calderdale' },
       settings: {
         template: 'Dear {{organisationName}} — {{amount}} for {{purpose}}.\n\n{{conditions}}',
         conditions: ['Our one condition.'],
@@ -148,7 +157,10 @@ describe('renderAwardLetter', () => {
 
   it('flags a missing purpose instead of leaving a hole', () => {
     const letter = renderAwardLetter({ input: { ...input, purpose: null }, settings: null })
-    expect(letter.bodyText).toContain(`towards ${MISSING_TOKEN_PLACEHOLDER}`)
+    // Alone on its own line, which is where a hole is hardest to miss in the preview.
+    expect(letter.bodyText).toContain(
+      `The grant is made towards the following purpose:\n\n${MISSING_TOKEN_PLACEHOLDER}`,
+    )
   })
 })
 

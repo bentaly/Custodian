@@ -173,7 +173,10 @@ function SetUpAwards() {
         {
           selected: true,
           amount: String(c.amountRequested),
-          purpose: '',
+          // Pre-filled from the application's grant purpose, then edited freely: what
+          // ends up here is what the grantee's letter says, so the admin gets the last
+          // word. The edit stays on the award — the application keeps the AI's wording.
+          purpose: c.grantPurpose ?? '',
           specialCondition: '',
           custom: false,
           rows: [],
@@ -521,8 +524,8 @@ function SetUpAwards() {
                     <textarea
                       value={g.purpose}
                       onChange={(e) => setGrant(c.id, { purpose: e.target.value })}
-                      placeholder="Award purpose — what this grant is for, as it should read on the letter…"
-                      aria-label={`Award purpose for ${c.organisationName}`}
+                      placeholder="Grant purpose — what this grant is for, as it should read on the letter…"
+                      aria-label={`Grant purpose for ${c.organisationName}`}
                       className={`${inputClass} mb-2 min-h-[52px] w-full resize-y leading-relaxed`}
                     />
                     <input
@@ -1031,8 +1034,8 @@ function SetUpAwards() {
           {missingPurpose.length > 0 && (
             <div className="rounded-xl bg-[#FAEEDA] px-4 py-3 text-[12px] leading-relaxed text-[#854F0B]">
               {missingPurpose.length === 1
-                ? `${missingPurpose[0]!.organisationName} has no award purpose — its letter will read “[not set]”.`
-                : `${missingPurpose.length} awards have no purpose — their letters will read “[not set]”.`}{' '}
+                ? `${missingPurpose[0]!.organisationName} has no grant purpose — its letter will read “[not set]”.`
+                : `${missingPurpose.length} grants have no purpose — their letters will read “[not set]”.`}{' '}
               Go back to Grants to fill them in.
             </div>
           )}

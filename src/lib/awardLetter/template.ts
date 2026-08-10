@@ -31,7 +31,7 @@ export const AWARD_LETTER_TOKENS: AwardLetterToken[] = [
   },
   { name: 'foundationName', description: 'Your foundation’s name' },
   { name: 'amount', description: 'The amount awarded, e.g. £35,000' },
-  { name: 'purpose', description: 'The award purpose you set during set-up' },
+  { name: 'purpose', description: 'The grant purpose you set during set-up' },
   { name: 'startDate', description: 'The date the grant period begins, e.g. 1 Aug 2026' },
   { name: 'programmeName', description: 'The programme the grant sits in' },
   { name: 'roundName', description: 'The funding round the application came through' },
@@ -55,10 +55,19 @@ export const AWARD_LETTER_TOKENS: AwardLetterToken[] = [
  * The letter Custodian sends when a foundation has not written their own. Kept
  * deliberately plain and complete: a foundation that never opens the settings screen
  * still sends something a trustee would be happy to put their name to.
+ *
+ * `{{purpose}}` sits in its own block rather than inline after "towards". It is the
+ * clause conditions 1, 2 and 5 all bind to ("the agreed purpose"), so it is worth
+ * setting out where it can be quoted; a purpose written as a standalone sentence is
+ * also the same text the shortlist card and application screen show, so there is no
+ * second grammatical form to keep in step. Foundations on their own template are
+ * unaffected, and stored letters are snapshots — nothing already sent is rewritten.
  */
 export const DEFAULT_AWARD_LETTER_TEMPLATE = `Dear {{organisationName}},
 
-I am pleased to confirm that the trustees of {{foundationName}} have approved a grant of {{amount}} towards {{purpose}}.
+I am pleased to confirm that the trustees of {{foundationName}} have approved a grant of {{amount}}. The grant is made towards the following purpose:
+
+{{purpose}}
 
 The grant period begins on {{startDate}} and the money is paid by bank transfer in {{paymentSummary}}:
 

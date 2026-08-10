@@ -97,6 +97,10 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
         externalApplicationId: a.externalApplicationId,
         deliveryArea: a.deliveryArea,
         custodianScore: a.custodianScore,
+        // Pre-fills the purpose on the set-up screen. Sent as the application's own
+        // value, not written to the award here: what the admin does with it — accept,
+        // reword, replace — is the award's copy, and the application keeps its own.
+        grantPurpose: a.grantPurpose,
         programmeName: a.roundProgramme.programme.name,
         roundName: a.roundProgramme.round.name,
         roundId: a.roundProgramme.roundId,

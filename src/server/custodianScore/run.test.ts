@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { runCustodianScore, type CustodianScoreAssessor } from './run'
 import {
   computeComposite,
@@ -22,11 +22,17 @@ const INPUT: CustodianScoreInput = {
 }
 
 /** A stub that returns the same 1–10 score for every criterion. */
-function flatAssessor(score: number, summary = 'ok', flags: string[] = []): CustodianScoreAssessor {
+function flatAssessor(
+  score: number,
+  summary = 'ok',
+  flags: string[] = [],
+  grantPurpose = 'Nature Learning Network will run outdoor ecology sessions in 12 schools.',
+): CustodianScoreAssessor {
   return async () => ({
     criteria: Object.fromEntries(
       CRITERION_ORDER.map((k) => [k, { score, rationale: `${k} rationale` }]),
     ) as any,
+    grantPurpose,
     summary,
     flags,
   })
@@ -72,8 +78,49 @@ describe('runCustodianScore', () => {
 
   it('flags a missing criterion as an error rather than producing a bad composite', async () => {
     const result = await runCustodianScore(INPUT, {
-      assess: async () => ({ criteria: {} as any, summary: '', flags: [] }),
+      assess: async () => ({ criteria: {} as any, grantPurpose: 'x', summary: '', flags: [] }),
     })
     expect(result.status).toBe('error')
+  })
+
+  // The purpose is not part of the assessment: it sits outside `detail` because it has
+  // its own column, is a statement of fact rather than a judgement, and is the one
+  // thing here that ends up in a letter to a grantee.
+  describe('grant purpose', () => {
+    it('returns it alongside the score, not inside the detail blob', async () => {
+      const result = await runCustodianScore(INPUT, { assess: flatAssessor(8) })
+      expect(result.grantPurpose).toBe(
+        'Nature Learning Network will run outdoor ecology sessions in 12 schools.',
+      )
+      expect(result.detail).not.toHaveProperty('grantPurpose')
+    })
+
+    it('is null when scoring fails, so a failed re-run cannot blank a stored purpose', async () => {
+      const result = await runCustodianScore(INPUT, {
+        assess: async () => {
+          throw new Error('API down')
+        },
+      })
+      expect(result.grantPurpose).toBeNull()
+    })
+
+    it('is null when scoring is not configured', async () => {
+      // Stubbed rather than assumed: with a key present this would reach the network.
+      vi.stubEnv('ANTHROPIC_API_KEY', '')
+      const result = await runCustodianScore(INPUT)
+      vi.unstubAllEnvs()
+      expect(result.status).toBe('pending')
+      expect(result.grantPurpose).toBeNull()
+    })
+
+    // A whitespace-only string would satisfy the schema, pass a truthy check on the
+    // way into the column, and then render an empty panel and an empty letter block.
+    it('treats a blank string as no purpose at all', async () => {
+      const result = await runCustodianScore(INPUT, {
+        assess: flatAssessor(8, 'ok', [], '   '),
+      })
+      expect(result.status).toBe('scored')
+      expect(result.grantPurpose).toBeNull()
+    })
   })
 })

@@ -24,6 +24,11 @@ const criteriaShape = Object.fromEntries(
 
 export const CustodianScoreOutputSchema = z.object({
   criteria: z.object(criteriaShape),
+  grantPurpose: z
+    .string()
+    .describe(
+      'One or two sentences, 40 words or fewer, stating what the money would fund: who the applicant is, what they will do, for whom, where, and over what period — drawn only from the application. A statement of fact with no judgement, praise or scoring language, written as a complete sentence starting with the organisation name. Never restates the amount requested.',
+    ),
   summary: z
     .string()
     .describe(

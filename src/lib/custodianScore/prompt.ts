@@ -34,6 +34,14 @@ ${rubric}
 
 Then write a short assessment summary (2-4 sentences) for the grant officer, and list any specific concerns a reviewer should check before deciding.
 
+Separately, state the grant purpose: one or two sentences saying what the money would actually fund. This is NOT part of your assessment — it makes no judgement at all:
+- Say who the applicant is, what they will do, for whom, where, and over what period, as far as the application states them. Omit any of those the application does not give rather than guessing.
+- Write it as a complete sentence beginning with the organisation's name, e.g. "Bradford Youth Trust will run six employability courses for 90 unemployed 16-24 year olds across Bradford over 12 months."
+- Keep it to 40 words or fewer. Name the core activity and who it reaches; leave out subsidiary activities, delivery detail and anything an applicant lists as part of the wider project. It is a description, not an inventory.
+- Do NOT restate the amount requested or name the funder or programme. It is read directly beneath the amount, so repeating it there is redundant.
+- Use plain factual language. No evaluation, praise, hedging or scoring words ("strong", "well-evidenced", "promising"), and no reference to the assessment or this scoring exercise.
+- If the application says too little to describe the work, say so plainly in one sentence rather than inventing detail.
+
 Scoring guidance — read carefully, as consistency matters more than generosity:
 - Anchor every score to the mission and programme goal. Strong work that does not advance the funder's mission is a weak application here, and must score low on strategic alignment.
 - Use the full 1-10 range. Reserve 9-10 for genuinely exceptional, fully-evidenced cases and 1-3 for applications with serious deficiencies. Most credible applications land in the 5-8 range.

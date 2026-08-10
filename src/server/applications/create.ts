@@ -122,6 +122,7 @@ export async function createApplicationFromCanonical(
       custodianScoreStatus: custodian.status,
       custodianScore: custodian.score,
       custodianScoreDetail: custodian.detail,
+      grantPurpose: custodian.grantPurpose,
       custodianScoredAt: new Date(custodian.scoredAt),
       deprivationStatus: deprivation.status,
       deprivationContext: deprivationAttempted ? deprivation : null,
@@ -249,6 +250,10 @@ export async function updateApplicationFromCanonical(
             custodianScore: custodian.score,
             custodianScoreDetail: custodian.detail,
             custodianScoredAt: new Date(custodian.scoredAt),
+            // Only when the re-run produced one. A failed score sets the status and the
+            // error detail, but must not blank a purpose an admin may already have read
+            // on the shortlist — or worse, be about to award from.
+            ...(custodian.grantPurpose ? { grantPurpose: custodian.grantPurpose } : {}),
           }
         : {}),
       ...(deprivation && deprivationGeo
