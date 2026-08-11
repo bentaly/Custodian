@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Alert02Icon, CheckmarkCircle02Icon, CancelCircleIcon } from '@hugeicons/core-free-icons'
-import { addComment, castVote } from '../../server/fns/comments'
+import {
+  Alert02Icon,
+  CancelCircleIcon,
+  CheckmarkCircle02Icon,
+  Message01Icon,
+} from '@hugeicons/core-free-icons'
+import { castVote } from '../../server/fns/comments'
 import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/custodianScore'
 import type { DeprivationResult } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney } from '../../lib/format'
-import { initials } from '../ui'
+import { ErrorNote, initials } from '../ui'
 import { C } from '../ui/tokens'
-
-// Design tokens (Figma variables — pinned until the token set lands). Same set the
-// applications list and settings hub use, so the screens read as one app.
+import { CommentsDialog } from './CommentsDialog'
 
 /** The order the criteria read in — the registry's own order. */
 const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<
@@ -45,18 +48,37 @@ export type VoteCardApplication = {
   trusteeCount: number
   hasMajority: boolean
   oneVoteShort: boolean
+  commentCount: number
 }
 
-function Pill({ tone, children }: { tone: 'brand' | 'amber' | 'grey'; children: React.ReactNode }) {
+/**
+ * Yes-votes still needed to carry it. The board's question is never "how many have
+ * voted" but "how far off is this" — and one away is a different sentence from three
+ * away, which is why the pill says the number rather than "awaiting votes".
+ */
+function votesStillNeeded(app: VoteCardApplication): number {
+  if (app.trusteeCount === 0) return 0
+  return Math.max(0, Math.floor(app.trusteeCount / 2) + 1 - app.yesVotes)
+}
+
+function Pill({
+  tone,
+  children,
+}: {
+  tone: 'brand' | 'amber' | 'grey' | 'danger'
+  children: React.ReactNode
+}) {
   const style =
     tone === 'brand'
-      ? { backgroundColor: C.brandWash, color: C.brand }
+      ? { backgroundColor: C.brandBg, color: C.brand }
       : tone === 'amber'
         ? { backgroundColor: C.amberWash, color: C.amber }
-        : { backgroundColor: C.wash, color: C.sub }
+        : tone === 'danger'
+          ? { backgroundColor: C.dangerWash, color: C.danger }
+          : { backgroundColor: C.wash, color: C.sub }
   return (
     <span
-      className="whitespace-nowrap rounded-full px-2.5 py-1 text-label font-semibold"
+      className="whitespace-nowrap rounded-pill px-2.5 py-1 font-display text-label font-medium"
       style={style}
     >
       {children}
@@ -64,65 +86,84 @@ function Pill({ tone, children }: { tone: 'brand' | 'amber' | 'grey'; children: 
   )
 }
 
-function StatusPill({ app }: { app: VoteCardApplication }) {
+function DecisionPill({ app }: { app: VoteCardApplication }) {
   if (app.hasMajority) return <Pill tone="brand">Board approved</Pill>
-  if (app.oneVoteShort && app.yesVotes > 0) return <Pill tone="amber">One vote needed</Pill>
-  if (app.votes.length === 0) return <Pill tone="grey">No votes yet</Pill>
-  return null
+  const needed = votesStillNeeded(app)
+  if (app.trusteeCount === 0) return <Pill tone="amber">No trustees to vote</Pill>
+  if (needed === 1) return <Pill tone="amber">Last vote needed</Pill>
+  return <Pill tone="grey">{needed} votes needed</Pill>
 }
 
-/** A labelled figure in the card's stat strip. */
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+/** How a trustee voted, in the past tense — this is a record, not an instruction. */
+function VotePill({ vote }: { vote: 'yes' | 'no' | undefined }) {
+  const [label, tone] =
+    vote === 'yes'
+      ? (['Approved', 'brand'] as const)
+      : vote === 'no'
+        ? (['Declined', 'danger'] as const)
+        : (['Pending', 'grey'] as const)
   return (
-    <div className="min-w-0">
-      <div
-        className="text-label font-medium uppercase tracking-[.04em]"
-        style={{ color: C.faint }}
+    <span
+      className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
+      style={{
+        backgroundColor: tone === 'brand' ? C.brandBg : tone === 'danger' ? C.dangerWash : C.white,
+      }}
+    >
+      <span
+        className="size-[3px] rounded-full"
+        style={{
+          backgroundColor: tone === 'brand' ? C.brand : tone === 'danger' ? C.danger : C.faint,
+        }}
+      />
+      <span
+        className="font-display text-label font-medium"
+        style={{ color: tone === 'brand' ? C.brand : tone === 'danger' ? C.danger : C.sub }}
       >
         {label}
-      </div>
-      <div
-        className="mt-0.5 truncate font-display text-body font-medium"
-        style={{ color: C.ink }}
-      >
-        {value}
-      </div>
-      {sub && (
-        <div className="truncate text-label" style={{ color: C.sub }}>
-          {sub}
-        </div>
-      )}
-    </div>
+      </span>
+    </span>
   )
 }
 
 function CriterionBar({ label, score }: { label: string; score: number | null }) {
   return (
-    <div className="min-w-0">
-      <div className="flex items-baseline justify-between gap-2 text-label">
-        <span className="truncate" style={{ color: C.sub }}>
-          {label}
-        </span>
-        <span className="shrink-0 font-medium" style={{ color: C.ink }}>
-          {score === null ? '—' : score.toFixed(1)}
-        </span>
-      </div>
-      <div
-        className="mt-1 h-[5px] overflow-hidden rounded-full"
-        style={{ backgroundColor: C.line }}
+    <div className="flex min-w-0 items-center gap-2">
+      <span
+        className="w-[104px] shrink-0 truncate font-display text-label"
+        style={{ color: C.sub }}
       >
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${(score ?? 0) * 10}%`, backgroundColor: C.brand }}
+        {label}
+      </span>
+      <span
+        className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full"
+        style={{ backgroundColor: C.wash }}
+      >
+        <span
+          className="block h-full rounded-full"
+          style={{ width: `${(score ?? 0) * 10}%`, backgroundColor: C.success }}
         />
-      </div>
+      </span>
+      <span
+        className="w-8 shrink-0 text-right font-display text-label tabular-nums"
+        style={{ color: C.sub }}
+      >
+        {score === null ? '—' : `${Math.round(score)}/10`}
+      </span>
+    </div>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="font-display text-label font-medium" style={{ color: C.brand }}>
+      {children}
     </div>
   )
 }
 
 /**
- * One shortlisted application, as a board member meets it: what is being asked for, what
- * the AI made of it, the checks behind it, and where the vote stands — with the vote
+ * One shortlisted application, as a board member meets it (Figma 765:3270): what is
+ * being asked for, what the model made of it, and where the vote stands — with the vote
  * controls in the same card, so deciding never means leaving the list.
  */
 export function VoteCard({
@@ -139,17 +180,17 @@ export function VoteCard({
   allowAdminVoting: boolean
 }) {
   const router = useRouter()
-  const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showAll, setShowAll] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [changing, setChanging] = useState(false)
 
   const isTrustee = userRole === 'trustee'
   const isAdmin = userRole === 'admin' || userRole === 'superadmin'
   // An admin has no vote of their own (see `castVote`) — they may only record one on a
   // named trustee's behalf, and only when the foundation has switched that on. So the
   // two roles get different controls: a trustee gets the decision buttons, an admin
-  // gets per-trustee toggles in the roster above them.
+  // gets a per-trustee toggle in the roster.
   const canVoteAsSelf = isTrustee
   const canVoteForTrustees = isAdmin && allowAdminVoting
 
@@ -168,30 +209,39 @@ export function VoteCard({
   // Narrow on the payload's own discriminant rather than the denormalised status
   // column, so the fields we read are guaranteed present by the type.
   const deprivation = app.deprivationContext?.status === 'resolved' ? app.deprivationContext : null
-  const orgType = app.charityNumber ? 'Reg. charity' : app.companyNumber ? 'Company' : null
-  const subline = [
-    orgType,
-    app.deliveryRegion ?? app.deliveryArea,
-    app.externalApplicationId,
-    app.roundProgramme?.round?.name,
-  ]
+  const subline = [app.deliveryRegion ?? app.deliveryArea, app.externalApplicationId]
     .filter(Boolean)
     .join(' · ')
 
   const flags = detail?.flags ?? []
-  const visibleCriteria = showAll ? CRITERION_KEYS : CRITERION_KEYS.slice(0, 3)
+
+  // The comps drop due diligence from this card entirely, which is right while it is
+  // clear and wrong the moment it is not: a board must not approve a grant to a charity
+  // the registry flagged without the flag being on the screen they approve it from. So
+  // it appears in the meta strip only when it has something to say.
+  const ddNote =
+    app.dueDiligenceStatus === 'warning'
+      ? 'Due diligence warnings'
+      : app.dueDiligenceStatus === 'blocked'
+        ? 'Due diligence blocked'
+        : app.dueDiligenceStatus === 'review'
+          ? 'Due diligence needs a manual check'
+          : app.dueDiligenceStatus === 'pending'
+            ? 'Due diligence not run'
+            : null
+
+  const meta = [
+    impact !== null ? `${impact.toLocaleString('en-GB')} ${unitLabel.toLowerCase()}` : null,
+    costPerUnit !== null ? `${fmtMoney(costPerUnit)} each` : null,
+    deprivation ? `IMD decile ${deprivation.min}–${deprivation.max}` : null,
+  ].filter(Boolean)
 
   async function handleVote(vote: 'yes' | 'no', onBehalfOf?: string) {
     setBusy(true)
     setError(null)
     try {
-      // The comment rides along with the vote: a trustee who typed a reason and then
-      // clicked Approve expects both recorded, not the note thrown away.
-      if (comment.trim()) {
-        await addComment({ data: { applicationId: app.id, body: comment.trim() } })
-        setComment('')
-      }
       await castVote({ data: { applicationId: app.id, vote, onBehalfOf } })
+      setChanging(false)
       await router.invalidate()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not record your vote')
@@ -201,11 +251,10 @@ export function VoteCard({
   }
 
   return (
-    <div className="rounded-pill border bg-white p-1" style={{ borderColor: C.line }}>
-      <div className="flex flex-col gap-0 lg:flex-row">
+    <div className="rounded-card border bg-white" style={{ borderColor: C.line }}>
+      <div className="flex flex-col lg:flex-row">
         {/* ── The application ── */}
-        <div className="min-w-0 flex-1 p-4">
-          {/* Identity */}
+        <div className="flex min-w-0 flex-1 flex-col gap-4 p-4">
           <div className="flex items-start gap-3">
             <div
               className="flex size-10 shrink-0 items-center justify-center rounded-chip"
@@ -216,7 +265,7 @@ export function VoteCard({
               </span>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-baseline gap-x-2">
                 <Link
                   to="/applications/$applicationId"
                   params={{ applicationId: app.id }}
@@ -225,103 +274,63 @@ export function VoteCard({
                 >
                   {app.organisationName}
                 </Link>
-                {programme?.name && <Pill tone="grey">{programme.name}</Pill>}
-                <StatusPill app={app} />
+                <span className="truncate font-display text-label" style={{ color: C.sub }}>
+                  {subline}
+                </span>
               </div>
-              <div className="mt-0.5 truncate text-label" style={{ color: C.sub }}>
-                {subline || '—'}
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {programme?.name && <Pill tone="grey">{programme.name}</Pill>}
+                <DecisionPill app={app} />
               </div>
             </div>
             <div className="shrink-0 text-right">
               <div className="font-display text-heading font-medium" style={{ color: C.ink }}>
                 {fmtMoney(amount)}
               </div>
-              <div className="text-label" style={{ color: C.faint }}>
-                requested{years ? ` · over ${years} yr${years > 1 ? 's' : ''}` : ''}
+              <div className="font-display text-label" style={{ color: C.faint }}>
+                {years && years > 1
+                  ? `${fmtMoney(amount / years)} per year for ${years}yrs`
+                  : 'requested'}
               </div>
             </div>
           </div>
 
-          {/* Stat strip — the tinted panel the app's KPI cards use */}
-          <div
-            className="mt-4 grid grid-cols-2 gap-4 rounded-card p-4 sm:grid-cols-4"
-            style={{ backgroundColor: 'var(--color-gray-50)' }}
-          >
-            <Stat
-              label="Custodian score"
-              value={scored ? `${app.custodianScore}/100` : '—'}
-              sub={scored ? undefined : 'not scored'}
-            />
-            <Stat
-              label={unitLabel}
-              value={impact !== null ? impact.toLocaleString('en-GB') : '—'}
-              sub={costPerUnit !== null ? `${fmtMoney(costPerUnit)} each` : 'not stated'}
-            />
-            <Stat
-              label="Deprivation"
-              value={deprivation ? `Decile ${deprivation.min}–${deprivation.max}` : '—'}
-              sub={deprivation ? deprivation.areaName : 'not resolved'}
-            />
-            <Stat
-              label="Due diligence"
-              value={
-                app.dueDiligenceStatus === 'clear'
-                  ? 'Clear'
-                  : app.dueDiligenceStatus === 'warning'
-                    ? 'Warnings'
-                    : app.dueDiligenceStatus === 'blocked'
-                      ? 'Blocked'
-                      : app.dueDiligenceStatus === 'review'
-                        ? 'Manual'
-                        : 'Pending'
-              }
-              sub={app.charityNumber ?? app.companyNumber ?? undefined}
-            />
-          </div>
-
-          {/* What the money would fund. Above the assessment on purpose: a board reads
-              what is being proposed before it reads what we made of it. */}
           {app.grantPurpose && (
-            <div className="mt-4">
-              <div
-                className="text-label font-semibold uppercase tracking-[.04em]"
-                style={{ color: C.faint }}
-              >
-                Grant purpose
-              </div>
-              <p className="mt-1.5 text-body leading-relaxed" style={{ color: C.ink }}>
+            <div>
+              <SectionLabel>Grant purpose</SectionLabel>
+              <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.body }}>
                 {app.grantPurpose}
               </p>
             </div>
           )}
 
-          {/* AI assessment */}
           {detail?.summary && (
-            <div className="mt-4">
-              <div
-                className="text-label font-semibold uppercase tracking-[.04em]"
-                style={{ color: C.faint }}
+            <div>
+              <SectionLabel>AI assessment</SectionLabel>
+              <p
+                className="mt-1 border-l-2 pl-3 font-display text-body leading-relaxed"
+                style={{ color: C.body, borderColor: C.brand }}
               >
-                AI assessment
-              </div>
-              <p className="mt-1.5 text-body leading-relaxed" style={{ color: C.sub }}>
                 {detail.summary}
               </p>
             </div>
           )}
 
-          {/* Concerns the model raised — the thing a board most wants surfaced */}
           {flags.length > 0 && (
-            <div className="mt-3 rounded-control px-3.5 py-2.5" style={{ backgroundColor: C.amberWash }}>
+            <div className="rounded-control px-3.5 py-2.5" style={{ backgroundColor: C.amberWash }}>
               <div className="flex items-center gap-1.5">
                 <HugeiconsIcon icon={Alert02Icon} size={14} color={C.amber} strokeWidth={1.8} />
-                <span className="text-label font-semibold" style={{ color: C.amber }}>
+                <span className="font-display text-label font-medium" style={{ color: C.amber }}>
                   {flags.length === 1 ? 'One thing to check' : `${flags.length} things to check`}
                 </span>
               </div>
               <ul className="mt-1.5 space-y-1">
                 {flags.map((f, i) => (
-                  <li key={i} className="text-label leading-relaxed" style={{ color: C.amber }}>
+                  <li
+                    key={i}
+                    className="font-display text-label leading-relaxed"
+                    style={{ color: C.amber }}
+                  >
                     {f}
                   </li>
                 ))}
@@ -329,26 +338,24 @@ export function VoteCard({
             </div>
           )}
 
-          {/* Criteria */}
           {scored && (
-            <div className="mt-4">
-              <div className="flex items-baseline justify-between">
-                <span
-                  className="text-label font-semibold uppercase tracking-[.04em]"
-                  style={{ color: C.faint }}
-                >
-                  Scoring
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div
+                className="flex h-[74px] w-full shrink-0 flex-col items-center justify-center rounded-card sm:w-[132px]"
+                style={{ backgroundColor: C.brandWash }}
+              >
+                <span className="font-display text-label" style={{ color: C.sub }}>
+                  AI score
                 </span>
-                <button
-                  onClick={() => setShowAll(!showAll)}
-                  className="text-label font-medium hover:underline"
-                  style={{ color: C.brand }}
-                >
-                  {showAll ? 'Show less' : `All ${CRITERION_KEYS.length} criteria`}
-                </button>
+                <span className="font-display" style={{ color: C.brand }}>
+                  <span className="text-heading font-medium">
+                    {(app.custodianScore! / 10).toFixed(1)}
+                  </span>
+                  <span className="text-label">/10</span>
+                </span>
               </div>
-              <div className="mt-2 grid gap-x-5 gap-y-2.5 sm:grid-cols-3">
-                {visibleCriteria.map((key) => (
+              <div className="grid min-w-0 flex-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                {CRITERION_KEYS.map((key) => (
                   <CriterionBar
                     key={key}
                     label={CRITERION_DEFINITIONS[key].label}
@@ -356,47 +363,40 @@ export function VoteCard({
                   />
                 ))}
               </div>
-              {showAll && detail?.criteria && (
-                <dl className="mt-3 space-y-2">
-                  {CRITERION_KEYS.map((key) => {
-                    const rationale = detail.criteria[key]?.rationale
-                    if (!rationale) return null
-                    return (
-                      <div key={key} className="text-label leading-relaxed">
-                        <dt className="inline font-medium" style={{ color: C.ink }}>
-                          {CRITERION_DEFINITIONS[key].label}.{' '}
-                        </dt>
-                        <dd className="inline" style={{ color: C.sub }}>
-                          {rationale}
-                        </dd>
-                      </div>
-                    )
-                  })}
-                </dl>
-              )}
+            </div>
+          )}
+
+          {(meta.length > 0 || ddNote) && (
+            <div className="border-t pt-3" style={{ borderColor: C.line }}>
+              <p className="font-display text-label" style={{ color: C.sub }}>
+                {meta.join(' · ')}
+                {ddNote && (
+                  <>
+                    {meta.length > 0 && ' · '}
+                    <span style={{ color: C.amber }}>{ddNote}</span>
+                  </>
+                )}
+              </p>
             </div>
           )}
         </div>
 
         {/* ── The vote ── */}
         <div
-          className="flex w-full flex-col rounded-card p-4 lg:w-[268px] lg:shrink-0"
+          className="flex w-full flex-col gap-3 rounded-card p-4 lg:w-[268px] lg:shrink-0"
           style={{ backgroundColor: C.wash }}
         >
-          <div className="flex items-baseline justify-between">
-            <span
-              className="text-label font-semibold uppercase tracking-[.04em]"
-              style={{ color: C.faint }}
-            >
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-display text-body font-medium" style={{ color: C.ink }}>
               Board votes
             </span>
-            <span className="text-label font-medium" style={{ color: C.sub }}>
-              {app.votes.length} of {app.trusteeCount}
+            <span className="font-display text-label" style={{ color: C.sub }}>
+              {app.votes.length} of {app.trusteeCount} voted
             </span>
           </div>
 
           {trustees.length === 0 ? (
-            <p className="mt-3 text-label leading-relaxed" style={{ color: C.sub }}>
+            <p className="font-display text-label leading-relaxed" style={{ color: C.sub }}>
               No trustees have been added yet, so nothing can be approved.{' '}
               <Link
                 to="/settings/team"
@@ -407,63 +407,64 @@ export function VoteCard({
               </Link>
             </p>
           ) : (
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               {trustees.map((t) => {
                 const vote = voteMap.get(t.id)
                 return (
                   <div key={t.id} className="flex items-center gap-2">
                     <span
-                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-label font-semibold"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white font-display text-label font-semibold"
                       style={{ color: C.sub }}
                     >
                       {initials(t.name)}
                     </span>
                     <span
-                      className="min-w-0 flex-1 truncate text-label"
+                      className="min-w-0 flex-1 truncate font-display text-label"
                       style={{ color: C.ink, fontWeight: t.id === userId ? 600 : 400 }}
                     >
-                      {t.id === userId ? 'You' : t.name}
+                      {t.id === userId ? `${t.name} (You)` : t.name}
                     </span>
                     {canVoteForTrustees ? (
-                      <span className="flex shrink-0 gap-1">
+                      <span
+                        className="flex shrink-0 items-center gap-0.5 rounded-pill bg-white p-0.5"
+                        role="group"
+                        aria-label={`Vote on behalf of ${t.name}`}
+                      >
                         <button
+                          type="button"
                           onClick={() => handleVote('yes', t.id)}
                           disabled={busy}
-                          aria-label={`Approve on behalf of ${t.name}`}
-                          className="rounded-chip px-1.5 py-0.5 disabled:opacity-50"
-                          style={{ backgroundColor: vote === 'yes' ? C.brandWash : 'transparent' }}
+                          aria-label={`Record ${t.name} as approving`}
+                          aria-pressed={vote === 'yes'}
+                          className="flex size-5 items-center justify-center rounded-full disabled:opacity-50"
+                          style={{ backgroundColor: vote === 'yes' ? C.brandBg : 'transparent' }}
                         >
                           <HugeiconsIcon
                             icon={CheckmarkCircle02Icon}
-                            size={16}
+                            size={14}
                             color={vote === 'yes' ? C.brand : C.faint}
                             strokeWidth={1.8}
                           />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleVote('no', t.id)}
                           disabled={busy}
-                          aria-label={`Decline on behalf of ${t.name}`}
-                          className="rounded-chip px-1.5 py-0.5 disabled:opacity-50"
+                          aria-label={`Record ${t.name} as declining`}
+                          aria-pressed={vote === 'no'}
+                          className="flex size-5 items-center justify-center rounded-full disabled:opacity-50"
                           style={{ backgroundColor: vote === 'no' ? C.dangerWash : 'transparent' }}
                         >
                           <HugeiconsIcon
                             icon={CancelCircleIcon}
-                            size={16}
+                            size={14}
                             color={vote === 'no' ? C.danger : C.faint}
                             strokeWidth={1.8}
                           />
                         </button>
                       </span>
                     ) : (
-                      <span
-                        className="shrink-0 text-label font-medium"
-                        style={{
-                          color: vote === 'yes' ? C.brand : vote === 'no' ? C.danger : C.faint,
-                        }}
-                      >
-                        {vote === 'yes' ? 'Approve' : vote === 'no' ? 'Decline' : 'Pending'}
-                      </span>
+                      <VotePill vote={vote} />
                     )}
                   </div>
                 )
@@ -471,61 +472,100 @@ export function VoteCard({
             </div>
           )}
 
-          <div className="mt-4 flex flex-col gap-2">
-            {canVoteAsSelf && (
-              <>
-                <textarea
-                  placeholder="Add a comment…"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="h-[54px] w-full resize-none rounded-control border bg-white px-2.5 py-2 text-label focus:outline-hidden focus:ring-2 focus:ring-brand/25"
-                  style={{ borderColor: C.line, color: C.ink }}
-                />
-                <button
-                  onClick={() => handleVote('yes')}
-                  disabled={busy}
-                  className="flex items-center justify-center gap-1.5 rounded-control py-2.5 text-body font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: C.brand }}
-                >
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={1.8} />
-                  {myVote === 'yes' ? 'Approved' : 'Approve'}
-                </button>
-                <button
-                  onClick={() => handleVote('no')}
-                  disabled={busy}
-                  className="flex items-center justify-center gap-1.5 rounded-control border bg-white py-2.5 text-body font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{
-                    borderColor: myVote === 'no' ? C.danger : C.line,
-                    color: C.danger,
-                    backgroundColor: myVote === 'no' ? C.dangerWash : '#fff',
-                  }}
-                >
-                  <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={1.8} />
-                  {myVote === 'no' ? 'Declined' : 'Decline'}
-                </button>
-              </>
-            )}
-            {canVoteForTrustees && (
-              <p className="text-label leading-snug" style={{ color: C.sub }}>
-                You are recording votes on trustees’ behalf.
-              </p>
-            )}
-            {error && (
-              <p className="text-label" style={{ color: C.danger }}>
-                {error}
-              </p>
-            )}
-            <Link
-              to="/applications/$applicationId"
-              params={{ applicationId: app.id }}
-              className="py-1 text-center text-label font-medium hover:underline"
-              style={{ color: C.brand }}
+          {/* The comps put a bare comment box here. It is replaced by the count, which
+              opens the thread — see `CommentsDialog` on why writing into a discussion
+              you cannot read is the one thing this control must not be. */}
+          <button
+            type="button"
+            onClick={() => setShowComments(true)}
+            className="flex h-8 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-label font-medium transition-colors hover:bg-gray-50 print:hidden"
+            style={{ borderColor: C.line, color: C.ink }}
+          >
+            <HugeiconsIcon icon={Message01Icon} size={14} color={C.sub} strokeWidth={1.8} />
+            {app.commentCount === 0
+              ? 'Add a comment'
+              : `${app.commentCount} comment${app.commentCount === 1 ? '' : 's'}`}
+          </button>
+
+          {canVoteAsSelf && (myVote === undefined || changing) && (
+            <div className="flex flex-col gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={() => handleVote('yes')}
+                disabled={busy}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-control font-display text-body font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: C.brand }}
+              >
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={1.8} />
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVote('no')}
+                disabled={busy}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-body font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
+                style={{ borderColor: C.line, color: C.danger }}
+              >
+                <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={1.8} />
+                Decline
+              </button>
+            </div>
+          )}
+
+          {canVoteAsSelf && myVote !== undefined && !changing && (
+            <div
+              className="flex flex-col items-center gap-1 rounded-control py-3"
+              style={{ backgroundColor: myVote === 'yes' ? C.brandBg : C.dangerWash }}
             >
-              View full application →
-            </Link>
-          </div>
+              <span
+                className="flex items-center gap-1.5 font-display text-label font-medium"
+                style={{ color: myVote === 'yes' ? C.brand : C.danger }}
+              >
+                <HugeiconsIcon
+                  icon={myVote === 'yes' ? CheckmarkCircle02Icon : CancelCircleIcon}
+                  size={14}
+                  strokeWidth={1.8}
+                />
+                You {myVote === 'yes' ? 'approved' : 'declined'} this application
+              </span>
+              <button
+                type="button"
+                onClick={() => setChanging(true)}
+                className="font-display text-label font-medium underline"
+                style={{ color: myVote === 'yes' ? C.brand : C.danger }}
+              >
+                Change vote
+              </button>
+            </div>
+          )}
+
+          {canVoteForTrustees && (
+            <p className="font-display text-label leading-snug" style={{ color: C.sub }}>
+              You are recording votes on trustees’ behalf.
+            </p>
+          )}
+
+          <ErrorNote error={error} />
+
+          <Link
+            to="/applications/$applicationId"
+            params={{ applicationId: app.id }}
+            className="mt-auto pt-1 text-center font-display text-label font-medium hover:underline"
+            style={{ color: C.brand }}
+          >
+            View application details →
+          </Link>
         </div>
       </div>
+
+      {showComments && (
+        <CommentsDialog
+          applicationId={app.id}
+          organisationName={app.organisationName}
+          onClose={() => setShowComments(false)}
+          onChanged={() => router.invalidate()}
+        />
+      )}
     </div>
   )
 }

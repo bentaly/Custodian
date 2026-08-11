@@ -36,6 +36,10 @@ import {
  * This is the same majority rule `createAwards` enforces server-side — surfaced as a
  * list so the set-up screen shows exactly what it is allowed to award, rather than
  * offering candidates the write path will reject.
+ *
+ * `shortlistedCount` rides along because the two Shortlist tabs are one control: the
+ * set-up screen has to label the tab it is NOT on, and counting the round's shortlist a
+ * second way is how the two numbers would come to disagree.
  */
 export const listAwardCandidates = createServerFn({ method: 'GET' })
   .validator(z.object({ roundId: z.uuid().optional() }))
@@ -52,7 +56,8 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
     }
 
     const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
-    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) return []
+    const empty = { items: [] as AwardCandidate[], shortlistedCount: 0 }
+    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) return empty
 
     const items = await getDb().query.applications.findMany({
       where: (a, { and, eq }) =>
@@ -63,7 +68,7 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
       with: { roundProgramme: { with: { programme: true, round: true } } },
       orderBy: (a, { desc }) => [desc(a.amountRequested)],
     })
-    if (items.length === 0) return []
+    if (items.length === 0) return empty
 
     const appIds = items.map((a) => a.id)
     const clientIds = [...new Set(items.map((a) => a.roundProgramme.programme.clientId))]
@@ -84,7 +89,7 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
     const yesByApp = new Map(yesRows.map((r) => [r.applicationId, r.yes]))
     const trusteesByClient = new Map(trusteeRows.map((r) => [r.clientId, r.trustees]))
 
-    return items
+    const candidates = items
       .filter((a) => {
         const trustees = trusteesByClient.get(a.roundProgramme.programme.clientId) ?? 0
         return trustees > 0 && (yesByApp.get(a.id) ?? 0) * 2 > trustees
@@ -95,20 +100,50 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
         applicantEmail: a.applicantEmail,
         amountRequested: parseFloat(a.amountRequested),
         externalApplicationId: a.externalApplicationId,
-        deliveryArea: a.deliveryArea,
+        deliveryArea: a.deliveryRegion ?? a.deliveryArea,
+        charityNumber: a.charityNumber,
+        companyNumber: a.companyNumber,
         custodianScore: a.custodianScore,
+        custodianScoreStatus: a.custodianScoreStatus,
         // Pre-fills the purpose on the set-up screen. Sent as the application's own
         // value, not written to the award here: what the admin does with it — accept,
         // reword, replace — is the award's copy, and the application keeps its own.
         grantPurpose: a.grantPurpose,
+        programmeId: a.roundProgramme.programmeId,
         programmeName: a.roundProgramme.programme.name,
+        tags: ((a.roundProgramme.programme.tags as string[] | null) ?? []) as string[],
         roundName: a.roundProgramme.round.name,
         roundId: a.roundProgramme.roundId,
         grantDurationYears: a.roundProgramme.grantDurationYears,
         yesVotes: yesByApp.get(a.id) ?? 0,
         trusteeCount: trusteesByClient.get(a.roundProgramme.programme.clientId) ?? 0,
       }))
+
+    return { items: candidates, shortlistedCount: items.length }
   })
+
+/** One row of the award-setup queue. Named so the empty payload can be typed. */
+export type AwardCandidate = {
+  id: string
+  organisationName: string
+  applicantEmail: string | null
+  amountRequested: number
+  externalApplicationId: string | null
+  deliveryArea: string | null
+  charityNumber: string | null
+  companyNumber: string | null
+  custodianScore: number | null
+  custodianScoreStatus: string
+  grantPurpose: string | null
+  programmeId: string
+  programmeName: string
+  tags: string[]
+  roundName: string
+  roundId: string
+  grantDurationYears: number | null
+  yesVotes: number
+  trusteeCount: number
+}
 
 // ─── Letter settings ────────────────────────────────────────────────────────────
 

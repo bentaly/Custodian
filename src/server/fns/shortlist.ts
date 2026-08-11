@@ -1,8 +1,9 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from '../db'
 import {
+  applicationComments,
   applications,
   applicationVotes,
   awards,
@@ -65,7 +66,7 @@ export const listShortlist = createServerFn({ method: 'GET' })
     // take the first (for a single-client caller it is the only one).
     const clientId = user.clientId ?? clientIds[0]!
 
-    const [voteRows, trustees, profile, committedRows] = await Promise.all([
+    const [voteRows, trustees, profile, committedRows, commentRows] = await Promise.all([
       db
         .select({
           applicationId: applicationVotes.applicationId,
@@ -101,6 +102,14 @@ export const listShortlist = createServerFn({ method: 'GET' })
           ),
         )
         .groupBy(applications.roundProgrammeId),
+      // Just the count. The discussion itself is fetched when a card's comment button
+      // is pressed — a board of ten applications would otherwise pull every thread on
+      // every render to render a number.
+      db
+        .select({ applicationId: applicationComments.applicationId, comments: count() })
+        .from(applicationComments)
+        .where(inArray(applicationComments.applicationId, appIds))
+        .groupBy(applicationComments.applicationId),
     ])
 
     const trusteeIds = new Set(trustees.map((t) => t.id))
@@ -116,6 +125,7 @@ export const listShortlist = createServerFn({ method: 'GET' })
     const committedByRp = new Map(
       committedRows.map((r) => [r.roundProgrammeId, parseFloat(r.committed)]),
     )
+    const commentsByApp = new Map(commentRows.map((r) => [r.applicationId, r.comments]))
 
     const trusteeCount = trustees.length
     const decorated = items.map((a) => {
@@ -127,6 +137,7 @@ export const listShortlist = createServerFn({ method: 'GET' })
         votes,
         yesVotes,
         noVotes,
+        commentCount: commentsByApp.get(a.id) ?? 0,
         trusteeCount,
         hasMajority: trusteeCount > 0 && yesVotes * 2 > trusteeCount,
         // Whether one more yes would carry it — the "last vote needed" nudge.

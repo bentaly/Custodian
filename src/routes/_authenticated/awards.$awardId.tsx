@@ -140,15 +140,31 @@ function AwardDetail() {
         <Card className="px-5 py-4">
           <h2 className="text-body font-semibold text-gray-900">Grant purpose</h2>
           <p className="mt-1.5 text-body leading-relaxed text-gray-600">{award.purpose}</p>
-          {award.specialCondition && (
-            <p className="mt-3 border-t border-gray-100 pt-3 text-body leading-relaxed text-gray-600">
-              <span className="text-label uppercase tracking-wide text-gray-400">
-                Condition specific to this grant
-              </span>
-              <br />
-              {award.specialCondition}
-            </p>
-          )}
+          {/* One per line, as `renderAwardLetter` numbers them on the letter — a grant
+              set up with three bespoke terms must not read here as one paragraph. */}
+          {(() => {
+            const bespoke = (award.specialCondition ?? '')
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+            if (bespoke.length === 0) return null
+            return (
+              <div className="mt-3 border-t border-gray-100 pt-3">
+                <span className="text-label uppercase tracking-wide text-gray-400">
+                  {bespoke.length === 1
+                    ? 'Condition specific to this grant'
+                    : 'Conditions specific to this grant'}
+                </span>
+                <ul className="mt-1 space-y-1">
+                  {bespoke.map((line, i) => (
+                    <li key={i} className="text-body leading-relaxed text-gray-600">
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })()}
         </Card>
       )}
 

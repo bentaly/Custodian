@@ -116,9 +116,12 @@ export type RenderedAwardLetter = {
 /**
  * Render one award's letter: subject, plain text and HTML.
  *
- * `specialCondition` is the grant-specific term captured during set-up; it is appended
- * to the standard list so it numbers continuously with them — a grantee reading
- * "condition 10" should find one condition, not two competing lists.
+ * `specialCondition` holds the grant-specific terms captured during set-up, one per
+ * line: set-up lets an admin add several, and they are stored in the award's single
+ * `special_condition` column rather than a table of their own. Each line becomes its own
+ * clause appended to the standard list, so they number continuously with them — a
+ * grantee reading "condition 10" should find one condition, not two competing lists,
+ * and three bespoke terms should read as three rather than as one long paragraph.
  */
 export function renderAwardLetter({
   input,
@@ -134,7 +137,9 @@ export function renderAwardLetter({
   const resolved = resolveLetterSettings(settings)
   const vars = awardLetterVars({ ...input, signatory: input.signatory ?? resolved.signatory })
   const conditions = [...resolved.conditions]
-  if (specialCondition && specialCondition.trim()) conditions.push(specialCondition.trim())
+  for (const line of (specialCondition ?? '').split('\n')) {
+    if (line.trim()) conditions.push(line.trim())
+  }
 
   const bodyText = renderAwardLetterBody({ template: resolved.template, conditions, vars })
   return {

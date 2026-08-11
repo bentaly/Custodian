@@ -378,11 +378,33 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
 - `src/routes/_authenticated/*.tsx` — dashboard, applications (+detail), shortlist, awards
   (+detail), finance (+detail), reports (+detail), rounds, programmes,
   insights, profile, and the Settings hub
-- **Shortlist** (`/shortlist`) — the board's decision screen: three `MiniKpi` cards (proposed spend
-  by programme / spend against the round-programme budget incl. what is already committed / where the
-  vote has got to), then a vote card per shortlisted application. Trustees get Approve-Decline
-  buttons; admins get per-trustee toggles only when `allowAdminVoting` is on (an admin has no vote of
-  their own — see `castVote`). `/shortlist/set-up-awards` is the admin-only award set-up flow (below)
+- **Shortlist** (`/shortlist` + `/shortlist/set-up-awards`) — **two routes wearing one header**
+  (`components/shortlist/ShortlistHeader`): the `<h1>`, then a full-width row of the round pill and
+  a `Tabs` pair — To vote / Set up awards. The tabs are NAVIGATION, not a filter, which is why they
+  live in the shared header and why anything belonging to one screen alone (To vote's Download PDF)
+  goes on its own line beneath it. The Set up awards tab is admin-only and hidden from trustees,
+  whose route guard would bounce them anyway. Both tab counts come from one place —
+  `listAwardCandidates` returns `shortlistedCount` alongside its rows — so the two numbers cannot
+  disagree
+- **To vote** — two cards (proposed spend by programme; proposed against each round-programme's
+  budget), then a `VoteCard` per shortlisted application, paginated at 10. Trustees get
+  Approve/Decline and a "You approved this application · Change vote" state; admins get a
+  per-trustee toggle in the roster, and only when `allowAdminVoting` is on (an admin has no vote of
+  their own — see `castVote`). Vote pills are past tense — **Approved / Declined / Pending** — they
+  are a record of what happened, not an instruction. The decision pill counts DOWN
+  (`Last vote needed` / `n votes needed` / `Board approved`), because "how far off is this" is the
+  board's actual question. **Comments are a count that opens `CommentsDialog`**, never a bare input:
+  a box you can write into without seeing what has already been said produces duplicate notes and
+  replies to concerns nobody can read. Due diligence is shown in the meta strip **only when it has
+  something to say** — the comps drop it, which is right while it is clear and wrong the moment a
+  registry flag exists. **Download PDF is `window.print()`**, with every card rendered (not just the
+  current page) for the duration, so a board pack never silently stops at ten
+- **Set up awards** (admin-only) — a `DataTable` of the grants carrying a trustee majority, with
+  Programme / Theme / AI-score filters and the dark selection bar. A row click sets up that one
+  grant; a multi-selection sets up the batch — both open **`AwardWizard`**, a modal over the queue
+  (Terms → Grant details → Award letters). Below it, a **Grants awarded** table of the round's
+  existing grants, so "what has this sitting already committed" never means leaving the screen.
+  There is no trailing arrow column: the whole row is the affordance
 - **Rounds** (`/rounds`) — two cards, Active and Past, of round rows (status pill, dates,
   committed-of-budget, programme count). There is deliberately **no round detail route**: a
   round is a name, two dates and a list of programme budgets, so it is created and edited in
@@ -459,6 +481,17 @@ per-grant amount / purpose / special condition / schedule. Each grant is written
 `db.batch`, so one failing its majority check doesn't roll back the others — the response reports
 per-grant outcomes.
 
+- The UI is **`AwardWizard`** (`src/components/shortlist/`), a modal over the Set up awards queue.
+  Payment structure is `1 | 2 | 3 | custom`; **Custom** switches to the per-grant hand-edited split,
+  seeded from the rows the shared terms had just produced, with an allocation guardrail that must
+  reconcile before Confirm. On step 3 the letters are **paged with ‹ ›, one at a time**, not stacked:
+  a batch of eight is several thousand words of near-identical text that nobody reads in one scroll.
+  The amount stays **editable** there even though the comps show it fixed — awarding less than was
+  asked for is ordinary, and every instalment and the letter's total derive from it.
+- **A grant can carry several bespoke conditions.** They live newline-joined in the award's single
+  `special_condition` column, and `renderAwardLetter` makes **each line its own numbered clause**
+  continuing the standard list. Anything reading that column back (the award detail screen) must
+  split on newlines — a grant set up with three terms must not read as one paragraph.
 - Award letters are **snapshots**: rendered at set-up from the then-current template and schedule and
   stored verbatim in `award_letters` (one row per award, unique on `awardId`). Nothing re-renders a
   stored letter — editing the template later must not rewrite what a grantee was sent, and "resend"

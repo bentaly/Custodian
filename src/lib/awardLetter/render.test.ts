@@ -126,6 +126,25 @@ describe('renderAwardLetter', () => {
     )
   })
 
+  it('makes each line of the grant-specific terms its own clause', () => {
+    // Set-up lets an admin add several bespoke conditions; they arrive newline-joined
+    // in the award's single `special_condition` column. Three terms must read as three
+    // numbered clauses, not as one clause with line breaks in it.
+    const letter = renderAwardLetter({
+      input,
+      settings: null,
+      specialCondition: 'Restricted to capital works.\n\nQuarterly spend reports required.\n',
+    })
+    expect(letter.conditions).toHaveLength(DEFAULT_GRANT_CONDITIONS.length + 2)
+    expect(letter.conditions.slice(-2)).toEqual([
+      'Restricted to capital works.',
+      'Quarterly spend reports required.',
+    ])
+    expect(letter.bodyText).toContain(
+      `${DEFAULT_GRANT_CONDITIONS.length + 2}. Quarterly spend reports required.`,
+    )
+  })
+
   it("uses the foundation's overrides when set", () => {
     // A foundation writing their own template may still run the purpose on inline, so
     // this one carries a noun phrase rather than the default's standalone sentence.
