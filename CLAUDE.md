@@ -397,8 +397,12 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
   a box you can write into without seeing what has already been said produces duplicate notes and
   replies to concerns nobody can read. Due diligence is shown in the meta strip **only when it has
   something to say** — the comps drop it, which is right while it is clear and wrong the moment a
-  registry flag exists. **Download PDF is `window.print()`**, with every card rendered (not just the
-  current page) for the duration, so a board pack never silently stops at ten
+  registry flag exists. The score is stated on the app's one scale — **composite out of 100,
+  criteria out of 10**, RAG-banded at 80/60 and 7/4 respectively, as the applications list and
+  detail screen state them; the comps drew the composite as `9.1/10` and that was not followed,
+  because one score quoted on two scales is something a board will argue about. **Download PDF is
+  `window.print()`**, with every card rendered (not just the current page) for the duration, so a
+  board pack never silently stops at ten
 - **Set up awards** (admin-only) — a `DataTable` of the grants carrying a trustee majority, with
   Programme / Theme / AI-score filters and the dark selection bar. A row click sets up that one
   grant; a multi-selection sets up the batch — both open **`AwardWizard`**, a modal over the queue

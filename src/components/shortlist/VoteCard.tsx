@@ -125,6 +125,24 @@ function VotePill({ vote }: { vote: 'yes' | 'no' | undefined }) {
   )
 }
 
+// The scale every screen states the score on: the composite out of 100, each criterion
+// out of 10, with the same RAG bands behind both — 80/60 on the composite (as the
+// applications list and detail screen), 7/4 on a criterion. The comps drew the composite
+// as `9.1/10`; two screens quoting one score on two scales is how a board ends up
+// arguing about the number instead of the application.
+
+function compositeColor(score: number) {
+  if (score >= 80) return C.success
+  if (score >= 60) return C.amber
+  return C.danger
+}
+
+function criterionColor(score: number) {
+  if (score >= 7) return C.success
+  if (score >= 4) return C.amber
+  return C.danger
+}
+
 function CriterionBar({ label, score }: { label: string; score: number | null }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -140,14 +158,17 @@ function CriterionBar({ label, score }: { label: string; score: number | null })
       >
         <span
           className="block h-full rounded-full"
-          style={{ width: `${(score ?? 0) * 10}%`, backgroundColor: C.success }}
+          style={{
+            width: `${(score ?? 0) * 10}%`,
+            backgroundColor: score === null ? C.wash : criterionColor(score),
+          }}
         />
       </span>
       <span
         className="w-8 shrink-0 text-right font-display text-label tabular-nums"
         style={{ color: C.sub }}
       >
-        {score === null ? '—' : `${Math.round(score)}/10`}
+        {score === null ? '—' : `${score}/10`}
       </span>
     </div>
   )
@@ -340,18 +361,25 @@ export function VoteCard({
 
           {scored && (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              {/* Neutral tile: the RAG band is carried by the figure itself, so a
+                  brand-tinted surface must not read as "good" behind a red score. */}
               <div
-                className="flex h-[74px] w-full shrink-0 flex-col items-center justify-center rounded-card sm:w-[132px]"
-                style={{ backgroundColor: C.brandWash }}
+                className="flex h-[74px] w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-card sm:w-[132px]"
+                style={{ backgroundColor: C.wash }}
               >
                 <span className="font-display text-label" style={{ color: C.sub }}>
                   AI score
                 </span>
-                <span className="font-display" style={{ color: C.brand }}>
-                  <span className="text-heading font-medium">
-                    {(app.custodianScore! / 10).toFixed(1)}
+                <span className="flex items-baseline gap-1">
+                  <span
+                    className="font-display text-heading font-medium leading-none"
+                    style={{ color: compositeColor(app.custodianScore!) }}
+                  >
+                    {app.custodianScore}
                   </span>
-                  <span className="text-label">/10</span>
+                  <span className="font-display text-label" style={{ color: C.faint }}>
+                    /100
+                  </span>
                 </span>
               </div>
               <div className="grid min-w-0 flex-1 gap-x-6 gap-y-2 sm:grid-cols-2">
