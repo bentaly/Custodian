@@ -29,3 +29,6 @@ scripts/extract-form-headers.py
 
 # Storybook build output
 storybook-static/
+
+# Claude Code worktrees — each is a full checkout of this repo
+.claude/worktrees/

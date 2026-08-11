@@ -225,6 +225,11 @@ export const programmes = pgTable('programmes', {
   description: text('description'),
   goal: text('goal'),
   tags: jsonb('tags').$type<string[]>(),
+  // The colour this programme is recognised by — a lowercase `#rrggbb`, one of the ten
+  // presets or a custom pick. Nullable: programmes created before this column keep the
+  // positional colour the screen already drew them in (`resolveProgrammeColour`) rather
+  // than being backfilled, so no DML migration has to run against live rows.
+  colour: text('colour'),
   // Unit this programme measures impact in (key from IMPACT_UNITS, e.g. 'people',
   // 'hectares'). Drives Insights aggregation and the report-analysis extraction
   // prompt ("how many {unit} does this report evidence").

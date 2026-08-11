@@ -7,6 +7,9 @@ const base = {
   tags: ['Biodiversity'],
   impactUnit: 'hectares',
   impactUnitLabel: null,
+  // Present but null: the key is required, and null is what asks the server to assign
+  // the first free preset rather than meaning "no colour".
+  colour: null,
 }
 
 describe('SaveProgrammeSchema', () => {
@@ -51,6 +54,16 @@ describe('SaveProgrammeSchema', () => {
 
   it('rejects a blank theme', () => {
     expect(SaveProgrammeSchema.safeParse({ ...base, tags: [''] }).success).toBe(false)
+  })
+
+  it('accepts a palette or custom colour, and rejects anything not #rrggbb', () => {
+    expect(SaveProgrammeSchema.safeParse({ ...base, colour: '#37d1f7' }).success).toBe(true)
+    expect(SaveProgrammeSchema.safeParse({ ...base, colour: '#123456' }).success).toBe(true)
+    // Uppercase is normalised on the way IN to the schema by the picker, not by it: the
+    // stored form is lowercase, so the validator holds that line.
+    for (const bad of ['#37D1F7', 'red', '#abc', '37d1f7', '#1234567']) {
+      expect(SaveProgrammeSchema.safeParse({ ...base, colour: bad }).success).toBe(false)
+    }
   })
 
   it('has no `description` — the dialog collects objectives instead', () => {

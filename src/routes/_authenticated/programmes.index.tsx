@@ -15,7 +15,7 @@ import {
 import { getRoundStatus } from '../../lib/roundStatus'
 import { impactUnitLabel, DEFAULT_IMPACT_UNIT } from '../../lib/impactUnits'
 import { ActionMenu, Badge, Breadcrumb, Button, Card, EmptyState } from '../../components/ui'
-import { PROGRAMME_COLORS } from '../../components/ui/tokens'
+import { colourName, resolveProgrammeColour } from '../../lib/programmeColours'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
@@ -67,6 +67,22 @@ function Programmes() {
 
   const [draft, setDraft] = useState<ProgrammeDraft | undefined>()
 
+  // Every programme's colour as displayed — stored where there is one, positional for
+  // rows that predate the column. Both feed "already in use", so the picker never offers
+  // a colour as free when a swatch on the screen behind it is already that colour.
+  const colours = programmes.map((p, i) => resolveProgrammeColour(p.colour, i))
+
+  /** hex → the name of the OTHER programme using it. Excludes the one being edited, so
+   *  a programme never reports its own colour as taken. */
+  function takenColoursExcluding(id?: string): Record<string, string> {
+    const taken: Record<string, string> = {}
+    programmes.forEach((p, i) => {
+      if (p.id === id) return
+      taken[colours[i]!] ??= p.name
+    })
+    return taken
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Programmes' }]} />
@@ -80,7 +96,7 @@ function Programmes() {
           </p>
         </div>
         {canManage && (
-          <Button onClick={() => setDraft(emptyProgrammeDraft())} icon={Add01Icon}>
+          <Button onClick={() => setDraft(emptyProgrammeDraft(colours))} icon={Add01Icon}>
             New programme
           </Button>
         )}
@@ -100,10 +116,7 @@ function Programmes() {
           <ProgrammeCard
             key={programme.id}
             programme={programme}
-            // No colour column exists, so the swatch comes from the programme's place in
-            // the (name-ordered) list, which is how charts already colour them — the two
-            // agree by construction. A colour a foundation picks itself needs a column.
-            colour={PROGRAMME_COLORS[i % PROGRAMME_COLORS.length]!}
+            colour={colours[i]!}
             canManage={canManage}
             onEdit={() =>
               setDraft({
@@ -113,6 +126,7 @@ function Programmes() {
                 tags: (programme.tags ?? []) as string[],
                 impactUnit: programme.impactUnit ?? DEFAULT_IMPACT_UNIT,
                 impactUnitLabel: programme.impactUnitLabel ?? '',
+                colour: colours[i]!,
               })
             }
           />
@@ -123,6 +137,7 @@ function Programmes() {
         open={draft !== undefined}
         draft={draft}
         suggestions={clientTags}
+        takenColours={takenColoursExcluding(draft?.id)}
         onClose={() => setDraft(undefined)}
         onSaved={() => {
           setDraft(undefined)
@@ -167,8 +182,12 @@ function ProgrammeCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
+            {/* `aria-hidden`: the colour is a visual shorthand for the name beside it,
+                so announcing it would only add noise. The `title` is for the sighted
+                reader wondering which of two similar swatches they are looking at. */}
             <span
               aria-hidden="true"
+              title={colourName(colour) ?? undefined}
               className={`size-3 shrink-0 rounded-swatch ${archived ? 'opacity-40' : ''}`}
               style={{ backgroundColor: colour }}
             />

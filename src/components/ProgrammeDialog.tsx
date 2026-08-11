@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { saveProgramme } from '../server/fns/programmes'
 import { messageFor } from '../lib/errors'
 import { DEFAULT_IMPACT_UNIT, IMPACT_UNITS, IMPACT_UNIT_BY_KEY } from '../lib/impactUnits'
+import { nextProgrammeColour } from '../lib/programmeColours'
 import { TagInput } from './TagInput'
 import { RichTextEditor } from './RichTextEditor'
-import { Button, Dialog, Input, Label, Select } from './ui'
+import { Button, ColourPicker, Dialog, Input, Label, Select } from './ui'
 
 // Create or edit a programme (Figma 710:2815). The twin of `RoundDialog`, and for the
 // same reason: a programme is a name, some themes, a unit and a statement of what it
@@ -19,20 +20,28 @@ export type ProgrammeDraft = {
   tags: string[]
   impactUnit: string
   impactUnitLabel: string
+  colour: string
 }
 
-export const emptyProgrammeDraft = (): ProgrammeDraft => ({
+/**
+ * A blank draft, pre-assigned the first colour nobody is using. The server assigns one
+ * too and is the authority; doing it here as well means the picker opens already showing
+ * the answer rather than an empty slot the admin has to fill in before they can start.
+ */
+export const emptyProgrammeDraft = (taken: Array<string | null>): ProgrammeDraft => ({
   name: '',
   goal: '',
   tags: [],
   impactUnit: DEFAULT_IMPACT_UNIT,
   impactUnitLabel: '',
+  colour: nextProgrammeColour(taken),
 })
 
 export function ProgrammeDialog({
   open,
   draft,
   suggestions,
+  takenColours = {},
   onClose,
   onSaved,
 }: {
@@ -41,6 +50,8 @@ export function ProgrammeDialog({
   draft: ProgrammeDraft | undefined
   /** Themes already used elsewhere by this client, offered as autocomplete. */
   suggestions: string[]
+  /** hex → the OTHER programme using it, so the picker can say so without forbidding it. */
+  takenColours?: Record<string, string>
   onClose: () => void
   onSaved: () => void
 }) {
@@ -51,6 +62,7 @@ export function ProgrammeDialog({
       key={draft.id ?? 'new'}
       draft={draft}
       suggestions={suggestions}
+      takenColours={takenColours}
       onClose={onClose}
       onSaved={onSaved}
     />
@@ -62,11 +74,13 @@ const FORM_ID = 'programme-dialog-form'
 function ProgrammeDialogForm({
   draft,
   suggestions,
+  takenColours,
   onClose,
   onSaved,
 }: {
   draft: ProgrammeDraft
   suggestions: string[]
+  takenColours: Record<string, string>
   onClose: () => void
   onSaved: () => void
 }) {
@@ -76,6 +90,7 @@ function ProgrammeDialogForm({
   const [tags, setTags] = useState<string[]>(draft.tags)
   const [impactUnit, setImpactUnit] = useState(draft.impactUnit)
   const [impactUnitLabel, setImpactUnitLabel] = useState(draft.impactUnitLabel)
+  const [colour, setColour] = useState(draft.colour)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -92,6 +107,7 @@ function ProgrammeDialogForm({
           tags,
           impactUnit,
           impactUnitLabel: impactUnitLabel.trim() || null,
+          colour,
         },
       })
       onSaved()
@@ -131,6 +147,11 @@ function ProgrammeDialogForm({
             required
             autoFocus
           />
+        </div>
+
+        <div>
+          <Label>Colour</Label>
+          <ColourPicker value={colour} onChange={setColour} taken={takenColours} />
         </div>
 
         <div>

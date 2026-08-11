@@ -7,6 +7,7 @@ import { programmes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { SaveProgrammeSchema } from '../../lib/validators/programme'
+import { nextProgrammeColour, normaliseColour } from '../../lib/programmeColours'
 
 /**
  * The client's programmes. Archived ones are excluded unless asked for: an archived
@@ -44,10 +45,24 @@ export const saveProgramme = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
     const db = getDb()
+
+    // No colour sent means "pick one for me" — resolved here, not in the browser, so two
+    // admins creating programmes at the same moment cannot both be handed the same free
+    // preset by their own stale copies of the list.
+    let colour = normaliseColour(data.colour)
+    if (!colour) {
+      const siblings = await db.query.programmes.findMany({
+        columns: { colour: true },
+        where: (p, { eq }) => eq(p.clientId, user.clientId ?? ''),
+      })
+      colour = nextProgrammeColour(siblings.map((p) => p.colour))
+    }
+
     const values = {
       name: data.name,
       goal: data.goal,
       tags: data.tags,
+      colour,
       impactUnit: data.impactUnit,
       // Only meaningful for 'other'; cleared otherwise so a unit changed away from
       // "Other…" cannot leave a stale phrase behind to resurface if it changes back.

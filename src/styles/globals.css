@@ -63,17 +63,21 @@
   --color-background: #fcfcfc; /* the page behind everything */
   --color-surface: #f6f6f6; /* a panel raised off the background */
 
-  /* Semantic. NOTE: these are FILL colours — none of the four reaches 4.5:1 against
-     white or against its own 10% wash, so as pill/label text they fail WCAG AA. Used
-     as-is by decision (2026-08-10) rather than inventing darker foregrounds; the
-     designer has been asked for an accessible text variant of each. */
-  --color-success: #31a650;
-  --color-warning: #f89828;
-  --color-danger: #ff4242;
-  --color-info: #5a87fc;
+  /* Semantic. The designer's REVISED set (style guide 679:35170, taken 2026-08-12) —
+     all four now clear 4.5:1 on white (4.9–5.2:1), so they are safe as pill and label
+     text as well as fills. The originals (#31a650 / #f89828 / #ff4242 / #5a87fc) sat at
+     2.2–3.4:1 and failed; the worst of it was the impersonation banner in
+     `_authenticated.tsx`, which is white text ON warning and so was 2.2:1.
+     Darkened wholesale rather than adding separate `-fg` variants, which is why every
+     status pill in the app shifts with them. */
+  --color-success: #148031;
+  --color-warning: #ab5c00;
+  --color-danger: #d32626;
+  --color-info: #3c68d8;
 
-  /* Accent — the palette a foundation picks a programme's colour from (see the
-     Programmes screen, 674:33847, where each swatch binds one of these). */
+  /* Accent — four bright hues used for KPI tints and chart series. NOT the programme
+     palette: that is a generated ramp in `lib/programmeColours.ts`, deliberately
+     independent so a contrast fix here cannot repaint a foundation's programmes. */
   --color-accent-sky: #37d1f7;
   --color-accent-blush: #f7a1c4;
   --color-accent-amber: #fdc86f;

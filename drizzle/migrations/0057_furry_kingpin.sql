@@ -1,0 +1,1 @@
+ALTER TABLE "programmes" ADD COLUMN "colour" text;

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { IMPACT_UNIT_KEYS } from '../impactUnits'
+import { PROGRAMME_COLOUR_PATTERN } from '../programmeColours'
 
 /**
  * What the programme dialog saves. One schema for create and edit — `id` absent creates.
@@ -19,6 +20,12 @@ export const SaveProgrammeSchema = z
     tags: z.array(z.string().min(1).max(100)),
     impactUnit: z.enum(IMPACT_UNIT_KEYS as [string, ...string[]]),
     impactUnitLabel: z.string().max(200).nullable(),
+    /**
+     * Lowercase `#rrggbb`, a preset or a custom pick. `null` asks the server to assign
+     * the first free preset — which is what creating a programme does, so nobody has to
+     * choose a colour before they have said what the programme is.
+     */
+    colour: z.string().regex(PROGRAMME_COLOUR_PATTERN, 'Pick a colour').nullable(),
   })
   .refine((p) => p.impactUnit !== 'other' || (p.impactUnitLabel?.trim() ?? '') !== '', {
     // Without this, picking "Other…" and typing nothing silently falls back to "People"

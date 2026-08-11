@@ -401,9 +401,22 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
   `addProgrammeToRound` / `removeProgrammeFromRound` / `updateRoundProgramme` are gone too.
   The dialog collects **objectives, criteria and priorities** (`goal`, fed to the Custodian
   score) and no longer collects `description`; `saveProgramme` never writes that column, so
-  legacy values survive and still win for the card's summary line. Programme colour is
-  **positional** (index into `PROGRAMME_COLORS`, matching how charts colour them) — there is
-  no colour column, so a foundation cannot pick one yet
+  legacy values survive and still win for the card's summary line
+- **Programme colour** (`src/lib/programmeColours.ts`, `ui/ColourPicker`) — `programmes.colour`
+  holds a lowercase `#rrggbb`: one of ten presets or a custom pick. The presets are a
+  **generated ramp**, not hand-picked: ten hues 36° apart, all at OKLCH lightness 0.68, each
+  at the most chroma sRGB allows at that hue. Fixed lightness is the point — no programme's
+  colour shouts louder than its neighbour's. (The designer's set at `769:15935` spanned
+  L 0.50–0.86; Alexandra chose the ramp over it on 2026-08-12.) Deliberately **not** aliases
+  of the semantic tokens — a programme's colour is a label a person chose, and a contrast fix
+  to `--color-danger` must not repaint somebody's programmes. Assigned **server-side** on
+  create so two admins creating at once can't be handed the same one by stale lists:
+  `nextProgrammeColour` takes the first free preset, then past ten **bisects the largest gap
+  between the hues already in use** — which is why it beats walking a fixed sequence, since a
+  custom pick changes where the space actually is. Duplicates are **discouraged, never
+  forbidden**: the picker dims a taken colour and names its owner. The column is nullable with
+  no backfill — rows predating it keep the positional colour the screen already drew them in
+  (`resolveProgrammeColour`). Never use these as TEXT: at L 0.68 they sit at 2.7–3.4:1 on white
 - **`RoundSelect`** (`src/components/ui`) — the round pill Applications and Shortlist share. There is
   deliberately **no "all rounds"** option: these screens are about one round's decisions, and totals
   summed across rounds are meaningless. Shortlist's `beforeLoad` redirects to the most recent round
