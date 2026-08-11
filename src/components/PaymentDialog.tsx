@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Alert02Icon,
+  MoneyAdd02Icon,
   MoneyRemove02Icon,
   PencilEdit02Icon,
   Tick02Icon,
@@ -122,13 +123,22 @@ function Row({
   valueColor,
   icon,
   action,
+  trailing,
   className,
 }: {
   label: React.ReactNode
   value: React.ReactNode
   valueColor?: string
   icon?: React.ReactNode
+  /** Sits BEFORE the value — a reveal toggle, an inline note. */
   action?: React.ReactNode
+  /**
+   * Sits AFTER the value, in a fixed 32px slot. Every row in a section must either
+   * supply it or reserve it (`<RowSlot />`): the figures in a column are read against
+   * each other and against the total, so one row growing a kebab must not shunt its
+   * number out of line with the rest.
+   */
+  trailing?: React.ReactNode
   className?: string
 }) {
   return (
@@ -145,9 +155,15 @@ function Row({
         >
           {value}
         </span>
+        {trailing}
       </div>
     </div>
   )
+}
+
+/** The empty half of the `trailing` slot — an aligned column costs one placeholder. */
+function RowSlot() {
+  return <span aria-hidden className="size-8 shrink-0" />
 }
 
 // ─── Grant lifecycle ─────────────────────────────────────────────────────────
@@ -373,55 +389,52 @@ function Schedule({
                 }
                 className={busy ? 'opacity-60' : undefined}
                 value={<span className="font-semibold text-brand">{fmtMoney(inst.amount)}</span>}
-                action={
-                  grant.canEdit && (
-                    <span className="flex items-center gap-1">
-                      {/* Recording a payment is the one thing this dialog exists for, so
-                          it stays a button. Everything else on the row is a CORRECTION to
-                          a financial record — rarer, and not a peer of the routine act —
-                          so it goes behind the kebab, as on Rounds and Programmes. */}
-                      {!inst.paidDate && (
-                        <Button
-                          size="xs"
-                          variant="tinted"
-                          disabled={busy}
-                          onClick={() =>
-                            run(inst.id, () =>
-                              setInstalmentPaid({ data: { id: inst.id, paid: true } }),
-                            )
-                          }
-                        >
-                          Mark paid
-                        </Button>
-                      )}
-                      <ActionMenu
-                        label={`Actions for instalment ${inst.instalmentNo}`}
-                        actions={[
-                          {
-                            label: 'Edit amount & date',
-                            icon: PencilEdit02Icon,
-                            onSelect: () => beginEdit(inst),
-                          },
-                          // Named by its effect, not "Undo": this row may have been paid
-                          // eight months ago, and un-marking it is a statement that the
-                          // money never went out — not the reversal of a recent click.
-                          ...(inst.paidDate
-                            ? [
-                                {
-                                  label: 'Mark as unpaid',
-                                  icon: MoneyRemove02Icon,
-                                  destructive: true,
-                                  onSelect: () =>
-                                    run(inst.id, () =>
-                                      setInstalmentPaid({ data: { id: inst.id, paid: false } }),
-                                    ),
-                                },
-                              ]
-                            : []),
-                        ]}
-                      />
-                    </span>
-                  )
+                trailing={
+                  grant.canEdit ? (
+                    // Everything you can do to an instalment lives in one menu, after the
+                    // figure. Marking paid is the routine act and the corrections are
+                    // rare, so the paid/unpaid item leads and the destructive one is last.
+                    <ActionMenu
+                      label={`Actions for instalment ${inst.instalmentNo}`}
+                      actions={
+                        inst.paidDate
+                          ? [
+                              {
+                                label: 'Edit amount & date',
+                                icon: PencilEdit02Icon,
+                                onSelect: () => beginEdit(inst),
+                              },
+                              // Named by its effect, not "Undo": this row may have been
+                              // paid eight months ago, and un-marking it says the money
+                              // never went out — not that a recent click was a mistake.
+                              {
+                                label: 'Mark as unpaid',
+                                icon: MoneyRemove02Icon,
+                                destructive: true,
+                                onSelect: () =>
+                                  run(inst.id, () =>
+                                    setInstalmentPaid({ data: { id: inst.id, paid: false } }),
+                                  ),
+                              },
+                            ]
+                          : [
+                              {
+                                label: 'Mark as paid',
+                                icon: MoneyAdd02Icon,
+                                onSelect: () =>
+                                  run(inst.id, () =>
+                                    setInstalmentPaid({ data: { id: inst.id, paid: true } }),
+                                  ),
+                              },
+                              {
+                                label: 'Edit amount & date',
+                                icon: PencilEdit02Icon,
+                                onSelect: () => beginEdit(inst),
+                              },
+                            ]
+                      }
+                    />
+                  ) : undefined
                 }
               />
             )
@@ -433,6 +446,9 @@ function Schedule({
               value={
                 <span className="font-semibold text-brand">{fmtMoney(grant.scheduledTotal)}</span>
               }
+              // No menu on the total, but it still reserves the slot — otherwise the one
+              // figure the instalments are meant to add up to is the one out of line.
+              trailing={grant.canEdit ? <RowSlot /> : undefined}
             />
           </div>
         </>
