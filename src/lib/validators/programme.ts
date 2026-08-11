@@ -1,41 +1,30 @@
 import { z } from 'zod'
 import { IMPACT_UNIT_KEYS } from '../impactUnits'
 
-export const CreateProgrammeSchema = z.object({
-  clientId: z.uuid(),
-  name: z.string().min(1).max(255),
-  description: z.string().max(2000).optional(),
-  goal: z.string().optional(),
-  tags: z.array(z.string().min(1).max(100)).optional(),
-  impactUnit: z.enum(IMPACT_UNIT_KEYS as [string, ...string[]]).optional(),
-  impactUnitLabel: z.string().max(200).nullable().optional(),
-})
-export type CreateProgrammeInput = z.infer<typeof CreateProgrammeSchema>
-
-export const UpdateProgrammeSchema = z.object({
-  id: z.uuid(),
-  name: z.string().min(1).max(255).optional(),
-  description: z.string().max(2000).optional(),
-  goal: z.string().optional(),
-  tags: z.array(z.string().min(1).max(100)).optional(),
-  impactUnit: z.enum(IMPACT_UNIT_KEYS as [string, ...string[]]).optional(),
-  impactUnitLabel: z.string().max(200).nullable().optional(),
-})
-export type UpdateProgrammeInput = z.infer<typeof UpdateProgrammeSchema>
-
-export const AddProgrammeToRoundSchema = z.object({
-  roundId: z.uuid(),
-  programmeId: z.uuid(),
-  budget: z.number().positive(),
-  maxGrantAmount: z.number().positive().optional(),
-  grantDurationYears: z.number().int().min(1).max(20).optional(),
-})
-export type AddProgrammeToRoundInput = z.infer<typeof AddProgrammeToRoundSchema>
-
-export const UpdateRoundProgrammeSchema = z.object({
-  id: z.uuid(),
-  budget: z.number().positive(),
-  maxGrantAmount: z.number().positive().optional(),
-  grantDurationYears: z.number().int().min(1).max(20).optional(),
-})
-export type UpdateRoundProgrammeInput = z.infer<typeof UpdateRoundProgrammeSchema>
+/**
+ * What the programme dialog saves. One schema for create and edit — `id` absent creates.
+ *
+ * `description` is deliberately absent: the dialog collects the programme's objectives,
+ * criteria and priorities as one field (`goal`), which is both what a reader wants and
+ * what the Custodian score is written against. Existing `description` values are left
+ * untouched by a save rather than blanked.
+ */
+export const SaveProgrammeSchema = z
+  .object({
+    /** Absent creates a programme; present edits that one. */
+    id: z.uuid().optional(),
+    name: z.string().min(1, 'Give the programme a name').max(255),
+    /** Objectives, criteria and priorities. Markdown from the rich text editor. */
+    goal: z.string().max(20000).nullable(),
+    tags: z.array(z.string().min(1).max(100)),
+    impactUnit: z.enum(IMPACT_UNIT_KEYS as [string, ...string[]]),
+    impactUnitLabel: z.string().max(200).nullable(),
+  })
+  .refine((p) => p.impactUnit !== 'other' || (p.impactUnitLabel?.trim() ?? '') !== '', {
+    // Without this, picking "Other…" and typing nothing silently falls back to "People"
+    // (see `impactUnitLabel()`), and the programme reports its impact in a unit nobody
+    // chose — on Insights, and in the prompt that extracts figures from grant reports.
+    message: 'Describe the unit this programme measures impact in',
+    path: ['impactUnitLabel'],
+  })
+export type SaveProgrammeInput = z.infer<typeof SaveProgrammeSchema>

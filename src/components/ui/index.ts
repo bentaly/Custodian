@@ -3,6 +3,7 @@ export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from '.
 export { Input, Textarea, Select, Label } from './fields'
 export { Card, EmptyState } from './Card'
 export { Dialog } from './Dialog'
+export { ActionMenu, type MenuAction } from './ActionMenu'
 export { ConfirmDialog } from './ConfirmDialog'
 export { Checkbox, type CheckboxProps } from './Checkbox'
 export { Tooltip } from './Tooltip'

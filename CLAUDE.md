@@ -376,7 +376,7 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
 
 - `src/routes/_authenticated.tsx` — layout + auth guard for all protected routes
 - `src/routes/_authenticated/*.tsx` — dashboard, applications (+detail), shortlist, awards
-  (+detail), finance (+detail), reports (+detail), rounds, programmes (+detail),
+  (+detail), finance (+detail), reports (+detail), rounds, programmes,
   insights, profile, and the Settings hub
 - **Shortlist** (`/shortlist`) — the board's decision screen: three `MiniKpi` cards (proposed spend
   by programme / spend against the round-programme budget incl. what is already committed / where the
@@ -393,6 +393,17 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
   awards are the record of a decision and archiving is the reversible way to say "done with
   this". A programme with applications in the round cannot be dropped from it (FK `restrict`);
   set its budget to £0 instead
+- **Programmes** (`/programmes`) — a card per programme (colour swatch, name, round badge,
+  summary line, Impact measured in, Themes), edited in `ProgrammeDialog` over the list. Same
+  shape as Rounds and for the same reasons: **no detail route**, one `saveProgramme` call,
+  **archive only** (`deleteProgramme` removed). Which rounds a programme is funded in is set
+  in the ROUND dialog, next to the budget that decision is actually about — which is why
+  `addProgrammeToRound` / `removeProgrammeFromRound` / `updateRoundProgramme` are gone too.
+  The dialog collects **objectives, criteria and priorities** (`goal`, fed to the Custodian
+  score) and no longer collects `description`; `saveProgramme` never writes that column, so
+  legacy values survive and still win for the card's summary line. Programme colour is
+  **positional** (index into `PROGRAMME_COLORS`, matching how charts colour them) — there is
+  no colour column, so a foundation cannot pick one yet
 - **`RoundSelect`** (`src/components/ui`) — the round pill Applications and Shortlist share. There is
   deliberately **no "all rounds"** option: these screens are about one round's decisions, and totals
   summed across rounds are meaningless. Shortlist's `beforeLoad` redirects to the most recent round

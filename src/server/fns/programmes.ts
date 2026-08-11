@@ -1,17 +1,12 @@
-import { conflict, forbidden, notFoundError } from '../../lib/errors'
+import { forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { programmes, roundProgrammes } from '../../../drizzle/schema'
+import { programmes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
-import {
-  CreateProgrammeSchema,
-  UpdateProgrammeSchema,
-  AddProgrammeToRoundSchema,
-  UpdateRoundProgrammeSchema,
-} from '../../lib/validators/programme'
+import { SaveProgrammeSchema } from '../../lib/validators/programme'
 
 /**
  * The client's programmes. Archived ones are excluded unless asked for: an archived
@@ -35,47 +30,47 @@ export const listProgrammes = createServerFn({ method: 'GET' })
     })
   })
 
-export const getProgramme = createServerFn({ method: 'GET' })
-  .validator(z.object({ id: z.uuid() }))
-  .handler(async ({ data }) => {
-    const user = await requireAuthUser()
-    const programme = await getDb().query.programmes.findFirst({
-      where: (p, { eq }) => eq(p.id, data.id),
-      with: {
-        roundProgrammes: { with: { round: true } },
-      },
-    })
-    if (!programme) throw notFoundError()
-    assertClientAccess(user, programme.clientId)
-    return programme
-  })
-
-export const createProgramme = createServerFn({ method: 'POST' })
-  .validator(CreateProgrammeSchema)
+/**
+ * Create or update a programme — the whole dialog in one call, the same shape as
+ * `saveRound`. Which rounds a programme is funded in is NOT set here: that belongs to
+ * the round, alongside the budget it is given, and lives in the round dialog.
+ *
+ * `description` is not in the payload and is never written. The dialog replaced it with
+ * `goal`; leaving the column alone means a programme that had one keeps it instead of
+ * having it silently blanked by the first save.
+ */
+export const saveProgramme = createServerFn({ method: 'POST' })
+  .validator(SaveProgrammeSchema)
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
-    assertClientAccess(user, data.clientId)
-    const [programme] = await getDb().insert(programmes).values(data).returning()
-    return programme!
-  })
+    const db = getDb()
+    const values = {
+      name: data.name,
+      goal: data.goal,
+      tags: data.tags,
+      impactUnit: data.impactUnit,
+      // Only meaningful for 'other'; cleared otherwise so a unit changed away from
+      // "Other…" cannot leave a stale phrase behind to resurface if it changes back.
+      impactUnitLabel: data.impactUnit === 'other' ? (data.impactUnitLabel?.trim() ?? null) : null,
+    }
 
-export const updateProgramme = createServerFn({ method: 'POST' })
-  .validator(UpdateProgrammeSchema)
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin')
-    const { id, ...rest } = data
-    const existing = await getDb().query.programmes.findFirst({
-      where: (p, { eq }) => eq(p.id, id),
-      columns: { clientId: true },
-    })
-    if (!existing) throw notFoundError()
-    assertClientAccess(user, existing.clientId)
-    const [programme] = await getDb()
-      .update(programmes)
-      .set(rest)
-      .where(eq(programmes.id, id))
-      .returning()
-    return programme!
+    if (data.id) {
+      const existing = await db.query.programmes.findFirst({
+        where: (p, { eq }) => eq(p.id, data.id!),
+        columns: { clientId: true },
+      })
+      if (!existing) throw notFoundError()
+      assertClientAccess(user, existing.clientId)
+      await db.update(programmes).set(values).where(eq(programmes.id, data.id))
+      return { id: data.id }
+    }
+
+    if (!user.clientId) throw forbidden()
+    const [created] = await db
+      .insert(programmes)
+      .values({ ...values, clientId: user.clientId })
+      .returning({ id: programmes.id })
+    return { id: created!.id }
   })
 
 /**
@@ -102,114 +97,6 @@ export const setProgrammeArchived = createServerFn({ method: 'POST' })
       .set({ archivedAt: data.archived ? new Date() : null })
       .where(eq(programmes.id, data.id))
     return { ok: true }
-  })
-
-/**
- * Delete a programme outright. Only possible while it has no history — the moment an
- * application exists, `applications.round_programme_id` (ON DELETE RESTRICT) makes this
- * impossible at the database, and rightly so: an award's amount means nothing without
- * the programme budget it was set against. Archiving is the answer in that case, and
- * the error says so.
- */
-export const deleteProgramme = createServerFn({ method: 'POST' })
-  .validator(z.object({ id: z.uuid() }))
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin')
-    const programme = await getDb().query.programmes.findFirst({
-      where: (p, { eq }) => eq(p.id, data.id),
-      with: {
-        roundProgrammes: {
-          with: { applications: { columns: { id: true }, limit: 1 } },
-        },
-      },
-    })
-    if (!programme) throw notFoundError()
-    assertClientAccess(user, programme.clientId)
-    const hasApplications = programme.roundProgrammes.some((rp) => rp.applications.length > 0)
-    if (hasApplications) {
-      throw conflict(
-        'This programme has applications, so it cannot be deleted. Archive it instead — it will disappear from the pickers but keep its history.',
-      )
-    }
-    await getDb().delete(programmes).where(eq(programmes.id, data.id))
-    return { ok: true }
-  })
-
-export const addProgrammeToRound = createServerFn({ method: 'POST' })
-  .validator(AddProgrammeToRoundSchema)
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin')
-    const { budget, maxGrantAmount, ...rest } = data
-    // Both the round and the programme must belong to the caller's client; this
-    // also prevents stitching a programme from one client onto another's round.
-    const [round, programme] = await Promise.all([
-      getDb().query.rounds.findFirst({
-        where: (r, { eq }) => eq(r.id, rest.roundId),
-        columns: { clientId: true },
-      }),
-      getDb().query.programmes.findFirst({
-        where: (p, { eq }) => eq(p.id, rest.programmeId),
-        columns: { clientId: true },
-      }),
-    ])
-    if (!round || !programme) throw notFoundError()
-    if (round.clientId !== programme.clientId) throw forbidden()
-    assertClientAccess(user, round.clientId)
-    const [link] = await getDb()
-      .insert(roundProgrammes)
-      .values({
-        ...rest,
-        budget: budget.toString(),
-        maxGrantAmount: maxGrantAmount?.toString(),
-      })
-      .returning()
-    return link!
-  })
-
-export const updateRoundProgramme = createServerFn({ method: 'POST' })
-  .validator(UpdateRoundProgrammeSchema)
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin')
-    const { id, budget, maxGrantAmount, ...rest } = data
-    const existing = await getDb().query.roundProgrammes.findFirst({
-      where: (rp, { eq }) => eq(rp.id, id),
-      with: { programme: { columns: { clientId: true } } },
-    })
-    if (!existing) throw notFoundError()
-    assertClientAccess(user, existing.programme.clientId)
-    const [link] = await getDb()
-      .update(roundProgrammes)
-      .set({
-        ...rest,
-        budget: budget.toString(),
-        ...(maxGrantAmount !== undefined
-          ? { maxGrantAmount: maxGrantAmount.toString() }
-          : { maxGrantAmount: null }),
-      })
-      .where(eq(roundProgrammes.id, id))
-      .returning()
-    return link!
-  })
-
-export const removeProgrammeFromRound = createServerFn({ method: 'POST' })
-  .validator(z.object({ roundId: z.uuid(), programmeId: z.uuid() }))
-  .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin')
-    const existing = await getDb().query.roundProgrammes.findFirst({
-      where: (rp, { eq, and: andOp }) =>
-        andOp(eq(rp.roundId, data.roundId), eq(rp.programmeId, data.programmeId)),
-      with: { programme: { columns: { clientId: true } } },
-    })
-    if (!existing) throw notFoundError()
-    assertClientAccess(user, existing.programme.clientId)
-    await getDb()
-      .delete(roundProgrammes)
-      .where(
-        and(
-          eq(roundProgrammes.roundId, data.roundId),
-          eq(roundProgrammes.programmeId, data.programmeId),
-        ),
-      )
   })
 
 export const listClientTags = createServerFn({ method: 'GET' }).handler(async () => {

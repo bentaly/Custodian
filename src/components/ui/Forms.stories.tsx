@@ -4,7 +4,6 @@ import { Input, Textarea, Select, Label } from './fields'
 import { Button } from './Button'
 import { Card } from './Card'
 import { ConfirmDialog } from './ConfirmDialog'
-import { GrantTermsFields } from '../GrantTermsFields'
 
 const meta = {
   title: 'Forms/Fields',
@@ -41,32 +40,6 @@ export const Fields: Story = {
       </div>
     </div>
   ),
-}
-
-/**
- * The three grant terms, with the hints that say what each number means. Shown here
- * because the wording is the point — this is the only place a foundation is told that
- * "Total budget" is the pot for one programme in one round.
- */
-export const GrantTerms: Story = {
-  render: function Render() {
-    const [budget, setBudget] = useState('500000')
-    const [max, setMax] = useState('50000')
-    const [years, setYears] = useState('3')
-    return (
-      <Card className="max-w-3xl p-4">
-        <GrantTermsFields
-          budget={budget}
-          onBudget={setBudget}
-          maxGrantAmount={max}
-          onMaxGrantAmount={setMax}
-          grantDurationYears={years}
-          onGrantDurationYears={setYears}
-          budgetRequired
-        />
-      </Card>
-    )
-  },
 }
 
 /** Every destructive action goes through this, and none of them back out while busy. */

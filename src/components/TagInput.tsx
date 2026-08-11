@@ -1,15 +1,24 @@
 import { useId, useRef, useState } from 'react'
 
 export function TagInput({
+  id,
   value,
   onChange,
   suggestions,
   placeholder = 'Add themes…',
+  hint,
 }: {
+  id?: string
   value: string[]
   onChange: (tags: string[]) => void
   suggestions: string[]
   placeholder?: string
+  /**
+   * How to use the control, e.g. "Press Enter to add a theme". Worth stating: a box
+   * that turns text into a chip on Enter looks exactly like a text field that doesn't,
+   * and people type a comma-separated list into it and lose the lot on submit.
+   */
+  hint?: string
 }) {
   const [inputValue, setInputValue] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -75,7 +84,7 @@ export function TagInput({
   return (
     <div className="relative">
       <div
-        className="flex min-h-[40px] cursor-text flex-wrap gap-1.5 rounded-chip border border-gray-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-gray-400"
+        className="flex min-h-10 cursor-text flex-wrap gap-1.5 rounded-control border border-gray-200 bg-white px-2 py-1.5 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20"
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
@@ -98,6 +107,7 @@ export function TagInput({
         ))}
         <input
           ref={inputRef}
+          id={id}
           role="combobox"
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
@@ -120,10 +130,23 @@ export function TagInput({
             }, 150)
           }
           onKeyDown={handleKeyDown}
-          className="min-w-24 flex-1 border-none bg-transparent text-body outline-hidden"
+          className="min-w-24 flex-1 border-none bg-transparent font-display text-body outline-hidden"
           placeholder={value.length === 0 ? placeholder : ''}
         />
       </div>
+
+      {(hint || value.length > 0) && (
+        <div className="mt-1.5 flex items-baseline justify-between gap-3">
+          {hint ? <p className="font-display text-label text-gray-500">{hint}</p> : <span />}
+          {value.length > 0 && (
+            // `aria-live` so the count is announced as chips are added: the chips
+            // themselves are only reachable by moving through them one at a time.
+            <p aria-live="polite" className="font-display text-label text-gray-400">
+              {value.length} {value.length === 1 ? 'theme' : 'themes'}
+            </p>
+          )}
+        </div>
+      )}
 
       {showDropdown && (
         <ul

@@ -36,7 +36,6 @@ import { Route as AuthenticatedAwardsAwardIdRouteImport } from './routes/_authen
 import { Route as AuthenticatedFinanceIndexRouteImport } from './routes/_authenticated/finance.index'
 import { Route as AuthenticatedFinanceAwardIdRouteImport } from './routes/_authenticated/finance.$awardId'
 import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
-import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes/_authenticated/programmes.$programmeId'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
@@ -207,12 +206,6 @@ const AuthenticatedProgrammesIndexRoute =
   AuthenticatedProgrammesIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedProgrammesRoute,
-  } as any)
-const AuthenticatedProgrammesProgrammeIdRoute =
-  AuthenticatedProgrammesProgrammeIdRouteImport.update({
-    id: '/$programmeId',
-    path: '/$programmeId',
     getParentRoute: () => AuthenticatedProgrammesRoute,
   } as any)
 const AuthenticatedReportsIndexRoute =
@@ -401,7 +394,6 @@ export interface FileRoutesByFullPath {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/finance/$awardId': typeof AuthenticatedFinanceAwardIdRoute
-  '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
@@ -451,7 +443,6 @@ export interface FileRoutesByTo {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/finance/$awardId': typeof AuthenticatedFinanceAwardIdRoute
-  '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
@@ -511,7 +502,6 @@ export interface FileRoutesById {
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/_authenticated/finance/$awardId': typeof AuthenticatedFinanceAwardIdRoute
-  '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/_authenticated/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
@@ -571,7 +561,6 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/finance/$awardId'
-    | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/settings/api-keys'
     | '/settings/award-letter'
@@ -621,7 +610,6 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/finance/$awardId'
-    | '/programmes/$programmeId'
     | '/reports/$reportKey'
     | '/settings/api-keys'
     | '/settings/award-letter'
@@ -680,7 +668,6 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/awards/$awardId'
     | '/_authenticated/finance/$awardId'
-    | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/settings/api-keys'
     | '/_authenticated/settings/award-letter'
@@ -926,13 +913,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/programmes/'
       preLoaderRoute: typeof AuthenticatedProgrammesIndexRouteImport
-      parentRoute: typeof AuthenticatedProgrammesRoute
-    }
-    '/_authenticated/programmes/$programmeId': {
-      id: '/_authenticated/programmes/$programmeId'
-      path: '/$programmeId'
-      fullPath: '/programmes/$programmeId'
-      preLoaderRoute: typeof AuthenticatedProgrammesProgrammeIdRouteImport
       parentRoute: typeof AuthenticatedProgrammesRoute
     }
     '/_authenticated/reports/': {
@@ -1185,14 +1165,11 @@ const AuthenticatedFinanceRouteWithChildren =
   AuthenticatedFinanceRoute._addFileChildren(AuthenticatedFinanceRouteChildren)
 
 interface AuthenticatedProgrammesRouteChildren {
-  AuthenticatedProgrammesProgrammeIdRoute: typeof AuthenticatedProgrammesProgrammeIdRoute
   AuthenticatedProgrammesIndexRoute: typeof AuthenticatedProgrammesIndexRoute
 }
 
 const AuthenticatedProgrammesRouteChildren: AuthenticatedProgrammesRouteChildren =
   {
-    AuthenticatedProgrammesProgrammeIdRoute:
-      AuthenticatedProgrammesProgrammeIdRoute,
     AuthenticatedProgrammesIndexRoute: AuthenticatedProgrammesIndexRoute,
   }
 
