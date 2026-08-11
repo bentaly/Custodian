@@ -147,26 +147,6 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
-// A borderless stat (used inside a titled panel).
-function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div>
-      <p className="font-display text-body font-medium" style={{ color: C.sub }}>
-        {label}
-      </p>
-      <p
-        className="mt-1 font-display text-heading font-semibold leading-none"
-        style={{ color: C.ink }}
-      >
-        {value}
-      </p>
-      <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-        {sub}
-      </p>
-    </div>
-  )
-}
-
 // Column chart of funding across IMD deciles 1–10. Deciles 1–4 (the "most deprived
 // 40%") carry the accent; 5–10 recede.
 function DecileChart({ amounts, total, max }: { amounts: number[]; total: number; max: number }) {
@@ -801,22 +781,6 @@ function InsightsPage() {
   const decileMax = Math.max(1, ...decileAmounts)
   const vintages = [...new Set(located.map((g) => g.deprivation!.vintage))].sort()
 
-  // ── Grantee performance (from analysed reports) ──
-  const alignmentScores = fil.map((g) => g.alignmentScore).filter((s): s is number => s !== null)
-  const avgAlignment =
-    alignmentScores.length > 0
-      ? alignmentScores.reduce((s, n) => s + n, 0) / alignmentScores.length
-      : null
-  const milestones = fil.reduce(
-    (acc, g) => ({
-      received: acc.received + g.milestones.received,
-      onTime: acc.onTime + g.milestones.onTime,
-      overdue: acc.overdue + g.milestones.overdue,
-    }),
-    { received: 0, onTime: 0, overdue: 0 },
-  )
-  const reportsAnalysed = fil.reduce((s, g) => s + g.reportsAnalysed, 0)
-
   function setSearch(patch: Partial<InsightsSearch>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
@@ -1244,73 +1208,29 @@ function InsightsPage() {
             </Panel>
           )}
 
-          {/* Deprivation-decile distribution + grantee performance */}
-          <div data-export-block className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Panel>
-              <PanelTitle>Funding by deprivation decile</PanelTitle>
-              {locatedAmt === 0 ? (
-                <p
-                  className="py-10 text-center font-display text-body"
-                  style={{ color: C.faint }}
-                >
-                  No resolved delivery locations in this slice.
+          {/* Deprivation-decile distribution */}
+          <Panel data-export-block>
+            <PanelTitle>Funding by deprivation decile</PanelTitle>
+            {locatedAmt === 0 ? (
+              <p className="py-10 text-center font-display text-body" style={{ color: C.faint }}>
+                No resolved delivery locations in this slice.
+              </p>
+            ) : (
+              <>
+                <p className="-mt-1 mb-1 font-display text-label" style={{ color: C.sub }}>
+                  Decile 1 is the most deprived 10% of areas in its nation
+                  {vintages.length ? ` · ${vintages.join(', ')}` : ''}
                 </p>
-              ) : (
-                <>
-                  <p className="-mt-1 mb-1 font-display text-label" style={{ color: C.sub }}>
-                    Decile 1 is the most deprived 10% of areas in its nation
-                    {vintages.length ? ` · ${vintages.join(', ')}` : ''}
+                <DecileChart amounts={decileAmounts} total={locatedAmt} max={decileMax} />
+                {unlocatedCount > 0 && (
+                  <p className="mt-2 font-display text-label" style={{ color: C.faint }}>
+                    {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable
+                    location excluded.
                   </p>
-                  <DecileChart amounts={decileAmounts} total={locatedAmt} max={decileMax} />
-                  {unlocatedCount > 0 && (
-                    <p className="mt-2 font-display text-label" style={{ color: C.faint }}>
-                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable
-                      location excluded.
-                    </p>
-                  )}
-                </>
-              )}
-            </Panel>
-
-            <Panel>
-              <PanelTitle>Grantee performance</PanelTitle>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Stat
-                  label="Promises kept"
-                  value={
-                    avgAlignment !== null
-                      ? `${(Math.round(avgAlignment * 10) / 10).toLocaleString('en-GB')}/10`
-                      : '—'
-                  }
-                  sub={
-                    avgAlignment !== null
-                      ? `avg alignment · ${alignmentScores.length} report${alignmentScores.length !== 1 ? 's' : ''}`
-                      : 'awaits analysed reports'
-                  }
-                />
-                <Stat
-                  label="Reporting on time"
-                  value={
-                    milestones.received > 0
-                      ? `${Math.round((milestones.onTime / milestones.received) * 100)}%`
-                      : '—'
-                  }
-                  sub={
-                    milestones.received > 0
-                      ? `${milestones.onTime} of ${milestones.received} by due date${milestones.overdue > 0 ? ` · ${milestones.overdue} overdue` : ''}`
-                      : milestones.overdue > 0
-                        ? `${milestones.overdue} overdue`
-                        : 'none due yet'
-                  }
-                />
-                <Stat
-                  label="Reports analysed"
-                  value={reportsAnalysed > 0 ? String(reportsAnalysed) : '—'}
-                  sub={`across ${fil.filter((g) => g.reportsAnalysed > 0).length} of ${fil.length}`}
-                />
-              </div>
-            </Panel>
-          </div>
+                )}
+              </>
+            )}
+          </Panel>
 
           {/* Impact by round */}
           {timelineRounds.length > 0 && (

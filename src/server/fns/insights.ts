@@ -59,10 +59,6 @@ export type InsightsGrant = {
   // Insights falls back to this when no analysed report has stated an actual figure.
   proposedImpactQuantity: number | null
   impactQuote: string | null
-  alignmentScore: number | null
-  outcome: string | null
-  reportsAnalysed: number
-  milestones: { total: number; received: number; onTime: number; overdue: number }
 }
 
 const NATION_LABELS: Record<string, string> = {
@@ -101,20 +97,15 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
       roundProgramme: { with: { programme: true, round: true } },
       award: {
         with: {
-          schedule: true,
           // A report row averages ~4KB — mostly the grantee's narrative and the AI's
-          // analysis of it. Insights reads eight fields of it, so it asks for eight.
+          // analysis of it. Insights reads five fields of it, so it asks for five.
           reports: {
             columns: {
               id: true,
-              scheduleId: true,
               submittedAt: true,
               analysisStatus: true,
               impactQuantity: true,
               impactQuantityQuote: true,
-              applicationAlignment: true,
-              aiSummary: true,
-              impactSummary: true,
             },
           },
         },
@@ -122,8 +113,6 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
     },
     orderBy: (a, { asc }) => [asc(a.decisionAt)],
   })
-
-  const today = new Date().toISOString().slice(0, 10)
 
   const items: InsightsGrant[] = apps
     .filter((a) => a.award)
@@ -136,29 +125,6 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         .filter((s) => s.analysisStatus === 'analysed')
         .sort((x, y) => x.submittedAt.getTime() - y.submittedAt.getTime())
       const latestWithQuantity = [...analysed].reverse().find((s) => s.impactQuantity !== null)
-      const latestWithAlignment = [...analysed].reverse().find((s) => s.applicationAlignment)
-      const latestAnalysed = analysed[analysed.length - 1]
-
-      // A milestone counts as received when it was ticked (submittedDate) or a
-      // submission satisfied it; on time means it arrived by its due date.
-      const submissionByMilestone = new Map(
-        award.reports.filter((s) => s.scheduleId).map((s) => [s.scheduleId!, s]),
-      )
-      let received = 0
-      let onTime = 0
-      let overdue = 0
-      for (const m of award.schedule) {
-        const receivedDate =
-          m.submittedDate ??
-          submissionByMilestone.get(m.id)?.submittedAt.toISOString().slice(0, 10) ??
-          null
-        if (receivedDate) {
-          received++
-          if (!m.dueDate || receivedDate <= m.dueDate) onTime++
-        } else if (m.dueDate && m.dueDate < today) {
-          overdue++
-        }
-      }
 
       const dep = a.deprivationContext as DeprivationResult | null
       const deprivation: InsightsDeprivation | null =
@@ -197,10 +163,6 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         proposedImpactQuantity:
           a.proposedImpactQuantity != null ? parseFloat(a.proposedImpactQuantity) : null,
         impactQuote: latestWithQuantity?.impactQuantityQuote ?? null,
-        alignmentScore: latestWithAlignment?.applicationAlignment?.score ?? null,
-        outcome: latestAnalysed?.aiSummary ?? latestAnalysed?.impactSummary ?? null,
-        reportsAnalysed: analysed.length,
-        milestones: { total: award.schedule.length, received, onTime, overdue },
       }
     })
 
