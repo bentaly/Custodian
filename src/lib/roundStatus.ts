@@ -18,8 +18,11 @@ export const ROUND_STATUS_LABELS: Record<RoundStatus, string> = {
   closed: 'Closed',
 }
 
+// Straight from the Rounds comp (672:26812). Closed is GREY, not red: a round that has
+// run its course is the ordinary end state, and the previous danger tint made every
+// past round read as something gone wrong.
 export const ROUND_STATUS_COLORS: Record<RoundStatus, string> = {
-  upcoming: 'bg-gray-100 text-gray-600',
+  upcoming: 'bg-accent-violet/10 text-accent-violet',
   open: 'bg-success/10 text-success',
-  closed: 'bg-danger/10 text-danger',
+  closed: 'bg-gray-100 text-gray-500',
 }

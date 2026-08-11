@@ -40,7 +40,6 @@ import { Route as AuthenticatedProgrammesProgrammeIdRouteImport } from './routes
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
-import { Route as AuthenticatedRoundsRoundIdRouteImport } from './routes/_authenticated/rounds.$roundId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings.api-keys'
 import { Route as AuthenticatedSettingsAwardLetterRouteImport } from './routes/_authenticated/settings.award-letter'
@@ -234,12 +233,6 @@ const AuthenticatedRoundsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedRoundsRoute,
   } as any)
-const AuthenticatedRoundsRoundIdRoute =
-  AuthenticatedRoundsRoundIdRouteImport.update({
-    id: '/$roundId',
-    path: '/$roundId',
-    getParentRoute: () => AuthenticatedRoundsRoute,
-  } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
@@ -410,7 +403,6 @@ export interface FileRoutesByFullPath {
   '/finance/$awardId': typeof AuthenticatedFinanceAwardIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
-  '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
@@ -461,7 +453,6 @@ export interface FileRoutesByTo {
   '/finance/$awardId': typeof AuthenticatedFinanceAwardIdRoute
   '/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
-  '/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
@@ -522,7 +513,6 @@ export interface FileRoutesById {
   '/_authenticated/finance/$awardId': typeof AuthenticatedFinanceAwardIdRoute
   '/_authenticated/programmes/$programmeId': typeof AuthenticatedProgrammesProgrammeIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
-  '/_authenticated/rounds/$roundId': typeof AuthenticatedRoundsRoundIdRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/_authenticated/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
@@ -583,7 +573,6 @@ export interface FileRouteTypes {
     | '/finance/$awardId'
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
-    | '/rounds/$roundId'
     | '/settings/api-keys'
     | '/settings/award-letter'
     | '/settings/data-import'
@@ -634,7 +623,6 @@ export interface FileRouteTypes {
     | '/finance/$awardId'
     | '/programmes/$programmeId'
     | '/reports/$reportKey'
-    | '/rounds/$roundId'
     | '/settings/api-keys'
     | '/settings/award-letter'
     | '/settings/data-import'
@@ -694,7 +682,6 @@ export interface FileRouteTypes {
     | '/_authenticated/finance/$awardId'
     | '/_authenticated/programmes/$programmeId'
     | '/_authenticated/reports/$reportKey'
-    | '/_authenticated/rounds/$roundId'
     | '/_authenticated/settings/api-keys'
     | '/_authenticated/settings/award-letter'
     | '/_authenticated/settings/data-import'
@@ -969,13 +956,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoundsIndexRouteImport
       parentRoute: typeof AuthenticatedRoundsRoute
     }
-    '/_authenticated/rounds/$roundId': {
-      id: '/_authenticated/rounds/$roundId'
-      path: '/$roundId'
-      fullPath: '/rounds/$roundId'
-      preLoaderRoute: typeof AuthenticatedRoundsRoundIdRouteImport
-      parentRoute: typeof AuthenticatedRoundsRoute
-    }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/'
@@ -1235,12 +1215,10 @@ const AuthenticatedReportsRouteWithChildren =
   AuthenticatedReportsRoute._addFileChildren(AuthenticatedReportsRouteChildren)
 
 interface AuthenticatedRoundsRouteChildren {
-  AuthenticatedRoundsRoundIdRoute: typeof AuthenticatedRoundsRoundIdRoute
   AuthenticatedRoundsIndexRoute: typeof AuthenticatedRoundsIndexRoute
 }
 
 const AuthenticatedRoundsRouteChildren: AuthenticatedRoundsRouteChildren = {
-  AuthenticatedRoundsRoundIdRoute: AuthenticatedRoundsRoundIdRoute,
   AuthenticatedRoundsIndexRoute: AuthenticatedRoundsIndexRoute,
 }
 

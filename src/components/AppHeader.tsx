@@ -93,7 +93,9 @@ function linkProps(r: SearchResult) {
     case 'programme':
       return { to: '/programmes/$programmeId', params: { programmeId: r.id } } as const
     case 'round':
-      return { to: '/rounds/$roundId', params: { roundId: r.id } } as const
+      // A round has no detail screen — it is edited in a dialog on the list, so search
+      // can only land you on the list it lives in.
+      return { to: '/rounds', params: {} } as const
   }
 }
 

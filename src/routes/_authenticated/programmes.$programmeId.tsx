@@ -417,8 +417,7 @@ function ProgrammeDetail() {
               <Card key={round.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Link
-                    to="/rounds/$roundId"
-                    params={{ roundId: round.id }}
+                    to="/rounds"
                     className="text-body font-medium text-gray-900 hover:underline"
                   >
                     {round.name}

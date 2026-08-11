@@ -376,13 +376,23 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
 
 - `src/routes/_authenticated.tsx` — layout + auth guard for all protected routes
 - `src/routes/_authenticated/*.tsx` — dashboard, applications (+detail), shortlist, awards
-  (+detail), finance (+detail), reports (+detail), rounds (+detail), programmes (+detail),
+  (+detail), finance (+detail), reports (+detail), rounds, programmes (+detail),
   insights, profile, and the Settings hub
 - **Shortlist** (`/shortlist`) — the board's decision screen: three `MiniKpi` cards (proposed spend
   by programme / spend against the round-programme budget incl. what is already committed / where the
   vote has got to), then a vote card per shortlisted application. Trustees get Approve-Decline
   buttons; admins get per-trustee toggles only when `allowAdminVoting` is on (an admin has no vote of
   their own — see `castVote`). `/shortlist/set-up-awards` is the admin-only award set-up flow (below)
+- **Rounds** (`/rounds`) — two cards, Active and Past, of round rows (status pill, dates,
+  committed-of-budget, programme count). There is deliberately **no round detail route**: a
+  round is a name, two dates and a list of programme budgets, so it is created and edited in
+  `RoundDialog` over the list. `saveRound` writes the round AND the exact set of programmes it
+  funds in one call — the programme array is a REPLACEMENT, not a patch. A round's budget is
+  always **derived** (the sum of its programme allocations); there is no stored total. Retiring
+  a round is **archive only** — `deleteRound` was removed, because a round's applications and
+  awards are the record of a decision and archiving is the reversible way to say "done with
+  this". A programme with applications in the round cannot be dropped from it (FK `restrict`);
+  set its budget to £0 instead
 - **`RoundSelect`** (`src/components/ui`) — the round pill Applications and Shortlist share. There is
   deliberately **no "all rounds"** option: these screens are about one round's decisions, and totals
   summed across rounds are meaningless. Shortlist's `beforeLoad` redirects to the most recent round

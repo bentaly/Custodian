@@ -25,8 +25,8 @@ export async function assertApplicationAccess(
 /**
  * Guard a fetch-by-id read: throw unless `resourceClientId` is the caller's own
  * client. Platform superadmins (no `clientId`) span all clients and pass through.
- * Mirrors the inline check in `deleteRound`. Pass the client a resource belongs
- * to (e.g. an application's `roundProgramme.programme.clientId`).
+ * Pass the client a resource belongs to (e.g. an application's
+ * `roundProgramme.programme.clientId`).
  */
 export function assertClientAccess(
   user: ScopedUser,
