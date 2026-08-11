@@ -26,20 +26,49 @@ import { fmtDate } from '../../lib/format'
 // (the route's component uses this type), which resolves to `any`.
 type ReportItem = Awaited<ReturnType<typeof listReports>>['items'][number]
 
-type ReportsSearch = { tab?: ReceivedStatus; page?: number }
+type SortKey = 'organisation' | 'programme' | 'report' | 'received' | 'status'
+type SortDir = 'asc' | 'desc'
+const SORT_KEYS: SortKey[] = ['organisation', 'programme', 'report', 'received', 'status']
+/** Text reads best A–Z; the received date reads best newest-first. */
+const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'report', 'status']
+
+type ReportsSearch = {
+  tab?: ReceivedStatus
+  sortBy?: SortKey
+  sortDir?: SortDir
+  page?: number
+}
 
 export const Route = createFileRoute('/_authenticated/reports/')({
-  // The tab and the page live in the URL, so a report you were looking at is a link you
-  // can send someone — and so the loader can page on the server.
+  // The tab, sort and page live in the URL, so a report you were looking at is a link
+  // you can send someone — and so the loader can sort and page on the server.
   validateSearch: (search: Record<string, unknown>): ReportsSearch => ({
     tab: search.tab === 'received' || search.tab === 'reviewed' ? search.tab : undefined,
+    sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
+    sortDir:
+      search.sortDir === 'asc' || search.sortDir === 'desc'
+        ? (search.sortDir as SortDir)
+        : undefined,
     page:
       Number.isInteger(Number(search.page)) && Number(search.page) > 1
         ? Number(search.page)
         : undefined,
   }),
-  loaderDeps: ({ search }) => ({ tab: search.tab, page: search.page }),
-  loader: async ({ deps }) => listReports({ data: { status: deps.tab, page: deps.page } }),
+  loaderDeps: ({ search }) => ({
+    tab: search.tab,
+    sortBy: search.sortBy,
+    sortDir: search.sortDir,
+    page: search.page,
+  }),
+  loader: async ({ deps }) =>
+    listReports({
+      data: {
+        status: deps.tab,
+        sortBy: deps.sortBy,
+        sortDir: deps.sortDir,
+        page: deps.page,
+      },
+    }),
   component: ReportsPage,
 })
 
@@ -73,6 +102,7 @@ type Tab = 'all' | ReceivedStatus
 const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   {
     id: 'organisation',
+    sortable: true,
     header: 'Organisation',
     width: 'sm:w-[28%]',
     cell: (item) => (
@@ -88,6 +118,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   },
   {
     id: 'programme',
+    sortable: true,
     hideBelow: 'lg',
     header: 'Programme',
     cell: (item) => (
@@ -96,12 +127,14 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   },
   {
     id: 'report',
+    sortable: true,
     hideBelow: 'sm',
     header: 'Report',
     cell: (item) => <span className="font-display text-body text-gray-500">{item.label}</span>,
   },
   {
     id: 'received',
+    sortable: true,
     hideBelow: 'md',
     header: 'Received',
     width: 'sm:w-[160px]',
@@ -113,6 +146,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   },
   {
     id: 'status',
+    sortable: true,
     header: 'Status',
     width: 'sm:w-[140px]',
     cell: (item) => (
@@ -124,7 +158,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
 function ReportsPage() {
   const { items, total, pageSize, upcoming, totals } = Route.useLoaderData()
   const navigate = useNavigate()
-  const { tab: tabParam, page } = Route.useSearch()
+  const { tab: tabParam, sortBy, sortDir, page } = Route.useSearch()
   const tab: Tab = tabParam ?? 'all'
   const [dueOpen, setDueOpen] = useState(false)
 
@@ -132,10 +166,29 @@ function ReportsPage() {
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
   // Switching tab always starts at page 1 — page 3 of "All" is not page 3 of "Received".
+  // The sort survives it: the tab says which reports, the sort says how you read them.
   function setTab(next: Tab) {
     navigate({
       to: '/reports',
-      search: { tab: next === 'all' ? undefined : next, page: undefined },
+      search: { tab: next === 'all' ? undefined : next, sortBy, sortDir, page: undefined },
+    })
+  }
+
+  // First click sorts by the column's natural direction; clicking the active column
+  // flips it. Sorting returns to page 1, for the same reason switching tab does.
+  function setSort(id: string) {
+    const key = id as SortKey
+    const nextDir: SortDir =
+      sortBy === key
+        ? sortDir === 'asc'
+          ? 'desc'
+          : 'asc'
+        : ASC_FIRST.includes(key)
+          ? 'asc'
+          : 'desc'
+    navigate({
+      to: '/reports',
+      search: { tab: tabParam, sortBy: key, sortDir: nextDir, page: undefined },
     })
   }
 
@@ -218,6 +271,8 @@ function ReportsPage() {
               onRowClick={(item) =>
                 navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
               }
+              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+              onSort={setSort}
             />
           </div>
           <Pagination
@@ -279,7 +334,9 @@ function OutstandingDrawer({
             {rows.map((r) => (
               <li key={r.key} className="flex items-start justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-body font-medium text-gray-900">{r.organisationName}</p>
+                  <p className="truncate text-body font-medium text-gray-900">
+                    {r.organisationName}
+                  </p>
                   <p className="mt-0.5 truncate text-label text-gray-500">
                     {r.label}
                     {r.programmeName ? ` · ${r.programmeName}` : ''}

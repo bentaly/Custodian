@@ -30,6 +30,7 @@ import { runDueDiligence } from '../dueDiligence/run'
 import { dueStatus, type ScheduleStatus } from '../../lib/schedule'
 import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
+import { sortRows } from '../../lib/sortRows'
 
 export const listApplications = createServerFn({ method: 'GET' })
   .validator(ApplicationFiltersSchema)
@@ -110,6 +111,8 @@ export const listApplications = createServerFn({ method: 'GET' })
           return sql`lower(${applications.organisationName}) ${sql.raw(dir)}`
         case 'amount':
           return sql`${applications.amountRequested} ${sql.raw(dir)} NULLS LAST`
+        case 'received':
+          return sql`${applications.submittedAt} ${sql.raw(dir)}`
         case 'score':
           return sql`${applications.custodianScore} ${sql.raw(dir)} NULLS LAST`
         case 'status':
@@ -120,9 +123,13 @@ export const listApplications = createServerFn({ method: 'GET' })
           return null
       }
     })()
-    const orderBy = sortExpr
-      ? [sortExpr, desc(applications.submittedAt)]
-      : [desc(applications.submittedAt)]
+    // Received IS the default order and the tiebreak, so sorting by it needs neither
+    // appended — a second key on the same column would only repeat itself.
+    const orderBy = !sortExpr
+      ? [desc(applications.submittedAt)]
+      : filters.sortBy === 'received'
+        ? [sortExpr]
+        : [sortExpr, desc(applications.submittedAt)]
 
     const [items, totals, statusRows] = await Promise.all([
       getDb().query.applications.findMany({
@@ -433,6 +440,21 @@ export const listAwards = createServerFn({ method: 'GET' })
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional(),
+      /** Column sort. Applied in memory over the whole filtered set — see `sortRows`. */
+      sortBy: z
+        .enum([
+          'organisation',
+          'programme',
+          'round',
+          'awarded',
+          'amount',
+          'paid',
+          'duration',
+          'geography',
+          'status',
+        ])
+        .optional(),
+      sortDir: z.enum(['asc', 'desc']).optional(),
       page: z.number().int().positive().optional(),
       /** Raised only by the CSV export, which is the whole filtered set by definition. */
       pageSize: z.number().int().positive().max(10_000).optional(),
@@ -580,9 +602,31 @@ export const listAwards = createServerFn({ method: 'GET' })
         .sort((a, b) => b.amount - a.amount),
     }
 
-    const page = paginate(matched, data.page, data.pageSize)
+    // Sorted before paging, so page 2 is the second page of the sort. Default (no
+    // `sortBy`) leaves the query's own order: most recently awarded first.
+    const sorted = sortRows(
+      matched,
+      { by: data.sortBy, dir: data.sortDir },
+      {
+        organisation: (g) => g.organisationName,
+        programme: (g) => g.programmeName,
+        round: (g) => g.roundName,
+        awarded: (g) => g.decisionAt,
+        amount: (g) => g.amountAwarded,
+        paid: (g) => g.paidToDate,
+        duration: (g) => g.durationYears,
+        geography: (g) => g.deliveryArea,
+        // Lifecycle order, not alphabetical: live grants are the ones you act on.
+        status: (g) => AWARD_STATUS_ORDER[g.status] ?? 9,
+      },
+    )
+
+    const page = paginate(sorted, data.page, data.pageSize)
     return { ...page, totals, facets }
   })
+
+/** Rank behind the award status pill, matching `GRANT_STATUS_LABELS`' own order. */
+const AWARD_STATUS_ORDER: Record<string, number> = { active: 0, completed: 1, cancelled: 2 }
 
 /** Award lifecycle labels, shared by the facet and the client's status pill. */
 export const GRANT_STATUS_LABELS: Record<string, string> = {

@@ -8,6 +8,7 @@ import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { dueStatus, type DueStatus } from '../../lib/schedule'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
+import { sortRows } from '../../lib/sortRows'
 
 export type { DueStatus } from '../../lib/schedule'
 
@@ -33,6 +34,9 @@ export const listReports = createServerFn({ method: 'GET' })
       .object({
         /** Which received-status tab is open; absent means all of them. */
         status: z.enum(['received', 'reviewed']).optional(),
+        /** Column sort over `items`; the drawer's chase-list keeps its urgency order. */
+        sortBy: z.enum(['organisation', 'programme', 'report', 'received', 'status']).optional(),
+        sortDir: z.enum(['asc', 'desc']).optional(),
         page: z.number().int().positive().optional(),
       })
       .optional(),
@@ -182,7 +186,19 @@ export const listReports = createServerFn({ method: 'GET' })
     // of everything with the tab applied afterwards. `upcoming` is the drawer's
     // chase-list — short by nature, and read as a whole — so it stays unpaged.
     const filtered = data?.status ? items.filter((i) => i.status === data.status) : items
-    return { ...paginate(filtered, data?.page), upcoming, totals }
+    const sorted = sortRows(
+      filtered,
+      { by: data?.sortBy, dir: data?.sortDir },
+      {
+        organisation: (i) => i.organisationName,
+        programme: (i) => i.programmeName,
+        report: (i) => i.label,
+        received: (i) => i.submittedAt,
+        // Unread before read: `received` is a report waiting on someone.
+        status: (i) => (i.status === 'received' ? 0 : 1),
+      },
+    )
+    return { ...paginate(sorted, data?.page), upcoming, totals }
   })
 
 function emptyTotals() {

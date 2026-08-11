@@ -4,6 +4,7 @@ import { listClientUsers } from '../../server/fns/users'
 import { listInvitations, createInvitation } from '../../server/fns/invitations'
 import { Button, Card, DataTable, Input, Label, Pagination } from '../../components/ui'
 import { paginate } from '../../lib/pagination'
+import { fmtDate } from '../../lib/format'
 import { SettingsPage } from '../../components/SettingsPage'
 import { ROLE_LABELS, INVITABLE_ROLES, type InviteRole } from '../../lib/roles'
 
@@ -94,6 +95,14 @@ function Team() {
                   header: 'Role',
                   cell: (m: Member) => (
                     <span className={cellSub}>{ROLE_LABELS[m.role] ?? m.role}</span>
+                  ),
+                },
+                {
+                  id: 'joined',
+                  header: 'Joined',
+                  hideBelow: 'md',
+                  cell: (m: Member) => (
+                    <span className={`whitespace-nowrap ${cellSub}`}>{fmtDate(m.createdAt)}</span>
                   ),
                 },
               ]}
@@ -191,8 +200,8 @@ function Team() {
                     header: 'Expires',
                     hideBelow: 'sm',
                     cell: (inv: Invite) => (
-                      <span className={cellSub}>
-                        {new Date(inv.expiresAt).toLocaleDateString()}
+                      <span className={`whitespace-nowrap ${cellSub}`}>
+                        {fmtDate(inv.expiresAt)}
                       </span>
                     ),
                   },

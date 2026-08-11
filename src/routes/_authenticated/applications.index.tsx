@@ -36,7 +36,7 @@ import {
   SelectPill,
   type TableColumn,
 } from '../../components/ui'
-import { fmtAmount, fmtCompact } from '../../lib/format'
+import { fmtAmount, fmtCompact, fmtDate } from '../../lib/format'
 import { C as TOKENS } from '../../components/ui/tokens'
 import { longerTimeout } from '../../lib/requestTimeout'
 
@@ -49,9 +49,16 @@ const C = {
   mint: 'var(--color-brand-light)', // its meta text,
 }
 
-type SortKey = 'organisation' | 'amount' | 'status' | 'score' | 'dueDiligence'
+type SortKey = 'organisation' | 'amount' | 'received' | 'status' | 'score' | 'dueDiligence'
 type SortDir = 'asc' | 'desc'
-const SORT_KEYS: SortKey[] = ['organisation', 'amount', 'status', 'score', 'dueDiligence']
+const SORT_KEYS: SortKey[] = [
+  'organisation',
+  'amount',
+  'received',
+  'status',
+  'score',
+  'dueDiligence',
+]
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 
@@ -187,6 +194,7 @@ function exportCsv(items: AppItem[], filename: string) {
     'Amount requested',
     'Programme',
     'Theme',
+    'Received',
     'AI score',
     'Due diligence',
     'Status',
@@ -202,6 +210,8 @@ function exportCsv(items: AppItem[], filename: string) {
       a.amountRequested ?? '',
       a.roundProgramme?.programme?.name ?? '',
       ((a.roundProgramme?.programme?.tags as string[] | null) ?? []).join('; '),
+      // ISO in the CSV, not `12 Mar 2026` — a spreadsheet should sort it as a date.
+      a.submittedAt ? new Date(a.submittedAt).toISOString().slice(0, 10) : '',
       a.custodianScoreStatus === 'scored' && a.custodianScore != null ? a.custodianScore : '',
       a.dueDiligenceStatus ?? '',
       applicationStatusLabel(a.status),
@@ -268,7 +278,10 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <p className="font-display text-heading font-medium leading-none" style={{ color: C.ink }}>
+          <p
+            className="font-display text-heading font-medium leading-none"
+            style={{ color: C.ink }}
+          >
             {fmtCompact(committed)}
           </p>
           <p className="font-display text-body" style={{ color: C.sub }}>
@@ -461,6 +474,20 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
         </span>
       )
     },
+  },
+  {
+    // `submittedAt` is when the submission reached us, not a date the applicant typed —
+    // same timestamp, same word, as the Reports table's "Received".
+    id: 'received',
+    hideBelow: 'lg',
+    header: 'Received',
+    width: 'sm:w-[130px]',
+    sortable: true,
+    cell: (app) => (
+      <span className="whitespace-nowrap font-display text-body" style={{ color: C.sub }}>
+        {fmtDate(app.submittedAt)}
+      </span>
+    ),
   },
   {
     id: 'status',

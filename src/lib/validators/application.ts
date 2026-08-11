@@ -112,7 +112,7 @@ export const ApplicationFiltersSchema = z.object({
   submittedTo: z.iso.date().optional(),
   // Column sort. Only base-table columns are sortable; programme/theme are the
   // grouping (tabs) and filter axes.
-  sortBy: z.enum(['organisation', 'amount', 'status', 'score', 'dueDiligence']).optional(),
+  sortBy: z.enum(['organisation', 'amount', 'received', 'status', 'score', 'dueDiligence']).optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),
   page: z.number().int().min(1).default(1),
   // Cap is high enough to cover a whole-programme CSV export in one call.

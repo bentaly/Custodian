@@ -24,6 +24,18 @@ type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
 type AwardStatus = 'active' | 'completed' | 'cancelled'
 
+type SortKey =
+  | 'organisation'
+  | 'programme'
+  | 'round'
+  | 'awarded'
+  | 'amount'
+  | 'paid'
+  | 'duration'
+  | 'geography'
+  | 'status'
+type SortDir = 'asc' | 'desc'
+
 type AwardsSearch = {
   roundId?: string
   programmeId?: string
@@ -32,11 +44,26 @@ type AwardsSearch = {
   q?: string
   from?: string
   to?: string
+  sortBy?: SortKey
+  sortDir?: SortDir
   page?: number
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled']
+const SORT_KEYS: SortKey[] = [
+  'organisation',
+  'programme',
+  'round',
+  'awarded',
+  'amount',
+  'paid',
+  'duration',
+  'geography',
+  'status',
+]
+/** Text reads best A–Z; money, dates and counts read best biggest/newest first. */
+const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round', 'geography', 'status']
 
 export const Route = createFileRoute('/_authenticated/awards/')({
   validateSearch: (search: Record<string, unknown>): AwardsSearch => ({
@@ -49,6 +76,11 @@ export const Route = createFileRoute('/_authenticated/awards/')({
     q: typeof search.q === 'string' && search.q ? search.q : undefined,
     from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
     to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
+    sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
+    sortDir:
+      search.sortDir === 'asc' || search.sortDir === 'desc'
+        ? (search.sortDir as SortDir)
+        : undefined,
     page:
       Number.isInteger(Number(search.page)) && Number(search.page) > 1
         ? Number(search.page)
@@ -62,6 +94,8 @@ export const Route = createFileRoute('/_authenticated/awards/')({
     q: search.q,
     from: search.from,
     to: search.to,
+    sortBy: search.sortBy,
+    sortDir: search.sortDir,
     page: search.page,
   }),
   loader: async ({ deps }) => {
@@ -77,6 +111,8 @@ export const Route = createFileRoute('/_authenticated/awards/')({
           q: deps.q,
           from: deps.from,
           to: deps.to,
+          sortBy: deps.sortBy,
+          sortDir: deps.sortDir,
           page: deps.page,
         },
       }),
@@ -99,6 +135,7 @@ const txtSub = 'font-display text-body text-gray-500'
 const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   {
     id: 'organisation',
+    sortable: true,
     header: 'Organisation',
     cell: (g) => (
       <Link
@@ -113,24 +150,28 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'programme',
+    sortable: true,
     hideBelow: 'lg',
     header: 'Programme',
     cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
   },
   {
     id: 'round',
+    sortable: true,
     hideBelow: 'xl',
     header: 'Round',
     cell: (g) => <span className={txtSub}>{g.roundName ?? '—'}</span>,
   },
   {
     id: 'awarded',
+    sortable: true,
     hideBelow: 'lg',
     header: 'Awarded',
     cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.decisionAt)}</span>,
   },
   {
     id: 'amount',
+    sortable: true,
     header: 'Amount',
     cellClassName: 'tabular-nums',
     cell: (g) => (
@@ -141,6 +182,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'paid',
+    sortable: true,
     hideBelow: 'md',
     header: 'Paid',
     cell: (g) =>
@@ -157,6 +199,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'duration',
+    sortable: true,
     hideBelow: 'xl',
     header: 'Duration',
     cell: (g) => (
@@ -167,12 +210,14 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   },
   {
     id: 'geography',
+    sortable: true,
     hideBelow: 'xl',
     header: 'Geography',
     cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{g.deliveryArea ?? '—'}</span>,
   },
   {
     id: 'status',
+    sortable: true,
     header: 'Status',
     width: 'sm:w-[120px]',
     cell: (g) => (
@@ -253,7 +298,7 @@ function StatCards({ totals }: { totals: Totals }) {
 function AwardsPage() {
   const navigate = Route.useNavigate()
   const search = Route.useSearch()
-  const { roundId, programmeId, tag, status, q, from, to, page } = search
+  const { roundId, programmeId, tag, status, q, from, to, sortBy, sortDir, page } = search
   const { items, total, pageSize, totals, rounds, facets } = Route.useLoaderData()
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
@@ -304,6 +349,25 @@ function AwardsPage() {
   function setStatus(value: string | undefined) {
     navigate({
       search: (prev) => ({ ...prev, status: (value as AwardStatus) || undefined, page: undefined }),
+    })
+  }
+
+  // First click sorts by the column's natural direction; clicking the active column
+  // flips it. Same behaviour as the applications table.
+  function setSort(id: string) {
+    const key = id as SortKey
+    navigate({
+      search: (prev) => {
+        const active = prev.sortBy === key
+        const nextDir: SortDir = active
+          ? prev.sortDir === 'asc'
+            ? 'desc'
+            : 'asc'
+          : ASC_FIRST.includes(key)
+            ? 'asc'
+            : 'desc'
+        return { ...prev, sortBy: key, sortDir: nextDir, page: undefined }
+      },
     })
   }
 
@@ -404,6 +468,8 @@ function AwardsPage() {
               onRowClick={(g) =>
                 navigate({ to: '/awards/$awardId', params: { awardId: g.awardId } })
               }
+              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+              onSort={setSort}
             />
           </div>
           <Pagination
