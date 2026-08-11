@@ -1,20 +1,30 @@
 import { useState } from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { Coins01Icon, Alert02Icon, Calendar03Icon, BankIcon } from '@hugeicons/core-free-icons'
-import { BarMeter } from '../../components/BarMeter'
-import { listFinanceGrants, type BankStatus, type FinanceStatus } from '../../server/fns/finance'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import {
+  listFinanceGrants,
+  getFinanceGrant,
+  FINANCE_STATUS_LABELS,
+  type BankStatus,
+  type FinanceStatus,
+  type UpcomingBucket,
+} from '../../server/fns/finance'
+import { PaymentDialog, type FinanceGrant } from '../../components/PaymentDialog'
+import {
+  Card,
   DataTable,
+  DateRangePicker,
   EmptyState,
   ExportButton,
-  KPI_TINTS,
-  MiniKpi,
+  FilterPill,
   Pagination,
   StatusPill,
   Tabs,
   type TableColumn,
 } from '../../components/ui'
-import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
+import { C } from '../../components/ui/tokens'
+import { facetLabel } from '../../lib/facets'
+import { messageFor } from '../../lib/errors'
+import { fmtDate, fmtMoney } from '../../lib/format'
 
 // Derived from the server fn rather than the route loader: `Route.useLoaderData` is
 // circular here (the route's component uses these types), which resolves to `any`.
@@ -22,27 +32,85 @@ type FinanceData = Awaited<ReturnType<typeof listFinanceGrants>>
 type FinanceRow = FinanceData['items'][number]
 type Totals = FinanceData['totals']
 
-type FinanceSearch = { tab?: 'paid'; page?: number }
+type SortKey =
+  | 'organisation'
+  | 'programme'
+  | 'committed'
+  | 'paid'
+  | 'next'
+  | 'lastPaid'
+  | 'bank'
+  | 'status'
+type SortDir = 'asc' | 'desc'
+
+type FinanceSearch = {
+  tab?: 'paid'
+  roundId?: string
+  tag?: string
+  status?: FinanceStatus
+  from?: string
+  to?: string
+  sortBy?: SortKey
+  sortDir?: SortDir
+  page?: number
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+const FINANCE_STATUSES = Object.keys(FINANCE_STATUS_LABELS) as FinanceStatus[]
+const SORT_KEYS: SortKey[] = [
+  'organisation',
+  'programme',
+  'committed',
+  'paid',
+  'next',
+  'lastPaid',
+  'bank',
+  'status',
+]
+/** Text reads best A–Z; money, dates and the two urgency ranks read best worst-first. */
+const ASC_FIRST: SortKey[] = ['organisation', 'programme']
 
 export const Route = createFileRoute('/_authenticated/finance/')({
-  // Tab and page in the URL: a paging state you cannot link to is a paging state you
-  // lose every time you open a grant and come back.
+  // Tab, filters and page in the URL: a view you cannot link to is a view you lose
+  // every time you open a payment and come back.
   validateSearch: (search: Record<string, unknown>): FinanceSearch => ({
     tab: search.tab === 'paid' ? 'paid' : undefined,
+    roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
+    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
+    status: FINANCE_STATUSES.includes(search.status as FinanceStatus)
+      ? (search.status as FinanceStatus)
+      : undefined,
+    from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
+    to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
+    sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
+    sortDir:
+      search.sortDir === 'asc' || search.sortDir === 'desc'
+        ? (search.sortDir as SortDir)
+        : undefined,
     page:
       Number.isInteger(Number(search.page)) && Number(search.page) > 1
         ? Number(search.page)
         : undefined,
   }),
-  loaderDeps: ({ search }) => ({ tab: search.tab, page: search.page }),
+  loaderDeps: ({ search }) => search,
   loader: async ({ deps }) =>
-    listFinanceGrants({ data: { tab: deps.tab ?? 'to_pay', page: deps.page } }),
+    listFinanceGrants({
+      data: {
+        tab: deps.tab ?? 'to_pay',
+        roundId: deps.roundId,
+        tag: deps.tag,
+        status: deps.status,
+        from: deps.from,
+        to: deps.to,
+        sortBy: deps.sortBy,
+        sortDir: deps.sortDir,
+        page: deps.page,
+      },
+    }),
   component: FinancePage,
 })
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
-
-/** Headline figures: £1.9m / £148k / £950. */
 
 /** "in 4 days" / "12 days ago" — the thing a finance officer actually reads off a due date. */
 function relativeDays(iso: string | null): { text: string; overdue: boolean } | null {
@@ -55,15 +123,6 @@ function relativeDays(iso: string | null): { text: string; overdue: boolean } | 
   if (days === 0) return { text: 'today', overdue: false }
   if (days < 0) return { text: `${-days} day${days === -1 ? '' : 's'} ago`, overdue: true }
   return { text: `in ${days} day${days === 1 ? '' : 's'}`, overdue: false }
-}
-
-const STATUS_LABELS: Record<FinanceStatus, string> = {
-  overdue: 'Overdue',
-  due_soon: 'Due soon',
-  scheduled: 'Scheduled',
-  unscheduled: 'No schedule',
-  paid: 'Paid',
-  cancelled: 'Cancelled',
 }
 
 const STATUS_HEX: Record<FinanceStatus, string> = {
@@ -87,21 +146,16 @@ const txtSub = 'font-display text-body text-gray-500'
 
 const ORGANISATION: TableColumn<FinanceRow> = {
   id: 'organisation',
+  sortable: true,
   header: 'Organisation',
   cell: (g) => (
-    <Link
-      to="/finance/$awardId"
-      params={{ awardId: g.awardId }}
-      onClick={(e) => e.stopPropagation()}
-      className="font-display text-body font-medium text-gray-900 hover:underline"
-    >
-      {g.organisationName}
-    </Link>
+    <span className="font-display text-body font-medium text-gray-900">{g.organisationName}</span>
   ),
 }
 
 const PROGRAMME: TableColumn<FinanceRow> = {
   id: 'programme',
+  sortable: true,
   hideBelow: 'lg',
   header: 'Programme',
   cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
@@ -109,6 +163,7 @@ const PROGRAMME: TableColumn<FinanceRow> = {
 
 const COMMITTED: TableColumn<FinanceRow> = {
   id: 'committed',
+  sortable: true,
   header: 'Committed',
   width: 'sm:w-[120px]',
   cellClassName: 'tabular-nums',
@@ -121,6 +176,7 @@ const COMMITTED: TableColumn<FinanceRow> = {
 
 const PAID: TableColumn<FinanceRow> = {
   id: 'paid',
+  sortable: true,
   hideBelow: 'lg',
   header: 'Paid',
   width: 'sm:w-[130px]',
@@ -139,6 +195,7 @@ const PAID: TableColumn<FinanceRow> = {
 
 const BANK: TableColumn<FinanceRow> = {
   id: 'bank',
+  sortable: true,
   hideBelow: 'xl',
   header: 'Bank',
   width: 'sm:w-[120px]',
@@ -154,7 +211,9 @@ const BANK: TableColumn<FinanceRow> = {
     return (
       <span
         className="whitespace-nowrap font-display text-body font-medium"
-        style={{ color: g.bank.status === 'missing' ? 'var(--color-warning)' : 'var(--color-danger)' }}
+        style={{
+          color: g.bank.status === 'missing' ? 'var(--color-warning)' : 'var(--color-danger)',
+        }}
       >
         {issue}
       </span>
@@ -164,9 +223,10 @@ const BANK: TableColumn<FinanceRow> = {
 
 const STATUS: TableColumn<FinanceRow> = {
   id: 'status',
+  sortable: true,
   header: 'Status',
   width: 'sm:w-[130px]',
-  cell: (g) => <StatusPill label={STATUS_LABELS[g.status]} color={STATUS_HEX[g.status]} />,
+  cell: (g) => <StatusPill label={FINANCE_STATUS_LABELS[g.status]} color={STATUS_HEX[g.status]} />,
 }
 
 const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
@@ -176,6 +236,7 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
   PAID,
   {
     id: 'next',
+    sortable: true,
     hideBelow: 'sm',
     header: 'Next payment',
     width: 'sm:w-[170px]',
@@ -213,6 +274,7 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
   PAID,
   {
     id: 'lastPaid',
+    sortable: true,
     hideBelow: 'sm',
     header: 'Last payment',
     width: 'sm:w-[150px]',
@@ -227,151 +289,354 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
 type Tab = 'to_pay' | 'paid'
 
 function FinancePage() {
-  const { items: rows, total, pageSize, tabCounts, totals } = Route.useLoaderData()
-  const navigate = useNavigate()
-  const { tab: tabParam, page } = Route.useSearch()
+  const {
+    items: rows,
+    total,
+    pageSize,
+    tabCounts,
+    totals,
+    upcoming,
+    facets,
+  } = Route.useLoaderData()
+  const navigate = Route.useNavigate()
+  const router = useRouter()
+  const search = Route.useSearch()
+  const { tab: tabParam, roundId, tag, status, from, to, sortBy, sortDir, page } = search
   const tab: Tab = tabParam ?? 'to_pay'
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
+  const [error, setError] = useState('')
+
+  // The payment panel is a dialog over this list, not a route: the schedule is a handful
+  // of rows, and a finance officer working a payment run wants the list still behind it.
+  // Like the round dialog, the grant's own detail is fetched on open rather than carried
+  // on every row.
+  const [grant, setGrant] = useState<FinanceGrant | null>(null)
+  const [opening, setOpening] = useState<string | null>(null)
+
+  async function openGrant(awardId: string) {
+    setError('')
+    setOpening(awardId)
+    try {
+      setGrant(await getFinanceGrant({ data: { id: awardId } }))
+    } catch (err) {
+      setError(messageFor(err))
+    } finally {
+      setOpening(null)
+    }
+  }
+
+  // A schedule edit changes both the dialog and the list under it — the row's next
+  // payment, the tab counts and the upcoming panel all move.
+  async function refreshGrant() {
+    if (!grant) return
+    const [next] = await Promise.all([
+      getFinanceGrant({ data: { id: grant.id } }),
+      router.invalidate(),
+    ])
+    setGrant(next)
+  }
+
   // The tab split ("to pay" is anything still owing; settled and cancelled grants sit
-  // under "Paid", so every grant appears under exactly one) now happens on the server,
+  // under "Paid", so every grant appears under exactly one) happens on the server,
   // because a page has to be a page of the tab.
   function setTab(next: Tab) {
     navigate({
-      to: '/finance',
-      search: { tab: next === 'to_pay' ? undefined : next, page: undefined },
+      search: (prev) => ({
+        ...prev,
+        tab: next === 'to_pay' ? undefined : next,
+        // The status pill's options are the ones present on the tab, so a status carried
+        // across the switch would be a filter with nothing behind it.
+        status: undefined,
+        // Likewise the two date columns: each exists on one tab only, so carrying that
+        // sort over would leave the list ordered by a column that isn't on screen.
+        ...(prev.sortBy === 'next' || prev.sortBy === 'lastPaid'
+          ? { sortBy: undefined, sortDir: undefined }
+          : {}),
+        page: undefined,
+      }),
     })
   }
 
-  const paidPct =
-    totals.committed > 0 ? Math.round((totals.paidToDate / totals.committed) * 100) : 0
+  function setFilter(patch: Partial<FinanceSearch>) {
+    navigate({ search: (prev) => ({ ...prev, ...patch, page: undefined }) })
+  }
 
-  // The export is the whole tab, not the page on screen — a reconciliation file with 25
-  // of 300 rows in it would be worse than none.
+  // First click sorts by the column's natural direction; clicking the active column
+  // flips it. Same convention as the applications, awards and reports tables.
+  function setSort(id: string) {
+    const key = id as SortKey
+    navigate({
+      search: (prev) => {
+        const active = prev.sortBy === key
+        const nextDir: SortDir = active
+          ? prev.sortDir === 'asc'
+            ? 'desc'
+            : 'asc'
+          : ASC_FIRST.includes(key)
+            ? 'asc'
+            : 'desc'
+        return { ...prev, sortBy: key, sortDir: nextDir, page: undefined }
+      },
+    })
+  }
+
+  // The export is the whole filtered set, not the page on screen — a reconciliation file
+  // with 25 of 300 rows in it would be worse than none.
   const [exporting, setExporting] = useState(false)
   async function handleExport() {
     setExporting(true)
     try {
-      const all = await listFinanceGrants({ data: { tab, page: 1, pageSize: 10_000 } })
+      const all = await listFinanceGrants({
+        data: { tab, roundId, tag, status, from, to, sortBy, sortDir, page: 1, pageSize: 10_000 },
+      })
       exportCsv(all.items, tab)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not export the payment list')
+      setError(messageFor(e))
     } finally {
       setExporting(false)
     }
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-heading font-medium text-gray-900">Finance</h1>
-          <p className="mt-0.5 text-body text-gray-400">
-            Grant payments · {totals.grantCount} live commitment{totals.grantCount === 1 ? '' : 's'}
-          </p>
-        </div>
-        <ExportButton onClick={handleExport} busy={exporting} disabled={rows.length === 0} />
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="font-display text-heading font-medium text-gray-900">Finance</h1>
+        <p className="mt-0.5 text-body text-gray-400">
+          Grant payments · {totals.grantCount} live commitment{totals.grantCount === 1 ? '' : 's'}
+        </p>
       </div>
 
-      <StatCards totals={totals} paidPct={paidPct} />
+      {error && <p className="font-display text-body text-danger">{error}</p>}
+
+      <UpcomingPayments upcoming={upcoming} onOpen={openGrant} opening={opening} />
 
       {(totals.bankIssueCount > 0 || totals.unscheduledCount > 0) && <Attention totals={totals} />}
 
-      <Tabs
-        ariaLabel="Payment status"
-        value={tab}
-        onChange={setTab}
-        items={[
-          { id: 'to_pay', label: 'To pay', count: tabCounts.to_pay },
-          { id: 'paid', label: 'Paid', count: tabCounts.paid },
-        ]}
-      />
+      <Card className="flex flex-col gap-4 p-4">
+        {/* Tabs and the export sit on one row, as the comp has them — the export belongs
+            to the list it exports, not to the page. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Tabs
+            ariaLabel="Payment status"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { id: 'to_pay', label: 'To pay', count: tabCounts.to_pay },
+              { id: 'paid', label: 'Paid', count: tabCounts.paid },
+            ]}
+          />
+          <ExportButton onClick={handleExport} busy={exporting} disabled={rows.length === 0} />
+        </div>
 
-      {rows.length === 0 ? (
-        <EmptyState>
-          <p className="text-body text-gray-500">
-            {tab === 'to_pay'
-              ? 'Nothing outstanding — every grant is paid up.'
-              : 'No payments made yet.'}
-          </p>
-          <p className="mt-1 text-label text-gray-400">
-            Grants appear here as soon as an award is generated, with the instalment schedule set on
-            the award.
-          </p>
-        </EmptyState>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
-            <DataTable
-              columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
-              rows={rows}
-              rowKey={(g) => g.awardId}
-              onRowClick={(g) =>
-                navigate({ to: '/finance/$awardId', params: { awardId: g.awardId } })
-              }
+        {/* Each pill offers only what this tab actually contains, with counts; a pill with
+            nothing to choose between isn't rendered at all. */}
+        <div className="flex flex-wrap items-center gap-3">
+          {facets.statuses.length > 1 && (
+            <FilterPill
+              label="Status"
+              clearLabel="All statuses"
+              value={status}
+              options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+              onChange={(v) => setFilter({ status: (v as FinanceStatus) || undefined })}
             />
-          </div>
-          <Pagination
-            page={currentPage}
-            pageCount={pageCount}
-            shown={rows.length}
-            total={total}
-            noun="grants"
-            onChange={(p) =>
-              navigate({ to: '/finance', search: { tab: tabParam, page: p > 1 ? p : undefined } })
-            }
+          )}
+          {facets.themes.length > 1 && (
+            <FilterPill
+              label="Theme"
+              clearLabel="All themes"
+              value={tag}
+              options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+              onChange={(v) => setFilter({ tag: v })}
+            />
+          )}
+          {facets.rounds.length > 1 && (
+            <FilterPill
+              label="Round"
+              clearLabel="All rounds"
+              value={roundId}
+              options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+              onChange={(v) => setFilter({ roundId: v })}
+            />
+          )}
+          {/* The window runs against the date the open tab is about: the next payment due
+              on "To pay", the last one made on "Paid". */}
+          <DateRangePicker
+            value={{ from, to }}
+            onChange={(next) => setFilter({ from: next.from, to: next.to })}
+            allLabel={tab === 'paid' ? 'Any payment date' : 'Any due date'}
           />
         </div>
+
+        {rows.length === 0 ? (
+          <EmptyState>
+            <p className="text-body text-gray-500">
+              {status || tag || roundId || from || to
+                ? 'No grants match these filters.'
+                : tab === 'to_pay'
+                  ? 'Nothing outstanding — every grant is paid up.'
+                  : 'No payments made yet.'}
+            </p>
+            <p className="mt-1 text-label text-gray-400">
+              Grants appear here as soon as an award is generated, with the instalment schedule set
+              on the award.
+            </p>
+          </EmptyState>
+        ) : (
+          <>
+            <div className="overflow-hidden rounded-chip border border-gray-200">
+              <DataTable
+                columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
+                rows={rows}
+                rowKey={(g) => g.awardId}
+                rowClassName={(g) => (opening === g.awardId ? 'opacity-60' : '')}
+                onRowClick={(g) => openGrant(g.awardId)}
+                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+                onSort={setSort}
+              />
+            </div>
+            <Pagination
+              page={currentPage}
+              pageCount={pageCount}
+              shown={rows.length}
+              total={total}
+              noun="grants"
+              onChange={(p) =>
+                navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
+              }
+            />
+          </>
+        )}
+      </Card>
+
+      {grant && (
+        <PaymentDialog grant={grant} onClose={() => setGrant(null)} onChanged={refreshGrant} />
       )}
     </div>
   )
 }
 
-function StatCards({ totals, paidPct }: { totals: Totals; paidPct: number }) {
+// ─── Upcoming payments ───────────────────────────────────────────────────────
+
+/**
+ * The three horizons a payment run is planned over (Figma 665:25047), replacing the
+ * KPI row that used to sit here. The difference is that these name the payments rather
+ * than only totalling them: "£35k overdue" tells you there is a problem, "Nature
+ * Learning Network, due 10 Jun" tells you whose.
+ *
+ * Deliberately NOT narrowed by the filters below it — this is the screen's standing
+ * "what is coming at you" strip.
+ */
+const HORIZONS = [
+  { key: 'overdue', label: 'Overdue', colour: C.danger, empty: 'Nothing overdue' },
+  { key: 'thisMonth', label: 'Due this month', colour: C.warning, empty: 'Nothing due this month' },
+  { key: 'next3Months', label: 'Next 3 months', colour: C.brand, empty: 'Nothing else scheduled' },
+] as const
+
+function UpcomingPayments({
+  upcoming,
+  onOpen,
+  opening,
+}: {
+  upcoming: FinanceData['upcoming']
+  onOpen: (awardId: string) => void
+  opening: string | null
+}) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <MiniKpi
-        tint={KPI_TINTS.pink}
-        icon={Alert02Icon}
-        label="Overdue"
-        value={fmtCompact(totals.overdueAmount)}
-        valueColor={totals.overdueAmount > 0 ? 'var(--color-danger)' : undefined}
-        sub={
-          totals.overdueCount === 0
-            ? 'nothing past its due date'
-            : `${totals.overdueCount} payment${totals.overdueCount === 1 ? '' : 's'} · ${totals.overdueGrants} grant${totals.overdueGrants === 1 ? '' : 's'}`
-        }
-      />
-      <MiniKpi
-        tint={KPI_TINTS.amber}
-        icon={Calendar03Icon}
-        label="Due in 30 days"
-        value={fmtCompact(totals.dueSoonAmount)}
-        sub={`${totals.dueSoonCount} payment${totals.dueSoonCount === 1 ? '' : 's'} scheduled`}
-      />
-      <MiniKpi
-        tint={KPI_TINTS.violet}
-        icon={Coins01Icon}
-        label="Outstanding"
-        value={fmtCompact(totals.outstanding)}
-        sub={`of ${fmtCompact(totals.committed)} committed`}
-      />
-      <MiniKpi
-        tint={KPI_TINTS.green}
-        icon={BankIcon}
-        label="Paid to date"
-        value={fmtCompact(totals.paidToDate)}
-        sub={`${paidPct}% of commitments · ${totals.paidCount} payment${totals.paidCount === 1 ? '' : 's'}`}
+    <Card className="flex flex-col gap-4 p-4">
+      <h2 className="font-display text-title font-medium text-gray-900">Upcoming payments</h2>
+      <div className="grid gap-2 lg:grid-cols-3">
+        {HORIZONS.map((h) => (
+          <Horizon
+            key={h.key}
+            label={h.label}
+            colour={h.colour}
+            empty={h.empty}
+            bucket={upcoming[h.key]}
+            onOpen={onOpen}
+            opening={opening}
+          />
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function Horizon({
+  label,
+  colour,
+  empty,
+  bucket,
+  onOpen,
+  opening,
+}: {
+  label: string
+  colour: string
+  empty: string
+  bucket: UpcomingBucket
+  onOpen: (awardId: string) => void
+  opening: string | null
+}) {
+  const hidden = bucket.count - bucket.items.length
+  return (
+    <div className="flex flex-col gap-2 rounded-card border border-gray-200 bg-white p-1">
+      <div className="flex items-center justify-between gap-2 px-3 pt-2">
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="size-[5px] shrink-0 rounded-full"
+            style={{ backgroundColor: colour }}
+          />
+          <span className="font-display text-title font-medium" style={{ color: colour }}>
+            {label}
+          </span>
+        </span>
+        {bucket.count > 0 && (
+          <span className="whitespace-nowrap font-display text-label font-medium text-gray-400 tabular-nums">
+            {fmtMoney(bucket.total)} · {bucket.count}
+          </span>
+        )}
+      </div>
+      <div
+        className="flex flex-1 flex-col gap-3 rounded-control p-3"
+        style={{ backgroundColor: `color-mix(in srgb, ${colour} 10%, transparent)` }}
       >
-        <BarMeter
-          className="mt-3"
-          progress={paidPct / 100}
-          color={KPI_TINTS.green.accent}
-          height={16}
-        />
-      </MiniKpi>
+        {bucket.items.length === 0 ? (
+          <p className="font-display text-body text-gray-400">{empty}</p>
+        ) : (
+          bucket.items.map((p, i) => (
+            <button
+              key={`${p.awardId}-${p.dueDate}-${i}`}
+              type="button"
+              onClick={() => onOpen(p.awardId)}
+              disabled={opening === p.awardId}
+              className="flex w-full items-center justify-between gap-3 border-t border-gray-200 pt-3 text-left first:border-t-0 first:pt-0 disabled:opacity-60"
+            >
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="truncate font-display text-body font-medium text-gray-900">
+                  {p.organisationName}
+                </span>
+                <span className="truncate font-display text-label text-gray-500">
+                  {p.programmeName ? `${p.programmeName} · ` : ''}Due {fmtDate(p.dueDate)}
+                </span>
+              </span>
+              <span
+                className="shrink-0 whitespace-nowrap font-display text-title font-medium tabular-nums"
+                style={{ color: colour }}
+              >
+                {fmtMoney(p.amount)}
+              </span>
+            </button>
+          ))
+        )}
+        {hidden > 0 && (
+          <p className="font-display text-label font-medium text-gray-500">
+            +{hidden} more payment{hidden === 1 ? '' : 's'} in this window
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -433,7 +698,7 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     g.nextPayment?.amount ?? '',
     g.nextPayment?.dueDate ?? '',
     g.lastPaidDate ?? '',
-    STATUS_LABELS[g.status],
+    FINANCE_STATUS_LABELS[g.status],
     g.bank.status,
     g.bank.last4 ?? '',
   ])

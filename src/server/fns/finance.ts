@@ -9,6 +9,8 @@ import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
 import { checkBankAccount, type ModulusCheckStatus } from '../../lib/bankVerification'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
+import { sortRows } from '../../lib/sortRows'
+import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
 
 // Finance reads the same grants as Awards, but through the payments lens: one row per
 // grant, keyed on where its money is up to rather than on the decision that made it.
@@ -124,6 +126,49 @@ function summarisePayments(instalments: InstalmentRow[], cancelled: boolean) {
   }
 }
 
+// ─── Upcoming payments ───────────────────────────────────────────────────────
+
+/** One unpaid instalment, named by the grant it belongs to. */
+export type UpcomingPayment = {
+  awardId: string
+  organisationName: string
+  programmeName: string | null
+  dueDate: string
+  amount: number
+}
+
+/** A horizon's worth of them: the whole bucket's money, and the first few by date. */
+export type UpcomingBucket = { total: number; count: number; items: UpcomingPayment[] }
+
+/** How many payments each bucket names before it just says how many more there are. */
+const UPCOMING_SHOWN = 4
+
+/** `2026-08-11` → `2026-08-31`. Day 0 of the next month is the last of this one. */
+function endOfMonthIso(iso: string): string {
+  const [y, m] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y!, m!, 0)).toISOString().slice(0, 10)
+}
+
+/** Same day-of-month, `n` months on; overflow rolls forward, which is fine for a horizon. */
+function addMonthsIso(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y!, m! - 1 + n, d!)).toISOString().slice(0, 10)
+}
+
+function bucket(payments: UpcomingPayment[]): UpcomingBucket {
+  const sorted = [...payments].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  return {
+    total: sorted.reduce((s, p) => s + p.amount, 0),
+    count: sorted.length,
+    items: sorted.slice(0, UPCOMING_SHOWN),
+  }
+}
+
+function emptyUpcoming() {
+  const none: UpcomingBucket = { total: 0, count: 0, items: [] }
+  return { overdue: none, thisMonth: none, next3Months: none }
+}
+
 /**
  * Every grant with money attached, for the Finance list. One row per grant, with its
  * committed / paid / next-payment position and a bank-detail flag.
@@ -138,8 +183,41 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
       .object({
         /** Which tab is open. "To pay" is anything still owing; "paid" is settled + cancelled. */
         tab: z.enum(['to_pay', 'paid']).optional(),
+        roundId: z.uuid().optional(),
+        /** A programme theme (`programmes.tags`), as the Theme pill offers them. */
+        tag: z.string().min(1).max(100).optional(),
+        status: z
+          .enum(['overdue', 'due_soon', 'scheduled', 'unscheduled', 'paid', 'cancelled'])
+          .optional(),
+        /** Inclusive `yyyy-mm-dd` window against the tab's payment date — see `paymentDate`. */
+        from: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        to: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        /**
+         * Column sort, applied over the whole filtered tab — see `sortRows`. `next` and
+         * `lastPaid` each only exist on one tab's columns; sorting by the other tab's
+         * date is harmless (every row's value is blank, so the order is unchanged).
+         */
+        sortBy: z
+          .enum([
+            'organisation',
+            'programme',
+            'committed',
+            'paid',
+            'next',
+            'lastPaid',
+            'bank',
+            'status',
+          ])
+          .optional(),
+        sortDir: z.enum(['asc', 'desc']).optional(),
         page: z.number().int().positive().optional(),
-        /** Raised by the CSV export, which is the whole tab by definition. */
+        /** Raised by the CSV export, which is the whole filtered set by definition. */
         pageSize: z.number().int().positive().max(10_000).optional(),
       })
       .optional(),
@@ -155,6 +233,8 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
         pageSize: PAGE_SIZE,
         tabCounts: { to_pay: 0, paid: 0 },
         totals: emptyTotals(),
+        upcoming: emptyUpcoming(),
+        facets: emptyFacets(),
       }
     }
 
@@ -192,7 +272,10 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
           applicationId: a.id,
           organisationName: a.organisationName,
           programmeName: a.roundProgramme?.programme?.name ?? null,
+          roundId: a.roundProgramme?.roundId ?? null,
           roundName: a.roundProgramme?.round?.name ?? null,
+          // The theme filter's vocabulary: a programme's tags, as Awards uses them.
+          tags: (a.roundProgramme?.programme?.tags as string[] | null) ?? [],
           awardStatus: award.status,
           decisionAt: award.decisionAt.toISOString(),
           committed,
@@ -238,16 +321,128 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
       ).length,
     }
 
-    // Each grant sits under exactly one tab; the counts are of the whole set so the tab
-    // labels don't describe the page. Totals likewise — the KPI row is the finance
-    // position, not this screenful of it.
+    // Upcoming payments: every unpaid dated instalment in scope, bucketed by horizon.
+    // Deliberately NOT narrowed by the filters below — this is the screen's "what is
+    // coming at you" strip, and a panel that emptied itself when you filtered the table
+    // would hide exactly the payment you had filtered away from.
+    const today = todayIso()
+    const monthEnd = endOfMonthIso(today)
+    // Three ROLLING months rather than the rest of the calendar quarter: in the last
+    // month of a quarter that bucket is structurally empty, so a third of the year the
+    // panel would carry a dead card.
+    const horizon = addMonthsIso(today, 3)
+    const duePayments: UpcomingPayment[] = []
+    for (const a of apps) {
+      const award = a.award
+      if (!award || award.status === 'cancelled') continue
+      for (const i of award.instalments) {
+        if (i.paidDate || !i.dueDate) continue
+        duePayments.push({
+          awardId: award.id,
+          organisationName: a.organisationName,
+          programmeName: a.roundProgramme?.programme?.name ?? null,
+          dueDate: i.dueDate,
+          amount: parseFloat(i.amount),
+        })
+      }
+    }
+    const upcoming = {
+      overdue: bucket(duePayments.filter((p) => p.dueDate < today)),
+      thisMonth: bucket(duePayments.filter((p) => p.dueDate >= today && p.dueDate <= monthEnd)),
+      next3Months: bucket(duePayments.filter((p) => p.dueDate > monthEnd && p.dueDate <= horizon)),
+    }
+
+    // Each grant sits under exactly one tab. The tab is this screen's *context* filter,
+    // so the pills below are faceted over it — you can only filter by a round or theme
+    // some grant on this tab actually has.
     const toPay = items.filter((g) => g.status !== 'paid' && g.status !== 'cancelled')
     const settled = items.filter((g) => g.status === 'paid' || g.status === 'cancelled')
-    const tabCounts = { to_pay: toPay.length, paid: settled.length }
-    const rows = data?.tab === 'paid' ? settled : toPay
+    const tabRows = data?.tab === 'paid' ? settled : toPay
 
-    return { ...paginate(rows, data?.page, data?.pageSize), tabCounts, totals }
+    const facets = {
+      statuses: facetBy(tabRows, (g) => ({
+        value: g.status,
+        label: FINANCE_STATUS_LABELS[g.status],
+      })),
+      themes: facetByMany(tabRows, (g) => g.tags.map((t) => ({ value: t, label: t }))),
+      rounds: facetBy(tabRows, (g) =>
+        g.roundId ? { value: g.roundId, label: g.roundName ?? 'Untitled round' } : null,
+      ),
+    }
+
+    // The date window runs against the payment date the open tab is ABOUT: when you are
+    // paying, that is the next payment due; when you are reconciling what went out, it is
+    // the last payment made. One control, the meaning of which follows the tab.
+    const inWindow = (day: string | null) => {
+      if (!data?.from && !data?.to) return true
+      if (!day) return false
+      return (!data?.from || day >= data.from) && (!data?.to || day <= data.to)
+    }
+    const matches = (g: (typeof items)[number], day: string | null) =>
+      (!data?.roundId || g.roundId === data.roundId) &&
+      (!data?.tag || g.tags.includes(data.tag)) &&
+      (!data?.status || g.status === data.status) &&
+      inWindow(day)
+
+    // Both tabs are counted through the same filters, so a tab label never promises rows
+    // the filters would remove the moment you switched to it.
+    const matchedToPay = toPay.filter((g) => matches(g, g.nextPayment?.dueDate ?? null))
+    const matchedPaid = settled.filter((g) => matches(g, g.lastPaidDate))
+    const tabCounts = { to_pay: matchedToPay.length, paid: matchedPaid.length }
+    const rows = data?.tab === 'paid' ? matchedPaid : matchedToPay
+
+    // Sorted before paging, so page 2 is the second page of the sort. With no `sortBy`
+    // the payment order above stands: the money you owe soonest, first.
+    const sorted = sortRows(
+      rows,
+      { by: data?.sortBy, dir: data?.sortDir },
+      {
+        organisation: (g) => g.organisationName,
+        programme: (g) => g.programmeName,
+        committed: (g) => g.committed,
+        paid: (g) => g.paidToDate,
+        // A cancelled grant has nothing to chase, so it sorts as dateless here for the
+        // same reason it does in the default order — not as a payment due long ago.
+        next: (g) => (g.awardStatus === 'cancelled' ? null : (g.nextPayment?.dueDate ?? null)),
+        lastPaid: (g) => g.lastPaidDate,
+        bank: (g) => BANK_SORT_ORDER[g.bank.status] ?? 9,
+        status: (g) => FINANCE_STATUS_ORDER[g.status] ?? 9,
+      },
+    )
+
+    return { ...paginate(sorted, data?.page, data?.pageSize), tabCounts, totals, upcoming, facets }
   })
+
+/**
+ * Rank behind the two pills this table sorts on. Both run most-urgent-first, so the
+ * default (descending) click puts the rows that need doing something at the top —
+ * alphabetical order over either vocabulary would say nothing.
+ */
+const FINANCE_STATUS_ORDER: Record<string, number> = {
+  overdue: 0,
+  due_soon: 1,
+  unscheduled: 2,
+  scheduled: 3,
+  paid: 4,
+  cancelled: 5,
+}
+
+/** Bank details that would stop a payment going out, first. */
+const BANK_SORT_ORDER: Record<string, number> = { missing: 0, invalid: 1, unchecked: 2, valid: 3 }
+
+/** One vocabulary for a grant's payment position, shared by the facets and the table. */
+export const FINANCE_STATUS_LABELS: Record<FinanceStatus, string> = {
+  overdue: 'Overdue',
+  due_soon: 'Due soon',
+  scheduled: 'Scheduled',
+  unscheduled: 'No schedule',
+  paid: 'Paid',
+  cancelled: 'Cancelled',
+}
+
+function emptyFacets(): { statuses: FacetOption[]; themes: FacetOption[]; rounds: FacetOption[] } {
+  return { statuses: [], themes: [], rounds: [] }
+}
 
 function emptyTotals() {
   return {
@@ -267,9 +462,9 @@ function emptyTotals() {
 }
 
 /**
- * One grant's money, end to end: the payment schedule (paid and still to come), the
- * bank details we would pay it into with the modulus verdict, and how the grant sits
- * inside its round-programme budget.
+ * One grant's money, end to end: where it has got to in its lifecycle, the payment
+ * schedule (paid and still to come), and the bank details we would pay it into with
+ * the modulus verdict.
  *
  * Deliberately NO reporting detail. Reporting belongs to the award record — a
  * finance officer here is answering "can I pay this, and what's left", not "what has
@@ -285,6 +480,9 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
       with: {
         application: { with: { roundProgramme: { with: { programme: true, round: true } } } },
         instalments: true,
+        // The award letter is a lifecycle step, not a document, here: the payment panel
+        // says whether the grantee has been told, and never renders the letter itself.
+        letter: { columns: { status: true, sentAt: true, failureReason: true } },
       },
     })
     if (!award) throw notFoundError()
@@ -317,36 +515,6 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
                 : 'upcoming') as 'paid' | 'tbc' | 'overdue' | 'due_soon' | 'upcoming',
       }))
 
-    // Where this grant sits in its round-programme's pot: the same budget the round
-    // screen tracks, but answered from the awards actually made.
-    let budget: {
-      budget: number
-      committed: number
-      paidToDate: number
-      grantCount: number
-    } | null = null
-    if (rp) {
-      const siblings = await getDb().query.applications.findMany({
-        where: and(eq(applications.status, 'awarded'), eq(applications.roundProgrammeId, rp.id)),
-        columns: { id: true },
-        with: { award: { with: { instalments: true } } },
-      })
-      const live = siblings.filter((s) => s.award && s.award.status !== 'cancelled')
-      budget = {
-        budget: rp.budget ? parseFloat(rp.budget) : 0,
-        committed: live.reduce((s, x) => s + parseFloat(x.award!.amountAwarded), 0),
-        paidToDate: live.reduce(
-          (s, x) =>
-            s +
-            x
-              .award!.instalments.filter((i) => i.paidDate)
-              .reduce((t, i) => t + parseFloat(i.amount), 0),
-          0,
-        ),
-        grantCount: live.length,
-      }
-    }
-
     const bank = bankCheck(app)
     // The Finance screen is payments-only, so `finance` gets the full edit set here.
     const canEdit = user.role === 'superadmin' || user.role === 'admin' || user.role === 'finance'
@@ -372,7 +540,13 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
       // The plan may not add up to the promise — say so rather than let it hide.
       unallocated: cancelled ? 0 : committed - pay.scheduledTotal,
       instalments,
-      budget,
+      letter: award.letter
+        ? {
+            status: award.letter.status,
+            sentAt: award.letter.sentAt?.toISOString() ?? null,
+            failureReason: award.letter.failureReason,
+          }
+        : null,
       bank: {
         status: bank.status,
         reason: bank.reason ?? null,

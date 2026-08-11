@@ -45,7 +45,11 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
 
 // KPI card tints: { bg, border, accent } per metric.
 const KPI = {
-  apps: { bg: T('accent-violet', 10), border: T('accent-violet', 20), accent: 'var(--color-accent-violet)' },
+  apps: {
+    bg: T('accent-violet', 10),
+    border: T('accent-violet', 20),
+    accent: 'var(--color-accent-violet)',
+  },
   review: { bg: T('success', 10), border: T('success', 20), accent: 'var(--color-success)' },
   finance: { bg: T('warning', 10), border: T('warning', 20), accent: 'var(--color-warning)' },
   reports: { bg: T('danger', 10), border: T('danger', 20), accent: 'var(--color-danger)' },
@@ -91,7 +95,10 @@ const plural = (n: number) => (n !== 1 ? 's' : '')
 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-card border bg-white p-4 ${className}`} style={{ borderColor: C.line }}>
+    <div
+      className={`rounded-card border bg-white p-4 ${className}`}
+      style={{ borderColor: C.line }}
+    >
       {children}
     </div>
   )
@@ -442,9 +449,7 @@ function Dashboard() {
           meter={<BarMeter progress={financeProgress} color={KPI.finance.accent} />}
         >
           <p className="mt-3 text-label" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
-            {d.bankIssues > 0
-              ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}`
-              : 'Bank details verified'}
+            {d.bankIssues > 0 ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}` : null}
           </p>
         </KpiCard>
 

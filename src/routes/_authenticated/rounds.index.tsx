@@ -10,7 +10,15 @@ import { listRoundsOverview, getRound, setRoundArchived } from '../../server/fns
 import { listProgrammes } from '../../server/fns/programmes'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
 import { RoundDialog, type RoundDraft } from '../../components/RoundDialog'
-import { Badge, Breadcrumb, Button, Card, EmptyState, Pagination } from '../../components/ui'
+import {
+  ActionMenu,
+  Badge,
+  Breadcrumb,
+  Button,
+  Card,
+  EmptyState,
+  Pagination,
+} from '../../components/ui'
 import { messageFor } from '../../lib/errors'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
@@ -233,33 +241,50 @@ function RoundRowCard({
     }
   }
 
+  const archived = round.archivedAt !== null
+
   return (
-    <div
-      className={`flex flex-col gap-4 rounded-card border border-gray-200 p-4 lg:flex-row lg:items-center lg:justify-between ${round.archivedAt ? 'opacity-60' : ''}`}
-    >
+    <div className="flex flex-col gap-4 rounded-card border border-gray-200 p-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-display text-title font-semibold text-gray-900">{round.name}</h3>
-          <Badge className={ROUND_STATUS_COLORS[status]}>{ROUND_STATUS_LABELS[status]}</Badge>
-          {round.archivedAt && <Badge className="bg-gray-100 text-gray-500">Archived</Badge>}
+          <h3
+            className={`font-display text-title font-semibold ${archived ? 'text-gray-400' : 'text-gray-900'}`}
+          >
+            {round.name}
+          </h3>
+          {/* Archived replaces the status badge rather than joining it: the status is
+              read off the dates, so an archived round whose close date hasn't passed
+              would advertise itself as Open when it has been withdrawn from every
+              picker. Same substitution as an archived programme's round badge. */}
+          {archived ? (
+            <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+          ) : (
+            <Badge className={ROUND_STATUS_COLORS[status]}>{ROUND_STATUS_LABELS[status]}</Badge>
+          )}
         </div>
-        <p className="font-display text-body text-gray-600">
+        <p className={`font-display text-body ${archived ? 'text-gray-400' : 'text-gray-600'}`}>
           {start && end ? `${start} - ${end}` : (start ?? end ?? 'No dates set')}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 lg:gap-x-8">
-        <Stat label="Budget">
+        {/* Unlike an archived programme's, these stay on an archived round. A
+            programme's impact unit and themes describe how it TAKES applications, so
+            they say nothing once it is retired; a round's committed spend is the record
+            of what it gave away, which is most of why anyone opens Past Rounds. */}
+        <Stat label="Budget" muted={archived}>
           {round.budget === null ? (
             <span className="text-gray-400">Not set</span>
           ) : (
             <>
-              <span className="font-semibold text-brand">{money(round.committed)} of</span>{' '}
+              <span className={archived ? 'font-semibold' : 'font-semibold text-brand'}>
+                {money(round.committed)} of
+              </span>{' '}
               <span className="text-gray-500">{money(round.budget)}</span>
             </>
           )}
         </Stat>
-        <Stat label="Programmes">
+        <Stat label="Programmes" muted={archived}>
           {round.programmeCount === 0 ? (
             <span className="text-gray-400">None yet</span>
           ) : (
@@ -268,39 +293,63 @@ function RoundRowCard({
         </Stat>
 
         {canManage && (
-          <div className="flex items-center gap-3">
-            <Button variant="text" onClick={onEdit} disabled={opening} icon={PencilEdit02Icon}>
-              {opening ? 'Opening…' : 'Edit'}
-            </Button>
-            {/* Archive, never delete. A round's applications and awards are the record
-                of a decision, so "we're finished with this" hides it from the pickers
-                and keeps its history — and it is reversible, which delete is not.
-                It still reads as destructive, because to everyone but us it is the
-                button that makes a round disappear. Restore is the same act undone, so
-                it drops back to `secondary` rather than warning about itself — and gets
-                the arrow-out-of-the-box glyph, since a bin on the way BACK would be
-                actively wrong. */}
-            <Button
-              variant={round.archivedAt ? 'secondary' : 'dangerGhost'}
-              size="sm"
-              onClick={toggleArchived}
-              disabled={archiving}
-              icon={round.archivedAt ? ArchiveRestoreIcon : Delete02Icon}
-            >
-              {archiving ? '…' : round.archivedAt ? 'Restore' : 'Archive'}
-            </Button>
-          </div>
+          <ActionMenu
+            label={`Actions for ${round.name}`}
+            actions={[
+              {
+                // Editing fetches the round's programme rows first, so this one action
+                // has a loading state the menu has to carry.
+                label: opening ? 'Opening…' : 'Edit',
+                icon: PencilEdit02Icon,
+                onSelect: onEdit,
+                disabled: opening,
+              },
+              // Archive, never delete. A round's applications and awards are the record
+              // of a decision, so "we're finished with this" hides it from the pickers
+              // and keeps its history — and it is reversible, which delete is not. It
+              // still reads as destructive, because to everyone but us it is the thing
+              // that makes a round disappear. Restore is the same act undone, so it
+              // drops the red and gets the arrow-out-of-the-box glyph, since a bin on
+              // the way BACK would be actively wrong.
+              archived
+                ? {
+                    label: 'Restore',
+                    icon: ArchiveRestoreIcon,
+                    onSelect: toggleArchived,
+                    disabled: archiving,
+                  }
+                : {
+                    label: 'Archive',
+                    icon: Delete02Icon,
+                    destructive: true,
+                    onSelect: toggleArchived,
+                    disabled: archiving,
+                  },
+            ]}
+          />
         )}
       </div>
     </div>
   )
 }
 
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+function Stat({
+  label,
+  children,
+  muted = false,
+}: {
+  label: string
+  children: React.ReactNode
+  muted?: boolean
+}) {
   return (
     <div className="flex min-w-[120px] flex-col gap-2">
       <span className="font-display text-label font-medium text-gray-500">{label}</span>
-      <span className="font-display text-body font-medium text-gray-900">{children}</span>
+      <span
+        className={`font-display text-body font-medium ${muted ? 'text-gray-400' : 'text-gray-900'}`}
+      >
+        {children}
+      </span>
     </div>
   )
 }
