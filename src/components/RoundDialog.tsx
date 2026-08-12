@@ -158,12 +158,7 @@ function RoundDialogForm({
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="flex-1">
             <Label htmlFor="round-opens">Opens</Label>
-            <DateField
-              id="round-opens"
-              value={openedAt}
-              onChange={(e) => setOpenedAt(e.target.value)}
-              required
-            />
+            <DateField id="round-opens" value={openedAt} onChange={setOpenedAt} required />
           </div>
           <div className="flex-1">
             <Label htmlFor="round-closes">Closes</Label>
@@ -173,7 +168,7 @@ function RoundDialogForm({
               id="round-closes"
               value={closedAt}
               min={openedAt || undefined}
-              onChange={(e) => setClosedAt(e.target.value)}
+              onChange={setClosedAt}
               required
             />
           </div>
@@ -191,7 +186,7 @@ function RoundDialogForm({
               The most any one applicant can be awarded from this programme's budget. Shown to
               reviewers as a guardrail. Leave blank for no ceiling.
             </ColumnHeader>
-            <ColumnHeader className="w-[112px]" label="Duration">
+            <ColumnHeader className="w-[112px]" label="Max duration">
               How many years grants from this programme usually run, used to show an annualised
               figure alongside the total. Leave blank if it varies.
             </ColumnHeader>
@@ -210,15 +205,14 @@ function RoundDialogForm({
                   <Select
                     value={row.programmeId}
                     aria-label={`Programme ${i + 1}`}
-                    onChange={(e) => patch(i, { programmeId: e.target.value })}
-                  >
-                    <option value="">Select programme</option>
-                    {programmes.map((p) => (
-                      <option key={p.id} value={p.id} disabled={taken.has(p.id)}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={(v) => patch(i, { programmeId: v })}
+                    placeholder="Select programme"
+                    options={programmes.map((p) => ({
+                      value: p.id,
+                      label: p.name,
+                      disabled: taken.has(p.id),
+                    }))}
+                  />
                 </div>
 
                 <div className="sm:w-[128px]">
@@ -243,7 +237,7 @@ function RoundDialogForm({
                 </div>
 
                 <div className="sm:w-[112px]">
-                  <MobileLabel>Duration</MobileLabel>
+                  <MobileLabel>Max duration</MobileLabel>
                   <div className="relative">
                     <Input
                       type="number"

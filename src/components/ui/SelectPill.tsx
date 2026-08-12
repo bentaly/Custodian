@@ -1,10 +1,13 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { C } from './tokens'
+import { Listbox, type ListboxOption } from './Listbox'
 
 // The dropdown pill the round-scoped screens wear (Figma 184:13784 / 400:30227): a
-// bordered chip with a native <select> laid transparently over it, so keyboard and
-// mobile pickers come free.
+// bordered chip that opens the app's own `Listbox` panel. It used to lay a transparent
+// native <select> over the chip, which bought keyboard and mobile pickers for free but
+// left the open panel looking like whatever the browser felt like — the one part of the
+// control the design has an opinion about.
 //
 // Two sizes, because the same control does two jobs on one screen. `md` is the
 // screen-level selector that sits beside the <h1> — 40px, with a leading icon chip.
@@ -16,7 +19,7 @@ import { C } from './tokens'
 
 type IconElement = Parameters<typeof HugeiconsIcon>[0]['icon']
 
-export type SelectPillOption = { value: string; label: string }
+export type SelectPillOption = ListboxOption
 
 export function SelectPill({
   options,
@@ -47,63 +50,59 @@ export function SelectPill({
   /** Offers a "no selection" option with this label; omit for a required choice. */
   clearLabel?: string
 }) {
-  const current = options.find((o) => o.value === value)
   const sm = size === 'sm'
+  const all = clearLabel !== undefined ? [{ value: '', label: clearLabel }, ...options] : options
+
   return (
-    <div className="relative shrink-0">
-      <div
-        className={
-          sm
-            ? 'flex h-8 items-center gap-1 rounded-chip border bg-white pl-2 pr-1.5'
-            : 'flex h-10 items-center gap-2 rounded-control border bg-white py-1 pl-1 pr-3'
-        }
-        style={{ borderColor: C.line }}
-      >
-        {!sm && icon && (
-          <div
-            className="flex size-8 shrink-0 items-center justify-center rounded-chip"
-            style={{ backgroundColor: C.wash }}
-          >
-            <HugeiconsIcon icon={icon} size={16} color={C.brand} />
-          </div>
-        )}
-        {label && (
+    <Listbox
+      className="shrink-0"
+      options={all}
+      value={value ?? ''}
+      onChange={onChange}
+      ariaLabel={ariaLabel}
+      renderTrigger={({ open, selected, props }) => (
+        <button
+          {...props}
+          className={
+            sm
+              ? 'flex h-8 items-center gap-1 rounded-chip border bg-white pl-2 pr-1.5 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden'
+              : 'flex h-10 items-center gap-2 rounded-control border bg-white py-1 pl-1 pr-3 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden'
+          }
+          style={{ borderColor: open ? C.brand : C.line }}
+        >
+          {!sm && icon && (
+            <span
+              className="flex size-8 shrink-0 items-center justify-center rounded-chip"
+              style={{ backgroundColor: C.wash }}
+            >
+              <HugeiconsIcon icon={icon} size={16} color={C.brand} />
+            </span>
+          )}
+          {label && (
+            <span
+              className="whitespace-nowrap font-display text-body font-medium"
+              style={{ color: C.ink }}
+            >
+              {label}:
+            </span>
+          )}
           <span
-            className="whitespace-nowrap font-display text-body font-medium"
+            className={`whitespace-nowrap font-display text-body ${sm ? '' : 'font-medium'}`}
             style={{ color: C.ink }}
           >
-            {label}:
+            {selected?.label ?? placeholder ?? clearLabel ?? '—'}
           </span>
-        )}
-        <span
-          className={`whitespace-nowrap font-display text-body ${sm ? '' : 'font-medium'}`}
-          style={{ color: C.ink }}
-        >
-          {current?.label ?? placeholder ?? clearLabel ?? '—'}
-        </span>
-        {suffix && (
-          <span
-            className="whitespace-nowrap font-display text-label font-medium"
-            style={{ color: C.faint }}
-          >
-            · {suffix}
-          </span>
-        )}
-        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.ink} />
-      </div>
-      <select
-        aria-label={ariaLabel}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 w-full cursor-pointer opacity-0"
-      >
-        {clearLabel !== undefined && <option value="">{clearLabel}</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
+          {suffix && (
+            <span
+              className="whitespace-nowrap font-display text-label font-medium"
+              style={{ color: C.faint }}
+            >
+              · {suffix}
+            </span>
+          )}
+          <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.ink} />
+        </button>
+      )}
+    />
   )
 }

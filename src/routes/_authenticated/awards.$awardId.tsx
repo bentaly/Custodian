@@ -17,6 +17,7 @@ import {
   Breadcrumb,
   Button,
   Card,
+  DateField,
   EmptyState,
   KPI_TINTS,
   MiniKpi,
@@ -367,11 +368,12 @@ function PaymentsCard({ award }: { award: AwardData }) {
                       className={`${inputClass} w-28`}
                       placeholder="Amount"
                     />
-                    <input
-                      type="date"
+                    <DateField
+                      size="sm"
                       value={draftDate}
-                      onChange={(e) => setDraftDate(e.target.value)}
-                      className={inputClass}
+                      onChange={setDraftDate}
+                      className="w-40"
+                      aria-label={`Instalment ${inst.instalmentNo} due date`}
                     />
                     <Button
                       size="sm"
@@ -485,11 +487,12 @@ function ReportingCard({ award }: { award: AwardData }) {
         className={`${inputClass} flex-1`}
         placeholder="Report label (e.g. Interim report)"
       />
-      <input
-        type="date"
+      <DateField
+        size="sm"
         value={draftDate}
-        onChange={(e) => setDraftDate(e.target.value)}
-        className={inputClass}
+        onChange={setDraftDate}
+        className="w-40"
+        aria-label="Report due date"
       />
       <Button
         size="sm"

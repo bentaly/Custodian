@@ -28,11 +28,15 @@ export const Fields: Story = {
       </div>
       <div>
         <Label>Impact measured in</Label>
-        <Select defaultValue="people">
-          <option value="people">People supported</option>
-          <option value="hectares">Hectares restored</option>
-          <option value="other">Something else…</option>
-        </Select>
+        <Select
+          value="people"
+          onChange={() => {}}
+          options={[
+            { value: 'people', label: 'People supported' },
+            { value: 'hectares', label: 'Hectares restored' },
+            { value: 'other', label: 'Something else…' },
+          ]}
+        />
       </div>
       <div>
         <Label>Disabled</Label>

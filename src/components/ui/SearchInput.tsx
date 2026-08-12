@@ -5,7 +5,8 @@ import { C } from './tokens'
 
 // The search box every listing screen wears — the same 40px wash-filled field as the
 // app header's global search, so "search this list" and "search everything" read as one
-// control in two places.
+// control in two places. That wash is now the app's ONE field surface (`fields.tsx`),
+// which this box was simply the first to wear.
 //
 // It owns the debounce as well as the look. `value` is the *committed* term (in
 // practice a URL search param) and `onChange` fires only after the user stops typing,

@@ -30,6 +30,11 @@ export const C = {
   brandWash: tint('brand', 5), // a surface carrying brand meaning
   brandBg: tint('brand', 10), // a filled chip or tinted button
   brandBorder: tint('brand', 20),
+  /** Brand/Secondary — a SOLID pale green the designer picked, not a step on the tint
+   *  ladder above. It is what a selected-but-not-current thing wears (the calendar's
+   *  in-range days, the sidebar's active item); brand at 5% alpha is far too faint to
+   *  read as selected, which is why this is its own token rather than `brandWash`. */
+  brandSecondary: 'var(--color-brand-secondary)',
 
   success: 'var(--color-success)',
   successWash: tint('success', 10),

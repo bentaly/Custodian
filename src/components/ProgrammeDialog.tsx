@@ -93,9 +93,19 @@ function ProgrammeDialogForm({
   const [colour, setColour] = useState(draft.colour)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // A theme typed into the box but never turned into a chip. Clicking Save blurs the
+  // input and submits in one gesture, so `TagInput`'s own warning cannot arrive in
+  // time — refusing the save here is what actually stops the theme being dropped.
+  const [pendingTag, setPendingTag] = useState('')
+  const [blockedByTag, setBlockedByTag] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (pendingTag) {
+      setBlockedByTag(true)
+      return
+    }
+    setBlockedByTag(false)
     setError('')
     setSaving(true)
     try {
@@ -127,6 +137,15 @@ function ProgrammeDialogForm({
       size="lg"
       footer={
         <div className="flex flex-col gap-3">
+          {/* Conditioned on `pendingTag` as well as the blocked flag, so adding the
+              theme (or clearing the box) takes the message away by itself — nobody has
+              to press Save again to find out they have fixed it. */}
+          {blockedByTag && pendingTag && (
+            <p role="alert" className="font-display text-body text-danger">
+              “{pendingTag}” hasn't been added as a theme yet — press Enter in the box to add it, or
+              clear it.
+            </p>
+          )}
           {error && <p className="font-display text-body text-danger">{error}</p>}
           <div className="flex justify-end">
             <Button type="submit" form={FORM_ID} disabled={saving}>
@@ -160,8 +179,9 @@ function ProgrammeDialogForm({
             id="programme-themes"
             value={tags}
             onChange={setTags}
+            onPendingChange={setPendingTag}
             suggestions={suggestions}
-            hint="Press Enter to add a theme"
+            hint="Choose an existing theme or type a new one, then press Enter"
           />
         </div>
 
@@ -170,14 +190,9 @@ function ProgrammeDialogForm({
           <Select
             id="programme-unit"
             value={impactUnit}
-            onChange={(e) => setImpactUnit(e.target.value)}
-          >
-            {IMPACT_UNITS.map((u) => (
-              <option key={u.key} value={u.key}>
-                {u.label}
-              </option>
-            ))}
-          </Select>
+            onChange={setImpactUnit}
+            options={IMPACT_UNITS.map((u) => ({ value: u.key, label: u.label }))}
+          />
           <p className="mt-1.5 font-display text-label text-gray-500">
             {IMPACT_UNIT_BY_KEY[impactUnit]?.hint}
           </p>

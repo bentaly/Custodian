@@ -44,11 +44,11 @@ export const Playground: Story = {
             <div className="flex gap-4">
               <div className="flex-1">
                 <Label htmlFor="story-opens">Opens</Label>
-                <DateField id="story-opens" defaultValue="2026-02-01" />
+                <DateField id="story-opens" value="2026-02-01" onChange={() => {}} />
               </div>
               <div className="flex-1">
                 <Label htmlFor="story-closes">Closes</Label>
-                <DateField id="story-closes" defaultValue="2026-03-31" />
+                <DateField id="story-closes" value="2026-03-31" onChange={() => {}} />
               </div>
             </div>
             <span className="flex items-center gap-1 font-display text-label font-medium text-gray-500">

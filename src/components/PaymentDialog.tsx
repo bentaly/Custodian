@@ -9,7 +9,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { setInstalmentPaid, updateInstalment } from '../server/fns/applications'
 import type { getFinanceGrant, BankStatus } from '../server/fns/finance'
-import { ActionMenu, Badge, Button, Dialog, TextLink, cn } from './ui'
+import { ActionMenu, Badge, Button, DateField, Dialog, TextLink, cn } from './ui'
 import { C } from './ui/tokens'
 import { fmtDate, fmtMoney } from '../lib/format'
 import { messageFor } from '../lib/errors'
@@ -345,11 +345,11 @@ function Schedule({
                     placeholder="Amount"
                     aria-label="Instalment amount"
                   />
-                  <input
-                    type="date"
+                  <DateField
+                    size="sm"
                     value={draftDate}
-                    onChange={(e) => setDraftDate(e.target.value)}
-                    className={inputClass}
+                    onChange={setDraftDate}
+                    className="w-40"
                     aria-label="Instalment due date"
                   />
                   <Button

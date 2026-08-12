@@ -536,21 +536,22 @@ export function AwardWizard({
                 <FieldLabel>Grant start date</FieldLabel>
                 <DateField
                   value={terms.startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                   aria-label="Grant start date"
                 />
+                <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+                  When the grant period begins.
+                </p>
               </div>
               <div className="w-[200px]">
                 <FieldLabel>First payment</FieldLabel>
                 <DateField
                   value={terms.firstPaymentDate}
-                  onChange={(e) => setTerms((t) => ({ ...t, firstPaymentDate: e.target.value }))}
+                  onChange={(v) => setTerms((t) => ({ ...t, firstPaymentDate: v }))}
                   aria-label="First payment date"
                 />
                 <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-                  {terms.firstPaymentDate === terms.startDate
-                    ? 'Paid on the start date'
-                    : 'Differs from the start date'}
+                  The date of the first payment.
                 </p>
               </div>
             </div>
@@ -622,11 +623,11 @@ export function AwardWizard({
                     <div className="w-[180px] shrink-0">
                       <DateField
                         value={r.date}
-                        onChange={(e) =>
+                        onChange={(v) =>
                           setTerms((t) => ({
                             ...t,
                             reporting: t.reporting.map((row, idx) =>
-                              idx === i ? { ...row, date: e.target.value } : row,
+                              idx === i ? { ...row, date: v } : row,
                             ),
                           }))
                         }
@@ -1091,11 +1092,9 @@ function CustomSchedules({
                   </div>
                   <DateField
                     value={r.date}
-                    onChange={(e) =>
+                    onChange={(v) =>
                       setGrant(c.id, {
-                        rows: g.rows.map((row, idx) =>
-                          idx === i ? { ...row, date: e.target.value } : row,
-                        ),
+                        rows: g.rows.map((row, idx) => (idx === i ? { ...row, date: v } : row)),
                       })
                     }
                     aria-label={`Instalment ${i + 1} date for ${c.organisationName}`}

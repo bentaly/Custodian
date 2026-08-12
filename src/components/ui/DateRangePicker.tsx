@@ -1,67 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { C } from './tokens'
+import {
+  CalendarPanel,
+  addDays,
+  addMonths,
+  fmtDay,
+  iso,
+  parseIso,
+  startOfMonth,
+  startOfWeek,
+} from './calendar'
 
 // The app's date-range control (Figma 434:14112) — a filter pill that opens a
 // quick-ranges list beside a two-click calendar. Shared because it appears on
 // several screens (Insights, Applications, …); each caller only owns what the
 // range means for its own data.
 //
-// Dates are plain `yyyy-mm-dd` strings, inclusive at both ends, and every
-// calculation runs in local time: a range the user picked in the UI must not
-// shift a day because of a UTC round-trip.
+// The calendar itself is `CalendarPanel`, shared with `DateField`; only the two-ended
+// selection logic and the quick-ranges column are this component's own.
 
 /** Inclusive `yyyy-mm-dd` bounds. Both absent = no restriction ("All time"). */
 export type DateRange = { from?: string; to?: string }
-
-// ─── Local-date helpers ──────────────────────────────────────────────────────────
-
-function iso(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-function parseIso(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1)
-}
-function addDays(d: Date, n: number): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
-}
-function addMonths(d: Date, n: number): Date {
-  return new Date(d.getFullYear(), d.getMonth() + n, d.getDate())
-}
-function startOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1)
-}
-/** Sunday-first, matching the design's S M T W T F S header. */
-function startOfWeek(d: Date): Date {
-  return addDays(d, -d.getDay())
-}
-
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-
-/** British short form — `17 Feb 2022`. */
-function fmtDay(s: string): string {
-  return parseIso(s).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
 
 /** `17 Feb – 21 Feb 2022`, collapsing the repeated year. */
 export function formatDateRange(range: DateRange, allLabel = 'All time'): string {
@@ -151,11 +112,6 @@ export function DateRangePicker({
     return (r.from ?? '') === (draft.from ?? '') && (r.to ?? '') === (draft.to ?? '')
   })
 
-  // Six weeks from the Sunday on/before the 1st — a fixed grid, so the popover
-  // doesn't change height as the user pages through months.
-  const gridStart = startOfWeek(startOfMonth(month))
-  const days = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
-
   function pick(day: Date) {
     const s = iso(day)
     if (!draft.from || !pendingStart) {
@@ -173,9 +129,6 @@ export function DateRangePicker({
     onChange(draft.from && !draft.to ? { from: draft.from, to: draft.from } : draft)
     setOpen(false)
   }
-
-  const dayClass =
-    'flex h-6 w-8 items-center justify-center rounded-chip font-display text-label font-medium'
 
   // The trigger is a `FilterPill` in every respect but the popover it opens, so it
   // follows the same rule: Gray/900 text, glyph and caret in both states, and the brand
@@ -231,7 +184,7 @@ export function DateRangePicker({
                     }}
                     className="flex h-8 items-center whitespace-nowrap rounded-chip p-2 text-left font-display text-body font-medium"
                     style={{
-                      backgroundColor: on ? C.brandWash : undefined,
+                      backgroundColor: on ? C.brandSecondary : undefined,
                       color: on ? C.brand : C.sub,
                     }}
                   >
@@ -244,70 +197,18 @@ export function DateRangePicker({
 
           {/* Calendar */}
           <div className="flex flex-col items-end gap-3 p-3">
-            <div className="flex w-full items-center justify-between">
-              <button
-                type="button"
-                aria-label="Previous month"
-                onClick={() => setMonth(addMonths(month, -1))}
-                className="flex size-8 items-center justify-center rounded-chip border bg-white"
-                style={{ borderColor: C.line }}
-              >
-                <HugeiconsIcon icon={ArrowLeft01Icon} size={16} color={C.ink} />
-              </button>
-              <span className="font-display text-label font-medium" style={{ color: C.ink }}>
-                {MONTHS[month.getMonth()]} {month.getFullYear()}
-              </span>
-              <button
-                type="button"
-                aria-label="Next month"
-                onClick={() => setMonth(addMonths(month, 1))}
-                className="flex size-8 items-center justify-center rounded-chip border bg-white"
-                style={{ borderColor: C.line }}
-              >
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={C.ink} />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-0.5">
-              <div className="flex gap-0.5">
-                {WEEKDAYS.map((d, i) => (
-                  <span key={i} className={dayClass} style={{ color: C.faint }}>
-                    {d}
-                  </span>
-                ))}
-              </div>
-              {Array.from({ length: 6 }, (_, w) => (
-                <div key={w} className="flex gap-0.5">
-                  {days.slice(w * 7, w * 7 + 7).map((d) => {
-                    const s = iso(d)
-                    const outside = d.getMonth() !== month.getMonth()
-                    const isEnd = s === draft.from || s === draft.to
-                    const inRange =
-                      draft.from != null && draft.to != null && s > draft.from && s < draft.to
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => pick(d)}
-                        className={dayClass}
-                        style={{
-                          backgroundColor: isEnd ? C.brand : inRange ? C.brandWash : undefined,
-                          color: isEnd
-                            ? C.brandWash
-                            : inRange
-                              ? C.brand
-                              : outside
-                                ? C.muted
-                                : C.body,
-                        }}
-                      >
-                        {d.getDate()}
-                      </button>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
+            <CalendarPanel
+              month={month}
+              onMonthChange={setMonth}
+              toneFor={(s) =>
+                s === draft.from || s === draft.to
+                  ? 'selected'
+                  : draft.from != null && draft.to != null && s > draft.from && s < draft.to
+                    ? 'range'
+                    : 'none'
+              }
+              onPick={pick}
+            />
 
             <div className="flex w-full items-center">
               <span
