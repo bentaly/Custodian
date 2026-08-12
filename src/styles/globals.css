@@ -30,6 +30,7 @@
      generate nothing, so a size outside the ramp fails visibly. Sizes carry no paired
      line-height — the comps set none, so leading stays the element's own. */
   --text-*: initial;
+  --text-micro: 10px; /* the small pill only — see `Badge`'s `size` prop */
   --text-label: 12px; /* field labels, meta, status pills */
   --text-body: 14px; /* body copy, values, item titles, button labels */
   --text-title: 16px; /* card titles */

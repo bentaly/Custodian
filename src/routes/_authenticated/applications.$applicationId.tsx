@@ -638,7 +638,7 @@ function ApplicationDetail() {
                     {scoreDetail.summary}
                   </p>
                   <span
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-display text-label font-medium"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-display text-micro font-medium"
                     style={{ backgroundColor: C.brandBg, color: C.brand }}
                   >
                     AI analysis{roundName ? ` · ${roundName}` : ''}

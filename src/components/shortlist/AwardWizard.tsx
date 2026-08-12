@@ -169,7 +169,7 @@ function StatePill({ tone, children }: { tone: 'ready' | 'todo'; children: React
   const ready = tone === 'ready'
   return (
     <span
-      className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
+      className="inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
       style={{ backgroundColor: ready ? C.brandBg : C.amberWash }}
     >
       <span
@@ -177,7 +177,7 @@ function StatePill({ tone, children }: { tone: 'ready' | 'todo'; children: React
         style={{ backgroundColor: ready ? C.brand : C.amber }}
       />
       <span
-        className="font-display text-label font-medium"
+        className="font-display text-micro font-medium"
         style={{ color: ready ? C.brand : C.amber }}
       >
         {children}

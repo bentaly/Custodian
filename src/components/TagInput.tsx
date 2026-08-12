@@ -118,7 +118,7 @@ export function TagInput({
             key={tag}
             // White on the wash, not the other way round: the field itself is now
             // Gray/100, so a Gray/100 chip on it would have no edge at all.
-            className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-label font-medium text-gray-700"
+            className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-micro font-medium text-gray-700"
           >
             {tag}
             <button

@@ -396,7 +396,9 @@ function PaymentsCard({ award }: { award: AwardData }) {
                           ? `Paid ${fmtDate(inst.paidDate)}`
                           : `Due ${fmtDate(inst.dueDate)}`}
                       </span>
-                      <Badge className={meta.className}>{meta.label}</Badge>
+                      <Badge size="sm" className={meta.className}>
+                        {meta.label}
+                      </Badge>
                     </div>
                     {award.canEditPayments && (
                       <div className="flex shrink-0 items-center gap-1.5">
@@ -544,7 +546,9 @@ function ReportingCard({ award }: { award: AwardData }) {
                           ? `Received ${fmtDate(m.submittedDate)}`
                           : `Due ${fmtDate(m.dueDate)}`}
                       </span>
-                      <Badge className={meta.className}>{meta.label}</Badge>
+                      <Badge size="sm" className={meta.className}>
+                        {meta.label}
+                      </Badge>
                     </div>
                     {award.canEdit && (
                       <div className="flex shrink-0 items-center gap-1.5">

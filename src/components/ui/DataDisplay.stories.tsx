@@ -198,6 +198,16 @@ export const Pills: Story = {
       <StatusPill label="Declined" color={C.danger} />
       <Badge className="bg-gray-100 text-gray-600">Closed</Badge>
       <Badge className="bg-success/10 text-success">In open round</Badge>
+      {/* The small pill, for a line item inside a card rather than the card's own status. */}
+      <Badge size="sm" className="bg-success/10 text-success">
+        Paid
+      </Badge>
+      <Badge size="sm" className="bg-warning/10 text-warning">
+        Due next
+      </Badge>
+      <Badge size="sm" className="bg-gray-100 text-gray-400">
+        Upcoming
+      </Badge>
     </div>
   ),
 }

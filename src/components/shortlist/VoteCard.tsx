@@ -102,9 +102,11 @@ function VotePill({ vote }: { vote: 'yes' | 'no' | undefined }) {
       : vote === 'no'
         ? (['Declined', 'danger'] as const)
         : (['Pending', 'grey'] as const)
+  // The small pill (10px): this annotates one trustee in the roster, so it must not
+  // compete with the DecisionPill above it, which is the card's actual status.
   return (
     <span
-      className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
+      className="inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
       style={{
         backgroundColor: tone === 'brand' ? C.brandBg : tone === 'danger' ? C.dangerWash : C.white,
       }}
@@ -116,7 +118,7 @@ function VotePill({ vote }: { vote: 'yes' | 'no' | undefined }) {
         }}
       />
       <span
-        className="font-display text-label font-medium"
+        className="font-display text-micro font-medium"
         style={{ color: tone === 'brand' ? C.brand : tone === 'danger' ? C.danger : C.sub }}
       >
         {label}

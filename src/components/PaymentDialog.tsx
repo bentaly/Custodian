@@ -54,8 +54,12 @@ export function PaymentDialog({
       busy={busyId !== null}
       title="Payment details"
       description={
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium text-gray-700">{grant.organisationName}</span>
+        // `Dialog` draws its description at 12px, which is right where it is a line of
+        // explanatory copy. Here it is the grant's identity — who this money is for —
+        // so this one dialog states it at 14px (Figma 823:118), in one flat grey with
+        // no emphasised half: the comp gives the whole line Gray/500.
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
+          <span>{grant.organisationName}</span>
           {grant.programmeName && (
             <>
               <span aria-hidden>·</span>
@@ -65,8 +69,8 @@ export function PaymentDialog({
           <span aria-hidden>·</span>
           {/* The one way out of this dialog into the decision behind it: the terms, the
               letter and the reporting schedule all live on the award record. */}
-          <TextLink to="/awards/$awardId" params={{ awardId: grant.id }} className="text-label">
-            View award record →
+          <TextLink to="/awards/$awardId" params={{ awardId: grant.id }}>
+            View Award →
           </TextLink>
         </span>
       }
@@ -384,7 +388,9 @@ function Schedule({
                     <span className="whitespace-nowrap">
                       {inst.paidDate ? fmtDate(inst.paidDate) : fmtDate(inst.dueDate)}
                     </span>
-                    <Badge className={badge.className}>{badge.label}</Badge>
+                    <Badge size="sm" className={badge.className}>
+                      {badge.label}
+                    </Badge>
                   </span>
                 }
                 className={busy ? 'opacity-60' : undefined}
@@ -488,7 +494,14 @@ function BankDetails({ grant }: { grant: FinanceGrant }) {
   const badge = BANK_BADGE[bank.status]
 
   return (
-    <Section title="Bank details" aside={<Badge className={badge.className}>{badge.label}</Badge>}>
+    <Section
+      title="Bank details"
+      aside={
+        <Badge size="sm" className={badge.className}>
+          {badge.label}
+        </Badge>
+      }
+    >
       <Row label="Account name" value={bank.accountName ?? '—'} />
       <Row label="Bank" value={bank.bankName ?? '—'} />
       <Row
