@@ -155,6 +155,10 @@ export const listShortlist = createServerFn({ method: 'GET' })
           {
             roundProgrammeId: a.roundProgrammeId,
             programmeName: a.roundProgramme.programme.name,
+            // The programme's own colour, so its swatch here is the one it wears on the
+            // Programmes screen. Nullable for rows predating the column — the client
+            // falls back through `resolveProgrammeColour`.
+            programmeColour: a.roundProgramme.programme.colour,
             roundName: a.roundProgramme.round.name,
             budget: a.roundProgramme.budget ? parseFloat(a.roundProgramme.budget) : null,
             committed: committedByRp.get(a.roundProgrammeId) ?? 0,

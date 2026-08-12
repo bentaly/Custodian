@@ -1,5 +1,6 @@
 import { fmtMoney } from '../../lib/format'
-import { C, PROGRAMME_COLORS } from '../ui/tokens'
+import { resolveProgrammeColour } from '../../lib/programmeColours'
+import { C } from '../ui/tokens'
 
 // The two cards the shortlist opens with (Figma 765:3270). They answer the only two
 // money questions a board asks before it votes: what is being proposed, and whether the
@@ -8,6 +9,8 @@ import { C, PROGRAMME_COLORS } from '../ui/tokens'
 export type SpendRow = {
   roundProgrammeId: string
   programmeName: string
+  /** `null` on programmes predating the colour column — see `resolveProgrammeColour`. */
+  programmeColour: string | null
   /** `null` when the round-programme has no budget set — no bar can be drawn for it. */
   budget: number | null
   /** Already awarded in this round-programme. */
@@ -17,12 +20,12 @@ export type SpendRow = {
 }
 
 /**
- * A programme's swatch. Positional for now: `programmes.colour` is not on this branch,
- * so the colour a programme wears here is the one the screen has always drawn it in.
- * One call site, so binding it to the stored colour later is a one-line change.
+ * A programme's swatch: the colour it was assigned, falling back to the positional one
+ * for rows predating the column. Same call as the Programmes screen, so a programme is
+ * never two different colours in the same app.
  */
-function swatch(index: number): string {
-  return PROGRAMME_COLORS[index % PROGRAMME_COLORS.length]!
+function swatch(row: SpendRow, index: number): string {
+  return resolveProgrammeColour(row.programmeColour, index)
 }
 
 function CardShell({
@@ -57,7 +60,7 @@ export function ProposedByProgramme({ rows }: { rows: SpendRow[] }) {
             <span className="flex min-w-0 items-center gap-2">
               <span
                 className="size-2 shrink-0 rounded-swatch"
-                style={{ backgroundColor: swatch(i) }}
+                style={{ backgroundColor: swatch(r, i) }}
               />
               <span className="truncate font-display text-body" style={{ color: C.body }}>
                 {r.programmeName}
@@ -108,7 +111,7 @@ export function ProposedAgainstBudget({ rows }: { rows: SpendRow[] }) {
         <div className="flex flex-col gap-4">
           {budgeted.map(({ r, index }) => {
             const budget = r.budget!
-            const colour = swatch(index)
+            const colour = swatch(r, index)
             const pct = Math.round((r.proposed / budget) * 100)
             const over = r.committed + r.proposed > budget
             return (
