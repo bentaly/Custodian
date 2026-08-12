@@ -335,8 +335,27 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
   £400k is scheduled), whereas missing closed grants only makes lifetime totals short. Old
   application text, votes and retrospective scores are deliberately never imported.
 - **One .xlsx workbook, three sheets** — Grants / Payments / Reports, joined on the foundation's own
-  reference. Payments and reports are one-row-per-item: a grant paid in six instalments cannot be
-  described by a single "paid to date" figure, because Finance needs each dated line to reconcile.
+  reference. Payments and reports are one-row-per-item: an ACTIVE grant paid in six instalments
+  cannot be described by a single "paid to date" figure, because Finance needs each dated line to
+  reconcile. **Completed grants are the exception the workbook now states up front**: they fill in
+  the Grants sheet alone, and their money arrives as the lump `Amount paid`. `commitImport` turns
+  that into ONE paid instalment dated at the grant's end, because every screen showing money moving
+  reads instalments — a figure that lived only on the reconciliation would leave the grant showing
+  £0 paid. Itemised rows always win where both exist (a mismatch is a degradation), and the lump
+  counts toward `totalPaid` only where there is no schedule, so the total signed off at upload is
+  the total seen afterwards.
+- **`Received?` on the Reports sheet is the answer, not the date.** A milestone is met by the flag;
+  a Yes with no date falls back to the due date, exactly as a payment marked paid with no date
+  does. Before it existed a blank date was the only signal, so a foundation that never logged
+  arrival dates saw every milestone it had met listed as overdue.
+- **The header suffix ("(required)") is not the tier.** `askedAs` in `columns.ts` is the two-state
+  "please fill this in" a spreadsheet has room for; `tier` is still what we do when it is missing,
+  and they deliberately diverge — "Where the impact happens" is ASKED as required but imports
+  without one, because a live application only `expects` a delivery area and history must not be
+  held to a stricter rule than today's submissions. `baseHeader` strips the suffix on read, and
+  `aliases` carries every previous header name, so relabelling or renaming a column never strands a
+  workbook someone downloaded weeks ago — an unrecognised header is dropped, which is the silent
+  version of a lost field.
 - **The template is generated per client** (`buildTemplate`), after their programmes exist, so
   Programme/Round/Status are **dropdowns of their real data**. That is what lets the import skip
   column mapping entirely: a hidden `_Custodian` sheet fingerprints the file (version + clientId), so

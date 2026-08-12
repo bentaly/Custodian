@@ -19,6 +19,8 @@ export type GrantRow = {
   round: string
   awardDate: string
   amountAwarded: number
+  /** The lump "paid to date" figure. Only used when the grant has no payment rows. */
+  amountPaid: number | null
   status: 'active' | 'completed' | 'cancelled'
   charityNumber: string | null
   companyNumber: string | null
@@ -43,6 +45,12 @@ export type ReportRow = {
   reference: string
   label: string
   dueDate: string
+  /**
+   * Whether the report came in — the answer, not the date. A foundation that never
+   * logged the arrival date of a report still knows it arrived, and before this
+   * existed a blank date was the only signal, so every such milestone read as overdue.
+   */
+  received: boolean
   receivedDate: string | null
 }
 
@@ -248,6 +256,15 @@ export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIss
       })
     }
 
+    const amountPaid = asNumber(cells.amountPaid)
+    if (amountPaid != null && amountPaid < 0) {
+      issues.push({
+        rowNumber,
+        column: cols.amountPaid!.header,
+        message: 'Amount paid cannot be negative',
+      })
+    }
+
     if (
       organisationName == null ||
       programme == null ||
@@ -270,6 +287,7 @@ export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIss
       round,
       awardDate,
       amountAwarded,
+      amountPaid,
       status,
       charityNumber: asText(cells.charityNumber),
       companyNumber: asText(cells.companyNumber),
@@ -330,9 +348,16 @@ export function parseReports(rows: RawRow[]): { rows: ReportRow[]; issues: CellI
     )
     const receivedDate = dateCell(cells.receivedDate, cols.receivedDate!, rowNumber, issues)
 
+    // Blank means "not received" — which is also how a v1 workbook, written before the
+    // column existed, reads: no flag anywhere, so a date is the only evidence. A date
+    // present always wins over a "No", because a report cannot have arrived on a day
+    // and also not have arrived.
+    const flag = asBool(cells.received)
+    const received = receivedDate != null || (flag ?? false)
+
     if (reference == null || label == null || dueDate == null) continue
 
-    out.push({ rowNumber, reference, label, dueDate, receivedDate })
+    out.push({ rowNumber, reference, label, dueDate, received, receivedDate })
   }
 
   return { rows: out, issues }

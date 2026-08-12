@@ -369,22 +369,40 @@ export const commitImport = createServerFn({ method: 'POST' })
       })
 
       const payments = paymentsByRef.get(grant.reference) ?? []
-      payments
-        .slice()
-        .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
-        .forEach((p, i) => {
-          instalmentRows.push({
-            id: crypto.randomUUID(),
-            awardId,
-            instalmentNo: i + 1,
-            amount: String(p.amount),
-            dueDate: p.dueDate,
-            // A payment marked paid with no date still counts as paid — the client was
-            // warned it loses its place on a timeline, and dropping the fact of payment
-            // would be far worse than losing the date.
-            paidDate: p.paid ? (p.paidDate ?? p.dueDate) : null,
+      if (payments.length > 0) {
+        payments
+          .slice()
+          .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
+          .forEach((p, i) => {
+            instalmentRows.push({
+              id: crypto.randomUUID(),
+              awardId,
+              instalmentNo: i + 1,
+              amount: String(p.amount),
+              dueDate: p.dueDate,
+              // A payment marked paid with no date still counts as paid — the client was
+              // warned it loses its place on a timeline, and dropping the fact of payment
+              // would be far worse than losing the date.
+              paidDate: p.paid ? (p.paidDate ?? p.dueDate) : null,
+            })
           })
+      } else if (grant.amountPaid != null && grant.amountPaid > 0) {
+        // A completed grant is filled in on the Grants sheet alone, so its money arrives
+        // as one "Amount paid" figure. It becomes a single paid instalment, because
+        // every screen that shows money moving — Finance, the paid total, spend over
+        // time — reads instalments. Recording it only on the reconciliation the client
+        // just confirmed would leave the grant showing £0 paid the moment they opened it.
+        // Dated at the grant's end, which is the last day the money can have gone out;
+        // itemised rows are the way to say more than that, and the template says so.
+        instalmentRows.push({
+          id: crypto.randomUUID(),
+          awardId,
+          instalmentNo: 1,
+          amount: String(grant.amountPaid),
+          dueDate: grant.endDate ?? grant.awardDate,
+          paidDate: grant.endDate ?? grant.awardDate,
         })
+      }
 
       const milestones = reportsByRef.get(grant.reference) ?? []
       const scheduleIds = milestones.map(() => crypto.randomUUID())
@@ -394,7 +412,11 @@ export const commitImport = createServerFn({ method: 'POST' })
           awardId,
           label: m.label,
           dueDate: m.dueDate,
-          submittedDate: m.receivedDate,
+          // `submittedDate` is what makes a milestone met, so a report answered "Yes"
+          // with no date falls back to the due date rather than staying null — same
+          // rule as a payment marked paid with no date, and for the same reason: the
+          // fact is worth more than the precision. The client was warned.
+          submittedDate: m.received ? (m.receivedDate ?? m.dueDate) : null,
         })
       })
 
@@ -402,7 +424,7 @@ export const commitImport = createServerFn({ method: 'POST' })
       // reads impact from reports — needs no special case for imported history.
       // No AI analysis: there is no narrative to analyse, just a number.
       if (grant.impactQuantity != null) {
-        const satisfied = milestones.findIndex((m) => m.receivedDate)
+        const satisfied = milestones.findIndex((m) => m.received)
         reportRows.push({
           id: crypto.randomUUID(),
           clientId,

@@ -131,6 +131,58 @@ describe('buildTemplate / readWorkbook round trip', () => {
     })
   })
 
+  // A workbook is downloaded, filled in over weeks, and uploaded long after we have
+  // changed the headers. v1 wrote bare headers and called two columns something else,
+  // and an unrecognised header is DROPPED — so without this the location and purpose a
+  // client typed would vanish into a file that reported no problem at all.
+  it('still reads a workbook written before the headers were relabelled', async () => {
+    const ExcelJS = await import('exceljs')
+    const wb = new ExcelJS.default.Workbook()
+    const ws = wb.addWorksheet('Grants')
+    ws.addRow([
+      'Application reference',
+      'Organisation name',
+      'Programme',
+      'Round',
+      'Award date',
+      'Status',
+      'Amount awarded',
+      'Where the work happens',
+      'What the money is for',
+    ])
+    ws.addRow([
+      'GR-001',
+      'Pennine Youth Alliance',
+      'Community & Place',
+      'Spring 2025',
+      '2025-06-01',
+      'Active',
+      45000,
+      'Calderdale',
+      'Youth work',
+    ])
+
+    const read = await readWorkbook(new File([await wb.xlsx.writeBuffer()], 'v1.xlsx'))
+
+    expect(read.missingHeaders.grants).toEqual([])
+    expect(read.unknownHeaders.grants).toEqual([])
+    const parsed = parseGrants(read.sheets.grants)
+    expect(parsed.rows[0]).toMatchObject({
+      deliveryArea: 'Calderdale',
+      purpose: 'Youth work',
+      // Neither column existed in v1; both must read as absent rather than as a problem.
+      amountPaid: null,
+    })
+  })
+
+  it('brands the workbook with the Custodian mark', async () => {
+    const ExcelJS = await import('exceljs')
+    const wb = new ExcelJS.default.Workbook()
+    await wb.xlsx.load(await (await buildTemplate(ctx)).arrayBuffer())
+
+    expect(wb.getWorksheet('Start here')!.getImages()).toHaveLength(1)
+  })
+
   it('rejects a file that is not a workbook at all, with a readable message', async () => {
     await expect(readWorkbook(new File(['not a spreadsheet'], 'notes.txt'))).rejects.toThrow(
       /could not be opened/i,

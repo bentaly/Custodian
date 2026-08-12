@@ -407,6 +407,13 @@
       "when": 1786483292273,
       "tag": "0057_furry_kingpin",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1786573897557,
+      "tag": "0058_last_deathbird",
+      "breakpoints": true
     }
   ]
 }

@@ -221,6 +221,46 @@ export function validateImport(input: {
     })
   }
 
+  // ── The lump "Amount paid" figure ──
+  //
+  // Completed grants are filled in on the Grants sheet alone (see the template's
+  // instructions), so their money arrives as one total rather than as instalments. The
+  // itemised rows always win where both exist: a schedule is what Finance reconciles
+  // against, and a single figure cannot say what went out when.
+  const lumpMismatch = grants.filter((g) => {
+    const rows = paymentsByRef.get(g.reference)
+    if (!rows || rows.length === 0 || g.amountPaid == null) return false
+    const paid = rows.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0)
+    return Math.abs(paid - g.amountPaid) > 1
+  })
+  if (lumpMismatch.length > 0) {
+    issues.push({
+      kind: 'degradation',
+      code: 'amount_paid_mismatch',
+      message: `${plural(lumpMismatch.length, 'grant')} where ‘Amount paid’ disagrees with the payments listed`,
+      detail:
+        'Custodian will use the payment rows, since they are the only thing that says what went out and when. Check the total if you were reconciling against it.',
+      rows: lumpMismatch.map((g) => g.rowNumber),
+    })
+  }
+
+  const nothingPaid = grants.filter(
+    (g) =>
+      g.status === 'completed' &&
+      (paymentsByRef.get(g.reference)?.length ?? 0) === 0 &&
+      (g.amountPaid == null || g.amountPaid === 0),
+  )
+  if (nothingPaid.length > 0) {
+    issues.push({
+      kind: 'degradation',
+      code: 'completed_nothing_paid',
+      message: `${plural(nothingPaid.length, 'completed grant')} with nothing recorded as paid`,
+      detail:
+        'These will show as £0 paid, so your lifetime giving total will be short by their value. Put the total that went out in ‘Amount paid’, or itemise the instalments on the Payments sheet.',
+      rows: nothingPaid.map((g) => g.rowNumber),
+    })
+  }
+
   const activeNoReports = grants.filter(
     (g) => g.status === 'active' && (reportsByRef.get(g.reference)?.length ?? 0) === 0,
   )
@@ -277,6 +317,20 @@ export function validateImport(input: {
     })
   }
 
+  // The report-side twin of `paid_no_date`, and it loses the same thing: the milestone
+  // counts as met, but it cannot be placed on a timeline.
+  const receivedNoDate = reports.filter((r) => r.received && !r.receivedDate)
+  if (receivedNoDate.length > 0) {
+    issues.push({
+      kind: 'degradation',
+      code: 'received_no_date',
+      message: `${plural(receivedNoDate.length, 'report')} marked received with no date`,
+      detail:
+        'These count as received — the milestone will not show as outstanding — but they carry the due date as their arrival date, so how late a report was is lost.',
+      rows: receivedNoDate.map((r) => r.rowNumber),
+    })
+  }
+
   const missingReference = grants.filter((g) => !g.reference)
   if (missingReference.length > 0) {
     issues.push({
@@ -298,7 +352,15 @@ export function validateImport(input: {
   const totalCommitted = grants.reduce((s, g) => s + g.amountAwarded, 0)
   const paidRows = payments.filter((p) => p.paid && references.has(p.reference))
   const unpaidRows = payments.filter((p) => !p.paid && references.has(p.reference))
-  const totalPaid = paidRows.reduce((s, p) => s + p.amount, 0)
+  // Lump sums count only where there is no schedule to count instead, which is the same
+  // rule the commit path uses to decide whether to write one. If the two disagreed, the
+  // total a finance lead signed off here would not be the total they saw afterwards.
+  const lumpPaid = grants
+    .filter((g) => (paymentsByRef.get(g.reference)?.length ?? 0) === 0)
+    .reduce((s, g) => s + (g.amountPaid ?? 0), 0)
+  const totalPaid = paidRows.reduce((s, p) => s + p.amount, 0) + lumpPaid
+  // Nothing is outstanding on a grant with no schedule: there is no instalment to be
+  // waiting for. An unpaid balance on a completed grant is history, not a debt.
   const totalOutstanding = unpaidRows.reduce((s, p) => s + p.amount, 0)
 
   const reconciliation: Reconciliation = {
@@ -310,8 +372,7 @@ export function validateImport(input: {
     totalCommitted,
     totalPaid,
     totalOutstanding,
-    reportsOutstanding: reports.filter((r) => !r.receivedDate && references.has(r.reference))
-      .length,
+    reportsOutstanding: reports.filter((r) => !r.received && references.has(r.reference)).length,
   }
 
   const blockers = issues.filter((i) => i.kind === 'blocker')

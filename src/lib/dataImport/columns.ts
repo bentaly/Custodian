@@ -33,6 +33,23 @@ export interface ImportColumn {
   /** The header written into the template, and matched on read. */
   header: string
   /**
+   * Headers this column used to be called. A workbook is downloaded, filled in over
+   * weeks, and uploaded long after we have renamed something — and an unrecognised
+   * header is dropped, which would make a renamed column indistinguishable from a
+   * column the foundation left blank. Never remove an entry from here.
+   */
+  aliases?: string[]
+  /**
+   * How the column is LABELLED in the workbook — a two-state "please fill this in",
+   * which is a different question from what we do when it is missing (`tier`). A
+   * spreadsheet has no room to explain four tiers, and a finance officer filling one in
+   * wants to know what to type, not what degrades. Defaults to the tier: `required`
+   * asks required, everything else asks optional. Set it explicitly where the two
+   * diverge — "Where the impact happens" is asked for as required because a location
+   * matters, but a back catalogue that never recorded one still imports.
+   */
+  askedAs?: 'required' | 'optional'
+  /**
    * A noun for use mid-sentence, where the header reads as a question. Without it
    * "Where the work happens" produces "1 grant with no where the work happens".
    * Defaults to the lower-cased header.
@@ -101,12 +118,20 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     help: 'The total grant, across all years. Numbers only — no £ sign, no commas.',
   },
   {
+    key: 'amountPaid',
+    header: 'Amount paid',
+    shortLabel: 'amount paid',
+    tier: 'optional',
+    type: 'money',
+    help: 'Total paid out on this grant to date. Numbers only. For completed grants, record the final amount here instead of listing each payment; for active grants, itemise on the Payments sheet.',
+  },
+  {
     key: 'status',
     header: 'Status',
     tier: 'required',
     type: 'enum',
     options: ['Active', 'Completed', 'Cancelled'],
-    help: 'Active means money still to pay or reports still to come. Completed means the grant has run its course.',
+    help: 'Active or Completed (Cancelled if it was withdrawn). Active means the award is still in progress; Completed means the grant has finished and its reporting is done.',
   },
   {
     key: 'charityNumber',
@@ -133,8 +158,14 @@ export const GRANT_COLUMNS: ImportColumn[] = [
   },
   {
     key: 'deliveryArea',
-    header: 'Where the work happens',
+    header: 'Where the impact happens',
+    aliases: ['Where the work happens'],
     shortLabel: 'location',
+    // Asked for as required — a location earns its place in the file. Not enforced as
+    // one: a live application only `expects` a delivery area, and holding a whole back
+    // catalogue over a column the foundation never kept would be stricter about history
+    // than we are about today's submissions.
+    askedAs: 'required',
     tier: 'expected',
     type: 'text',
     degrades:
@@ -143,8 +174,10 @@ export const GRANT_COLUMNS: ImportColumn[] = [
   },
   {
     key: 'purpose',
-    header: 'What the money is for',
+    header: 'Grant purpose',
+    aliases: ['What the money is for'],
     shortLabel: 'stated purpose',
+    askedAs: 'required',
     tier: 'expected',
     type: 'text',
     degrades:
@@ -164,7 +197,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     header: 'Impact figure so far',
     tier: 'optional',
     type: 'number',
-    help: 'Any impact already recorded for this grant — beneficiaries reached, hectares restored, whatever your programme measures. Numbers only.',
+    help: 'Any impact recorded for this grant so far — beneficiaries reached, hectares restored, whatever your programme measures. Numbers only. For a completed grant, this is the final total.',
   },
 ]
 
@@ -210,6 +243,10 @@ export const PAYMENT_COLUMNS: ImportColumn[] = [
     key: 'paidDate',
     header: 'Date paid',
     shortLabel: 'payment date',
+    // Asked for as required because a paid instalment with no date is a real loss, but
+    // the cell is legitimately blank on everything not yet paid — so it can only ever
+    // be a warning, never a gate.
+    askedAs: 'required',
     tier: 'expected',
     type: 'date',
     degrades:
@@ -244,30 +281,48 @@ export const REPORT_COLUMNS: ImportColumn[] = [
     help: 'When the report is or was due. Format YYYY-MM-DD.',
   },
   {
+    key: 'received',
+    header: 'Received?',
+    shortLabel: 'received answer',
+    // The flag, not the date, is what settles whether a milestone is outstanding. It
+    // exists because "no date" and "not received" were previously the same cell, so a
+    // foundation that never logged report dates had every milestone showing overdue.
+    askedAs: 'required',
+    tier: 'optional',
+    type: 'enum',
+    options: ['Yes', 'No'],
+    help: 'Has this report come in? Yes or No. This is what marks a report as received, or leaves it showing as due or overdue on the Reports screen.',
+  },
+  {
     key: 'receivedDate',
     header: 'Date received',
     tier: 'optional',
     type: 'date',
-    help: 'Leave blank if the report is still outstanding — that is exactly what makes it show as due or overdue on the Reports screen.',
+    help: 'When the report arrived, if you know it. Format YYYY-MM-DD. You can leave this blank even for a received report if you do not have the exact date.',
   },
 ]
 
-export const SHEETS: Record<SheetKey, { title: string; columns: ImportColumn[]; blurb: string }> = {
+export const SHEETS: Record<
+  SheetKey,
+  { title: string; columns: ImportColumn[]; blurb: string; note: string }
+> = {
   grants: {
     title: 'Grants',
     columns: GRANT_COLUMNS,
-    blurb: 'One row per grant. Start with the grants that still owe you money or a report.',
+    blurb: 'One row per grant.',
+    note: 'For both active and completed grants — every grant needs a row here.',
   },
   payments: {
     title: 'Payments',
     columns: PAYMENT_COLUMNS,
-    blurb:
-      'One row per instalment. For a completed grant you can use a single row for the full amount.',
+    blurb: 'One row per instalment still to track.',
+    note: 'Not needed for completed grants — this section is for active grants only.',
   },
   reports: {
     title: 'Reports',
     columns: REPORT_COLUMNS,
-    blurb: 'One row per reporting milestone, received or still outstanding.',
+    blurb: 'One row per reporting milestone.',
+    note: 'Not needed for completed grants — this section is for active grants only.',
   },
 }
 
@@ -288,7 +343,13 @@ export const ONE_OF_GROUPS: Array<{ keys: string[]; label: string; degrades: str
   },
 ]
 
-export const TEMPLATE_VERSION = '1'
+/**
+ * Bumped to 2 when the workbook gained Amount paid and Received?, tier labels in the
+ * headers, and the active/completed split on the instructions sheet. Nothing refuses an
+ * older file: a v1 workbook has bare headers and neither new column, and both still
+ * read (see `baseHeader` in workbook.ts, and `received` falling back to the date).
+ */
+export const TEMPLATE_VERSION = '2'
 
 /** Sheet holding the dropdown source lists and the file's fingerprint. Hidden. */
 export const LOOKUP_SHEET = '_Custodian'
@@ -300,4 +361,19 @@ export function columnsFor(sheet: SheetKey): ImportColumn[] {
 /** The noun to use mid-sentence, e.g. "3 grants with no {label}". */
 export function columnLabel(column: ImportColumn): string {
   return column.shortLabel ?? column.header.toLowerCase()
+}
+
+/** Whether the workbook asks for this column as required — see `askedAs`. */
+export function columnAsk(column: ImportColumn): 'required' | 'optional' {
+  return column.askedAs ?? (column.tier === 'required' ? 'required' : 'optional')
+}
+
+/**
+ * The header as written into the sheet: "Amount awarded (required)". The suffix is
+ * part of the text people read while filling the file in, which is why it lives in the
+ * header rather than in a comment nobody opens. `baseHeader` in workbook.ts strips it
+ * again on read, so this wording can change without stranding a downloaded file.
+ */
+export function headerLabel(column: ImportColumn): string {
+  return `${column.header} (${columnAsk(column)})`
 }

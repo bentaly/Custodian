@@ -1,0 +1,1 @@
+ALTER TYPE "public"."audit_action" ADD VALUE 'grant_bank_details_changed';

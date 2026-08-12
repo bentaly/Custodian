@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applications, awards } from '../../../drizzle/schema'
-import { requireAuthUser } from '../session'
+import { requireAuthUser, requireRole } from '../session'
+import { recordAudit } from '../audit'
 import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
 import { checkBankAccount, type ModulusCheckStatus } from '../../lib/bankVerification'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
@@ -14,8 +15,9 @@ import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
 
 // Finance reads the same grants as Awards, but through the payments lens: one row per
 // grant, keyed on where its money is up to rather than on the decision that made it.
-// Nothing here writes — the payment actions (`setInstalmentPaid`, `updateInstalment`)
-// already live in `fns/applications.ts` and are reused as-is.
+// The payment actions (`setInstalmentPaid`, `updateInstalment`) live in
+// `fns/applications.ts` and are reused as-is; the one write that is the payments lens's
+// own is `updateGrantBankDetails` at the foot of this file.
 
 /**
  * Where a grant's money is up to. Ordered by urgency: `overdue` first through to
@@ -560,5 +562,96 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
       charityNumber: app.charityNumber,
       companyNumber: app.companyNumber,
       canEdit,
+    }
+  })
+
+// ─── Correcting where the money goes ─────────────────────────────────────────
+
+/** Empty (or all-whitespace) reads as "we hold nothing", not as an empty string. */
+const BankText = z
+  .string()
+  .trim()
+  .max(100)
+  .transform((v) => v || null)
+  .nullable()
+  .optional()
+
+/**
+ * Correct the bank details a grant would be paid into.
+ *
+ * These columns live on the APPLICATION — they are what the grantee submitted — so this
+ * overwrites their own words, and it is the one edit in the app that changes where money
+ * lands. Hence the audit row: not because a typo needs ceremony, but because "who
+ * redirected this payment, and when" is a question a foundation will one day have to
+ * answer, and the column alone only ever holds the latest answer.
+ *
+ * Values are stored as typed. `checkBankAccount` strips spaces and dashes itself, so
+ * "08-99-99" and "089999" are the same pair to the modulus check, and the badge on the
+ * panel re-derives from the stored values on the next read — there is no status column
+ * here to fall out of step.
+ *
+ * Clearing both numbers is allowed, unlike clearing a registration number: an unpayable
+ * grant is an ordinary state (it is the state every grant starts in), and the panel says
+ * so plainly rather than pretending otherwise.
+ */
+export const updateGrantBankDetails = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      awardId: z.uuid(),
+      accountName: BankText,
+      bankName: BankText,
+      sortCode: BankText,
+      accountNumber: BankText,
+    }),
+  )
+  .handler(async ({ data }) => {
+    // Same set as the panel's `canEdit`: paying grants is exactly what `finance` is for.
+    const user = await requireRole('superadmin', 'admin', 'finance')
+    const award = await getDb().query.awards.findFirst({
+      where: eq(awards.id, data.awardId),
+      columns: { id: true, clientId: true, applicationId: true },
+    })
+    if (!award) throw notFoundError()
+    assertClientAccess(user, award.clientId)
+
+    const before = await getDb().query.applications.findFirst({
+      where: eq(applications.id, award.applicationId),
+      columns: { bankSortCode: true, bankAccountNumber: true },
+    })
+    if (!before) throw notFoundError()
+
+    await getDb()
+      .update(applications)
+      .set({
+        ...(data.accountName !== undefined ? { bankAccountName: data.accountName } : {}),
+        ...(data.bankName !== undefined ? { bankName: data.bankName } : {}),
+        ...(data.sortCode !== undefined ? { bankSortCode: data.sortCode } : {}),
+        ...(data.accountNumber !== undefined ? { bankAccountNumber: data.accountNumber } : {}),
+      })
+      .where(eq(applications.id, award.applicationId))
+
+    // Only when the destination actually moved. Renaming the account holder or filling in
+    // the bank's name is housekeeping; the sort code and account number are the payment.
+    const moved =
+      (data.sortCode !== undefined && data.sortCode !== before.bankSortCode) ||
+      (data.accountNumber !== undefined && data.accountNumber !== before.bankAccountNumber)
+    if (moved) {
+      await recordAudit({
+        actorUserId: user.id,
+        action: 'grant_bank_details_changed',
+        applicationId: award.applicationId,
+        clientId: award.clientId,
+        // Last four only. The feed is a screen several people can read, and a full
+        // account number does not need to be on it to answer "did this change".
+        metadata: {
+          from: { sortCode: before.bankSortCode, last4: last4(before.bankAccountNumber) },
+          to: {
+            sortCode: data.sortCode !== undefined ? data.sortCode : before.bankSortCode,
+            last4: last4(
+              data.accountNumber !== undefined ? data.accountNumber : before.bankAccountNumber,
+            ),
+          },
+        },
+      })
     }
   })

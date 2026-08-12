@@ -8,6 +8,7 @@ import {
   CheckmarkSquare01Icon,
   CancelSquareIcon,
   BubbleChatIcon,
+  BankIcon,
   NoteIcon,
   Note03Icon,
   Wallet03Icon,
@@ -287,6 +288,10 @@ const LATELY_META: Record<string, { icon: IconSvgElement; verb: string }> = {
   application_registration_set: {
     icon: Audit02Icon,
     verb: 'added a registration number and screened',
+  },
+  grant_bank_details_changed: {
+    icon: BankIcon,
+    verb: 'changed the payment account for',
   },
 }
 

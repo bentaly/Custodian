@@ -18,7 +18,7 @@ import {
 } from '../../server/fns/dataImport'
 import { Breadcrumb, Button } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
-import { SHEETS } from '../../lib/dataImport/columns'
+import { columnAsk, SHEETS } from '../../lib/dataImport/columns'
 import type { CellIssue, GrantRow, PaymentRow, ReportRow } from '../../lib/dataImport/parse'
 import { fmtMoney } from '../../lib/format'
 
@@ -458,9 +458,11 @@ function DataImport() {
                         {SHEETS[key].blurb}
                       </div>
                       <div className="mt-2.5 text-label" style={{ color: C.sub }}>
-                        {SHEETS[key].columns.filter((c) => c.tier === 'required').length} required
-                        column
-                        {SHEETS[key].columns.filter((c) => c.tier === 'required').length === 1
+                        {/* Counted the way the workbook labels them, not by tier — this
+                            card is describing the file they are about to fill in. */}
+                        {SHEETS[key].columns.filter((c) => columnAsk(c) === 'required').length}{' '}
+                        required column
+                        {SHEETS[key].columns.filter((c) => columnAsk(c) === 'required').length === 1
                           ? ''
                           : 's'}
                         , {SHEETS[key].columns.length} in total

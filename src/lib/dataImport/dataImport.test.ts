@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { matchValue, normalise, resolveColumn, similarity } from './match'
-import { asDate, asNumber, parseGrants, parsePayments, type RawRow } from './parse'
+import { asDate, asNumber, parseGrants, parsePayments, parseReports, type RawRow } from './parse'
 import { validateImport } from './validate'
 import type { GrantRow, PaymentRow, ReportRow } from './parse'
 
@@ -155,6 +155,31 @@ describe('parsePayments', () => {
   })
 })
 
+describe('parseReports', () => {
+  const cells = (over: Record<string, unknown> = {}) => ({
+    rowNumber: 2,
+    cells: { reference: 'GR-001', label: 'Final report', dueDate: '2026-06-01', ...over },
+  })
+
+  it('reads the Received? answer', () => {
+    expect(parseReports([cells({ received: 'Yes' })]).rows[0]!.received).toBe(true)
+    expect(parseReports([cells({ received: 'No' })]).rows[0]!.received).toBe(false)
+  })
+
+  it('treats a blank answer as not received', () => {
+    expect(parseReports([cells()]).rows[0]!.received).toBe(false)
+  })
+
+  // A v1 workbook has no Received? column at all, so the date is the only evidence
+  // there is — and a report cannot have arrived on a day and also not have arrived.
+  it('lets a date stand in for the answer, and override a No', () => {
+    expect(parseReports([cells({ receivedDate: '2026-05-20' })]).rows[0]!.received).toBe(true)
+    expect(
+      parseReports([cells({ received: 'No', receivedDate: '2026-05-20' })]).rows[0]!.received,
+    ).toBe(true)
+  })
+})
+
 // ─── Validation ─────────────────────────────────────────────────────────────
 
 const grant = (over: Partial<GrantRow> = {}): GrantRow => ({
@@ -165,6 +190,7 @@ const grant = (over: Partial<GrantRow> = {}): GrantRow => ({
   round: 'Spring 2025',
   awardDate: '2025-06-01',
   amountAwarded: 45000,
+  amountPaid: null,
   status: 'active',
   charityNumber: '1122334',
   companyNumber: null,
@@ -191,6 +217,7 @@ const report = (over: Partial<ReportRow> = {}): ReportRow => ({
   reference: 'GR-001',
   label: 'Final report',
   dueDate: '2026-06-01',
+  received: false,
   receivedDate: null,
   ...over,
 })
@@ -264,6 +291,45 @@ describe('validateImport', () => {
   it('counts an unreceived milestone as outstanding', () => {
     const result = run({ grants: [grant()], reports: [report()] })
     expect(result.reconciliation.reportsOutstanding).toBe(1)
+  })
+
+  // A foundation that logged which reports came in but never their dates would
+  // otherwise see every milestone it ever met listed as overdue.
+  it('takes a report’s Received? answer, not its date, as what settles it', () => {
+    const result = run({
+      grants: [grant()],
+      reports: [report({ received: true, receivedDate: null })],
+    })
+    expect(result.reconciliation.reportsOutstanding).toBe(0)
+    expect(result.issues.some((i) => i.code === 'received_no_date')).toBe(true)
+  })
+
+  // ── The lump "Amount paid" figure ──
+
+  it('counts a completed grant’s lump sum as paid when it has no instalments', () => {
+    const result = run({
+      grants: [grant({ status: 'completed', amountPaid: 45000 })],
+    })
+    expect(result.reconciliation.totalPaid).toBe(45000)
+    expect(result.reconciliation.totalOutstanding).toBe(0)
+  })
+
+  // Counting both would double the paid total on every grant that filled in each — and
+  // the schedule is the only one of the two that says what went out when.
+  it('ignores the lump sum where instalments were listed, and says so', () => {
+    const result = run({
+      grants: [grant({ amountPaid: 10000 })],
+      payments: [payment()],
+    })
+    expect(result.reconciliation.totalPaid).toBe(45000)
+    const issue = result.issues.find((i) => i.code === 'amount_paid_mismatch')
+    expect(issue?.kind).toBe('degradation')
+  })
+
+  it('flags a completed grant with nothing recorded as paid', () => {
+    const result = run({ grants: [grant({ status: 'completed' })] })
+    expect(result.canCommit).toBe(true)
+    expect(result.issues.some((i) => i.code === 'completed_nothing_paid')).toBe(true)
   })
 
   // Re-uploading is the phasing mechanism (live grants first, historic later), so a

@@ -19,7 +19,16 @@
 // file for the one client who most needs it to work. Identification is handled by the
 // fingerprint below instead, which is strictly more reliable and cannot lock anyone out.
 
-import { LOOKUP_SHEET, SHEETS, TEMPLATE_VERSION, type ImportColumn, type SheetKey } from './columns'
+import {
+  columnAsk,
+  headerLabel,
+  LOOKUP_SHEET,
+  SHEETS,
+  TEMPLATE_VERSION,
+  type ImportColumn,
+  type SheetKey,
+} from './columns'
+import { CUSTODIAN_MARK_PNG_BASE64 } from './logo'
 import type { RawRow } from './parse'
 
 export type LookupLists = {
@@ -35,6 +44,17 @@ export type TemplateContext = {
 
 /** How many rows of dropdowns to pre-arm. Beyond this the column is still valid. */
 const VALIDATED_ROWS = 800
+
+/** Every data column the same width: the headers now carry a "(required)" suffix, and
+ * sizing each one to its own text left a ragged sheet where the widest column was the
+ * least important. */
+const DATA_COLUMN_WIDTH = 25
+
+const INK = 'FF141C24'
+const BODY = 'FF344054'
+const MUTED = 'FF637083'
+const HEADER_FILL = 'FFF3F6F4'
+const TABLE_FILL = 'FFEFF2F6'
 
 type ExcelJsModule = typeof import('exceljs')
 
@@ -61,43 +81,117 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
   const ExcelJS = await loadExcelJs()
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Custodian'
+  wb.company = 'Custodian'
+  wb.title = `Custodian import — ${ctx.foundationName}`
   wb.created = new Date()
 
   // ── Instructions ──
+  //
+  // The sheet does one job before it lists any columns: say that active and completed
+  // grants are filled in differently. Before that was stated, foundations either
+  // itemised a decade of paid instalments they no longer needed, or gave up.
   const intro = wb.addWorksheet('Start here')
   intro.getColumn(1).width = 34
   intro.getColumn(2).width = 96
 
+  /** A paragraph in the right-hand column, wrapped. Blank left cell by design. */
+  const paragraph = (text: string, height = 46) => {
+    const row = intro.addRow(['', text])
+    row.height = height
+    row.getCell(2).font = { size: 11 }
+    row.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+    return row
+  }
+  const spacer = () => intro.addRow([])
+
+  // The mark sits above the title rather than beside it: an image anchored into a cell
+  // that also holds text covers the text at some zoom levels and no other.
+  try {
+    const logoId = wb.addImage({
+      base64: `data:image/png;base64,${CUSTODIAN_MARK_PNG_BASE64}`,
+      extension: 'png',
+    })
+    intro.addImage(logoId, {
+      tl: { col: 0.25, row: 0.2 },
+      ext: { width: 34, height: 34 },
+      editAs: 'oneCell',
+    })
+  } catch {
+    // Branding is not worth failing a download over.
+  }
+  intro.getRow(1).height = 34
+  intro.addRow([])
+
   const title = intro.addRow([`Custodian import — ${ctx.foundationName}`])
   title.font = { size: 15, bold: true }
-  intro.addRow([])
-  intro.addRow([
-    '',
-    'Fill in the three sheets in this workbook, then upload it in Settings → Data import.',
-  ])
-  intro.addRow([
-    '',
-    'You do not have to do everything at once. Start with the grants that still owe you money or a report — you can upload again later to add the rest, and re-uploading a grant updates it rather than duplicating it.',
-  ])
-  intro.addRow([])
+  spacer()
+  paragraph('Fill in this workbook, then upload it in Settings → Data import.', 16)
+  spacer()
+  paragraph(
+    'Custodian treats two kinds of grant differently. Active grants are still in progress — the award is ongoing, with outcomes still being delivered and reported — so they use all three sheets. Completed grants are historical — the grant has finished and its reporting is done — so they need only a single row on the Grants sheet. Set each grant’s Status accordingly, and follow the table below.',
+  )
+  spacer()
+
+  // The active/completed table.
+  const tableHead = intro.addRow(['Grant status', 'What to fill in'])
+  tableHead.height = 22
+  for (const c of [1, 2]) {
+    tableHead.getCell(c).font = { size: 10, bold: true, color: { argb: BODY } }
+    tableHead.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TABLE_FILL } }
+    tableHead.getCell(c).alignment = { wrapText: true, vertical: 'middle' }
+  }
+  const tableRow = (label: string, text: string, height: number) => {
+    const row = intro.addRow([label, text])
+    row.height = height
+    row.getCell(1).font = { size: 10, bold: true, color: { argb: BODY } }
+    row.getCell(2).font = { size: 10, color: { argb: BODY } }
+    for (const c of [1, 2]) row.getCell(c).alignment = { wrapText: true, vertical: 'top' }
+  }
+  tableRow(
+    'Active grants',
+    'Fill in all three sheets — Grants, Payments and Reports. “Active” means the award is still in progress, with outcomes being delivered and reported.',
+    46,
+  )
+  tableRow(
+    'Completed grants',
+    'Fill in the Grants sheet only. Put the total paid in ‘Amount paid’ and the final impact in ‘Impact figure so far’, then leave the Payments and Reports sheets blank.',
+    60,
+  )
+  spacer()
+
+  paragraph(
+    'You can upload again later to add more — re-uploading a grant updates it rather than duplicating it.',
+  )
+  spacer()
+  paragraph(
+    'This template is built with your own account data. The Programme and Round columns already list your foundation’s programmes and rounds, so you pick from a dropdown instead of typing, and everything connects to the right place in Custodian when you upload.',
+  )
+  paragraph(
+    'If the round you need isn’t listed, just type the round name you’d like and we’ll create it in your Custodian account during the import. Programmes must already exist in Custodian, so please pick one from the dropdown.',
+  )
+  spacer()
 
   for (const key of ['grants', 'payments', 'reports'] as SheetKey[]) {
     const sheet = SHEETS[key]
+
+    // Which grants this sheet is even for. Stated per sheet, because someone reading
+    // the Payments block has usually scrolled past the table above it.
+    const note = intro.addRow(['', sheet.note])
+    note.getCell(2).font = { size: 10, bold: true, color: { argb: BODY } }
+    note.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+
     const header = intro.addRow([sheet.title, sheet.blurb])
-    header.font = { bold: true }
+    header.getCell(1).font = { size: 12, bold: true }
+    header.getCell(2).font = { size: 10, color: { argb: MUTED } }
+    header.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+
     for (const col of sheet.columns) {
-      const label =
-        col.tier === 'required'
-          ? `${col.header} (required)`
-          : col.tier === 'optional'
-            ? `${col.header} (optional)`
-            : col.header
-      const row = intro.addRow([`    ${label}`, col.help])
-      row.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+      const row = intro.addRow([`    ${headerLabel(col)}`, col.help])
       row.getCell(1).font = { size: 10 }
-      row.getCell(2).font = { size: 10, color: { argb: 'FF637083' } }
+      row.getCell(2).font = { size: 10, color: { argb: MUTED } }
+      row.getCell(2).alignment = { wrapText: true, vertical: 'top' }
     }
-    intro.addRow([])
+    spacer()
   }
 
   // ── Lookups + fingerprint ──
@@ -143,14 +237,14 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
     const ws = wb.addWorksheet(sheet.title)
 
     ws.columns = sheet.columns.map((col) => ({
-      header: col.header,
+      header: headerLabel(col),
       key: col.key,
-      width: Math.min(Math.max(col.header.length + 6, 14), 30),
+      width: DATA_COLUMN_WIDTH,
     }))
 
     const headerRow = ws.getRow(1)
-    headerRow.font = { bold: true, color: { argb: 'FF141C24' } }
-    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F6F4' } }
+    headerRow.font = { bold: true, color: { argb: INK } }
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } }
     headerRow.alignment = { vertical: 'middle' }
     headerRow.height = 22
     ws.views = [{ state: 'frozen', ySplit: 1 }]
@@ -170,7 +264,7 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
       for (let r = 2; r <= VALIDATED_ROWS; r++) {
         ws.getCell(`${letter}${r}`).dataValidation = {
           type: 'list',
-          allowBlank: col.tier !== 'required',
+          allowBlank: columnAsk(col) !== 'required',
           formulae: [formula],
           showErrorMessage: true,
           errorStyle: 'warning',
@@ -201,6 +295,23 @@ export type ReadResult = {
 }
 
 export class WorkbookError extends Error {}
+
+/**
+ * A header reduced to what identifies the column: lower-cased, trimmed, with the
+ * "(required)" / "(optional)" suffix removed.
+ *
+ * The suffix is guidance for whoever fills the file in, not part of the column's
+ * identity — so stripping it is what lets the labelling change (or a v1 workbook
+ * downloaded before the labels existed be uploaded today) without a single column
+ * silently going missing. A stray trailing space or a change of case is handled here
+ * for the same reason.
+ */
+function baseHeader(text: string): string {
+  return text
+    .replace(/\((?:required|optional)\)\s*$/i, '')
+    .toLowerCase()
+    .trim()
+}
 
 export async function readWorkbook(file: File): Promise<ReadResult> {
   const ExcelJS = await loadExcelJs()
@@ -243,20 +354,18 @@ export async function readWorkbook(file: File): Promise<ReadResult> {
       continue
     }
 
-    // Header row → column key. Matched on the normalised header text so a stray
-    // trailing space or a change of case doesn't lose a whole column.
+    // Header row → column key, matched on the normalised header (see `baseHeader`).
     const headerRow = ws.getRow(1)
     const byHeader = new Map<string, string>()
     for (const col of spec.columns) {
-      byHeader.set(col.header.toLowerCase().trim(), col.key)
+      byHeader.set(baseHeader(col.header), col.key)
+      for (const alias of col.aliases ?? []) byHeader.set(baseHeader(alias), col.key)
     }
 
     const indexToKey = new Map<number, string>()
     const foundKeys = new Set<string>()
     headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-      const text = String(cell.value ?? '')
-        .toLowerCase()
-        .trim()
+      const text = baseHeader(String(cell.value ?? ''))
       if (!text) return
       const mapped = byHeader.get(text)
       if (mapped) {

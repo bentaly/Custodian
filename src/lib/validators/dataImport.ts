@@ -16,6 +16,7 @@ export const GrantRowSchema = z.object({
   round: z.string().min(1).max(300),
   awardDate: isoDate,
   amountAwarded: z.number().finite().min(0).max(1_000_000_000),
+  amountPaid: z.number().finite().min(0).max(1_000_000_000).nullable(),
   status: z.enum(['active', 'completed', 'cancelled']),
   charityNumber: z.string().max(60).nullable(),
   companyNumber: z.string().max(60).nullable(),
@@ -40,6 +41,7 @@ export const ReportRowSchema = z.object({
   reference: z.string().min(1).max(120),
   label: z.string().min(1).max(300),
   dueDate: isoDate,
+  received: z.boolean(),
   receivedDate: isoDate.nullable(),
 })
 

@@ -11,6 +11,10 @@ export type AuditAction =
   // grantee could finally be screened. A statement about who is being funded, not a
   // typo fix, which is why it is in the feed rather than only in the column.
   | 'application_registration_set'
+  // The account a grant is paid into was changed by hand on the payment panel. The one
+  // edit in the app that moves money somewhere else, so it is a fact about the grant
+  // rather than a correction to a field.
+  | 'grant_bank_details_changed'
 
 /**
  * Record a human action against an application in the audit log — the source of the
