@@ -80,7 +80,7 @@ function Stepper({ step }: { step: number }) {
         return (
           <div key={s.n} className="flex min-w-0 flex-1 items-center gap-2 last:flex-none">
             <span
-              className="flex size-5 shrink-0 items-center justify-center rounded-full font-display text-label font-medium"
+              className="flex size-5 shrink-0 items-center justify-center rounded-full font-display text-label font-medium transition-colors duration-300"
               style={{
                 backgroundColor: done || active ? C.brand : C.wash,
                 color: done || active ? '#fff' : C.faint,
@@ -95,10 +95,18 @@ function Stepper({ step }: { step: number }) {
               {s.label}
             </span>
             {i < STEPS.length - 1 && (
+              // A track that fills left to right as the step it leads out of completes,
+              // so the connector travels towards the step you have just moved to rather
+              // than flicking green behind you.
               <span
-                className="h-px min-w-4 flex-1"
-                style={{ backgroundColor: done ? C.brand : C.line }}
-              />
+                className="h-[2px] min-w-4 flex-1 overflow-hidden rounded-full"
+                style={{ backgroundColor: C.line }}
+              >
+                <span
+                  className="block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                  style={{ width: done ? '100%' : '0%', backgroundColor: C.brand }}
+                />
+              </span>
             )}
           </div>
         )
