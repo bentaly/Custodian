@@ -487,8 +487,14 @@ per-grant outcomes.
 
 - The UI is **`AwardWizard`** (`src/components/shortlist/`), a modal over the Set up awards queue.
   Payment structure is `1 | 2 | 3 | custom`; **Custom** switches to the per-grant hand-edited split,
-  seeded from the rows the shared terms had just produced, with an allocation guardrail that must
-  reconcile before Confirm. On step 3 the letters are **paged with ‹ ›, one at a time**, not stacked:
+  seeded from the rows the shared terms had just produced. **Grant start date and first payment are
+  separate fields** (paying a month in arrears is ordinary, and one field cannot express it); only
+  the start date reaches the server — the first payment is what the per-grant schedule is built
+  from. Validation **gates rather than reports**: an unreconciled split or a missing reporting date
+  disables Continue on the step that owns the field, so nothing surfaces as a line of red text over
+  the finished letters. Each step is gated only by what it can fix — the amount lives on step 2, so
+  a £0 amount must never hold step 1 shut. At least one reporting milestone is **required** (the
+  form opens with an empty one). On step 3 the letters are **paged with ‹ ›, one at a time**, not stacked:
   a batch of eight is several thousand words of near-identical text that nobody reads in one scroll.
   The amount stays **editable** there even though the comps show it fixed — awarding less than was
   asked for is ordinary, and every instalment and the letter's total derive from it.

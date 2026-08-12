@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  ArrowDown01Icon,
   ArrowLeft01Icon,
   ArrowLeft02Icon,
   ArrowRight01Icon,
   ArrowRight02Icon,
+  ArrowUp01Icon,
   Cancel01Icon,
   PlusSignIcon,
   Tick02Icon,
@@ -37,7 +39,14 @@ type LetterSettings = Awaited<ReturnType<typeof getAwardLetterSettings>>
 
 /** The batch's shared terms. */
 type Terms = {
+  /** When the grant period begins — what the letter states and the award stores. */
   startDate: string
+  /**
+   * When the first instalment falls due. Separate from the start date because a grant
+   * beginning 1 September that pays a month in arrears is ordinary, and one field
+   * cannot express it. It follows the start date until it is set to differ.
+   */
+  firstPaymentDate: string
   /** 1–3 even instalments, or `custom` — a hand-edited split per grant. */
   structure: 1 | 2 | 3 | 'custom'
   cadence: CadenceKey
@@ -169,6 +178,26 @@ function StatePill({ tone, children }: { tone: 'ready' | 'todo'; children: React
   )
 }
 
+/**
+ * The even split of a grant's total across its rows — the same rule `buildSchedule`
+ * uses, with the rounding remainder in the final instalment, so "Split evenly" and the
+ * derived structures never disagree about what even means.
+ */
+function evenSplit(g: GrantState): number[] {
+  const total = parseFloat(g.amount) || 0
+  const n = g.rows.length
+  if (n === 0) return []
+  const base = Math.floor(total / n)
+  return Array.from({ length: n }, (_, i) => (i === n - 1 ? total - base * (n - 1) : base))
+}
+
+/** Whether the rows already carry that split — a button that would do nothing is off. */
+function isEvenSplit(g: GrantState): boolean {
+  const even = evenSplit(g)
+  if (even.length === 0) return true
+  return g.rows.every((r, i) => Math.abs((parseFloat(r.amount) || 0) - even[i]!) < 0.005)
+}
+
 /** A grant's duration, in the comps' words. */
 function durationLabel(years: number | null): string | null {
   if (!years || years <= 0) return null
@@ -192,10 +221,14 @@ export function AwardWizard({
   const [step, setStep] = useState(1)
   const [terms, setTerms] = useState<Terms>(() => ({
     startDate: todayIso(),
+    firstPaymentDate: todayIso(),
     structure: 1,
     cadence: 'yearly',
     useStandardConditions: true,
-    reporting: [],
+    // One empty row, because a grant must carry at least one reporting date: the
+    // requirement shows as a field waiting to be filled rather than only as a message
+    // under a disabled button.
+    reporting: [{ label: '', date: '' }],
   }))
   const [grants, setGrants] = useState<Record<string, GrantState>>(() =>
     Object.fromEntries(
@@ -236,9 +269,22 @@ export function AwardWizard({
     return buildSchedule(
       parseFloat(g.amount) || 0,
       terms.structure,
-      terms.startDate || null,
+      terms.firstPaymentDate || null,
       cadenceMonths(terms.cadence),
     )
+  }
+
+  /**
+   * The first payment tracks the start date while the two agree — moving a batch's
+   * start date almost always means moving its payments — and stops the moment an
+   * admin sets it to something of its own.
+   */
+  function setStartDate(next: string) {
+    setTerms((t) => ({
+      ...t,
+      startDate: next,
+      firstPaymentDate: t.firstPaymentDate === t.startDate ? next : t.firstPaymentDate,
+    }))
   }
 
   /**
@@ -255,7 +301,7 @@ export function AwardWizard({
           const rows = buildSchedule(
             parseFloat(g.amount) || 0,
             from,
-            terms.startDate || null,
+            terms.firstPaymentDate || null,
             cadenceMonths(terms.cadence),
           ).map((r) => ({ amount: String(r.amount), date: r.date ?? '' }))
           seeded[c.id] = { ...g, rows }
@@ -269,15 +315,8 @@ export function AwardWizard({
   /** Re-split a grant's total evenly across its rows, keeping the dates. */
   function splitEvenly(c: AwardCandidate) {
     const g = grants[c.id]!
-    const total = parseFloat(g.amount) || 0
-    const n = g.rows.length
-    if (n === 0) return
-    const base = Math.floor(total / n)
     setGrant(c.id, {
-      rows: g.rows.map((r, i) => ({
-        ...r,
-        amount: String(i === n - 1 ? total - base * (n - 1) : base),
-      })),
+      rows: g.rows.map((r, i) => ({ ...r, amount: String(evenSplit(g)[i] ?? 0) })),
     })
   }
 
@@ -312,32 +351,63 @@ export function AwardWizard({
 
   const totalCommitted = candidates.reduce((s, c) => s + (parseFloat(grants[c.id]!.amount) || 0), 0)
 
-  // Validation, computed once so the footer and the step bodies agree.
-  const problems = useMemo(() => {
+  // Validation is per step, and it GATES rather than reports: a schedule that does not
+  // add up is fixed on the step that owns it, where the numbers are on screen — not
+  // announced two steps later as a line of red text over the letters.
+  const completeMilestones = terms.reporting.filter((r) => r.label.trim() && r.date).length
+
+  const termsProblems = useMemo(() => {
     const list: string[] = []
-    if (!terms.startDate) list.push('Set a start date.')
+    if (!terms.startDate) list.push('Set the grant start date.')
+    if (!terms.firstPaymentDate) list.push('Set the first payment date.')
+    if (completeMilestones === 0) list.push('Add at least one reporting date.')
     if (terms.reporting.some((r) => (r.label.trim() ? 1 : 0) + (r.date ? 1 : 0) === 1)) {
       list.push('Every reporting milestone needs both a label and a date.')
     }
+    return list
+  }, [terms, completeMilestones])
+
+  /**
+   * Per grant: what is wrong with its money, if anything. Shown against the grant on
+   * step 2 and (for a hand-edited split) by the allocation guardrail on step 1, so the
+   * disabled Continue always has its reason next to the field that caused it.
+   */
+  const moneyProblems = useMemo(() => {
+    const byId = new Map<string, { kind: 'amount' | 'schedule'; text: string }>()
     for (const c of candidates) {
       const g = grants[c.id]!
       const amount = parseFloat(g.amount) || 0
-      if (amount <= 0) list.push(`${c.organisationName}: set an amount to award.`)
+      // Checked first and alone: with no amount there is nothing for a schedule to add
+      // up to, and the field that fixes it is on the next step.
+      if (amount <= 0) {
+        byId.set(c.id, { kind: 'amount', text: 'Set an amount to award.' })
+        continue
+      }
       const schedule = scheduleFor(c)
       const allocated = schedule.reduce((s, r) => s + r.amount, 0)
-      if (amount > 0 && Math.abs(allocated - amount) > 0.005) {
-        list.push(
-          `${c.organisationName}: the payment schedule adds up to ${fmtMoney(allocated)}, not ${fmtMoney(amount)}.`,
-        )
+      if (Math.abs(allocated - amount) > 0.005) {
+        byId.set(c.id, {
+          kind: 'schedule',
+          text: `The payment schedule adds up to ${fmtMoney(allocated)}, not ${fmtMoney(amount)} — adjust the split on Terms.`,
+        })
+        continue
       }
       // A £0 instalment is silently dropped by the server's positive-amount check, so
       // catch it here where it can still be explained and fixed.
       if (schedule.some((r) => r.amount <= 0)) {
-        list.push(`${c.organisationName}: every instalment must be more than £0.`)
+        byId.set(c.id, { kind: 'schedule', text: 'Every instalment must be more than £0.' })
       }
     }
-    return list
+    return byId
   }, [candidates, grants, terms])
+
+  // A step is gated only by what it can actually fix — the amount lives on step 2, so
+  // it must never be what holds step 1 shut.
+  const scheduleBlocked = [...moneyProblems.values()].some((p) => p.kind === 'schedule')
+  const blocked =
+    step === 1
+      ? termsProblems.length > 0 || scheduleBlocked
+      : termsProblems.length > 0 || moneyProblems.size > 0
 
   async function handleConfirm() {
     setSaving(true)
@@ -395,10 +465,12 @@ export function AwardWizard({
       description="Set terms once · Review each grant · Confirm"
       footer={
         <div className="flex flex-col gap-3">
-          {problems.length > 0 && step === 3 && (
+          {/* Amber, and only on the step that owns them: these are things still to do,
+              not things gone wrong — the flow opens with the reporting date unset. */}
+          {step === 1 && termsProblems.length > 0 && (
             <ul className="space-y-1">
-              {problems.map((p) => (
-                <li key={p} className="font-display text-label" style={{ color: C.danger }}>
+              {termsProblems.map((p) => (
+                <li key={p} className="font-display text-label" style={{ color: C.amber }}>
                   {p}
                 </li>
               ))}
@@ -419,6 +491,7 @@ export function AwardWizard({
                 icon={ArrowRight02Icon}
                 iconPosition="right"
                 onClick={() => setStep(step + 1)}
+                disabled={blocked}
               >
                 Continue
               </Button>
@@ -427,7 +500,7 @@ export function AwardWizard({
                 icon={ArrowRight02Icon}
                 iconPosition="right"
                 onClick={handleConfirm}
-                disabled={saving || problems.length > 0}
+                disabled={saving || blocked}
               >
                 {saving
                   ? 'Creating…'
@@ -450,13 +523,28 @@ export function AwardWizard({
                 : `Set the terms shared by all ${candidates.length} awards. Everything is pre-filled from your standard defaults — adjust anything that differs.`}
             </p>
 
-            <div className="w-[200px]">
-              <FieldLabel>Start date</FieldLabel>
-              <DateField
-                value={terms.startDate}
-                onChange={(e) => setTerms((t) => ({ ...t, startDate: e.target.value }))}
-                aria-label="Grant start date"
-              />
+            <div className="flex flex-wrap gap-4">
+              <div className="w-[200px]">
+                <FieldLabel>Grant start date</FieldLabel>
+                <DateField
+                  value={terms.startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  aria-label="Grant start date"
+                />
+              </div>
+              <div className="w-[200px]">
+                <FieldLabel>First payment</FieldLabel>
+                <DateField
+                  value={terms.firstPaymentDate}
+                  onChange={(e) => setTerms((t) => ({ ...t, firstPaymentDate: e.target.value }))}
+                  aria-label="First payment date"
+                />
+                <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+                  {terms.firstPaymentDate === terms.startDate
+                    ? 'Paid on the start date'
+                    : 'Differs from the start date'}
+                </p>
+              </div>
             </div>
 
             <div>
@@ -505,7 +593,7 @@ export function AwardWizard({
               <FieldLabel>Reporting</FieldLabel>
               <p className="mb-2 font-display text-body" style={{ color: C.sub }}>
                 The dates you expect a report on. They appear on every letter, and in Reports once
-                the grants are live.
+                the grants are live. At least one is required.
               </p>
               <div className="flex flex-col gap-2">
                 {terms.reporting.map((r, i) => (
@@ -537,19 +625,21 @@ export function AwardWizard({
                         aria-label={`Reporting milestone ${i + 1} date`}
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setTerms((t) => ({
-                          ...t,
-                          reporting: t.reporting.filter((_, idx) => idx !== i),
-                        }))
-                      }
-                      aria-label={`Remove reporting milestone ${i + 1}`}
-                      className="flex size-8 shrink-0 items-center justify-center rounded-chip hover:bg-danger/10"
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} size={16} color={C.danger} />
-                    </button>
+                    {terms.reporting.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTerms((t) => ({
+                            ...t,
+                            reporting: t.reporting.filter((_, idx) => idx !== i),
+                          }))
+                        }
+                        aria-label={`Remove reporting milestone ${i + 1}`}
+                        className="flex size-8 shrink-0 items-center justify-center rounded-chip hover:bg-danger/10"
+                      >
+                        <HugeiconsIcon icon={Cancel01Icon} size={16} color={C.danger} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -733,6 +823,17 @@ export function AwardWizard({
                   >
                     Add new condition
                   </Button>
+
+                  {/* The amount is edited here and the split is set on Terms, so this is
+                      where a hand-edited schedule stops matching its grant. */}
+                  {moneyProblems.has(c.id) && (
+                    <p
+                      className="rounded-chip px-3 py-2 font-display text-label"
+                      style={{ backgroundColor: C.amberWash, color: C.amber }}
+                    >
+                      {moneyProblems.get(c.id)!.text}
+                    </p>
+                  )}
                 </div>
               )
             })}
@@ -749,7 +850,8 @@ export function AwardWizard({
                   v: one ? candidates[0]!.organisationName : String(candidates.length),
                 },
                 { l: 'Total committed', v: fmtMoney(totalCommitted), emph: true },
-                { l: 'Start date', v: fmtDate(terms.startDate) },
+                { l: 'Grant start date', v: fmtDate(terms.startDate) },
+                { l: 'First payment', v: fmtDate(terms.firstPaymentDate) },
                 {
                   l: 'Payment structure',
                   v: custom
@@ -805,7 +907,7 @@ export function AwardWizard({
                   </div>
                   <Button
                     variant="text"
-                    icon={letterOpen ? ArrowLeft01Icon : ArrowRight01Icon}
+                    icon={letterOpen ? ArrowUp01Icon : ArrowDown01Icon}
                     iconPosition="right"
                     onClick={() => setLetterOpen(!letterOpen)}
                   >
@@ -1012,7 +1114,14 @@ function CustomSchedules({
               >
                 Add instalment
               </Button>
-              <Button variant="text" style={{ color: C.sub }} onClick={() => splitEvenly(c)}>
+              {/* Off when the rows already carry that split — a button that would
+                  change nothing invites a click to find out. */}
+              <Button
+                variant="text"
+                style={{ color: C.sub }}
+                onClick={() => splitEvenly(c)}
+                disabled={isEvenSplit(g)}
+              >
                 Split evenly
               </Button>
             </div>

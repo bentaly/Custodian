@@ -5,7 +5,7 @@ import {
   ArrowRight02Icon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
-  ShieldKeyIcon,
+  MailOpenLoveIcon,
 } from '@hugeicons/core-free-icons'
 import {
   createAwards,
@@ -293,6 +293,10 @@ function SetUpAwards() {
   const [programmeId, setProgrammeId] = useState<string | undefined>()
   const [tag, setTag] = useState<string | undefined>()
   const [scoreBand, setScoreBand] = useState<string | undefined>()
+  // The awarded table filters on its own: a programme with grants already committed
+  // need not have anything left ready to award, so one shared pill would hide rows
+  // under an option the other table never offers.
+  const [awardedProgramme, setAwardedProgramme] = useState<string | undefined>()
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const [wizardFor, setWizardFor] = useState<AwardCandidate[] | null>(null)
@@ -333,6 +337,19 @@ function SetUpAwards() {
     .sort()
     .map((t) => ({ value: t, label: t }))
 
+  // Keyed on the name: `listAwards` rows carry the programme's name, not its id.
+  const awardedProgrammeOptions = [
+    ...new Set(awarded.items.map((a) => a.programmeName).filter(Boolean)),
+  ]
+    .sort()
+    .map((name) => ({ value: name as string, label: name as string }))
+  const awardedRows = awardedProgramme
+    ? awarded.items.filter((a) => a.programmeName === awardedProgramme)
+    : awarded.items
+  // Totalled from the rows on screen, so the line above the table always describes
+  // the table beneath it.
+  const awardedTotalShown = awardedRows.reduce((s, a) => s + a.amountAwarded, 0)
+
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -361,9 +378,14 @@ function SetUpAwards() {
         showTabs
       />
 
-      <div className="flex items-start gap-3 rounded-card p-4" style={{ backgroundColor: C.wash }}>
+      {/* The Awards icon from the sidebar, not a second one for the same idea: this
+          banner is the front door to the section the nav calls Awards. */}
+      <div
+        className="flex items-start gap-3 rounded-card p-4"
+        style={{ backgroundColor: C.brandWash }}
+      >
         <span className="flex size-9 shrink-0 items-center justify-center rounded-chip bg-white">
-          <HugeiconsIcon icon={ShieldKeyIcon} size={18} color={C.brand} strokeWidth={1.8} />
+          <HugeiconsIcon icon={MailOpenLoveIcon} size={18} color={C.brand} strokeWidth={1.8} />
         </span>
         <div className="min-w-0">
           <p className="font-display text-body font-medium" style={{ color: C.ink }}>
@@ -556,15 +578,26 @@ function SetUpAwards() {
               Grants awarded
             </p>
             <p className="font-display text-label" style={{ color: C.sub }}>
-              {fmtMoney(awarded.totals.totalAwarded)} committed across {awarded.totals.count} grant
-              {awarded.totals.count === 1 ? '' : 's'} in this round
+              {fmtMoney(awardedTotalShown)} committed across {awardedRows.length} grant
+              {awardedRows.length === 1 ? '' : 's'} in this round
             </p>
           </div>
+
+          {awardedProgrammeOptions.length > 1 && (
+            <div className="flex flex-wrap items-center gap-3">
+              <FilterPill
+                label="Programme"
+                value={awardedProgramme}
+                options={awardedProgrammeOptions}
+                onChange={setAwardedProgramme}
+              />
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
             <DataTable
               columns={AWARDED_COLUMNS}
-              rows={awarded.items}
+              rows={awardedRows}
               rowKey={(a) => a.awardId}
               onRowClick={(a) =>
                 navigate({ to: '/awards/$awardId', params: { awardId: a.awardId } })
