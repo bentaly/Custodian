@@ -301,10 +301,9 @@ export class WorkbookError extends Error {}
  * "(required)" / "(optional)" suffix removed.
  *
  * The suffix is guidance for whoever fills the file in, not part of the column's
- * identity — so stripping it is what lets the labelling change (or a v1 workbook
- * downloaded before the labels existed be uploaded today) without a single column
- * silently going missing. A stray trailing space or a change of case is handled here
- * for the same reason.
+ * identity, so it is stripped rather than matched on — as are a stray trailing space
+ * and a change of case. An unrecognised header is dropped, and a dropped column is
+ * indistinguishable from one the foundation left blank.
  */
 function baseHeader(text: string): string {
   return text
@@ -359,7 +358,6 @@ export async function readWorkbook(file: File): Promise<ReadResult> {
     const byHeader = new Map<string, string>()
     for (const col of spec.columns) {
       byHeader.set(baseHeader(col.header), col.key)
-      for (const alias of col.aliases ?? []) byHeader.set(baseHeader(alias), col.key)
     }
 
     const indexToKey = new Map<number, string>()

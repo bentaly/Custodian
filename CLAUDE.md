@@ -352,10 +352,9 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
   "please fill this in" a spreadsheet has room for; `tier` is still what we do when it is missing,
   and they deliberately diverge — "Where the impact happens" is ASKED as required but imports
   without one, because a live application only `expects` a delivery area and history must not be
-  held to a stricter rule than today's submissions. `baseHeader` strips the suffix on read, and
-  `aliases` carries every previous header name, so relabelling or renaming a column never strands a
-  workbook someone downloaded weeks ago — an unrecognised header is dropped, which is the silent
-  version of a lost field.
+  held to a stricter rule than today's submissions. `baseHeader` strips the suffix on read, so the
+  labelling is never load-bearing: an unrecognised header is dropped, and a dropped column is the
+  silent version of a lost field.
 - **The template is generated per client** (`buildTemplate`), after their programmes exist, so
   Programme/Round/Status are **dropdowns of their real data**. That is what lets the import skip
   column mapping entirely: a hidden `_Custodian` sheet fingerprints the file (version + clientId), so

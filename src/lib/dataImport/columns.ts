@@ -33,13 +33,6 @@ export interface ImportColumn {
   /** The header written into the template, and matched on read. */
   header: string
   /**
-   * Headers this column used to be called. A workbook is downloaded, filled in over
-   * weeks, and uploaded long after we have renamed something — and an unrecognised
-   * header is dropped, which would make a renamed column indistinguishable from a
-   * column the foundation left blank. Never remove an entry from here.
-   */
-  aliases?: string[]
-  /**
    * How the column is LABELLED in the workbook — a two-state "please fill this in",
    * which is a different question from what we do when it is missing (`tier`). A
    * spreadsheet has no room to explain four tiers, and a finance officer filling one in
@@ -159,7 +152,6 @@ export const GRANT_COLUMNS: ImportColumn[] = [
   {
     key: 'deliveryArea',
     header: 'Where the impact happens',
-    aliases: ['Where the work happens'],
     shortLabel: 'location',
     // Asked for as required — a location earns its place in the file. Not enforced as
     // one: a live application only `expects` a delivery area, and holding a whole back
@@ -175,7 +167,6 @@ export const GRANT_COLUMNS: ImportColumn[] = [
   {
     key: 'purpose',
     header: 'Grant purpose',
-    aliases: ['What the money is for'],
     shortLabel: 'stated purpose',
     askedAs: 'required',
     tier: 'expected',
@@ -243,10 +234,8 @@ export const PAYMENT_COLUMNS: ImportColumn[] = [
     key: 'paidDate',
     header: 'Date paid',
     shortLabel: 'payment date',
-    // Asked for as required because a paid instalment with no date is a real loss, but
-    // the cell is legitimately blank on everything not yet paid — so it can only ever
-    // be a warning, never a gate.
-    askedAs: 'required',
+    // Asked as optional: the cell is legitimately blank on everything not yet paid, so
+    // labelling it required would mark most of a live schedule as incomplete.
     tier: 'expected',
     type: 'date',
     degrades:
@@ -343,13 +332,7 @@ export const ONE_OF_GROUPS: Array<{ keys: string[]; label: string; degrades: str
   },
 ]
 
-/**
- * Bumped to 2 when the workbook gained Amount paid and Received?, tier labels in the
- * headers, and the active/completed split on the instructions sheet. Nothing refuses an
- * older file: a v1 workbook has bare headers and neither new column, and both still
- * read (see `baseHeader` in workbook.ts, and `received` falling back to the date).
- */
-export const TEMPLATE_VERSION = '2'
+export const TEMPLATE_VERSION = '1'
 
 /** Sheet holding the dropdown source lists and the file's fingerprint. Hidden. */
 export const LOOKUP_SHEET = '_Custodian'

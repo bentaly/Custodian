@@ -131,24 +131,21 @@ describe('buildTemplate / readWorkbook round trip', () => {
     })
   })
 
-  // A workbook is downloaded, filled in over weeks, and uploaded long after we have
-  // changed the headers. v1 wrote bare headers and called two columns something else,
-  // and an unrecognised header is DROPPED — so without this the location and purpose a
-  // client typed would vanish into a file that reported no problem at all.
-  it('still reads a workbook written before the headers were relabelled', async () => {
+  // The suffix is guidance, not identity: a column must still be recognised if the
+  // labelling changes, and a dropped column looks exactly like an empty one.
+  it('matches a header whether or not it carries its (required) suffix', async () => {
     const ExcelJS = await import('exceljs')
     const wb = new ExcelJS.default.Workbook()
     const ws = wb.addWorksheet('Grants')
     ws.addRow([
       'Application reference',
-      'Organisation name',
-      'Programme',
+      'Organisation name  ',
+      'PROGRAMME (required)',
       'Round',
       'Award date',
       'Status',
       'Amount awarded',
-      'Where the work happens',
-      'What the money is for',
+      'Where the impact happens (optional)',
     ])
     ws.addRow([
       'GR-001',
@@ -159,19 +156,15 @@ describe('buildTemplate / readWorkbook round trip', () => {
       'Active',
       45000,
       'Calderdale',
-      'Youth work',
     ])
 
-    const read = await readWorkbook(new File([await wb.xlsx.writeBuffer()], 'v1.xlsx'))
+    const read = await readWorkbook(new File([await wb.xlsx.writeBuffer()], 'grants.xlsx'))
 
     expect(read.missingHeaders.grants).toEqual([])
     expect(read.unknownHeaders.grants).toEqual([])
-    const parsed = parseGrants(read.sheets.grants)
-    expect(parsed.rows[0]).toMatchObject({
+    expect(parseGrants(read.sheets.grants).rows[0]).toMatchObject({
+      programme: 'Community & Place',
       deliveryArea: 'Calderdale',
-      purpose: 'Youth work',
-      // Neither column existed in v1; both must read as absent rather than as a problem.
-      amountPaid: null,
     })
   })
 
