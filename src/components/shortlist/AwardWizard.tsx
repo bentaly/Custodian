@@ -372,16 +372,25 @@ export function AwardWizard({
     if (terms.reporting.some((r) => (r.label.trim() ? 1 : 0) + (r.date ? 1 : 0) === 1)) {
       list.push('Every reporting milestone needs both a label and a date.')
     }
+    // A reporting date is a date a report is DUE — a past one asks a grantee for
+    // something that was already late when the letter was written, and lands on Reports
+    // overdue on day one. The picker bars past days; this catches the hidden native
+    // input behind it, which is still typeable. (The grant start date is deliberately
+    // NOT barred: a board approving in September a grant that began in August is
+    // ordinary, and the same goes for the payment dates that follow it.)
+    if (terms.reporting.some((r) => r.date && r.date < todayIso())) {
+      list.push('A reporting date cannot be in the past.')
+    }
     return list
   }, [terms, completeMilestones])
 
   /**
-   * Per grant: what is wrong with its money, if anything. Shown against the grant on
-   * step 2 and (for a hand-edited split) by the allocation guardrail on step 1, so the
-   * disabled Continue always has its reason next to the field that caused it.
+   * Per grant: what is not yet right about it. Shown against the grant on step 2 and (for
+   * a hand-edited split) by the allocation guardrail on step 1, so the disabled Continue
+   * always has its reason next to the field that caused it.
    */
-  const moneyProblems = useMemo(() => {
-    const byId = new Map<string, { kind: 'amount' | 'schedule'; text: string }>()
+  const grantProblems = useMemo(() => {
+    const byId = new Map<string, { kind: 'amount' | 'schedule' | 'purpose'; text: string }>()
     for (const c of candidates) {
       const g = grants[c.id]!
       const amount = parseFloat(g.amount) || 0
@@ -404,18 +413,27 @@ export function AwardWizard({
       // catch it here where it can still be explained and fixed.
       if (schedule.some((r) => r.amount <= 0)) {
         byId.set(c.id, { kind: 'schedule', text: 'Every instalment must be more than £0.' })
+        continue
+      }
+      // The purpose is a paragraph of the letter, not a note: the template says "The
+      // grant is made towards the following purpose:" and then prints it. Left empty the
+      // grantee is sent a letter with a hole in it, and the conditions that bind to "the
+      // agreed purpose" bind to nothing. So it gates, and the card's amber pill is what
+      // says so — a second amber message under the same card would only repeat it.
+      if (!g.purpose.trim()) {
+        byId.set(c.id, { kind: 'purpose', text: 'Write what the grant is for.' })
       }
     }
     return byId
   }, [candidates, grants, terms])
 
-  // A step is gated only by what it can actually fix — the amount lives on step 2, so
-  // it must never be what holds step 1 shut.
-  const scheduleBlocked = [...moneyProblems.values()].some((p) => p.kind === 'schedule')
+  // A step is gated only by what it can actually fix — the amount and the purpose live
+  // on step 2, so neither may be what holds step 1 shut.
+  const scheduleBlocked = [...grantProblems.values()].some((p) => p.kind === 'schedule')
   const blocked =
     step === 1
       ? termsProblems.length > 0 || scheduleBlocked
-      : termsProblems.length > 0 || moneyProblems.size > 0
+      : termsProblems.length > 0 || grantProblems.size > 0
 
   async function handleConfirm() {
     setSaving(true)
@@ -623,6 +641,7 @@ export function AwardWizard({
                     <div className="w-[180px] shrink-0">
                       <DateField
                         value={r.date}
+                        min={todayIso()}
                         onChange={(v) =>
                           setTerms((t) => ({
                             ...t,
@@ -834,13 +853,15 @@ export function AwardWizard({
                   </Button>
 
                   {/* The amount is edited here and the split is set on Terms, so this is
-                      where a hand-edited schedule stops matching its grant. */}
-                  {moneyProblems.has(c.id) && (
+                      where a hand-edited schedule stops matching its grant. A missing
+                      purpose is left to the pill beside the amount — the empty box it
+                      refers to is directly above. */}
+                  {grantProblems.get(c.id)?.kind !== 'purpose' && grantProblems.has(c.id) && (
                     <p
                       className="rounded-chip px-3 py-2 font-display text-label"
                       style={{ backgroundColor: C.amberWash, color: C.amber }}
                     >
-                      {moneyProblems.get(c.id)!.text}
+                      {grantProblems.get(c.id)!.text}
                     </p>
                   )}
                 </div>
@@ -930,7 +951,6 @@ export function AwardWizard({
                     index={Math.min(letterIndex, candidates.length - 1)}
                     onIndex={setLetterIndex}
                     letterFor={letterFor}
-                    hasPurpose={(c) => Boolean(grants[c.id]!.purpose.trim())}
                   />
                 )}
               </div>
@@ -1174,13 +1194,11 @@ function LetterCarousel({
   index,
   onIndex,
   letterFor,
-  hasPurpose,
 }: {
   candidates: AwardCandidate[]
   index: number
   onIndex: (i: number) => void
   letterFor: (c: AwardCandidate) => { subject: string; bodyText: string }
-  hasPurpose: (c: AwardCandidate) => boolean
 }) {
   const c = candidates[index]!
   const letter = letterFor(c)
@@ -1191,16 +1209,12 @@ function LetterCarousel({
         className="flex items-center justify-between gap-3 px-4 py-2.5"
         style={{ backgroundColor: C.wash }}
       >
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-            {c.organisationName}
-          </span>
-          {hasPurpose(c) ? (
-            <StatePill tone="ready">Ready</StatePill>
-          ) : (
-            <StatePill tone="todo">Purpose needed</StatePill>
-          )}
-        </div>
+        {/* No state pill here: every field a letter can be missing is now gated on the
+            step that owns it, so a letter you can look at is a letter that is ready, and
+            a pill that can only ever read "Ready" is noise. */}
+        <span className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
+          {c.organisationName}
+        </span>
         {candidates.length > 1 && (
           <div className="flex shrink-0 items-center gap-2">
             <Button
