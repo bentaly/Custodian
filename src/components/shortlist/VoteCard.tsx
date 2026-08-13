@@ -170,7 +170,7 @@ function OnBehalfControl({
         aria-expanded={open}
         aria-label={`Record ${trustee.name}’s vote on their behalf`}
         onClick={() => (open ? close() : setOpen(true))}
-        className="flex size-6 items-center justify-center rounded-chip hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+        className="flex size-6 items-center justify-center rounded-chip hover:bg-grey-100 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
       >
         <HugeiconsIcon icon={ClipboardCheckIcon} size={16} color={C.brand} strokeWidth={1.8} />
       </button>
@@ -223,7 +223,7 @@ function OnBehalfControl({
                   onVote('no')
                   close()
                 }}
-                className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-body font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-body font-medium transition-colors hover:bg-grey-50 disabled:opacity-50"
                 style={{ borderColor: C.line, color: C.danger }}
               >
                 <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={1.8} />
@@ -243,13 +243,13 @@ function OnBehalfControl({
 // as `9.1/10`; two screens quoting one score on two scales is how a board ends up
 // arguing about the number instead of the application.
 
-function compositeColor(score: number) {
+function compositeColour(score: number) {
   if (score >= 80) return C.success
   if (score >= 60) return C.amber
   return C.danger
 }
 
-function criterionColor(score: number) {
+function criterionColour(score: number) {
   if (score >= 7) return C.success
   if (score >= 4) return C.amber
   return C.danger
@@ -272,7 +272,7 @@ function CriterionBar({ label, score }: { label: string; score: number | null })
           className="block h-full rounded-full"
           style={{
             width: `${(score ?? 0) * 10}%`,
-            backgroundColor: score === null ? C.wash : criterionColor(score),
+            backgroundColor: score === null ? C.wash : criterionColour(score),
           }}
         />
       </span>
@@ -489,7 +489,7 @@ export function VoteCard({
                 <span className="flex items-baseline gap-1">
                   <span
                     className="font-display text-heading font-medium leading-none"
-                    style={{ color: compositeColor(app.custodianScore!) }}
+                    style={{ color: compositeColour(app.custodianScore!) }}
                   >
                     {app.custodianScore}
                   </span>
@@ -607,7 +607,7 @@ export function VoteCard({
           <button
             type="button"
             onClick={() => setShowComments(true)}
-            className="flex h-8 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-label font-medium transition-colors hover:bg-gray-50 print:hidden"
+            className="flex h-8 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-label font-medium transition-colors hover:bg-grey-50 print:hidden"
             style={{ borderColor: C.line, color: C.ink }}
           >
             <HugeiconsIcon icon={Message01Icon} size={14} color={C.sub} strokeWidth={1.8} />
@@ -632,7 +632,7 @@ export function VoteCard({
                 type="button"
                 onClick={() => handleVote('no')}
                 disabled={busy}
-                className="flex h-10 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-body font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
+                className="flex h-10 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-body font-medium transition-colors hover:bg-grey-50 disabled:opacity-50"
                 style={{ borderColor: C.line, color: C.danger }}
               >
                 <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={1.8} />

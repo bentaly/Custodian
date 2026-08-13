@@ -53,8 +53,8 @@ export function MiniKpi({
   sub,
   size = 'sm',
   valueClass,
-  valueColor,
-  subColor,
+  valueColour,
+  subColour,
   children,
 }: {
   tint: KpiTint
@@ -67,8 +67,8 @@ export function MiniKpi({
   /** Escape hatch for a one-off type scale; overrides `size`. */
   valueClass?: string
   /** Colour the number when it carries a warning (e.g. money overdue). */
-  valueColor?: string
-  subColor?: string
+  valueColour?: string
+  subColour?: string
   /** Extra content inside the tinted panel — a meter, chips, a progress bar. */
   children?: ReactNode
 }) {
@@ -98,14 +98,14 @@ export function MiniKpi({
         <div className="relative z-10">
           <div
             className={`truncate ${valueClass ?? VALUE_SIZE[size]}`}
-            style={{ color: valueColor ?? C.ink }}
+            style={{ color: valueColour ?? C.ink }}
             title={typeof value === 'string' ? value : undefined}
           >
             {value}
           </div>
           <div
             className={`mt-1 truncate font-medium ${scale.sub}`}
-            style={{ color: subColor ?? C.sub }}
+            style={{ color: subColour ?? C.sub }}
           >
             {sub}
           </div>

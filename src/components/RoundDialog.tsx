@@ -175,7 +175,7 @@ function RoundDialogForm({
         </div>
 
         <fieldset className="flex flex-col gap-3">
-          <legend className="mb-1.5 font-display text-body font-medium text-gray-700">
+          <legend className="mb-1.5 font-display text-body font-medium text-grey-700">
             Programmes this round funds
           </legend>
 
@@ -198,7 +198,7 @@ function RoundDialogForm({
             return (
               <div
                 key={i}
-                className="flex flex-col gap-3 rounded-chip border border-gray-200 p-3 sm:flex-row sm:items-center sm:rounded-none sm:border-0 sm:p-0"
+                className="flex flex-col gap-3 rounded-chip border border-grey-200 p-3 sm:flex-row sm:items-center sm:rounded-none sm:border-0 sm:p-0"
               >
                 <div className="flex-1">
                   <MobileLabel>Programme</MobileLabel>
@@ -252,7 +252,7 @@ function RoundDialogForm({
                       className={row.grantDurationYears ? 'pr-12' : undefined}
                     />
                     {row.grantDurationYears && (
-                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-display text-body text-gray-400">
+                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-display text-body text-grey-400">
                         {row.grantDurationYears === '1' ? 'year' : 'years'}
                       </span>
                     )}
@@ -282,9 +282,9 @@ function RoundDialogForm({
               Add programme
             </button>
 
-            <p className="font-display text-body text-gray-500">
+            <p className="font-display text-body text-grey-500">
               Total budget{' '}
-              <span className="font-medium text-gray-900 tabular-nums">
+              <span className="font-medium text-grey-900 tabular-nums">
                 £{totalBudget.toLocaleString('en-GB')}
               </span>
             </p>
@@ -311,7 +311,7 @@ function ColumnHeader({
 }) {
   return (
     <span
-      className={`flex items-center gap-1 font-display text-label font-medium text-gray-500 ${className ?? ''}`}
+      className={`flex items-center gap-1 font-display text-label font-medium text-grey-500 ${className ?? ''}`}
     >
       {label}
       {children && <Tooltip label={`About ${label.toLowerCase()}`}>{children}</Tooltip>}
@@ -322,7 +322,7 @@ function ColumnHeader({
 /** The column headers are hidden on a phone, where each row stacks; these stand in. */
 function MobileLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="mb-1.5 block font-display text-label font-medium text-gray-500 sm:hidden">
+    <span className="mb-1.5 block font-display text-label font-medium text-grey-500 sm:hidden">
       {children}
     </span>
   )

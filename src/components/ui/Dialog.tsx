@@ -92,15 +92,15 @@ export function Dialog({
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-heading font-medium text-gray-900">{title}</h2>
-            {description && <p className="font-display text-label text-gray-500">{description}</p>}
+            <h2 className="font-display text-heading font-medium text-grey-900">{title}</h2>
+            {description && <p className="font-display text-label text-grey-500">{description}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
             aria-label="Close"
-            className="flex shrink-0 rounded-chip bg-gray-100 p-2.5 transition-colors hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden disabled:opacity-50"
+            className="flex shrink-0 rounded-chip bg-grey-100 p-2.5 transition-colors hover:bg-grey-200 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden disabled:opacity-50"
           >
             <HugeiconsIcon icon={Cancel01Icon} size={20} color={C.ink} />
           </button>

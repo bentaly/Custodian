@@ -49,7 +49,7 @@ function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
     <div className="flex items-center gap-3">
       <LogoMark className={size === 'lg' ? 'h-11 w-11' : 'h-9 w-9'} />
       <span
-        className={`font-semibold tracking-tight text-gray-900 ${size === 'lg' ? 'text-heading' : 'text-heading'}`}
+        className={`font-semibold tracking-tight text-grey-900 ${size === 'lg' ? 'text-heading' : 'text-heading'}`}
       >
         Custodian
       </span>
@@ -77,7 +77,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
-            backgroundImage: 'radial-gradient(var(--color-gray-300) 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(var(--color-grey-300) 1px, transparent 1px)',
             backgroundSize: '22px 22px',
           }}
         />
@@ -94,7 +94,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
               short one), which no fixed ramp step can do; pinning it to `text-display`
               would either overflow the panel or leave it undersized on a wide display. */}
           <h2
-            className="font-display max-w-[21ch] text-[clamp(28px,2.7vw,42px)] font-semibold leading-[1.06] text-gray-900 lg:mt-8 compact:mt-6 compact:text-[clamp(26px,2.4vw,34px)]"
+            className="font-display max-w-[21ch] text-[clamp(28px,2.7vw,42px)] font-semibold leading-[1.06] text-grey-900 lg:mt-8 compact:mt-6 compact:text-[clamp(26px,2.4vw,34px)]"
             style={{ letterSpacing: '-0.035em', textWrap: 'pretty' }}
           >
             The entire grant lifecycle, for the whole foundation team.
@@ -114,7 +114,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
                 </span>
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="text-title font-semibold tracking-tight text-gray-900">
+                    <span className="text-title font-semibold tracking-tight text-grey-900">
                       {stage.title}
                     </span>
                     <span className="rounded-full bg-brand-secondary px-2 py-[3px] text-label font-bold uppercase tracking-[0.09em] text-brand">
@@ -122,7 +122,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
                     </span>
                   </div>
                   <p
-                    className="mt-1 text-body leading-[1.5] text-gray-500"
+                    className="mt-1 text-body leading-[1.5] text-grey-500"
                     style={{ textWrap: 'pretty' }}
                   >
                     {stage.body}
@@ -139,8 +139,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
             >
               AI
             </span>
-            <p className="text-body leading-[1.55] text-gray-500" style={{ textWrap: 'pretty' }}>
-              <strong className="font-semibold text-gray-900">
+            <p className="text-body leading-[1.55] text-grey-500" style={{ textWrap: 'pretty' }}>
+              <strong className="font-semibold text-grey-900">
                 AI runs through all five stages, not bolted on to one.
               </strong>{' '}
               It reads, scores, summarises and checks — with every judgement traceable to the
@@ -148,7 +148,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             </p>
           </div>
 
-          <p className="mt-auto pt-6 text-body text-gray-500 compact:pt-4">
+          <p className="mt-auto pt-6 text-body text-grey-500 compact:pt-4">
             Custodian is invite-only. Your administrator can send you an invitation.
           </p>
         </div>

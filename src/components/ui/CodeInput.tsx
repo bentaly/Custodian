@@ -57,8 +57,8 @@ export function CodeInput({
                 // Filled segments light up mint, the way the meter's ticks light up —
                 // grey would read as disabled rather than entered.
                 value[i]
-                  ? 'border-brand/20 bg-brand-secondary text-gray-900'
-                  : 'border-gray-200 bg-background text-gray-500',
+                  ? 'border-brand/20 bg-brand-secondary text-grey-900'
+                  : 'border-grey-200 bg-background text-grey-500',
                 active && 'border-brand bg-white ring-4 ring-brand/20',
                 disabled && 'opacity-50',
               )}

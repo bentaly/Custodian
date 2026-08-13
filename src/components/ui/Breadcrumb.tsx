@@ -64,7 +64,7 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
                 <Link
                   to={item.to}
                   search={item.search}
-                  className="font-display text-label whitespace-nowrap text-gray-700 hover:text-gray-900"
+                  className="font-display text-label whitespace-nowrap text-grey-700 hover:text-grey-900"
                 >
                   {item.label}
                 </Link>

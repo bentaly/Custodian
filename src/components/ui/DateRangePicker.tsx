@@ -146,7 +146,7 @@ export function DateRangePicker({
         style={{ borderColor: on ? C.brand : C.line, backgroundColor: on ? C.brandBg : '#fff' }}
       >
         <span className="flex items-center gap-1.5">
-          <CalendarGlyph color={C.ink} />
+          <CalendarGlyph colour={C.ink} />
           <span
             className="whitespace-nowrap font-display text-body font-medium"
             style={{ color: C.ink }}
@@ -258,12 +258,12 @@ export function DateRangePicker({
 
 // The trigger's calendar glyph (Figma "calendar-04"). Drawn inline rather than
 // pulled from the icon set so the 16px box matches the design exactly.
-function CalendarGlyph({ color = C.sub }: { color?: string }) {
+function CalendarGlyph({ colour = C.sub }: { colour?: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2" y="3.3" width="12" height="11" rx="2.5" stroke={color} strokeWidth="1.2" />
-      <path d="M2 6.8h12" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M5.3 1.8v2.6M10.7 1.8v2.6" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <rect x="2" y="3.3" width="12" height="11" rx="2.5" stroke={colour} strokeWidth="1.2" />
+      <path d="M2 6.8h12" stroke={colour} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M5.3 1.8v2.6M10.7 1.8v2.6" stroke={colour} strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   )
 }

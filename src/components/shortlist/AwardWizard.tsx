@@ -787,7 +787,7 @@ export function AwardWizard({
                           value={g.amount}
                           onChange={(e) => setGrant(c.id, { amount: e.target.value })}
                           aria-label={`Amount awarded to ${c.organisationName}`}
-                          className="w-[132px] rounded-chip bg-transparent px-1 text-right font-display text-heading font-medium tabular-nums hover:bg-gray-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand/20"
+                          className="w-[132px] rounded-chip bg-transparent px-1 text-right font-display text-heading font-medium tabular-nums hover:bg-grey-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand/20"
                           style={{ color: C.ink }}
                         />
                       </div>

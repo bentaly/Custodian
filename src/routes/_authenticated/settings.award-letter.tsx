@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { getAwardLetterSettings, updateAwardLetterSettings } from '../../server/fns/awardSetup'
 import { SettingsPage } from '../../components/SettingsPage'
 import { AwardLetterPreview } from '../../components/AwardLetterPreview'
-import { Button } from '../../components/ui'
+import { Button, Input, Label, Textarea } from '../../components/ui'
 import {
   AWARD_LETTER_TOKENS,
   DEFAULT_AWARD_LETTER_TEMPLATE,
@@ -20,8 +20,21 @@ export const Route = createFileRoute('/_authenticated/settings/award-letter')({
   component: AwardLetterSettings,
 })
 
-const inputClass =
-  'w-full rounded-chip border border-gray-200 px-3 py-2 text-body text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-brand/30'
+/** The hint under a field, in the vocabulary the dialogs use. */
+const hintClass = 'mt-1.5 font-display text-label text-grey-500'
+
+/**
+ * "Still on Custodian's version". NULL in the row means the built-in, so text that
+ * matches it is stored as NULL rather than frozen — and the same test has to answer for
+ * a stored value too, or a row saved before that rule reads as an unsaved edit.
+ */
+const isDefaultTemplate = (t: string | null | undefined) =>
+  !t || t.trim() === DEFAULT_AWARD_LETTER_TEMPLATE.trim()
+
+const isDefaultConditions = (c: string[] | null | undefined) =>
+  !c ||
+  (c.length === DEFAULT_GRANT_CONDITIONS.length &&
+    c.every((x, i) => x.trim() === DEFAULT_GRANT_CONDITIONS[i]))
 
 /** A worked example, so the preview shows a real letter rather than token names. */
 const SAMPLE = {
@@ -57,7 +70,37 @@ function AwardLetterSettings() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
-  const usingDefaultTemplate = template.trim() === DEFAULT_AWARD_LETTER_TEMPLATE.trim()
+  const usingDefaultTemplate = isDefaultTemplate(template)
+  const usingDefaultConditions = isDefaultConditions(conditions)
+
+  // Exactly what a save would write. Built once so the Save button's enabled state and
+  // the request can never disagree about what counts as a change — a button that reads
+  // "unchanged" while the payload differs is worse than no button state at all.
+  //
+  // Conditions get the same null-when-default treatment as the template: an untouched
+  // list must not be frozen into the row, or the foundation stops picking up changes to
+  // Custodian's standard conditions without ever having chosen to.
+  const payload = {
+    template: usingDefaultTemplate ? null : template,
+    conditions: usingDefaultConditions ? null : conditions,
+    signatory: signatory || null,
+    senderName: senderName || null,
+    replyTo: replyTo || null,
+  }
+  // What is on the server, put through the SAME default-collapsing rule — a row that
+  // already stores the built-ins verbatim (saved before that rule existed) is not a
+  // change, and would otherwise leave the screen looking dirty before it was touched.
+  // Advanced on a successful save rather than re-read, since the loader data behind this
+  // screen does not change under us.
+  const [baseline, setBaseline] = useState(() => ({
+    template: isDefaultTemplate(settings?.template) ? null : (settings?.template ?? null),
+    conditions: isDefaultConditions(settings?.conditions) ? null : (settings?.conditions ?? null),
+    signatory: settings?.signatory || null,
+    senderName: settings?.senderName || null,
+    replyTo: settings?.replyTo || null,
+  }))
+  // Both sides are built from the same object literal shape, so key order matches.
+  const dirty = JSON.stringify(payload) !== JSON.stringify(baseline)
 
   const preview = renderAwardLetter({
     input: {
@@ -74,18 +117,11 @@ function AwardLetterSettings() {
     setError('')
     setSaved(false)
     try {
-      await updateAwardLetterSettings({
-        data: {
-          // Writing null when the editor matches the built-in keeps the foundation on
-          // the default rather than freezing today's wording into their row — they
-          // then pick up improvements to it instead of drifting silently behind.
-          template: usingDefaultTemplate ? null : template,
-          conditions,
-          signatory: signatory || null,
-          senderName: senderName || null,
-          replyTo: replyTo || null,
-        },
-      })
+      // Writing null where the editor matches the built-in keeps the foundation on the
+      // default rather than freezing today's wording into their row — they then pick up
+      // improvements to it instead of drifting silently behind.
+      await updateAwardLetterSettings({ data: payload })
+      setBaseline(payload)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (err) {
@@ -103,99 +139,92 @@ function AwardLetterSettings() {
       <div className="space-y-8">
         {/* ── How it is sent ── */}
         <section>
-          <h2 className="text-body font-semibold text-gray-900">How it is sent</h2>
-          <p className="mt-1 text-body leading-relaxed text-gray-500">
+          <h2 className="text-body font-semibold text-grey-900">How it is sent</h2>
+          <p className="mt-1 text-body leading-relaxed text-grey-500">
             The letter goes out under your foundation’s name, and replies come back to you.
           </p>
           <div className="mt-4 space-y-4">
             <div>
-              <label className="block">
-                <span className="mb-1.5 block text-body font-medium text-gray-900">
-                  Sender name
-                </span>
-                <input
-                  value={senderName}
-                  onChange={(e) => setSenderName(e.target.value)}
-                  placeholder={settings?.foundationName || 'Your foundation'}
-                  className={inputClass}
-                />
-              </label>
-              <p className="mt-1 text-label text-gray-500">
+              <Label htmlFor="letter-sender-name">Sender name</Label>
+              <Input
+                id="letter-sender-name"
+                value={senderName}
+                onChange={(e) => setSenderName(e.target.value)}
+                placeholder={settings?.foundationName || 'Your foundation'}
+              />
+              <p className={hintClass}>
                 Shown as the sender. The email itself is sent by Custodian’s mail service — mail
                 providers check the sending domain against its DNS records, so a letter claiming to
                 come from your own domain would be treated as forged and land in spam.
               </p>
             </div>
             <div>
-              <label className="block">
-                <span className="mb-1.5 block text-body font-medium text-gray-900">
-                  Reply-to address
-                </span>
-                <input
-                  type="email"
-                  value={replyTo}
-                  onChange={(e) => setReplyTo(e.target.value)}
-                  placeholder="grants@yourfoundation.org"
-                  className={inputClass}
-                />
-              </label>
-              <p className="mt-1 text-label text-gray-500">
+              <Label htmlFor="letter-reply-to">Reply-to address</Label>
+              <Input
+                id="letter-reply-to"
+                type="email"
+                value={replyTo}
+                onChange={(e) => setReplyTo(e.target.value)}
+                placeholder="grants@yourfoundation.org"
+              />
+              <p className={hintClass}>
                 Where a grantee’s reply lands. Set this — without it, replies come back to Custodian
                 rather than to you.
               </p>
             </div>
-            <label className="block">
-              <span className="mb-1.5 block text-body font-medium text-gray-900">Signed by</span>
-              <input
+            <div>
+              <Label htmlFor="letter-signatory">Signed by</Label>
+              <Input
+                id="letter-signatory"
                 value={signatory}
                 onChange={(e) => setSignatory(e.target.value)}
                 placeholder="Jane Fairfax, Chair of Trustees"
-                className={inputClass}
               />
-            </label>
+              <p className={hintClass}>
+                The name above the sign-off. Leave it blank to sign in the foundation’s name alone.
+              </p>
+            </div>
           </div>
         </section>
 
         {/* ── The letter ── */}
         <section>
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-body font-semibold text-gray-900">The letter</h2>
+            <h2 className="text-body font-semibold text-grey-900">The letter</h2>
             {!usingDefaultTemplate && (
               <button
                 onClick={() => setTemplate(DEFAULT_AWARD_LETTER_TEMPLATE)}
-                className="text-label font-medium text-gray-500 hover:text-gray-900"
+                className="text-label font-medium text-grey-500 hover:text-grey-900"
               >
                 Reset to Custodian’s standard letter
               </button>
             )}
           </div>
-          <p className="mt-1 text-body leading-relaxed text-gray-500">
+          <p className="mt-1 text-body leading-relaxed text-grey-500">
             Write it as you would write a letter. Anything in double braces is filled in per award.
           </p>
-          <textarea
+          <Textarea
             value={template}
             onChange={(e) => setTemplate(e.target.value)}
             spellCheck
-            className={`${inputClass} mt-3 min-h-[380px] font-mono text-label leading-relaxed`}
+            className="mt-3 min-h-[380px] font-mono text-label leading-relaxed"
           />
-          <p className="mt-1.5 text-label text-gray-500">
+          <p className={hintClass}>
             {usingDefaultTemplate
               ? 'You are using Custodian’s standard letter. Edit it to make it yours.'
               : 'You are using your own letter.'}
           </p>
 
-          <details className="mt-4 rounded-chip border border-gray-200 bg-background">
-            <summary className="cursor-pointer px-4 py-2.5 text-body font-medium text-gray-900">
+          <details className="mt-4 rounded-chip border border-grey-200 bg-background">
+            <summary className="cursor-pointer px-4 py-2.5 text-body font-medium text-grey-900">
               What you can put in braces
             </summary>
-            <div className="border-t border-gray-200 px-4 py-3">
+            <div className="border-t border-grey-200 px-4 py-3">
               <dl className="space-y-2">
                 {AWARD_LETTER_TOKENS.map((t) => (
                   <div key={t.name} className="flex gap-3 text-label">
-                    <dt className="w-[170px] shrink-0 font-mono text-brand">
-                      {`{{${t.name}}}`}
-                    </dt>
-                    <dd className="text-gray-500">{t.description}</dd>
+                    <dt className="w-[170px] shrink-0 font-mono text-brand">{`{{${t.name}}}`}</dt>
+                    <dd className="text-grey-500">{t.description}</dd>
                   </div>
                 ))}
               </dl>
@@ -206,32 +235,32 @@ function AwardLetterSettings() {
         {/* ── Conditions ── */}
         <section>
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-body font-semibold text-gray-900">Conditions of grant</h2>
+            <h2 className="text-body font-semibold text-grey-900">Conditions of grant</h2>
             <button
               onClick={() => setConditions(DEFAULT_GRANT_CONDITIONS)}
-              className="text-label font-medium text-gray-500 hover:text-gray-900"
+              className="text-label font-medium text-grey-500 hover:text-grey-900"
             >
               Reset to Custodian’s standard conditions
             </button>
           </div>
-          <p className="mt-1 text-body leading-relaxed text-gray-500">
+          <p className="mt-1 text-body leading-relaxed text-grey-500">
             Attached to every award letter, in this order. You can switch them off for a particular
             batch, and add a condition to a single grant, during award set-up.
           </p>
           <div className="mt-3 space-y-2">
             {conditions.map((c, i) => (
               <div key={i} className="flex items-start gap-2">
-                <span className="w-4 shrink-0 pt-2 text-label text-gray-400">{i + 1}</span>
-                <textarea
+                <span className="w-4 shrink-0 pt-2 text-label text-grey-400">{i + 1}</span>
+                <Textarea
                   value={c}
                   onChange={(e) =>
                     setConditions(conditions.map((x, idx) => (idx === i ? e.target.value : x)))
                   }
-                  className={`${inputClass} min-h-[62px] resize-y text-body leading-relaxed`}
+                  className="min-h-[62px] resize-y leading-relaxed"
                 />
                 <button
                   onClick={() => setConditions(conditions.filter((_, idx) => idx !== i))}
-                  className="mt-1.5 shrink-0 rounded-chip p-1 text-gray-300 hover:bg-danger/10 hover:text-danger"
+                  className="mt-1.5 shrink-0 rounded-chip p-1 text-grey-300 hover:bg-danger/10 hover:text-danger"
                   aria-label={`Remove condition ${i + 1}`}
                 >
                   ✕
@@ -240,11 +269,10 @@ function AwardLetterSettings() {
             ))}
           </div>
           <div className="mt-3 flex gap-2">
-            <input
+            <Input
               value={newCondition}
               onChange={(e) => setNewCondition(e.target.value)}
               placeholder="Add a condition…"
-              className={inputClass}
             />
             <Button
               variant="secondary"
@@ -267,22 +295,23 @@ function AwardLetterSettings() {
 
         {/* ── Preview ── */}
         <section>
-          <h2 className="text-body font-semibold text-gray-900">Preview</h2>
-          <p className="mt-1 text-body text-gray-500">
+          <h2 className="text-body font-semibold text-grey-900">Preview</h2>
+          <p className="mt-1 text-body text-grey-500">
             A worked example, with a made-up grant filled in.
           </p>
-          <div className="mt-3 rounded-card border border-gray-200 bg-white p-4">
-            <div className="mb-4 border-b border-gray-100 pb-3 text-label text-gray-400">
-              Subject: <span className="text-gray-500">{preview.subject}</span>
+          <div className="mt-3 rounded-card border border-grey-200 bg-white p-4">
+            <div className="mb-4 border-b border-grey-100 pb-3 text-label text-grey-400">
+              Subject: <span className="text-grey-500">{preview.subject}</span>
             </div>
             <AwardLetterPreview bodyText={preview.bodyText} />
           </div>
         </section>
 
-        <div className="sticky bottom-0 -mx-1 flex items-center gap-3 border-t border-gray-200 bg-white/95 px-1 py-3 backdrop-blur">
-          <Button onClick={handleSave} disabled={saving}>
+        <div className="sticky bottom-0 -mx-1 flex items-center gap-3 border-t border-grey-200 bg-white/95 px-1 py-3 backdrop-blur">
+          <Button onClick={handleSave} disabled={saving || !dirty}>
             {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </Button>
+          {dirty && !saving && <span className="text-label text-grey-500">Unsaved changes</span>}
           {error && <span className="text-label text-danger">{error}</span>}
         </div>
       </div>

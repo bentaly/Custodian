@@ -51,7 +51,7 @@ export const Playground: Story = {
                 <DateField id="story-closes" value="2026-03-31" onChange={() => {}} />
               </div>
             </div>
-            <span className="flex items-center gap-1 font-display text-label font-medium text-gray-500">
+            <span className="flex items-center gap-1 font-display text-label font-medium text-grey-500">
               Max per award
               <Tooltip label="About max per award">
                 The most any one applicant can be awarded from this programme's budget. Leave blank
@@ -85,7 +85,7 @@ export const Busy: Story = {
         </div>
       }
     >
-      <p className="font-display text-body text-gray-500">Writing the round…</p>
+      <p className="font-display text-body text-grey-500">Writing the round…</p>
     </Dialog>
   ),
 }

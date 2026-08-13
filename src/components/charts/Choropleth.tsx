@@ -28,17 +28,17 @@ import { chart, fmtMoney, tooltipBox } from './theme'
 // light end ≥ 2:1 on white, single hue — spread is 1°). Do not hand-tweak a step
 // without re-running that check; the light end in particular sits deliberately
 // close to its 2:1 floor and a "nicer" paler green would disappear on the panel.
-const RAMP = ['var(--color-gray-400)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)'] as const
+const RAMP = ['var(--color-grey-400)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)'] as const
 
 // Areas with no grants. Distinct from — and lighter than — every ramp step, so
 // "we funded nothing here" can never be misread as "we funded a little here".
 //
-// This is heavier than the gray a filled choropleth would use, and taken
+// This is heavier than the grey a filled choropleth would use, and taken
 // straight from the Figma. A dot covers a fraction of the ink a filled region
 // does, so a colour that reads as "a quiet backdrop" at region size reads as
 // "nothing rendered" at 5px. The land has to stay visible for the funded dots
 // to have a shape to sit in.
-const EMPTY = 'var(--color-gray-300)'
+const EMPTY = 'var(--color-grey-300)'
 
 // The one country with a layer beneath it, so it is the one country on the
 // world map that drills rather than selects.

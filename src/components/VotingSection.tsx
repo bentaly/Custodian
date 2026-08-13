@@ -58,23 +58,23 @@ export function VotingSection({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-label font-semibold uppercase tracking-wide text-gray-400">
+        <h3 className="text-label font-semibold uppercase tracking-wide text-grey-400">
           Trustee votes
         </h3>
         {data.votes.length > 0 && (
           <div className="flex gap-2 text-label">
             <span className="font-semibold text-success">{yesCount} yes</span>
-            <span className="text-gray-300">·</span>
+            <span className="text-grey-300">·</span>
             <span className="font-semibold text-danger">{noCount} no</span>
           </div>
         )}
       </div>
 
       {canAdminVote && (
-        <p className="mb-2 text-label text-gray-400">You can record votes on behalf of trustees.</p>
+        <p className="mb-2 text-label text-grey-400">You can record votes on behalf of trustees.</p>
       )}
 
-      <div className="overflow-hidden rounded-chip border border-gray-100">
+      <div className="overflow-hidden rounded-chip border border-grey-100">
         {data.trustees.map((trustee, i) => {
           const vote = voteMap.get(trustee.id)
           const isMe = trustee.id === userId
@@ -85,12 +85,12 @@ export function VotingSection({
             <div
               key={trustee.id}
               className={`flex items-center justify-between px-3 py-2.5 ${
-                i < data.trustees.length - 1 ? 'border-b border-gray-100' : ''
+                i < data.trustees.length - 1 ? 'border-b border-grey-100' : ''
               }`}
             >
-              <span className="text-body text-gray-700">
+              <span className="text-body text-grey-700">
                 {trustee.name}
-                {isMe && <span className="ml-1 text-label text-gray-400">(you)</span>}
+                {isMe && <span className="ml-1 text-label text-grey-400">(you)</span>}
               </span>
 
               {canSetThisVote ? (
@@ -101,7 +101,7 @@ export function VotingSection({
                     className={`rounded-chip px-2.5 py-1 text-label font-medium transition-colors ${
                       vote === 'yes'
                         ? 'border border-success/20 bg-success/10 text-success'
-                        : 'border border-gray-200 text-gray-500 hover:border-success/20 hover:text-success'
+                        : 'border border-grey-200 text-grey-500 hover:border-success/20 hover:text-success'
                     }`}
                   >
                     Yes
@@ -112,7 +112,7 @@ export function VotingSection({
                     className={`rounded-chip px-2.5 py-1 text-label font-medium transition-colors ${
                       vote === 'no'
                         ? 'border border-danger/20 bg-danger/10 text-danger'
-                        : 'border border-gray-200 text-gray-500 hover:border-danger/20 hover:text-danger'
+                        : 'border border-grey-200 text-grey-500 hover:border-danger/20 hover:text-danger'
                     }`}
                   >
                     No
@@ -127,7 +127,7 @@ export function VotingSection({
                   {vote === 'yes' ? '✓ Yes' : '✗ No'}
                 </span>
               ) : (
-                <span className="text-label text-gray-300">—</span>
+                <span className="text-label text-grey-300">—</span>
               )}
             </div>
           )

@@ -5,7 +5,7 @@ import { C, CONTROL, type ControlSize } from './tokens'
 
 // The app's one button, in the Figma vocabulary the dashboard / applications /
 // insights screens established: 32px or 40px tall, 8px or 12px radius, `font-display`
-// at 14px medium, and the single brand green — never the old Tailwind gray-900 +
+// at 14px medium, and the single brand green — never the old Tailwind `gray-900` +
 // 4px-radius look, which is what "some screens look different" came from.
 //
 // Variants say what the button *is*, not what it looks like:
@@ -44,7 +44,7 @@ const VARIANT: Record<ButtonVariant, { className: string; style: React.CSSProper
     style: { backgroundColor: C.brand },
   },
   secondary: {
-    className: 'border bg-white font-medium transition-colors hover:bg-gray-50',
+    className: 'border bg-white font-medium transition-colors hover:bg-grey-50',
     style: { borderColor: C.line, color: C.ink },
   },
   tinted: {
@@ -60,7 +60,7 @@ const VARIANT: Record<ButtonVariant, { className: string; style: React.CSSProper
     style: { borderColor: C.line, color: C.danger },
   },
   ghost: {
-    className: 'font-medium transition-colors hover:bg-gray-100',
+    className: 'font-medium transition-colors hover:bg-grey-100',
     style: { color: C.ink },
   },
   text: {

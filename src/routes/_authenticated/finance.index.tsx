@@ -46,6 +46,7 @@ type SortDir = 'asc' | 'desc'
 type FinanceSearch = {
   tab?: 'paid'
   roundId?: string
+  programmeId?: string
   tag?: string
   status?: FinanceStatus
   from?: string
@@ -76,6 +77,7 @@ export const Route = createFileRoute('/_authenticated/finance/')({
   validateSearch: (search: Record<string, unknown>): FinanceSearch => ({
     tab: search.tab === 'paid' ? 'paid' : undefined,
     roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
+    programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
     tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
     status: FINANCE_STATUSES.includes(search.status as FinanceStatus)
       ? (search.status as FinanceStatus)
@@ -98,6 +100,7 @@ export const Route = createFileRoute('/_authenticated/finance/')({
       data: {
         tab: deps.tab ?? 'to_pay',
         roundId: deps.roundId,
+        programmeId: deps.programmeId,
         tag: deps.tag,
         status: deps.status,
         from: deps.from,
@@ -128,10 +131,10 @@ function relativeDays(iso: string | null): { text: string; overdue: boolean } | 
 const STATUS_HEX: Record<FinanceStatus, string> = {
   overdue: 'var(--color-danger)',
   due_soon: 'var(--color-warning)',
-  scheduled: 'var(--color-gray-500)',
+  scheduled: 'var(--color-grey-500)',
   unscheduled: 'var(--color-warning)',
   paid: 'var(--color-success)',
-  cancelled: 'var(--color-gray-400)',
+  cancelled: 'var(--color-grey-400)',
 }
 
 const BANK_ISSUE_LABELS: Partial<Record<BankStatus, string>> = {
@@ -140,7 +143,7 @@ const BANK_ISSUE_LABELS: Partial<Record<BankStatus, string>> = {
   unchecked: 'Unverified',
 }
 
-const txtSub = 'font-display text-body text-gray-500'
+const txtSub = 'font-display text-body text-grey-500'
 
 // ─── Columns ─────────────────────────────────────────────────────────────────
 
@@ -149,7 +152,7 @@ const ORGANISATION: TableColumn<FinanceRow> = {
   sortable: true,
   header: 'Organisation',
   cell: (g) => (
-    <span className="font-display text-body font-medium text-gray-900">{g.organisationName}</span>
+    <span className="font-display text-body font-medium text-grey-900">{g.organisationName}</span>
   ),
 }
 
@@ -168,7 +171,7 @@ const COMMITTED: TableColumn<FinanceRow> = {
   width: 'sm:w-[120px]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
-    <span className="whitespace-nowrap font-display text-body font-medium text-gray-900">
+    <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
       {fmtMoney(g.committed)}
     </span>
   ),
@@ -185,7 +188,7 @@ const PAID: TableColumn<FinanceRow> = {
     <div className="whitespace-nowrap">
       <span className={txtSub}>{g.paidToDate > 0 ? fmtMoney(g.paidToDate) : '—'}</span>
       {g.instalmentCount > 0 && (
-        <span className="ml-1 font-display text-label text-gray-400">
+        <span className="ml-1 font-display text-label text-grey-400">
           {g.paidCount}/{g.instalmentCount}
         </span>
       )}
@@ -203,7 +206,7 @@ const BANK: TableColumn<FinanceRow> = {
     const issue = BANK_ISSUE_LABELS[g.bank.status]
     if (!issue) {
       return (
-        <span className="whitespace-nowrap font-display text-body tabular-nums text-gray-500">
+        <span className="whitespace-nowrap font-display text-body tabular-nums text-grey-500">
           ••••{g.bank.last4 ?? '—'}
         </span>
       )
@@ -226,7 +229,7 @@ const STATUS: TableColumn<FinanceRow> = {
   sortable: true,
   header: 'Status',
   width: 'sm:w-[130px]',
-  cell: (g) => <StatusPill label={FINANCE_STATUS_LABELS[g.status]} color={STATUS_HEX[g.status]} />,
+  cell: (g) => <StatusPill label={FINANCE_STATUS_LABELS[g.status]} colour={STATUS_HEX[g.status]} />,
 }
 
 const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
@@ -243,17 +246,17 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
     cellClassName: 'tabular-nums',
     cell: (g) => {
       if (!g.nextPayment) {
-        return <span className="font-display text-body text-gray-400">No schedule</span>
+        return <span className="font-display text-body text-grey-400">No schedule</span>
       }
       const rel = relativeDays(g.nextPayment.dueDate)
       return (
         <div className="whitespace-nowrap">
-          <div className="font-display text-body font-medium text-gray-900">
+          <div className="font-display text-body font-medium text-grey-900">
             {fmtMoney(g.nextPayment.amount)}
           </div>
           <div
             className="font-display text-label"
-            style={{ color: rel?.overdue ? 'var(--color-danger)' : 'var(--color-gray-400)' }}
+            style={{ color: rel?.overdue ? 'var(--color-danger)' : 'var(--color-grey-400)' }}
           >
             {g.nextPayment.dueDate
               ? `${fmtDate(g.nextPayment.dueDate)} · ${rel!.text}`
@@ -301,7 +304,18 @@ function FinancePage() {
   const navigate = Route.useNavigate()
   const router = useRouter()
   const search = Route.useSearch()
-  const { tab: tabParam, roundId, tag, status, from, to, sortBy, sortDir, page } = search
+  const {
+    tab: tabParam,
+    roundId,
+    programmeId,
+    tag,
+    status,
+    from,
+    to,
+    sortBy,
+    sortDir,
+    page,
+  } = search
   const tab: Tab = tabParam ?? 'to_pay'
 
   const currentPage = page ?? 1
@@ -390,7 +404,19 @@ function FinancePage() {
     setExporting(true)
     try {
       const all = await listFinanceGrants({
-        data: { tab, roundId, tag, status, from, to, sortBy, sortDir, page: 1, pageSize: 10_000 },
+        data: {
+          tab,
+          roundId,
+          programmeId,
+          tag,
+          status,
+          from,
+          to,
+          sortBy,
+          sortDir,
+          page: 1,
+          pageSize: 10_000,
+        },
       })
       exportCsv(all.items, tab)
     } catch (e) {
@@ -403,8 +429,8 @@ function FinancePage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="font-display text-heading font-medium text-gray-900">Finance</h1>
-        <p className="mt-0.5 text-body text-gray-400">
+        <h1 className="font-display text-heading font-medium text-grey-900">Finance</h1>
+        <p className="mt-0.5 text-body text-grey-400">
           Grant payments · {totals.grantCount} live commitment{totals.grantCount === 1 ? '' : 's'}
         </p>
       </div>
@@ -431,36 +457,37 @@ function FinancePage() {
           <ExportButton onClick={handleExport} busy={exporting} disabled={rows.length === 0} />
         </div>
 
-        {/* Each pill offers only what this tab actually contains, with counts; a pill with
-            nothing to choose between isn't rendered at all. */}
+        {/* Each pill offers only what this TAB actually contains, with counts — the tab
+            is the context these facets are counted over, so switching it re-cuts them. */}
         <div className="flex flex-wrap items-center gap-3">
-          {facets.statuses.length > 1 && (
-            <FilterPill
-              label="Status"
-              clearLabel="All statuses"
-              value={status}
-              options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-              onChange={(v) => setFilter({ status: (v as FinanceStatus) || undefined })}
-            />
-          )}
-          {facets.themes.length > 1 && (
-            <FilterPill
-              label="Theme"
-              clearLabel="All themes"
-              value={tag}
-              options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-              onChange={(v) => setFilter({ tag: v })}
-            />
-          )}
-          {facets.rounds.length > 1 && (
-            <FilterPill
-              label="Round"
-              clearLabel="All rounds"
-              value={roundId}
-              options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-              onChange={(v) => setFilter({ roundId: v })}
-            />
-          )}
+          <FilterPill
+            label="Status"
+            plural="statuses"
+            value={status}
+            options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ status: (v as FinanceStatus) || undefined })}
+          />
+          <FilterPill
+            label="Programme"
+            plural="programmes"
+            value={programmeId}
+            options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ programmeId: v })}
+          />
+          <FilterPill
+            label="Theme"
+            plural="themes"
+            value={tag}
+            options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ tag: v })}
+          />
+          <FilterPill
+            label="Round"
+            plural="rounds"
+            value={roundId}
+            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ roundId: v })}
+          />
           {/* The window runs against the date the open tab is about: the next payment due
               on "To pay", the last one made on "Paid". */}
           <DateRangePicker
@@ -472,21 +499,21 @@ function FinancePage() {
 
         {rows.length === 0 ? (
           <EmptyState>
-            <p className="text-body text-gray-500">
-              {status || tag || roundId || from || to
+            <p className="text-body text-grey-500">
+              {status || programmeId || tag || roundId || from || to
                 ? 'No grants match these filters.'
                 : tab === 'to_pay'
                   ? 'Nothing outstanding — every grant is paid up.'
                   : 'No payments made yet.'}
             </p>
-            <p className="mt-1 text-label text-gray-400">
+            <p className="mt-1 text-label text-grey-400">
               Grants appear here as soon as an award is generated, with the instalment schedule set
               on the award.
             </p>
           </EmptyState>
         ) : (
           <>
-            <div className="overflow-hidden rounded-chip border border-gray-200">
+            <div className="overflow-hidden rounded-chip border border-grey-200">
               <DataTable
                 columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
                 rows={rows}
@@ -546,7 +573,7 @@ function UpcomingPayments({
 }) {
   return (
     <Card className="flex flex-col gap-4 p-4">
-      <h2 className="font-display text-title font-medium text-gray-900">Upcoming payments</h2>
+      <h2 className="font-display text-title font-medium text-grey-900">Upcoming payments</h2>
       <div className="grid gap-2 lg:grid-cols-3">
         {HORIZONS.map((h) => (
           <Horizon
@@ -581,7 +608,7 @@ function Horizon({
 }) {
   const hidden = bucket.count - bucket.items.length
   return (
-    <div className="flex flex-col gap-2 rounded-card border border-gray-200 bg-white p-1">
+    <div className="flex flex-col gap-2 rounded-card border border-grey-200 bg-white p-1">
       <div className="flex items-center justify-between gap-2 px-3 pt-2">
         <span className="flex items-center gap-2">
           <span
@@ -594,7 +621,7 @@ function Horizon({
           </span>
         </span>
         {bucket.count > 0 && (
-          <span className="whitespace-nowrap font-display text-label font-medium text-gray-400 tabular-nums">
+          <span className="whitespace-nowrap font-display text-label font-medium text-grey-400 tabular-nums">
             {fmtMoney(bucket.total)} · {bucket.count}
           </span>
         )}
@@ -604,7 +631,7 @@ function Horizon({
         style={{ backgroundColor: `color-mix(in srgb, ${colour} 10%, transparent)` }}
       >
         {bucket.items.length === 0 ? (
-          <p className="font-display text-body text-gray-400">{empty}</p>
+          <p className="font-display text-body text-grey-400">{empty}</p>
         ) : (
           bucket.items.map((p, i) => (
             <button
@@ -612,13 +639,13 @@ function Horizon({
               type="button"
               onClick={() => onOpen(p.awardId)}
               disabled={opening === p.awardId}
-              className="flex w-full items-center justify-between gap-3 border-t border-gray-200 pt-3 text-left first:border-t-0 first:pt-0 disabled:opacity-60"
+              className="flex w-full items-center justify-between gap-3 border-t border-grey-200 pt-3 text-left first:border-t-0 first:pt-0 disabled:opacity-60"
             >
               <span className="flex min-w-0 flex-col gap-1">
-                <span className="truncate font-display text-body font-medium text-gray-900">
+                <span className="truncate font-display text-body font-medium text-grey-900">
                   {p.organisationName}
                 </span>
-                <span className="truncate font-display text-label text-gray-500">
+                <span className="truncate font-display text-label text-grey-500">
                   {p.programmeName ? `${p.programmeName} · ` : ''}Due {fmtDate(p.dueDate)}
                 </span>
               </span>
@@ -632,7 +659,7 @@ function Horizon({
           ))
         )}
         {hidden > 0 && (
-          <p className="font-display text-label font-medium text-gray-500">
+          <p className="font-display text-label font-medium text-grey-500">
             +{hidden} more payment{hidden === 1 ? '' : 's'} in this window
           </p>
         )}

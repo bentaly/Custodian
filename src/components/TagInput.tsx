@@ -110,7 +110,7 @@ export function TagInput({
   return (
     <div className="relative">
       <div
-        className="flex min-h-10 cursor-text flex-wrap gap-1.5 rounded-control bg-gray-100 px-2 py-1.5 focus-within:ring-2 focus-within:ring-brand/20"
+        className="flex min-h-10 cursor-text flex-wrap gap-1.5 rounded-control bg-grey-100 px-2 py-1.5 focus-within:ring-2 focus-within:ring-brand/20"
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
@@ -118,7 +118,7 @@ export function TagInput({
             key={tag}
             // White on the wash, not the other way round: the field itself is now
             // Gray/100, so a Gray/100 chip on it would have no edge at all.
-            className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-micro font-medium text-gray-700"
+            className="flex items-center gap-1 rounded-full border border-grey-200 bg-white px-2.5 py-0.5 text-micro font-medium text-grey-700"
           >
             {tag}
             <button
@@ -127,7 +127,7 @@ export function TagInput({
                 e.preventDefault()
                 removeTag(tag)
               }}
-              className="leading-none text-gray-400 hover:text-gray-600"
+              className="leading-none text-grey-400 hover:text-grey-600"
             >
               ×
             </button>
@@ -197,11 +197,11 @@ export function TagInput({
 
       {(hint || value.length > 0) && (
         <div className="mt-1.5 flex items-baseline justify-between gap-3">
-          {hint ? <p className="font-display text-label text-gray-500">{hint}</p> : <span />}
+          {hint ? <p className="font-display text-label text-grey-500">{hint}</p> : <span />}
           {value.length > 0 && (
             // `aria-live` so the count is announced as chips are added: the chips
             // themselves are only reachable by moving through them one at a time.
-            <p aria-live="polite" className="font-display text-label text-gray-400">
+            <p aria-live="polite" className="font-display text-label text-grey-400">
               {value.length} {value.length === 1 ? 'theme' : 'themes'}
             </p>
           )}
@@ -214,7 +214,7 @@ export function TagInput({
           role="listbox"
           // The same inverted panel `ListboxPanel` draws — Gray/100 behind a raised
           // white row — so the app has one dropdown, not two that nearly match.
-          className="absolute z-10 mt-1 w-full rounded-control bg-gray-100 p-1.5 shadow-[0px_11px_24px_rgba(0,0,0,0.1)]"
+          className="absolute z-10 mt-1 w-full rounded-control bg-grey-100 p-1.5 shadow-[0px_11px_24px_rgba(0,0,0,0.1)]"
         >
           {options.map((opt, i) => (
             <li
@@ -226,8 +226,8 @@ export function TagInput({
               onMouseEnter={() => setActiveIndex(i)}
               className={`flex h-9 cursor-pointer items-center rounded-chip px-2.5 text-left text-body ${
                 i === activeIndex
-                  ? 'bg-white text-gray-900 ring-1 ring-gray-200 ring-inset'
-                  : 'text-gray-500'
+                  ? 'bg-white text-grey-900 ring-1 ring-grey-200 ring-inset'
+                  : 'text-grey-500'
               }`}
             >
               {opt.label}

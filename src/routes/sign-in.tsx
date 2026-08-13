@@ -156,12 +156,12 @@ function SignInPage() {
 
   return (
     <AuthShell>
-      <h1 className="font-display text-display font-semibold text-gray-900">{heading}</h1>
-      {sub && <p className="mt-2 text-body leading-relaxed text-gray-500">{sub}</p>}
+      <h1 className="font-display text-display font-semibold text-grey-900">{heading}</h1>
+      {sub && <p className="mt-2 text-body leading-relaxed text-grey-500">{sub}</p>}
 
       {(mode === 'code-verify' || mode === 'reset-verify') && (
-        <p className="mt-2 text-body leading-relaxed text-gray-500">
-          If an account exists for <span className="font-medium text-gray-900">{email}</span>, we've sent
+        <p className="mt-2 text-body leading-relaxed text-grey-500">
+          If an account exists for <span className="font-medium text-grey-900">{email}</span>, we've sent
           it a 6-digit code. It expires in 5 minutes.
         </p>
       )}
@@ -193,7 +193,7 @@ function SignInPage() {
 
             <div>
               <div className="mb-1.5 flex items-baseline justify-between">
-                <label htmlFor="password" className="text-body font-medium text-gray-700">
+                <label htmlFor="password" className="text-body font-medium text-grey-700">
                   Password
                 </label>
                 <button
@@ -241,7 +241,7 @@ function SignInPage() {
               required
             />
             <MethodToggle mode="code" onChange={() => switchMode('password')} />
-            <p className="text-body leading-relaxed text-gray-500">
+            <p className="text-body leading-relaxed text-grey-500">
               We'll email you a 6-digit code — no password needed.
             </p>
             <AuthButton loading={loading} loadingLabel="Sending…">
@@ -318,7 +318,7 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
   const base =
     'flex-1 rounded-chip px-3 py-1.5 text-body font-medium transition-colors duration-150'
   return (
-    <div className="flex gap-1 rounded-control border border-gray-200 bg-brand/5 p-1" role="tablist">
+    <div className="flex gap-1 rounded-control border border-grey-200 bg-brand/5 p-1" role="tablist">
       <button
         type="button"
         role="tab"
@@ -326,8 +326,8 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
         onClick={mode === 'password' ? undefined : onChange}
         className={
           mode === 'password'
-            ? `${base} bg-white text-gray-900 shadow-xs`
-            : `${base} text-gray-500 hover:text-gray-700`
+            ? `${base} bg-white text-grey-900 shadow-xs`
+            : `${base} text-grey-500 hover:text-grey-700`
         }
       >
         Password
@@ -339,8 +339,8 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
         onClick={mode === 'code' ? undefined : onChange}
         className={
           mode === 'code'
-            ? `${base} bg-white text-gray-900 shadow-xs`
-            : `${base} text-gray-500 hover:text-gray-700`
+            ? `${base} bg-white text-grey-900 shadow-xs`
+            : `${base} text-grey-500 hover:text-grey-700`
         }
       >
         Email code
@@ -354,7 +354,7 @@ function BackLink({ onClick, children }: { onClick: () => void; children: React.
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-body text-gray-500 hover:text-gray-900"
+      className="w-full text-body text-grey-500 hover:text-grey-900"
     >
       {children}
     </button>

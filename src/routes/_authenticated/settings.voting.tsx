@@ -41,10 +41,10 @@ function Voting() {
     >
       <Card className="flex items-center justify-between p-4">
         <div className="pr-4">
-          <p className="text-body font-medium text-gray-700">
+          <p className="text-body font-medium text-grey-700">
             Allow admins to vote on behalf of trustees
           </p>
-          <p className="mt-0.5 text-body text-gray-500">
+          <p className="mt-0.5 text-body text-grey-500">
             When enabled, admins can record yes/no votes for any trustee on an application — useful
             when a trustee sends their decision outside the platform.
           </p>
@@ -57,7 +57,7 @@ function Voting() {
           onClick={handleToggle}
           disabled={saving}
           className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-            enabled ? 'bg-gray-900' : 'bg-gray-300'
+            enabled ? 'bg-grey-900' : 'bg-grey-300'
           }`}
         >
           <span

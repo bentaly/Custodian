@@ -47,7 +47,7 @@ export function ConfirmDialog({
         </div>
       }
     >
-      <div className="font-display text-body text-gray-500">{children}</div>
+      <div className="font-display text-body text-grey-500">{children}</div>
       {error && <p className="mt-3 font-display text-body text-danger">{error}</p>}
     </Dialog>
   )

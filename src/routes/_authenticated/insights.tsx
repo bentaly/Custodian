@@ -31,7 +31,7 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
 import { fmtCompact, fmtMoney } from '../../lib/format'
-import { C, PROGRAMME_COLORS } from '../../components/ui/tokens'
+import { C, PROGRAMME_COLOURS } from '../../components/ui/tokens'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
@@ -65,15 +65,30 @@ export const Route = createFileRoute('/_authenticated/insights')({
 
 // ─── Design tokens ───────────────────────────────────────────────────────────────
 const KPI = {
-  committed: { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', accent: 'var(--color-accent-violet)' },
-  people: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', accent: 'var(--color-success)' },
-  reach: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', accent: 'var(--color-warning)' },
-  avg: { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', accent: 'var(--color-danger)' },
+  committed: {
+    bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)',
+    accent: 'var(--color-accent-violet)',
+  },
+  people: {
+    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
+    accent: 'var(--color-success)',
+  },
+  reach: {
+    bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+    accent: 'var(--color-warning)',
+  },
+  avg: {
+    bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
+    accent: 'var(--color-danger)',
+  },
 }
-const PALETTE = PROGRAMME_COLORS
+const PALETTE = PROGRAMME_COLOURS
 // Rotating pastel tints for the round grant cards.
 const CARD_TINTS = [
-  { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', ink: 'var(--color-accent-violet)' },
+  {
+    bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)',
+    ink: 'var(--color-accent-violet)',
+  },
   { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', ink: 'var(--color-brand)' },
   { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', ink: 'var(--color-warning)' },
   { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', ink: 'var(--color-danger)' },
@@ -271,7 +286,10 @@ function CommitmentChart({
                   >
                     <div
                       className="w-8 rounded-t-chip"
-                      style={{ height: `${Math.max(1, h)}%`, backgroundColor: 'var(--color-accent-violet)' }}
+                      style={{
+                        height: `${Math.max(1, h)}%`,
+                        backgroundColor: 'var(--color-accent-violet)',
+                      }}
                     />
                   </div>
                 )
@@ -301,7 +319,11 @@ function CommitmentChart({
                   key={p.id}
                   title={`${p.label} · ${fmtMoney(p.value)}`}
                   className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white"
-                  style={{ left: `${p.x}%`, top: `${p.y}%`, borderColor: 'var(--color-accent-violet)' }}
+                  style={{
+                    left: `${p.x}%`,
+                    top: `${p.y}%`,
+                    borderColor: 'var(--color-accent-violet)',
+                  }}
                 />
               ))}
             </div>
@@ -375,7 +397,7 @@ function AreaList({
   highlight,
   onHighlight,
 }: {
-  areas: Array<{ code: string; name: string; amount: number; count: number; color: string }>
+  areas: Array<{ code: string; name: string; amount: number; count: number; colour: string }>
   total: number
   /** The tail the donut folds into one neutral arc; 0 to omit. Carried here
    *  because that arc is otherwise an unlabelled grey wedge. */
@@ -417,7 +439,7 @@ function AreaList({
             >
               <span
                 className="size-2.5 shrink-0 rounded-swatch"
-                style={{ backgroundColor: a.color }}
+                style={{ backgroundColor: a.colour }}
               />
               <span
                 className="min-w-0 flex-1 truncate font-display text-body"
@@ -447,10 +469,7 @@ function AreaList({
       {rest > 0 && (
         <li className="flex items-center gap-2.5 px-2.5 py-1.5">
           <span className="size-2.5 shrink-0 rounded-swatch" style={{ backgroundColor: C.line }} />
-          <span
-            className="min-w-0 flex-1 truncate font-display text-body"
-            style={{ color: C.sub }}
-          >
+          <span className="min-w-0 flex-1 truncate font-display text-body" style={{ color: C.sub }}>
             Other areas
           </span>
           <span
@@ -621,7 +640,7 @@ function InsightsPage() {
       return {
         id: pid,
         name: grants[0]!.programmeName ?? '—',
-        color: PALETTE[i % PALETTE.length]!,
+        colour: PALETTE[i % PALETTE.length]!,
         committed: grants.reduce((s, g) => s + g.amountAwarded, 0),
         grants: grants.length,
         people: grants[0]!.unitKey === 'people' ? sumImpact(grants) : null,
@@ -664,7 +683,7 @@ function InsightsPage() {
       const grants = fil.filter((g) => g.tags.includes(t))
       return {
         tag: t,
-        color: PALETTE[i % PALETTE.length]!,
+        colour: PALETTE[i % PALETTE.length]!,
         amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
         count: grants.length,
         people: sumImpact(grants.filter((g) => g.unitKey === 'people')),
@@ -750,13 +769,13 @@ function InsightsPage() {
   const topAreas = areaRanked.slice(0, PALETTE.length).map((a, i) => ({
     ...a,
     name: areaNames.get(a.code) ?? a.code,
-    color: PALETTE[i % PALETTE.length]!,
+    colour: PALETTE[i % PALETTE.length]!,
   }))
   const restAmount = areaRanked.slice(PALETTE.length).reduce((s, a) => s + a.amount, 0)
   const areaDonut: DonutSlice[] = [
-    ...topAreas.map((a) => ({ areaId: a.code, name: a.name, value: a.amount, color: a.color })),
+    ...topAreas.map((a) => ({ areaId: a.code, name: a.name, value: a.amount, colour: a.colour })),
     // Never generate an 8th hue — the tail folds into one neutral "Other".
-    ...(restAmount > 0 ? [{ name: 'Other areas', value: restAmount, color: C.line }] : []),
+    ...(restAmount > 0 ? [{ name: 'Other areas', value: restAmount, colour: C.line }] : []),
   ]
 
   // IMD reach for the map's current view. Empty outside the UK — the index does
@@ -833,41 +852,37 @@ function InsightsPage() {
 
       {/* Filters — the slice every panel below describes */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* A filter shows as soon as there is anything to pick. Hiding it until
-            there were two values meant Location vanished on any portfolio where
-            only one delivery area had resolved — which read as the filter not
-            existing rather than as the data being thin. */}
+        {/* Every pill is always rendered, which is the rule the whole app now follows
+            (`ui/FilterPill`) and which started here: hiding a filter until it had two
+            values meant Location vanished on any portfolio where only one delivery area
+            had resolved — read as the filter not existing rather than the data being
+            thin. Insights' options are plain lists rather than counted facets, because
+            the panels below already count everything the slice contains. */}
         <div className="flex flex-wrap items-center gap-3">
-          {programmes.length > 0 && (
-            <FilterPill
-              label="Programme"
-              clearLabel="All programmes"
-              value={programmeId}
-              options={programmes.map((p) => ({ value: p.id, label: p.name }))}
-              onChange={(v) => setSearch({ programmeId: v })}
-            />
-          )}
-          {allTags.length > 0 && (
-            <FilterPill
-              label="Theme"
-              clearLabel="All themes"
-              value={tag}
-              options={allTags.map((t) => ({ value: t, label: t }))}
-              onChange={(v) => setSearch({ tag: v })}
-            />
-          )}
-          {(regions.length > 0 || hasUnlocated) && (
-            <FilterPill
-              label="Location"
-              clearLabel="All locations"
-              value={region}
-              options={[
-                ...regions.map((r) => ({ value: r, label: r })),
-                ...(hasUnlocated ? [{ value: NO_REGION, label: 'No location recorded' }] : []),
-              ]}
-              onChange={(v) => setSearch({ region: v })}
-            />
-          )}
+          <FilterPill
+            label="Programme"
+            plural="programmes"
+            value={programmeId}
+            options={programmes.map((p) => ({ value: p.id, label: p.name }))}
+            onChange={(v) => setSearch({ programmeId: v })}
+          />
+          <FilterPill
+            label="Theme"
+            plural="themes"
+            value={tag}
+            options={allTags.map((t) => ({ value: t, label: t }))}
+            onChange={(v) => setSearch({ tag: v })}
+          />
+          <FilterPill
+            label="Location"
+            plural="locations"
+            value={region}
+            options={[
+              ...regions.map((r) => ({ value: r, label: r })),
+              ...(hasUnlocated ? [{ value: NO_REGION, label: 'No location recorded' }] : []),
+            ]}
+            onChange={(v) => setSearch({ region: v })}
+          />
         </div>
         <DateRangePicker
           value={{ from, to }}
@@ -969,7 +984,7 @@ function InsightsPage() {
                           height={24}
                           barWidth={3}
                           className="my-2 w-full"
-                          segments={[{ value: 1, color: p.color }]}
+                          segments={[{ value: 1, colour: p.colour }]}
                         />
                         <p
                           className="truncate font-display text-body font-medium"
@@ -1026,10 +1041,7 @@ function InsightsPage() {
                 Commitment over time
               </PanelTitle>
               {commitSeries.length === 0 ? (
-                <p
-                  className="py-10 text-center font-display text-body"
-                  style={{ color: C.faint }}
-                >
+                <p className="py-10 text-center font-display text-body" style={{ color: C.faint }}>
                   No dated rounds in this slice.
                 </p>
               ) : (
@@ -1050,10 +1062,7 @@ function InsightsPage() {
             <Panel>
               <PanelTitle>Themes</PanelTitle>
               {themes.length === 0 ? (
-                <p
-                  className="py-10 text-center font-display text-body"
-                  style={{ color: C.faint }}
-                >
+                <p className="py-10 text-center font-display text-body" style={{ color: C.faint }}>
                   No programme tags set — add tags to programmes to see themed giving.
                 </p>
               ) : (
@@ -1071,7 +1080,7 @@ function InsightsPage() {
                       >
                         <div
                           className="flex items-center gap-4 rounded-control p-3"
-                          style={{ backgroundColor: withAlpha(t.color, 0.1) }}
+                          style={{ backgroundColor: withAlpha(t.colour, 0.1) }}
                         >
                           <div className="min-w-0 flex-1">
                             <p
@@ -1093,7 +1102,7 @@ function InsightsPage() {
                           </div>
                           <span
                             className="shrink-0 font-display text-heading font-medium leading-none"
-                            style={{ color: t.color }}
+                            style={{ color: t.colour }}
                           >
                             {pct}
                             <span className="text-title" style={{ color: C.faint }}>
@@ -1306,7 +1315,10 @@ function RoundGrantCard({
               : 'no report yet'}
           </p>
         </div>
-        <span className="shrink-0 font-display text-heading font-medium" style={{ color: tint.ink }}>
+        <span
+          className="shrink-0 font-display text-heading font-medium"
+          style={{ color: tint.ink }}
+        >
           {fmtCompact(g.amountAwarded)}
         </span>
       </div>

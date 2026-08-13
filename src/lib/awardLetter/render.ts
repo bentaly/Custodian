@@ -100,7 +100,11 @@ export function awardLetterVars(input: AwardLetterInput): AwardLetterVars {
     paymentSummary: paymentSummary(input.instalments.length),
     paymentSchedule: scheduleBlock(input.instalments),
     reportingSchedule: reportingBlock(input.reporting),
-    signatory: input.signatory ?? input.foundationName,
+    // Deliberately NOT falling back to the foundation name: the default template signs
+    // off with the signatory above the foundation, so a fallback prints the same name
+    // twice and reads as a bug. Empty is legitimate here (see OPTIONAL_TOKENS), so the
+    // line collapses away and the sign-off is just the foundation.
+    signatory: input.signatory ?? '',
     today: fmtDate(input.issuedAt ?? new Date()),
   }
 }

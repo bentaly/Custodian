@@ -58,7 +58,7 @@ export function SearchInput({
         onChange={(e) => setTerm(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
-        className="w-full min-w-0 bg-transparent font-display text-body outline-hidden placeholder:text-gray-500 sm:w-52"
+        className="w-full min-w-0 bg-transparent font-display text-body outline-hidden placeholder:text-grey-500 sm:w-52"
         style={{ color: C.ink }}
       />
     </div>

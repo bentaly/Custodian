@@ -22,7 +22,7 @@ export const Fields: Story = {
       </div>
       <div>
         <Label>
-          Description <span className="text-gray-400">(optional)</span>
+          Description <span className="text-grey-400">(optional)</span>
         </Label>
         <Textarea rows={3} placeholder="What this round is for…" />
       </div>
@@ -71,7 +71,7 @@ export const Confirm: Story = {
           busyLabel="Deleting…"
           busy={busy}
         >
-          Delete <span className="font-medium text-gray-700">Youth work</span>? It is in 2 rounds,
+          Delete <span className="font-medium text-grey-700">Youth work</span>? It is in 2 rounds,
           and their budgets go with it. This cannot be undone.
         </ConfirmDialog>
       </>

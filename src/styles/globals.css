@@ -50,7 +50,15 @@
      rather than shipping a hue no designer chose.
 
      Figma's names are kept verbatim, minus the group prefix, so a value can be traced
-     back to the variable it came from without a translation table. */
+     back to the variable it came from without a translation table — with the one
+     deliberate exception of `grey`, which Figma spells `Gray/N`. British English wins
+     in our own identifiers, and the divergence pays for itself: because the stock scale
+     is spelled `gray`, our `grey` can no longer be shadowed by it. A stray `bg-gray-50`
+     now generates nothing and shows up as a missing background, where before it quietly
+     resolved to our token and hid the fact that someone had reached past the palette.
+
+     `--color-*` itself is Tailwind's namespace, not ours — it stays American, as does
+     every CSS property (`color`, `background-color`). Only the token NAME is British. */
   --color-*: initial;
 
   /* Brand */
@@ -84,18 +92,19 @@
   --color-accent-amber: #fdc86f;
   --color-accent-violet: #7a7bef;
 
-  /* Gray. Figma's own scale — very close to Tailwind's but consistently cooler, so
-     these names shadow the stock ones rather than sitting alongside them. */
-  --color-gray-900: #141c24; /* body text, icons */
-  --color-gray-800: #202b37;
-  --color-gray-700: #344051; /* values, item titles */
-  --color-gray-600: #414e62; /* descriptions */
-  --color-gray-500: #637083; /* labels, secondary text, placeholders */
-  --color-gray-400: #97a1af; /* meta, disabled */
-  --color-gray-300: #ced2da;
-  --color-gray-200: #e4e7ec; /* every border */
-  --color-gray-100: #f2f4f7; /* filled inputs, avatar tiles */
-  --color-gray-50: #f9fafb;
+  /* Grey (Figma's `Gray/N`). Figma's own scale — very close to Tailwind's but
+     consistently cooler, which is exactly why the spelling now differs: shadowing the
+     stock names made the two indistinguishable at the call site. */
+  --color-grey-900: #141c24; /* body text, icons */
+  --color-grey-800: #202b37;
+  --color-grey-700: #344051; /* values, item titles */
+  --color-grey-600: #414e62; /* descriptions */
+  --color-grey-500: #637083; /* labels, secondary text, placeholders */
+  --color-grey-400: #97a1af; /* meta, disabled */
+  --color-grey-300: #ced2da;
+  --color-grey-200: #e4e7ec; /* every border */
+  --color-grey-100: #f2f4f7; /* filled inputs, avatar tiles */
+  --color-grey-50: #f9fafb;
 }
 
 /*
@@ -112,7 +121,7 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--color-grey-200, currentcolor);
   }
 }
 

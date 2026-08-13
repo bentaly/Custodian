@@ -1,6 +1,6 @@
 // The Figma colour variables, for the places a Tailwind class cannot reach: inline
 // `style` objects, Recharts props, SVG attributes. Everything else should use the
-// utility (`text-gray-500`), not `C.sub` — same token either way.
+// utility (`text-grey-500`), not `C.sub` — same token either way.
 //
 // No hex codes live here any more. Each entry points at the custom property defined in
 // `styles/globals.css`, which is the single transcription of the Figma variables; a
@@ -17,13 +17,13 @@ export const tint = (token: string, pct: number) =>
   `color-mix(in srgb, var(--color-${token}) ${pct}%, transparent)`
 
 export const C = {
-  ink: 'var(--color-gray-900)', // body text, icons, dropdown carets
-  body: 'var(--color-gray-700)',
-  sub: 'var(--color-gray-500)', // secondary text, placeholders
-  faint: 'var(--color-gray-400)', // meta, disabled
-  muted: 'var(--color-gray-300)',
-  line: 'var(--color-gray-200)', // every border
-  wash: 'var(--color-gray-100)', // filled inputs, avatar tiles
+  ink: 'var(--color-grey-900)', // body text, icons, dropdown carets
+  body: 'var(--color-grey-700)',
+  sub: 'var(--color-grey-500)', // secondary text, placeholders
+  faint: 'var(--color-grey-400)', // meta, disabled
+  muted: 'var(--color-grey-300)',
+  line: 'var(--color-grey-200)', // every border
+  wash: 'var(--color-grey-100)', // filled inputs, avatar tiles
   white: 'var(--color-white)',
 
   brand: 'var(--color-brand)',
@@ -58,7 +58,7 @@ export const C = {
 
 /** The colours a foundation picks a programme's colour from — the Figma Accent family
  *  plus Semantic/Success, exactly the five bound on the Programmes comp (674:33847). */
-export const PROGRAMME_COLORS = [
+export const PROGRAMME_COLOURS = [
   'var(--color-accent-sky)',
   'var(--color-success)',
   'var(--color-accent-blush)',

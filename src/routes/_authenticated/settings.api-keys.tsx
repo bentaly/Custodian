@@ -26,8 +26,8 @@ export const Route = createFileRoute('/_authenticated/settings/api-keys')({
 
 type ApiKeyRow = ReturnType<typeof Route.useLoaderData>['apiKeys'][number]
 
-const cellInk = 'font-display text-body font-medium text-gray-900'
-const cellSub = 'font-display text-body text-gray-500'
+const cellInk = 'font-display text-body font-medium text-grey-900'
+const cellSub = 'font-display text-body text-grey-500'
 
 function maskKey(last4: string) {
   return `cust_sk_••••${last4}`
@@ -90,7 +90,7 @@ function ApiKeys() {
       id: 'key',
       hideBelow: 'sm',
       header: 'Key',
-      cell: (k) => <span className="font-mono text-body text-gray-500">{maskKey(k.last4)}</span>,
+      cell: (k) => <span className="font-mono text-body text-grey-500">{maskKey(k.last4)}</span>,
     },
     {
       id: 'created',
@@ -116,9 +116,9 @@ function ApiKeys() {
       width: 'sm:w-[120px]',
       cell: (k) =>
         k.revokedAt ? (
-          <StatusPill label="Revoked" color="var(--color-gray-500)" />
+          <StatusPill label="Revoked" colour="var(--color-grey-500)" />
         ) : (
-          <StatusPill label="Active" color="var(--color-success)" />
+          <StatusPill label="Active" colour="var(--color-success)" />
         ),
     },
     {
@@ -146,7 +146,7 @@ function ApiKeys() {
       description="Keys authenticate your intake integration when it posts applications or reports to Custodian. Send the key from your server in the Authorization header — never expose one in browser code."
     >
       <div className="space-y-4">
-        <p className="text-body text-gray-500">
+        <p className="text-body text-grey-500">
           See <TextLink to="/settings/submissions">Submitting applications</TextLink> for the
           endpoints and the fields we expect.
         </p>
@@ -157,7 +157,7 @@ function ApiKeys() {
               Key created — copy it now. You won't be able to see it again.
             </p>
             <div className="mt-2 flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto rounded-chip border border-success/20 bg-white px-3 py-2 text-label text-gray-900">
+              <code className="flex-1 overflow-x-auto rounded-chip border border-success/20 bg-white px-3 py-2 text-label text-grey-900">
                 {newKey}
               </code>
               <Button size="sm" onClick={copyKey}>

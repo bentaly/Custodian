@@ -47,7 +47,11 @@ export const AWARD_LETTER_TOKENS: AwardLetterToken[] = [
     description:
       'The numbered conditions of grant. If you leave this token out, the conditions are added at the end instead.',
   },
-  { name: 'signatory', description: 'Who the letter is signed by, from your settings' },
+  {
+    name: 'signatory',
+    description:
+      'Who the letter is signed by, from your settings. Left out if you have not set one.',
+  },
   { name: 'today', description: 'The date the letter is issued' },
 ]
 
@@ -116,9 +120,11 @@ export const MISSING_TOKEN_PLACEHOLDER = '[not set]'
 /**
  * Tokens whose empty value is a real answer rather than an omission. A foundation that
  * attaches no standard conditions has *chosen* that; rendering "[not set]" there would
- * be a lie. Every other token is required, and blank means somebody forgot.
+ * be a lie. `signatory` is the same: plenty of foundations sign in the foundation's own
+ * name and never fill the field in, and the line collapsing away leaves a sign-off that
+ * reads correctly. Every other token is required, and blank means somebody forgot.
  */
-const OPTIONAL_TOKENS = new Set(['conditions'])
+const OPTIONAL_TOKENS = new Set(['conditions', 'signatory'])
 
 /**
  * Substitute `{{token}}` placeholders. Unknown tokens are left alone rather than

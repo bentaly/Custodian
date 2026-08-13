@@ -17,12 +17,12 @@ import { Listbox, type ListboxOption } from './Listbox'
 
 /** The one field surface. Exported so bespoke composite fields sit on the same box. */
 export const FIELD_SURFACE =
-  'w-full rounded-control bg-gray-100 px-3 font-display text-body text-gray-900 placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-brand/20 disabled:opacity-50'
+  'w-full rounded-control bg-grey-100 px-3 font-display text-body text-grey-900 placeholder:text-grey-500 focus:outline-hidden focus:ring-2 focus:ring-brand/20 disabled:opacity-50'
 
 const INPUT_CLASSES = `h-10 ${FIELD_SURFACE}`
 const TEXTAREA_CLASSES = `py-2.5 ${FIELD_SURFACE}`
 
-const LABEL_CLASSES = 'mb-1.5 block font-display text-body font-medium text-gray-700'
+const LABEL_CLASSES = 'mb-1.5 block font-display text-body font-medium text-grey-700'
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...props }, ref) {
@@ -88,7 +88,7 @@ export function Select({
           )}
         >
           <span
-            className={cn('flex-1 truncate', !selected?.value && 'text-gray-500')}
+            className={cn('flex-1 truncate', !selected?.value && 'text-grey-500')}
             style={{ color: selected?.value ? C.ink : undefined }}
           >
             {selected?.label ?? placeholder ?? '—'}

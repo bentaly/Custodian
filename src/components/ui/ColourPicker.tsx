@@ -98,7 +98,7 @@ export function ColourPicker({
         </span>
       </label>
 
-      <span className="font-display text-label text-gray-500">
+      <span className="font-display text-label text-grey-500">
         {colourName(selected) ?? 'None'}
       </span>
     </div>

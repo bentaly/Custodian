@@ -104,14 +104,14 @@ export function DateField({
         aria-label={ariaLabel}
         onClick={() => (open ? close() : setOpen(true))}
         className={cn(
-          'relative flex w-full items-center bg-gray-100 font-display text-body focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden',
+          'relative flex w-full items-center bg-grey-100 font-display text-body focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden',
           box,
           disabled && 'opacity-50',
           open && 'ring-2 ring-brand/20',
         )}
       >
         <span
-          className={cn('flex-1 truncate text-left', value ? 'text-gray-900' : 'text-gray-500')}
+          className={cn('flex-1 truncate text-left', value ? 'text-grey-900' : 'text-grey-500')}
         >
           {value ? fmtDay(value) : placeholder}
         </span>
@@ -151,7 +151,7 @@ export function DateField({
                   onChange(iso(new Date()))
                   close()
                 }}
-                className="flex h-8 items-center rounded-chip px-2 font-display text-body font-medium hover:bg-gray-100"
+                className="flex h-8 items-center rounded-chip px-2 font-display text-body font-medium hover:bg-grey-100"
                 style={{ color: C.brand }}
               >
                 Today
@@ -166,7 +166,7 @@ export function DateField({
                     onChange('')
                     close()
                   }}
-                  className="flex h-8 items-center rounded-chip px-2 font-display text-body font-medium hover:bg-gray-100"
+                  className="flex h-8 items-center rounded-chip px-2 font-display text-body font-medium hover:bg-grey-100"
                   style={{ color: C.sub }}
                 >
                   Clear

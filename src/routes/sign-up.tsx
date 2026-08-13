@@ -78,14 +78,14 @@ function SignUpPage() {
   if (invite && !invitation) {
     return (
       <AuthShell>
-        <h1 className="font-display text-display font-semibold text-gray-900">Invitation expired</h1>
-        <p className="mt-2 text-body leading-relaxed text-gray-500">
+        <h1 className="font-display text-display font-semibold text-grey-900">Invitation expired</h1>
+        <p className="mt-2 text-body leading-relaxed text-grey-500">
           This invitation is no longer valid — invitations last 7 days. Ask your administrator to
           send a new one.
         </p>
         <Link
           to="/sign-in"
-          className="mt-7 block w-full rounded-control border border-gray-200 bg-white px-4 py-3 text-center text-body font-medium text-gray-700 hover:bg-background"
+          className="mt-7 block w-full rounded-control border border-grey-200 bg-white px-4 py-3 text-center text-body font-medium text-grey-700 hover:bg-background"
         >
           Back to sign in
         </Link>
@@ -96,16 +96,16 @@ function SignUpPage() {
   if (!isInvite) {
     return (
       <AuthShell>
-        <h1 className="font-display text-display font-semibold text-gray-900">
+        <h1 className="font-display text-display font-semibold text-grey-900">
           You'll need an invitation
         </h1>
-        <p className="mt-2 text-body leading-relaxed text-gray-500">
+        <p className="mt-2 text-body leading-relaxed text-grey-500">
           Custodian is invite-only. Ask your administrator to invite you to your organisation, and
           you'll get an email with a link to set up your account.
         </p>
         <Link
           to="/sign-in"
-          className="mt-7 block w-full rounded-control border border-gray-200 bg-white px-4 py-3 text-center text-body font-medium text-gray-700 hover:bg-background"
+          className="mt-7 block w-full rounded-control border border-grey-200 bg-white px-4 py-3 text-center text-body font-medium text-grey-700 hover:bg-background"
         >
           Back to sign in
         </Link>
@@ -115,10 +115,10 @@ function SignUpPage() {
 
   return (
     <AuthShell>
-      <h1 className="font-display text-display font-semibold text-gray-900">Create your account</h1>
-      <p className="mt-2 text-body leading-relaxed text-gray-500">
+      <h1 className="font-display text-display font-semibold text-grey-900">Create your account</h1>
+      <p className="mt-2 text-body leading-relaxed text-grey-500">
         You've been invited to join{' '}
-        <span className="font-medium text-gray-900">{invitation.clientName}</span>.
+        <span className="font-medium text-grey-900">{invitation.clientName}</span>.
       </p>
 
       {error && <Notice tone="error">{error}</Notice>}
@@ -130,7 +130,7 @@ function SignUpPage() {
             loading={googleLoading}
             label="Continue with Google"
           />
-          <p className="mt-2 text-center text-body text-gray-500">
+          <p className="mt-2 text-center text-body text-grey-500">
             Use the Google account for {invitation.email}
           </p>
         </div>
@@ -152,7 +152,7 @@ function SignUpPage() {
             type="email"
             value={email}
             readOnly
-            className="cursor-not-allowed text-gray-500"
+            className="cursor-not-allowed text-grey-500"
             required
           />
           <AuthInput
@@ -169,7 +169,7 @@ function SignUpPage() {
           </AuthButton>
         </form>
 
-        <p className="text-center text-body text-gray-500">
+        <p className="text-center text-body text-grey-500">
           Already have an account?{' '}
           <Link to="/sign-in" className="font-medium text-brand hover:text-brand">
             Sign in

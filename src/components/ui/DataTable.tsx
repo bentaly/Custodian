@@ -17,15 +17,15 @@ function alpha(color: string, a: number) {
 }
 
 /** The app's status pill — a coloured dot + label on a 10%-tint background. Every
- *  table maps its own status vocabulary to a `{ label, color }` and renders this. */
-export function StatusPill({ label, color }: { label: string; color: string }) {
+ *  table maps its own status vocabulary to a `{ label, colour }` and renders this. */
+export function StatusPill({ label, colour }: { label: string; colour: string }) {
   return (
     <span
       className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
-      style={{ backgroundColor: alpha(color, 0.1) }}
+      style={{ backgroundColor: alpha(colour, 0.1) }}
     >
-      <span className="size-[3px] rounded-full" style={{ backgroundColor: color }} />
-      <span className="font-display text-label font-medium" style={{ color }}>
+      <span className="size-[3px] rounded-full" style={{ backgroundColor: colour }} />
+      <span className="font-display text-label font-medium" style={{ color: colour }}>
         {label}
       </span>
     </span>
@@ -198,7 +198,7 @@ export function DataTable<T>({
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={`h-16 transition-colors hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(row) ?? ''}`}
+              className={`h-16 transition-colors hover:bg-grey-50 ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(row) ?? ''}`}
             >
               {selection && (
                 <td className="w-11 px-3 align-middle" onClick={(e) => e.stopPropagation()}>

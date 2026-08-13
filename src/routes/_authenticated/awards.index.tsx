@@ -129,8 +129,8 @@ const GRANT_STATUS_HEX: Record<string, string> = {
   cancelled: C.danger,
 }
 
-const txtInk = 'font-display text-body text-gray-900'
-const txtSub = 'font-display text-body text-gray-500'
+const txtInk = 'font-display text-body text-grey-900'
+const txtSub = 'font-display text-body text-grey-500'
 
 const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
   {
@@ -142,7 +142,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
         to="/awards/$awardId"
         params={{ awardId: g.awardId }}
         onClick={(e) => e.stopPropagation()}
-        className="font-display text-body font-medium text-gray-900 hover:underline"
+        className="font-display text-body font-medium text-grey-900 hover:underline"
       >
         {g.organisationName}
       </Link>
@@ -175,7 +175,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     header: 'Amount',
     cellClassName: 'tabular-nums',
     cell: (g) => (
-      <span className="whitespace-nowrap font-display text-body font-medium text-gray-900">
+      <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
         {fmtMoney(g.amountAwarded)}
       </span>
     ),
@@ -193,7 +193,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
           className={`whitespace-nowrap ${txtSub}`}
           title={`${g.paidCount} of ${g.instalmentCount} instalments paid`}
         >
-          {fmtCompact(g.paidToDate)} <span className="text-gray-400">/ {g.instalmentCount}</span>
+          {fmtCompact(g.paidToDate)} <span className="text-grey-400">/ {g.instalmentCount}</span>
         </span>
       ),
   },
@@ -223,7 +223,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     cell: (g) => (
       <StatusPill
         label={GRANT_STATUS_LABELS[g.status] ?? g.status}
-        color={GRANT_STATUS_HEX[g.status] ?? C.sub}
+        colour={GRANT_STATUS_HEX[g.status] ?? C.sub}
       />
     ),
   },
@@ -272,10 +272,10 @@ function StatCards({ totals }: { totals: Totals }) {
               return (
                 <div key={p.name}>
                   <div className="flex justify-between text-label">
-                    <span className="truncate text-gray-500" title={p.name}>
+                    <span className="truncate text-grey-500" title={p.name}>
                       {p.name}
                     </span>
-                    <span className="ml-2 shrink-0 font-medium text-gray-700">
+                    <span className="ml-2 shrink-0 font-medium text-grey-700">
                       {fmtCompact(p.amount)}
                     </span>
                   </div>
@@ -380,7 +380,7 @@ function AwardsPage() {
       {/* Header — <h1>, then the round pill and the list's meta on the row beneath, as
           on Applications. */}
       <div className="flex flex-col gap-4">
-        <h1 className="font-display text-heading font-medium text-gray-900">Awards</h1>
+        <h1 className="font-display text-heading font-medium text-grey-900">Awards</h1>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {visibleRounds.length > 0 && (
@@ -393,7 +393,7 @@ function AwardsPage() {
                 onChange={handleRoundChange}
               />
             )}
-            <span className="whitespace-nowrap font-display text-label font-medium text-gray-500">
+            <span className="whitespace-nowrap font-display text-label font-medium text-grey-500">
               {metaLine}
             </span>
           </div>
@@ -409,37 +409,31 @@ function AwardsPage() {
 
       <StatCards totals={totals} />
 
-      {/* Filters — the same row Applications and Insights wear. Each pill offers only
-          what the awards in view actually contain, with counts; a pill with nothing to
-          choose between isn't rendered at all. */}
+      {/* Filters — the same row every list screen wears, in the shared order. Each pill
+          offers only what the awards in view actually contain, with counts, and stays in
+          place when that is one value or none (see `ui/FilterPill`). */}
       <div className="flex flex-wrap items-center gap-3">
-        {facets.statuses.length > 1 && (
-          <FilterPill
-            label="Status"
-            clearLabel="All statuses"
-            value={status}
-            options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={setStatus}
-          />
-        )}
-        {facets.programmes.length > 1 && (
-          <FilterPill
-            label="Programme"
-            clearLabel="All programmes"
-            value={programmeId}
-            options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={setProgramme}
-          />
-        )}
-        {facets.themes.length > 1 && (
-          <FilterPill
-            label="Theme"
-            clearLabel="All themes"
-            value={tag}
-            options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={setTag}
-          />
-        )}
+        <FilterPill
+          label="Status"
+          plural="statuses"
+          value={status}
+          options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+          onChange={setStatus}
+        />
+        <FilterPill
+          label="Programme"
+          plural="programmes"
+          value={programmeId}
+          options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+          onChange={setProgramme}
+        />
+        <FilterPill
+          label="Theme"
+          plural="themes"
+          value={tag}
+          options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+          onChange={setTag}
+        />
         <DateRangePicker
           value={{ from, to }}
           onChange={(next) =>
@@ -453,14 +447,14 @@ function AwardsPage() {
 
       {items.length === 0 ? (
         <EmptyState>
-          <p className="text-body text-gray-500">No awards match these filters.</p>
-          <p className="mt-1 text-label text-gray-400">
+          <p className="text-body text-grey-500">No awards match these filters.</p>
+          <p className="mt-1 text-label text-grey-400">
             Awards appear here as soon as one is generated after the trustee vote.
           </p>
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
+          <div className="overflow-hidden rounded-card border border-grey-200 bg-white">
             <DataTable
               columns={AWARD_COLUMNS}
               rows={items}

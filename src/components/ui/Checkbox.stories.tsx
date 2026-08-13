@@ -45,7 +45,7 @@ export const Keyboard: Story = {
     return (
       <div className="flex flex-col gap-3">
         <Checkbox label="Focus me with Tab, toggle with Space" checked={on} onChange={(e) => setOn(e.target.checked)} />
-        <p className="font-display text-label text-gray-500">checked: {String(on)}</p>
+        <p className="font-display text-label text-grey-500">checked: {String(on)}</p>
       </div>
     )
   },
@@ -61,7 +61,7 @@ export const Bare: Story = {
     return (
       <table className="w-[320px] border-collapse">
         <thead>
-          <tr className="h-10 bg-gray-100">
+          <tr className="h-10 bg-grey-100">
             <th className="w-11 px-3">
               <Checkbox
                 aria-label="Select all rows"
@@ -70,14 +70,14 @@ export const Bare: Story = {
                 onChange={() => setRows(rows.map(() => !all))}
               />
             </th>
-            <th className="px-3 text-left font-display text-body font-medium text-gray-900">
+            <th className="px-3 text-left font-display text-body font-medium text-grey-900">
               Organisation
             </th>
           </tr>
         </thead>
         <tbody>
           {['Nature Learning Network', 'Groundwork Trust', 'Pennine Youth Alliance'].map((name, i) => (
-            <tr key={name} className="h-16 hover:bg-gray-50">
+            <tr key={name} className="h-16 hover:bg-grey-50">
               <td className="w-11 px-3">
                 <Checkbox
                   aria-label={`Select ${name}`}
@@ -85,7 +85,7 @@ export const Bare: Story = {
                   onChange={() => setRows(rows.map((r, j) => (i === j ? !r : r)))}
                 />
               </td>
-              <td className="px-3 font-display text-body text-gray-900">{name}</td>
+              <td className="px-3 font-display text-body text-grey-900">{name}</td>
             </tr>
           ))}
         </tbody>

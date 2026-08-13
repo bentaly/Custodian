@@ -11,7 +11,7 @@ import { Badge, Card } from './ui'
 export type ReportAnalysisStatus = 'pending' | 'analysed' | 'error'
 
 const STATUS_META: Record<ReportAnalysisStatus, { label: string; className: string }> = {
-  pending: { label: 'Not analysed', className: 'bg-gray-100 text-gray-500' },
+  pending: { label: 'Not analysed', className: 'bg-grey-100 text-grey-500' },
   analysed: { label: 'Analysed', className: 'bg-success/10 text-success' },
   error: { label: 'Analysis failed', className: 'bg-danger/10 text-danger' },
 }
@@ -56,13 +56,13 @@ function AlignmentBlock({
   return (
     <div>
       <div className="flex items-center justify-between text-label">
-        <span className="text-gray-600">{title}</span>
+        <span className="text-grey-600">{title}</span>
         <span className={`font-semibold ${cls.text}`}>{score}/10</span>
       </div>
-      <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
+      <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-grey-100">
         <div className={`h-full rounded-full ${cls.bar}`} style={{ width: `${score * 10}%` }} />
       </div>
-      {narrative && <p className="mt-1.5 text-label leading-relaxed text-gray-600">{narrative}</p>}
+      {narrative && <p className="mt-1.5 text-label leading-relaxed text-grey-600">{narrative}</p>}
       {children}
     </div>
   )
@@ -85,14 +85,14 @@ export function ReportAnalysisPanel({
 
   return (
     <Card>
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+      <div className="flex items-center justify-between border-b border-grey-100 px-5 py-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-body font-medium text-gray-900">Report analysis</h2>
+          <h2 className="text-body font-medium text-grey-900">Report analysis</h2>
           <Badge className={meta.className}>{meta.label}</Badge>
         </div>
         <div className="flex items-center gap-3">
           {analysedAt && (
-            <span className="text-label text-gray-400">
+            <span className="text-label text-grey-400">
               Analysed {new Date(analysedAt).toLocaleDateString('en-GB')}
             </span>
           )}
@@ -101,7 +101,7 @@ export function ReportAnalysisPanel({
       </div>
 
       {status !== 'analysed' || !a ? (
-        <p className="px-5 py-6 text-body text-gray-500">
+        <p className="px-5 py-6 text-body text-grey-500">
           {status === 'error' ? 'Analysis failed. Try re-running.' : 'Not yet analysed.'}
         </p>
       ) : (
@@ -111,7 +111,7 @@ export function ReportAnalysisPanel({
             <div className="flex flex-col items-center">
               <div
                 className="flex h-16 min-w-16 flex-col items-center justify-center rounded-full px-3"
-                style={{ border: `3px solid ${a.impactQuantity != null ? 'var(--color-brand)' : 'var(--color-gray-300)'}` }}
+                style={{ border: `3px solid ${a.impactQuantity != null ? 'var(--color-brand)' : 'var(--color-grey-300)'}` }}
               >
                 <span className="text-heading font-light leading-none">
                   {a.impactQuantity != null
@@ -119,7 +119,7 @@ export function ReportAnalysisPanel({
                     : '—'}
                 </span>
               </div>
-              <span className="mt-1.5 text-center text-label uppercase tracking-wide text-gray-400">
+              <span className="mt-1.5 text-center text-label uppercase tracking-wide text-grey-400">
                 {a.impactUnitLabel ?? 'Impact'}
                 {a.impactQuantity != null && (
                   <>
@@ -129,12 +129,12 @@ export function ReportAnalysisPanel({
                 )}
               </span>
               {a.impactQuantity == null && (
-                <span className="mt-1 text-center text-label text-gray-400">
+                <span className="mt-1 text-center text-label text-grey-400">
                   No quantity evidenced in the report
                 </span>
               )}
               {a.impactQuantityQuote && (
-                <p className="mt-2 border-l-2 border-gray-200 pl-2 text-label italic leading-snug text-gray-500">
+                <p className="mt-2 border-l-2 border-grey-200 pl-2 text-label italic leading-snug text-grey-500">
                   “{a.impactQuantityQuote}”
                 </p>
               )}
@@ -162,19 +162,19 @@ export function ReportAnalysisPanel({
           <div className="min-w-0 flex-1 space-y-4">
             {a.aiSummary && (
               <div>
-                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
+                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
                   AI assessment summary
                 </h3>
-                <p className="text-body leading-relaxed text-gray-700">{a.aiSummary}</p>
+                <p className="text-body leading-relaxed text-grey-700">{a.aiSummary}</p>
               </div>
             )}
 
             {a.applicationAlignment && (
               <div>
-                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
+                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
                   Against the application
                 </h3>
-                <p className="text-body leading-relaxed text-gray-600">
+                <p className="text-body leading-relaxed text-grey-600">
                   {a.applicationAlignment.narrative}
                 </p>
                 {a.applicationAlignment.promisesKept.length > 0 && (
@@ -200,10 +200,10 @@ export function ReportAnalysisPanel({
 
             {a.programmeAlignment && (
               <div>
-                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
+                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
                   Against the programme
                 </h3>
-                <p className="text-body leading-relaxed text-gray-600">
+                <p className="text-body leading-relaxed text-grey-600">
                   {a.programmeAlignment.narrative}
                 </p>
               </div>
@@ -213,18 +213,18 @@ export function ReportAnalysisPanel({
               <div className="grid gap-4 sm:grid-cols-2">
                 {a.aiChallenges && (
                   <div>
-                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
+                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
                       Challenges
                     </h3>
-                    <p className="text-label leading-relaxed text-gray-600">{a.aiChallenges}</p>
+                    <p className="text-label leading-relaxed text-grey-600">{a.aiChallenges}</p>
                   </div>
                 )}
                 {a.aiLessons && (
                   <div>
-                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-gray-400">
+                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
                       Lessons learned
                     </h3>
-                    <p className="text-label leading-relaxed text-gray-600">{a.aiLessons}</p>
+                    <p className="text-label leading-relaxed text-grey-600">{a.aiLessons}</p>
                   </div>
                 )}
               </div>

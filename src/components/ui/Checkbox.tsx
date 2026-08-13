@@ -83,7 +83,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
       >
         <HugeiconsIcon icon={icon} size={20} color={C.success} />
       </span>
-      {label != null && <span className="font-display text-body text-gray-900">{label}</span>}
+      {label != null && <span className="font-display text-body text-grey-900">{label}</span>}
     </label>
   )
 })

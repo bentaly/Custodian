@@ -8,7 +8,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { listRoundsOverview, getRound, setRoundArchived } from '../../server/fns/rounds'
 import { listProgrammes } from '../../server/fns/programmes'
-import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLORS } from '../../lib/roundStatus'
+import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLOURS } from '../../lib/roundStatus'
 import { RoundDialog, type RoundDraft } from '../../components/RoundDialog'
 import {
   ActionMenu,
@@ -103,8 +103,8 @@ function Rounds() {
 
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-heading font-medium text-gray-900">Funding Rounds</h1>
-          <p className="font-display text-label text-gray-500">
+          <h1 className="font-display text-heading font-medium text-grey-900">Funding Rounds</h1>
+          <p className="font-display text-label text-grey-500">
             Open and close funding rounds, set their dates, and choose which programmes each round
             funds and with what budget.
           </p>
@@ -120,9 +120,9 @@ function Rounds() {
 
       {rounds.length === 0 ? (
         <EmptyState>
-          <p className="font-display text-body text-gray-500">No funding rounds yet.</p>
+          <p className="font-display text-body text-grey-500">No funding rounds yet.</p>
           {canManage && (
-            <p className="mt-1 font-display text-body text-gray-400">
+            <p className="mt-1 font-display text-body text-grey-400">
               Create your first round to get started.
             </p>
           )}
@@ -185,10 +185,10 @@ function RoundSection({
 
   return (
     <Card className="flex flex-col gap-4 p-4">
-      <h2 className="font-display text-title font-medium text-gray-900">{title}</h2>
+      <h2 className="font-display text-title font-medium text-grey-900">{title}</h2>
 
       {rounds.length === 0 ? (
-        <p className="font-display text-body text-gray-400">{empty}</p>
+        <p className="font-display text-body text-grey-400">{empty}</p>
       ) : (
         <>
           {shown.map((round) => (
@@ -244,11 +244,11 @@ function RoundRowCard({
   const archived = round.archivedAt !== null
 
   return (
-    <div className="flex flex-col gap-4 rounded-card border border-gray-200 p-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-4 rounded-card border border-grey-200 p-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3
-            className={`font-display text-title font-semibold ${archived ? 'text-gray-400' : 'text-gray-900'}`}
+            className={`font-display text-title font-semibold ${archived ? 'text-grey-400' : 'text-grey-900'}`}
           >
             {round.name}
           </h3>
@@ -257,12 +257,12 @@ function RoundRowCard({
               would advertise itself as Open when it has been withdrawn from every
               picker. Same substitution as an archived programme's round badge. */}
           {archived ? (
-            <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+            <Badge className="bg-grey-100 text-grey-500">Archived</Badge>
           ) : (
-            <Badge className={ROUND_STATUS_COLORS[status]}>{ROUND_STATUS_LABELS[status]}</Badge>
+            <Badge className={ROUND_STATUS_COLOURS[status]}>{ROUND_STATUS_LABELS[status]}</Badge>
           )}
         </div>
-        <p className={`font-display text-body ${archived ? 'text-gray-400' : 'text-gray-600'}`}>
+        <p className={`font-display text-body ${archived ? 'text-grey-400' : 'text-grey-600'}`}>
           {start && end ? `${start} - ${end}` : (start ?? end ?? 'No dates set')}
         </p>
       </div>
@@ -274,19 +274,19 @@ function RoundRowCard({
             of what it gave away, which is most of why anyone opens Past Rounds. */}
         <Stat label="Budget" muted={archived}>
           {round.budget === null ? (
-            <span className="text-gray-400">Not set</span>
+            <span className="text-grey-400">Not set</span>
           ) : (
             <>
               <span className={archived ? 'font-semibold' : 'font-semibold text-brand'}>
                 {money(round.committed)} of
               </span>{' '}
-              <span className="text-gray-500">{money(round.budget)}</span>
+              <span className="text-grey-500">{money(round.budget)}</span>
             </>
           )}
         </Stat>
         <Stat label="Programmes" muted={archived}>
           {round.programmeCount === 0 ? (
-            <span className="text-gray-400">None yet</span>
+            <span className="text-grey-400">None yet</span>
           ) : (
             round.programmeCount
           )}
@@ -344,9 +344,9 @@ function Stat({
 }) {
   return (
     <div className="flex min-w-[120px] flex-col gap-2">
-      <span className="font-display text-label font-medium text-gray-500">{label}</span>
+      <span className="font-display text-label font-medium text-grey-500">{label}</span>
       <span
-        className={`font-display text-body font-medium ${muted ? 'text-gray-400' : 'text-gray-900'}`}
+        className={`font-display text-body font-medium ${muted ? 'text-grey-400' : 'text-grey-900'}`}
       >
         {children}
       </span>

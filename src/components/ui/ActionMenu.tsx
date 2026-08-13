@@ -100,7 +100,7 @@ export function ActionMenu({
             openAt(actions.length - 1)
           }
         }}
-        className="flex size-8 items-center justify-center rounded-chip text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+        className="flex size-8 items-center justify-center rounded-chip text-grey-500 transition-colors hover:bg-grey-100 hover:text-grey-700 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
       >
         <HugeiconsIcon icon={MoreVerticalIcon} size={18} color="currentColor" />
       </button>
@@ -153,7 +153,7 @@ export function ActionMenu({
                 'flex w-full items-center gap-2 px-3 py-2 text-left font-display text-body font-medium transition-colors focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-40',
                 action.destructive
                   ? 'text-danger hover:bg-danger/10 focus:bg-danger/10'
-                  : 'text-gray-700 hover:bg-gray-50 focus:bg-gray-50',
+                  : 'text-grey-700 hover:bg-grey-50 focus:bg-grey-50',
               )}
             >
               {action.icon && <HugeiconsIcon icon={action.icon} size={16} color="currentColor" />}

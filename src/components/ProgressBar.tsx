@@ -4,8 +4,8 @@
 // list of them. Respects prefers-reduced-motion.
 export function ProgressBar({
   value,
-  color,
-  track = 'var(--color-gray-100)',
+  colour,
+  track = 'var(--color-grey-100)',
   height = 6,
   delay = 0,
   animate = true,
@@ -13,7 +13,7 @@ export function ProgressBar({
 }: {
   /** Fill fraction, 0..1 (clamped). */
   value: number
-  color: string
+  colour: string
   track?: string
   height?: number
   /** Stagger in ms, for a list of bars. */
@@ -31,7 +31,7 @@ export function ProgressBar({
         className={`h-full rounded-full ${animate ? 'bar-grow' : ''}`}
         style={{
           width: `${pct}%`,
-          backgroundColor: color,
+          backgroundColor: colour,
           animationDelay: animate ? `${delay}ms` : undefined,
         }}
       />

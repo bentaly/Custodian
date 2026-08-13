@@ -186,6 +186,7 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
         /** Which tab is open. "To pay" is anything still owing; "paid" is settled + cancelled. */
         tab: z.enum(['to_pay', 'paid']).optional(),
         roundId: z.uuid().optional(),
+        programmeId: z.uuid().optional(),
         /** A programme theme (`programmes.tags`), as the Theme pill offers them. */
         tag: z.string().min(1).max(100).optional(),
         status: z
@@ -273,6 +274,7 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
           awardId: award.id,
           applicationId: a.id,
           organisationName: a.organisationName,
+          programmeId: a.roundProgramme?.programmeId ?? null,
           programmeName: a.roundProgramme?.programme?.name ?? null,
           roundId: a.roundProgramme?.roundId ?? null,
           roundName: a.roundProgramme?.round?.name ?? null,
@@ -366,6 +368,11 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
         value: g.status,
         label: FINANCE_STATUS_LABELS[g.status],
       })),
+      programmes: facetBy(tabRows, (g) =>
+        g.programmeId
+          ? { value: g.programmeId, label: g.programmeName ?? 'Untitled programme' }
+          : null,
+      ),
       themes: facetByMany(tabRows, (g) => g.tags.map((t) => ({ value: t, label: t }))),
       rounds: facetBy(tabRows, (g) =>
         g.roundId ? { value: g.roundId, label: g.roundName ?? 'Untitled round' } : null,
@@ -382,6 +389,7 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
     }
     const matches = (g: (typeof items)[number], day: string | null) =>
       (!data?.roundId || g.roundId === data.roundId) &&
+      (!data?.programmeId || g.programmeId === data.programmeId) &&
       (!data?.tag || g.tags.includes(data.tag)) &&
       (!data?.status || g.status === data.status) &&
       inWindow(day)
@@ -442,8 +450,13 @@ export const FINANCE_STATUS_LABELS: Record<FinanceStatus, string> = {
   cancelled: 'Cancelled',
 }
 
-function emptyFacets(): { statuses: FacetOption[]; themes: FacetOption[]; rounds: FacetOption[] } {
-  return { statuses: [], themes: [], rounds: [] }
+function emptyFacets(): {
+  statuses: FacetOption[]
+  programmes: FacetOption[]
+  themes: FacetOption[]
+  rounds: FacetOption[]
+} {
+  return { statuses: [], programmes: [], themes: [], rounds: [] }
 }
 
 function emptyTotals() {

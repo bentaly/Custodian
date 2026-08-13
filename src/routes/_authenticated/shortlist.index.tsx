@@ -110,7 +110,7 @@ function ShortlistPage() {
           <Link
             to="/applications"
             search={{ roundId }}
-            className="mt-4 inline-block rounded-control border px-4 py-2 font-display text-body hover:bg-gray-50"
+            className="mt-4 inline-block rounded-control border px-4 py-2 font-display text-body hover:bg-grey-50"
             style={{ borderColor: C.line, color: C.body }}
           >
             Go to Applications →

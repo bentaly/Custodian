@@ -51,9 +51,16 @@ export const FilterRow: Story = {
           <SearchInput value={q} onChange={setQ} placeholder="Search organisation or ID…" />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <FilterPill label="Status" value={status} options={STATUSES} onChange={setStatus} />
+          <FilterPill
+            label="Status"
+            plural="statuses"
+            value={status}
+            options={STATUSES}
+            onChange={setStatus}
+          />
           <FilterPill
             label="Theme"
+            plural="themes"
             value={theme}
             options={[
               { value: 'Youth', label: 'Youth' },
@@ -76,13 +83,25 @@ export const IdleAndChosen: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className="w-16 font-display text-label text-gray-400">idle</span>
-        <FilterPill label="Status" value={undefined} options={STATUSES} onChange={() => {}} />
+        <span className="w-16 font-display text-label text-grey-400">idle</span>
+        <FilterPill
+          label="Status"
+          plural="statuses"
+          value={undefined}
+          options={STATUSES}
+          onChange={() => {}}
+        />
         <DateRangePicker value={{}} onChange={() => {}} allLabel="Any date" />
       </div>
       <div className="flex items-center gap-3">
-        <span className="w-16 font-display text-label text-gray-400">chosen</span>
-        <FilterPill label="Status" value="shortlisted" options={STATUSES} onChange={() => {}} />
+        <span className="w-16 font-display text-label text-grey-400">chosen</span>
+        <FilterPill
+          label="Status"
+          plural="statuses"
+          value="shortlisted"
+          options={STATUSES}
+          onChange={() => {}}
+        />
         <DateRangePicker
           value={{ from: '2026-08-17', to: '2026-08-18' }}
           onChange={() => {}}

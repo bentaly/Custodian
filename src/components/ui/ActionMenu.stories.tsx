@@ -56,17 +56,17 @@ export const OnACard: Story = {
                 style={{ backgroundColor: 'var(--color-accent-sky)' }}
               />
               <h2
-                className={`font-display text-title font-semibold ${archived ? 'text-gray-400' : 'text-gray-900'}`}
+                className={`font-display text-title font-semibold ${archived ? 'text-grey-400' : 'text-grey-900'}`}
               >
                 Community &amp; Place
               </h2>
               {archived ? (
-                <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+                <Badge className="bg-grey-100 text-grey-500">Archived</Badge>
               ) : (
                 <Badge className="bg-success/10 text-success">In open round</Badge>
               )}
             </div>
-            <p className={`font-display text-body ${archived ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`font-display text-body ${archived ? 'text-grey-400' : 'text-grey-600'}`}>
               Place-based community development and social cohesion across West Yorkshire.
             </p>
           </div>
@@ -92,14 +92,14 @@ export const OnACard: Story = {
         {!archived && (
           <div className="flex gap-16">
             <div className="flex flex-col gap-2">
-              <span className="font-display text-label font-medium text-gray-500">
+              <span className="font-display text-label font-medium text-grey-500">
                 Impact measured in
               </span>
-              <span className="font-display text-body font-medium text-gray-700">People</span>
+              <span className="font-display text-body font-medium text-grey-700">People</span>
             </div>
             <div className="flex flex-col gap-2">
-              <span className="font-display text-label font-medium text-gray-500">Themes</span>
-              <span className="font-display text-body font-medium text-gray-700">
+              <span className="font-display text-label font-medium text-grey-500">Themes</span>
+              <span className="font-display text-body font-medium text-grey-700">
                 Social cohesion, Food poverty
               </span>
             </div>

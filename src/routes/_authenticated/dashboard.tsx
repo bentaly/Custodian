@@ -22,7 +22,7 @@ import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
 import { fmtCompact } from '../../lib/format'
-import { C, PROGRAMME_COLORS, tint as T } from '../../components/ui/tokens'
+import { C, PROGRAMME_COLOURS, tint as T } from '../../components/ui/tokens'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>
 
@@ -61,8 +61,8 @@ const KPI = {
 const REPORTS_CHIP = { toReview: 'var(--color-accent-blush)', overdue: 'var(--color-danger)' }
 
 // Round donut / programme-bar palette.
-const PROG_COLORS = PROGRAMME_COLORS
-const ALLOCATE_LEFT = 'var(--color-gray-200)'
+const PROG_COLOURS = PROGRAMME_COLOURS
+const ALLOCATE_LEFT = 'var(--color-grey-200)'
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────────
 
@@ -117,7 +117,7 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
-type Chip = { label: string; count: number; color: string }
+type Chip = { label: string; count: number; colour: string }
 
 function Chips({ chips }: { chips: Chip[] }) {
   // Only categories that actually have something in them — "0 declined" is noise,
@@ -131,7 +131,7 @@ function Chips({ chips }: { chips: Chip[] }) {
     >
       {shown.map((c) => (
         <span key={c.label} className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.colour }} />
           {c.count} {c.label}
         </span>
       ))}
@@ -145,7 +145,7 @@ function KpiCard({
   tint,
   value,
   sub,
-  subColor,
+  subColour,
   icon,
   label,
   meta,
@@ -158,7 +158,7 @@ function KpiCard({
   value: string
   /** A node, not just a string, so a card can colour part of the line (see Reports). */
   sub: React.ReactNode
-  subColor?: string
+  subColour?: string
   icon: IconSvgElement
   label: string
   /** Optional right-hand footer note (Figma 393:7930) — e.g. the round in focus. */
@@ -201,7 +201,7 @@ function KpiCard({
           >
             {value}
           </div>
-          <div className="mt-1.5 text-label font-medium" style={{ color: subColor ?? C.sub }}>
+          <div className="mt-1.5 text-label font-medium" style={{ color: subColour ?? C.sub }}>
             {sub}
           </div>
           <div className="mt-3">{meter}</div>
@@ -254,7 +254,7 @@ function DeskRow({
     <Link
       to={to}
       search={search}
-      className="flex items-center gap-4 rounded-control px-2 py-2 transition-colors hover:bg-gray-50"
+      className="flex items-center gap-4 rounded-control px-2 py-2 transition-colors hover:bg-grey-50"
     >
       <span
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip"
@@ -357,12 +357,12 @@ function Dashboard() {
         ...round.programmes.map((p, i) => ({
           name: p.name,
           value: p.committed,
-          color: PROG_COLORS[i % PROG_COLORS.length]!,
+          colour: PROG_COLOURS[i % PROG_COLOURS.length]!,
         })),
         {
           name: 'Unallocated',
           value: Math.max(0, round.budget - round.committed),
-          color: ALLOCATE_LEFT,
+          colour: ALLOCATE_LEFT,
         },
       ]
     : []
@@ -378,8 +378,8 @@ function Dashboard() {
   // awarded that grew out of it) belongs to the Shortlist card, so the two cards read
   // as one pipeline rather than counting the same application twice.
   const appsCats: Chip[] = [
-    { label: 'to review', count: d.pipeline.for_review, color: KPI.apps.accent },
-    { label: 'declined', count: d.pipeline.declined, color: C.danger },
+    { label: 'to review', count: d.pipeline.for_review, colour: KPI.apps.accent },
+    { label: 'declined', count: d.pipeline.declined, colour: C.danger },
   ]
   // Approved is "the vote went its way", which stays true after the grant is minted —
   // so an awarded application is still an approved one, just further along.
@@ -387,19 +387,19 @@ function Dashboard() {
   // Solid green first, its own 30% tint second — the strip darkens toward the decided
   // end, so the eye reads progress left to right.
   const reviewCats: Chip[] = [
-    { label: 'approved', count: approved, color: C.success },
-    { label: 'to vote', count: d.awaitingVotes, color: withAlpha(KPI.review.accent, 0.3) },
+    { label: 'approved', count: approved, colour: C.success },
+    { label: 'to vote', count: d.awaitingVotes, colour: withAlpha(KPI.review.accent, 0.3) },
   ]
   // Reports stays inside its own pink family (Figma 126:33904) rather than reaching for
   // the global info/danger colours: on a strip of four cards the accent is what tells
   // you *which* card you are reading, so a blue chip on the pink card reads as a
   // different metric. Overdue is the deep rose end of the same family, not red.
   const reportsCats: Chip[] = [
-    { label: 'to review', count: d.reportsToReview, color: REPORTS_CHIP.toReview },
-    { label: 'overdue', count: a.reportsOverdue.count, color: REPORTS_CHIP.overdue },
+    { label: 'to review', count: d.reportsToReview, colour: REPORTS_CHIP.toReview },
+    { label: 'overdue', count: a.reportsOverdue.count, colour: REPORTS_CHIP.overdue },
   ]
   const toSegments = (cats: Chip[]): BarSegment[] =>
-    cats.map((c) => ({ value: c.count, color: c.color }))
+    cats.map((c) => ({ value: c.count, colour: c.colour }))
   const financeDenom = d.money.paidToDate + d.money.outstanding
   const financeProgress = financeDenom > 0 ? d.money.paidToDate / financeDenom : 0
 
@@ -407,7 +407,7 @@ function Dashboard() {
     <div className="space-y-4">
       {/* Greeting — Figma: 20px medium, prefix grey (#97A1AF), name Gray/900 */}
       <h1 className="font-display text-heading font-medium">
-        <span style={{ color: 'var(--color-gray-400)' }}>{greeting()}, </span>
+        <span style={{ color: 'var(--color-grey-400)' }}>{greeting()}, </span>
         <span style={{ color: C.ink }}>{firstName(d.name)}</span>
       </h1>
 
@@ -417,13 +417,13 @@ function Dashboard() {
           tint={KPI.apps}
           value={String(d.pipeline.total)}
           sub={`+${d.submittedThisWeek} this week`}
-          subColor={C.success}
+          subColour={C.success}
           icon={NoteIcon}
           label="Applications"
           meta={round?.roundName}
           to="/applications"
           search={{ roundId: undefined }}
-          meter={<BarMeter segments={toSegments(appsCats)} color={KPI.apps.accent} />}
+          meter={<BarMeter segments={toSegments(appsCats)} colour={KPI.apps.accent} />}
         >
           <Chips chips={appsCats} />
         </KpiCard>
@@ -439,7 +439,7 @@ function Dashboard() {
           label="Shortlist"
           to="/shortlist"
           search={{ roundId: undefined }}
-          meter={<BarMeter segments={toSegments(reviewCats)} color={KPI.review.accent} />}
+          meter={<BarMeter segments={toSegments(reviewCats)} colour={KPI.review.accent} />}
         >
           <Chips chips={reviewCats} />
         </KpiCard>
@@ -451,7 +451,7 @@ function Dashboard() {
           icon={Wallet03Icon}
           label="Finance"
           to="/finance"
-          meter={<BarMeter progress={financeProgress} color={KPI.finance.accent} />}
+          meter={<BarMeter progress={financeProgress} colour={KPI.finance.accent} />}
         >
           <p className="mt-3 text-label" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
             {d.bankIssues > 0 ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}` : null}
@@ -475,14 +475,14 @@ function Dashboard() {
           icon={Audit02Icon}
           label="Reports"
           to="/reports"
-          meter={<BarMeter segments={toSegments(reportsCats)} color={KPI.reports.accent} />}
+          meter={<BarMeter segments={toSegments(reportsCats)} colour={KPI.reports.accent} />}
         >
           <Chips chips={reportsCats} />
         </KpiCard>
       </div>
 
       {/* On your desk + Round */}
-      <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <Panel>
           <PanelTitle>On your desk</PanelTitle>
           {desk.length === 0 ? (
@@ -560,8 +560,8 @@ function Dashboard() {
                       <ProgressBar
                         className="mt-2"
                         value={p.budget > 0 ? p.committed / p.budget : 0}
-                        color={PROG_COLORS[i % PROG_COLORS.length]!}
-                        track={withAlpha(PROG_COLORS[i % PROG_COLORS.length]!, 0.2)}
+                        colour={PROG_COLOURS[i % PROG_COLOURS.length]!}
+                        track={withAlpha(PROG_COLOURS[i % PROG_COLOURS.length]!, 0.2)}
                         delay={i * 90}
                       />
                     </div>
@@ -633,7 +633,7 @@ function Dashboard() {
                       key={ev.id}
                       to="/applications/$applicationId"
                       params={{ applicationId: ev.applicationId }}
-                      className="flex items-center gap-3 rounded-chip px-2 py-2 transition-colors hover:bg-gray-50"
+                      className="flex items-center gap-3 rounded-chip px-2 py-2 transition-colors hover:bg-grey-50"
                     >
                       {inner}
                     </Link>
@@ -762,8 +762,8 @@ function Onboarding({ name }: { name: string }) {
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-body font-semibold text-success">
               {s.n}
             </span>
-            <p className="mt-3 text-body font-medium text-gray-900">{s.title}</p>
-            <p className="mt-1 text-label text-gray-500">{s.body}</p>
+            <p className="mt-3 text-body font-medium text-grey-900">{s.title}</p>
+            <p className="mt-1 text-label text-grey-500">{s.body}</p>
             <Link
               to={s.to}
               className="mt-3 inline-block text-label font-medium text-success hover:text-success"

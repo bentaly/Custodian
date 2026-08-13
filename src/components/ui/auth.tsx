@@ -22,15 +22,15 @@ export function AuthInput({
   return (
     <div>
       {label && (
-        <label htmlFor={inputId} className="mb-1.5 block text-body font-medium text-gray-700">
+        <label htmlFor={inputId} className="mb-1.5 block text-body font-medium text-grey-700">
           {label}
         </label>
       )}
       <input
         id={inputId}
         className={cn(
-          'w-full rounded-control border border-gray-200 bg-background px-3.5 py-3 text-body text-gray-900',
-          'placeholder:text-gray-500/60',
+          'w-full rounded-control border border-grey-200 bg-background px-3.5 py-3 text-body text-grey-900',
+          'placeholder:text-grey-500/60',
           'transition-colors duration-150',
           'focus:border-brand focus:bg-white focus:outline-hidden focus:ring-4 focus:ring-brand/20',
           className,
@@ -54,8 +54,8 @@ export function AuthButton({
       type="submit"
       disabled={loading || disabled}
       className={cn(
-        'w-full rounded-control bg-gray-900 px-4 py-3 text-body font-medium text-white',
-        'transition-colors duration-150 hover:bg-gray-700',
+        'w-full rounded-control bg-grey-900 px-4 py-3 text-body font-medium text-white',
+        'transition-colors duration-150 hover:bg-grey-700',
         'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-brand/20',
         'disabled:cursor-not-allowed disabled:opacity-40',
         className,
@@ -82,8 +82,8 @@ export function GoogleButton({
       onClick={onClick}
       disabled={loading}
       className={cn(
-        'flex w-full items-center justify-center gap-2.5 rounded-control border border-gray-200 bg-white px-4 py-3',
-        'text-body font-medium text-gray-700',
+        'flex w-full items-center justify-center gap-2.5 rounded-control border border-grey-200 bg-white px-4 py-3',
+        'text-body font-medium text-grey-700',
         'transition-colors duration-150 hover:bg-background',
         'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-brand/20',
         'disabled:opacity-50',
@@ -116,10 +116,10 @@ export function Divider({ children }: { children: ReactNode }) {
   return (
     <div className="relative">
       <div className="absolute inset-0 flex items-center" aria-hidden>
-        <div className="w-full border-t border-gray-200" />
+        <div className="w-full border-t border-grey-200" />
       </div>
       <div className="relative flex justify-center">
-        <span className="bg-white px-3 text-body text-gray-500">{children}</span>
+        <span className="bg-white px-3 text-body text-grey-500">{children}</span>
       </div>
     </div>
   )

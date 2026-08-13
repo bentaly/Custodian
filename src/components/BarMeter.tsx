@@ -1,27 +1,27 @@
 // Reusable ticked bar-meter — the thin 3px bars used across the app (KPI cards,
 // round-budget meters, the sign-in art). Two modes:
 //   • segments — bars split proportionally across categories, always 100% full
-//   • progress — a 0..1 fill; lit bars are solid `color`, the rest are the same
+//   • progress — a 0..1 fill; lit bars are solid `colour`, the rest are the same
 //                colour at `trackOpacity` (20% by default)
 // Bars rise on load, staggered left-to-right, via the shared `.tick` animation
 // (respects prefers-reduced-motion).
 
-export type BarSegment = { value: number; color: string }
+export type BarSegment = { value: number; colour: string }
 
 /** Any CSS colour → the same colour at the given alpha.
  *
  *  Uses `color-mix` rather than parsing hex digits: every colour in the app is now a
  *  `var(--color-*)` token, and the old hex maths silently produced `rgba(NaN, NaN, NaN)`
  *  the moment it was handed one — a bar that renders as nothing at all. */
-export function withAlpha(color: string, alpha: number) {
-  return `color-mix(in srgb, ${color} ${alpha * 100}%, transparent)`
+export function withAlpha(colour: string, alpha: number) {
+  return `color-mix(in srgb, ${colour} ${alpha * 100}%, transparent)`
 }
 
 export function BarMeter({
   bars = 32,
   segments,
   progress,
-  color = 'var(--color-accent-violet)',
+  colour = 'var(--color-accent-violet)',
   trackOpacity = 0.2,
   height = 24,
   barWidth = 3,
@@ -35,7 +35,7 @@ export function BarMeter({
   /** Progress mode (used when `segments` is absent): 0..1 lit fraction. */
   progress?: number
   /** Base colour for progress mode (and the unfilled track). */
-  color?: string
+  colour?: string
   trackOpacity?: number
   height?: number
   barWidth?: number
@@ -52,7 +52,7 @@ export function BarMeter({
   // Fill mode draws past the right edge and clips, so it needs more bars than the
   // widest plausible container.
   if (fill) bars = 160
-  const colors: string[] = []
+  const colours: string[] = []
   if (segments && segments.length) {
     // Empty categories are dropped first: the last segment soaks up the rounding
     // remainder, so a zero-valued one left in place would be handed a bar and show
@@ -60,21 +60,22 @@ export function BarMeter({
     const segs = segments.filter((s) => s.value > 0)
     const total = segs.reduce((s, x) => s + x.value, 0)
     if (total <= 0) {
-      for (let i = 0; i < bars; i++) colors.push(withAlpha(color, trackOpacity))
+      for (let i = 0; i < bars; i++) colours.push(withAlpha(colour, trackOpacity))
     } else {
       let assigned = 0
       segs.forEach((seg, si) => {
         // Last segment soaks up the rounding remainder so the strip is always full.
         const n = si === segs.length - 1 ? bars - assigned : Math.round((bars * seg.value) / total)
-        for (let k = 0; k < n; k++) colors.push(seg.color)
+        for (let k = 0; k < n; k++) colours.push(seg.colour)
         assigned += n
       })
-      while (colors.length < bars) colors.push(segs[segs.length - 1]!.color)
+      while (colours.length < bars) colours.push(segs[segs.length - 1]!.colour)
     }
   } else {
     const p = Math.max(0, Math.min(1, progress ?? 0))
     const filled = Math.round(bars * p)
-    for (let i = 0; i < bars; i++) colors.push(i < filled ? color : withAlpha(color, trackOpacity))
+    for (let i = 0; i < bars; i++)
+      colours.push(i < filled ? colour : withAlpha(colour, trackOpacity))
   }
 
   return (
@@ -82,7 +83,7 @@ export function BarMeter({
       className={`flex items-end ${fill ? 'gap-[3.68px] overflow-hidden' : 'justify-between'} ${className}`}
       style={{ height }}
     >
-      {colors.slice(0, bars).map((c, i) => (
+      {colours.slice(0, bars).map((c, i) => (
         <span
           key={i}
           className={animate ? 'tick' : ''}

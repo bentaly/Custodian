@@ -193,7 +193,7 @@ function ProgrammeDialogForm({
             onChange={setImpactUnit}
             options={IMPACT_UNITS.map((u) => ({ value: u.key, label: u.label }))}
           />
-          <p className="mt-1.5 font-display text-label text-gray-500">
+          <p className="mt-1.5 font-display text-label text-grey-500">
             {IMPACT_UNIT_BY_KEY[impactUnit]?.hint}
           </p>
           {impactUnit === 'other' && (
@@ -215,7 +215,7 @@ function ProgrammeDialogForm({
 
         <div>
           <Label htmlFor="programme-goal">Objectives, Criteria and Priorities</Label>
-          <p className="mb-1.5 font-display text-label text-gray-500">
+          <p className="mb-1.5 font-display text-label text-grey-500">
             Enter the programme's objectives, criteria, and priorities here. This will be used by AI
             to score the applications, so include as much detail as you think is useful.
           </p>

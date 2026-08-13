@@ -7,6 +7,7 @@ import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { dueStatus, type DueStatus } from '../../lib/schedule'
+import { facetBy, type FacetOption } from '../../lib/facets'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
 import { sortRows } from '../../lib/sortRows'
 
@@ -34,6 +35,14 @@ export const listReports = createServerFn({ method: 'GET' })
       .object({
         /** Which received-status tab is open; absent means all of them. */
         status: z.enum(['received', 'reviewed']).optional(),
+        /**
+         * The screen's context filter. Unlike the transient pills on the list screens
+         * this narrows EVERYTHING — table, tab counts, KPIs and the chase-list drawer —
+         * because "reports for this programme" is a question about all four, and a KPI
+         * row that stayed portfolio-wide beside a filtered table would be read as the
+         * table's own count.
+         */
+        programmeId: z.uuid().optional(),
         /** Column sort over `items`; the drawer's chase-list keeps its urgency order. */
         sortBy: z.enum(['organisation', 'programme', 'report', 'received', 'status']).optional(),
         sortDir: z.enum(['asc', 'desc']).optional(),
@@ -51,6 +60,7 @@ export const listReports = createServerFn({ method: 'GET' })
         pageSize: PAGE_SIZE,
         upcoming: [],
         totals: emptyTotals(),
+        facets: { programmes: [] as FacetOption[] },
       }
     }
 
@@ -61,7 +71,7 @@ export const listReports = createServerFn({ method: 'GET' })
           columns: { id: true, organisationName: true, deliveryArea: true },
           with: {
             roundProgramme: {
-              columns: { id: true },
+              columns: { id: true, programmeId: true },
               with: {
                 programme: { columns: { name: true, impactUnit: true, impactUnitLabel: true } },
                 round: { columns: { name: true } },
@@ -108,6 +118,7 @@ export const listReports = createServerFn({ method: 'GET' })
       awardId: string
       applicationId: string
       organisationName: string
+      programmeId: string | null
       programmeName: string | null
       roundName: string | null
       /** The schedule label this report answered, or "Unscheduled report". */
@@ -124,6 +135,7 @@ export const listReports = createServerFn({ method: 'GET' })
       awardId: string
       applicationId: string
       organisationName: string
+      programmeId: string | null
       programmeName: string | null
       label: string
       dueDate: string
@@ -132,6 +144,7 @@ export const listReports = createServerFn({ method: 'GET' })
 
     for (const g of clientAwards) {
       const org = g.application.organisationName
+      const programmeId = g.application.roundProgramme?.programmeId ?? null
       const programmeName = g.application.roundProgramme?.programme?.name ?? null
       const roundName = g.application.roundProgramme?.round?.name ?? null
       const scheduleById = new Map(g.schedule.map((m) => [m.id, m]))
@@ -143,6 +156,7 @@ export const listReports = createServerFn({ method: 'GET' })
           awardId: g.id,
           applicationId: g.application.id,
           organisationName: org,
+          programmeId,
           programmeName,
           roundName,
           label: milestone?.label ?? 'Unscheduled report',
@@ -161,6 +175,7 @@ export const listReports = createServerFn({ method: 'GET' })
           awardId: g.id,
           applicationId: g.application.id,
           organisationName: org,
+          programmeId,
           programmeName,
           label: m.label,
           dueDate: m.dueDate,
@@ -174,18 +189,37 @@ export const listReports = createServerFn({ method: 'GET' })
     // Most overdue first — the chase-list is ordered by urgency.
     upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
+    // Counted over every report in scope, before the programme filter below — a pill
+    // whose own options shrank as you used it would let you filter into a corner.
+    const facets = {
+      programmes: facetBy(items, (i) =>
+        i.programmeId
+          ? { value: i.programmeId, label: i.programmeName ?? 'Untitled programme' }
+          : null,
+      ),
+    }
+
+    // The programme filter is this screen's context, so it lands before the totals: the
+    // KPI row, the tab counts, the table and the chase-list all describe the same slice.
+    const inProgramme = <T extends { programmeId: string | null }>(rows: T[]) =>
+      data?.programmeId ? rows.filter((r) => r.programmeId === data.programmeId) : rows
+    const scopedItems = inProgramme(items)
+    const scopedUpcoming = inProgramme(upcoming)
+
     const totals = {
-      received: items.filter((i) => i.status === 'received').length,
-      reviewed: items.filter((i) => i.status === 'reviewed').length,
-      overdue: upcoming.filter((i) => i.status === 'overdue').length,
-      dueSoon: upcoming.filter((i) => i.status === 'due_soon').length,
-      outstanding: upcoming.length,
+      received: scopedItems.filter((i) => i.status === 'received').length,
+      reviewed: scopedItems.filter((i) => i.status === 'reviewed').length,
+      overdue: scopedUpcoming.filter((i) => i.status === 'overdue').length,
+      dueSoon: scopedUpcoming.filter((i) => i.status === 'due_soon').length,
+      outstanding: scopedUpcoming.length,
     }
 
     // The tab is a server-side filter so that the page is a page of the tab, not a page
     // of everything with the tab applied afterwards. `upcoming` is the drawer's
     // chase-list — short by nature, and read as a whole — so it stays unpaged.
-    const filtered = data?.status ? items.filter((i) => i.status === data.status) : items
+    const filtered = data?.status
+      ? scopedItems.filter((i) => i.status === data.status)
+      : scopedItems
     const sorted = sortRows(
       filtered,
       { by: data?.sortBy, dir: data?.sortDir },
@@ -198,7 +232,7 @@ export const listReports = createServerFn({ method: 'GET' })
         status: (i) => (i.status === 'received' ? 0 : 1),
       },
     )
-    return { ...paginate(sorted, data?.page), upcoming, totals }
+    return { ...paginate(sorted, data?.page), upcoming: scopedUpcoming, totals, facets }
   })
 
 function emptyTotals() {

@@ -99,7 +99,7 @@ export function AvatarCropper({
   }
 
   return (
-    <div className="rounded-control border border-gray-200 p-4">
+    <div className="rounded-control border border-grey-200 p-4">
       <div
         role="application"
         aria-label="Drag to reposition your photo"
@@ -109,7 +109,7 @@ export function AvatarCropper({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onKeyDown={handleKeyDown}
-        className="relative mx-auto cursor-grab touch-none overflow-hidden rounded-full bg-gray-100 active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+        className="relative mx-auto cursor-grab touch-none overflow-hidden rounded-full bg-grey-100 active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
         style={{ width: VIEWPORT, height: VIEWPORT }}
       >
         <img
@@ -126,7 +126,7 @@ export function AvatarCropper({
       </div>
 
       <label className="mt-4 flex items-center gap-3">
-        <span className="text-label text-gray-500">Zoom</span>
+        <span className="text-label text-grey-500">Zoom</span>
         <input
           type="range"
           min={1}
@@ -138,7 +138,7 @@ export function AvatarCropper({
         />
       </label>
 
-      <p className="mt-2 text-label text-gray-500">Drag the photo to reposition it.</p>
+      <p className="mt-2 text-label text-grey-500">Drag the photo to reposition it.</p>
 
       <div className="mt-4 flex items-center gap-2">
         <Button

@@ -36,7 +36,7 @@ function ToolbarButton({
       }}
       disabled={disabled}
       className={`rounded-chip px-2 py-1 text-label font-medium transition-colors ${
-        active ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100 disabled:opacity-40'
+        active ? 'bg-grey-800 text-white' : 'text-grey-600 hover:bg-grey-100 disabled:opacity-40'
       }`}
     >
       {children}
@@ -57,7 +57,7 @@ function GivingStrategy() {
     editorProps: {
       attributes: {
         class:
-          'min-h-[240px] px-3 py-2 text-body text-gray-900 focus:outline-hidden prose prose-sm max-w-none',
+          'min-h-[240px] px-3 py-2 text-body text-grey-900 focus:outline-hidden prose prose-sm max-w-none',
       },
     },
   })
@@ -87,8 +87,8 @@ function GivingStrategy() {
     >
       {editor && (
         <div>
-          <div className="rounded-chip border border-gray-300 focus-within:ring-2 focus-within:ring-gray-400">
-            <div className="flex flex-wrap gap-0.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
+          <div className="rounded-chip border border-grey-300 focus-within:ring-2 focus-within:ring-grey-400">
+            <div className="flex flex-wrap gap-0.5 border-b border-grey-200 bg-grey-50 px-2 py-1.5">
               <ToolbarButton
                 onClick={() => editor.chain().focus().toggleBold().run()}
                 active={editor.isActive('bold')}
@@ -107,7 +107,7 @@ function GivingStrategy() {
               >
                 <span className="underline">U</span>
               </ToolbarButton>
-              <span className="mx-1 border-l border-gray-200" />
+              <span className="mx-1 border-l border-grey-200" />
               <ToolbarButton
                 onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
                 active={editor.isActive('heading', { level: 1 })}
@@ -126,7 +126,7 @@ function GivingStrategy() {
               >
                 H3
               </ToolbarButton>
-              <span className="mx-1 border-l border-gray-200" />
+              <span className="mx-1 border-l border-grey-200" />
               <ToolbarButton
                 onClick={() => editor.chain().focus().toggleBulletList().run()}
                 active={editor.isActive('bulletList')}

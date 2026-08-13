@@ -28,7 +28,7 @@ const FACES: Record<number, Face> = {
     icon: SearchRemoveIcon,
     title: "We couldn't find that",
     body: 'It may have been deleted, or the link may be wrong.',
-    tint: 'bg-gray-100 text-gray-500',
+    tint: 'bg-grey-100 text-grey-500',
   },
   403: {
     icon: LockKeyIcon,
@@ -89,7 +89,7 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center rounded-card border border-dashed border-gray-200 bg-white text-center',
+        'flex flex-col items-center rounded-card border border-dashed border-grey-200 bg-white text-center',
         isPanel ? 'px-5 py-8' : 'px-6 py-16',
         className,
       )}
@@ -107,7 +107,7 @@ export function ErrorState({
 
       <h2
         className={cn(
-          'font-display font-semibold text-gray-900',
+          'font-display font-semibold text-grey-900',
           isPanel ? 'mt-3 text-body' : 'mt-5 text-heading',
         )}
       >
@@ -116,7 +116,7 @@ export function ErrorState({
 
       <p
         className={cn(
-          'mt-1.5 max-w-md leading-relaxed text-gray-500',
+          'mt-1.5 max-w-md leading-relaxed text-grey-500',
           isPanel ? 'text-body' : 'text-body',
         )}
       >
@@ -147,10 +147,10 @@ export function ErrorState({
 
       {trace ? (
         <details className="mt-6 w-full text-left">
-          <summary className="cursor-pointer text-label font-medium text-gray-500 hover:text-gray-900">
+          <summary className="cursor-pointer text-label font-medium text-grey-500 hover:text-grey-900">
             Technical detail (superadmin only)
           </summary>
-          <pre className="mt-2 max-h-80 overflow-auto rounded-chip bg-gray-900 p-3 text-left text-label leading-relaxed text-gray-100">
+          <pre className="mt-2 max-h-80 overflow-auto rounded-chip bg-grey-900 p-3 text-left text-label leading-relaxed text-grey-100">
             {trace}
           </pre>
         </details>

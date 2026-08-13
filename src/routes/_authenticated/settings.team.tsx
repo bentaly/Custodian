@@ -21,8 +21,8 @@ export const Route = createFileRoute('/_authenticated/settings/team')({
 type Member = ReturnType<typeof Route.useLoaderData>['members'][number]
 type Invite = ReturnType<typeof Route.useLoaderData>['invites'][number]
 
-const cellInk = 'font-display text-body font-medium text-gray-900'
-const cellSub = 'font-display text-body text-gray-500'
+const cellInk = 'font-display text-body font-medium text-grey-900'
+const cellSub = 'font-display text-body text-grey-500'
 
 function Team() {
   const router = useRouter()
@@ -67,7 +67,7 @@ function Team() {
     >
       <div className="space-y-10">
         <section>
-          <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
+          <div className="overflow-hidden rounded-card border border-grey-200 bg-white">
             <DataTable
               rows={memberPage.items}
               rowKey={(m) => m.id}
@@ -79,7 +79,7 @@ function Team() {
                     <span className={cellInk}>
                       {m.name}
                       {m.id === user.id && (
-                        <span className="ml-2 font-normal text-gray-400">(you)</span>
+                        <span className="ml-2 font-normal text-grey-400">(you)</span>
                       )}
                     </span>
                   ),
@@ -123,12 +123,12 @@ function Team() {
         {/* What the roles mean. Lives here because this is where a role is chosen —
             it is reference material, not a screen anyone would navigate to. */}
         <section>
-          <h2 className="mb-3 text-body font-medium text-gray-700">What each role can do</h2>
-          <Card className="divide-y divide-gray-100">
+          <h2 className="mb-3 text-body font-medium text-grey-700">What each role can do</h2>
+          <Card className="divide-y divide-grey-100">
             {INVITABLE_ROLES.map((r) => (
               <div key={r.value} className="flex gap-4 px-5 py-3.5">
-                <span className="w-20 shrink-0 text-body font-medium text-gray-900">{r.label}</span>
-                <span className="text-body text-gray-500">{r.hint}</span>
+                <span className="w-20 shrink-0 text-body font-medium text-grey-900">{r.label}</span>
+                <span className="text-body text-grey-500">{r.hint}</span>
               </div>
             ))}
           </Card>
@@ -136,7 +136,7 @@ function Team() {
 
         {isAdmin && (
           <section>
-            <h2 className="mb-3 text-body font-medium text-gray-700">Invite someone</h2>
+            <h2 className="mb-3 text-body font-medium text-grey-700">Invite someone</h2>
             <Card className="p-4">
               <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3">
                 <div className="min-w-48 flex-1">
@@ -154,7 +154,7 @@ function Team() {
                   <select
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value as InviteRole)}
-                    className="w-full rounded-chip border border-gray-300 px-3 py-2 text-body focus:outline-hidden focus:ring-2 focus:ring-gray-400"
+                    className="w-full rounded-chip border border-grey-300 px-3 py-2 text-body focus:outline-hidden focus:ring-2 focus:ring-grey-400"
                   >
                     {INVITABLE_ROLES.map((r) => (
                       <option key={r.value} value={r.value}>
@@ -177,8 +177,8 @@ function Team() {
 
         {isAdmin && invites.length > 0 && (
           <section>
-            <h2 className="mb-3 text-body font-medium text-gray-700">Pending invitations</h2>
-            <div className="overflow-hidden rounded-card border border-gray-200 bg-white">
+            <h2 className="mb-3 text-body font-medium text-grey-700">Pending invitations</h2>
+            <div className="overflow-hidden rounded-card border border-grey-200 bg-white">
               <DataTable
                 rows={invites}
                 rowKey={(inv) => inv.id}

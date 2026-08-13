@@ -38,7 +38,7 @@ function roundBadge(roundProgrammes: ProgrammeRow['roundProgrammes']) {
   if (roundProgrammes.length > 0)
     return {
       label: `${roundProgrammes.length} round${roundProgrammes.length > 1 ? 's' : ''}`,
-      color: 'bg-gray-100 text-gray-500',
+      color: 'bg-grey-100 text-grey-500',
     }
   return { label: 'No round', color: 'bg-warning/10 text-warning' }
 }
@@ -89,8 +89,8 @@ function Programmes() {
 
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-heading font-medium text-gray-900">Programmes</h1>
-          <p className="font-display text-label text-gray-500">
+          <h1 className="font-display text-heading font-medium text-grey-900">Programmes</h1>
+          <p className="font-display text-label text-grey-500">
             The themes you fund. Set the themes used to match applications, and the unit each
             programme measures its impact in.
           </p>
@@ -104,9 +104,9 @@ function Programmes() {
 
       {programmes.length === 0 ? (
         <EmptyState>
-          <p className="font-display text-body text-gray-500">No programmes yet.</p>
+          <p className="font-display text-body text-grey-500">No programmes yet.</p>
           {canManage && (
-            <p className="mt-1 font-display text-body text-gray-400">
+            <p className="mt-1 font-display text-body text-grey-400">
               Create your first programme to get started.
             </p>
           )}
@@ -192,7 +192,7 @@ function ProgrammeCard({
               style={{ backgroundColor: colour }}
             />
             <h2
-              className={`font-display text-title font-semibold ${archived ? 'text-gray-400' : 'text-gray-900'}`}
+              className={`font-display text-title font-semibold ${archived ? 'text-grey-400' : 'text-grey-900'}`}
             >
               {programme.name}
             </h2>
@@ -200,14 +200,14 @@ function ProgrammeCard({
                 the round badge would only ever say "No round" in warning orange —
                 alarming about a state that was chosen deliberately. */}
             {archived ? (
-              <Badge className="bg-gray-100 text-gray-500">Archived</Badge>
+              <Badge className="bg-grey-100 text-grey-500">Archived</Badge>
             ) : (
               <Badge className={badge.color}>{badge.label}</Badge>
             )}
           </div>
           {summary && (
             <p
-              className={`line-clamp-2 font-display text-body ${archived ? 'text-gray-400' : 'text-gray-600'}`}
+              className={`line-clamp-2 font-display text-body ${archived ? 'text-grey-400' : 'text-grey-600'}`}
             >
               {summary}
             </p>
@@ -250,7 +250,7 @@ function ProgrammeCard({
             {impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)}
           </Stat>
           <Stat label="Themes">
-            {tags.length > 0 ? tags.join(', ') : <span className="text-gray-400">—</span>}
+            {tags.length > 0 ? tags.join(', ') : <span className="text-grey-400">—</span>}
           </Stat>
         </div>
       )}
@@ -261,8 +261,8 @@ function ProgrammeCard({
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex min-w-[120px] flex-col gap-2">
-      <span className="font-display text-label font-medium text-gray-500">{label}</span>
-      <span className="font-display text-body font-medium text-gray-700">{children}</span>
+      <span className="font-display text-label font-medium text-grey-500">{label}</span>
+      <span className="font-display text-body font-medium text-grey-700">{children}</span>
     </div>
   )
 }

@@ -87,7 +87,7 @@ export function Tooltip({
         onKeyDown={(e) => {
           if (e.key === 'Escape') setOpen(false)
         }}
-        className="flex rounded-full text-gray-400 transition-colors hover:text-gray-500 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+        className="flex rounded-full text-grey-400 transition-colors hover:text-grey-500 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
       >
         <HugeiconsIcon icon={InformationCircleIcon} size={14} color="currentColor" />
       </button>
@@ -98,7 +98,7 @@ export function Tooltip({
             ref={bubble}
             id={id}
             role="tooltip"
-            className="pointer-events-none fixed z-[100] block rounded-chip border border-gray-200 bg-white px-3 py-2 font-display text-label leading-snug font-normal text-gray-700 shadow-lg"
+            className="pointer-events-none fixed z-[100] block rounded-chip border border-grey-200 bg-white px-3 py-2 font-display text-label leading-snug font-normal text-grey-700 shadow-lg"
             style={{
               width: WIDTH,
               // Rendered before it has been measured so the measurement is possible at
@@ -112,7 +112,7 @@ export function Tooltip({
             {pos && (
               <span
                 aria-hidden="true"
-                className={`absolute size-2 rotate-45 border-gray-200 bg-white ${
+                className={`absolute size-2 rotate-45 border-grey-200 bg-white ${
                   pos.below ? 'border-t border-l' : 'border-r border-b'
                 }`}
                 // -5px, not -4: the square is nudged half its width out of the bubble

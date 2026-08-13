@@ -160,7 +160,7 @@ export function CalendarPanel({
           type="button"
           aria-label="Previous month"
           onClick={() => onMonthChange(addMonths(startOfMonth(month), -1))}
-          className="flex size-8 items-center justify-center rounded-chip border bg-white hover:bg-gray-100"
+          className="flex size-8 items-center justify-center rounded-chip border bg-white hover:bg-grey-100"
           style={{ borderColor: C.line }}
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} size={16} color={C.ink} />
@@ -172,7 +172,7 @@ export function CalendarPanel({
           type="button"
           aria-label="Next month"
           onClick={() => onMonthChange(addMonths(startOfMonth(month), 1))}
-          className="flex size-8 items-center justify-center rounded-chip border bg-white hover:bg-gray-100"
+          className="flex size-8 items-center justify-center rounded-chip border bg-white hover:bg-grey-100"
           style={{ borderColor: C.line }}
         >
           <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={C.ink} />
@@ -209,7 +209,7 @@ export function CalendarPanel({
                   aria-label={fmtDay(s)}
                   onFocus={() => setCursor(s)}
                   onClick={() => onPick(d)}
-                  className={`${DAY_CELL} ${tone === 'none' && !off ? 'hover:bg-gray-100' : ''} ${off ? 'cursor-not-allowed' : ''}`}
+                  className={`${DAY_CELL} ${tone === 'none' && !off ? 'hover:bg-grey-100' : ''} ${off ? 'cursor-not-allowed' : ''}`}
                   style={{
                     backgroundColor:
                       tone === 'selected'

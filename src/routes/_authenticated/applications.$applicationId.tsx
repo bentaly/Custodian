@@ -40,7 +40,7 @@ import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
 import { fmtCompact, fmtMoney } from '../../lib/format'
-import { C as TOKENS, PROGRAMME_COLORS } from '../../components/ui/tokens'
+import { C as TOKENS, PROGRAMME_COLOURS } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => orNotFound(getApplication({ data: { id: params.applicationId } })),
@@ -50,7 +50,7 @@ export const Route = createFileRoute('/_authenticated/applications/$applicationI
 // ─── Design tokens ───────────────────────────────────────────────────────────────
 const C = {
   ...TOKENS,
-  ink700: 'var(--color-gray-700)',
+  ink700: 'var(--color-grey-700)',
 }
 const KPI = {
   amount: { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', accent: 'var(--color-accent-violet)' },
@@ -59,12 +59,12 @@ const KPI = {
   headroom: { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', accent: 'var(--color-danger)' },
   community: { bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)', accent: 'var(--color-accent-sky)' },
 }
-const BUDGET_COLORS = PROGRAMME_COLORS
+const BUDGET_COLOURS = PROGRAMME_COLOURS
 
 // RAG colour for a 1–10 criterion score: 0–3 red, 4–6 amber, 7+ green.
 // The criterion palette is its own (Figma 435:38445) — a cooler teal and a warmer
 // amber than the status colours, so a bank of six bars doesn't read as six statuses.
-function ragColor(score: number) {
+function ragColour(score: number) {
   if (score >= 7) return 'var(--color-success)'
   if (score >= 4) return 'var(--color-warning)'
   return 'var(--color-danger)'
@@ -77,7 +77,7 @@ function initials(name: string) {
   if (p.length === 1) return p[0]!.slice(0, 2).toUpperCase()
   return (p[0]![0]! + p[p.length - 1]![0]!).toUpperCase()
 }
-function scoreColor(score: number) {
+function scoreColour(score: number) {
   if (score >= 75) return C.brand
   if (score >= 50) return C.amber
   return C.danger
@@ -226,13 +226,13 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
 }
 
 /** The grey status pill in the header (Figma 435:42454) — a coloured dot and a label. */
-function StatusPill({ color, children }: { color: string; children: React.ReactNode }) {
+function StatusPill({ colour, children }: { colour: string; children: React.ReactNode }) {
   return (
     <span
       className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 font-display text-label font-medium"
       style={{ backgroundColor: C.wash, color: C.sub }}
     >
-      <span className="size-[3px] rounded-full" style={{ backgroundColor: color }} />
+      <span className="size-[3px] rounded-full" style={{ backgroundColor: colour }} />
       {children}
     </span>
   )
@@ -306,15 +306,15 @@ function ScoreRing({
   thickness?: number
 }) {
   const pct = Math.max(0, Math.min(100, score))
-  const color = scoreColor(score)
+  const colour = scoreColour(score)
   return (
     <Donut
       size={size}
       thickness={thickness}
       tooltip={false}
       data={[
-        { name: 'Score', value: pct, color },
-        { name: 'Remaining', value: 100 - pct, color: withAlpha(color, 0.15) },
+        { name: 'Score', value: pct, colour },
+        { name: 'Remaining', value: 100 - pct, colour: withAlpha(colour, 0.15) },
       ]}
       center={
         <div className="flex items-baseline gap-1">
@@ -334,7 +334,7 @@ function ScoreRing({
 }
 
 function CriterionBar({ label, score }: { label: string; score: number }) {
-  const color = ragColor(score)
+  const colour = ragColour(score)
   return (
     <div className="flex items-center gap-4">
       <span
@@ -346,8 +346,8 @@ function CriterionBar({ label, score }: { label: string; score: number }) {
       <ProgressBar
         className="flex-1"
         value={score / 10}
-        color={color}
-        track={withAlpha(color, 0.2)}
+        colour={colour}
+        track={withAlpha(colour, 0.2)}
         height={4}
       />
       <span
@@ -462,14 +462,14 @@ function ApplicationDetail() {
 
   // Colour is this screen's; the wording comes from the status registry, so the header
   // pill says exactly what the list and its filter say.
-  const statusColor = isAwarded
+  const statusColour = isAwarded
     ? C.brand
     : isShortlisted
       ? C.success
       : isDeclined
         ? C.danger
         : C.amber
-  const statusMeta = { label: applicationStatusLabel(application.status), color: statusColor }
+  const statusMeta = { label: applicationStatusLabel(application.status), colour: statusColour }
 
   return (
     <div className="flex flex-col gap-4">
@@ -519,7 +519,7 @@ function ApplicationDetail() {
           </div>
         </div>
 
-        <StatusPill color={statusMeta.color}>{statusMeta.label}</StatusPill>
+        <StatusPill colour={statusMeta.colour}>{statusMeta.label}</StatusPill>
 
         <div className="flex flex-wrap items-center gap-2">
           {/* A plain mailto rather than anything we send: this is the grants team
@@ -755,7 +755,7 @@ function ApplicationDetail() {
                 className="mb-4 w-full"
                 segments={budgetLines.map((l, i) => ({
                   value: l.amount,
-                  color: BUDGET_COLORS[i % BUDGET_COLORS.length]!,
+                  colour: BUDGET_COLOURS[i % BUDGET_COLOURS.length]!,
                 }))}
               />
               <div className="flex flex-col gap-2.5">
@@ -765,7 +765,7 @@ function ApplicationDetail() {
                     <div key={i} className="flex items-center gap-3">
                       <span
                         className="size-2 shrink-0 rounded-swatch"
-                        style={{ backgroundColor: BUDGET_COLORS[i % BUDGET_COLORS.length] }}
+                        style={{ backgroundColor: BUDGET_COLOURS[i % BUDGET_COLOURS.length] }}
                       />
                       <span
                         className="flex-1 truncate font-display text-body"
@@ -846,7 +846,7 @@ function ApplicationDetail() {
                 const def = CHECK_DEFINITIONS[r.key]
                 const ok = r.result === 'pass'
                 const failed = r.result === 'fail'
-                const color = ok ? C.brand : failed ? C.danger : C.faint
+                const colour = ok ? C.brand : failed ? C.danger : C.faint
                 return (
                   <div
                     key={i}
@@ -861,12 +861,12 @@ function ApplicationDetail() {
                     </span>
                     <span
                       className="flex shrink-0 items-center gap-1 font-display text-label font-medium"
-                      style={{ color }}
+                      style={{ color: colour }}
                     >
                       <HugeiconsIcon
                         icon={failed ? Alert02Icon : Tick01Icon}
                         size={16}
-                        color={color}
+                        color={colour}
                       />
                       {r.detail ?? (ok ? 'Clear' : failed ? 'Flagged' : 'Unverified')}
                     </span>

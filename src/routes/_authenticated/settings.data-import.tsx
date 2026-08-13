@@ -78,7 +78,7 @@ function Stepper({ step }: { step: Step }) {
                   ? { backgroundColor: C.brand, color: '#fff' }
                   : done
                     ? { backgroundColor: C.brandWash, color: C.brand }
-                    : { backgroundColor: 'var(--color-gray-100)', color: 'var(--color-gray-400)' }
+                    : { backgroundColor: 'var(--color-grey-100)', color: 'var(--color-grey-400)' }
               }
             >
               {done ? '✓' : i + 1}
@@ -498,7 +498,7 @@ function DataImport() {
                     icon={Upload04Icon}
                     className="mx-auto h-7 w-7"
                     strokeWidth={1.5}
-                    style={{ color: dragging ? C.brand : 'var(--color-gray-400)' }}
+                    style={{ color: dragging ? C.brand : 'var(--color-grey-400)' }}
                   />
                   <div className="mt-3 text-body" style={{ color: C.ink }}>
                     {busy === 'upload' ? (

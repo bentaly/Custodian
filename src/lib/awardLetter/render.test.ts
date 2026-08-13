@@ -169,6 +169,18 @@ describe('renderAwardLetter', () => {
     expect(letter.bodyText).toContain('The Trustees')
   })
 
+  it('signs off with the foundation alone when no signatory is set anywhere', () => {
+    const letter = renderAwardLetter({
+      input: { ...input, signatory: null },
+      settings: { signatory: null },
+    })
+    // Not "[not set]", and not the foundation's name twice over — a fallback to the
+    // foundation put the same line above and below the sign-off, which reads as a bug
+    // on every letter from a foundation that never filled the field in.
+    expect(letter.bodyText).not.toContain(MISSING_TOKEN_PLACEHOLDER)
+    expect(letter.bodyText.endsWith('Yours sincerely,\n\nRothbury Family Foundation')).toBe(true)
+  })
+
   it('says so plainly when no reporting milestones were set', () => {
     const letter = renderAwardLetter({ input: { ...input, reporting: [] }, settings: null })
     expect(letter.bodyText).toContain('No formal reporting milestones have been set')

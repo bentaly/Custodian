@@ -4,7 +4,7 @@ import { anim, chart, fmtMoney, tooltipBox } from './theme'
 export type DonutSlice = {
   name: string
   value: number
-  color: string
+  colour: string
   /** Stable identity for cross-highlighting with a sibling map or list. Names
    *  are display strings and can collide or be renamed; ids are the area key. */
   areaId?: string
@@ -30,7 +30,7 @@ function DonutTooltip({
           fontWeight: 500,
         }}
       >
-        <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color }} />
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: s.colour }} />
         {s.name}
       </span>
       <div style={{ color: chart.sub, marginTop: 2 }}>{fmtMoney(s.value)}</div>
@@ -66,7 +66,7 @@ export function Donut({
   const slices: DonutSlice[] =
     total > 0
       ? data.filter((d) => d.value > 0)
-      : [{ name: 'Empty', value: 1, color: chart.allocateLeft }]
+      : [{ name: 'Empty', value: 1, colour: chart.allocateLeft }]
 
   return (
     <div
@@ -99,7 +99,7 @@ export function Donut({
           {slices.map((s, i) => (
             <Cell
               key={i}
-              fill={s.color}
+              fill={s.colour}
               // Recede, don't vanish: the ring has to stay a whole ring, or
               // hovering one area reads as the others losing their funding.
               fillOpacity={highlight !== null && s.areaId !== highlight ? 0.6 : 1}

@@ -45,7 +45,7 @@ const PAGE_SIZE = 25
 // ─── Design tokens (Figma variables — pinned until the token set lands) ──────────
 const C = {
   ...TOKENS,
-  bar: 'var(--color-gray-900)', // the dark selection bar,
+  bar: 'var(--color-grey-900)', // the dark selection bar,
   mint: 'var(--color-brand-light)', // its meta text,
 }
 
@@ -176,7 +176,7 @@ const SCORE_BAND_OPTIONS: Array<{ value: ScoreBand; label: string }> = [
 // green shortlisted, brand-green awarded, red declined). The *label* is not repeated
 // here — it comes from `applicationStatusLabel`, so the pill and the filter that
 // produced the row can never disagree.
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLOUR: Record<string, string> = {
   for_review: C.amber,
   shortlisted: C.success,
   awarded: C.brand,
@@ -237,19 +237,19 @@ function exportCsv(items: AppItem[], filename: string) {
 type BudgetRow = Awaited<ReturnType<typeof getRoundBudgetSummary>>[number]
 
 function BudgetLegend({
-  color,
+  colour,
   amount,
   label,
   count,
 }: {
-  color: string
+  colour: string
   amount: number
   label: string
   count?: number
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="size-2 rounded-swatch" style={{ backgroundColor: color }} />
+      <span className="size-2 rounded-swatch" style={{ backgroundColor: colour }} />
       <span className="font-display text-body font-medium" style={{ color: C.faint }}>
         <span style={{ color: C.ink }}>{fmtAmount(amount)}</span> {label}
         {count != null ? ` (${count})` : ''}
@@ -297,29 +297,29 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
           segments={
             totalBudget > 0
               ? [
-                  { value: totalAwarded, color: C.success },
-                  { value: totalShortlisted, color: withAlpha(C.success, 0.5) },
-                  { value: unallocated, color: withAlpha(C.success, 0.1) },
+                  { value: totalAwarded, colour: C.success },
+                  { value: totalShortlisted, colour: withAlpha(C.success, 0.5) },
+                  { value: unallocated, colour: withAlpha(C.success, 0.1) },
                 ]
-              : [{ value: 1, color: withAlpha(C.success, 0.1) }]
+              : [{ value: 1, colour: withAlpha(C.success, 0.1) }]
           }
         />
 
         <div className="flex flex-wrap items-center gap-4">
           <BudgetLegend
-            color={C.success}
+            colour={C.success}
             amount={totalAwarded}
             label="awarded"
             count={awardedCount}
           />
           <BudgetLegend
-            color={withAlpha(C.success, 0.5)}
+            colour={withAlpha(C.success, 0.5)}
             amount={totalShortlisted}
             label="shortlisted"
             count={shortlistedCount}
           />
           <BudgetLegend
-            color={withAlpha(C.success, 0.1)}
+            colour={withAlpha(C.success, 0.1)}
             amount={unallocated}
             label="unallocated"
           />
@@ -331,7 +331,7 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
 
 // ─── Table cells ─────────────────────────────────────────────────────────────────
 
-function scoreBandColor(score: number) {
+function scoreBandColour(score: number) {
   if (score >= 80) return C.success
   if (score >= 60) return C.amber
   return C.danger
@@ -345,7 +345,7 @@ function AiScoreCell({
   score: number | null | undefined
 }) {
   const has = status === 'scored' && score != null
-  const color = has ? scoreBandColor(score!) : null
+  const color = has ? scoreBandColour(score!) : null
   return (
     <div className="flex items-center gap-2">
       <div
@@ -370,11 +370,11 @@ function AiScoreCell({
 
 // A tick means "checked and clear" — so a warning must not wear one. Anything the
 // registry checks flagged gets the alert triangle; only `clear` gets the tick.
-const DD_ICON: Record<string, { icon: typeof CheckmarkCircle02Icon; color: string } | null> = {
-  clear: { icon: CheckmarkCircle02Icon, color: C.success },
-  warning: { icon: Alert02Icon, color: C.amber },
-  blocked: { icon: Alert02Icon, color: C.danger },
-  review: { icon: CancelCircleIcon, color: C.faint },
+const DD_ICON: Record<string, { icon: typeof CheckmarkCircle02Icon; colour: string } | null> = {
+  clear: { icon: CheckmarkCircle02Icon, colour: C.success },
+  warning: { icon: Alert02Icon, colour: C.amber },
+  blocked: { icon: Alert02Icon, colour: C.danger },
+  review: { icon: CancelCircleIcon, colour: C.faint },
   pending: null,
 }
 
@@ -383,7 +383,7 @@ function DueDiligenceCell({ status }: { status: DueDiligenceStatus }) {
   return (
     <div className="flex justify-center">
       {d ? (
-        <HugeiconsIcon icon={d.icon} size={20} color={d.color} />
+        <HugeiconsIcon icon={d.icon} size={20} color={d.colour} />
       ) : (
         <span className="block size-5 rounded-full border" style={{ borderColor: C.line }} />
       )}
@@ -498,7 +498,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       return (
         <StatusPill
           label={applicationStatusLabel(app.status)}
-          color={STATUS_COLOR[app.status] ?? C.sub}
+          colour={STATUS_COLOUR[app.status] ?? C.sub}
         />
       )
     },
@@ -597,8 +597,16 @@ function ApplicationsList() {
           ? 'Upcoming'
           : null
 
-  // Distinct themes (tags) across the round's programmes, for the Theme filter.
-  const tags = [...new Set(budgetSummary.flatMap((r) => r.tags))].sort()
+  // Themes across the round's programmes, counted the way every other filter row counts
+  // its options — a theme's count is the applications sitting in the programmes carrying
+  // it, which is what the pill would show you if you picked it.
+  const tagCounts = new Map<string, number>()
+  for (const r of budgetSummary) {
+    for (const t of r.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + r.total)
+  }
+  const tags = [...tagCounts]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([value, count]) => ({ value, label: `${value} (${count})` }))
 
   // Programme (the primary browsing axis), with per-programme counts.
   const programmeOptions = budgetSummary.map((r) => ({
@@ -825,24 +833,22 @@ function ApplicationsList() {
         {/* Budget for the selected programme */}
         {scopedBudget.length > 0 && <BudgetCard rows={scopedBudget} title={budgetTitle} />}
 
-        {/* Filters */}
+        {/* Filters — the shared row, in the shared order (see `ui/FilterPill`). Programme
+            is the exception that sits above rather than in it: on this screen it is the
+            browsing axis the budget card and the export are scoped to, not one narrowing
+            among several. */}
         <div className="flex flex-wrap items-center gap-3">
           <FilterPill
             label="Status"
+            plural="statuses"
             value={status}
             options={APPLICATION_STATUS_OPTIONS}
             onChange={setStatus}
           />
-          {tags.length > 0 && (
-            <FilterPill
-              label="Theme"
-              value={tag}
-              options={tags.map((t) => ({ value: t, label: t }))}
-              onChange={setTag}
-            />
-          )}
+          <FilterPill label="Theme" plural="themes" value={tag} options={tags} onChange={setTag} />
           <FilterPill
             label="AI score"
+            plural="scores"
             value={scoreBand}
             options={SCORE_BAND_OPTIONS}
             onChange={setScoreBand}

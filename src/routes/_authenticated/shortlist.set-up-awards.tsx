@@ -27,6 +27,7 @@ import {
   initials,
   type TableColumn,
 } from '../../components/ui'
+import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
 import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
 import { C as TOKENS } from '../../components/ui/tokens'
 
@@ -34,7 +35,7 @@ const PAGE_SIZE = 25
 
 const C = {
   ...TOKENS,
-  bar: 'var(--color-gray-900)', // the dark selection bar
+  bar: 'var(--color-grey-900)', // the dark selection bar
   mint: 'var(--color-brand-light)', // its meta text
 }
 
@@ -95,13 +96,13 @@ export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')(
 
 // ─── Cells ──────────────────────────────────────────────────────────────────────
 
-function scoreBandColor(score: number) {
+function scoreBandColour(score: number) {
   return score >= 80 ? C.success : score >= 60 ? C.amber : C.danger
 }
 
 function AiScoreCell({ status, score }: { status: string; score: number | null }) {
   const has = status === 'scored' && score != null
-  const color = has ? scoreBandColor(score) : null
+  const color = has ? scoreBandColour(score) : null
   return (
     <div className="flex items-center gap-2">
       <div
@@ -276,7 +277,7 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
     cell: (a) => (
       <StatusPill
         label={a.status === 'active' ? 'Active' : a.status === 'completed' ? 'Done' : 'Cancelled'}
-        color={a.status === 'cancelled' ? C.danger : a.status === 'completed' ? C.sub : C.brand}
+        colour={a.status === 'cancelled' ? C.danger : a.status === 'completed' ? C.sub : C.brand}
       />
     ),
   },
@@ -330,19 +331,20 @@ function SetUpAwards() {
   const awardedTotal = budget.reduce((s, b) => s + b.awarded, 0)
   const leftInRound = budgetTotal - awardedTotal
 
-  const programmeOptions = [
-    ...new Map(candidates.items.map((c) => [c.programmeId, c.programmeName])).entries(),
-  ].map(([value, label]) => ({ value, label }))
-  const tagOptions = [...new Set(candidates.items.flatMap((c) => c.tags))]
-    .sort()
-    .map((t) => ({ value: t, label: t }))
+  // Counted, like every other filter row's options — both tables' rows are all here on
+  // the client, so `facetBy` does the same job the list screens hand to the server.
+  const programmeOptions = facetBy(candidates.items, (c) => ({
+    value: c.programmeId,
+    label: c.programmeName,
+  })).map((f) => ({ value: f.value, label: facetLabel(f) }))
+  const tagOptions = facetByMany(candidates.items, (c) =>
+    c.tags.map((t) => ({ value: t, label: t })),
+  ).map((f) => ({ value: f.value, label: facetLabel(f) }))
 
   // Keyed on the name: `listAwards` rows carry the programme's name, not its id.
-  const awardedProgrammeOptions = [
-    ...new Set(awarded.items.map((a) => a.programmeName).filter(Boolean)),
-  ]
-    .sort()
-    .map((name) => ({ value: name as string, label: name as string }))
+  const awardedProgrammeOptions = facetBy(awarded.items, (a) =>
+    a.programmeName ? { value: a.programmeName, label: a.programmeName } : null,
+  ).map((f) => ({ value: f.value, label: facetLabel(f) }))
   const awardedRows = awardedProgramme
     ? awarded.items.filter((a) => a.programmeName === awardedProgramme)
     : awarded.items
@@ -447,41 +449,38 @@ function SetUpAwards() {
           </p>
         </div>
 
-        {candidates.items.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3">
-            {programmeOptions.length > 1 && (
-              <FilterPill
-                label="Programme"
-                value={programmeId}
-                options={programmeOptions}
-                onChange={(v) => {
-                  setProgrammeId(v)
-                  setPage(1)
-                }}
-              />
-            )}
-            {tagOptions.length > 0 && (
-              <FilterPill
-                label="Theme"
-                value={tag}
-                options={tagOptions}
-                onChange={(v) => {
-                  setTag(v)
-                  setPage(1)
-                }}
-              />
-            )}
-            <FilterPill
-              label="AI score"
-              value={scoreBand}
-              options={SCORE_BANDS.map((b) => ({ value: b.value, label: b.label }))}
-              onChange={(v) => {
-                setScoreBand(v)
-                setPage(1)
-              }}
-            />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterPill
+            label="Programme"
+            plural="programmes"
+            value={programmeId}
+            options={programmeOptions}
+            onChange={(v) => {
+              setProgrammeId(v)
+              setPage(1)
+            }}
+          />
+          <FilterPill
+            label="Theme"
+            plural="themes"
+            value={tag}
+            options={tagOptions}
+            onChange={(v) => {
+              setTag(v)
+              setPage(1)
+            }}
+          />
+          <FilterPill
+            label="AI score"
+            plural="scores"
+            value={scoreBand}
+            options={SCORE_BANDS.map((b) => ({ value: b.value, label: b.label }))}
+            onChange={(v) => {
+              setScoreBand(v)
+              setPage(1)
+            }}
+          />
+        </div>
 
         <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
           <DataTable
@@ -568,6 +567,9 @@ function SetUpAwards() {
       </div>
 
       {/* ── Already awarded, this round ── */}
+      {/* The whole card is conditional, unlike the pills inside it: a round with no
+          grants yet has nothing to say here, and an empty "Grants awarded" table is a
+          statement about the round rather than about a filter. */}
       {awarded.items.length > 0 && (
         <div
           className="flex flex-col gap-4 rounded-card border bg-white p-4"
@@ -583,16 +585,15 @@ function SetUpAwards() {
             </p>
           </div>
 
-          {awardedProgrammeOptions.length > 1 && (
-            <div className="flex flex-wrap items-center gap-3">
-              <FilterPill
-                label="Programme"
-                value={awardedProgramme}
-                options={awardedProgrammeOptions}
-                onChange={setAwardedProgramme}
-              />
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <FilterPill
+              label="Programme"
+              plural="programmes"
+              value={awardedProgramme}
+              options={awardedProgrammeOptions}
+              onChange={setAwardedProgramme}
+            />
+          </div>
 
           <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
             <DataTable

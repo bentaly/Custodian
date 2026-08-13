@@ -25,7 +25,10 @@ import { messageFor } from '../lib/errors'
 // account number are a well-formed pair and NOTHING about who owns the account. Either
 // word would be read as "we checked this is the grantee", which is Confirmation of Payee
 // — a paid check we do not make. So the badge says "Valid format": same size, same
-// place, same green, and it claims only what was actually checked.
+// place, same green, and it claims only what was actually checked. The failed state
+// (Figma 823:653) says the same thing the other way round: the panel states what failed
+// AND what the check was ever able to prove, so "Invalid" is never read as "not their
+// account".
 
 export type FinanceGrant = Awaited<ReturnType<typeof getFinanceGrant>>
 type Instalment = FinanceGrant['instalments'][number]
@@ -116,10 +119,10 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-control border border-gray-200 p-4">
+    <section className="flex flex-col gap-4 rounded-control border border-grey-200 p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="font-display text-title font-medium text-gray-900">{title}</h3>
+          <h3 className="font-display text-title font-medium text-grey-900">{title}</h3>
           {aside}
         </div>
         {action}
@@ -182,14 +185,14 @@ function EditControls({
 function Row({
   label,
   value,
-  valueColor,
+  valueColour,
   icon,
   action,
   className,
 }: {
   label: React.ReactNode
   value: React.ReactNode
-  valueColor?: string
+  valueColour?: string
   icon?: React.ReactNode
   /** Sits BEFORE the value — a reveal toggle, a Mark paid link. */
   action?: React.ReactNode
@@ -199,7 +202,7 @@ function Row({
     <div className={cn('flex items-center justify-between gap-3', className)}>
       <div className="flex min-w-0 items-center gap-2">
         {icon}
-        <span className="font-display text-body font-medium text-gray-500">{label}</span>
+        <span className="font-display text-body font-medium text-grey-500">{label}</span>
       </div>
       {/* The value is the last thing in the row and never shares its slot, so every
           figure in a card — instalments and the total they add up to — sits on one
@@ -208,7 +211,7 @@ function Row({
         {action}
         <span
           className="whitespace-nowrap text-right font-display text-body font-medium"
-          style={{ color: valueColor ?? C.ink }}
+          style={{ color: valueColour ?? C.ink }}
         >
           {value}
         </span>
@@ -276,7 +279,7 @@ function Lifecycle({ grant }: { grant: FinanceGrant }) {
           key={s.name}
           label={s.name}
           value={s.text}
-          valueColor={STEP_COLOR[s.state]}
+          valueColour={STEP_COLOUR[s.state]}
           icon={<StepIcon state={s.state} />}
         />
       ))}
@@ -284,7 +287,7 @@ function Lifecycle({ grant }: { grant: FinanceGrant }) {
   )
 }
 
-const STEP_COLOR: Record<StepState, string> = {
+const STEP_COLOUR: Record<StepState, string> = {
   done: C.ink,
   warn: C.warning,
   alert: C.danger,
@@ -321,8 +324,8 @@ const PAY_BADGE: Record<string, { label: string; className: string }> = {
   overdue: { label: 'Overdue', className: 'bg-danger/10 text-danger' },
   next: { label: 'Due next', className: 'bg-warning/10 text-warning' },
   due_soon: { label: 'Due soon', className: 'bg-warning/10 text-warning' },
-  upcoming: { label: 'Upcoming', className: 'bg-gray-100 text-gray-400' },
-  tbc: { label: 'Date TBC', className: 'bg-gray-100 text-gray-400' },
+  upcoming: { label: 'Upcoming', className: 'bg-grey-100 text-grey-400' },
+  tbc: { label: 'Date TBC', className: 'bg-grey-100 text-grey-400' },
 }
 
 /** One instalment's editable half, as strings — what is in the boxes, not what is saved. */
@@ -455,7 +458,7 @@ function Schedule({
       )}
 
       {grant.instalments.length === 0 ? (
-        <p className="text-body text-gray-400">
+        <p className="text-body text-grey-400">
           No instalments recorded. Add a schedule on the{' '}
           <TextLink to="/awards/$awardId" params={{ awardId: grant.id }}>
             award record
@@ -468,7 +471,7 @@ function Schedule({
             // Outside edit mode a paid row shows the date it was PAID; the box below it
             // holds the date it was DUE. Naming the columns is what stops that swap
             // reading as the panel having lost a date.
-            <div className="flex items-center gap-1 text-label text-gray-400">
+            <div className="flex items-center gap-1 text-label text-grey-400">
               <span>Due date</span>
               <span className="w-32 text-right">Amount</span>
             </div>
@@ -553,7 +556,7 @@ function Schedule({
             )
           })}
 
-          <div className="border-t border-gray-200 pt-3">
+          <div className="border-t border-grey-200 pt-3">
             <Row
               label="Total"
               value={
@@ -573,16 +576,64 @@ function Schedule({
 
 const BANK_BADGE: Record<BankStatus, { label: string; className: string }> = {
   valid: { label: 'Valid format', className: 'bg-success/10 text-success' },
-  invalid: { label: 'Modulus check failed', className: 'bg-danger/10 text-danger' },
+  invalid: { label: 'Invalid', className: 'bg-danger/10 text-danger' },
   unchecked: { label: 'Not checkable', className: 'bg-warning/10 text-warning' },
-  missing: { label: 'Not provided', className: 'bg-gray-100 text-gray-500' },
+  missing: { label: 'Not provided', className: 'bg-grey-100 text-grey-500' },
 }
 
+// The whole sentence per status, not a fragment with a shared tail appended: the tail
+// ("The check confirms…") is only true where a check actually RAN, and appending it to
+// all four produced "No bank details on file. The check confirms the numbers are a
+// valid pair" — a card claiming to have checked what it does not hold.
 const BANK_DETAIL_TEXT: Record<BankStatus, string> = {
-  valid: 'Sort code and account number pass the modulus check',
-  invalid: 'Fails the modulus check — likely a typo',
-  unchecked: 'Not in a checkable format',
-  missing: 'No bank details on file',
+  valid:
+    'Sort code and account number pass the modulus check. The check confirms the numbers are a valid pair, not who owns the account.',
+  invalid:
+    'Fails the modulus check — likely a typo. The check confirms if the numbers are a valid pair, not who owns the account.',
+  unchecked: 'Not in a checkable format, so the modulus check has not run.',
+  missing: 'No bank details on file.',
+}
+
+/**
+ * The tinted panel a problem announces itself in (Figma 823:653) — one tone per status,
+ * taken from the same table the badge is coloured by, so a card can never wear a red
+ * pill over an amber panel.
+ *
+ * `valid` has no panel on purpose: a pass is not news, and it stays the quiet grey line
+ * the card has always ended on. That asymmetry is the point — a problem is stated
+ * BEFORE the four numbers, because it is the reason to read them; a pass is a footnote
+ * after them.
+ */
+const BANK_TONE: Record<BankStatus, { panel: string; figure: string } | null> = {
+  valid: null,
+  invalid: { panel: 'bg-danger/10 text-danger', figure: C.danger },
+  // The panel and the figure it points at are one tone, so a card cannot state two
+  // severities about the same pair of numbers.
+  unchecked: { panel: 'bg-warning/10 text-warning', figure: C.warning },
+  missing: { panel: 'bg-grey-100 text-grey-500', figure: C.sub },
+}
+
+/**
+ * Which figure the check is complaining about. The comp puts the red on the NUMBER as
+ * well as in the panel, and both halves are load-bearing: the panel alone leaves an
+ * admin comparing four figures against a bank letter to work out which one it means.
+ *
+ * A failed modulus condemns the PAIR — either digit could be the typo — so both are
+ * marked rather than picking one at random. Only a malformed input names a single field.
+ */
+function flaggedFields(status: BankStatus, reason: string | null) {
+  if (status === 'valid' || status === 'missing') return { sortCode: false, accountNumber: false }
+  if (reason === 'malformed_sort_code') return { sortCode: true, accountNumber: false }
+  if (reason === 'malformed_account_number') return { sortCode: false, accountNumber: true }
+  return { sortCode: true, accountNumber: true }
+}
+
+/** The alert the panel and the flagged figures share, at the comp's 14px. */
+function BankAlertIcon({ className }: { className?: string }) {
+  // The comp draws a circle; this is the app's triangle (`Alert02Icon`), the same glyph
+  // the Grant lifecycle rows two sections up already use for exactly this warning. One
+  // dialog running two alert shapes is worse than one differing from the comp.
+  return <HugeiconsIcon icon={Alert02Icon} size={14} strokeWidth={1.8} className={className} />
 }
 
 /** `402918` → `40-29-18`; anything unexpected is shown as given. */
@@ -625,12 +676,14 @@ function BankDetails({
 
   const { bank } = grant
   const badge = BANK_BADGE[bank.status]
+  const tone = BANK_TONE[bank.status]
+  const flagged = flaggedFields(bank.status, bank.reason)
   const saving = busyId === 'bank'
 
   function field(key: keyof BankDraft, label: string, placeholder: string) {
     return (
       <div key={key} className="flex items-center justify-between gap-3">
-        <label htmlFor={`bank-${key}`} className="font-display text-body font-medium text-gray-500">
+        <label htmlFor={`bank-${key}`} className="font-display text-body font-medium text-grey-500">
           {label}
         </label>
         <Input
@@ -692,13 +745,27 @@ function BankDetails({
         ) : undefined
       }
     >
+      {/* Above the fields in both modes, for the same reason the badge stays visible
+          while editing: it is the thing being fixed. */}
+      {tone && (
+        <p
+          className={cn(
+            'flex items-center gap-2 rounded-chip px-3 py-2 text-label leading-normal',
+            tone.panel,
+          )}
+        >
+          <BankAlertIcon className="shrink-0" />
+          <span>{BANK_DETAIL_TEXT[bank.status]}</span>
+        </p>
+      )}
+
       {editing ? (
         <>
           {field('accountName', 'Account name', 'Enter account name')}
           {field('bankName', 'Bank', 'Enter bank')}
           {field('sortCode', 'Sort code', '00-00-00')}
           {field('accountNumber', 'Account number', 'Enter account number')}
-          <p className="text-label text-gray-400">
+          <p className="text-label text-grey-400">
             These are the details the grantee submitted, and they are where the money goes. Changing
             the sort code or account number is recorded against the grant.
           </p>
@@ -709,17 +776,27 @@ function BankDetails({
           <Row label="Bank" value={bank.bankName ?? '—'} />
           <Row
             label="Sort code"
-            value={<span className="tabular-nums">{fmtSortCode(bank.sortCode)}</span>}
+            valueColour={flagged.sortCode ? tone?.figure : undefined}
+            value={
+              <span className="inline-flex items-center gap-2">
+                <span className="tabular-nums">{fmtSortCode(bank.sortCode)}</span>
+                {flagged.sortCode && <BankAlertIcon />}
+              </span>
+            }
           />
           <Row
             label="Account number"
+            valueColour={flagged.accountNumber ? tone?.figure : undefined}
             value={
-              <span className="tabular-nums">
-                {bank.accountNumber
-                  ? revealed
-                    ? bank.accountNumber
-                    : `••••${bank.last4 ?? ''}`
-                  : '—'}
+              <span className="inline-flex items-center gap-2">
+                <span className="tabular-nums">
+                  {bank.accountNumber
+                    ? revealed
+                      ? bank.accountNumber
+                      : `••••${bank.last4 ?? ''}`
+                    : '—'}
+                </span>
+                {flagged.accountNumber && <BankAlertIcon />}
               </span>
             }
             action={
@@ -731,13 +808,10 @@ function BankDetails({
             }
           />
 
-          <p className="text-label text-gray-400">
-            {BANK_DETAIL_TEXT[bank.status]}. The check confirms the numbers are a valid pair, not
-            who owns the account.
-          </p>
+          {!tone && <p className="text-label text-grey-400">{BANK_DETAIL_TEXT.valid}</p>}
 
           {bank.status !== 'valid' && (
-            <p className="text-label text-gray-400">
+            <p className="text-label text-grey-400">
               Details come from the{' '}
               <TextLink
                 to="/applications/$applicationId"

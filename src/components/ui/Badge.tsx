@@ -2,8 +2,8 @@ import type { HTMLAttributes } from 'react'
 import { cn } from './cn'
 
 /**
- * Pill badge. Colour comes from the caller (e.g. ROUND_STATUS_COLORS maps or
- * "bg-gray-100 text-gray-600") so existing status colour tables keep working.
+ * Pill badge. Colour comes from the caller (e.g. ROUND_STATUS_COLOURS maps or
+ * "bg-grey-100 text-grey-600") so existing status colour tables keep working.
  *
  * The comps run two sizes on purpose, and the difference is what the pill is about:
  *

@@ -100,8 +100,8 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
         <dl className="space-y-5">
           {narratives.map(([label, value]) => (
             <div key={label}>
-              <dt className="mb-1 text-label font-medium text-gray-500">{label}</dt>
-              <dd className="whitespace-pre-wrap text-body leading-relaxed text-gray-700">{value}</dd>
+              <dt className="mb-1 text-label font-medium text-grey-500">{label}</dt>
+              <dd className="whitespace-pre-wrap text-body leading-relaxed text-grey-700">{value}</dd>
             </div>
           ))}
         </dl>
@@ -112,8 +112,8 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
           <dl className="space-y-5">
             {responses.map((r, i) => (
               <div key={i}>
-                <dt className="mb-1 text-label font-medium text-gray-500">{r.label}</dt>
-                <dd className="whitespace-pre-wrap text-body leading-relaxed text-gray-700">
+                <dt className="mb-1 text-label font-medium text-grey-500">{r.label}</dt>
+                <dd className="whitespace-pre-wrap text-body leading-relaxed text-grey-700">
                   {r.value || '—'}
                 </dd>
               </div>
