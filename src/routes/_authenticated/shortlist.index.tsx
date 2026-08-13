@@ -4,7 +4,7 @@ import { listShortlist } from '../../server/fns/shortlist'
 import { listMyRounds } from '../../server/fns/rounds'
 import { VoteCard } from '../../components/shortlist/VoteCard'
 import { ShortlistHeader } from '../../components/shortlist/ShortlistHeader'
-import { ProposedAgainstBudget, ProposedByProgramme } from '../../components/shortlist/SpendCards'
+import { ProposedSpend } from '../../components/shortlist/SpendCards'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { EmptyState, ExportButton, Pagination } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
@@ -118,10 +118,7 @@ function ShortlistPage() {
         </EmptyState>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ProposedByProgramme rows={budgets} />
-            <ProposedAgainstBudget rows={budgets} />
-          </div>
+          <ProposedSpend rows={budgets} />
 
           <div
             className="flex flex-col gap-4 rounded-card border bg-white p-4"

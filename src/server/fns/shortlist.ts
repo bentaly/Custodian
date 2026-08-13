@@ -76,7 +76,9 @@ export const listShortlist = createServerFn({ method: 'GET' })
         .from(applicationVotes)
         .where(inArray(applicationVotes.applicationId, appIds)),
       db
-        .select({ id: users.id, name: users.name })
+        // `image` is the avatar URL on the row itself (`/api/avatar/…`), not a join —
+        // the roster is a list of faces on the design, and initials are the fallback.
+        .select({ id: users.id, name: users.name, image: users.image })
         .from(users)
         .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId)))
         .orderBy(users.name),

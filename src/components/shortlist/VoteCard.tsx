@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Alert02Icon,
   CancelCircleIcon,
   CheckmarkCircle02Icon,
+  ClipboardCheckIcon,
   Message01Icon,
 } from '@hugeicons/core-free-icons'
 import { castVote } from '../../server/fns/comments'
@@ -12,9 +14,12 @@ import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/cust
 import type { DeprivationResult } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney } from '../../lib/format'
-import { ErrorNote, initials } from '../ui'
+import { Avatar, ErrorNote, initials } from '../ui'
+import { useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C } from '../ui/tokens'
 import { CommentsDialog } from './CommentsDialog'
+
+export type ShortlistTrustee = { id: string; name: string; image: string | null }
 
 /** The order the criteria read in — the registry's own order. */
 const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<
@@ -94,35 +99,140 @@ function DecisionPill({ app }: { app: VoteCardApplication }) {
   return <Pill tone="grey">{needed} votes needed</Pill>
 }
 
-/** How a trustee voted, in the past tense — this is a record, not an instruction. */
+/**
+ * How a trustee voted, in the past tense — this is a record, not an instruction.
+ * Pending is amber rather than grey (Figma 765:9565): a vote nobody has cast is the one
+ * thing on the roster still to happen, and grey reads as "nothing to see here".
+ */
 function VotePill({ vote }: { vote: 'yes' | 'no' | undefined }) {
-  const [label, tone] =
+  const [label, fg, bg] =
     vote === 'yes'
-      ? (['Approved', 'brand'] as const)
+      ? (['Approved', C.brand, C.brandBg] as const)
       : vote === 'no'
-        ? (['Declined', 'danger'] as const)
-        : (['Pending', 'grey'] as const)
+        ? (['Declined', C.danger, C.dangerWash] as const)
+        : (['Pending', C.amber, C.amberWash] as const)
   // The small pill (10px): this annotates one trustee in the roster, so it must not
   // compete with the DecisionPill above it, which is the card's actual status.
   return (
     <span
       className="inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2"
-      style={{
-        backgroundColor: tone === 'brand' ? C.brandBg : tone === 'danger' ? C.dangerWash : C.white,
-      }}
+      style={{ backgroundColor: bg }}
     >
-      <span
-        className="size-[3px] rounded-full"
-        style={{
-          backgroundColor: tone === 'brand' ? C.brand : tone === 'danger' ? C.danger : C.faint,
-        }}
-      />
-      <span
-        className="font-display text-micro font-medium"
-        style={{ color: tone === 'brand' ? C.brand : tone === 'danger' ? C.danger : C.sub }}
-      >
+      <span className="size-[3px] rounded-full" style={{ backgroundColor: fg }} />
+      <span className="font-display text-micro font-medium" style={{ color: fg }}>
         {label}
       </span>
+    </span>
+  )
+}
+
+/**
+ * The admin's way in to a trustee's vote (Figma 827:1757): a marker beside the roster row
+ * that opens Approve / Decline for that named person.
+ *
+ * It replaced a bare ✓/✗ pair sitting inline on the row, which said nothing about whose
+ * vote it was recording — the one thing an admin must be sure of before pressing it. The
+ * panel names them; the buttons carry their own words.
+ *
+ * It is offered on EVERY row, not just the ones still pending, because a vote read out at
+ * a meeting and typed in wrong is exactly the kind of mistake that has to be correctable
+ * — `castVote` upserts, so the server has always allowed it.
+ */
+function OnBehalfControl({
+  trustee,
+  vote,
+  busy,
+  onVote,
+}: {
+  trustee: ShortlistTrustee
+  vote: 'yes' | 'no' | undefined
+  busy: boolean
+  onVote: (vote: 'yes' | 'no') => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLSpanElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const pos = useAnchoredPopover(open, rootRef, panelRef)
+
+  const close = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+  useDismiss(open, close, rootRef, panelRef)
+
+  return (
+    <span ref={rootRef} className="relative flex shrink-0 items-center print:hidden">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Record ${trustee.name}’s vote on their behalf`}
+        onClick={() => (open ? close() : setOpen(true))}
+        className="flex size-6 items-center justify-center rounded-chip hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+      >
+        <HugeiconsIcon icon={ClipboardCheckIcon} size={16} color={C.brand} strokeWidth={1.8} />
+      </button>
+
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-label={`${trustee.name}’s vote`}
+            className="fixed z-[60] w-[268px] rounded-card border bg-white p-3 shadow-[0px_11px_24px_rgba(0,0,0,0.1),0px_43px_43px_rgba(0,0,0,0.09)]"
+            style={{
+              top: pos?.top ?? -9999,
+              left: pos?.left ?? -9999,
+              borderColor: C.line,
+              visibility: pos ? 'visible' : 'hidden',
+            }}
+          >
+            <p className="font-display text-label" style={{ color: C.ink }}>
+              {trustee.name}’s vote on their behalf
+            </p>
+            {/* What is on record already, said in words — a vote typed in wrong at a
+                meeting is corrected here, and the admin has to be able to see what they
+                are correcting. */}
+            {vote !== undefined && (
+              <p className="mt-0.5 font-display text-label" style={{ color: C.sub }}>
+                Recorded as {vote === 'yes' ? 'approved' : 'declined'}.
+              </p>
+            )}
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                aria-pressed={vote === 'yes'}
+                onClick={() => {
+                  onVote('yes')
+                  close()
+                }}
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control font-display text-body font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: C.brand }}
+              >
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={1.8} />
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                aria-pressed={vote === 'no'}
+                onClick={() => {
+                  onVote('no')
+                  close()
+                }}
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-body font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
+                style={{ borderColor: C.line, color: C.danger }}
+              >
+                <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={1.8} />
+                Decline
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </span>
   )
 }
@@ -197,7 +307,7 @@ export function VoteCard({
   allowAdminVoting,
 }: {
   app: VoteCardApplication
-  trustees: Array<{ id: string; name: string }>
+  trustees: ShortlistTrustee[]
   userId: string
   userRole: string
   allowAdminVoting: boolean
@@ -253,11 +363,15 @@ export function VoteCard({
             ? 'Due diligence not run'
             : null
 
+  // Figure and unit are separated so the figure can carry the weight (Figma 765:3377):
+  // what a board scans this strip for is the numbers, not the words between them.
   const meta = [
-    impact !== null ? `${impact.toLocaleString('en-GB')} ${unitLabel.toLowerCase()}` : null,
-    costPerUnit !== null ? `${fmtMoney(costPerUnit)} each` : null,
-    deprivation ? `IMD decile ${deprivation.min}–${deprivation.max}` : null,
-  ].filter(Boolean)
+    impact !== null
+      ? { value: impact.toLocaleString('en-GB'), label: unitLabel.toLowerCase() }
+      : null,
+    costPerUnit !== null ? { value: fmtMoney(costPerUnit), label: 'each' } : null,
+    deprivation ? { value: `IMD decile ${deprivation.min}–${deprivation.max}`, label: '' } : null,
+  ].filter((m) => m !== null)
 
   async function handleVote(vote: 'yes' | 'no', onBehalfOf?: string) {
     setBusy(true)
@@ -384,13 +498,26 @@ export function VoteCard({
                   </span>
                 </span>
               </div>
+              {/* Two explicit columns rather than a wrapping grid, so the rule between
+                  them lands between the columns and not down the middle of a row. */}
               <div className="grid min-w-0 flex-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-                {CRITERION_KEYS.map((key) => (
-                  <CriterionBar
-                    key={key}
-                    label={CRITERION_DEFINITIONS[key].label}
-                    score={detail?.criteria?.[key]?.score ?? null}
-                  />
+                {[
+                  CRITERION_KEYS.slice(0, Math.ceil(CRITERION_KEYS.length / 2)),
+                  CRITERION_KEYS.slice(Math.ceil(CRITERION_KEYS.length / 2)),
+                ].map((column, i) => (
+                  <div
+                    key={i}
+                    className="flex min-w-0 flex-col gap-2 sm:last:border-l sm:last:pl-6"
+                    style={{ borderColor: C.line }}
+                  >
+                    {column.map((key) => (
+                      <CriterionBar
+                        key={key}
+                        label={CRITERION_DEFINITIONS[key].label}
+                        score={detail?.criteria?.[key]?.score ?? null}
+                      />
+                    ))}
+                  </div>
                 ))}
               </div>
             </div>
@@ -399,7 +526,13 @@ export function VoteCard({
           {(meta.length > 0 || ddNote) && (
             <div className="border-t pt-3" style={{ borderColor: C.line }}>
               <p className="font-display text-label" style={{ color: C.sub }}>
-                {meta.join(' · ')}
+                {meta.map((m, i) => (
+                  <span key={i}>
+                    {i > 0 && ' · '}
+                    <span style={{ color: C.ink }}>{m.value}</span>
+                    {m.label && ` ${m.label}`}
+                  </span>
+                ))}
                 {ddNote && (
                   <>
                     {meta.length > 0 && ' · '}
@@ -412,9 +545,12 @@ export function VoteCard({
         </div>
 
         {/* ── The vote ── */}
+        {/* White, divided by a rule rather than sat on a washed panel (Figma 765:9565):
+            the roster's own pills are what carry colour here, and a tinted ground behind
+            them muddies the one thing the column is for. */}
         <div
-          className="flex w-full flex-col gap-3 rounded-card p-4 lg:w-[268px] lg:shrink-0"
-          style={{ backgroundColor: C.wash }}
+          className="flex w-full flex-col gap-3 border-t p-4 lg:w-[300px] lg:shrink-0 lg:border-t-0 lg:border-l"
+          style={{ borderColor: C.line }}
         >
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-display text-body font-medium" style={{ color: C.ink }}>
@@ -442,60 +578,23 @@ export function VoteCard({
                 const vote = voteMap.get(t.id)
                 return (
                   <div key={t.id} className="flex items-center gap-2">
-                    <span
-                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white font-display text-label font-semibold"
-                      style={{ color: C.sub }}
-                    >
-                      {initials(t.name)}
-                    </span>
+                    <Avatar name={t.name} image={t.image} size={20} />
                     <span
                       className="min-w-0 flex-1 truncate font-display text-label"
                       style={{ color: C.ink, fontWeight: t.id === userId ? 600 : 400 }}
                     >
-                      {t.id === userId ? `${t.name} (You)` : t.name}
+                      {t.name}
+                      {t.id === userId && <span style={{ color: C.faint }}> (You)</span>}
                     </span>
-                    {canVoteForTrustees ? (
-                      <span
-                        className="flex shrink-0 items-center gap-0.5 rounded-pill bg-white p-0.5"
-                        role="group"
-                        aria-label={`Vote on behalf of ${t.name}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleVote('yes', t.id)}
-                          disabled={busy}
-                          aria-label={`Record ${t.name} as approving`}
-                          aria-pressed={vote === 'yes'}
-                          className="flex size-5 items-center justify-center rounded-full disabled:opacity-50"
-                          style={{ backgroundColor: vote === 'yes' ? C.brandBg : 'transparent' }}
-                        >
-                          <HugeiconsIcon
-                            icon={CheckmarkCircle02Icon}
-                            size={14}
-                            color={vote === 'yes' ? C.brand : C.faint}
-                            strokeWidth={1.8}
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleVote('no', t.id)}
-                          disabled={busy}
-                          aria-label={`Record ${t.name} as declining`}
-                          aria-pressed={vote === 'no'}
-                          className="flex size-5 items-center justify-center rounded-full disabled:opacity-50"
-                          style={{ backgroundColor: vote === 'no' ? C.dangerWash : 'transparent' }}
-                        >
-                          <HugeiconsIcon
-                            icon={CancelCircleIcon}
-                            size={14}
-                            color={vote === 'no' ? C.danger : C.faint}
-                            strokeWidth={1.8}
-                          />
-                        </button>
-                      </span>
-                    ) : (
-                      <VotePill vote={vote} />
+                    {canVoteForTrustees && (
+                      <OnBehalfControl
+                        trustee={t}
+                        vote={vote}
+                        busy={busy}
+                        onVote={(v) => handleVote(v, t.id)}
+                      />
                     )}
+                    <VotePill vote={vote} />
                   </div>
                 )
               })}
