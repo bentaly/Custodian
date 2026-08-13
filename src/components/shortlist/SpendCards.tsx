@@ -98,16 +98,40 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
               )}
 
               <div className="flex items-baseline justify-between gap-3">
-                <span
-                  className="min-w-0 truncate font-display text-label"
-                  style={{ color: over ? C.danger : C.faint }}
-                >
-                  {budget === null
-                    ? 'No budget set on this programme'
-                    : `${Math.round((r.proposed / budget) * 100)}% of round budget${
-                        r.committed > 0 ? ` · ${fmtMoney(r.committed)} already committed` : ''
-                      }`}
-                </span>
+                {/* The key to the bar, rather than a legend on the card: every row is
+                    drawn in its own programme's colour, so a card-level key could only
+                    ever be right for one of them. A dot in front of each phrase is the
+                    same key, in the right colour, for nothing but its own row. */}
+                {budget === null ? (
+                  <span
+                    className="min-w-0 truncate font-display text-label"
+                    style={{ color: C.faint }}
+                  >
+                    No budget set on this programme
+                  </span>
+                ) : (
+                  <span
+                    className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-display text-label"
+                    style={{ color: over ? C.danger : C.faint }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: over ? C.danger : colour }}
+                      />
+                      {Math.round((r.proposed / budget) * 100)}% proposed
+                    </span>
+                    {r.committed > 0 && (
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="size-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: tint(colour, 45) }}
+                        />
+                        {fmtMoney(r.committed)} already committed
+                      </span>
+                    )}
+                  </span>
+                )}
                 <span
                   className="shrink-0 font-display text-body font-medium tabular-nums"
                   style={{ color: C.ink }}
