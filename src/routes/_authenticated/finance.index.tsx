@@ -33,15 +33,7 @@ type FinanceData = Awaited<ReturnType<typeof listFinanceGrants>>
 type FinanceRow = FinanceData['items'][number]
 type Totals = FinanceData['totals']
 
-type SortKey =
-  | 'organisation'
-  | 'programme'
-  | 'committed'
-  | 'paid'
-  | 'next'
-  | 'lastPaid'
-  | 'bank'
-  | 'status'
+type SortKey = 'organisation' | 'programme' | 'committed' | 'paid' | 'next' | 'lastPaid' | 'status'
 type SortDir = 'asc' | 'desc'
 
 type FinanceSearch = {
@@ -66,7 +58,6 @@ const SORT_KEYS: SortKey[] = [
   'paid',
   'next',
   'lastPaid',
-  'bank',
   'status',
 ]
 /** Text reads best A–Z; money, dates and the two urgency ranks read best worst-first. */
@@ -197,9 +188,10 @@ const PAID: TableColumn<FinanceRow> = {
   ),
 }
 
+// Not sortable: the modulus check is a TS algorithm, so ordering the whole set by it
+// would mean loading the whole set — see the note on `SortKey` in `fns/finance.ts`.
 const BANK: TableColumn<FinanceRow> = {
   id: 'bank',
-  sortable: true,
   hideBelow: 'xl',
   header: 'Bank',
   width: 'sm:w-[120px]',

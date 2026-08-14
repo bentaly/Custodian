@@ -1,9 +1,9 @@
 import { notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, awards } from '../../../drizzle/schema'
+import { applications, awardInstalments, awards } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
 import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
@@ -15,9 +15,26 @@ import {
   endOfMonthIso,
   todayIso,
 } from '../../lib/schedule'
-import { paginate, PAGE_SIZE } from '../../lib/pagination'
-import { sortRows } from '../../lib/sortRows'
-import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
+import { PAGE_SIZE } from '../../lib/pagination'
+import { type FacetOption } from '../../lib/facets'
+import {
+  financeDates,
+  filterWhere,
+  grantsQuery,
+  tabWhere,
+  grantsCol,
+  type FinanceDates,
+  type GrantRow,
+  type GrantsQuery,
+} from '../finance/query'
+
+/**
+ * The sortable columns. `bank` is deliberately absent: sorting by the modulus outcome
+ * would mean evaluating it over every grant in the tenant, which is exactly the load
+ * this file just shed. Bank problems are surfaced instead by the Attention banner,
+ * which counts them portfolio-wide. It comes back the day the check is stored.
+ */
+type SortKey = 'organisation' | 'programme' | 'committed' | 'paid' | 'next' | 'lastPaid' | 'status'
 
 // Finance reads the same grants as Awards, but through the payments lens: one row per
 // grant, keyed on where its money is up to rather than on the decision that made it.
@@ -49,12 +66,8 @@ type InstalmentRow = {
   paidDate: string | null
 }
 
-type BankFields = {
-  bankName: string | null
-  bankAccountName: string | null
-  bankAccountNumber: string | null
-  bankSortCode: string | null
-}
+/** The two fields the modulus check reads — nothing else about a grant matters to it. */
+type BankFields = { bankSortCode: string | null; bankAccountNumber: string | null }
 
 /**
  * Level-1 bank check for a grant: is the sort code + account number we hold a
@@ -151,15 +164,6 @@ export type UpcomingBucket = { total: number; count: number; items: UpcomingPaym
 /** How many payments each bucket names before it just says how many more there are. */
 const UPCOMING_SHOWN = 4
 
-function bucket(payments: UpcomingPayment[]): UpcomingBucket {
-  const sorted = [...payments].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-  return {
-    total: sorted.reduce((s, p) => s + p.amount, 0),
-    count: sorted.length,
-    items: sorted.slice(0, UPCOMING_SHOWN),
-  }
-}
-
 function emptyUpcoming() {
   const none: UpcomingBucket = { total: 0, count: 0, items: [] }
   return { overdue: none, thisMonth: none, next3Months: none }
@@ -168,6 +172,11 @@ function emptyUpcoming() {
 /**
  * Every grant with money attached, for the Finance list. One row per grant, with its
  * committed / paid / next-payment position and a bank-detail flag.
+ *
+ * Filtered, sorted, counted and paged **in Postgres** — see `server/finance/query.ts`
+ * for the two subqueries that make a grant's derived status an ordinary column, and for
+ * why the whole screen is one `db.batch()`. It used to load the tenant's entire history
+ * on every page turn.
  *
  * Cancelled awards are included only when money has already left (so the paid history
  * still reconciles) and never contribute to the overdue / due / outstanding totals —
@@ -196,21 +205,13 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional(),
         /**
-         * Column sort, applied over the whole filtered tab — see `sortRows`. `next` and
-         * `lastPaid` each only exist on one tab's columns; sorting by the other tab's
-         * date is harmless (every row's value is blank, so the order is unchanged).
+         * Column sort, applied in SQL over the whole filtered tab — see `orderFor`.
+         * `next` and `lastPaid` each only exist on one tab's columns; sorting by the
+         * other tab's date is harmless (every row's value is null, and nulls sort last
+         * whichever way the arrow points, so the order is unchanged).
          */
         sortBy: z
-          .enum([
-            'organisation',
-            'programme',
-            'committed',
-            'paid',
-            'next',
-            'lastPaid',
-            'bank',
-            'status',
-          ])
+          .enum(['organisation', 'programme', 'committed', 'paid', 'next', 'lastPaid', 'status'])
           .optional(),
         sortDir: z.enum(['asc', 'desc']).optional(),
         page: z.number().int().positive().optional(),
@@ -222,217 +223,392 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
     const roundProgrammeIds = await visibleRoundProgrammeIds(user)
-    if (roundProgrammeIds !== null && roundProgrammeIds.length === 0) {
-      return {
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: PAGE_SIZE,
-        tabCounts: { to_pay: 0, paid: 0 },
-        totals: emptyTotals(),
-        upcoming: emptyUpcoming(),
-        facets: emptyFacets(),
-      }
-    }
-
-    // Named columns — same reason as `listAwards`. The bank fields are needed for the
-    // modulus check; none of the jsonb is.
-    const apps = await getDb().query.applications.findMany({
-      where: and(
-        eq(applications.status, 'awarded'),
-        roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
-      ),
-      columns: {
-        id: true,
-        organisationName: true,
-        bankName: true,
-        bankAccountName: true,
-        bankSortCode: true,
-        bankAccountNumber: true,
-      },
-      with: {
-        roundProgramme: { with: { programme: true, round: true } },
-        award: { with: { instalments: true } },
-      },
-    })
-
-    const items = apps
-      .filter((a) => a.award)
-      .map((a) => {
-        const award = a.award!
-        const cancelled = award.status === 'cancelled'
-        const pay = summarisePayments(award.instalments, cancelled)
-        const committed = parseFloat(award.amountAwarded)
-        const bank = bankCheck(a)
-        return {
-          awardId: award.id,
-          applicationId: a.id,
-          organisationName: a.organisationName,
-          programmeId: a.roundProgramme?.programmeId ?? null,
-          programmeName: a.roundProgramme?.programme?.name ?? null,
-          roundId: a.roundProgramme?.roundId ?? null,
-          roundName: a.roundProgramme?.round?.name ?? null,
-          // The theme filter's vocabulary: a programme's tags, as Awards uses them.
-          tags: (a.roundProgramme?.programme?.tags as string[] | null) ?? [],
-          awardStatus: award.status,
-          decisionAt: award.decisionAt.toISOString(),
-          committed,
-          // Outstanding is measured against what was COMMITTED, not against the
-          // instalment plan — an unscheduled or short-scheduled grant still owes the
-          // full difference, and hiding that is exactly the gap finance cares about.
-          outstanding: cancelled ? 0 : committed - pay.paidToDate,
-          bank: { status: bank.status, last4: last4(a.bankAccountNumber) },
-          ...pay,
-        }
-      })
-      // Payment order: the money you owe soonest, first. Dateless and unscheduled grants
-      // land at the end of the "to pay" list, and settled grants sort by most recently
-      // paid — the two tabs each read top-down as "what matters now".
-      .sort((x, y) => {
-        // A cancelled grant has no payment to chase, whatever its schedule still says.
-        const xd = x.awardStatus === 'cancelled' ? null : (x.nextPayment?.dueDate ?? null)
-        const yd = y.awardStatus === 'cancelled' ? null : (y.nextPayment?.dueDate ?? null)
-        if (xd && yd) return xd.localeCompare(yd)
-        if (xd) return -1
-        if (yd) return 1
-        return (y.lastPaidDate ?? '').localeCompare(x.lastPaidDate ?? '')
-      })
-
-    const payable = items.filter((i) => i.awardStatus !== 'cancelled')
-    const totals = {
-      grantCount: payable.length,
-      committed: payable.reduce((s, i) => s + i.committed, 0),
-      // Paid-to-date includes cancelled grants: that money genuinely went out.
-      paidToDate: items.reduce((s, i) => s + i.paidToDate, 0),
-      paidCount: items.reduce((s, i) => s + i.paidCount, 0),
-      outstanding: payable.reduce((s, i) => s + i.outstanding, 0),
-      overdueAmount: payable.reduce((s, i) => s + i.overdueAmount, 0),
-      overdueCount: payable.reduce((s, i) => s + i.overdueCount, 0),
-      overdueGrants: payable.filter((i) => i.overdueCount > 0).length,
-      dueSoonAmount: payable.reduce((s, i) => s + i.dueSoonAmount, 0),
-      dueSoonCount: payable.reduce((s, i) => s + i.dueSoonCount, 0),
-      unscheduledCount: payable.filter((i) => i.status === 'unscheduled').length,
-      // Grants still owing money whose bank details are missing or fail the modulus
-      // check — every one of them is a payment that cannot go out cleanly.
-      bankIssueCount: payable.filter(
-        (i) => i.status !== 'paid' && (i.bank.status === 'missing' || i.bank.status === 'invalid'),
-      ).length,
-    }
-
-    // Upcoming payments: every unpaid dated instalment in scope, bucketed by horizon.
-    // Deliberately NOT narrowed by the filters below — this is the screen's "what is
-    // coming at you" strip, and a panel that emptied itself when you filtered the table
-    // would hide exactly the payment you had filtered away from.
-    const today = todayIso()
-    const monthEnd = endOfMonthIso(today)
-    // Three ROLLING months rather than the rest of the calendar quarter: in the last
-    // month of a quarter that bucket is structurally empty, so a third of the year the
-    // panel would carry a dead card.
-    const horizon = addMonthsIso(today, 3)
-    const duePayments: UpcomingPayment[] = []
-    for (const a of apps) {
-      const award = a.award
-      if (!award || award.status === 'cancelled') continue
-      for (const i of award.instalments) {
-        if (i.paidDate || !i.dueDate) continue
-        duePayments.push({
-          awardId: award.id,
-          organisationName: a.organisationName,
-          programmeName: a.roundProgramme?.programme?.name ?? null,
-          dueDate: i.dueDate,
-          amount: parseFloat(i.amount),
-        })
-      }
-    }
-    const upcoming = {
-      overdue: bucket(duePayments.filter((p) => p.dueDate < today)),
-      thisMonth: bucket(duePayments.filter((p) => p.dueDate >= today && p.dueDate <= monthEnd)),
-      next3Months: bucket(duePayments.filter((p) => p.dueDate > monthEnd && p.dueDate <= horizon)),
-    }
-
-    // Each grant sits under exactly one tab. The tab is this screen's *context* filter,
-    // so the pills below are faceted over it — you can only filter by a round or theme
-    // some grant on this tab actually has.
-    const toPay = items.filter((g) => g.status !== 'paid' && g.status !== 'cancelled')
-    const settled = items.filter((g) => g.status === 'paid' || g.status === 'cancelled')
-    const tabRows = data?.tab === 'paid' ? settled : toPay
-
-    const facets = {
-      statuses: facetBy(tabRows, (g) => ({
-        value: g.status,
-        label: FINANCE_STATUS_LABELS[g.status],
-      })),
-      programmes: facetBy(tabRows, (g) =>
-        g.programmeId
-          ? { value: g.programmeId, label: g.programmeName ?? 'Untitled programme' }
-          : null,
-      ),
-      themes: facetByMany(tabRows, (g) => g.tags.map((t) => ({ value: t, label: t }))),
-      rounds: facetBy(tabRows, (g) =>
-        g.roundId ? { value: g.roundId, label: g.roundName ?? 'Untitled round' } : null,
-      ),
-    }
-
-    // The date window runs against the payment date the open tab is ABOUT: when you are
-    // paying, that is the next payment due; when you are reconciling what went out, it is
-    // the last payment made. One control, the meaning of which follows the tab.
-    const inWindow = (day: string | null) => {
-      if (!data?.from && !data?.to) return true
-      if (!day) return false
-      return (!data?.from || day >= data.from) && (!data?.to || day <= data.to)
-    }
-    const matches = (g: (typeof items)[number], day: string | null) =>
-      (!data?.roundId || g.roundId === data.roundId) &&
-      (!data?.programmeId || g.programmeId === data.programmeId) &&
-      (!data?.tag || g.tags.includes(data.tag)) &&
-      (!data?.status || g.status === data.status) &&
-      inWindow(day)
-
-    // Both tabs are counted through the same filters, so a tab label never promises rows
-    // the filters would remove the moment you switched to it.
-    const matchedToPay = toPay.filter((g) => matches(g, g.nextPayment?.dueDate ?? null))
-    const matchedPaid = settled.filter((g) => matches(g, g.lastPaidDate))
-    const tabCounts = { to_pay: matchedToPay.length, paid: matchedPaid.length }
-    const rows = data?.tab === 'paid' ? matchedPaid : matchedToPay
-
-    // Sorted before paging, so page 2 is the second page of the sort. With no `sortBy`
-    // the payment order above stands: the money you owe soonest, first.
-    const sorted = sortRows(
-      rows,
-      { by: data?.sortBy, dir: data?.sortDir },
-      {
-        organisation: (g) => g.organisationName,
-        programme: (g) => g.programmeName,
-        committed: (g) => g.committed,
-        paid: (g) => g.paidToDate,
-        // A cancelled grant has nothing to chase, so it sorts as dateless here for the
-        // same reason it does in the default order — not as a payment due long ago.
-        next: (g) => (g.awardStatus === 'cancelled' ? null : (g.nextPayment?.dueDate ?? null)),
-        lastPaid: (g) => g.lastPaidDate,
-        bank: (g) => BANK_SORT_ORDER[g.bank.status] ?? 9,
-        status: (g) => FINANCE_STATUS_ORDER[g.status] ?? 9,
-      },
-    )
-
-    return { ...paginate(sorted, data?.page, data?.pageSize), tabCounts, totals, upcoming, facets }
+    // An empty scope is a user with access to nothing; `inArray(x, [])` is a SQL error,
+    // so it never reaches the query.
+    if (roundProgrammeIds !== null && roundProgrammeIds.length === 0) return emptyFinanceList()
+    return financeList(getDb(), roundProgrammeIds, data ?? {})
   })
 
-/**
- * Rank behind the two pills this table sorts on. Both run most-urgent-first, so the
- * default (descending) click puts the rows that need doing something at the top —
- * alphabetical order over either vocabulary would say nothing.
- */
-const FINANCE_STATUS_ORDER: Record<string, number> = {
-  overdue: 0,
-  due_soon: 1,
-  unscheduled: 2,
-  scheduled: 3,
-  paid: 4,
-  cancelled: 5,
+/** Everything the list is filtered, sorted and paged by — the validator's shape. */
+export type FinanceListInput = {
+  tab?: 'to_pay' | 'paid'
+  roundId?: string
+  programmeId?: string
+  tag?: string
+  status?: FinanceStatus
+  from?: string
+  to?: string
+  sortBy?: SortKey
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
 }
 
-/** Bank details that would stop a payment going out, first. */
-const BANK_SORT_ORDER: Record<string, number> = { missing: 0, invalid: 1, unchecked: 2, valid: 3 }
+/**
+ * The Finance list, as a plain function of (connection, tenant scope, filters).
+ *
+ * Split out from the server fn above so that everything below the auth check can be
+ * exercised without a session — by a script against staging while the SQL was being
+ * written, and by a test when one is wanted. The server fn is then exactly what it
+ * should be: who are you, what may you see, and here is your answer.
+ */
+export async function financeList(
+  db: ReturnType<typeof getDb>,
+  scope: string[] | null,
+  data: FinanceListInput,
+) {
+  const dates = financeDates()
+  const g = grantsQuery(db, scope, dates)
+  const tab = data.tab ?? 'to_pay'
+  const pageSize = data.pageSize ?? PAGE_SIZE
+  const page = data.page && data.page > 0 ? data.page : 1
+
+  const filters = filterWhere(g, tab, data)
+  const onTab = (t: 'to_pay' | 'paid') => and(tabWhere(g, t), filters)
+
+  // Both tabs are counted through the filters, so a tab label never promises rows the
+  // filters would remove the moment you switched to it.
+  const countOn = (where: SQL | undefined) =>
+    db
+      .select({ n: sql<number>`(count(*))::int` })
+      .from(g)
+      .where(where)
+
+  // Facets describe the TAB — this screen's context — before the transient filters,
+  // so using a pill can never prune the options of the pill beside it.
+  const context = tabWhere(g, tab)
+  const facetOn = (value: SQLWrapper, label: SQLWrapper) =>
+    db
+      .select({
+        value: value as SQL<string | null>,
+        label: label as SQL<string | null>,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(g)
+      .where(context)
+      .groupBy(value as SQL, label as SQL)
+
+  const [
+    rows,
+    tabTotal,
+    otherTotal,
+    totalsRow,
+    unscheduledRow,
+    horizons,
+    soonest,
+    bankRows,
+    statusFacet,
+    programmeFacet,
+    themeFacet,
+    roundFacet,
+  ] = await db.batch([
+    db
+      .select()
+      .from(g)
+      .where(onTab(tab))
+      .orderBy(...orderFor(g, data.sortBy, data.sortDir))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    countOn(onTab(tab)),
+    countOn(onTab(tab === 'paid' ? 'to_pay' : 'paid')),
+    // The KPI strip and the Attention banner sit ABOVE the filter row, so they are
+    // portfolio-wide by the app's rule: a control only narrows what is below it.
+    // `payable` excludes cancelled grants — there is nothing left to pay on them —
+    // but paid-to-date counts them, because that money genuinely went out.
+    db
+      .select({
+        grantCount: sql<number>`(count(*) filter (where ${payable(g)}))::int`,
+        committed: sql<number>`coalesce(sum(${g.committed}) filter (where ${payable(g)}), 0)::float8`,
+        paidToDate: sql<number>`coalesce(sum(${g.paidTotal}), 0)::float8`,
+        paidCount: sql<number>`coalesce(sum(${g.paidCount}), 0)::int`,
+        outstanding: sql<number>`coalesce(sum(${g.outstanding}) filter (where ${payable(g)}), 0)::float8`,
+        overdueAmount: sql<number>`coalesce(sum(${g.overdueAmount}) filter (where ${payable(g)}), 0)::float8`,
+        overdueCount: sql<number>`coalesce(sum(${g.overdueCount}) filter (where ${payable(g)}), 0)::int`,
+        overdueGrants: sql<number>`(count(*) filter (where ${payable(g)} and ${g.overdueCount} > 0))::int`,
+        dueSoonAmount: sql<number>`coalesce(sum(${g.dueSoonAmount}) filter (where ${payable(g)}), 0)::float8`,
+        dueSoonCount: sql<number>`coalesce(sum(${g.dueSoonCount}) filter (where ${payable(g)}), 0)::int`,
+      })
+      .from(g),
+    countOn(sql`${g.status} = 'unscheduled'`),
+    upcomingTotals(db, g, dates),
+    upcomingItems(db, g, dates),
+    // The one field SQL cannot answer: `bankIssueCount` is a modulus check over every
+    // payable grant's sort code and account number. Two narrow text columns rather
+    // than the whole row — and the fix that deletes this is a stored check status,
+    // maintained wherever bank details are written.
+    db
+      .select({ bankSortCode: g.bankSortCode, bankAccountNumber: g.bankAccountNumber })
+      .from(g)
+      .where(payable(g)),
+    facetOn(g.status, g.status),
+    facetOn(g.programmeId, g.programmeName),
+    db
+      .select({
+        value: sql<string>`theme.value`,
+        label: sql<string>`theme.value`,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(g)
+      .innerJoin(sql`lateral jsonb_array_elements_text(${g.tags}) as theme(value)`, sql`true`)
+      .where(context)
+      .groupBy(sql`theme.value`),
+    facetOn(g.roundId, g.roundName),
+  ])
+
+  const items = rows.map(toFinanceRow)
+  const totalsBase = totalsRow[0]!
+  const bank = bankRows.map((r) => bankCheck(r).status)
+  const totals = {
+    ...totalsBase,
+    unscheduledCount: unscheduledRow[0]?.n ?? 0,
+    // Grants still owing money whose details are missing or fail the check — every one
+    // of them is a payment that cannot go out cleanly.
+    bankIssueCount: bank.filter((s) => s === 'missing' || s === 'invalid').length,
+  }
+
+  const total = tabTotal[0]?.n ?? 0
+  const tabCounts =
+    tab === 'paid'
+      ? { to_pay: otherTotal[0]?.n ?? 0, paid: total }
+      : { to_pay: total, paid: otherTotal[0]?.n ?? 0 }
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    tabCounts,
+    totals,
+    upcoming: toUpcoming(horizons, soonest),
+    facets: {
+      statuses: sortFacet(
+        statusFacet.map((f) => ({
+          value: f.value as FinanceStatus,
+          label: FINANCE_STATUS_LABELS[f.value as FinanceStatus] ?? f.value,
+          count: f.count,
+        })),
+      ),
+      programmes: sortFacet(namedFacet(programmeFacet, 'Untitled programme')),
+      themes: sortFacet(themeFacet),
+      rounds: sortFacet(namedFacet(roundFacet, 'Untitled round')),
+    },
+  }
+}
+
+/** A caller who can see nothing still gets the shape the screen expects. */
+export function emptyFinanceList() {
+  return {
+    items: [] as ReturnType<typeof toFinanceRow>[],
+    total: 0,
+    page: 1,
+    pageSize: PAGE_SIZE,
+    tabCounts: { to_pay: 0, paid: 0 },
+    totals: emptyTotals(),
+    upcoming: emptyUpcoming(),
+    facets: emptyFacets(),
+  }
+}
+
+/** A grant with money still owing: cancelled ones have nothing left to pay. */
+function payable(g: GrantsQuery): SQL {
+  return sql`${g.awardStatus} <> 'cancelled'`
+}
+
+/** As `payable`, for the two queries that join `grants` to the instalments — see `grantsCol`. */
+function payableJoined(): SQL {
+  return sql`${grantsCol('award_status')} <> 'cancelled'`
+}
+
+/** A facet row whose value may be NULL (a grant with no programme) is not a facet. */
+function namedFacet(
+  rows: Array<{ value: string | null; label: string | null; count: number }>,
+  fallback: string,
+): FacetOption[] {
+  return rows
+    .filter((r): r is { value: string; label: string | null; count: number } => r.value !== null)
+    .map((r) => ({ value: r.value, label: r.label ?? fallback, count: r.count }))
+}
+
+/** Facets read as a list, so they are alphabetical — the order `lib/facets` produced. */
+function sortFacet(options: FacetOption[]): FacetOption[] {
+  return [...options].sort((a, b) => a.label.localeCompare(b.label))
+}
+
+/**
+ * The row the table renders. The money arrives as `float8` (JS numbers) rather than
+ * numeric strings, because every consumer parsed them anyway.
+ */
+function toFinanceRow(r: GrantRow) {
+  return {
+    awardId: r.awardId,
+    applicationId: r.applicationId,
+    organisationName: r.organisationName,
+    programmeId: r.programmeId,
+    programmeName: r.programmeName,
+    roundId: r.roundId,
+    roundName: r.roundName,
+    tags: (r.tags as string[] | null) ?? [],
+    awardStatus: r.awardStatus,
+    committed: r.committed,
+    outstanding: r.outstanding,
+    status: r.status as FinanceStatus,
+    paidToDate: r.paidTotal,
+    paidCount: r.paidCount,
+    instalmentCount: r.instalmentCount,
+    scheduledTotal: r.scheduledTotal,
+    lastPaidDate: r.lastPaidDate,
+    nextPayment:
+      r.nextId && r.nextAmount !== null
+        ? { id: r.nextId, amount: r.nextAmount, dueDate: r.nextDueDate }
+        : null,
+    overdueAmount: r.overdueAmount,
+    overdueCount: r.overdueCount,
+    dueSoonAmount: r.dueSoonAmount,
+    dueSoonCount: r.dueSoonCount,
+    bank: { status: bankCheck(r).status, last4: last4(r.bankAccountNumber) },
+  }
+}
+
+/**
+ * Column sort, in SQL. Text sorts case-insensitively and NULLs go last whichever way
+ * the arrow points — a row with no programme is not "before A" or "after Z", it is
+ * simply unranked. With no explicit sort the payment order stands: the money you owe
+ * soonest, first, then settled grants by most recently paid.
+ */
+function orderFor(g: GrantsQuery, by: SortKey | undefined, dir: 'asc' | 'desc' | undefined): SQL[] {
+  const d = sql.raw(dir === 'asc' ? 'asc' : 'desc')
+  const text = (col: SQLWrapper) => sql`lower(${col}) ${d} nulls last`
+  switch (by) {
+    case 'organisation':
+      return [text(g.organisationName)]
+    case 'programme':
+      return [text(g.programmeName)]
+    case 'committed':
+      return [sql`${g.committed} ${d}`]
+    case 'paid':
+      return [sql`${g.paidTotal} ${d}`]
+    case 'next':
+      return [sql`${g.chaseDate} ${d} nulls last`]
+    case 'lastPaid':
+      return [sql`${g.lastPaidDate} ${d} nulls last`]
+    case 'status':
+      return [sql`${statusRank(g)} ${d}`]
+    default:
+      return [sql`${g.chaseDate} asc nulls last`, sql`${g.lastPaidDate} desc nulls last`]
+  }
+}
+
+/**
+ * Most urgent first, so the default (descending) click puts the rows that need doing
+ * something at the top — alphabetical order over this vocabulary would say nothing.
+ */
+function statusRank(g: GrantsQuery): SQL {
+  return sql`case ${g.status}
+    when 'overdue' then 0 when 'due_soon' then 1 when 'unscheduled' then 2
+    when 'scheduled' then 3 when 'paid' then 4 else 5 end`
+}
+
+// ─── Upcoming payments ───────────────────────────────────────────────────────
+
+/** Which horizon an unpaid instalment falls in, or NULL for beyond the last one. */
+function horizonOf(dates: FinanceDates, monthEnd: string, horizon: string): SQL<string | null> {
+  return sql<string | null>`case
+    when ${awardInstalments.dueDate} < ${dates.today} then 'overdue'
+    when ${awardInstalments.dueDate} <= ${monthEnd} then 'thisMonth'
+    when ${awardInstalments.dueDate} <= ${horizon} then 'next3Months'
+  end`
+}
+
+function upcomingWhere(): SQL {
+  return and(
+    sql`${awardInstalments.paidDate} is null`,
+    sql`${awardInstalments.dueDate} is not null`,
+    payableJoined(),
+  )!
+}
+
+/** Each horizon's money and count — the panel's headline figures. */
+function upcomingTotals(db: ReturnType<typeof getDb>, g: GrantsQuery, dates: FinanceDates) {
+  const bucket = horizonOf(dates, endOfMonthIso(dates.today), addMonthsIso(dates.today, 3))
+  return (
+    db
+      .select({
+        bucket,
+        total: sql<number>`coalesce(sum(${awardInstalments.amount}), 0)::float8`,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(awardInstalments)
+      .innerJoin(g, sql`${grantsCol('award_id')} = ${awardInstalments.awardId}`)
+      // `group by 1`, not the expression again: drizzle binds the three dates as fresh
+      // parameters each time it emits the CASE, and Postgres matches GROUP BY expressions
+      // syntactically — so the repeated version is a different expression and it refuses.
+      .where(upcomingWhere())
+      .groupBy(sql`1`)
+  )
+}
+
+/**
+ * The first few payments in each horizon, by date. `row_number()` rather than a query
+ * per bucket: this is a dozen rows however large the portfolio, which is the whole
+ * reason the panel can stay honest without loading the schedule.
+ */
+function upcomingItems(db: ReturnType<typeof getDb>, g: GrantsQuery, dates: FinanceDates) {
+  const bucket = horizonOf(dates, endOfMonthIso(dates.today), addMonthsIso(dates.today, 3))
+  const ranked = db
+    .select({
+      bucket: bucket.as('bucket'),
+      awardId: awardInstalments.awardId,
+      organisationName: g.organisationName,
+      programmeName: g.programmeName,
+      dueDate: sql<string>`${awardInstalments.dueDate}`.as('due_date'),
+      amount: sql<number>`${awardInstalments.amount}::float8`.as('amount'),
+      rank: sql<number>`row_number() over (partition by ${bucket} order by ${awardInstalments.dueDate}, ${awardInstalments.id})`.as(
+        'rank',
+      ),
+    })
+    .from(awardInstalments)
+    .innerJoin(g, sql`${grantsCol('award_id')} = ${awardInstalments.awardId}`)
+    .where(upcomingWhere())
+    .as('ranked')
+  return db
+    .select()
+    .from(ranked)
+    .where(sql`${ranked.rank} <= ${UPCOMING_SHOWN} and ${ranked.bucket} is not null`)
+    .orderBy(sql`${ranked.dueDate} asc`)
+}
+
+type HorizonKey = 'overdue' | 'thisMonth' | 'next3Months'
+
+function toUpcoming(
+  totals: Array<{ bucket: string | null; total: number; count: number }>,
+  items: Array<{
+    bucket: string | null
+    awardId: string
+    organisationName: string
+    programmeName: string | null
+    dueDate: string
+    amount: number
+  }>,
+) {
+  const out = emptyUpcoming()
+  for (const key of ['overdue', 'thisMonth', 'next3Months'] as HorizonKey[]) {
+    const t = totals.find((x) => x.bucket === key)
+    out[key] = {
+      total: t?.total ?? 0,
+      count: t?.count ?? 0,
+      items: items
+        .filter((i) => i.bucket === key)
+        .map((i) => ({
+          awardId: i.awardId,
+          organisationName: i.organisationName,
+          programmeName: i.programmeName,
+          dueDate: i.dueDate,
+          amount: i.amount,
+        })),
+    }
+  }
+  return out
+}
 
 /** One vocabulary for a grant's payment position, shared by the facets and the table. */
 export const FINANCE_STATUS_LABELS: Record<FinanceStatus, string> = {
