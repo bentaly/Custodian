@@ -8,7 +8,13 @@ import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
 import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
 import { checkBankAccount, type ModulusCheckStatus } from '../../lib/bankVerification'
-import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
+import {
+  DUE_SOON_DAYS,
+  addDaysIso,
+  addMonthsIso,
+  endOfMonthIso,
+  todayIso,
+} from '../../lib/schedule'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
 import { sortRows } from '../../lib/sortRows'
 import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
@@ -144,18 +150,6 @@ export type UpcomingBucket = { total: number; count: number; items: UpcomingPaym
 
 /** How many payments each bucket names before it just says how many more there are. */
 const UPCOMING_SHOWN = 4
-
-/** `2026-08-11` → `2026-08-31`. Day 0 of the next month is the last of this one. */
-function endOfMonthIso(iso: string): string {
-  const [y, m] = iso.split('-').map(Number)
-  return new Date(Date.UTC(y!, m!, 0)).toISOString().slice(0, 10)
-}
-
-/** Same day-of-month, `n` months on; overflow rolls forward, which is fine for a horizon. */
-function addMonthsIso(iso: string, n: number): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(Date.UTC(y!, m! - 1 + n, d!)).toISOString().slice(0, 10)
-}
 
 function bucket(payments: UpcomingPayment[]): UpcomingBucket {
   const sorted = [...payments].sort((a, b) => a.dueDate.localeCompare(b.dueDate))

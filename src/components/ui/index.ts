@@ -22,6 +22,7 @@ export {
   type SortDir,
 } from './DataTable'
 export { MiniKpi, KPI_TINTS, type KpiTint } from './MiniKpi'
+export { Horizon, type HorizonItem } from './Horizon'
 export { Tabs, type TabItem } from './Tabs'
 export { ExportButton } from './ExportButton'
 export { LogoMark } from './LogoMark'

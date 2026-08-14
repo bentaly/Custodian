@@ -2,10 +2,9 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { useState } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
-import { Drawer } from '../../components/Drawer'
 import { ReportFields } from '../../components/ReportFields'
 import { ReportAnalysisPanel, type ReportAnalysisStatus } from '../../components/reportAnalysis'
-import { Breadcrumb, Button, Card, EmptyState } from '../../components/ui'
+import { Breadcrumb, Button, Card, Dialog, EmptyState } from '../../components/ui'
 import { fmtDate } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
@@ -34,7 +33,7 @@ function ReportDetail() {
   const { user } = Route.useRouteContext()
   const router = useRouter()
   const s = report.submission
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [submissionOpen, setSubmissionOpen] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const canReview = user.role === 'admin' || user.role === 'superadmin'
   const isReviewed = Boolean(s?.reviewedAt)
@@ -113,7 +112,7 @@ function ReportDetail() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setDrawerOpen(true)}
+              onClick={() => setSubmissionOpen(true)}
               className="flex items-center gap-1.5"
             >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -166,15 +165,15 @@ function ReportDetail() {
             }}
           />
 
-          <Drawer
-            open={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
+          <Dialog
+            open={submissionOpen}
+            onClose={() => setSubmissionOpen(false)}
             title="Grant report"
-            subtitle={report.organisationName}
-            ariaLabel="Grant report submission"
+            description={report.organisationName}
+            size="lg"
           >
             <ReportFields report={s} />
-          </Drawer>
+          </Dialog>
         </>
       )}
 

@@ -16,6 +16,7 @@ import {
   EmptyState,
   ExportButton,
   FilterPill,
+  Horizon,
   Pagination,
   StatusPill,
   Tabs,
@@ -549,9 +550,8 @@ function FinancePage() {
 
 /**
  * The three horizons a payment run is planned over (Figma 665:25047), replacing the
- * KPI row that used to sit here. The difference is that these name the payments rather
- * than only totalling them: "£35k overdue" tells you there is a problem, "Nature
- * Learning Network, due 10 Jun" tells you whose.
+ * KPI row that used to sit here. The card itself is shared with Reports (`ui/Horizon`),
+ * which wears the same panel over its reporting milestones.
  *
  * Deliberately NOT narrowed by the filters below it — this is the screen's standing
  * "what is coming at you" strip.
@@ -575,96 +575,30 @@ function UpcomingPayments({
     <Card className="flex flex-col gap-4 p-4">
       <h2 className="font-display text-title font-medium text-grey-900">Upcoming payments</h2>
       <div className="grid gap-2 lg:grid-cols-3">
-        {HORIZONS.map((h) => (
-          <Horizon
-            key={h.key}
-            label={h.label}
-            colour={h.colour}
-            empty={h.empty}
-            bucket={upcoming[h.key]}
-            onOpen={onOpen}
-            opening={opening}
-          />
-        ))}
+        {HORIZONS.map((h) => {
+          const bucket: UpcomingBucket = upcoming[h.key]
+          return (
+            <Horizon
+              key={h.key}
+              label={h.label}
+              colour={h.colour}
+              empty={h.empty}
+              meta={bucket.count > 0 ? `${fmtMoney(bucket.total)} · ${bucket.count}` : undefined}
+              items={bucket.items.map((p, i) => ({
+                key: `${p.awardId}-${p.dueDate}-${i}`,
+                title: p.organisationName,
+                subline: `${p.programmeName ? `${p.programmeName} · ` : ''}Due ${fmtDate(p.dueDate)}`,
+                trailing: fmtMoney(p.amount),
+                onClick: () => onOpen(p.awardId),
+                disabled: opening === p.awardId,
+              }))}
+              hidden={bucket.count - bucket.items.length}
+              hiddenNoun="payment"
+            />
+          )
+        })}
       </div>
     </Card>
-  )
-}
-
-function Horizon({
-  label,
-  colour,
-  empty,
-  bucket,
-  onOpen,
-  opening,
-}: {
-  label: string
-  colour: string
-  empty: string
-  bucket: UpcomingBucket
-  onOpen: (awardId: string) => void
-  opening: string | null
-}) {
-  const hidden = bucket.count - bucket.items.length
-  return (
-    <div className="flex flex-col gap-2 rounded-card border border-grey-200 bg-white p-1">
-      <div className="flex items-center justify-between gap-2 px-3 pt-2">
-        <span className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="size-[5px] shrink-0 rounded-full"
-            style={{ backgroundColor: colour }}
-          />
-          <span className="font-display text-title font-medium" style={{ color: colour }}>
-            {label}
-          </span>
-        </span>
-        {bucket.count > 0 && (
-          <span className="whitespace-nowrap font-display text-label font-medium text-grey-400 tabular-nums">
-            {fmtMoney(bucket.total)} · {bucket.count}
-          </span>
-        )}
-      </div>
-      <div
-        className="flex flex-1 flex-col gap-3 rounded-control p-3"
-        style={{ backgroundColor: `color-mix(in srgb, ${colour} 10%, transparent)` }}
-      >
-        {bucket.items.length === 0 ? (
-          <p className="font-display text-body text-grey-400">{empty}</p>
-        ) : (
-          bucket.items.map((p, i) => (
-            <button
-              key={`${p.awardId}-${p.dueDate}-${i}`}
-              type="button"
-              onClick={() => onOpen(p.awardId)}
-              disabled={opening === p.awardId}
-              className="flex w-full items-center justify-between gap-3 border-t border-grey-200 pt-3 text-left first:border-t-0 first:pt-0 disabled:opacity-60"
-            >
-              <span className="flex min-w-0 flex-col gap-1">
-                <span className="truncate font-display text-body font-medium text-grey-900">
-                  {p.organisationName}
-                </span>
-                <span className="truncate font-display text-label text-grey-500">
-                  {p.programmeName ? `${p.programmeName} · ` : ''}Due {fmtDate(p.dueDate)}
-                </span>
-              </span>
-              <span
-                className="shrink-0 whitespace-nowrap font-display text-title font-medium tabular-nums"
-                style={{ color: colour }}
-              >
-                {fmtMoney(p.amount)}
-              </span>
-            </button>
-          ))
-        )}
-        {hidden > 0 && (
-          <p className="font-display text-label font-medium text-grey-500">
-            +{hidden} more payment{hidden === 1 ? '' : 's'} in this window
-          </p>
-        )}
-      </div>
-    </div>
   )
 }
 

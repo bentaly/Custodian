@@ -25,6 +25,18 @@ export function addDaysIso(iso: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+/** `2026-08-11` → `2026-08-31`. Day 0 of the next month is the last of this one. */
+export function endOfMonthIso(iso: string): string {
+  const [y, m] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y!, m!, 0)).toISOString().slice(0, 10)
+}
+
+/** Same day-of-month, `n` months on; overflow rolls forward, which is fine for a horizon. */
+export function addMonthsIso(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y!, m! - 1 + n, d!)).toISOString().slice(0, 10)
+}
+
 export function dueStatus(dueDate: string): DueStatus
 export function dueStatus(dueDate: string | null | undefined): ScheduleStatus
 export function dueStatus(dueDate: string | null | undefined): ScheduleStatus {

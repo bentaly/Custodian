@@ -20,7 +20,7 @@ import {
   rerunDueDiligence,
   updateApplicationStatus,
 } from '../../server/fns/applications'
-import { ApplicationDrawer } from '../../components/ApplicationDrawer'
+import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmissionDialog'
 import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
@@ -53,11 +53,26 @@ const C = {
   ink700: 'var(--color-grey-700)',
 }
 const KPI = {
-  amount: { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', accent: 'var(--color-accent-violet)' },
-  programme: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', accent: 'var(--color-success)' },
-  area: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', accent: 'var(--color-warning)' },
-  headroom: { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', accent: 'var(--color-danger)' },
-  community: { bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)', accent: 'var(--color-accent-sky)' },
+  amount: {
+    bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)',
+    accent: 'var(--color-accent-violet)',
+  },
+  programme: {
+    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
+    accent: 'var(--color-success)',
+  },
+  area: {
+    bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+    accent: 'var(--color-warning)',
+  },
+  headroom: {
+    bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
+    accent: 'var(--color-danger)',
+  },
+  community: {
+    bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)',
+    accent: 'var(--color-accent-sky)',
+  },
 }
 const BUDGET_COLOURS = PROGRAMME_COLOURS
 
@@ -370,7 +385,7 @@ function ApplicationDetail() {
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [submissionOpen, setSubmissionOpen] = useState(false)
 
   const isShortlisted = application.status === 'shortlisted'
   const isDeclined = application.status === 'declined'
@@ -540,7 +555,7 @@ function ApplicationDetail() {
               Email applicant
             </HeaderButton>
           )}
-          <HeaderButton tone="brand" icon={File01Icon} onClick={() => setDrawerOpen(true)}>
+          <HeaderButton tone="brand" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
             View submission
           </HeaderButton>
           {isAwarded ? (
@@ -821,10 +836,7 @@ function ApplicationDetail() {
           <PanelTitle
             right={
               <div className="flex items-center gap-3">
-                <span
-                  className="hidden font-display text-label md:inline"
-                  style={{ color: C.sub }}
-                >
+                <span className="hidden font-display text-label md:inline" style={{ color: C.sub }}>
                   These checks feed the due diligence marks shown in the applications list.
                 </span>
                 <Button
@@ -932,7 +944,12 @@ function ApplicationDetail() {
                 </div>
               ))}
             </div>
-            <Button variant="text" size="xs" onClick={() => setDrawerOpen(true)} className="mt-2.5">
+            <Button
+              variant="text"
+              size="xs"
+              onClick={() => setSubmissionOpen(true)}
+              className="mt-2.5"
+            >
               Check the submission →
             </Button>
           </Panel>
@@ -944,10 +961,10 @@ function ApplicationDetail() {
         </Panel>
       </div>
 
-      <ApplicationDrawer
+      <ApplicationSubmissionDialog
         application={application}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        open={submissionOpen}
+        onClose={() => setSubmissionOpen(false)}
       />
     </div>
   )

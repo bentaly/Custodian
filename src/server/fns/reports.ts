@@ -7,7 +7,7 @@ import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { dueStatus, type DueStatus } from '../../lib/schedule'
-import { facetBy, type FacetOption } from '../../lib/facets'
+import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
 import { sortRows } from '../../lib/sortRows'
 
@@ -43,8 +43,27 @@ export const listReports = createServerFn({ method: 'GET' })
          * table's own count.
          */
         programmeId: z.uuid().optional(),
-        /** Column sort over `items`; the drawer's chase-list keeps its urgency order. */
-        sortBy: z.enum(['organisation', 'programme', 'report', 'received', 'status']).optional(),
+        /** Structural narrowings, scoped exactly as `programmeId` is — see above. */
+        roundId: z.uuid().optional(),
+        tag: z.string().min(1).max(100).optional(),
+        /**
+         * Inclusive RECEIVED-date window (`yyyy-mm-dd`). Unlike the three above this
+         * narrows the table and the tab counts only, and deliberately not the "reports
+         * due" panel: that panel is about reports which have not arrived, and filtering
+         * them by the date they arrived on would empty it every time the window was used.
+         */
+        from: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        to: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        /** Column sort over `items`; the chase-list keeps its urgency order. */
+        sortBy: z
+          .enum(['organisation', 'programme', 'round', 'report', 'received', 'status'])
+          .optional(),
         sortDir: z.enum(['asc', 'desc']).optional(),
         page: z.number().int().positive().optional(),
       })
@@ -60,7 +79,11 @@ export const listReports = createServerFn({ method: 'GET' })
         pageSize: PAGE_SIZE,
         upcoming: [],
         totals: emptyTotals(),
-        facets: { programmes: [] as FacetOption[] },
+        facets: {
+          programmes: [] as FacetOption[],
+          themes: [] as FacetOption[],
+          rounds: [] as FacetOption[],
+        },
       }
     }
 
@@ -73,8 +96,10 @@ export const listReports = createServerFn({ method: 'GET' })
             roundProgramme: {
               columns: { id: true, programmeId: true },
               with: {
-                programme: { columns: { name: true, impactUnit: true, impactUnitLabel: true } },
-                round: { columns: { name: true } },
+                programme: {
+                  columns: { name: true, impactUnit: true, impactUnitLabel: true, tags: true },
+                },
+                round: { columns: { id: true, name: true } },
               },
             },
           },
@@ -120,7 +145,9 @@ export const listReports = createServerFn({ method: 'GET' })
       organisationName: string
       programmeId: string | null
       programmeName: string | null
+      roundId: string | null
       roundName: string | null
+      tags: string[]
       /** The schedule label this report answered, or "Unscheduled report". */
       label: string
       dueDate: string | null
@@ -137,6 +164,9 @@ export const listReports = createServerFn({ method: 'GET' })
       organisationName: string
       programmeId: string | null
       programmeName: string | null
+      roundId: string | null
+      roundName: string | null
+      tags: string[]
       label: string
       dueDate: string
       status: DueStatus
@@ -146,7 +176,10 @@ export const listReports = createServerFn({ method: 'GET' })
       const org = g.application.organisationName
       const programmeId = g.application.roundProgramme?.programmeId ?? null
       const programmeName = g.application.roundProgramme?.programme?.name ?? null
+      const roundId = g.application.roundProgramme?.round?.id ?? null
       const roundName = g.application.roundProgramme?.round?.name ?? null
+      const tags = ((g.application.roundProgramme?.programme?.tags as string[] | null) ??
+        []) as string[]
       const scheduleById = new Map(g.schedule.map((m) => [m.id, m]))
 
       for (const s of g.reports) {
@@ -158,7 +191,9 @@ export const listReports = createServerFn({ method: 'GET' })
           organisationName: org,
           programmeId,
           programmeName,
+          roundId,
           roundName,
+          tags,
           label: milestone?.label ?? 'Unscheduled report',
           dueDate: milestone?.dueDate ?? null,
           submittedAt: s.submittedAt.toISOString(),
@@ -177,6 +212,9 @@ export const listReports = createServerFn({ method: 'GET' })
           organisationName: org,
           programmeId,
           programmeName,
+          roundId,
+          roundName,
+          tags,
           label: m.label,
           dueDate: m.dueDate,
           status: dueStatus(m.dueDate),
@@ -191,20 +229,44 @@ export const listReports = createServerFn({ method: 'GET' })
 
     // Counted over every report in scope, before the programme filter below — a pill
     // whose own options shrank as you used it would let you filter into a corner.
+    // Faceted over BOTH lists, not just the arrived ones: a round whose reports are all
+    // still outstanding is exactly the round you want to be able to select, and faceting
+    // over `items` alone would leave it out of the pill entirely.
+    const forFacets = [...items, ...upcoming]
     const facets = {
-      programmes: facetBy(items, (i) =>
+      programmes: facetBy(forFacets, (i) =>
         i.programmeId
           ? { value: i.programmeId, label: i.programmeName ?? 'Untitled programme' }
           : null,
       ),
+      themes: facetByMany(forFacets, (i) => i.tags.map((t) => ({ value: t, label: t }))),
+      rounds: facetBy(forFacets, (i) =>
+        i.roundId ? { value: i.roundId, label: i.roundName ?? 'Untitled round' } : null,
+      ),
     }
 
-    // The programme filter is this screen's context, so it lands before the totals: the
-    // KPI row, the tab counts, the table and the chase-list all describe the same slice.
-    const inProgramme = <T extends { programmeId: string | null }>(rows: T[]) =>
-      data?.programmeId ? rows.filter((r) => r.programmeId === data.programmeId) : rows
-    const scopedItems = inProgramme(items)
-    const scopedUpcoming = inProgramme(upcoming)
+    // The structural filters are this screen's context, so they land before the totals:
+    // the panel, the tab counts, the table and the chase-list all describe one slice.
+    const inContext = <
+      T extends { programmeId: string | null; roundId: string | null; tags: string[] },
+    >(
+      rows: T[],
+    ) =>
+      rows.filter(
+        (r) =>
+          (!data?.programmeId || r.programmeId === data.programmeId) &&
+          (!data?.roundId || r.roundId === data.roundId) &&
+          (!data?.tag || r.tags.includes(data.tag)),
+      )
+    const scopedUpcoming = inContext(upcoming)
+
+    // The received-date window applies to arrived reports only, and is applied here
+    // rather than beside the tab filter so the tab COUNTS sit inside it too — a tab
+    // reading 12 above a table showing 3 is the bug this ordering prevents.
+    const inWindow = (submittedAt: string) =>
+      (!data?.from || submittedAt.slice(0, 10) >= data.from) &&
+      (!data?.to || submittedAt.slice(0, 10) <= data.to)
+    const scopedItems = inContext(items).filter((i) => inWindow(i.submittedAt))
 
     const totals = {
       received: scopedItems.filter((i) => i.status === 'received').length,
@@ -226,6 +288,7 @@ export const listReports = createServerFn({ method: 'GET' })
       {
         organisation: (i) => i.organisationName,
         programme: (i) => i.programmeName,
+        round: (i) => i.roundName,
         report: (i) => i.label,
         received: (i) => i.submittedAt,
         // Unread before read: `received` is a report waiting on someone.

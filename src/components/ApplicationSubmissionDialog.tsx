@@ -1,30 +1,30 @@
-import { Drawer } from './Drawer'
+import { Dialog } from './ui'
 import { ApplicationFields, type ApplicationFieldsData } from './ApplicationFields'
 
-// The drawer needs the organisation name for its header on top of the fields the
+// The dialog needs the organisation name for its header on top of the fields the
 // shared renderer shows.
-type DrawerApplication = ApplicationFieldsData & {
+type SubmissionApplication = ApplicationFieldsData & {
   organisationName: string
 }
 
-export function ApplicationDrawer({
+export function ApplicationSubmissionDialog({
   application,
   open,
   onClose,
 }: {
-  application: DrawerApplication
+  application: SubmissionApplication
   open: boolean
   onClose: () => void
 }) {
   return (
-    <Drawer
+    <Dialog
       open={open}
       onClose={onClose}
       title="Application form"
-      subtitle={application.organisationName}
-      ariaLabel="Application form responses"
+      description={application.organisationName}
+      size="lg"
     >
       <ApplicationFields application={application} />
-    </Drawer>
+    </Dialog>
   )
 }

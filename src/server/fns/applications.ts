@@ -532,6 +532,11 @@ export const listAwards = createServerFn({ method: 'GET' })
         value: a.award!.status,
         label: GRANT_STATUS_LABELS[a.award!.status] ?? a.award!.status,
       })),
+      rounds: facetBy(inScope, (a) =>
+        a.roundProgramme?.round
+          ? { value: a.roundProgramme.round.id, label: a.roundProgramme.round.name }
+          : null,
+      ),
     }
 
     // The transient filters. Applied here rather than in SQL because status and the
@@ -568,6 +573,7 @@ export const listAwards = createServerFn({ method: 'GET' })
           applicationId: a.id,
           organisationName: a.organisationName,
           programmeName: a.roundProgramme?.programme?.name ?? null,
+          programmeColour: a.roundProgramme?.programme?.colour ?? null,
           roundName: a.roundProgramme?.round?.name ?? null,
           tags: (a.roundProgramme?.programme?.tags as string[] | null) ?? [],
           durationYears: a.roundProgramme?.grantDurationYears ?? null,
@@ -585,10 +591,22 @@ export const listAwards = createServerFn({ method: 'GET' })
     // Totals and facets describe every matching award; only `items` is a page. A KPI
     // that changed when you turned the page would be reporting on the page, not the
     // portfolio.
-    const byProgrammeMap = new Map<string, number>()
+    // Carries each programme's own colour, so the portfolio bar is read in the same
+    // vocabulary as the rest of the app rather than an arbitrary chart ramp. NULL for a
+    // programme predating the colour column (and for "Unattributed"); the screen falls
+    // back positionally via `resolveProgrammeColour`, exactly as the programme cards do.
+    const byProgrammeMap = new Map<
+      string,
+      { name: string; amount: number; colour: string | null }
+    >()
     for (const it of matched) {
       const key = it.programmeName ?? 'Unattributed'
-      byProgrammeMap.set(key, (byProgrammeMap.get(key) ?? 0) + it.amountAwarded)
+      const prev = byProgrammeMap.get(key)
+      byProgrammeMap.set(key, {
+        name: key,
+        amount: (prev?.amount ?? 0) + it.amountAwarded,
+        colour: prev?.colour ?? it.programmeColour,
+      })
     }
 
     const totals = {
@@ -597,9 +615,7 @@ export const listAwards = createServerFn({ method: 'GET' })
       multiYearCount: matched.filter((i) => (i.durationYears ?? 0) > 1).length,
       paidToDate: matched.reduce((s, i) => s + i.paidToDate, 0),
       outstanding: matched.reduce((s, i) => s + i.outstanding, 0),
-      byProgramme: [...byProgrammeMap.entries()]
-        .map(([name, amount]) => ({ name, amount }))
-        .sort((a, b) => b.amount - a.amount),
+      byProgramme: [...byProgrammeMap.values()].sort((a, b) => b.amount - a.amount),
     }
 
     // Sorted before paging, so page 2 is the second page of the sort. Default (no
@@ -640,6 +656,7 @@ function emptyFacets() {
     programmes: [] as FacetOption[],
     themes: [] as FacetOption[],
     statuses: [] as FacetOption[],
+    rounds: [] as FacetOption[],
   }
 }
 
@@ -650,7 +667,7 @@ function emptyGrantTotals() {
     multiYearCount: 0,
     paidToDate: 0,
     outstanding: 0,
-    byProgramme: [] as Array<{ name: string; amount: number }>,
+    byProgramme: [] as Array<{ name: string; amount: number; colour: string | null }>,
   }
 }
 
