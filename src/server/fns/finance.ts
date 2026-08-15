@@ -395,8 +395,12 @@ export async function financeList(
   }
 }
 
-/** A caller who can see nothing still gets the shape the screen expects. */
-export function emptyFinanceList() {
+/**
+ * A caller who can see nothing still gets the shape the screen expects — and the SAME
+ * type, declared rather than inferred, so the server fn's return is one shape and not a
+ * union of two identical ones (`.map()` over a union of array types is `any`).
+ */
+export function emptyFinanceList(): Awaited<ReturnType<typeof financeList>> {
   return {
     items: [] as ReturnType<typeof toFinanceRow>[],
     total: 0,

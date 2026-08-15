@@ -1,7 +1,22 @@
 import { conflict, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, count, inArray, sql, ne, ilike, gte, lt, lte, isNotNull, desc } from 'drizzle-orm'
+import {
+  and,
+  eq,
+  count,
+  inArray,
+  sql,
+  ne,
+  ilike,
+  gte,
+  lt,
+  lte,
+  isNotNull,
+  desc,
+  type SQL,
+  type SQLWrapper,
+} from 'drizzle-orm'
 import { getDb } from '../db'
 import {
   applications,
@@ -31,6 +46,12 @@ import { dueStatus, type ScheduleStatus } from '../../lib/schedule'
 import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
 import { sortRows } from '../../lib/sortRows'
+import {
+  filterWhere as awardFilterWhere,
+  grantsQuery as awardGrantsQuery,
+  type GrantRow as AwardGrantRow,
+  type GrantsQuery as AwardGrantsQuery,
+} from '../awards/query'
 
 export const listApplications = createServerFn({ method: 'GET' })
   .validator(ApplicationFiltersSchema)
@@ -463,9 +484,9 @@ export const listAwards = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
-    // Only the *context* filter — the round — narrows the query. Everything else
-    // (programme, theme, status, dates, search) is applied below, after the facets have
-    // been counted, so the filter options describe the round you are in rather than
+    // Only the *context* filter — the round — narrows the set the facets are counted
+    // over. Everything else (programme, theme, status, dates, search) is applied inside
+    // `awardsList`, so the filter options describe the round you are in rather than
     // shrinking as you use them.
     let contextIds: string[] | undefined
     if (data.roundId) {
@@ -477,172 +498,246 @@ export const listAwards = createServerFn({ method: 'GET' })
     }
 
     const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), contextIds)
-    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) {
-      return {
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: PAGE_SIZE,
-        totals: emptyGrantTotals(),
-        facets: emptyFacets(),
-      }
-    }
-
-    // Named columns, not the whole row — this loads every awarded application in scope
-    // in order to count facets and totals over all of them, and an application row is
-    // mostly jsonb (`responses`, `custodian_score_detail`, `budget_breakdown`, …) that
-    // no award list reads. See `src/lib/pagination.ts` on why the set is materialised.
-    const apps = await getDb().query.applications.findMany({
-      where: and(
-        eq(applications.status, 'awarded'),
-        roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
-      ),
-      columns: {
-        id: true,
-        organisationName: true,
-        deliveryRegion: true,
-        deliveryArea: true,
-        roundProgrammeId: true,
-      },
-      with: {
-        roundProgramme: { with: { programme: true, round: true } },
-        award: { with: { instalments: true } },
-      },
-      orderBy: (a, { desc }) => [desc(a.decisionAt)],
-    })
-
-    // An awarded application without an award row hasn't been backfilled yet; skip it
-    // rather than guess an amount.
-    const inScope = apps.filter((a) => a.award)
-
-    // Facets: what this round (or the whole portfolio) actually contains.
-    const facets = {
-      programmes: facetBy(inScope, (a) =>
-        a.roundProgramme?.programme
-          ? { value: a.roundProgramme.programme.id, label: a.roundProgramme.programme.name }
-          : null,
-      ),
-      themes: facetByMany(inScope, (a) =>
-        (((a.roundProgramme?.programme?.tags as string[] | null) ?? []) as string[]).map((t) => ({
-          value: t,
-          label: t,
-        })),
-      ),
-      statuses: facetBy(inScope, (a) => ({
-        value: a.award!.status,
-        label: GRANT_STATUS_LABELS[a.award!.status] ?? a.award!.status,
-      })),
-      rounds: facetBy(inScope, (a) =>
-        a.roundProgramme?.round
-          ? { value: a.roundProgramme.round.id, label: a.roundProgramme.round.name }
-          : null,
-      ),
-    }
-
-    // The transient filters. Applied here rather than in SQL because status and the
-    // award date live on `awards`, and because the KPI totals below are computed from
-    // `items` — filtering first is what keeps the cards agreeing with the table.
-    const inWindow = (decisionAt: Date | string | null) => {
-      if (!data.from && !data.to) return true
-      if (!decisionAt) return false
-      const day = new Date(decisionAt).toISOString().slice(0, 10)
-      return (!data.from || day >= data.from) && (!data.to || day <= data.to)
-    }
-    const needle = data.q?.toLowerCase()
-
-    const matched = inScope
-      .filter((a) => !data.programmeId || a.roundProgramme?.programmeId === data.programmeId)
-      .filter(
-        (a) =>
-          !data.tag ||
-          (((a.roundProgramme?.programme?.tags as string[] | null) ?? []) as string[]).includes(
-            data.tag,
-          ),
-      )
-      .filter((a) => !data.status || a.award!.status === data.status)
-      .filter((a) => inWindow(a.award!.decisionAt))
-      .filter((a) => !needle || a.organisationName.toLowerCase().includes(needle))
-      .map((a) => {
-        const award = a.award!
-        const amountAwarded = parseFloat(award.amountAwarded)
-        const paidToDate = award.instalments
-          .filter((p) => p.paidDate)
-          .reduce((s, p) => s + parseFloat(p.amount), 0)
-        return {
-          awardId: award.id,
-          applicationId: a.id,
-          organisationName: a.organisationName,
-          programmeName: a.roundProgramme?.programme?.name ?? null,
-          programmeColour: a.roundProgramme?.programme?.colour ?? null,
-          roundName: a.roundProgramme?.round?.name ?? null,
-          tags: (a.roundProgramme?.programme?.tags as string[] | null) ?? [],
-          durationYears: a.roundProgramme?.grantDurationYears ?? null,
-          deliveryArea: a.deliveryRegion ?? a.deliveryArea ?? null,
-          status: award.status,
-          decisionAt: award.decisionAt,
-          amountAwarded,
-          instalmentCount: award.instalments.length,
-          paidCount: award.instalments.filter((p) => p.paidDate).length,
-          paidToDate,
-          outstanding: amountAwarded - paidToDate,
-        }
-      })
-
-    // Totals and facets describe every matching award; only `items` is a page. A KPI
-    // that changed when you turned the page would be reporting on the page, not the
-    // portfolio.
-    // Carries each programme's own colour, so the portfolio bar is read in the same
-    // vocabulary as the rest of the app rather than an arbitrary chart ramp. NULL for a
-    // programme predating the colour column (and for "Unattributed"); the screen falls
-    // back positionally via `resolveProgrammeColour`, exactly as the programme cards do.
-    const byProgrammeMap = new Map<
-      string,
-      { name: string; amount: number; colour: string | null }
-    >()
-    for (const it of matched) {
-      const key = it.programmeName ?? 'Unattributed'
-      const prev = byProgrammeMap.get(key)
-      byProgrammeMap.set(key, {
-        name: key,
-        amount: (prev?.amount ?? 0) + it.amountAwarded,
-        colour: prev?.colour ?? it.programmeColour,
-      })
-    }
-
-    const totals = {
-      totalAwarded: matched.reduce((s, i) => s + i.amountAwarded, 0),
-      count: matched.length,
-      multiYearCount: matched.filter((i) => (i.durationYears ?? 0) > 1).length,
-      paidToDate: matched.reduce((s, i) => s + i.paidToDate, 0),
-      outstanding: matched.reduce((s, i) => s + i.outstanding, 0),
-      byProgramme: [...byProgrammeMap.values()].sort((a, b) => b.amount - a.amount),
-    }
-
-    // Sorted before paging, so page 2 is the second page of the sort. Default (no
-    // `sortBy`) leaves the query's own order: most recently awarded first.
-    const sorted = sortRows(
-      matched,
-      { by: data.sortBy, dir: data.sortDir },
-      {
-        organisation: (g) => g.organisationName,
-        programme: (g) => g.programmeName,
-        round: (g) => g.roundName,
-        awarded: (g) => g.decisionAt,
-        amount: (g) => g.amountAwarded,
-        paid: (g) => g.paidToDate,
-        duration: (g) => g.durationYears,
-        geography: (g) => g.deliveryArea,
-        // Lifecycle order, not alphabetical: live grants are the ones you act on.
-        status: (g) => AWARD_STATUS_ORDER[g.status] ?? 9,
-      },
-    )
-
-    const page = paginate(sorted, data.page, data.pageSize)
-    return { ...page, totals, facets }
+    // An empty scope is a caller who can see nothing; `inArray(x, [])` is a SQL error,
+    // so it never reaches the query.
+    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) return emptyAwardsList()
+    return awardsList(getDb(), roundProgrammeIds, data)
   })
 
-/** Rank behind the award status pill, matching `GRANT_STATUS_LABELS`' own order. */
-const AWARD_STATUS_ORDER: Record<string, number> = { active: 0, completed: 1, cancelled: 2 }
+/**
+ * Everything the register is filtered, sorted and paged by — the validator's shape.
+ *
+ * `roundId` is here because the validator has it, but `awardsList` does NOT read it:
+ * the round is the context, already folded into `scope` by the caller so the facets
+ * are counted over it. Passing a round here alone would silently filter nothing.
+ */
+export type AwardsListInput = {
+  roundId?: string
+  programmeId?: string
+  tag?: string
+  q?: string
+  status?: 'active' | 'completed' | 'cancelled'
+  from?: string
+  to?: string
+  sortBy?: AwardSortKey
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+type AwardSortKey =
+  | 'organisation'
+  | 'programme'
+  | 'round'
+  | 'awarded'
+  | 'amount'
+  | 'paid'
+  | 'duration'
+  | 'geography'
+  | 'status'
+
+/**
+ * The Awards register, as a plain function of (connection, tenant scope, filters) —
+ * the same seam Finance has, so everything below the auth check can be run without a
+ * session, by a script against staging or by a test.
+ *
+ * Rows, the count, the KPI totals, the portfolio split and all four facets go out as
+ * ONE `db.batch()`: one round trip, one snapshot, so a KPI cannot disagree with the
+ * table beneath it.
+ */
+export async function awardsList(
+  db: ReturnType<typeof getDb>,
+  scope: string[] | undefined,
+  data: AwardsListInput,
+) {
+  const g = awardGrantsQuery(db, scope)
+  const pageSize = data.pageSize ?? PAGE_SIZE
+  const page = data.page && data.page > 0 ? data.page : 1
+  const where = awardFilterWhere(g, data)
+
+  const facetOn = (value: SQLWrapper, label: SQLWrapper) =>
+    db
+      .select({
+        value: value as SQL<string | null>,
+        label: label as SQL<string | null>,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(g)
+      .groupBy(value as SQL, label as SQL)
+
+  const [
+    rows,
+    countRow,
+    totalsRow,
+    byProgramme,
+    programmeFacet,
+    themeFacet,
+    statusFacet,
+    roundFacet,
+  ] = await db.batch([
+    db
+      .select()
+      .from(g)
+      .where(where)
+      .orderBy(...awardOrderFor(g, data.sortBy, data.sortDir))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ n: sql<number>`(count(*))::int` })
+      .from(g)
+      .where(where),
+    db
+      .select({
+        totalAwarded: sql<number>`coalesce(sum(${g.amountAwarded}), 0)::float8`,
+        count: sql<number>`(count(*))::int`,
+        multiYearCount: sql<number>`(count(*) filter (where ${g.durationYears} > 1))::int`,
+        paidToDate: sql<number>`coalesce(sum(${g.paidToDate}), 0)::float8`,
+        outstanding: sql<number>`coalesce(sum(${g.outstanding}), 0)::float8`,
+      })
+      .from(g)
+      .where(where),
+    // The portfolio split, grouped by programme NAME: a grant whose programme was
+    // deleted still spent money, and it is read under one heading rather than
+    // disappearing from the bar. Each keeps its own colour, so the bar speaks the
+    // same vocabulary as the programme cards.
+    db
+      .select({
+        name: sql<string>`coalesce(${g.programmeName}, 'Unattributed')`,
+        colour: sql<string | null>`max(${g.programmeColour})`,
+        amount: sql<number>`coalesce(sum(${g.amountAwarded}), 0)::float8`,
+      })
+      .from(g)
+      .where(where)
+      .groupBy(sql`1`)
+      .orderBy(sql`3 desc`),
+    // Facets describe the round you are in — the scope above — before the transient
+    // filters, so using one pill never prunes the options of the pill beside it.
+    facetOn(g.programmeId, g.programmeName),
+    db
+      .select({
+        value: sql<string>`theme.value`,
+        label: sql<string>`theme.value`,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(g)
+      .innerJoin(sql`lateral jsonb_array_elements_text(${g.tags}) as theme(value)`, sql`true`)
+      .groupBy(sql`theme.value`),
+    facetOn(g.status, g.status),
+    facetOn(g.roundId, g.roundName),
+  ])
+
+  return {
+    items: rows.map(toAwardRow),
+    total: countRow[0]?.n ?? 0,
+    page,
+    pageSize,
+    totals: { ...totalsRow[0]!, byProgramme },
+    facets: {
+      programmes: sortFacet(namedFacet(programmeFacet, 'Untitled programme')),
+      themes: sortFacet(themeFacet),
+      statuses: sortFacet(
+        statusFacet.map((f) => ({
+          value: f.value!,
+          label: GRANT_STATUS_LABELS[f.value!] ?? f.value!,
+          count: f.count,
+        })),
+      ),
+      rounds: sortFacet(namedFacet(roundFacet, 'Untitled round')),
+    },
+  }
+}
+
+/**
+ * A caller who can see nothing still gets the shape the screen expects — and the SAME
+ * type, declared rather than inferred. Two structurally identical but distinct object
+ * types make the server fn's return a union, and `.map()` over a union of array types
+ * has no callable signature, so the screen's rows quietly become `any`.
+ */
+export function emptyAwardsList(): Awaited<ReturnType<typeof awardsList>> {
+  return {
+    items: [] as ReturnType<typeof toAwardRow>[],
+    total: 0,
+    page: 1,
+    pageSize: PAGE_SIZE,
+    totals: emptyGrantTotals(),
+    facets: emptyFacets(),
+  }
+}
+
+/** The row the register renders. Money arrives as `float8`; every consumer parsed it anyway. */
+function toAwardRow(r: AwardGrantRow) {
+  return {
+    awardId: r.awardId,
+    applicationId: r.applicationId,
+    organisationName: r.organisationName,
+    programmeName: r.programmeName,
+    programmeColour: r.programmeColour,
+    roundName: r.roundName,
+    tags: (r.tags as string[] | null) ?? [],
+    durationYears: r.durationYears,
+    deliveryArea: r.deliveryArea,
+    status: r.status,
+    decisionAt: r.decisionAt,
+    amountAwarded: r.amountAwarded,
+    instalmentCount: r.instalmentCount,
+    paidCount: r.paidCount,
+    paidToDate: r.paidToDate,
+    outstanding: r.outstanding,
+  }
+}
+
+/** A facet row whose value is NULL (a grant with no programme) is not a facet. */
+function namedFacet(
+  rows: Array<{ value: string | null; label: string | null; count: number }>,
+  fallback: string,
+): FacetOption[] {
+  return rows
+    .filter((r): r is { value: string; label: string | null; count: number } => r.value !== null)
+    .map((r) => ({ value: r.value, label: r.label ?? fallback, count: r.count }))
+}
+
+/** Facets read as a list, so they are alphabetical — the order `lib/facets` produced. */
+function sortFacet(options: FacetOption[]): FacetOption[] {
+  return [...options].sort((a, b) => a.label.localeCompare(b.label))
+}
+
+/**
+ * Column sort, in SQL. Text sorts case-insensitively and NULLs go last whichever way
+ * the arrow points — a grant with no delivery area is not "before A" or "after Z", it
+ * is unranked. With no explicit sort the register's own order stands: most recently
+ * awarded first.
+ */
+function awardOrderFor(
+  g: AwardGrantsQuery,
+  by: AwardSortKey | undefined,
+  dir: 'asc' | 'desc' | undefined,
+): SQL[] {
+  const d = sql.raw(dir === 'asc' ? 'asc' : 'desc')
+  const text = (col: SQLWrapper) => sql`lower(${col}) ${d} nulls last`
+  switch (by) {
+    case 'organisation':
+      return [text(g.organisationName)]
+    case 'programme':
+      return [text(g.programmeName)]
+    case 'round':
+      return [text(g.roundName)]
+    case 'geography':
+      return [text(g.deliveryArea)]
+    case 'awarded':
+      return [sql`${g.decisionAt} ${d}`]
+    case 'amount':
+      return [sql`${g.amountAwarded} ${d}`]
+    case 'paid':
+      return [sql`${g.paidToDate} ${d}`]
+    case 'duration':
+      return [sql`${g.durationYears} ${d} nulls last`]
+    // Lifecycle order, not alphabetical: live grants are the ones you act on.
+    case 'status':
+      return [sql`case ${g.status} when 'active' then 0 when 'completed' then 1 else 2 end ${d}`]
+    default:
+      return [sql`${g.decisionAt} desc`]
+  }
+}
 
 /** Award lifecycle labels, shared by the facet and the client's status pill. */
 export const GRANT_STATUS_LABELS: Record<string, string> = {
