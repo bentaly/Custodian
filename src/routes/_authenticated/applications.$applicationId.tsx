@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -11,7 +11,6 @@ import {
   File01Icon,
   Mail01Icon,
   CheckmarkCircle02Icon,
-  ArrowLeft01Icon,
   Alert02Icon,
   Tick01Icon,
 } from '@hugeicons/core-free-icons'
@@ -25,7 +24,17 @@ import { CommentsSection } from '../../components/CommentsSection'
 import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { Boundary, Breadcrumb, Button, MiniKpi } from '../../components/ui'
+// DetailHeader / Panel / PanelTitle are the shared detail-screen furniture (`ui/Detail`),
+// which this screen's grant and report siblings wear too.
+import {
+  Breadcrumb,
+  Button,
+  DetailHeader,
+  LinkButton,
+  MiniKpi,
+  Panel,
+  PanelTitle,
+} from '../../components/ui'
 import { Donut } from '../../components/charts/Donut'
 import {
   CRITERION_DEFINITIONS,
@@ -86,12 +95,9 @@ function ragColour(score: number) {
 }
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
-function initials(name: string) {
-  const p = name.trim().split(/\s+/).filter(Boolean)
-  if (p.length === 0) return '—'
-  if (p.length === 1) return p[0]!.slice(0, 2).toUpperCase()
-  return (p[0]![0]! + p[p.length - 1]![0]!).toUpperCase()
-}
+// (The monogram's `initials` is `ui/Avatar`'s now, via `DetailHeader` — this screen used
+// to take first + last word where the applications table takes the first two, so the same
+// organisation wore two different monograms on the row and the page it opened.)
 function scoreColour(score: number) {
   if (score >= 75) return C.brand
   if (score >= 50) return C.amber
@@ -103,35 +109,6 @@ function durationLabel(years: number | null | undefined) {
 }
 
 // ─── Primitives ──────────────────────────────────────────────────────────────────
-
-/**
- * A section of the detail page, isolated behind its own error boundary.
- *
- * This page is where the app's least predictable data lands: `custodianScoreDetail`,
- * `dueDiligenceChecks` and `deprivationContext` are jsonb columns holding AI- and
- * third-party-produced shapes, destructured directly by the panels below, and the
- * budget meter renders whatever numbers it is handed. Before this, one unexpected null
- * in any of them threw during render and took the whole page with it — comments,
- * voting, the award action, everything. Now the rest of the page survives.
- */
-function Panel({
-  children,
-  className = '',
-  label,
-}: {
-  children: React.ReactNode
-  className?: string
-  label?: string
-}) {
-  return (
-    <div
-      className={`rounded-card border bg-white p-4 ${className}`}
-      style={{ borderColor: C.line }}
-    >
-      <Boundary label={label}>{children}</Boundary>
-    </div>
-  )
-}
 
 /**
  * The way out of the one dead end due diligence has: an application with no
@@ -226,30 +203,6 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
         </div>
       )}
     </div>
-  )
-}
-
-function PanelTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
-  return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
-        {children}
-      </h2>
-      {right}
-    </div>
-  )
-}
-
-/** The grey status pill in the header (Figma 435:42454) — a coloured dot and a label. */
-function StatusPill({ colour, children }: { colour: string; children: React.ReactNode }) {
-  return (
-    <span
-      className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 font-display text-label font-medium"
-      style={{ backgroundColor: C.wash, color: C.sub }}
-    >
-      <span className="size-[3px] rounded-full" style={{ backgroundColor: colour }} />
-      {children}
-    </span>
   )
 }
 
@@ -495,122 +448,105 @@ function ApplicationDetail() {
         ]}
       />
 
-      {/* Header — Figma 435:38405. The decision buttons live here now rather than in a
-          sidebar, so the whole page is one full-width column. */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          to="/applications"
-          search={{ roundId: undefined }}
-          aria-label="Back to applications"
-          className="flex shrink-0 items-center justify-center rounded-chip border bg-white p-2"
-          style={{ borderColor: C.line }}
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={16} color={C.ink} />
-        </Link>
-
-        <div className="flex min-w-[240px] flex-1 items-center gap-2">
-          <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-chip"
-            style={{ backgroundColor: C.wash }}
-          >
-            <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
-              {initials(application.organisationName)}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-              {application.organisationName}
-            </h1>
-            <p className="truncate font-display text-label" style={{ color: C.sub }}>
-              {[
-                programme.name,
-                application.charityNumber ? `Charity no. ${application.charityNumber}` : null,
-                region,
-                roundName ? `${roundName} round` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          </div>
-        </div>
-
-        <StatusPill colour={statusMeta.colour}>{statusMeta.label}</StatusPill>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* A plain mailto rather than anything we send: this is the grants team
-              picking up the phone, so it belongs in their own mail client with their
-              own signature and a copy in their sent items. Hidden when the
-              application carries no contact address. */}
-          {application.applicantEmail && (
-            <HeaderButton
-              tone="plain"
-              icon={Mail01Icon}
-              title={application.applicantEmail}
-              href={`mailto:${encodeURIComponent(application.applicantEmail)}?subject=${encodeURIComponent(
-                `Your application to ${clientName ?? 'us'}${
-                  application.externalApplicationId ? ` (${application.externalApplicationId})` : ''
-                }`,
-              )}`}
-            >
-              Email applicant
-            </HeaderButton>
-          )}
-          <HeaderButton tone="brand" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
-            View submission
-          </HeaderButton>
-          {isAwarded ? (
-            // Awarded is terminal *here*: `updateApplicationStatus` refuses to move an
-            // application with a live award row, so a status button or dropdown in this
-            // slot would be a control that can only ever error. The real onward action
-            // is the grant itself — that is where the schedule, the letter and (when it
-            // is built) cancelling live.
-            awardId ? (
-              <Link
-                to="/awards/$awardId"
-                params={{ awardId }}
-                className="flex h-10 shrink-0 items-center gap-2 rounded-control border px-3 font-display text-body font-medium"
-                style={{ backgroundColor: C.brand, borderColor: C.brand, color: '#fff' }}
-              >
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color="#fff" />
-                View award
-              </Link>
-            ) : (
-              // Awarded with no award row — not yet backfilled. State, not action.
-              <span
-                className="flex h-10 shrink-0 items-center gap-2 rounded-control border px-3 font-display text-body font-medium"
-                style={{ backgroundColor: C.brandBg, borderColor: C.brandBorder, color: C.brand }}
-              >
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={C.brand} />
-                Awarded
-              </span>
-            )
-          ) : (
-            <>
-              <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
-                {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
-              </HeaderButton>
+      {/* Header — Figma 435:38405, now the shared `DetailHeader` the grant and report
+          screens wear too. The decision buttons live here rather than in a sidebar, so
+          the whole page is one full-width column. */}
+      <DetailHeader
+        backTo="/applications"
+        backSearch={{ roundId: undefined }}
+        backLabel="Back to applications"
+        name={application.organisationName}
+        subline={[
+          programme.name,
+          application.charityNumber ? `Charity no. ${application.charityNumber}` : null,
+          region,
+          roundName ? `${roundName} round` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        status={statusMeta}
+        actions={
+          <>
+            {/* A plain mailto rather than anything we send: this is the grants team
+                picking up the phone, so it belongs in their own mail client with their
+                own signature and a copy in their sent items. Hidden when the
+                application carries no contact address. */}
+            {application.applicantEmail && (
               <HeaderButton
-                tone={isShortlisted ? 'plain' : 'primary'}
-                onClick={handleShortlist}
-                disabled={shortlisting || isBudgetFull}
-                title={
-                  isBudgetFull
-                    ? 'Budget committed — no funds remaining in this programme'
-                    : undefined
-                }
+                tone="plain"
+                icon={Mail01Icon}
+                title={application.applicantEmail}
+                href={`mailto:${encodeURIComponent(application.applicantEmail)}?subject=${encodeURIComponent(
+                  `Your application to ${clientName ?? 'us'}${
+                    application.externalApplicationId
+                      ? ` (${application.externalApplicationId})`
+                      : ''
+                  }`,
+                )}`}
               >
-                {shortlisting
-                  ? '…'
-                  : isShortlisted
-                    ? 'Remove from shortlist'
-                    : isBudgetFull
-                      ? 'Budget full'
-                      : 'Shortlist'}
+                Email applicant
               </HeaderButton>
-            </>
-          )}
-        </div>
-      </div>
+            )}
+            <HeaderButton tone="brand" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
+              View submission
+            </HeaderButton>
+            {isAwarded ? (
+              // Awarded is terminal *here*: `updateApplicationStatus` refuses to move an
+              // application with a live award row, so a status button or dropdown in this
+              // slot would be a control that can only ever error. The real onward action
+              // is the grant itself — that is where the schedule, the letter and (when it
+              // is built) cancelling live.
+              awardId ? (
+                <LinkButton
+                  variant="primary"
+                  to="/awards/$awardId"
+                  params={{ awardId }}
+                  icon={CheckmarkCircle02Icon}
+                >
+                  View award
+                </LinkButton>
+              ) : (
+                // Awarded with no award row — not yet backfilled. State, not action.
+                <span
+                  className="flex h-10 shrink-0 items-center gap-2 rounded-control border px-3 font-display text-body font-medium"
+                  style={{
+                    backgroundColor: C.brandBg,
+                    borderColor: C.brandBorder,
+                    color: C.brand,
+                  }}
+                >
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={C.brand} />
+                  Awarded
+                </span>
+              )
+            ) : (
+              <>
+                <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
+                  {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
+                </HeaderButton>
+                <HeaderButton
+                  tone={isShortlisted ? 'plain' : 'primary'}
+                  onClick={handleShortlist}
+                  disabled={shortlisting || isBudgetFull}
+                  title={
+                    isBudgetFull
+                      ? 'Budget committed — no funds remaining in this programme'
+                      : undefined
+                  }
+                >
+                  {shortlisting
+                    ? '…'
+                    : isShortlisted
+                      ? 'Remove from shortlist'
+                      : isBudgetFull
+                        ? 'Budget full'
+                        : 'Shortlist'}
+                </HeaderButton>
+              </>
+            )}
+          </>
+        }
+      />
 
       {error && (
         <div

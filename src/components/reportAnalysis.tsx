@@ -1,12 +1,21 @@
 // ─── Report analysis UI ───────────────────────────────────────────────────────
 //
-// Presentation only. Renders the AI analysis of a grant report — impact figure,
-// summary, alignment against the application's promises and the programme's
-// goal, challenges/lessons digests, and reviewer flags. Styled to sit alongside
-// CustodianScorePanel on a detail screen.
+// Presentation only. Renders the AI analysis of a grant report — the summary, alignment
+// against the application's promises and the programme's goal, challenges/lessons
+// digests, and reviewer flags.
+//
+// Drawn in the same vocabulary as the application detail's AI assessment, because it is
+// the same kind of claim about the same organisation: a narrative beside a bank of 1–10
+// criterion bars, banded on the app's one scale. The impact FIGURE deliberately does not
+// live here — it is the headline number of the whole screen, so it sits in the stat row
+// above with the money, and only its supporting quote stays with the analysis.
 
 import type { ReactNode } from 'react'
-import { Badge, Card } from './ui'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Alert02Icon, Tick01Icon } from '@hugeicons/core-free-icons'
+import { Badge, Panel, PanelTitle } from './ui'
+import { ProgressBar } from './ProgressBar'
+import { C } from './ui/tokens'
 
 export type ReportAnalysisStatus = 'pending' | 'analysed' | 'error'
 
@@ -34,37 +43,75 @@ export interface ReportAnalysisData {
   flags: string[]
 }
 
-/** Per-alignment 1–10 colour band, matching the Custodian score criterion bands. */
-function alignmentClasses(score: number): { text: string; bar: string } {
-  if (score >= 8) return { text: 'text-success', bar: 'bg-success' }
-  if (score >= 5) return { text: 'text-warning', bar: 'bg-warning' }
-  return { text: 'text-danger', bar: 'bg-danger' }
+/**
+ * RAG colour for a 1–10 alignment score, on the SAME bands as the Custodian score's
+ * criteria (`applications.$applicationId`): 7+ green, 4–6 amber, below 4 red. It used to
+ * band at 8/5 here, which meant a 7 was green on one screen and amber on the next for no
+ * reason a reader could ever discover.
+ */
+function ragColour(score: number) {
+  if (score >= 7) return C.success
+  if (score >= 4) return C.warning
+  return C.danger
 }
 
-function AlignmentBlock({
-  title,
-  score,
-  narrative,
-  children,
-}: {
-  title: string
-  score: number
-  narrative: string
-  children?: ReactNode
-}) {
-  const cls = alignmentClasses(score)
+/** The criterion bar the application detail uses, on the report's two alignments. */
+function AlignmentBar({ label, score }: { label: string; score: number }) {
+  const colour = ragColour(score)
   return (
-    <div>
-      <div className="flex items-center justify-between text-label">
-        <span className="text-grey-600">{title}</span>
-        <span className={`font-semibold ${cls.text}`}>{score}/10</span>
-      </div>
-      <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-grey-100">
-        <div className={`h-full rounded-full ${cls.bar}`} style={{ width: `${score * 10}%` }} />
-      </div>
-      {narrative && <p className="mt-1.5 text-label leading-relaxed text-grey-600">{narrative}</p>}
-      {children}
+    <div className="flex items-center gap-3">
+      <span
+        className="w-[104px] shrink-0 font-display text-label font-medium"
+        style={{ color: C.ink }}
+      >
+        {label}
+      </span>
+      <ProgressBar
+        className="flex-1"
+        value={score / 10}
+        colour={colour}
+        track={`color-mix(in srgb, ${colour} 20%, transparent)`}
+        height={4}
+      />
+      <span
+        className="w-8 shrink-0 text-right font-display text-label font-medium tabular-nums"
+        style={{ color: C.sub }}
+      >
+        {score}/10
+      </span>
     </div>
+  )
+}
+
+function Heading({ children }: { children: ReactNode }) {
+  return (
+    <h3
+      className="mb-1 font-display text-label font-semibold uppercase tracking-wide"
+      style={{ color: C.faint }}
+    >
+      {children}
+    </h3>
+  )
+}
+
+/** A promise the report kept or missed, as a tinted line — the same shape the Custodian
+ *  score's flags wear, so "checked and fine" and "check this" are told apart by colour
+ *  and icon rather than by a unicode character at the start of a sentence. */
+function PromiseLine({ text, kept }: { text: string; kept: boolean }) {
+  const colour = kept ? C.success : C.warning
+  return (
+    <li
+      className="flex items-start gap-1.5 rounded-chip p-1.5 font-display text-label font-medium"
+      style={{ backgroundColor: `color-mix(in srgb, ${colour} 8%, transparent)`, color: colour }}
+    >
+      <HugeiconsIcon
+        icon={kept ? Tick01Icon : Alert02Icon}
+        size={16}
+        color="currentColor"
+        className="mt-px shrink-0"
+      />
+      <span>{text}</span>
+    </li>
   )
 }
 
@@ -84,114 +131,87 @@ export function ReportAnalysisPanel({
   const a = analysis
 
   return (
-    <Card>
-      <div className="flex items-center justify-between border-b border-grey-100 px-5 py-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-body font-medium text-grey-900">Report analysis</h2>
-          <Badge className={meta.className}>{meta.label}</Badge>
-        </div>
-        <div className="flex items-center gap-3">
-          {analysedAt && (
-            <span className="text-label text-grey-400">
-              Analysed {new Date(analysedAt).toLocaleDateString('en-GB')}
-            </span>
-          )}
-          {action}
-        </div>
-      </div>
+    <Panel label="Report analysis">
+      <PanelTitle
+        right={
+          <div className="flex items-center gap-3">
+            <Badge className={meta.className}>{meta.label}</Badge>
+            {analysedAt && (
+              <span className="font-display text-label" style={{ color: C.faint }}>
+                Analysed {new Date(analysedAt).toLocaleDateString('en-GB')}
+              </span>
+            )}
+            {action}
+          </div>
+        }
+      >
+        Report analysis
+      </PanelTitle>
 
       {status !== 'analysed' || !a ? (
-        <p className="px-5 py-6 text-body text-grey-500">
-          {status === 'error' ? 'Analysis failed. Try re-running.' : 'Not yet analysed.'}
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          {status === 'error'
+            ? 'Analysis failed — try re-running it.'
+            : 'This report has not been analysed yet.'}
         </p>
       ) : (
-        <div className="flex flex-col gap-5 px-5 py-4 md:flex-row">
-          {/* Impact figure + alignment bars */}
-          <div className="md:w-44 md:shrink-0">
-            <div className="flex flex-col items-center">
-              <div
-                className="flex h-16 min-w-16 flex-col items-center justify-center rounded-full px-3"
-                style={{ border: `3px solid ${a.impactQuantity != null ? 'var(--color-brand)' : 'var(--color-grey-300)'}` }}
+        <div className="flex flex-col gap-6 lg:flex-row">
+          {/* Summary + the quote the impact figure was read from, so the number in the
+              stat row above can always be traced back to the grantee's own words. */}
+          <div className="flex flex-1 flex-col gap-3">
+            {a.aiSummary && (
+              <p className="font-display text-body leading-relaxed" style={{ color: C.sub }}>
+                {a.aiSummary}
+              </p>
+            )}
+            {a.impactQuantityQuote && (
+              <blockquote
+                className="border-l-2 pl-3 font-display text-label italic leading-relaxed"
+                style={{ borderColor: C.line, color: C.sub }}
               >
-                <span className="text-heading font-light leading-none">
-                  {a.impactQuantity != null
-                    ? Number(a.impactQuantity).toLocaleString('en-GB')
-                    : '—'}
-                </span>
-              </div>
-              <span className="mt-1.5 text-center text-label uppercase tracking-wide text-grey-400">
-                {a.impactUnitLabel ?? 'Impact'}
-                {a.impactQuantity != null && (
-                  <>
-                    {' · '}
-                    {a.impactQuantitySource === 'reported' ? 'stated by charity' : 'AI extracted'}
-                  </>
-                )}
-              </span>
-              {a.impactQuantity == null && (
-                <span className="mt-1 text-center text-label text-grey-400">
-                  No quantity evidenced in the report
-                </span>
-              )}
-              {a.impactQuantityQuote && (
-                <p className="mt-2 border-l-2 border-grey-200 pl-2 text-label italic leading-snug text-grey-500">
-                  “{a.impactQuantityQuote}”
-                </p>
-              )}
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {a.applicationAlignment && (
-                <AlignmentBlock
-                  title="Vs application"
-                  score={a.applicationAlignment.score}
-                  narrative=""
-                />
-              )}
-              {a.programmeAlignment && (
-                <AlignmentBlock
-                  title="Vs programme"
-                  score={a.programmeAlignment.score}
-                  narrative=""
-                />
-              )}
-            </div>
+                “{a.impactQuantityQuote}”
+              </blockquote>
+            )}
+            <span
+              className="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-1 font-display text-micro font-medium"
+              style={{ backgroundColor: C.brandBg, color: C.brand }}
+            >
+              AI analysis
+              {a.impactQuantity != null &&
+                ` · impact ${a.impactQuantitySource === 'reported' ? 'stated by the charity' : 'read from the narrative'}`}
+            </span>
           </div>
 
-          {/* Narrative side */}
-          <div className="min-w-0 flex-1 space-y-4">
-            {a.aiSummary && (
-              <div>
-                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
-                  AI assessment summary
-                </h3>
-                <p className="text-body leading-relaxed text-grey-700">{a.aiSummary}</p>
-              </div>
-            )}
+          {(a.applicationAlignment || a.programmeAlignment) && (
+            <div className="flex flex-col gap-3 lg:w-[280px] lg:shrink-0">
+              {a.applicationAlignment && (
+                <AlignmentBar label="Vs application" score={a.applicationAlignment.score} />
+              )}
+              {a.programmeAlignment && (
+                <AlignmentBar label="Vs programme" score={a.programmeAlignment.score} />
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
+      {status === 'analysed' && a && (
+        <div className="mt-6 flex flex-col gap-5 border-t pt-5" style={{ borderColor: C.wash }}>
+          <div className="grid gap-5 lg:grid-cols-2">
             {a.applicationAlignment && (
               <div>
-                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
-                  Against the application
-                </h3>
-                <p className="text-body leading-relaxed text-grey-600">
+                <Heading>Against the application</Heading>
+                <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
                   {a.applicationAlignment.narrative}
                 </p>
-                {a.applicationAlignment.promisesKept.length > 0 && (
-                  <ul className="mt-1.5 space-y-1">
+                {(a.applicationAlignment.promisesKept.length > 0 ||
+                  a.applicationAlignment.promisesUnmet.length > 0) && (
+                  <ul className="mt-2 flex flex-col gap-1.5">
                     {a.applicationAlignment.promisesKept.map((p, i) => (
-                      <li key={i} className="text-label text-success">
-                        ✓ {p}
-                      </li>
+                      <PromiseLine key={`kept-${i}`} text={p} kept />
                     ))}
-                  </ul>
-                )}
-                {a.applicationAlignment.promisesUnmet.length > 0 && (
-                  <ul className="mt-1.5 space-y-1">
                     {a.applicationAlignment.promisesUnmet.map((p, i) => (
-                      <li key={i} className="text-label text-warning">
-                        ⚠ {p}
-                      </li>
+                      <PromiseLine key={`unmet-${i}`} text={p} kept={false} />
                     ))}
                   </ul>
                 )}
@@ -200,53 +220,53 @@ export function ReportAnalysisPanel({
 
             {a.programmeAlignment && (
               <div>
-                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
-                  Against the programme
-                </h3>
-                <p className="text-body leading-relaxed text-grey-600">
+                <Heading>Against the programme</Heading>
+                <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
                   {a.programmeAlignment.narrative}
                 </p>
               </div>
             )}
 
-            {(a.aiChallenges || a.aiLessons) && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {a.aiChallenges && (
-                  <div>
-                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
-                      Challenges
-                    </h3>
-                    <p className="text-label leading-relaxed text-grey-600">{a.aiChallenges}</p>
-                  </div>
-                )}
-                {a.aiLessons && (
-                  <div>
-                    <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-grey-400">
-                      Lessons learned
-                    </h3>
-                    <p className="text-label leading-relaxed text-grey-600">{a.aiLessons}</p>
-                  </div>
-                )}
+            {a.aiChallenges && (
+              <div>
+                <Heading>Challenges</Heading>
+                <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
+                  {a.aiChallenges}
+                </p>
               </div>
             )}
 
-            {a.flags.length > 0 && (
-              <div className="rounded-chip bg-warning/10 px-3 py-2.5">
-                <h3 className="mb-1 text-label font-semibold uppercase tracking-wide text-warning">
-                  Flags to check
-                </h3>
-                <ul className="space-y-1">
-                  {a.flags.map((f, i) => (
-                    <li key={i} className="text-label leading-relaxed text-warning">
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+            {a.aiLessons && (
+              <div>
+                <Heading>Lessons learned</Heading>
+                <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
+                  {a.aiLessons}
+                </p>
               </div>
             )}
           </div>
+
+          {a.flags.length > 0 && (
+            <ul className="flex flex-col gap-1.5">
+              {a.flags.map((f, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-1.5 rounded-chip p-1.5 font-display text-label font-medium"
+                  style={{ backgroundColor: C.dangerWash, color: C.danger }}
+                >
+                  <HugeiconsIcon
+                    icon={Alert02Icon}
+                    size={16}
+                    color="currentColor"
+                    className="mt-px shrink-0"
+                  />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
-    </Card>
+    </Panel>
   )
 }

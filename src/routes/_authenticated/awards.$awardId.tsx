@@ -8,21 +8,37 @@ import {
   deleteReportMilestone,
   setInstalmentPaid,
   updateInstalment,
+  GRANT_STATUS_LABELS,
 } from '../../server/fns/applications'
 import { resendAwardLetter } from '../../server/fns/awardSetup'
 import { AwardLetterPreview } from '../../components/AwardLetterPreview'
-import { BankIcon, Calendar03Icon, Coins01Icon, UserGroupIcon } from '@hugeicons/core-free-icons'
+import { ProgressBar } from '../../components/ProgressBar'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Alert02Icon,
+  BankIcon,
+  Calendar03Icon,
+  Coins01Icon,
+  File01Icon,
+  Mail01Icon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons'
 import {
   Badge,
   Breadcrumb,
   Button,
-  Card,
   DateField,
-  EmptyState,
+  DetailHeader,
+  Dialog,
+  KeyFact,
   KPI_TINTS,
+  LinkButton,
   MiniKpi,
+  Panel,
+  PanelTitle,
   TextLink,
 } from '../../components/ui'
+import { C } from '../../components/ui/tokens'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
@@ -32,12 +48,16 @@ export const Route = createFileRoute('/_authenticated/awards/$awardId')({
 
 type AwardData = Awaited<ReturnType<typeof getAward>>
 
-const AWARD_STATUS: Record<string, { label: string; className: string }> = {
-  active: { label: 'Active', className: 'bg-success/10 text-success' },
-  completed: { label: 'Done', className: 'bg-grey-100 text-grey-600' },
-  cancelled: { label: 'Cancelled', className: 'bg-danger/10 text-danger' },
+/** The lifecycle colour, on the same three values the awards list bands (`GRANT_STATUS_HEX`
+ *  there) — a grant's status must not be one colour in the table and another on its page. */
+const AWARD_STATUS_HEX: Record<string, string> = {
+  active: C.success,
+  completed: C.sub,
+  cancelled: C.danger,
 }
 
+// A line item's own state, as `Badge size="sm"` — the small pill, because these annotate
+// one row inside a card rather than saying what the whole record is (see `ui/Badge`).
 const SCHED_STATUS = {
   paid: { label: 'Paid', className: 'bg-success/10 text-success' },
   submitted: { label: 'Received', className: 'bg-info/10 text-info' },
@@ -47,15 +67,45 @@ const SCHED_STATUS = {
   tbc: { label: 'Date TBC', className: 'bg-grey-100 text-grey-400' },
 }
 
-const inputClass =
-  'rounded-chip border border-grey-200 px-2.5 py-1.5 text-body focus:outline-hidden focus:ring-2 focus:ring-grey-400'
+/**
+ * The 32px field the inline editors are built from — the app's wash field surface
+ * (`ui/fields`) at the small control box `DateField size="sm"` and `Button size="sm"`
+ * already wear, so an editing row is three controls of one height rather than three of
+ * three. It is spelled out rather than composed from `FIELD_SURFACE` because `cn` is a
+ * plain join: `h-8` appended to a class string that already says `h-10` is a coin toss.
+ */
+const SM_FIELD =
+  'h-8 rounded-chip bg-grey-100 px-2.5 font-display text-body text-grey-900 placeholder:text-grey-500 focus:outline-hidden focus:ring-2 focus:ring-brand/20'
+
+function durationLabel(years: number | null | undefined) {
+  if (!years) return null
+  return years === 1 ? '1 year' : `${years} years`
+}
 
 function AwardDetail() {
   const award = Route.useLoaderData()
   const { impact } = award
+  const [letterOpen, setLetterOpen] = useState(false)
+
+  // The next instalment out of the door. This is the question a grants team opens a grant
+  // to answer, and it used to be buried in a list you had to read down to find the first
+  // row without a tick — so it is a headline figure now, and the awarded date (a fact that
+  // never changes) moved up into the subline where facts of that kind belong.
+  const nextInstalment = award.instalments.find((i) => !i.paidDate) ?? null
+  const nextReport = award.reportingMilestones.find((m) => !m.submittedDate) ?? null
+
+  const subline = [
+    award.programmeName,
+    award.roundName,
+    award.deliveryArea,
+    `Awarded ${fmtDate(award.decisionAt)}`,
+    durationLabel(award.durationYears),
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <Breadcrumb
         items={[
           { label: 'Awards', to: '/awards', search: { roundId: undefined } },
@@ -63,39 +113,36 @@ function AwardDetail() {
         ]}
       />
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-heading font-semibold text-grey-900">
-            {award.organisationName}
-          </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-grey-500">
-            {award.programmeName && (
-              <span>
-                <span className="text-grey-400">Programme </span>
-                <span className="font-medium text-grey-700">{award.programmeName}</span>
-              </span>
+      <DetailHeader
+        backTo="/awards"
+        backSearch={{ roundId: undefined }}
+        backLabel="Back to awards"
+        name={award.organisationName}
+        subline={subline}
+        status={{
+          label: GRANT_STATUS_LABELS[award.status] ?? award.status,
+          colour: AWARD_STATUS_HEX[award.status] ?? C.sub,
+        }}
+        actions={
+          <>
+            <LinkButton
+              to="/applications/$applicationId"
+              params={{ applicationId: award.application.id }}
+              icon={File01Icon}
+            >
+              View application
+            </LinkButton>
+            {award.letter && (
+              <Button variant="tinted" icon={Mail01Icon} onClick={() => setLetterOpen(true)}>
+                Award letter
+              </Button>
             )}
-            {award.roundName && (
-              <span>
-                <span className="text-grey-400">Round </span>
-                <span className="font-medium text-grey-700">{award.roundName}</span>
-              </span>
-            )}
-            {award.deliveryArea && (
-              <span>
-                <span className="text-grey-400">Geography </span>
-                <span className="font-medium text-grey-700">{award.deliveryArea}</span>
-              </span>
-            )}
-          </div>
-        </div>
-        <Badge className={AWARD_STATUS[award.status]?.className ?? 'bg-grey-100 text-grey-600'}>
-          {AWARD_STATUS[award.status]?.label ?? award.status}
-        </Badge>
-      </div>
+          </>
+        }
+      />
 
-      {/* Key figures */}
+      {/* Key figures. Money first, then what is next out of the door, then what came back
+          — awarded / paid / next payment / impact reads as the grant's own timeline. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MiniKpi
           tint={KPI_TINTS.violet}
@@ -109,27 +156,51 @@ function AwardDetail() {
           icon={BankIcon}
           label="Paid to date"
           value={fmtMoney(award.paidToDate)}
-          sub={`${fmtMoney(award.outstanding)} outstanding`}
-        />
+          sub={
+            award.outstanding > 0 ? `${fmtMoney(award.outstanding)} outstanding` : 'paid in full'
+          }
+        >
+          {award.amountAwarded > 0 && (
+            <ProgressBar
+              className="mt-3"
+              value={award.paidToDate / award.amountAwarded}
+              colour={C.success}
+              track={C.white}
+              height={4}
+            />
+          )}
+        </MiniKpi>
         <MiniKpi
           tint={KPI_TINTS.amber}
           icon={Calendar03Icon}
-          label="Awarded"
-          value={fmtDate(award.decisionAt)}
+          label="Next payment"
+          value={nextInstalment ? fmtMoney(nextInstalment.amount) : '—'}
           sub={
-            award.durationYears
-              ? `over ${award.durationYears} yr${award.durationYears > 1 ? 's' : ''}`
-              : 'single payment term'
+            nextInstalment
+              ? nextInstalment.dueDate
+                ? `due ${fmtDate(nextInstalment.dueDate)}`
+                : 'date to be confirmed'
+              : award.instalmentCount === 0
+                ? 'no schedule set up'
+                : 'schedule complete'
           }
+          valueColour={nextInstalment?.status === 'overdue' ? C.danger : undefined}
         />
         <MiniKpi
           tint={KPI_TINTS.pink}
           icon={UserGroupIcon}
-          label={impact.unitLabel ?? 'Impact'}
+          label="Impact reported"
+          // The unit is the supporting line rather than the label, so this tile is named
+          // by what it means like its neighbours, not by whatever the programme measures.
           value={impact.total != null ? impact.total.toLocaleString('en-GB') : '—'}
           sub={
             impact.total != null
-              ? `across ${impact.reportCount} report${impact.reportCount !== 1 ? 's' : ''}`
+              ? [
+                  impact.unitLabel,
+                  `across ${impact.reportCount} report${impact.reportCount !== 1 ? 's' : ''}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
               : 'no impact reported yet'
           }
         />
@@ -137,165 +208,100 @@ function AwardDetail() {
 
       {/* What the money is for, in the foundation's own words — the thing a later
           grant report is read against, so it belongs above the mechanics. */}
-      {award.purpose && (
-        <Card className="px-5 py-4">
-          <h2 className="text-body font-semibold text-grey-900">Grant purpose</h2>
-          <p className="mt-1.5 text-body leading-relaxed text-grey-600">{award.purpose}</p>
-          {/* One per line, as `renderAwardLetter` numbers them on the letter — a grant
-              set up with three bespoke terms must not read here as one paragraph. */}
-          {(() => {
-            const bespoke = (award.specialCondition ?? '')
-              .split('\n')
-              .map((line) => line.trim())
-              .filter(Boolean)
-            if (bespoke.length === 0) return null
-            return (
-              <div className="mt-3 border-t border-grey-100 pt-3">
-                <span className="text-label uppercase tracking-wide text-grey-400">
-                  {bespoke.length === 1
-                    ? 'Condition specific to this grant'
-                    : 'Conditions specific to this grant'}
-                </span>
-                <ul className="mt-1 space-y-1">
-                  {bespoke.map((line, i) => (
-                    <li key={i} className="text-body leading-relaxed text-grey-600">
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          })()}
-        </Card>
-      )}
-
-      <ApplicationCard award={award} />
+      <PurposePanel award={award} />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <PaymentsCard award={award} />
-        <ReportingCard award={award} />
+        <PaymentsPanel award={award} />
+        <ReportingPanel award={award} nextReport={nextReport} />
       </div>
 
-      <AwardLetterCard award={award} />
+      <ReportsPanel award={award} />
 
-      <ReportsCard award={award} />
+      <AwardLetterPanel award={award} onRead={() => setLetterOpen(true)} />
+
+      <ApplicationPanel award={award} />
+
+      {award.letter && (
+        <Dialog
+          open={letterOpen}
+          onClose={() => setLetterOpen(false)}
+          title="Award letter"
+          description={award.letter.subject}
+          size="lg"
+        >
+          <AwardLetterPreview bodyText={award.letter.bodyText} />
+        </Dialog>
+      )}
     </div>
   )
 }
 
-// ─── Award letter ────────────────────────────────────────────────────────────
+// ─── Purpose and conditions ──────────────────────────────────────────────────
 
-const LETTER_STATUS: Record<string, { label: string; className: string }> = {
-  sent: { label: 'Sent', className: 'bg-success/10 text-success' },
-  draft: { label: 'Not sent', className: 'bg-warning/10 text-warning' },
-  failed: { label: 'Failed to send', className: 'bg-danger/10 text-danger' },
-}
+function PurposePanel({ award }: { award: AwardData }) {
+  // One per line, as `renderAwardLetter` numbers them on the letter — a grant set up with
+  // three bespoke terms must not read here as one paragraph.
+  const bespoke = (award.specialCondition ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
 
-/**
- * The letter this grantee was actually sent. Shown verbatim from storage rather than
- * re-rendered, so it still reads as what was agreed even after the template, the
- * schedule or the conditions have moved on.
- */
-function AwardLetterCard({ award }: { award: AwardData }) {
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const letter = award.letter
-
-  async function handleResend() {
-    setBusy(true)
-    setError(null)
-    try {
-      await resendAwardLetter({ data: { awardId: award.id } })
-      await router.invalidate()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'The letter could not be sent')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (!letter) {
-    return (
-      <Card className="px-5 py-4">
-        <h2 className="text-body font-semibold text-grey-900">Award letter</h2>
-        <p className="mt-1.5 text-label leading-relaxed text-grey-400">
-          No letter was issued for this grant. Letters are written and sent during award set-up —
-          awards made before that existed have none.
-        </p>
-      </Card>
-    )
-  }
-
-  const status = LETTER_STATUS[letter.status] ?? LETTER_STATUS.draft!
+  if (!award.purpose && bespoke.length === 0) return null
 
   return (
-    <Card className="px-5 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-body font-semibold text-grey-900">Award letter</h2>
-        <div className="flex items-center gap-2">
-          <Badge className={status.className}>{status.label}</Badge>
-          <Button variant="text" size="sm" onClick={() => setOpen(!open)}>
-            {open ? 'Hide' : 'Read the letter'}
-          </Button>
-        </div>
-      </div>
-
-      <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-label text-grey-400">
-        <span>
-          To <span className="text-grey-600">{letter.recipientEmail ?? 'nobody — no address'}</span>
-        </span>
-        {letter.replyTo && (
-          <span>
-            Replies to <span className="text-grey-600">{letter.replyTo}</span>
-          </span>
-        )}
-        {letter.sentAt && (
-          <span>
-            Sent <span className="text-grey-600">{fmtDate(letter.sentAt)}</span>
-          </span>
-        )}
-      </div>
-
-      {letter.status !== 'sent' && letter.failureReason && (
-        <p className="mt-2 rounded-chip bg-warning/10 px-3 py-2 text-label text-warning">
-          {letter.failureReason}
+    <Panel label="Grant purpose">
+      <PanelTitle>Grant purpose</PanelTitle>
+      {award.purpose ? (
+        <p className="font-display text-body leading-relaxed" style={{ color: C.ink }}>
+          {award.purpose}
+        </p>
+      ) : (
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          No purpose was recorded for this grant.
         </p>
       )}
-
-      {open && (
-        <div className="mt-3 rounded-card border border-grey-100 bg-background px-5 py-4">
-          <div className="mb-3 border-b border-grey-100 pb-2 text-label text-grey-400">
-            Subject: <span className="text-grey-600">{letter.subject}</span>
-          </div>
-          <AwardLetterPreview bodyText={letter.bodyText} />
+      {bespoke.length > 0 && (
+        <div className="mt-4 border-t pt-4" style={{ borderColor: C.wash }}>
+          <p className="font-display text-label uppercase tracking-wide" style={{ color: C.faint }}>
+            {bespoke.length === 1
+              ? 'Condition specific to this grant'
+              : 'Conditions specific to this grant'}
+          </p>
+          <ol className="mt-2 flex flex-col gap-2">
+            {bespoke.map((line, i) => (
+              <li key={i} className="flex gap-2.5">
+                <span
+                  className="flex size-5 shrink-0 items-center justify-center rounded-swatch font-display text-micro font-semibold tabular-nums"
+                  style={{ backgroundColor: C.brandBg, color: C.brand }}
+                >
+                  {i + 1}
+                </span>
+                <span className="font-display text-body leading-relaxed" style={{ color: C.body }}>
+                  {line}
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
-
-      {award.canEdit && (
-        <div className="mt-3 flex items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={handleResend} disabled={busy}>
-            {busy ? 'Sending…' : letter.status === 'sent' ? 'Send again' : 'Send now'}
-          </Button>
-          {error && <span className="text-label text-danger">{error}</span>}
-        </div>
-      )}
-    </Card>
+    </Panel>
   )
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────
 
-function PaymentsCard({ award }: { award: AwardData }) {
+function PaymentsPanel({ award }: { award: AwardData }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
   const [draftDate, setDraftDate] = useState('')
   const [draftAmount, setDraftAmount] = useState('')
 
-  const pct =
-    award.scheduledTotal > 0 ? Math.round((award.paidToDate / award.scheduledTotal) * 100) : 0
+  // A schedule that does not add up to the award is a real problem — the grantee was
+  // promised one figure and the payment run will move another — and it is invisible
+  // until someone totals the column by eye. Stated where the schedule is edited.
+  const shortfall = award.amountAwarded - award.scheduledTotal
+  const unreconciled = award.instalmentCount > 0 && Math.abs(shortfall) >= 1
 
   async function togglePaid(id: string, paid: boolean) {
     setBusyId(id)
@@ -331,42 +337,61 @@ function PaymentsCard({ award }: { award: AwardData }) {
   }
 
   return (
-    <Card className="px-5 py-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-body font-semibold text-grey-900">Payments</h2>
-        <span className="text-label text-grey-400">
-          {award.paidCount}/{award.instalmentCount} instalments
-        </span>
-      </div>
+    // The panel is the SCHEDULE — a dated line per payment, with the actions that move
+    // it. How much has been paid is answered by the stat row above, so it is stated here
+    // as a meta line rather than redrawn as a second headline and a second bar: the same
+    // ratio drawn twice on one screen is two things to keep in step and nothing gained.
+    <Panel label="Payments" className="flex flex-col">
+      <PanelTitle
+        right={
+          <span className="font-display text-label font-medium" style={{ color: C.faint }}>
+            {award.paidCount} of {award.instalmentCount} paid · {fmtMoney(award.outstanding)}{' '}
+            outstanding
+          </span>
+        }
+      >
+        Payments
+      </PanelTitle>
 
-      {/* Progress */}
-      <div className="mt-3 flex items-center gap-2.5">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-grey-100">
-          <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
-        </div>
-        <span className="shrink-0 text-label tabular-nums text-grey-500">
-          {fmtMoney(award.paidToDate)} / {fmtMoney(award.scheduledTotal)}
-        </span>
-      </div>
+      {unreconciled && (
+        <p
+          className="flex items-start gap-1.5 rounded-chip px-3 py-2 font-display text-label"
+          style={{ backgroundColor: C.warningWash, color: C.warning }}
+        >
+          <HugeiconsIcon icon={Alert02Icon} size={16} color="currentColor" className="shrink-0" />
+          <span>
+            The schedule totals {fmtMoney(award.scheduledTotal)} —{' '}
+            {shortfall > 0 ? `${fmtMoney(shortfall)} less` : `${fmtMoney(-shortfall)} more`} than
+            the {fmtMoney(award.amountAwarded)} awarded.
+          </span>
+        </p>
+      )}
 
       {award.instalments.length === 0 ? (
-        <p className="mt-4 text-body text-grey-400">No instalment schedule recorded.</p>
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          No instalment schedule recorded — nothing is queued to be paid.
+        </p>
       ) : (
-        <ul className="mt-3 divide-y divide-grey-100">
+        <ul className="flex flex-col">
           {award.instalments.map((inst) => {
             const meta = SCHED_STATUS[inst.status] ?? SCHED_STATUS.upcoming
             const editing = editId === inst.id
             return (
-              <li key={inst.id} className="py-2.5">
+              <li
+                key={inst.id}
+                className="border-t py-2.5 first:border-t-0"
+                style={{ borderColor: C.wash }}
+              >
                 {editing ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-label text-grey-400">#{inst.instalmentNo}</span>
+                    <ScheduleNumber n={inst.instalmentNo} />
                     <input
                       type="number"
                       value={draftAmount}
                       onChange={(e) => setDraftAmount(e.target.value)}
-                      className={`${inputClass} w-28`}
+                      className={`${SM_FIELD} w-28`}
                       placeholder="Amount"
+                      aria-label={`Instalment ${inst.instalmentNo} amount`}
                     />
                     <DateField
                       size="sm"
@@ -380,18 +405,23 @@ function PaymentsCard({ award }: { award: AwardData }) {
                       onClick={() => saveEdit(inst.id)}
                       disabled={busyId === inst.id}
                     >
-                      Save
+                      {busyId === inst.id ? 'Saving…' : 'Save'}
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => setEditId(null)}>
+                    <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>
                       Cancel
                     </Button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-label text-grey-400">#{inst.instalmentNo}</span>
-                      <span className="font-medium text-grey-900">{fmtMoney(inst.amount)}</span>
-                      <span className="text-label text-grey-500">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <ScheduleNumber n={inst.instalmentNo} />
+                      <span
+                        className="font-display text-body font-medium tabular-nums"
+                        style={{ color: C.ink }}
+                      >
+                        {fmtMoney(inst.amount)}
+                      </span>
+                      <span className="truncate font-display text-label" style={{ color: C.sub }}>
                         {inst.paidDate
                           ? `Paid ${fmtDate(inst.paidDate)}`
                           : `Due ${fmtDate(inst.dueDate)}`}
@@ -405,12 +435,12 @@ function PaymentsCard({ award }: { award: AwardData }) {
                         <Button
                           onClick={() => togglePaid(inst.id, !inst.paidDate)}
                           disabled={busyId === inst.id}
-                          variant="secondary"
+                          variant={inst.paidDate ? 'ghost' : 'secondary'}
                           size="xs"
                         >
                           {inst.paidDate ? 'Undo' : 'Mark paid'}
                         </Button>
-                        <Button onClick={() => beginEdit(inst)} variant="secondary" size="xs">
+                        <Button onClick={() => beginEdit(inst)} variant="ghost" size="xs">
                           Edit
                         </Button>
                       </div>
@@ -422,13 +452,32 @@ function PaymentsCard({ award }: { award: AwardData }) {
           })}
         </ul>
       )}
-    </Card>
+    </Panel>
+  )
+}
+
+/** The instalment's place in the schedule — a numbered tile rather than "#3", so the
+ *  column of numbers reads as an ordered list at a glance. */
+function ScheduleNumber({ n }: { n: number }) {
+  return (
+    <span
+      className="flex size-6 shrink-0 items-center justify-center rounded-chip font-display text-label font-medium tabular-nums"
+      style={{ backgroundColor: C.wash, color: C.sub }}
+    >
+      {n}
+    </span>
   )
 }
 
 // ─── Reporting schedule ──────────────────────────────────────────────────────
 
-function ReportingCard({ award }: { award: AwardData }) {
+function ReportingPanel({
+  award,
+  nextReport,
+}: {
+  award: AwardData
+  nextReport: AwardData['reportingMilestones'][number] | null
+}) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
@@ -481,13 +530,16 @@ function ReportingCard({ award }: { award: AwardData }) {
     }
   }
 
+  const received = award.reportingMilestones.filter((m) => m.submittedDate).length
+
   const editor = (
     <div className="flex flex-wrap items-center gap-2 py-2.5">
       <input
         value={draftLabel}
         onChange={(e) => setDraftLabel(e.target.value)}
-        className={`${inputClass} flex-1`}
+        className={`${SM_FIELD} min-w-40 flex-1`}
         placeholder="Report label (e.g. Interim report)"
+        aria-label="Report label"
       />
       <DateField
         size="sm"
@@ -501,11 +553,11 @@ function ReportingCard({ award }: { award: AwardData }) {
         onClick={save}
         disabled={busyId != null || !draftLabel.trim() || !draftDate}
       >
-        Save
+        {busyId != null ? 'Saving…' : 'Save'}
       </Button>
       <Button
         size="sm"
-        variant="secondary"
+        variant="ghost"
         onClick={() => {
           setEditId(null)
           setAdding(false)
@@ -517,31 +569,57 @@ function ReportingCard({ award }: { award: AwardData }) {
   )
 
   return (
-    <Card className="px-5 py-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-body font-semibold text-grey-900">Reporting schedule</h2>
-        {award.canEdit && !adding && (
-          <Button variant="text" size="xs" onClick={beginAdd}>
-            + Add date
-          </Button>
-        )}
-      </div>
+    // Payments' twin, and drawn as its twin: title, a meta line, the dated rows. The two
+    // sit side by side, so anything one does that the other doesn't reads as a difference
+    // in the data rather than a difference in the panel.
+    <Panel label="Reporting schedule" className="flex flex-col">
+      <PanelTitle
+        right={
+          <div className="flex items-center gap-3">
+            <span className="font-display text-label font-medium" style={{ color: C.faint }}>
+              {received} of {award.reportingMilestones.length} received
+              {nextReport ? ` · next due ${fmtDate(nextReport.dueDate)}` : ''}
+            </span>
+            {award.canEdit && !adding && (
+              <Button variant="text" size="xs" onClick={beginAdd}>
+                + Add a date
+              </Button>
+            )}
+          </div>
+        }
+      >
+        Reporting schedule
+      </PanelTitle>
 
       {award.reportingMilestones.length === 0 && !adding ? (
-        <p className="mt-4 text-body text-grey-400">No reporting dates set.</p>
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          No reporting dates set — nothing is expected back from this grantee.
+        </p>
       ) : (
-        <ul className="mt-3 divide-y divide-grey-100">
+        <ul className="flex flex-col">
           {award.reportingMilestones.map((m) => {
             const meta = SCHED_STATUS[m.status] ?? SCHED_STATUS.upcoming
             return (
-              <li key={m.id}>
+              <li key={m.id} className="border-t first:border-t-0" style={{ borderColor: C.wash }}>
                 {editId === m.id ? (
                   editor
                 ) : (
                   <div className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="truncate font-medium text-grey-900">{m.label}</span>
-                      <span className="shrink-0 text-label text-grey-500">
+                    {/* Every milestone opens the report screen — `getReport` resolves a
+                        schedule row as well as a submission, so a date still awaited has
+                        a page too, saying what is expected and when. */}
+                    <Link
+                      to="/reports/$reportKey"
+                      params={{ reportKey: m.id }}
+                      className="group flex min-w-0 items-center gap-2.5"
+                    >
+                      <span
+                        className="truncate font-display text-body font-medium group-hover:underline"
+                        style={{ color: C.ink }}
+                      >
+                        {m.label}
+                      </span>
+                      <span className="shrink-0 font-display text-label" style={{ color: C.sub }}>
                         {m.submittedDate
                           ? `Received ${fmtDate(m.submittedDate)}`
                           : `Due ${fmtDate(m.dueDate)}`}
@@ -549,10 +627,10 @@ function ReportingCard({ award }: { award: AwardData }) {
                       <Badge size="sm" className={meta.className}>
                         {meta.label}
                       </Badge>
-                    </div>
+                    </Link>
                     {award.canEdit && (
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <Button onClick={() => beginEdit(m)} variant="secondary" size="xs">
+                        <Button onClick={() => beginEdit(m)} variant="ghost" size="xs">
                           Edit
                         </Button>
                         {!m.submittedDate && (
@@ -575,42 +653,62 @@ function ReportingCard({ award }: { award: AwardData }) {
           {adding && <li>{editor}</li>}
         </ul>
       )}
-    </Card>
+    </Panel>
   )
 }
 
 // ─── Reports received ────────────────────────────────────────────────────────
+//
+// Not a duplicate of the reporting schedule above, though both name the same documents.
+// The schedule is the ADMIN of reporting — dates, whether they were met, and the controls
+// to change them. This is what the reports SAID: the analysis summary and the impact
+// figure, which is the half a trustee reads. It is also the only place an unscheduled
+// report can appear, since one arriving without a milestone belongs to no row up there.
 
-function ReportsCard({ award }: { award: AwardData }) {
+function ReportsPanel({ award }: { award: AwardData }) {
   if (award.reports.length === 0) {
     return (
-      <Card className="px-5 py-4">
-        <h2 className="text-body font-semibold text-grey-900">Reports received</h2>
-        <EmptyState className="mt-3 py-8">
-          <p className="text-body text-grey-500">No reports received yet.</p>
-          <p className="mt-1 text-label text-grey-400">
-            Submitted reports are matched to this award automatically and will appear here.
-          </p>
-        </EmptyState>
-      </Card>
+      <Panel label="Reports received">
+        <PanelTitle>Reports received</PanelTitle>
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          No reports received yet.
+        </p>
+        <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+          Submitted reports are matched to this grant automatically and will appear here.
+        </p>
+      </Panel>
     )
   }
 
   return (
-    <Card className="px-5 py-4">
-      <h2 className="text-body font-semibold text-grey-900">Reports received</h2>
-      <ul className="mt-3 divide-y divide-grey-100">
+    <Panel label="Reports received">
+      <PanelTitle
+        right={
+          <span className="font-display text-label font-medium" style={{ color: C.faint }}>
+            {award.reports.length} received
+          </span>
+        }
+      >
+        Reports received
+      </PanelTitle>
+      <ul className="flex flex-col">
         {award.reports.map((r) => (
-          <li key={r.id} className="py-3">
+          <li key={r.id} className="border-t first:border-t-0" style={{ borderColor: C.wash }}>
             <Link
               to="/reports/$reportKey"
               params={{ reportKey: r.id }}
-              className="group flex items-start justify-between gap-4"
+              className="group flex items-start justify-between gap-4 py-3"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-grey-900 group-hover:underline">{r.label}</span>
+                  <span
+                    className="font-display text-body font-medium group-hover:underline"
+                    style={{ color: C.ink }}
+                  >
+                    {r.label}
+                  </span>
                   <Badge
+                    size="sm"
                     className={
                       r.status === 'reviewed'
                         ? 'bg-success/10 text-success'
@@ -620,52 +718,159 @@ function ReportsCard({ award }: { award: AwardData }) {
                     {r.status === 'reviewed' ? 'Reviewed' : 'Received'}
                   </Badge>
                 </div>
-                <p className="mt-1 line-clamp-2 text-body text-grey-600">
+                <p
+                  className="mt-1 line-clamp-2 font-display text-body leading-relaxed"
+                  style={{ color: C.sub }}
+                >
                   {r.aiSummary ?? r.impactSummary}
                 </p>
               </div>
               <div className="shrink-0 text-right">
                 {r.impactQuantity != null && (
-                  <p className="text-body font-semibold text-grey-900">
+                  <p
+                    className="font-display text-title font-medium tabular-nums"
+                    style={{ color: C.ink }}
+                  >
                     {Number(r.impactQuantity).toLocaleString('en-GB')}
                     {r.impactUnitLabel && (
-                      <span className="ml-1 text-label font-normal text-grey-400">
+                      <span
+                        className="ml-1 font-display text-label font-normal"
+                        style={{ color: C.faint }}
+                      >
                         {r.impactUnitLabel}
                       </span>
                     )}
                   </p>
                 )}
-                <p className="mt-0.5 text-label text-grey-400">{fmtDate(r.submittedAt)}</p>
+                <p className="mt-0.5 font-display text-label" style={{ color: C.faint }}>
+                  {fmtDate(r.submittedAt)}
+                </p>
               </div>
             </Link>
           </li>
         ))}
       </ul>
-    </Card>
+    </Panel>
+  )
+}
+
+// ─── Award letter ────────────────────────────────────────────────────────────
+
+const LETTER_STATUS: Record<string, { label: string; className: string }> = {
+  sent: { label: 'Sent', className: 'bg-success/10 text-success' },
+  draft: { label: 'Not sent', className: 'bg-warning/10 text-warning' },
+  failed: { label: 'Failed to send', className: 'bg-danger/10 text-danger' },
+}
+
+/**
+ * The letter this grantee was actually sent. Shown verbatim from storage rather than
+ * re-rendered, so it still reads as what was agreed even after the template, the
+ * schedule or the conditions have moved on.
+ */
+function AwardLetterPanel({ award, onRead }: { award: AwardData; onRead: () => void }) {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const letter = award.letter
+
+  async function handleResend() {
+    setBusy(true)
+    setError(null)
+    try {
+      await resendAwardLetter({ data: { awardId: award.id } })
+      await router.invalidate()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The letter could not be sent')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!letter) {
+    return (
+      <Panel label="Award letter">
+        <PanelTitle>Award letter</PanelTitle>
+        <p className="font-display text-body leading-relaxed" style={{ color: C.sub }}>
+          No letter was issued for this grant. Letters are written and sent during award set-up —
+          grants made before that existed, and grants imported from a back catalogue, have none.
+        </p>
+      </Panel>
+    )
+  }
+
+  const status = LETTER_STATUS[letter.status] ?? LETTER_STATUS.draft!
+
+  return (
+    <Panel label="Award letter">
+      <PanelTitle
+        right={
+          <div className="flex items-center gap-2">
+            <Badge className={status.className}>{status.label}</Badge>
+            <Button variant="secondary" size="sm" onClick={onRead}>
+              Read the letter
+            </Button>
+            {award.canEdit && (
+              <Button variant="tinted" size="sm" onClick={handleResend} disabled={busy}>
+                {busy ? 'Sending…' : letter.status === 'sent' ? 'Send again' : 'Send now'}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        Award letter
+      </PanelTitle>
+
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        <KeyFact label="Sent to" value={letter.recipientEmail ?? 'Nobody — no address'} />
+        <KeyFact label="Replies to" value={letter.replyTo ?? '—'} />
+        <KeyFact label="Sent" value={letter.sentAt ? fmtDate(letter.sentAt) : 'Not sent'} />
+        <KeyFact label="Subject" value={letter.subject} />
+      </div>
+
+      {letter.status !== 'sent' && letter.failureReason && (
+        <p
+          className="mt-3 rounded-chip px-3 py-2 font-display text-label"
+          style={{ backgroundColor: C.warningWash, color: C.warning }}
+        >
+          {letter.failureReason}
+        </p>
+      )}
+      {error && (
+        <p
+          className="mt-3 rounded-chip px-3 py-2 font-display text-label"
+          style={{ backgroundColor: C.dangerWash, color: C.danger }}
+        >
+          {error}
+        </p>
+      )}
+    </Panel>
   )
 }
 
 // ─── Source application ──────────────────────────────────────────────────────
 
-function ApplicationCard({ award }: { award: AwardData }) {
+function ApplicationPanel({ award }: { award: AwardData }) {
   const a = award.application
   const uplift = award.amountAwarded - a.amountRequested
 
   return (
-    <Card className="px-5 py-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-body font-semibold text-grey-900">Source application</h2>
-        <TextLink
-          to="/applications/$applicationId"
-          params={{ applicationId: a.id }}
-          className="text-label"
-        >
-          View application →
-        </TextLink>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-body sm:grid-cols-4">
-        <Field label="Requested" value={fmtMoney(a.amountRequested)} />
-        <Field
+    <Panel label="Source application">
+      <PanelTitle
+        right={
+          <TextLink
+            to="/applications/$applicationId"
+            params={{ applicationId: a.id }}
+            className="text-label"
+          >
+            View the application →
+          </TextLink>
+        }
+      >
+        Source application
+      </PanelTitle>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 xl:grid-cols-5">
+        <KeyFact label="Requested" value={fmtMoney(a.amountRequested)} />
+        <KeyFact
           label="Awarded"
           value={fmtMoney(award.amountAwarded)}
           sub={
@@ -676,29 +881,24 @@ function ApplicationCard({ award }: { award: AwardData }) {
                 : `${fmtMoney(-uplift)} below`
           }
         />
-        <Field
+        <KeyFact
           label="Custodian score"
           value={
             a.custodianScoreStatus === 'scored' && a.custodianScore != null
               ? `${a.custodianScore}/100`
               : '—'
           }
+          sub={a.custodianScoreStatus === 'scored' ? 'out of 100' : 'not scored'}
         />
-        <Field label="Registration" value={a.charityNumber ?? a.companyNumber ?? '—'} />
-        {a.externalApplicationId && (
-          <Field label="Their reference" value={a.externalApplicationId} />
-        )}
+        <KeyFact
+          label="Registration"
+          value={a.charityNumber ?? a.companyNumber ?? '—'}
+          sub={
+            a.charityNumber ? 'charity number' : a.companyNumber ? 'company number' : 'none held'
+          }
+        />
+        <KeyFact label="Their reference" value={a.externalApplicationId ?? '—'} />
       </div>
-    </Card>
-  )
-}
-
-function Field({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div>
-      <p className="text-label uppercase tracking-wide text-grey-400">{label}</p>
-      <p className="mt-0.5 font-medium text-grey-900">{value}</p>
-      {sub && <p className="text-label text-grey-400">{sub}</p>}
-    </div>
+    </Panel>
   )
 }

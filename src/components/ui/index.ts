@@ -1,5 +1,13 @@
 export { cn } from './cn'
-export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button'
+export {
+  Button,
+  LinkButton,
+  type ButtonProps,
+  type LinkButtonProps,
+  type ButtonVariant,
+  type ButtonSize,
+} from './Button'
+export { Panel, PanelTitle, KeyFact, HeaderPill, DetailHeader } from './Detail'
 export { Input, Textarea, Select, Label, FIELD_SURFACE } from './fields'
 export { Listbox, ListboxPanel, type ListboxOption } from './Listbox'
 export { Card, EmptyState } from './Card'

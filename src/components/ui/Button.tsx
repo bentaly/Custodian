@@ -1,4 +1,5 @@
-import { forwardRef, type ButtonHTMLAttributes } from 'react'
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { Link, type LinkComponentProps } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { cn } from './cn'
 import { C, CONTROL, type ControlSize } from './tokens'
@@ -94,6 +95,29 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   iconPosition?: 'left' | 'right'
 }
 
+/**
+ * The box a button wears, without the button. Shared with `LinkButton` below so a
+ * control that navigates is drawn by the same table as one that acts — the two used to
+ * be kept in step by hand, which is where "this anchor is 2px shorter" came from.
+ */
+function buttonChrome(variant: ButtonVariant, size: ButtonSize, iconOnly: boolean) {
+  const v = VARIANT[variant]
+  const s = SIZE[size]
+  // A text button has no box: no height, no padding, no radius — otherwise it cannot
+  // sit inside a sentence or under a paragraph.
+  const box = variant === 'text' ? '' : iconOnly ? s.square : s.box
+  return {
+    className: cn(
+      'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-display disabled:cursor-not-allowed disabled:opacity-50',
+      s.text,
+      box,
+      v.className,
+    ),
+    style: v.style,
+    iconSize: size === 'md' ? 18 : 16,
+  }
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     variant = 'primary',
@@ -108,27 +132,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   },
   ref,
 ) {
-  const v = VARIANT[variant]
-  const s = SIZE[size]
-  const iconOnly = icon != null && children == null
-  const iconSize = size === 'md' ? 18 : 16
-
-  // A text button has no box: no height, no padding, no radius — otherwise it cannot
-  // sit inside a sentence or under a paragraph.
-  const box = variant === 'text' ? '' : iconOnly ? s.square : s.box
+  const chrome = buttonChrome(variant, size, icon != null && children == null)
+  const iconSize = chrome.iconSize
 
   return (
     <button
       ref={ref}
       type={type}
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-display disabled:cursor-not-allowed disabled:opacity-50',
-        s.text,
-        box,
-        v.className,
-        className,
-      )}
-      style={{ ...v.style, ...style }}
+      className={cn(chrome.className, className)}
+      style={{ ...chrome.style, ...style }}
       {...props}
     >
       {icon && iconPosition === 'left' && (
@@ -141,3 +153,40 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   )
 })
+
+export type LinkButtonProps = Omit<LinkComponentProps<'a'>, 'children'> & {
+  variant?: ButtonVariant
+  size?: ButtonSize
+  icon?: IconElement
+  children?: ReactNode
+}
+
+/**
+ * A `Link` wearing a button's clothes — "View application", "View grant", "Back to
+ * awards". It is the navigation counterpart of `Button` exactly as `TextLink` is of the
+ * `text` variant, and exists for the same reason: the detail screens each had their own
+ * anchor hand-painted with the button's height, radius and border, which is a copy of a
+ * design decision that then has to be maintained in four places. Use it whenever the
+ * control goes somewhere; use `Button` whenever it acts on this page.
+ */
+export function LinkButton({
+  variant = 'secondary',
+  size = 'md',
+  icon,
+  className,
+  children,
+  style,
+  ...props
+}: LinkButtonProps) {
+  const chrome = buttonChrome(variant, size, icon != null && children == null)
+  return (
+    <Link
+      className={cn(chrome.className, className)}
+      style={{ ...chrome.style, ...style }}
+      {...props}
+    >
+      {icon && <HugeiconsIcon icon={icon} size={chrome.iconSize} color="currentColor" />}
+      {children}
+    </Link>
+  )
+}
