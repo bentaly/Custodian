@@ -6,7 +6,13 @@ import { getDb } from '../db'
 import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
-import { dueStatus, type DueStatus } from '../../lib/schedule'
+import {
+  addMonthsIso,
+  dueStatus,
+  endOfMonthIso,
+  todayIso,
+  type DueStatus,
+} from '../../lib/schedule'
 import { type FacetOption } from '../../lib/facets'
 import { PAGE_SIZE } from '../../lib/pagination'
 import {
@@ -16,6 +22,7 @@ import {
   type ArrivedQuery,
   type ArrivedRow,
   type OutstandingQuery,
+  type OutstandingRow,
 } from '../reports/query'
 
 export type { DueStatus } from '../../lib/schedule'
@@ -40,8 +47,8 @@ export const listReports = createServerFn({ method: 'GET' })
   .validator(
     z
       .object({
-        /** Which received-status tab is open; absent means all of them. */
-        status: z.enum(['received', 'reviewed']).optional(),
+        /** Which stage of the lifecycle is open; absent is the work sitting with you. */
+        tab: z.enum(['to_review', 'reviewed', 'awaiting']).optional(),
         /**
          * The screen's context filter. Unlike the transient pills on the list screens
          * this narrows EVERYTHING — table, tab counts, KPIs and the chase-list drawer —
@@ -67,9 +74,9 @@ export const listReports = createServerFn({ method: 'GET' })
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional(),
-        /** Column sort over `items`; the chase-list keeps its urgency order. */
+        /** Column sort. `received` belongs to the document tabs, `due` to the awaited one. */
         sortBy: z
-          .enum(['organisation', 'programme', 'round', 'report', 'received', 'status'])
+          .enum(['organisation', 'programme', 'round', 'report', 'received', 'due'])
           .optional(),
         sortDir: z.enum(['asc', 'desc']).optional(),
         page: z.number().int().positive().optional(),
@@ -84,7 +91,13 @@ export const listReports = createServerFn({ method: 'GET' })
 
 /** Everything the screen is filtered, sorted and paged by — the validator's shape. */
 export type ReportsListInput = {
-  status?: ReceivedStatus
+  /**
+   * Which stage of the reporting lifecycle is open. The two document tabs sit together
+   * because they hold the same kind of row at two stages; `awaiting` holds a different
+   * kind entirely — a date nobody has answered yet — which is why it is last and why
+   * its page is a separate query rather than a filter over the same one.
+   */
+  tab?: ReportsTab
   programmeId?: string
   roundId?: string
   tag?: string
@@ -95,16 +108,19 @@ export type ReportsListInput = {
   page?: number
 }
 
-type ReportSortKey = 'organisation' | 'programme' | 'round' | 'report' | 'received' | 'status'
+export type ReportsTab = 'to_review' | 'reviewed' | 'awaiting'
+
+type ReportSortKey = 'organisation' | 'programme' | 'round' | 'report' | 'received' | 'due'
 
 /**
  * The Reports screen, as a plain function of (connection, tenant, filters) — the same
  * seam Finance and Awards have, so everything below the auth check runs without a
  * session.
  *
- * One `db.batch()`: the table's page, its count, both tab counts, the chase-list, the
- * outstanding tallies and three facets. One round trip, one snapshot, so the drawer's
- * badge cannot disagree with the drawer.
+ * One `db.batch()`: a page of each list, all three tab counts, the panel's horizons and
+ * three facets. One round trip, one snapshot, so a tab's count cannot disagree with the
+ * list behind it. Both page queries always run — each is 25 rows and only one is
+ * rendered — which keeps the batch a fixed shape rather than branching on the tab.
  */
 export async function reportsList(
   db: ReturnType<typeof getDb>,
@@ -124,6 +140,7 @@ export async function reportsList(
   )
   const onTab = (status: ReceivedStatus) => and(arrivedWhere, eq(arrived.status, status))
   const outstandingWhere = structuralWhere(outstanding, data)
+  const tab: ReportsTab = data.tab ?? 'to_review'
 
   const countArrived = (where: SQL | undefined) =>
     db
@@ -156,11 +173,12 @@ export async function reportsList(
 
   const [
     rows,
-    tabAll,
-    tabReceived,
+    awaitingRows,
+    tabToReview,
     tabReviewed,
-    chase,
-    dueTallies,
+    tabAwaiting,
+    horizonTotals,
+    horizonItems,
     progA,
     progO,
     themeA,
@@ -171,28 +189,25 @@ export async function reportsList(
     db
       .select()
       .from(arrived)
-      .where(data.status ? onTab(data.status) : arrivedWhere)
-      .orderBy(...orderFor(arrived, data.sortBy, data.sortDir))
+      .where(onTab(tab === 'reviewed' ? 'reviewed' : 'received'))
+      .orderBy(...arrivedOrder(arrived, data.sortBy, data.sortDir))
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
-    countArrived(arrivedWhere),
-    countArrived(onTab('received')),
-    countArrived(onTab('reviewed')),
-    // The chase-list is short by nature and read as a whole, so it stays unpaged —
-    // most overdue first, because it is ordered by urgency rather than by recency.
     db
       .select()
       .from(outstanding)
       .where(outstandingWhere)
-      .orderBy(sql`${outstanding.dueDate} asc`),
+      .orderBy(...outstandingOrder(outstanding, data.sortBy, data.sortDir))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    countArrived(onTab('received')),
+    countArrived(onTab('reviewed')),
     db
-      .select({
-        overdue: sql<number>`(count(*) filter (where ${outstanding.status} = 'overdue'))::int`,
-        dueSoon: sql<number>`(count(*) filter (where ${outstanding.status} = 'due_soon'))::int`,
-        outstanding: sql<number>`(count(*))::int`,
-      })
+      .select({ n: sql<number>`(count(*))::int` })
       .from(outstanding)
       .where(outstandingWhere),
+    horizonCounts(db, outstanding, outstandingWhere),
+    horizonSample(db, outstanding, outstandingWhere),
     facetOn(arrived, arrived.programmeId, arrived.programmeName),
     facetOn(outstanding, outstanding.programmeId, outstanding.programmeName),
     themeFacet(arrived),
@@ -201,39 +216,26 @@ export async function reportsList(
     facetOn(outstanding, outstanding.roundId, outstanding.roundName),
   ])
 
-  // `total` is the count of the OPEN tab — it is what the pager reads, so it has to be
-  // the size of the list being paged rather than of everything behind the tabs.
-  const total =
-    data.status === 'received'
-      ? (tabReceived[0]?.n ?? 0)
-      : data.status === 'reviewed'
-        ? (tabReviewed[0]?.n ?? 0)
-        : (tabAll[0]?.n ?? 0)
+  const tabCounts = {
+    to_review: tabToReview[0]?.n ?? 0,
+    reviewed: tabReviewed[0]?.n ?? 0,
+    awaiting: tabAwaiting[0]?.n ?? 0,
+  }
 
   return {
+    // The documents page and the awaited page are separate fields rather than one
+    // `items`: they are different entities, and collapsing them is exactly what made a
+    // never-submitted milestone look like a report on the screen this replaced.
     items: rows.map(toReportRow),
-    total,
+    awaiting: awaitingRows.map(toAwaitingRow),
+    total: tabCounts[tab],
     page,
     pageSize: PAGE_SIZE,
-    upcoming: chase.map((r) => ({
-      key: r.key,
-      awardId: r.awardId,
-      applicationId: r.applicationId,
-      organisationName: r.organisationName,
-      programmeId: r.programmeId,
-      programmeName: r.programmeName,
-      roundId: r.roundId,
-      roundName: r.roundName,
-      tags: (r.tags as string[] | null) ?? [],
-      label: r.label,
-      dueDate: r.dueDate,
-      status: r.status as DueStatus,
-    })),
-    totals: {
-      received: tabReceived[0]?.n ?? 0,
-      reviewed: tabReviewed[0]?.n ?? 0,
-      ...dueTallies[0]!,
-    },
+    tabCounts,
+    // The panel above the tabs: portfolio-wide by the app's rule that a control narrows
+    // only what is below it — except for the structural filters, which are this screen's
+    // context and narrow everything.
+    horizons: toHorizons(horizonTotals, horizonItems),
     facets: {
       programmes: mergeFacets(progA, progO, 'Untitled programme'),
       themes: mergeFacets(themeA, themeO, ''),
@@ -242,15 +244,124 @@ export async function reportsList(
   }
 }
 
+/** How many a horizon names before it just says how many more there are. */
+const HORIZON_SHOWN = 4
+
+/** The three horizons the panel reads, as one CASE both its queries share. */
+function horizonOf(q: OutstandingQuery): SQL<string | null> {
+  const today = todayIso()
+  return sql<string | null>`case
+    when ${q.dueDate} < ${today} then 'overdue'
+    when ${q.dueDate} <= ${endOfMonthIso(today)} then 'thisMonth'
+    when ${q.dueDate} <= ${addMonthsIso(today, 3)} then 'next3Months'
+  end`
+}
+
+/** Each horizon's count — the panel's headline figures. */
+function horizonCounts(db: ReturnType<typeof getDb>, q: OutstandingQuery, where: SQL | undefined) {
+  return (
+    db
+      .select({ bucket: horizonOf(q), count: sql<number>`(count(*))::int` })
+      .from(q)
+      .where(where)
+      // `group by 1`, not the expression again: drizzle binds the dates as fresh
+      // parameters each time it emits the CASE, and Postgres matches GROUP BY
+      // expressions syntactically, so the repeated version is a different expression.
+      .groupBy(sql`1`)
+  )
+}
+
+/**
+ * The first few in each horizon, by date. `row_number()` rather than a query per
+ * bucket: a dozen rows however large the portfolio, which is what lets the panel stay
+ * honest without loading the schedule.
+ */
+function horizonSample(db: ReturnType<typeof getDb>, q: OutstandingQuery, where: SQL | undefined) {
+  const bucket = horizonOf(q)
+  const ranked = db
+    .select({
+      bucket: bucket.as('bucket'),
+      key: sql<string>`${q.key}`.as('key'),
+      organisationName: sql<string>`${q.organisationName}`.as('organisation_name'),
+      programmeName: sql<string | null>`${q.programmeName}`.as('programme_name'),
+      label: sql<string>`${q.label}`.as('label'),
+      dueDate: sql<string>`${q.dueDate}`.as('due_date'),
+      rank: sql<number>`row_number() over (partition by ${bucket} order by ${q.dueDate}, ${q.key})`.as(
+        'rank',
+      ),
+    })
+    .from(q)
+    .where(where)
+    .as('ranked')
+  return db
+    .select()
+    .from(ranked)
+    .where(sql`${ranked.rank} <= ${HORIZON_SHOWN} and ${ranked.bucket} is not null`)
+    .orderBy(sql`${ranked.dueDate} asc`)
+}
+
+type HorizonKey = 'overdue' | 'thisMonth' | 'next3Months'
+type HorizonItem = {
+  key: string
+  organisationName: string
+  programmeName: string | null
+  label: string
+  dueDate: string
+}
+
+function toHorizons(
+  counts: Array<{ bucket: string | null; count: number }>,
+  items: Array<HorizonItem & { bucket: string | null; rank: number }>,
+): Record<HorizonKey, { count: number; items: HorizonItem[] }> {
+  const out = {} as Record<HorizonKey, { count: number; items: HorizonItem[] }>
+  for (const key of ['overdue', 'thisMonth', 'next3Months'] as HorizonKey[]) {
+    out[key] = {
+      count: counts.find((c) => c.bucket === key)?.count ?? 0,
+      // `bucket` and `rank` are how the query picked these rows; neither is anything the
+      // panel renders, so they stop here rather than riding the wire.
+      items: items
+        .filter((i) => i.bucket === key)
+        .map(({ key: k, organisationName, programmeName, label, dueDate }) => ({
+          key: k,
+          organisationName,
+          programmeName,
+          label,
+          dueDate,
+        })),
+    }
+  }
+  return out
+}
+
+/** The awaited row: a date nobody has answered yet, and how late it is. */
+function toAwaitingRow(r: OutstandingRow) {
+  return {
+    key: r.key,
+    awardId: r.awardId,
+    applicationId: r.applicationId,
+    organisationName: r.organisationName,
+    programmeId: r.programmeId,
+    programmeName: r.programmeName,
+    roundId: r.roundId,
+    roundName: r.roundName,
+    tags: (r.tags as string[] | null) ?? [],
+    label: r.label,
+    dueDate: r.dueDate,
+    status: r.status as DueStatus,
+  }
+}
+
 /** A tenant-less caller (a superadmin with no client) still gets the screen's shape. */
 export function emptyReportsList(): Awaited<ReturnType<typeof reportsList>> {
+  const none = { count: 0, items: [] }
   return {
     items: [],
+    awaiting: [],
     total: 0,
     page: 1,
     pageSize: PAGE_SIZE,
-    upcoming: [],
-    totals: emptyTotals(),
+    tabCounts: { to_review: 0, reviewed: 0, awaiting: 0 },
+    horizons: { overdue: none, thisMonth: none, next3Months: none },
     facets: { programmes: [], themes: [], rounds: [] },
   }
 }
@@ -317,7 +428,7 @@ function toReportRow(r: ArrivedRow) {
  * Column sort, in SQL. Text sorts case-insensitively with NULLs last; with no explicit
  * sort the newest report is first, because it is the one you came to read.
  */
-function orderFor(
+function arrivedOrder(
   q: ArrivedQuery,
   by: ReportSortKey | undefined,
   dir: 'asc' | 'desc' | undefined,
@@ -335,11 +446,36 @@ function orderFor(
       return [text(q.label)]
     case 'received':
       return [sql`${q.submittedAt} ${d}`]
-    // Unread before read: `received` is a report waiting on someone.
-    case 'status':
-      return [sql`case ${q.status} when 'received' then 0 else 1 end ${d}`]
     default:
       return [sql`${q.submittedAt} desc`]
+  }
+}
+
+/**
+ * The awaited list's order. It defaults to most overdue first — this tab is a
+ * chase-list, so urgency is the order, exactly as the panel above it is ordered. The
+ * `received` key has no meaning here (nothing has arrived) and falls through to it.
+ */
+function outstandingOrder(
+  q: OutstandingQuery,
+  by: ReportSortKey | undefined,
+  dir: 'asc' | 'desc' | undefined,
+): SQL[] {
+  const d = sql.raw(dir === 'asc' ? 'asc' : 'desc')
+  const text = (col: SQLWrapper) => sql`lower(${col}) ${d} nulls last`
+  switch (by) {
+    case 'organisation':
+      return [text(q.organisationName)]
+    case 'programme':
+      return [text(q.programmeName)]
+    case 'round':
+      return [text(q.roundName)]
+    case 'report':
+      return [text(q.label)]
+    case 'due':
+      return [sql`${q.dueDate} ${d}`]
+    default:
+      return [sql`${q.dueDate} asc`]
   }
 }
 

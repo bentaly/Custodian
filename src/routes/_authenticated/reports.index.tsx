@@ -1,13 +1,9 @@
-import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { listReports, type ReceivedStatus, type ReportRowStatus } from '../../server/fns/reports'
+import { listReports, type ReportRowStatus } from '../../server/fns/reports'
 import {
-  Badge,
-  Button,
   Card,
   DataTable,
   DateRangePicker,
-  Dialog,
   EmptyState,
   FilterPill,
   Horizon,
@@ -20,25 +16,25 @@ import {
 import { C } from '../../components/ui/tokens'
 import { facetLabel } from '../../lib/facets'
 import { fmtDate } from '../../lib/format'
-import { addMonthsIso, endOfMonthIso, todayIso } from '../../lib/schedule'
 
 // From the server fn, not the route loader: `Route.useLoaderData` is circular here
 // (the route's component uses this type), which resolves to `any`.
 type ReportItem = Awaited<ReturnType<typeof listReports>>['items'][number]
-/** A date we are still waiting on — the chase-list, shared by the panel and the drawer. */
-type UpcomingRow = Awaited<ReturnType<typeof listReports>>['upcoming'][number]
+/** A date nobody has answered yet — the Awaiting tab's row. */
+type AwaitingItem = Awaited<ReturnType<typeof listReports>>['awaiting'][number]
+type Horizons = Awaited<ReturnType<typeof listReports>>['horizons']
 
 // `report` stays a sort key even though the Report column folded into the identity cell
 // below: the server still accepts it, and the label is the obvious thing to want back as
 // a column the moment a foundation names its milestones something worth sorting on.
-type SortKey = 'organisation' | 'programme' | 'round' | 'report' | 'received' | 'status'
+type SortKey = 'organisation' | 'programme' | 'round' | 'report' | 'received' | 'due'
 type SortDir = 'asc' | 'desc'
-const SORT_KEYS: SortKey[] = ['organisation', 'programme', 'round', 'report', 'received', 'status']
-/** Text reads best A–Z; the received date reads best newest-first. */
-const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round', 'report', 'status']
+const SORT_KEYS: SortKey[] = ['organisation', 'programme', 'round', 'report', 'received', 'due']
+/** Text reads best A–Z; the received date newest-first, and a due date soonest-first. */
+const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round', 'report', 'due']
 
 type ReportsSearch = {
-  tab?: ReceivedStatus
+  tab?: Tab
   programmeId?: string
   roundId?: string
   tag?: string
@@ -55,7 +51,9 @@ export const Route = createFileRoute('/_authenticated/reports/')({
   // The tab, sort and page live in the URL, so a report you were looking at is a link
   // you can send someone — and so the loader can sort and page on the server.
   validateSearch: (search: Record<string, unknown>): ReportsSearch => ({
-    tab: search.tab === 'received' || search.tab === 'reviewed' ? search.tab : undefined,
+    // `to_review` is the default and so has no value in the URL — it is the work sitting
+    // with you, and the app lands on its first tab everywhere else.
+    tab: search.tab === 'reviewed' || search.tab === 'awaiting' ? search.tab : undefined,
     programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
     roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
     tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
@@ -85,7 +83,7 @@ export const Route = createFileRoute('/_authenticated/reports/')({
   loader: async ({ deps }) =>
     listReports({
       data: {
-        status: deps.tab,
+        tab: deps.tab,
         programmeId: deps.programmeId,
         roundId: deps.roundId,
         tag: deps.tag,
@@ -107,14 +105,6 @@ const STATUS_LABELS: Record<ReportRowStatus, string> = {
   reviewed: 'Reviewed',
 }
 
-const STATUS_COLOURS: Record<ReportRowStatus, string> = {
-  overdue: 'bg-danger/10 text-danger',
-  due_soon: 'bg-warning/10 text-warning',
-  upcoming: 'bg-grey-100 text-grey-600',
-  received: 'bg-info/10 text-info',
-  reviewed: 'bg-success/10 text-success',
-}
-
 // Hex per status for the shared StatusPill (dot + tinted background).
 const STATUS_HEX: Record<ReportRowStatus, string> = {
   overdue: 'var(--color-danger)',
@@ -124,7 +114,15 @@ const STATUS_HEX: Record<ReportRowStatus, string> = {
   reviewed: 'var(--color-success)',
 }
 
-type Tab = 'all' | ReceivedStatus
+/**
+ * The reporting lifecycle, left to right. The two document tabs sit together because
+ * they hold the same kind of row at two stages; `awaiting` holds a different kind — a
+ * date nobody has answered — so it goes last, and the screen lands on the first tab as
+ * every other screen does. There is deliberately no "All": it would mix documents with
+ * expectations, which is the merge that made a never-submitted milestone look like a
+ * report in the first place.
+ */
+type Tab = 'to_review' | 'reviewed' | 'awaiting'
 
 const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   {
@@ -208,8 +206,91 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   },
 ]
 
+/**
+ * The Awaiting tab's columns. Same first three as the documents table, so switching tab
+ * does not move the grantee, the programme and the round out from under you — then Due
+ * rather than Received, and a status from the other vocabulary (`overdue` / `due_soon` /
+ * `upcoming`), because these rows have not arrived and cannot be "reviewed".
+ */
+const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
+  {
+    id: 'organisation',
+    sortable: true,
+    header: 'Organisation',
+    width: 'sm:w-[36%]',
+    cell: (item) => (
+      <div className="flex items-center gap-2">
+        <div
+          className="flex size-10 shrink-0 items-center justify-center rounded-chip"
+          style={{ backgroundColor: C.wash }}
+        >
+          <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
+            {initials(item.organisationName)}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <Link
+            to="/reports/$reportKey"
+            params={{ reportKey: item.key }}
+            onClick={(e) => e.stopPropagation()}
+            className="block truncate font-display text-body font-medium hover:underline"
+            style={{ color: C.ink }}
+          >
+            {item.organisationName}
+          </Link>
+          <p className="truncate font-display text-label" style={{ color: C.sub }}>
+            {item.label || '—'}
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'programme',
+    sortable: true,
+    hideBelow: 'lg',
+    header: 'Programme',
+    cell: (item) => (
+      <span className="font-display text-body text-grey-500">{item.programmeName ?? '—'}</span>
+    ),
+  },
+  {
+    id: 'round',
+    sortable: true,
+    hideBelow: 'xl',
+    header: 'Round',
+    cell: (item) => (
+      <span className="font-display text-body text-grey-500">{item.roundName ?? '—'}</span>
+    ),
+  },
+  {
+    id: 'due',
+    sortable: true,
+    hideBelow: 'md',
+    header: 'Due',
+    width: 'sm:w-[160px]',
+    cell: (item) => (
+      <span
+        className={`whitespace-nowrap font-display text-body ${
+          item.status === 'overdue' ? 'font-medium text-danger' : 'text-grey-500'
+        }`}
+      >
+        {fmtDate(item.dueDate)}
+      </span>
+    ),
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    width: 'sm:w-[140px]',
+    cell: (item) => (
+      <StatusPill label={STATUS_LABELS[item.status]} colour={STATUS_HEX[item.status]} />
+    ),
+  },
+]
+
 function ReportsPage() {
-  const { items, total, pageSize, upcoming, totals, facets } = Route.useLoaderData()
+  const { items, awaiting, total, pageSize, tabCounts, horizons, facets } = Route.useLoaderData()
   const navigate = Route.useNavigate()
   const {
     tab: tabParam,
@@ -222,17 +303,23 @@ function ReportsPage() {
     sortDir,
     page,
   } = Route.useSearch()
-  const tab: Tab = tabParam ?? 'all'
-  const [dueOpen, setDueOpen] = useState(false)
+  const tab: Tab = tabParam ?? 'to_review'
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
-  // Switching tab always starts at page 1 — page 3 of "All" is not page 3 of "Received".
-  // The sort survives it: the tab says which reports, the sort says how you read them.
+  // Switching tab always starts at page 1 — page 3 of one tab is not page 3 of another.
+  // The sort does NOT survive it: the two document tabs sort by a received date the
+  // awaited list has not got, so carrying it over would order by a column that isn't there.
   function setTab(next: Tab) {
     navigate({
-      search: (prev) => ({ ...prev, tab: next === 'all' ? undefined : next, page: undefined }),
+      search: (prev) => ({
+        ...prev,
+        tab: next === 'to_review' ? undefined : next,
+        sortBy: undefined,
+        sortDir: undefined,
+        page: undefined,
+      }),
     })
   }
 
@@ -265,12 +352,13 @@ function ReportsPage() {
 
   // "Outstanding" reads as "late" to most people, and these are mostly reports that
   // simply are not due yet — so the whole screen says "awaited", and overdue is called
-  // out separately wherever it applies. Same wording as the button and the dialog.
-  const received = totals.received + totals.reviewed
+  // out separately wherever it applies.
+  const received = tabCounts.to_review + tabCounts.reviewed
+  const overdue = horizons.overdue.count
   const metaLine = [
     `${received} report${received === 1 ? '' : 's'} received`,
-    totals.outstanding > 0 ? `${totals.outstanding} awaited` : 'none awaited',
-    totals.overdue > 0 ? `${totals.overdue} overdue` : null,
+    tabCounts.awaiting > 0 ? `${tabCounts.awaiting} awaited` : 'none awaited',
+    overdue > 0 ? `${overdue} overdue` : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -295,7 +383,7 @@ function ReportsPage() {
           of the row order. The panel is about reports that have NOT arrived, so it is a
           different question from the table rather than a header for it. */}
       <ReportsDue
-        rows={upcoming}
+        horizons={horizons}
         onOpen={(key) => navigate({ to: '/reports/$reportKey', params: { reportKey: key } })}
       />
 
@@ -303,33 +391,20 @@ function ReportsPage() {
           narrow them, the rows, and the pager. */}
       <Card className="flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* "To review" rather than "Received": every reviewed report was received too,
+              so that pair named overlapping sets. This one names the work. The overdue
+              count is deliberately NOT repeated on the Awaiting tab — the panel directly
+              above carries it in red, and the same alarm twice reads as two problems. */}
           <Tabs
-            ariaLabel="Report status"
+            ariaLabel="Reporting stage"
             value={tab}
             onChange={setTab}
             items={[
-              { id: 'all' as Tab, label: 'All', count: received },
-              { id: 'received' as Tab, label: STATUS_LABELS.received, count: totals.received },
-              { id: 'reviewed' as Tab, label: STATUS_LABELS.reviewed, count: totals.reviewed },
+              { id: 'to_review' as Tab, label: 'To review', count: tabCounts.to_review },
+              { id: 'reviewed' as Tab, label: 'Reviewed', count: tabCounts.reviewed },
+              { id: 'awaiting' as Tab, label: 'Awaiting', count: tabCounts.awaiting },
             ]}
           />
-          {/* "Outstanding" read as "overdue" — the one thing these are not, necessarily.
-              They are reports we are still waiting for, most of them not yet due, so the
-              button says what it holds and calls the overdue ones out separately: the
-              count you act on today is the smaller, redder one. */}
-          <Button variant="secondary" onClick={() => setDueOpen(true)}>
-            Awaiting reports
-            {totals.outstanding > 0 && (
-              <span className="ml-2 rounded-full bg-grey-100 px-1.5 py-0.5 text-label font-semibold text-grey-600">
-                {totals.outstanding}
-              </span>
-            )}
-            {totals.overdue > 0 && (
-              <span className="ml-1 rounded-full bg-danger/10 px-1.5 py-0.5 text-label font-semibold text-danger">
-                {totals.overdue} overdue
-              </span>
-            )}
-          </Button>
         </div>
 
         {/* The shared filter row (see `ui/FilterPill`), in the shared order. Status is
@@ -367,37 +442,69 @@ function ReportsPage() {
           />
         </div>
 
+        {/* Two column sets over one table: an arrived report is a document with a date
+            it came in on, an awaited one is a date with nobody's document against it.
+            The tab says which you are looking at, so the columns follow it — the same
+            way Finance's two tabs carry a different date column each. */}
         <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
-          <DataTable
-            columns={REPORT_COLUMNS}
-            rows={items}
-            rowKey={(item) => item.key}
-            onRowClick={(item) =>
-              navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
-            }
-            sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
-            onSort={setSort}
-            empty={
-              <div className="p-4">
-                <EmptyState>
-                  <p className="text-body text-grey-500">
-                    {programmeId ? 'No reports for this programme.' : 'No reports received yet.'}
-                  </p>
-                  <p className="mt-1 text-label text-grey-400">
-                    Reports appear here as soon as a grantee submits one. Dates you are still
-                    waiting on are under “Awaiting reports”.
-                  </p>
-                </EmptyState>
-              </div>
-            }
-          />
+          {tab === 'awaiting' ? (
+            <DataTable
+              columns={AWAITING_COLUMNS}
+              rows={awaiting}
+              rowKey={(item) => item.key}
+              // A milestone id is a valid `reportKey`, so an awaited report opens on its
+              // own screen — where the grant, the grantee's other reports and what else
+              // is outstanding from them sit, which is what you need to chase it.
+              onRowClick={(item) =>
+                navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
+              }
+              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+              onSort={setSort}
+              empty={
+                <div className="p-4">
+                  <EmptyState>
+                    <p className="text-body text-grey-500">Nothing awaited.</p>
+                    <p className="mt-1 text-label text-grey-400">
+                      Reporting dates appear here as soon as a grant is set up with a schedule.
+                    </p>
+                  </EmptyState>
+                </div>
+              }
+            />
+          ) : (
+            <DataTable
+              columns={REPORT_COLUMNS}
+              rows={items}
+              rowKey={(item) => item.key}
+              onRowClick={(item) =>
+                navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
+              }
+              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+              onSort={setSort}
+              empty={
+                <div className="p-4">
+                  <EmptyState>
+                    <p className="text-body text-grey-500">
+                      {tab === 'reviewed'
+                        ? 'Nothing signed off yet.'
+                        : 'Nothing waiting to be reviewed.'}
+                    </p>
+                    <p className="mt-1 text-label text-grey-400">
+                      Reports appear here as soon as a grantee submits one. Dates you are still
+                      waiting on are under “Awaiting”.
+                    </p>
+                  </EmptyState>
+                </div>
+              }
+            />
+          )}
         </div>
 
         {total > 0 && (
           <Pagination
             page={currentPage}
             pageCount={pageCount}
-            shown={items.length}
+            shown={tab === 'awaiting' ? awaiting.length : items.length}
             total={total}
             noun="reports"
             onChange={(p) =>
@@ -406,13 +513,6 @@ function ReportsPage() {
           />
         )}
       </Card>
-
-      <AwaitingReportsDialog
-        open={dueOpen}
-        onClose={() => setDueOpen(false)}
-        rows={upcoming}
-        onOpen={(key) => navigate({ to: '/reports/$reportKey', params: { reportKey: key } })}
-      />
     </div>
   )
 }
@@ -431,35 +531,13 @@ const HORIZONS = [
   { key: 'next3Months', label: 'Next 3 months', colour: C.brand, empty: 'Nothing else scheduled' },
 ] as const
 
-/** How many a horizon names before it just says how many more there are. */
-const HORIZON_SHOWN = 4
-
-function horizonBuckets(
-  rows: UpcomingRow[],
-): Record<(typeof HORIZONS)[number]['key'], UpcomingRow[]> {
-  const today = todayIso()
-  const monthEnd = endOfMonthIso(today)
-  // Three ROLLING months, as Finance has them: in the last month of a calendar quarter
-  // that bucket would be structurally empty, so a third of the year the panel would
-  // carry a dead card.
-  const horizon = addMonthsIso(today, 3)
-  return {
-    // Overdue is read off the row's own `status` rather than a second date comparison,
-    // so a milestone the drawer badges "Overdue" can never land in a different card here.
-    overdue: rows.filter((r) => r.status === 'overdue'),
-    thisMonth: rows.filter((r) => r.dueDate >= today && r.dueDate <= monthEnd),
-    next3Months: rows.filter((r) => r.dueDate > monthEnd && r.dueDate <= horizon),
-  }
-}
-
 function ReportsDue({
-  rows,
+  horizons,
   onOpen,
 }: {
-  rows: UpcomingRow[]
+  horizons: Horizons
   onOpen: (reportKey: string) => void
 }) {
-  const buckets = horizonBuckets(rows)
   return (
     <Card className="flex flex-col gap-4 p-4">
       <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
@@ -467,15 +545,15 @@ function ReportsDue({
       </h2>
       <div className="grid gap-2 lg:grid-cols-3">
         {HORIZONS.map((h) => {
-          const bucket = buckets[h.key]
+          const bucket = horizons[h.key]
           return (
             <Horizon
               key={h.key}
               label={h.label}
               colour={h.colour}
               empty={h.empty}
-              meta={bucket.length > 0 ? bucket.length : undefined}
-              items={bucket.slice(0, HORIZON_SHOWN).map((r) => ({
+              meta={bucket.count > 0 ? bucket.count : undefined}
+              items={bucket.items.map((r) => ({
                 key: r.key,
                 title: r.organisationName,
                 subline: [r.label, r.programmeName].filter(Boolean).join(' · '),
@@ -485,88 +563,12 @@ function ReportsDue({
                 // is outstanding from them sit, which is what you need to chase it.
                 onClick: () => onOpen(r.key),
               }))}
-              hidden={bucket.length - Math.min(bucket.length, HORIZON_SHOWN)}
+              hidden={bucket.count - bucket.items.length}
               hiddenNoun="report"
             />
           )
         })}
       </div>
     </Card>
-  )
-}
-
-/**
- * Every report we are still waiting on, most urgent first. Deliberately not in the main
- * table: these are a chase-list, not documents to read.
- *
- * A modal rather than the old slide-over, which is now the app's one panel-over-the-page
- * pattern (`ui/Dialog`) — and which is why this stopped hand-rolling Escape, the backdrop,
- * focus handling and the scroll lock, all of which the dialog already gets right.
- */
-function AwaitingReportsDialog({
-  open,
-  onClose,
-  rows,
-  onOpen,
-}: {
-  open: boolean
-  onClose: () => void
-  rows: UpcomingRow[]
-  onOpen: (reportKey: string) => void
-}) {
-  const overdue = rows.filter((r) => r.status === 'overdue').length
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="lg"
-      title="Awaiting reports"
-      description={
-        rows.length === 0
-          ? 'Nothing awaited'
-          : `${rows.length} awaited, most urgent first${overdue > 0 ? ` · ${overdue} overdue` : ''}`
-      }
-    >
-      {rows.length === 0 ? (
-        <p className="text-body text-grey-500">
-          Every scheduled report has been received. New dates appear here when an award is
-          generated.
-        </p>
-      ) : (
-        <ul className="divide-y divide-grey-100">
-          {rows.map((r) => (
-            <li key={r.key}>
-              {/* The same click target the panel's horizons offer, for the same reason:
-                  chasing a report starts on the report's own screen. */}
-              <button
-                type="button"
-                onClick={() => onOpen(r.key)}
-                className="flex w-full items-start justify-between gap-3 rounded-chip py-3 text-left hover:bg-grey-50"
-              >
-                <div className="min-w-0 px-2">
-                  <p className="truncate text-body font-medium text-grey-900">
-                    {r.organisationName}
-                  </p>
-                  <p className="mt-0.5 truncate text-label text-grey-500">
-                    {r.label}
-                    {r.programmeName ? ` · ${r.programmeName}` : ''}
-                  </p>
-                </div>
-                <div className="shrink-0 px-2 text-right">
-                  <Badge className={STATUS_COLOURS[r.status]}>{STATUS_LABELS[r.status]}</Badge>
-                  <p
-                    className={`mt-1 whitespace-nowrap text-label ${
-                      r.status === 'overdue' ? 'font-medium text-danger' : 'text-grey-500'
-                    }`}
-                  >
-                    {fmtDate(r.dueDate)}
-                  </p>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Dialog>
   )
 }
