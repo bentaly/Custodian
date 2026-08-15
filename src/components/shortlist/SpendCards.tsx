@@ -1,5 +1,6 @@
 import { fmtMoney } from '../../lib/format'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
+import { BarMeter } from '../BarMeter'
 import { C } from '../ui/tokens'
 
 // The card the shortlist opens with (Figma 765:3331). It was two — a list of what is
@@ -75,32 +76,32 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
               </span>
 
               {budget !== null && (
-                /* Two bands on one track: what this shortlist would add, then what the
-                   round has already committed. Without the second the bar would say a
-                   programme is 8% spent when most of its budget is already gone.
+                /* Three bands on one meter: what this shortlist would add, then what the
+                   round has already committed, then what would be left. Without the
+                   second the bar would say a programme is 8% spent when most of its
+                   budget is already gone.
                    The solid band goes FIRST, anchored at zero as the comp draws it — led
                    by the pale one it floats in the middle of the track, and a pale
                    left-hand chunk reads as budget left rather than budget spent. So the
-                   bar runs dark to light, and so does the line beneath it. */
-                <span
-                  className="relative flex h-1.5 w-full overflow-hidden rounded-full"
-                  style={{ backgroundColor: tint(colour, 16) }}
-                >
-                  <span
-                    className="h-full"
-                    style={{
-                      width: `${Math.min(100, (r.proposed / budget) * 100)}%`,
-                      backgroundColor: colour,
-                    }}
-                  />
-                  <span
-                    className="h-full"
-                    style={{
-                      width: `${Math.min(100, (r.committed / budget) * 100)}%`,
-                      backgroundColor: tint(colour, 45),
-                    }}
-                  />
-                </span>
+                   bar runs dark to light, and so does the line beneath it.
+                   Over budget the unallocated band is empty and the meter divides between
+                   the two spend bands — a full meter is what the dominos always draw, and
+                   the overspend is said in words beneath rather than by a bar that grows
+                   past its own end. */
+                <BarMeter
+                  bars={140}
+                  height={24}
+                  barWidth={3}
+                  className="w-full"
+                  segments={[
+                    { value: r.proposed, colour },
+                    { value: r.committed, colour: tint(colour, 45) },
+                    {
+                      value: Math.max(0, budget - r.proposed - r.committed),
+                      colour: tint(colour, 16),
+                    },
+                  ]}
+                />
               )}
 
               <div className="flex items-baseline justify-between gap-3">
