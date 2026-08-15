@@ -23,12 +23,15 @@ export function Tabs<T>({
   ariaLabel?: string
 }) {
   // `w-fit` keeps the track hugging its tabs in any parent — as a plain flex/block
-  // child it stretched to the full container width (which it did on Finance).
+  // child it stretched to the full container width (which it did on Finance). It is
+  // what does that job, NOT `self-start`, which used to be here as well and pinned the
+  // track to the top of any `items-center` row it sat in — so beside a taller control
+  // (Shortlist's export, Finance's) the two were visibly off each other's centre line.
   return (
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="flex w-fit max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-chip p-0.5"
+      className="flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-chip p-0.5"
       style={{ backgroundColor: C.wash }}
     >
       {items.map((t) => {

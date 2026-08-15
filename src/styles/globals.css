@@ -125,6 +125,32 @@
   }
 }
 
+/* Tailwind v4 dropped v3's `button { cursor: pointer }` from preflight, deferring to the
+   UA, where a `<button>` is `cursor: default`. Nothing in the app opted back in, so most
+   of the interface gave no pointer at all and a handful of components had each added
+   `cursor-pointer` by hand — the ones somebody happened to notice.
+
+   Restored here for every control that ACTS on a click, rather than per component:
+   anything anchored, anything a screen reader would announce as a button or a tab, and
+   the native inputs whose whole hit area is a target. Disabled controls are excluded —
+   `Button` already sets `disabled:cursor-not-allowed`, and this must not out-specify it.
+   (Clickable table ROWS are not here: `DataTable` sets the pointer itself, and only when
+   it was given an `onRowClick`.) */
+@layer base {
+  a[href],
+  summary,
+  select,
+  button:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='file']:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
 /* `font-display` is now a no-op for the optical size — every element already renders at
    opsz 32 (see `html` below). Kept because ~210 call sites use it, and because the
    tighter tracking it applies is still a heading affordance. */

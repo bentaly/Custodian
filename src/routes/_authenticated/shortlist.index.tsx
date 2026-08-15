@@ -40,7 +40,8 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
   beforeLoad: async ({ search }) => {
     if (search.roundId) return
     const fallback = selectableRounds(await listMyRounds())[0]
-    if (fallback) throw redirect({ to: '/shortlist', search: { roundId: fallback.id, page: undefined } })
+    if (fallback)
+      throw redirect({ to: '/shortlist', search: { roundId: fallback.id, page: undefined } })
   },
   loaderDeps: ({ search }) => ({ roundId: search.roundId }),
   loader: async ({ deps }) => {
@@ -95,14 +96,17 @@ function ShortlistPage() {
         toVoteCount={items.length}
         readyToAwardCount={approved.length}
         showTabs={isAdmin}
+        // The PDF is this screen's alone — a board pack of what is being voted on — so
+        // it sits in the header's own right-hand cluster, ahead of the tabs, rather than
+        // on a line of its own beneath them.
+        actions={
+          items.length > 0 && (
+            <span className="print:hidden">
+              <ExportButton onClick={downloadPdf} label="Download PDF" size="sm" />
+            </span>
+          )
+        }
       />
-
-      {/* The PDF is this screen's alone — a board pack of what is being voted on — so it
-          sits below the round/tab row rather than on it, where it would read as chrome
-          belonging to both tabs. */}
-      <div className="flex justify-end print:hidden">
-        <ExportButton onClick={downloadPdf} label="Download PDF" />
-      </div>
 
       {items.length === 0 ? (
         <EmptyState>

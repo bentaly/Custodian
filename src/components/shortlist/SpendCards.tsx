@@ -50,7 +50,13 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
         {rows.map((r, i) => {
           const colour = colourOf(r, i)
           const budget = r.budget && r.budget > 0 ? r.budget : null
-          const over = budget !== null && r.committed + r.proposed > budget
+          const overBy = budget === null ? 0 : r.committed + r.proposed - budget
+          const over = overBy > 0
+          // Being over budget is said in WORDS beneath the meter, never by repainting it.
+          // The bar used to turn the proposed band red and leave the track the
+          // programme's own colour, which read as a rendering fault rather than a
+          // warning; painting the whole meter red fixed that but cost the row the one
+          // thing its colour is for — saying which programme this is.
 
           return (
             <div key={r.roundProgrammeId} className="flex flex-col gap-1.5">
@@ -84,7 +90,7 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
                     className="h-full"
                     style={{
                       width: `${Math.min(100, (r.proposed / budget) * 100)}%`,
-                      backgroundColor: over ? C.danger : colour,
+                      backgroundColor: colour,
                     }}
                   />
                   <span
@@ -112,12 +118,12 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
                 ) : (
                   <span
                     className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-display text-label"
-                    style={{ color: over ? C.danger : C.faint }}
+                    style={{ color: C.faint }}
                   >
                     <span className="flex items-center gap-1.5">
                       <span
                         className="size-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: over ? C.danger : colour }}
+                        style={{ backgroundColor: colour }}
                       />
                       {Math.round((r.proposed / budget) * 100)}% proposed
                     </span>
@@ -128,6 +134,14 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
                           style={{ backgroundColor: tint(colour, 45) }}
                         />
                         {fmtMoney(r.committed)} already committed
+                      </span>
+                    )}
+                    {/* The only red on the row, and the only thing that needs to be: a
+                        board has to be told what is wrong and by how much, not left to
+                        infer it from a meter that has changed colour. */}
+                    {over && (
+                      <span className="font-medium" style={{ color: C.danger }}>
+                        {fmtMoney(overBy)} over budget
                       </span>
                     )}
                   </span>

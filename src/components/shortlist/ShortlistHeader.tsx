@@ -3,12 +3,15 @@ import { RoundSelect, Tabs, roundStatusLabel } from '../ui'
 import { C } from '../ui/tokens'
 
 // The header both Shortlist screens wear (Figma 765:3270 / 610:2817): the title, then
-// one full-width row holding the round on the left and the tab pair on the right.
+// one full-width row holding the round on the left and, on the right, whatever the
+// screen itself offers followed by the tab pair.
 //
 // The tabs are NOT a filter over one screen's rows — they are the two routes, so they
-// live here rather than inside either. Anything that belongs to only one of the screens
-// (the To vote screen's PDF) goes on its own line beneath this, which is why nothing but
-// the round and the tabs is allowed on this row.
+// live here rather than inside either. A screen's own action (To vote's Download PDF)
+// used to sit on its own line beneath this row on that reasoning, and it read as a
+// button hanging off the bottom of the tabs with nothing to belong to. It comes through
+// `actions` now and sits to the LEFT of the tabs — the right-hand cluster reads
+// outwards, this screen's action first, then the pair that switches screens.
 
 export type ShortlistTab = 'vote' | 'awards'
 
@@ -19,6 +22,7 @@ export function ShortlistHeader({
   toVoteCount,
   readyToAwardCount,
   showTabs,
+  actions,
 }: {
   tab: ShortlistTab
   roundId: string | undefined
@@ -33,6 +37,8 @@ export function ShortlistHeader({
   readyToAwardCount: number
   /** Set-up awards is admin-only, and a tab a trustee cannot follow is worse than none. */
   showTabs: boolean
+  /** This screen's own action, sat immediately left of the tabs. */
+  actions?: React.ReactNode
 }) {
   const navigate = useNavigate()
   const selectedRound = rounds.find((r) => r.id === roundId)
@@ -58,23 +64,26 @@ export function ShortlistHeader({
         ) : (
           <span />
         )}
-        {showTabs && (
-          <Tabs<ShortlistTab>
-            ariaLabel="Shortlist view"
-            value={tab}
-            items={[
-              { id: 'vote', label: 'To vote', count: toVoteCount },
-              { id: 'awards', label: 'Set up awards', count: readyToAwardCount },
-            ]}
-            onChange={(next) =>
-              next !== tab &&
-              navigate({
-                to: next === 'vote' ? '/shortlist' : '/shortlist/set-up-awards',
-                search: { roundId },
-              })
-            }
-          />
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {actions}
+          {showTabs && (
+            <Tabs<ShortlistTab>
+              ariaLabel="Shortlist view"
+              value={tab}
+              items={[
+                { id: 'vote', label: 'To vote', count: toVoteCount },
+                { id: 'awards', label: 'Set up awards', count: readyToAwardCount },
+              ]}
+              onChange={(next) =>
+                next !== tab &&
+                navigate({
+                  to: next === 'vote' ? '/shortlist' : '/shortlist/set-up-awards',
+                  search: { roundId },
+                })
+              }
+            />
+          )}
+        </div>
       </div>
     </div>
   )

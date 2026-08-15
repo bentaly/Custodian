@@ -52,8 +52,24 @@ const KPI = {
     accent: 'var(--color-accent-violet)',
   },
   review: { bg: T('success', 10), border: T('success', 20), accent: 'var(--color-success)' },
-  finance: { bg: T('warning', 10), border: T('warning', 20), accent: 'var(--color-warning)' },
-  reports: { bg: T('danger', 10), border: T('danger', 20), accent: 'var(--color-danger)' },
+  // Finance and Reports are ACCENT cards, not status cards (Figma 126:31795): warm amber
+  // and blush. They were wired to `warning` / `danger`, which is the same mistake twice —
+  // a card is not a status, and the semantic hues were darkened for text contrast on
+  // 2026-08-12, so Finance became a brown card and Reports a red one. Nothing on either
+  // is an alarm: `£102k paid this month` is not a warning, and a report waiting to be
+  // read is not an error. The genuinely bad news inside them still reaches for the
+  // semantic hues — overdue reports, bank-detail issues — and now stands out because the
+  // card around it no longer shouts.
+  finance: {
+    bg: T('accent-amber', 20),
+    border: T('accent-amber', 40),
+    accent: 'var(--color-accent-amber)',
+  },
+  reports: {
+    bg: T('accent-blush', 20),
+    border: T('accent-blush', 40),
+    accent: 'var(--color-accent-blush)',
+  },
 }
 
 // The Reports card's two chip shades (Figma 126:34555 / 126:34511) — the light pink is

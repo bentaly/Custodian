@@ -50,11 +50,46 @@ export const C = {
   amberWash: tint('warning', 10),
 } as const
 
-// The four semantic hues are FILL colours: none reaches 4.5:1 as text on white or on its
-// own 10% wash, so status pills built from them fail WCAG AA. This is deliberate as of
-// 2026-08-10 — the Figma values are used as-is rather than inventing darker foregrounds,
-// and the designer has been asked for an accessible text variant of each. When those
-// arrive they belong in `globals.css` as `--color-*-fg`, not as literals here.
+// The four semantic hues were darkened wholesale on 2026-08-12 (see `globals.css`) so
+// they clear 4.5:1 as TEXT. That is what `C.success` / `C.warning` / `C.danger` are for
+// now — foregrounds first, fills second. Warning in particular went to `#ab5c00`, which
+// reads as amber at 14px and as a brown barely distinguishable from danger in a 3px
+// meter. See `SCORE_BAND` below for the fill-side answer.
+
+// ─── Score bands ────────────────────────────────────────────────────────────────
+
+/**
+ * The RAG banding behind every AI score in the app, in ONE place: the applications list,
+ * the application screen's ring, the shortlist's vote card and the Set up awards queue
+ * each used to carry their own copy, and they had drifted — the detail screen banded at
+ * 75/50 where the list banded at 80/60, so a 76 was green on one screen and amber on the
+ * screen it opened.
+ *
+ * Each band carries TWO colours, because a band has to survive at two sizes:
+ *
+ *   • `fill` — a 3px meter, a ring arc, a tile tint. Amber here is `--color-accent-amber`,
+ *     the Figma accent the dashboard's Finance meter is already drawn in. `--color-warning`
+ *     cannot do this job: at #ab5c00 a 40px-wide bar is brown, and a 71 was being read off
+ *     the applications list as a failing score.
+ *   • `text` — the figure beside the meter. Here amber IS `--color-warning`, which is the
+ *     value that clears contrast; the accent would be invisible on white.
+ */
+export const SCORE_BAND = {
+  good: { fill: C.success, text: C.success },
+  fair: { fill: 'var(--color-accent-amber)', text: C.warning },
+  poor: { fill: C.danger, text: C.danger },
+} as const
+
+/**
+ * Which band a score falls in. `outOf` is the scale it is quoted on — the composite is
+ * out of 100 and bands at 80/60, a single criterion is out of 10 and bands at 7/4. The
+ * two scales are deliberate (a composite is never quoted as `7.1/10`), so the thresholds
+ * travel with the scale rather than the caller remembering which is which.
+ */
+export function bandForScore(score: number, outOf: 100 | 10 = 100) {
+  const [good, fair] = outOf === 10 ? [7, 4] : [80, 60]
+  return SCORE_BAND[score >= good ? 'good' : score >= fair ? 'fair' : 'poor']
+}
 
 /** The colours a foundation picks a programme's colour from — the Figma Accent family
  *  plus Semantic/Success, exactly the five bound on the Programmes comp (674:33847). */

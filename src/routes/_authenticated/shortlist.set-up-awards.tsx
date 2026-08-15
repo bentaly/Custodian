@@ -29,7 +29,7 @@ import {
 } from '../../components/ui'
 import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
 import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
-import { C as TOKENS } from '../../components/ui/tokens'
+import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 
 const PAGE_SIZE = 25
 
@@ -121,23 +121,19 @@ export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')(
 
 // ─── Cells ──────────────────────────────────────────────────────────────────────
 
-function scoreBandColour(score: number) {
-  return score >= 80 ? C.success : score >= 60 ? C.amber : C.danger
-}
-
 function AiScoreCell({ status, score }: { status: string; score: number | null }) {
   const has = status === 'scored' && score != null
-  const color = has ? scoreBandColour(score) : null
+  const band = has ? bandForScore(score) : null
   return (
     <div className="flex items-center gap-2">
       <div
         className="h-[3px] w-10 overflow-hidden rounded-full"
         style={{ backgroundColor: C.wash }}
       >
-        {has && (
+        {band && (
           <div
             className="h-full rounded-full"
-            style={{ width: `${Math.min(100, score)}%`, backgroundColor: color! }}
+            style={{ width: `${Math.min(100, score!)}%`, backgroundColor: band.fill }}
           />
         )}
       </div>

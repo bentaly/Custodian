@@ -16,7 +16,8 @@ import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney } from '../../lib/format'
 import { Avatar, ErrorNote, initials } from '../ui'
 import { useAnchoredPopover, useDismiss } from '../ui/popover'
-import { C } from '../ui/tokens'
+import { C, bandForScore } from '../ui/tokens'
+import { withAlpha } from '../BarMeter'
 import { CommentsDialog } from './CommentsDialog'
 
 export type ShortlistTrustee = { id: string; name: string; image: string | null }
@@ -238,21 +239,60 @@ function OnBehalfControl({
 }
 
 // The scale every screen states the score on: the composite out of 100, each criterion
-// out of 10, with the same RAG bands behind both — 80/60 on the composite (as the
-// applications list and detail screen), 7/4 on a criterion. The comps drew the composite
-// as `9.1/10`; two screens quoting one score on two scales is how a board ends up
-// arguing about the number instead of the application.
+// out of 10, with the same RAG bands behind both — `scoreBand` in `ui/tokens` owns the
+// thresholds. The comps drew the composite as `9.1/10`; two screens quoting one score on
+// two scales is how a board ends up arguing about the number instead of the application.
 
-function compositeColour(score: number) {
-  if (score >= 80) return C.success
-  if (score >= 60) return C.amber
-  return C.danger
-}
-
-function criterionColour(score: number) {
-  if (score >= 7) return C.success
-  if (score >= 4) return C.amber
-  return C.danger
+/**
+ * The composite, as the comp draws it (Figma 765:3407): a brand-tinted panel with the
+ * label above the figure, and a dot texture over its right-hand half.
+ *
+ * The GROUND is the brand, always — it is the panel's identity, not a readout, so it does
+ * not move with the score. Only the figure carries the RAG band, which is the same
+ * division the applications list makes (a coloured meter, a plain number beside it) read
+ * the other way round.
+ *
+ * The dots are the dashboard KPI card's trick exactly: a radial GRADIENT is the fill and
+ * the dot grid is only a mask, so the field is densest at its middle and dissolves at its
+ * own edges. Drawn as flat dots at a uniform alpha it read as a texture someone had
+ * clipped in half — the comp's field has no edge anywhere, which is what lets it sit
+ * behind the figure without competing with it. Inset on the right rather than bled to the
+ * tile's edges, for the same reason: a field that runs off the card has an edge again.
+ */
+function ScoreTile({ score }: { score: number }) {
+  const band = bandForScore(score)
+  return (
+    <div
+      className="relative flex h-[74px] w-full shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-card sm:w-[132px]"
+      style={{ backgroundColor: C.brandBg }}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-[7%] top-1/2 aspect-square h-[86%] -translate-y-1/2"
+        style={{
+          backgroundImage: `radial-gradient(50% 50% at 50% 50%, ${withAlpha(C.brand, 0.22)} 0%, ${withAlpha(C.brand, 0)} 100%)`,
+          WebkitMaskImage: 'radial-gradient(circle, #000 1px, transparent 1.1px)',
+          maskImage: 'radial-gradient(circle, #000 1px, transparent 1.1px)',
+          WebkitMaskSize: '7px 7px',
+          maskSize: '7px 7px',
+        }}
+      />
+      <span className="relative font-display text-label" style={{ color: C.brand }}>
+        AI score
+      </span>
+      <span className="relative flex items-baseline gap-1">
+        <span
+          className="font-display text-heading font-medium leading-none"
+          style={{ color: band.text }}
+        >
+          {score}
+        </span>
+        <span className="font-display text-label" style={{ color: withAlpha(C.brand, 0.5) }}>
+          /100
+        </span>
+      </span>
+    </div>
+  )
 }
 
 function CriterionBar({ label, score }: { label: string; score: number | null }) {
@@ -272,7 +312,7 @@ function CriterionBar({ label, score }: { label: string; score: number | null })
           className="block h-full rounded-full"
           style={{
             width: `${(score ?? 0) * 10}%`,
-            backgroundColor: score === null ? C.wash : criterionColour(score),
+            backgroundColor: score === null ? C.wash : bandForScore(score, 10).fill,
           }}
         />
       </span>
@@ -477,27 +517,7 @@ export function VoteCard({
 
           {scored && (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              {/* Neutral tile: the RAG band is carried by the figure itself, so a
-                  brand-tinted surface must not read as "good" behind a red score. */}
-              <div
-                className="flex h-[74px] w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-card sm:w-[132px]"
-                style={{ backgroundColor: C.wash }}
-              >
-                <span className="font-display text-label" style={{ color: C.sub }}>
-                  AI score
-                </span>
-                <span className="flex items-baseline gap-1">
-                  <span
-                    className="font-display text-heading font-medium leading-none"
-                    style={{ color: compositeColour(app.custodianScore!) }}
-                  >
-                    {app.custodianScore}
-                  </span>
-                  <span className="font-display text-label" style={{ color: C.faint }}>
-                    /100
-                  </span>
-                </span>
-              </div>
+              <ScoreTile score={app.custodianScore!} />
               {/* Two explicit columns rather than a wrapping grid, so the rule between
                   them lands between the columns and not down the middle of a row. */}
               <div className="grid min-w-0 flex-1 gap-x-6 gap-y-2 sm:grid-cols-2">

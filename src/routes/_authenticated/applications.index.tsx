@@ -37,7 +37,7 @@ import {
   type TableColumn,
 } from '../../components/ui'
 import { fmtAmount, fmtCompact, fmtDate } from '../../lib/format'
-import { C as TOKENS } from '../../components/ui/tokens'
+import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import { longerTimeout } from '../../lib/requestTimeout'
 
 const PAGE_SIZE = 25
@@ -331,12 +331,6 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
 
 // ─── Table cells ─────────────────────────────────────────────────────────────────
 
-function scoreBandColour(score: number) {
-  if (score >= 80) return C.success
-  if (score >= 60) return C.amber
-  return C.danger
-}
-
 function AiScoreCell({
   status,
   score,
@@ -345,17 +339,17 @@ function AiScoreCell({
   score: number | null | undefined
 }) {
   const has = status === 'scored' && score != null
-  const color = has ? scoreBandColour(score!) : null
+  const band = has ? bandForScore(score!) : null
   return (
     <div className="flex items-center gap-2">
       <div
         className="relative h-[3px] w-10 overflow-hidden rounded-full"
-        style={{ backgroundColor: has ? withAlpha(color!, 0.1) : C.wash }}
+        style={{ backgroundColor: band ? withAlpha(band.fill, 0.25) : C.wash }}
       >
-        {has && (
+        {band && (
           <div
             className="bar-grow absolute left-0 top-0 h-full rounded-full"
-            style={{ width: `${Math.min(100, score!)}%`, backgroundColor: color! }}
+            style={{ width: `${Math.min(100, score!)}%`, backgroundColor: band.fill }}
           />
         )}
       </div>
@@ -567,6 +561,12 @@ function ApplicationsList() {
   const { roundId, programmeId, status, scoreBand, tag, q, from, to, sortBy, sortDir, page } =
     search
   const { items, total, rounds, budgetSummary } = Route.useLoaderData()
+  const { user } = Route.useRouteContext()
+
+  // The ONLY thing selecting rows does here is bulk `updateApplicationStatus`, which is
+  // admin-only on the server. So a trustee gets no checkbox column at all rather than a
+  // selection that can only lead to "You do not have access to that".
+  const canSetStatus = user.role === 'admin' || user.role === 'superadmin'
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -874,13 +874,17 @@ function ApplicationsList() {
             }
             sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
             onSort={(id) => setSort(id as SortKey)}
-            selection={{
-              isSelected: (app) => selected.has(app.id),
-              toggle: (app) => toggleOne(app.id),
-              allSelected,
-              someSelected,
-              toggleAll,
-            }}
+            selection={
+              canSetStatus
+                ? {
+                    isSelected: (app) => selected.has(app.id),
+                    toggle: (app) => toggleOne(app.id),
+                    allSelected,
+                    someSelected,
+                    toggleAll,
+                  }
+                : undefined
+            }
             empty={
               <div className="p-4">
                 <EmptyState>

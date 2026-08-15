@@ -49,7 +49,7 @@ import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
 import { fmtCompact, fmtMoney } from '../../lib/format'
-import { C as TOKENS, PROGRAMME_COLOURS } from '../../components/ui/tokens'
+import { C as TOKENS, PROGRAMME_COLOURS, bandForScore } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => orNotFound(getApplication({ data: { id: params.applicationId } })),
@@ -85,24 +85,10 @@ const KPI = {
 }
 const BUDGET_COLOURS = PROGRAMME_COLOURS
 
-// RAG colour for a 1–10 criterion score: 0–3 red, 4–6 amber, 7+ green.
-// The criterion palette is its own (Figma 435:38445) — a cooler teal and a warmer
-// amber than the status colours, so a bank of six bars doesn't read as six statuses.
-function ragColour(score: number) {
-  if (score >= 7) return 'var(--color-success)'
-  if (score >= 4) return 'var(--color-warning)'
-  return 'var(--color-danger)'
-}
-
 // ─── Formatting ──────────────────────────────────────────────────────────────────
 // (The monogram's `initials` is `ui/Avatar`'s now, via `DetailHeader` — this screen used
 // to take first + last word where the applications table takes the first two, so the same
 // organisation wore two different monograms on the row and the page it opened.)
-function scoreColour(score: number) {
-  if (score >= 75) return C.brand
-  if (score >= 50) return C.amber
-  return C.danger
-}
 function durationLabel(years: number | null | undefined) {
   if (!years) return null
   return years === 1 ? '12 months' : `${years} years`
@@ -274,15 +260,17 @@ function ScoreRing({
   thickness?: number
 }) {
   const pct = Math.max(0, Math.min(100, score))
-  const colour = scoreColour(score)
+  // The shared banding — this screen used to band at 75/50 and paint the top band
+  // `brand`, so a 76 was a green ring here and an amber bar on the list it opened from.
+  const band = bandForScore(score)
   return (
     <Donut
       size={size}
       thickness={thickness}
       tooltip={false}
       data={[
-        { name: 'Score', value: pct, colour },
-        { name: 'Remaining', value: 100 - pct, colour: withAlpha(colour, 0.15) },
+        { name: 'Score', value: pct, colour: band.fill },
+        { name: 'Remaining', value: 100 - pct, colour: withAlpha(band.fill, 0.2) },
       ]}
       center={
         <div className="flex items-baseline gap-1">
@@ -302,7 +290,8 @@ function ScoreRing({
 }
 
 function CriterionBar({ label, score }: { label: string; score: number }) {
-  const colour = ragColour(score)
+  // Out of 10, so the bands are 7/4 — same registry as the composite ring above.
+  const colour = bandForScore(score, 10).fill
   return (
     <div className="flex items-center gap-4">
       <span
@@ -344,6 +333,12 @@ function ApplicationDetail() {
   const isDeclined = application.status === 'declined'
   const isAwarded = application.status === 'awarded'
   const awardId = application.award?.id ?? null
+
+  // Shortlist / Decline are `updateApplicationStatus`, which is admin-only. A trustee
+  // reads, comments and votes; moving an application through the pipeline is not theirs
+  // to do. So the buttons are not shown rather than shown and refused — a control that
+  // can only ever answer "You do not have access to that" is worse than no control.
+  const canSetStatus = user.role === 'admin' || user.role === 'superadmin'
 
   const rp = application.roundProgramme
   const programme = rp.programme
@@ -520,29 +515,31 @@ function ApplicationDetail() {
                 </span>
               )
             ) : (
-              <>
-                <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
-                  {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
-                </HeaderButton>
-                <HeaderButton
-                  tone={isShortlisted ? 'plain' : 'primary'}
-                  onClick={handleShortlist}
-                  disabled={shortlisting || isBudgetFull}
-                  title={
-                    isBudgetFull
-                      ? 'Budget committed — no funds remaining in this programme'
-                      : undefined
-                  }
-                >
-                  {shortlisting
-                    ? '…'
-                    : isShortlisted
-                      ? 'Remove from shortlist'
-                      : isBudgetFull
-                        ? 'Budget full'
-                        : 'Shortlist'}
-                </HeaderButton>
-              </>
+              canSetStatus && (
+                <>
+                  <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
+                    {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
+                  </HeaderButton>
+                  <HeaderButton
+                    tone={isShortlisted ? 'plain' : 'primary'}
+                    onClick={handleShortlist}
+                    disabled={shortlisting || isBudgetFull}
+                    title={
+                      isBudgetFull
+                        ? 'Budget committed — no funds remaining in this programme'
+                        : undefined
+                    }
+                  >
+                    {shortlisting
+                      ? '…'
+                      : isShortlisted
+                        ? 'Remove from shortlist'
+                        : isBudgetFull
+                          ? 'Budget full'
+                          : 'Shortlist'}
+                  </HeaderButton>
+                </>
+              )
             )}
           </>
         }
