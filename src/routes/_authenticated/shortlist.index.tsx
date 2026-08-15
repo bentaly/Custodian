@@ -25,9 +25,14 @@ function selectableRounds<
 }
 
 export const Route = createFileRoute('/_authenticated/shortlist/')({
+  // The page is in the URL, as it is on every other list: a board reads this screen in
+  // one sitting, opening applications and coming back, and page 3 should still be page 3.
   validateSearch: (search: Record<string, unknown>) => ({
     roundId:
       typeof search.roundId === 'string' ? search.roundId : (undefined as string | undefined),
+    page: (Number.isInteger(Number(search.page)) && Number(search.page) > 1
+      ? Number(search.page)
+      : undefined) as number | undefined,
   }),
   // The shortlist is always ABOUT a round — a board sits for one round, and spend
   // against a budget only means anything within one. So there is no "all rounds":
@@ -35,7 +40,7 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
   beforeLoad: async ({ search }) => {
     if (search.roundId) return
     const fallback = selectableRounds(await listMyRounds())[0]
-    if (fallback) throw redirect({ to: '/shortlist', search: { roundId: fallback.id } })
+    if (fallback) throw redirect({ to: '/shortlist', search: { roundId: fallback.id, page: undefined } })
   },
   loaderDeps: ({ search }) => ({ roundId: search.roundId }),
   loader: async ({ deps }) => {
@@ -49,12 +54,12 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
 })
 
 function ShortlistPage() {
-  const { roundId } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const { roundId, page } = Route.useSearch()
   const { shortlist, rounds } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
   const { items, trustees, allowAdminVoting, budgets } = shortlist
 
-  const [page, setPage] = useState(1)
   // While the print dialogue is open every card is rendered, not just this page: a board
   // pack that silently stopped at the tenth application would be worse than no pack.
   const [printing, setPrinting] = useState(false)
@@ -64,7 +69,7 @@ function ShortlistPage() {
   const approved = items.filter((a) => a.hasMajority)
 
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
-  const currentPage = Math.min(page, pageCount)
+  const currentPage = Math.min(page ?? 1, pageCount)
   const pageItems = printing
     ? items
     : items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
@@ -152,7 +157,9 @@ function ShortlistPage() {
                 shown={pageItems.length}
                 total={items.length}
                 noun="applications"
-                onChange={setPage}
+                onChange={(p) =>
+                  navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
+                }
               />
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect, useNavigate, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -46,6 +46,16 @@ const SCORE_BANDS = [
   { value: 'below70', label: 'Below 70', min: 0, max: 69 },
 ] as const
 
+type SetUpAwardsSearch = {
+  roundId?: string
+  programmeId?: string
+  tag?: string
+  scoreBand?: string
+  /** The Grants awarded table filters separately — see the note by its pill. */
+  awardedProgramme?: string
+  page?: number
+}
+
 /** Rounds a shortlist can exist in — matches the To vote screen's list exactly. */
 function selectableRounds<
   T extends { openedAt: Date | string | null; closedAt: Date | string | null },
@@ -60,16 +70,31 @@ function selectableRounds<
 }
 
 export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    roundId:
-      typeof search.roundId === 'string' ? search.roundId : (undefined as string | undefined),
+  // Filters and page live in the URL, as they do on every other list screen: a view you
+  // cannot link to is a view you lose to a refresh — and "the four I am about to award"
+  // is exactly the view you want to send someone.
+  validateSearch: (search: Record<string, unknown>): SetUpAwardsSearch => ({
+    roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
+    programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
+    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
+    scoreBand: SCORE_BANDS.some((b) => b.value === search.scoreBand)
+      ? (search.scoreBand as string)
+      : undefined,
+    awardedProgramme:
+      typeof search.awardedProgramme === 'string' ? search.awardedProgramme : undefined,
+    page:
+      Number.isInteger(Number(search.page)) && Number(search.page) > 1
+        ? Number(search.page)
+        : undefined,
   }),
   // Awarding is an admin act — trustees decide, admins commit. Guard the route as well
   // as the server fn so a trustee following a link gets sent back rather than shown a
   // form every button on which will be refused.
   beforeLoad: async ({ context, search }) => {
     const isAdmin = context.user.role === 'admin' || context.user.role === 'superadmin'
-    if (!isAdmin) throw redirect({ to: '/shortlist', search: { roundId: search.roundId } })
+    if (!isAdmin) {
+      throw redirect({ to: '/shortlist', search: { roundId: search.roundId, page: undefined } })
+    }
     if (search.roundId) return
     const fallback = selectableRounds(await listMyRounds())[0]
     if (fallback) {
@@ -286,19 +311,19 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
 // ─── Screen ─────────────────────────────────────────────────────────────────────
 
 function SetUpAwards() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const router = useRouter()
-  const { roundId } = Route.useSearch()
+  const { roundId, programmeId, tag, scoreBand, awardedProgramme, page } = Route.useSearch()
   const { candidates, letterSettings, rounds, budget, awarded } = Route.useLoaderData()
 
-  const [programmeId, setProgrammeId] = useState<string | undefined>()
-  const [tag, setTag] = useState<string | undefined>()
-  const [scoreBand, setScoreBand] = useState<string | undefined>()
-  // The awarded table filters on its own: a programme with grants already committed
-  // need not have anything left ready to award, so one shared pill would hide rows
-  // under an option the other table never offers.
-  const [awardedProgramme, setAwardedProgramme] = useState<string | undefined>()
-  const [page, setPage] = useState(1)
+  // One updater for every pill and the pager, so no control can forget to reset the page
+  // — landing on page 3 of a filter with two rows is the bug this shape prevents. The
+  // awarded table's own pill is exempt: it pages nothing.
+  const setFilter = (patch: Partial<SetUpAwardsSearch>) =>
+    navigate({ search: (prev) => ({ ...prev, ...patch, page: undefined }) })
+  const setPage = (next: number) =>
+    navigate({ search: (prev) => ({ ...prev, page: next > 1 ? next : undefined }) })
+
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const [wizardFor, setWizardFor] = useState<AwardCandidate[] | null>(null)
   const [result, setResult] = useState<Awaited<ReturnType<typeof createAwards>> | null>(null)
@@ -319,7 +344,7 @@ function SetUpAwards() {
   }, [candidates.items, programmeId, tag, scoreBand])
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
-  const currentPage = Math.min(page, pageCount)
+  const currentPage = Math.min(page ?? 1, pageCount)
   const pageRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const selectedRows = rows.filter((c) => selected.has(c.id))
@@ -455,30 +480,21 @@ function SetUpAwards() {
             plural="programmes"
             value={programmeId}
             options={programmeOptions}
-            onChange={(v) => {
-              setProgrammeId(v)
-              setPage(1)
-            }}
+            onChange={(v) => setFilter({ programmeId: v })}
           />
           <FilterPill
             label="Theme"
             plural="themes"
             value={tag}
             options={tagOptions}
-            onChange={(v) => {
-              setTag(v)
-              setPage(1)
-            }}
+            onChange={(v) => setFilter({ tag: v })}
           />
           <FilterPill
             label="AI score"
             plural="scores"
             value={scoreBand}
             options={SCORE_BANDS.map((b) => ({ value: b.value, label: b.label }))}
-            onChange={(v) => {
-              setScoreBand(v)
-              setPage(1)
-            }}
+            onChange={(v) => setFilter({ scoreBand: v })}
           />
         </div>
 
@@ -591,7 +607,7 @@ function SetUpAwards() {
               plural="programmes"
               value={awardedProgramme}
               options={awardedProgrammeOptions}
-              onChange={setAwardedProgramme}
+              onChange={(v) => navigate({ search: (prev) => ({ ...prev, awardedProgramme: v }) })}
             />
           </div>
 
