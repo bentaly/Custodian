@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   DataTable,
   DateRangePicker,
+  DateText,
   EmptyState,
   FilterPill,
   Pagination,
@@ -169,7 +170,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'lg',
     header: 'Awarded',
-    cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.decisionAt)}</span>,
+    cell: (g) => <DateText value={g.decisionAt} className={`whitespace-nowrap ${txtSub}`} />,
   },
   {
     id: 'amount',

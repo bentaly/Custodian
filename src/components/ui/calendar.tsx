@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import { C } from './tokens'
+import { fmtDate } from '../../lib/format'
 
 // The month grid the app's two date controls share (Figma 434:14130) — `DateField`
 // draws one day on it, `DateRangePicker` draws two and everything between. It lives
@@ -51,13 +52,13 @@ export const MONTHS = [
 ]
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-/** British short form — `17 Feb 2022`. */
+/**
+ * British short form — `17 Feb 2022`. Delegates to `fmtDate` so a date picked in this
+ * control reads exactly as the same date does in the table behind it; it used to be a
+ * second implementation that happened to agree.
+ */
 export function fmtDay(s: string): string {
-  return parseIso(s).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return fmtDate(s)
 }
 
 // ─── The grid ────────────────────────────────────────────────────────────────────

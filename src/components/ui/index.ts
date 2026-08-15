@@ -21,6 +21,7 @@ export { DateField, type DateFieldProps } from './DateField'
 export { ColourPicker } from './ColourPicker'
 export { Breadcrumb, type Crumb } from './Breadcrumb'
 export { Badge } from './Badge'
+export { DateText } from './DateText'
 export { Avatar, initials } from './Avatar'
 export {
   DataTable,

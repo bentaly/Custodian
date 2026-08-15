@@ -4,6 +4,7 @@
 
 import { KeyValueCard, Section, type FieldRow } from './ApplicationFields'
 import { C } from './ui/tokens'
+import { fmtDate } from '../lib/format'
 
 export type ReportFieldsData = {
   submittedAt: string
@@ -38,12 +39,6 @@ const MATCH_LABELS: Record<ReportFieldsData['matchMethod'], string> = {
 
 function fmtAmount(v: string | null | undefined) {
   return v != null && v !== '' ? `£${Math.round(parseFloat(v)).toLocaleString('en-GB')}` : null
-}
-
-function fmtDate(v: string | null | undefined) {
-  return v
-    ? new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    : null
 }
 
 export function ReportFields({ report }: { report: ReportFieldsData }) {

@@ -645,7 +645,9 @@ function ApplicationsList() {
       const days = Math.ceil((new Date(selectedRound.closedAt).getTime() - Date.now()) / 86_400_000)
       if (roundStatus === 'closed' || days < 0) {
         parts.push(
-          `closed ${new Date(selectedRound.closedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+          // Day and month only — the year is noise in "closed 5 Mar" — but UTC like every
+          // other date, so it cannot disagree with the round's date shown elsewhere.
+          `closed ${new Date(selectedRound.closedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}`,
         )
       } else {
         parts.push(`closes in ${days} day${days !== 1 ? 's' : ''}`)

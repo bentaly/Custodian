@@ -16,6 +16,7 @@ import { Alert02Icon, Tick01Icon } from '@hugeicons/core-free-icons'
 import { Badge, Panel, PanelTitle } from './ui'
 import { ProgressBar } from './ProgressBar'
 import { C } from './ui/tokens'
+import { fmtDate } from '../lib/format'
 
 export type ReportAnalysisStatus = 'pending' | 'analysed' | 'error'
 
@@ -138,7 +139,7 @@ export function ReportAnalysisPanel({
             <Badge className={meta.className}>{meta.label}</Badge>
             {analysedAt && (
               <span className="font-display text-label" style={{ color: C.faint }}>
-                Analysed {new Date(analysedAt).toLocaleDateString('en-GB')}
+                Analysed {fmtDate(analysedAt)}
               </span>
             )}
             {action}

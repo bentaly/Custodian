@@ -20,7 +20,7 @@ import { Breadcrumb, Button, Select } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { columnAsk, SHEETS } from '../../lib/dataImport/columns'
 import type { CellIssue, GrantRow, PaymentRow, ReportRow } from '../../lib/dataImport/parse'
-import { fmtMoney } from '../../lib/format'
+import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/settings/data-import')({
   // Importing writes a foundation's whole back catalogue and can delete it again.
@@ -857,11 +857,7 @@ function History({
                   {superseded && ' · replaced by a later import'}
                 </div>
                 <div className="mt-0.5 text-label" style={{ color: C.sub }}>
-                  {new Date(b.createdAt).toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  {fmtDate(b.createdAt)}
                   {b.createdByName && ` · ${b.createdByName}`}
                   {b.fileName && ` · ${b.fileName}`}
                 </div>

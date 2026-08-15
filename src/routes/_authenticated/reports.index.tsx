@@ -3,6 +3,7 @@ import { listReports, type ReportRowStatus } from '../../server/fns/reports'
 import {
   Card,
   DataTable,
+  DateText,
   DateRangePicker,
   EmptyState,
   FilterPill,
@@ -190,9 +191,10 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     header: 'Received',
     width: 'sm:w-[160px]',
     cell: (item) => (
-      <span className="whitespace-nowrap font-display text-body text-grey-500">
-        {fmtDate(item.submittedAt)}
-      </span>
+      <DateText
+        value={item.submittedAt}
+        className="whitespace-nowrap font-display text-body text-grey-500"
+      />
     ),
   },
   {
@@ -270,13 +272,12 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     header: 'Due',
     width: 'sm:w-[160px]',
     cell: (item) => (
-      <span
+      <DateText
+        value={item.dueDate}
         className={`whitespace-nowrap font-display text-body ${
           item.status === 'overdue' ? 'font-medium text-danger' : 'text-grey-500'
         }`}
-      >
-        {fmtDate(item.dueDate)}
-      </span>
+      />
     ),
   },
   {
@@ -435,11 +436,18 @@ function ReportsPage() {
             options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
             onChange={(v) => setFilter({ roundId: v })}
           />
-          <DateRangePicker
-            value={{ from, to }}
-            onChange={(next) => setFilter({ from: next.from, to: next.to })}
-            allLabel="Any received date"
-          />
+          {/* The window runs against the RECEIVED date, which an awaited report has not
+              got — so on that tab the control is not hidden state, it is absent. The
+              value stays in the URL: switching back restores the window rather than
+              silently dropping the filter you set. It still narrows the two document
+              tabs' counts while you are away, which is what those counts are about. */}
+          {tab !== 'awaiting' && (
+            <DateRangePicker
+              value={{ from, to }}
+              onChange={(next) => setFilter({ from: next.from, to: next.to })}
+              allLabel="Any received date"
+            />
+          )}
         </div>
 
         {/* Two column sets over one table: an arrived report is a document with a date

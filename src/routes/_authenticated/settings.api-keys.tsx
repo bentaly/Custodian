@@ -17,6 +17,7 @@ import {
 import { C } from '../../components/ui/tokens'
 import { SettingsPage } from '../../components/SettingsPage'
 import { paginate } from '../../lib/pagination'
+import { fmtDate } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/settings/api-keys')({
   beforeLoad: ({ context }) => {
@@ -100,7 +101,7 @@ function ApiKeys() {
       hideBelow: 'lg',
       header: 'Created',
       width: 'sm:w-[140px]',
-      cell: (k) => <span className={cellSub}>{new Date(k.createdAt).toLocaleDateString()}</span>,
+      cell: (k) => <span className={cellSub}>{fmtDate(k.createdAt)}</span>,
     },
     {
       id: 'lastUsed',
@@ -108,9 +109,7 @@ function ApiKeys() {
       header: 'Last used',
       width: 'sm:w-[140px]',
       cell: (k) => (
-        <span className={cellSub}>
-          {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}
-        </span>
+        <span className={cellSub}>{k.lastUsedAt ? fmtDate(k.lastUsedAt) : 'Never'}</span>
       ),
     },
     {

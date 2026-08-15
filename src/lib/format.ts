@@ -50,11 +50,68 @@ export function fmtSince(date: Date | string): string {
 }
 
 /** `12 Mar 2026`, or `—` when absent. */
+/**
+ * The app has TWO kinds of date and they must not be formatted the same way.
+ *
+ * - **Calendar dates** — `award_instalments.due_date` / `paid_date`,
+ *   `report_schedule.due_date` / `submitted_date`, `awards.start_date`: `text` columns
+ *   holding `yyyy-mm-dd`. A payment is due "on the 31st"; there is no time and no zone.
+ * - **Instants** — every `timestamp` column: `submitted_at`, `decision_at`, `created_at`.
+ *   A real moment, stored as UTC by convention (JS writes them with `toISOString()`).
+ *
+ * `new Date('2026-08-31')` parses as UTC midnight and then renders in the VIEWER's zone,
+ * so a payment due on the 31st displayed as **30 Aug** anywhere west of the UK; and an
+ * award stamped 23:15 UTC displayed as the **next day** during British Summer Time. Both
+ * were live, and invisible from London for half the year.
+ *
+ * So everything is formatted in UTC, and a calendar date is pinned to UTC midnight
+ * first: the digits stored are the digits shown, wherever the reader is sitting. That
+ * also makes the screen agree with the CSV exports and with the server's own `to_char`,
+ * which all take the UTC day.
+ */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/** A `yyyy-mm-dd` string is a calendar date; anything else is an instant. */
+function asUtc(date: Date | string): Date {
+  return new Date(typeof date === 'string' && ISO_DAY.test(date) ? `${date}T00:00:00Z` : date)
+}
+
+/** `5 Mar 2026` — the app's one date format. `—` when there is nothing to show. */
 export function fmtDate(date: Date | string | null | undefined): string {
   if (!date) return '—'
-  return new Date(date).toLocaleDateString('en-GB', {
+  return asUtc(date).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'UTC',
   })
+}
+
+/**
+ * `5 March 2026 at 14:32 UTC` — the long form, for the tooltip on a date that HAS a
+ * time. Returns null for a calendar date, because there is no time to reveal and
+ * inventing "00:00" would be claiming precision the column has not got.
+ */
+export function fmtDateTime(date: Date | string | null | undefined): string | null {
+  if (!date) return null
+  if (typeof date === 'string' && ISO_DAY.test(date)) return null
+  const d = new Date(date)
+  const day = d.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+  const time = d.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC',
+  })
+  return `${day} at ${time} UTC`
+}
+
+/** The machine-readable value for `<time dateTime>`: the calendar day, or the instant. */
+export function isoValue(date: Date | string): string {
+  if (typeof date === 'string' && ISO_DAY.test(date)) return date
+  return new Date(date).toISOString()
 }

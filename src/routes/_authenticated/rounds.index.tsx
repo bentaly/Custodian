@@ -20,6 +20,7 @@ import {
   Pagination,
 } from '../../components/ui'
 import { messageFor } from '../../lib/errors'
+import { fmtDate } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
   loader: async () => {
@@ -33,13 +34,9 @@ type RoundRow = Awaited<ReturnType<typeof listRoundsOverview>>[number]
 
 const PER_PAGE = 5
 
+/** `null` rather than `—` when absent: callers here join parts into a sentence. */
 function formatDate(date: Date | string | null | undefined) {
-  if (!date) return null
-  return new Date(date).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  return date ? fmtDate(date) : null
 }
 
 function toDateInput(date: Date | string | null | undefined): string {
