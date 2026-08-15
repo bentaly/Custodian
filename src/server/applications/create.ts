@@ -16,6 +16,7 @@ import { runCustodianScore } from '../custodianScore/run'
 import { resolveDeprivation } from '../deprivation/run'
 import { deliveryGeoFromResult } from '../../lib/deprivation/types'
 import type { CreateApplicationInput } from '../../lib/validators/application'
+import { bankFields } from './bank'
 
 /** Fetch a round programme with everything the create pipeline needs (round for
  *  the open-check at the call site, programme + client profile for scoring). */
@@ -108,8 +109,7 @@ export async function createApplicationFromCanonical(
       deliveryArea: input.deliveryArea,
       bankName: input.bankName,
       bankAccountName: input.bankAccountName,
-      bankAccountNumber: input.bankAccountNumber,
-      bankSortCode: input.bankSortCode,
+      ...bankFields(input),
       amountRequested: String(input.amountRequested),
       proposedImpactQuantity:
         input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
@@ -229,8 +229,7 @@ export async function updateApplicationFromCanonical(
       deliveryArea: input.deliveryArea,
       bankName: input.bankName,
       bankAccountName: input.bankAccountName,
-      bankAccountNumber: input.bankAccountNumber,
-      bankSortCode: input.bankSortCode,
+      ...bankFields(input),
       amountRequested: String(input.amountRequested),
       proposedImpactQuantity:
         input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,

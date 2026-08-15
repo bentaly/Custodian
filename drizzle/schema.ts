@@ -299,6 +299,13 @@ export const applications = pgTable(
     bankAccountName: text('bank_account_name'),
     bankAccountNumber: text('bank_account_number'),
     bankSortCode: text('bank_sort_code'),
+    // What the level-1 modulus check made of the two columns above: valid / invalid /
+    // unchecked / missing. A CACHE of a pure function (`lib/bankVerification`'s
+    // `bankStatus`), stored only so Finance can sort and count by it without loading
+    // every grant to run the algorithm in the Worker. Written by `bankFields()`, which
+    // spreads the numbers and this together so no write can update one and not the
+    // other. NULL means never computed — a row that predates the column.
+    bankCheckStatus: text('bank_check_status'),
     amountRequested: numeric('amount_requested').notNull(),
     // The PROJECT budget as line items, in whole pounds. Nullable — not every
     // foundation collects one, and it is captured only when the incoming form has a

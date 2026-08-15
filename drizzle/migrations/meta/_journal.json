@@ -414,6 +414,13 @@
       "when": 1786573897557,
       "tag": "0058_last_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1786776202768,
+      "tag": "0059_right_champions",
+      "breakpoints": true
     }
   ]
 }

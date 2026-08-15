@@ -1,0 +1,1 @@
+ALTER TABLE "applications" ADD COLUMN "bank_check_status" text;

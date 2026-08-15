@@ -77,3 +77,30 @@ export function checkBankAccount(input: {
     ? { status: 'valid', sortCode, accountNumber }
     : { status: 'invalid', reason: 'failed_modulus', sortCode, accountNumber }
 }
+
+/** What we hold for a grant, and what the check made of it. `missing` = nothing to check. */
+export type BankStatus = ModulusCheckStatus | 'missing'
+
+/**
+ * The whole bank position for a pair of stored fields, in one call.
+ *
+ * This exists so the answer can be STORED. It is a pure function of the two columns, so
+ * `applications.bank_check_status` is a cache, not a fact of its own — and every writer
+ * of those columns goes through `bankFields()` (`src/server/applications/bank.ts`),
+ * which spreads the numbers and the status together so a write cannot set one without
+ * the other and leave the cache lying.
+ *
+ * Why cache a pure function at all: the Finance list sorts and counts by it, and doing
+ * that over a whole foundation's grants means loading a whole foundation's grants —
+ * the exact thing the SQL rewrite removed.
+ */
+export function bankStatus(input: {
+  bankSortCode: string | null
+  bankAccountNumber: string | null
+}): BankStatus {
+  if (!input.bankSortCode || !input.bankAccountNumber) return 'missing'
+  return checkBankAccount({
+    sortCode: input.bankSortCode,
+    accountNumber: input.bankAccountNumber,
+  }).status
+}

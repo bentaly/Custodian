@@ -8,6 +8,7 @@ import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
 import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
 import { checkBankAccount, type ModulusCheckStatus } from '../../lib/bankVerification'
+import { bankFields } from '../applications/bank'
 import {
   DUE_SOON_DAYS,
   addDaysIso,
@@ -28,13 +29,16 @@ import {
   type GrantsQuery,
 } from '../finance/query'
 
-/**
- * The sortable columns. `bank` is deliberately absent: sorting by the modulus outcome
- * would mean evaluating it over every grant in the tenant, which is exactly the load
- * this file just shed. Bank problems are surfaced instead by the Attention banner,
- * which counts them portfolio-wide. It comes back the day the check is stored.
- */
-type SortKey = 'organisation' | 'programme' | 'committed' | 'paid' | 'next' | 'lastPaid' | 'status'
+/** The sortable columns — every one of them an expression the database can order by. */
+type SortKey =
+  | 'organisation'
+  | 'programme'
+  | 'committed'
+  | 'paid'
+  | 'next'
+  | 'lastPaid'
+  | 'bank'
+  | 'status'
 
 // Finance reads the same grants as Awards, but through the payments lens: one row per
 // grant, keyed on where its money is up to rather than on the decision that made it.
@@ -74,6 +78,10 @@ type BankFields = { bankSortCode: string | null; bankAccountNumber: string | nul
  * mathematically valid pair? Free and offline (see `lib/bankVerification`). It
  * proves nothing about who owns the account — that is Confirmation of Payee, a
  * later, paid check.
+ *
+ * The list does not call this: it reads the stored `bank_check_status`, which is this
+ * same function's answer written at the time the numbers were. This runs where a single
+ * grant is opened and the REASON matters ("fails the modulus check — likely a typo").
  */
 function bankCheck(app: BankFields): { status: BankStatus; reason?: string } {
   if (!app.bankSortCode || !app.bankAccountNumber) return { status: 'missing' }
@@ -211,7 +219,16 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
          * whichever way the arrow points, so the order is unchanged).
          */
         sortBy: z
-          .enum(['organisation', 'programme', 'committed', 'paid', 'next', 'lastPaid', 'status'])
+          .enum([
+            'organisation',
+            'programme',
+            'committed',
+            'paid',
+            'next',
+            'lastPaid',
+            'bank',
+            'status',
+          ])
           .optional(),
         sortDir: z.enum(['asc', 'desc']).optional(),
         page: z.number().int().positive().optional(),
@@ -294,9 +311,9 @@ export async function financeList(
     otherTotal,
     totalsRow,
     unscheduledRow,
+    bankIssueRow,
     horizons,
     soonest,
-    bankRows,
     statusFacet,
     programmeFacet,
     themeFacet,
@@ -330,16 +347,14 @@ export async function financeList(
       })
       .from(g),
     countOn(sql`${g.status} = 'unscheduled'`),
+    // Grants still owing money whose details are missing or fail the check — every one
+    // of them is a payment that cannot go out cleanly. A row never checked (NULL) is
+    // not counted as a problem: we do not know that it is one.
+    countOn(
+      sql`${payable(g)} and ${g.status} <> 'paid' and ${g.bankStatus} in ('missing', 'invalid')`,
+    ),
     upcomingTotals(db, g, dates),
     upcomingItems(db, g, dates),
-    // The one field SQL cannot answer: `bankIssueCount` is a modulus check over every
-    // payable grant's sort code and account number. Two narrow text columns rather
-    // than the whole row — and the fix that deletes this is a stored check status,
-    // maintained wherever bank details are written.
-    db
-      .select({ bankSortCode: g.bankSortCode, bankAccountNumber: g.bankAccountNumber })
-      .from(g)
-      .where(payable(g)),
     facetOn(g.status, g.status),
     facetOn(g.programmeId, g.programmeName),
     db
@@ -357,13 +372,10 @@ export async function financeList(
 
   const items = rows.map(toFinanceRow)
   const totalsBase = totalsRow[0]!
-  const bank = bankRows.map((r) => bankCheck(r).status)
   const totals = {
     ...totalsBase,
     unscheduledCount: unscheduledRow[0]?.n ?? 0,
-    // Grants still owing money whose details are missing or fail the check — every one
-    // of them is a payment that cannot go out cleanly.
-    bankIssueCount: bank.filter((s) => s === 'missing' || s === 'invalid').length,
+    bankIssueCount: bankIssueRow[0]?.n ?? 0,
   }
 
   const total = tabTotal[0]?.n ?? 0
@@ -469,7 +481,12 @@ function toFinanceRow(r: GrantRow) {
     overdueCount: r.overdueCount,
     dueSoonAmount: r.dueSoonAmount,
     dueSoonCount: r.dueSoonCount,
-    bank: { status: bankCheck(r).status, last4: last4(r.bankAccountNumber) },
+    // The stored verdict, not a fresh check: the list must show what it sorted and
+    // counted by. `unchecked` is the honest answer for a row that predates the column.
+    bank: {
+      status: (r.bankStatus ?? 'unchecked') as BankStatus,
+      last4: last4(r.bankAccountNumber),
+    },
   }
 }
 
@@ -495,11 +512,22 @@ function orderFor(g: GrantsQuery, by: SortKey | undefined, dir: 'asc' | 'desc' |
       return [sql`${g.chaseDate} ${d} nulls last`]
     case 'lastPaid':
       return [sql`${g.lastPaidDate} ${d} nulls last`]
+    case 'bank':
+      return [sql`${bankRank(g)} ${d}`]
     case 'status':
       return [sql`${statusRank(g)} ${d}`]
     default:
       return [sql`${g.chaseDate} asc nulls last`, sql`${g.lastPaidDate} desc nulls last`]
   }
+}
+
+/**
+ * Bank details that would stop a payment going out, first. A row never checked sorts
+ * with the clean ones rather than the broken ones: an unknown is not a problem.
+ */
+function bankRank(g: GrantsQuery): SQL {
+  return sql`case ${g.bankStatus}
+    when 'missing' then 0 when 'invalid' then 1 when 'unchecked' then 2 else 3 end`
 }
 
 /**
@@ -807,13 +835,18 @@ export const updateGrantBankDetails = createServerFn({ method: 'POST' })
     })
     if (!before) throw notFoundError()
 
+    // The check is re-run over the pair as it will BE, not as it was: changing only the
+    // sort code changes what the check says about the account number beside it.
     await getDb()
       .update(applications)
       .set({
         ...(data.accountName !== undefined ? { bankAccountName: data.accountName } : {}),
         ...(data.bankName !== undefined ? { bankName: data.bankName } : {}),
-        ...(data.sortCode !== undefined ? { bankSortCode: data.sortCode } : {}),
-        ...(data.accountNumber !== undefined ? { bankAccountNumber: data.accountNumber } : {}),
+        ...bankFields({
+          bankSortCode: data.sortCode !== undefined ? data.sortCode : before.bankSortCode,
+          bankAccountNumber:
+            data.accountNumber !== undefined ? data.accountNumber : before.bankAccountNumber,
+        }),
       })
       .where(eq(applications.id, award.applicationId))
 

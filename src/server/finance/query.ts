@@ -34,11 +34,10 @@ import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
  * transactions), so the whole screen is ONE round trip against ONE snapshot: no
  * chance of a payment landing between the count and the rows.
  *
- * The one thing that cannot come from SQL is the bank check — a modulus algorithm over
- * the sort code and account number (`lib/bankVerification`). The page's 25 rows are
- * checked in TS where the column is displayed; see `bankRankFallback` in the server fn
- * for the one sort that still needs the whole set, and the note there on the column
- * that would remove it.
+ * The bank check was the last thing here that SQL could not answer — it is a modulus
+ * algorithm, not an expression. It is now stored on the application by whichever write
+ * set the numbers (`server/applications/bank.ts`), so the column sorts and the
+ * portfolio-wide issue count is a `count(*) filter (...)` like any other.
  */
 
 type Db = ReturnType<typeof getDb>
@@ -155,12 +154,16 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
       roundName: sql<string | null>`${rounds.name}`.as('round_name'),
       tags: sql<unknown>`${programmes.tags}`.as('tags'),
       awardStatus: sql<string>`${awards.status}`.as('award_status'),
-      // Bank details travel with the row because the column displays them; the modulus
-      // check itself runs in TS over the page (see the file header).
-      bankSortCode: sql<string | null>`${applications.bankSortCode}`.as('bank_sort_code'),
+      // The account number is here because the column shows its last four. The verdict
+      // beside it is the STORED one (`lib/bankVerification`'s `bankStatus`, written by
+      // `bankFields()` on every path that sets the numbers) — which is what makes the
+      // Bank column sortable and `bankIssueCount` countable without running a modulus
+      // algorithm over every grant in the tenant. NULL on rows written before the
+      // column existed; `bankRank` puts those last rather than guessing.
       bankAccountNumber: sql<string | null>`${applications.bankAccountNumber}`.as(
         'bank_account_number',
       ),
+      bankStatus: sql<string | null>`${applications.bankCheckStatus}`.as('bank_check_status'),
       committed: committed.as('committed'),
       paidTotal: paidTotal.as('paid_to_date'),
       // Outstanding is measured against what was COMMITTED, not against the instalment
