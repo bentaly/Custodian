@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
 import { AuthShell } from '../components/AuthShell'
 import { CodeInput } from '../components/ui/CodeInput'
+import { Button, Label, Tabs } from '../components/ui'
 import { AuthButton, AuthInput, Divider, GoogleButton, Notice } from '../components/ui/auth'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
@@ -161,8 +162,8 @@ function SignInPage() {
 
       {(mode === 'code-verify' || mode === 'reset-verify') && (
         <p className="mt-2 text-body leading-relaxed text-grey-500">
-          If an account exists for <span className="font-medium text-grey-900">{email}</span>, we've sent
-          it a 6-digit code. It expires in 5 minutes.
+          If an account exists for <span className="font-medium text-grey-900">{email}</span>, we've
+          sent it a 6-digit code. It expires in 5 minutes.
         </p>
       )}
 
@@ -192,17 +193,12 @@ function SignInPage() {
             <MethodToggle mode="password" onChange={() => switchMode('code-request')} />
 
             <div>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <label htmlFor="password" className="text-body font-medium text-grey-700">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => switchMode('reset-request')}
-                  className="text-body font-medium text-brand hover:text-brand"
-                >
+              {/* The label keeps its own bottom margin, so the row needs none. */}
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Button type="button" variant="text" onClick={() => switchMode('reset-request')}>
                   Forgot?
-                </button>
+                </Button>
               </div>
               <AuthInput
                 id="password"
@@ -313,50 +309,30 @@ function SignInPage() {
 /**
  * The two email-based methods, as one explicit control. Google sits above the divider
  * because it's a different kind of choice — a provider, not a credential.
+ *
+ * It is the app's `Tabs`, not a pair of buttons drawn here: this is precisely the
+ * control Tabs is — a washed track with the chosen option lifted to white on a hairline
+ * — and the copy of it that used to live here had drifted to its own track colour
+ * (`bg-brand/5`) and its own shadow.
  */
 function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange: () => void }) {
-  const base =
-    'flex-1 rounded-chip px-3 py-1.5 text-body font-medium transition-colors duration-150'
   return (
-    <div className="flex gap-1 rounded-control border border-grey-200 bg-brand/5 p-1" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={mode === 'password'}
-        onClick={mode === 'password' ? undefined : onChange}
-        className={
-          mode === 'password'
-            ? `${base} bg-white text-grey-900 shadow-xs`
-            : `${base} text-grey-500 hover:text-grey-700`
-        }
-      >
-        Password
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={mode === 'code'}
-        onClick={mode === 'code' ? undefined : onChange}
-        className={
-          mode === 'code'
-            ? `${base} bg-white text-grey-900 shadow-xs`
-            : `${base} text-grey-500 hover:text-grey-700`
-        }
-      >
-        Email code
-      </button>
-    </div>
+    <Tabs
+      ariaLabel="How to sign in"
+      value={mode}
+      onChange={(next) => next !== mode && onChange()}
+      items={[
+        { id: 'password' as const, label: 'Password' },
+        { id: 'code' as const, label: 'Email code' },
+      ]}
+    />
   )
 }
 
 function BackLink({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full text-body text-grey-500 hover:text-grey-900"
-    >
+    <Button type="button" variant="ghost" onClick={onClick} className="w-full">
       {children}
-    </button>
+    </Button>
   )
 }

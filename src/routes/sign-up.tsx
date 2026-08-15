@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
 import { getInvitationByToken } from '../server/fns/invitations'
 import { completeRegistration } from '../server/fns/registrations'
 import { AuthShell } from '../components/AuthShell'
+import { LinkButton, TextLink } from '../components/ui'
 import { AuthButton, AuthInput, Divider, GoogleButton, Notice } from '../components/ui/auth'
 
 export const Route = createFileRoute('/sign-up')({
@@ -78,17 +79,16 @@ function SignUpPage() {
   if (invite && !invitation) {
     return (
       <AuthShell>
-        <h1 className="font-display text-display font-semibold text-grey-900">Invitation expired</h1>
+        <h1 className="font-display text-display font-semibold text-grey-900">
+          Invitation expired
+        </h1>
         <p className="mt-2 text-body leading-relaxed text-grey-500">
           This invitation is no longer valid — invitations last 7 days. Ask your administrator to
           send a new one.
         </p>
-        <Link
-          to="/sign-in"
-          className="mt-7 block w-full rounded-control border border-grey-200 bg-white px-4 py-3 text-center text-body font-medium text-grey-700 hover:bg-background"
-        >
+        <LinkButton to="/sign-in" className="mt-7 w-full">
           Back to sign in
-        </Link>
+        </LinkButton>
       </AuthShell>
     )
   }
@@ -103,12 +103,9 @@ function SignUpPage() {
           Custodian is invite-only. Ask your administrator to invite you to your organisation, and
           you'll get an email with a link to set up your account.
         </p>
-        <Link
-          to="/sign-in"
-          className="mt-7 block w-full rounded-control border border-grey-200 bg-white px-4 py-3 text-center text-body font-medium text-grey-700 hover:bg-background"
-        >
+        <LinkButton to="/sign-in" className="mt-7 w-full">
           Back to sign in
-        </Link>
+        </LinkButton>
       </AuthShell>
     )
   }
@@ -170,10 +167,7 @@ function SignUpPage() {
         </form>
 
         <p className="text-center text-body text-grey-500">
-          Already have an account?{' '}
-          <Link to="/sign-in" className="font-medium text-brand hover:text-brand">
-            Sign in
-          </Link>
+          Already have an account? <TextLink to="/sign-in">Sign in</TextLink>
         </p>
       </div>
     </AuthShell>

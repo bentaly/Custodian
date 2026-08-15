@@ -339,6 +339,18 @@ export function AppHeader({
     setIsMac(/Mac|iPhone|iPad/.test(navigator.platform))
   }, [])
 
+  // Escape closes the account menu. The backdrop below is a pointer affordance only —
+  // `aria-hidden`, with no click handler a keyboard user could never reach — so the way
+  // out for the keyboard has to be a real key listener, exactly as `ui/Dialog` does it.
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [menuOpen])
+
   const [signingOut, setSigningOut] = useState(false)
   async function handleSignOut() {
     if (signingOut) return
@@ -434,7 +446,11 @@ export function AppHeader({
           </button>
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div
+                aria-hidden="true"
+                className="fixed inset-0 z-10"
+                onClick={() => setMenuOpen(false)}
+              />
               <div className="absolute right-0 top-full z-20 mt-2 w-44 rounded-control border border-grey-200 bg-white py-1.5 shadow-lg">
                 <Link
                   to="/profile"

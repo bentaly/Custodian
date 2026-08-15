@@ -15,7 +15,7 @@ import {
   MoneySavingJarIcon,
   ArrowRight01Icon,
 } from '@hugeicons/core-free-icons'
-import { Card as UiCard } from '../../components/ui'
+import { Card as UiCard, TextLink } from '../../components/ui'
 import { BarMeter, type BarSegment, withAlpha } from '../../components/BarMeter'
 import { ProgressBar } from '../../components/ProgressBar'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
@@ -745,31 +745,42 @@ function Onboarding({ name }: { name: string }) {
       to: '/settings/api-keys',
       cta: 'Go to API keys',
     },
-  ]
+  ] as const
+  // The first screen a new foundation ever sees, so it is drawn in the same voice as the
+  // dashboard it becomes — the same <h1>, the same cards, the same brand green. It used
+  // to wear a heavier heading and `text-success` links, which made the app look like it
+  // changed hands between the empty state and the full one.
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-heading font-semibold tracking-tight" style={{ color: C.ink }}>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display text-heading font-medium" style={{ color: C.ink }}>
           {greeting()}, {firstName(name)}.
         </h1>
-        <p className="mt-0.5 text-body" style={{ color: C.sub }}>
-          Let’s get your foundation set up
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          Three things to set up, and applications can start arriving.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         {steps.map((s) => (
-          <UiCard key={s.n} className="p-4">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-body font-semibold text-success">
+          <UiCard key={s.n} className="flex flex-col p-4">
+            <span
+              className="flex size-7 items-center justify-center rounded-full font-display text-body font-medium"
+              style={{ backgroundColor: C.brandBg, color: C.brand }}
+            >
               {s.n}
             </span>
-            <p className="mt-3 text-body font-medium text-grey-900">{s.title}</p>
-            <p className="mt-1 text-label text-grey-500">{s.body}</p>
-            <Link
-              to={s.to}
-              className="mt-3 inline-block text-label font-medium text-success hover:text-success"
+            <p className="mt-3 font-display text-title font-medium" style={{ color: C.ink }}>
+              {s.title}
+            </p>
+            <p
+              className="mt-1 flex-1 font-display text-body leading-relaxed"
+              style={{ color: C.sub }}
             >
+              {s.body}
+            </p>
+            <TextLink to={s.to} className="mt-3 text-label">
               {s.cta} →
-            </Link>
+            </TextLink>
           </UiCard>
         ))}
       </div>

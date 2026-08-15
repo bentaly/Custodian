@@ -109,9 +109,12 @@ export function TagInput({
 
   return (
     <div className="relative">
-      <div
+      {/* A <label>, not a div with an onClick: clicking anywhere in the box should put
+          the cursor in the input, and that is what a label natively does — for pointer
+          and assistive tech alike, with no handler to keep working. */}
+      <label
+        htmlFor={id}
         className="flex min-h-10 cursor-text flex-wrap gap-1.5 rounded-control bg-grey-100 px-2 py-1.5 focus-within:ring-2 focus-within:ring-brand/20"
-        onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
           <span
@@ -168,7 +171,7 @@ export function TagInput({
           className="min-w-24 flex-1 border-none bg-transparent font-display text-body outline-hidden"
           placeholder={value.length === 0 ? placeholder : ''}
         />
-      </div>
+      </label>
 
       {stray && (
         // `status`, not `alert`: nothing has failed yet and the text is still in the

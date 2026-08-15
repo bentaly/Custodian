@@ -38,6 +38,9 @@ export const Textarea = forwardRef<
 })
 
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
+  // The association is the caller's: this is the generic label, and every call site
+  // passes `htmlFor` (or wraps its own control). The rule can only see this file.
+  // eslint-disable-next-line jsx-a11y/label-has-associated-control
   return <label className={cn(LABEL_CLASSES, className)} {...props} />
 }
 

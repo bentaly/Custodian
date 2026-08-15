@@ -1,3 +1,7 @@
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex --
+   The crop viewport is a focusable custom widget: it handles arrow keys to move the
+   photo, so it needs a tab stop. The rule treats `role="application"` as
+   non-interactive and cannot see the key handler. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MAX_ZOOM, type AvatarCrop, type AvatarSource } from '../lib/avatar'
 import { Button } from './ui'
@@ -100,6 +104,8 @@ export function AvatarCropper({
 
   return (
     <div className="rounded-control border border-grey-200 p-4">
+      {/* The tab stop is the point: this element takes focus and moves the photo on the
+          arrow keys (`handleKeyDown` below). See the file-level disable at the top. */}
       <div
         role="application"
         aria-label="Drag to reposition your photo"

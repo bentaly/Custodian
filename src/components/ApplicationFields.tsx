@@ -4,6 +4,7 @@
 // the shortlist "Briefing" drawer — so the layout stays consistent.
 
 import { budgetTotal, formatPounds, type BudgetLine } from '../lib/budget'
+import { C } from './ui/tokens'
 
 // Accepts any application-shaped row; fields are optional so callers can pass
 // whatever their query returned.
@@ -31,7 +32,12 @@ function fmtAmount(v: string | null) {
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="mb-3 text-label font-semibold uppercase tracking-wide text-grey-400">{title}</h3>
+      <h3
+        className="mb-3 font-display text-label font-semibold uppercase tracking-wide"
+        style={{ color: C.faint }}
+      >
+        {title}
+      </h3>
       {children}
     </section>
   )
@@ -39,14 +45,17 @@ export function Section({ title, children }: { title: string; children: React.Re
 
 export function KeyValueCard({ rows }: { rows: FieldRow[] }) {
   return (
-    <div className="rounded-chip border border-grey-200">
+    <div className="rounded-control border" style={{ borderColor: C.line }}>
       {rows.map((r) => (
         <div
           key={r.label}
-          className="flex justify-between gap-4 border-b border-grey-100 px-4 py-2.5 text-body last:border-b-0"
+          className="flex justify-between gap-4 border-b px-4 py-2.5 font-display text-body last:border-b-0"
+          style={{ borderColor: C.wash }}
         >
-          <span className="text-grey-500">{r.label}</span>
-          <span className="text-right font-medium text-grey-900">{r.value || '—'}</span>
+          <span style={{ color: C.sub }}>{r.label}</span>
+          <span className="text-right font-medium" style={{ color: C.ink }}>
+            {r.value || '—'}
+          </span>
         </div>
       ))}
     </div>
@@ -72,46 +81,54 @@ export function ApplicationFields({ application }: { application: ApplicationFie
   const budget = application.budgetBreakdown ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <Section title="Application details">
         <KeyValueCard rows={detailRows} />
       </Section>
 
       {budget.length > 0 && (
         <Section title="Project budget">
-          <div className="rounded-chip border border-grey-200">
+          <div className="rounded-control border" style={{ borderColor: C.line }}>
             {budget.map((l, i) => (
-              <div key={i} className="border-b border-grey-100 px-4 py-2.5">
-                <div className="flex justify-between gap-4 text-body">
-                  <span className="text-grey-500">{l.item}</span>
-                  <span className="text-right font-medium tabular-nums text-grey-900">
+              <div key={i} className="border-b px-4 py-2.5" style={{ borderColor: C.wash }}>
+                <div className="flex justify-between gap-4 font-display text-body">
+                  <span style={{ color: C.sub }}>{l.item}</span>
+                  <span className="text-right font-medium tabular-nums" style={{ color: C.ink }}>
                     {formatPounds(l.amount)}
                   </span>
                 </div>
                 {/* Extra fields the applicant entered on this line (a description, a
                     cost type…). Shown, but not part of the item/amount breakdown. */}
                 {l.details && l.details.length > 0 && (
-                  <dl className="mt-1.5 space-y-0.5">
+                  <dl className="mt-1.5 flex flex-col gap-0.5">
                     {l.details.map((d, j) => (
-                      <div key={j} className="flex gap-2 text-label text-grey-400">
+                      <div
+                        key={j}
+                        className="flex gap-2 font-display text-label"
+                        style={{ color: C.faint }}
+                      >
                         <dt className="shrink-0">{d.label}:</dt>
-                        <dd className="whitespace-pre-wrap text-grey-500">{d.value}</dd>
+                        <dd className="whitespace-pre-wrap" style={{ color: C.sub }}>
+                          {d.value}
+                        </dd>
                       </div>
                     ))}
                   </dl>
                 )}
               </div>
             ))}
-            <div className="flex justify-between gap-4 px-4 py-2.5 text-body">
-              <span className="font-medium text-grey-900">Total project budget</span>
-              <span className="text-right font-semibold tabular-nums text-grey-900">
+            <div className="flex justify-between gap-4 px-4 py-2.5 font-display text-body">
+              <span className="font-medium" style={{ color: C.ink }}>
+                Total project budget
+              </span>
+              <span className="text-right font-medium tabular-nums" style={{ color: C.ink }}>
                 {formatPounds(budgetTotal(budget))}
               </span>
             </div>
           </div>
           {/* The budget covers the whole project; the ask may be a part of it. Said
               plainly so a total above "Amount requested" doesn't read as an error. */}
-          <p className="mt-2 text-label text-grey-400">
+          <p className="mt-2 font-display text-label" style={{ color: C.faint }}>
             The cost of the whole project — this need not match the amount requested.
           </p>
         </Section>
@@ -125,13 +142,20 @@ export function ApplicationFields({ application }: { application: ApplicationFie
 
       <Section title="Form responses">
         {responses.length === 0 ? (
-          <p className="text-body text-grey-400">No form responses recorded.</p>
+          <p className="font-display text-body" style={{ color: C.faint }}>
+            No form responses recorded.
+          </p>
         ) : (
-          <dl className="space-y-5">
+          <dl className="flex flex-col gap-5">
             {responses.map((r, i) => (
               <div key={i}>
-                <dt className="mb-1 text-label font-medium text-grey-500">{r.label}</dt>
-                <dd className="whitespace-pre-wrap text-body leading-relaxed text-grey-700">
+                <dt className="mb-1 font-display text-label font-medium" style={{ color: C.sub }}>
+                  {r.label}
+                </dt>
+                <dd
+                  className="whitespace-pre-wrap font-display text-body leading-relaxed"
+                  style={{ color: C.body }}
+                >
                   {r.value || '—'}
                 </dd>
               </div>

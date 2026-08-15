@@ -3,6 +3,7 @@
 // "View report" drawer reads exactly like the "View application" one.
 
 import { KeyValueCard, Section, type FieldRow } from './ApplicationFields'
+import { C } from './ui/tokens'
 
 export type ReportFieldsData = {
   submittedAt: string
@@ -85,7 +86,7 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
   const responses = report.responses ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <Section title="Report details">
         <KeyValueCard rows={detailRows} />
       </Section>
@@ -97,11 +98,18 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
       )}
 
       <Section title="Report content">
-        <dl className="space-y-5">
+        <dl className="flex flex-col gap-5">
           {narratives.map(([label, value]) => (
             <div key={label}>
-              <dt className="mb-1 text-label font-medium text-grey-500">{label}</dt>
-              <dd className="whitespace-pre-wrap text-body leading-relaxed text-grey-700">{value}</dd>
+              <dt className="mb-1 font-display text-label font-medium" style={{ color: C.sub }}>
+                {label}
+              </dt>
+              <dd
+                className="whitespace-pre-wrap font-display text-body leading-relaxed"
+                style={{ color: C.body }}
+              >
+                {value}
+              </dd>
             </div>
           ))}
         </dl>
@@ -109,11 +117,16 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
 
       {responses.length > 0 && (
         <Section title="Further answers">
-          <dl className="space-y-5">
+          <dl className="flex flex-col gap-5">
             {responses.map((r, i) => (
               <div key={i}>
-                <dt className="mb-1 text-label font-medium text-grey-500">{r.label}</dt>
-                <dd className="whitespace-pre-wrap text-body leading-relaxed text-grey-700">
+                <dt className="mb-1 font-display text-label font-medium" style={{ color: C.sub }}>
+                  {r.label}
+                </dt>
+                <dd
+                  className="whitespace-pre-wrap font-display text-body leading-relaxed"
+                  style={{ color: C.body }}
+                >
                   {r.value || '—'}
                 </dd>
               </div>

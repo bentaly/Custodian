@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Card, Tabs, type TabItem } from '../../components/ui'
+import { Badge, Panel, PanelTitle, Tabs, type TabItem } from '../../components/ui'
+import { C } from '../../components/ui/tokens'
 import { SettingsPage } from '../../components/SettingsPage'
 import {
   CANONICAL_FIELDS,
@@ -101,58 +102,74 @@ function Submissions() {
       title="Submitting applications"
       description="How your website or intake form sends applications and reports to Custodian, and what each field should contain."
     >
-      <div className="space-y-8">
-        <section className="space-y-3">
-          <h2 className="text-body font-medium text-grey-700">How it works</h2>
-          <Card className="space-y-3 p-4 text-body leading-relaxed text-grey-600">
-            <p>
-              Send us a flat object of your own field names and their values — there are no reserved
-              keys and no wrapper to build. We match each of your field names to one of the fields
-              below, so you can keep calling things whatever your form already calls them.
-            </p>
-            <p>
-              Authenticate with an API key in the <Code>Authorization: Bearer …</Code> header. JSON
-              and form-encoded bodies are both accepted. We reply <Code>202 Accepted</Code> straight
-              away and do the matching afterwards; anything we can't place with confidence waits in
-              a queue rather than being guessed at.
-            </p>
-            <p>
-              Fields marked <span className="font-medium text-grey-900">Required</span> must be
-              present and understood before a submission can go through. Where a field is marked{' '}
-              <span className="font-medium text-grey-900">One of a pair</span>, at least one of the
-              two must be present — neither is needed on its own, but a submission with neither is
-              held for review.
-            </p>
-            <p>
-              Everything else is optional to send. Some of it still earns its place: each field
-              below says what we can do with it, and what we can't do without it. A submission
-              missing one of those goes through, and the application says plainly what is
-              unavailable as a result — nothing is dropped quietly.
-            </p>
-          </Card>
-        </section>
+      <Panel label="How it works">
+        <PanelTitle>How it works</PanelTitle>
+        <div
+          className="flex flex-col gap-3 font-display text-body leading-relaxed"
+          style={{ color: C.body }}
+        >
+          <p>
+            Send us a flat object of your own field names and their values — there are no reserved
+            keys and no wrapper to build. We match each of your field names to one of the fields
+            below, so you can keep calling things whatever your form already calls them.
+          </p>
+          <p>
+            Authenticate with an API key in the <Code>Authorization: Bearer …</Code> header. JSON
+            and form-encoded bodies are both accepted. We reply <Code>202 Accepted</Code> straight
+            away and do the matching afterwards; anything we can't place with confidence waits in a
+            queue rather than being guessed at.
+          </p>
+          <p>
+            Fields marked <span className="font-medium text-grey-900">Required</span> must be
+            present and understood before a submission can go through. Where a field is marked{' '}
+            <span className="font-medium text-grey-900">One of a pair</span>, at least one of the
+            two must be present — neither is needed on its own, but a submission with neither is
+            held for review.
+          </p>
+          <p>
+            Everything else is optional to send. Some of it still earns its place: each field below
+            says what we can do with it, and what we can't do without it. A submission missing one
+            of those goes through, and the application says plainly what is unavailable as a result
+            — nothing is dropped quietly.
+          </p>
+        </div>
+      </Panel>
 
-        <Tabs items={TABS} value={tab} onChange={setTab} />
+      <Tabs items={TABS} value={tab} onChange={setTab} />
 
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-body font-medium text-grey-700">
-              Endpoint <Code>POST {active.path}</Code>
-            </h2>
-            <p className="mt-1 text-body text-grey-500">{active.blurb}</p>
-          </div>
-          <pre className="overflow-x-auto rounded-control border border-grey-200 bg-grey-900 p-4 font-mono text-label leading-relaxed text-grey-200">
-            {example}
-          </pre>
-        </section>
+      <Panel label="Endpoint">
+        <PanelTitle>
+          Endpoint <Code>POST {active.path}</Code>
+        </PanelTitle>
+        <p className="-mt-2 mb-3 font-display text-body" style={{ color: C.sub }}>
+          {active.blurb}
+        </p>
+        <pre
+          className="overflow-x-auto rounded-control border p-4 font-mono text-label leading-relaxed"
+          style={{ borderColor: C.line, backgroundColor: C.ink, color: C.wash }}
+        >
+          {example}
+        </pre>
+      </Panel>
 
-        <section className="space-y-3">
-          <h2 className="text-body font-medium text-grey-700">Fields we recognise</h2>
+      <Panel label="Fields">
+        <PanelTitle
+          right={
+            <span className="font-display text-label font-medium" style={{ color: C.faint }}>
+              {active.fields.length} fields
+            </span>
+          }
+        >
+          Fields we recognise
+        </PanelTitle>
+
+        <div className="flex flex-col gap-3">
           {tab === 'applications' &&
             REQUIRED_ONE_OF_GROUPS.map((group) => (
               <p
                 key={group.join('-')}
-                className="rounded-control bg-warning/10 px-4 py-3 text-body leading-relaxed text-warning"
+                className="rounded-chip px-3 py-2 font-display text-body leading-relaxed"
+                style={{ backgroundColor: C.warningWash, color: C.warning }}
               >
                 Send a <strong>{describeOneOfGroup(group)}</strong>. Applicants hold one or the
                 other, so neither is required by itself — but with neither there is no register to
@@ -164,39 +181,50 @@ function Submissions() {
             EXPECTED_ONE_OF_GROUPS.map((group) => (
               <p
                 key={group.keys.join('-')}
-                className="rounded-control bg-grey-50 px-4 py-3 text-body leading-relaxed text-grey-600"
+                className="rounded-chip px-3 py-2 font-display text-body leading-relaxed"
+                style={{ backgroundColor: C.wash, color: C.sub }}
               >
                 Send a <strong>{describeOneOfGroup(group.keys)}</strong> — either one answers the
                 question, so there is no need to send both. Unlike the pair above, neither holds a
-                submission: send neither and the application is still created, noting that no
-                budget was captured. A document is shown to reviewers as a link; only line items
-                feed the budget breakdown and the Custodian score.
+                submission: send neither and the application is still created, noting that no budget
+                was captured. A document is shown to reviewers as a link; only line items feed the
+                budget breakdown and the Custodian score.
               </p>
             ))}
-          <Card className="divide-y divide-grey-100">
-            {active.fields.map((f) => (
-              <div key={f.key} className="px-5 py-4">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-body font-medium text-grey-900">{f.label}</span>
-                  {TIER_BADGE[f.tier] && (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-label font-medium ${TIER_BADGE[f.tier]!.className}`}
-                    >
-                      {TIER_BADGE[f.tier]!.label}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-body leading-relaxed text-grey-500">{f.description}</p>
-                {f.degrades && (
-                  <p className="mt-1.5 text-body leading-relaxed text-warning">
-                    If you don't send it: {f.degrades}
-                  </p>
+        </div>
+
+        <ul className="mt-3 flex flex-col">
+          {active.fields.map((f) => (
+            <li
+              key={f.key}
+              className="border-t py-3 first:border-t-0 first:pt-0"
+              style={{ borderColor: C.wash }}
+            >
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="font-display text-body font-medium" style={{ color: C.ink }}>
+                  {f.label}
+                </span>
+                {TIER_BADGE[f.tier] && (
+                  <Badge size="sm" className={TIER_BADGE[f.tier]!.className}>
+                    {TIER_BADGE[f.tier]!.label}
+                  </Badge>
                 )}
               </div>
-            ))}
-          </Card>
-        </section>
-      </div>
+              <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.sub }}>
+                {f.description}
+              </p>
+              {f.degrades && (
+                <p
+                  className="mt-1.5 font-display text-body leading-relaxed"
+                  style={{ color: C.warning }}
+                >
+                  If you don't send it: {f.degrades}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      </Panel>
     </SettingsPage>
   )
 }

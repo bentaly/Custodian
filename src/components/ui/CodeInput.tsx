@@ -30,7 +30,9 @@ export function CodeInput({
   const cursor = Math.min(value.length, length - 1)
 
   return (
-    <div className="relative" onClick={() => ref.current?.focus()}>
+    // No click handler on the wrapper: the real input is `absolute inset-0` over the
+    // whole box, so every click already lands on it.
+    <div className="relative">
       <input
         ref={ref}
         value={value}

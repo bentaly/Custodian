@@ -134,19 +134,22 @@ function SettingsCard({ card }: { card: Card }) {
       style={{ borderColor: C.line }}
     >
       <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control"
+        className="flex size-10 shrink-0 items-center justify-center rounded-control"
         style={{ backgroundColor: C.brandWash, color: C.brand }}
       >
-        <HugeiconsIcon icon={card.icon} className="h-5 w-5" strokeWidth={1.75} />
+        <HugeiconsIcon icon={card.icon} size={20} strokeWidth={1.75} />
       </span>
       <span className="min-w-0">
         <span
-          className="block text-body font-semibold group-hover:underline"
-          style={{ color: C.brand }}
+          className="block font-display text-body font-medium group-hover:underline"
+          style={{ color: C.ink }}
         >
           {card.title}
         </span>
-        <span className="mt-1 block text-body leading-relaxed" style={{ color: C.sub }}>
+        <span
+          className="mt-1 block font-display text-label leading-relaxed"
+          style={{ color: C.sub }}
+        >
           {card.description}
         </span>
       </span>
@@ -166,31 +169,36 @@ function Settings() {
   })).filter((g) => g.cards.length > 0)
 
   return (
-    <div className="max-w-5xl">
-      <h1 className="text-heading font-semibold" style={{ color: C.ink }}>
-        Settings
-      </h1>
-      <p className="mt-1 text-body" style={{ color: C.sub }}>
-        {isAdmin
-          ? 'Manage how your foundation funds, decides and receives applications.'
-          : 'How your foundation funds and decides. Ask an admin to change any of it.'}
-      </p>
+    // Full width and the app's own header, like every other top-level screen. The hub
+    // is a place you navigate FROM, so it belongs with the list screens rather than with
+    // the capped, form-shaped pages it links to.
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display text-heading font-medium" style={{ color: C.ink }}>
+          Settings
+        </h1>
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          {isAdmin
+            ? 'Manage how your foundation funds, decides and receives applications.'
+            : 'How your foundation funds and decides. Ask an admin to change any of it.'}
+        </p>
+      </div>
 
-      <div className="mt-10 space-y-10">
+      <div className="flex flex-col gap-6">
         {groups.map((group) => (
           <section key={group.title}>
             <div className="flex items-center gap-2.5">
               <span
-                className="flex h-7 w-7 items-center justify-center rounded-chip"
+                className="flex size-7 items-center justify-center rounded-chip"
                 style={{ backgroundColor: C.brandWash, color: C.brand }}
               >
-                <HugeiconsIcon icon={group.icon} className="h-4 w-4" strokeWidth={1.75} />
+                <HugeiconsIcon icon={group.icon} size={16} strokeWidth={1.75} />
               </span>
-              <h2 className="text-title font-semibold" style={{ color: C.ink }}>
+              <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
                 {group.title}
               </h2>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {group.cards.map((card) => (
                 <SettingsCard key={card.title} card={card} />
               ))}

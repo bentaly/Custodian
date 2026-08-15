@@ -1,17 +1,20 @@
 import { useState } from 'react'
-import { createFileRoute, redirect, useRouter, Link } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { listApiKeys, createApiKey, revokeApiKey } from '../../server/fns/apiKeys'
 import {
   Button,
-  Card,
   DataTable,
+  ErrorNote,
   Input,
   Label,
   Pagination,
+  Panel,
+  PanelTitle,
   StatusPill,
   TextLink,
   type TableColumn,
 } from '../../components/ui'
+import { C } from '../../components/ui/tokens'
 import { SettingsPage } from '../../components/SettingsPage'
 import { paginate } from '../../lib/pagination'
 
@@ -145,38 +148,75 @@ function ApiKeys() {
       title="API keys"
       description="Keys authenticate your intake integration when it posts applications or reports to Custodian. Send the key from your server in the Authorization header — never expose one in browser code."
     >
-      <div className="space-y-4">
-        <p className="text-body text-grey-500">
-          See <TextLink to="/settings/submissions">Submitting applications</TextLink> for the
-          endpoints and the fields we expect.
-        </p>
+      <p className="font-display text-body" style={{ color: C.sub }}>
+        See <TextLink to="/settings/submissions">Submitting applications</TextLink> for the
+        endpoints and the fields we expect.
+      </p>
 
-        {newKey && (
-          <div className="rounded-card border border-success/20 bg-success/10 p-4">
-            <p className="text-body font-medium text-success">
-              Key created — copy it now. You won't be able to see it again.
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto rounded-chip border border-success/20 bg-white px-3 py-2 text-label text-grey-900">
-                {newKey}
-              </code>
-              <Button size="sm" onClick={copyKey}>
-                {copied ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
+      {/* Shown once, and never again — so it is the loudest thing on the screen while it
+          is here. */}
+      {newKey && (
+        <div
+          className="rounded-card border p-4"
+          style={{ borderColor: C.brandBorder, backgroundColor: C.brandBg }}
+        >
+          <p className="font-display text-body font-medium" style={{ color: C.brand }}>
+            Key created — copy it now. You won't be able to see it again.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <code
+              className="flex-1 overflow-x-auto rounded-chip border bg-white px-3 py-2 font-mono text-label"
+              style={{ borderColor: C.brandBorder, color: C.ink }}
+            >
+              {newKey}
+            </code>
+            <Button size="sm" onClick={copyKey}>
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {apiKeys.length > 0 && (
-          <>
-            <Card className="overflow-hidden">
-              <DataTable
-                columns={keyColumns}
-                rows={keyPage.items}
-                rowKey={(k) => k.id}
-                rowClassName={(k) => (k.revokedAt ? 'opacity-50' : '')}
-              />
-            </Card>
+      <Panel label="Generate a key">
+        <PanelTitle>Generate a key</PanelTitle>
+        <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
+          <div className="min-w-48 flex-1">
+            <Label htmlFor="key-name">Key name</Label>
+            <Input
+              id="key-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Website intake form"
+              required
+            />
+          </div>
+          <Button type="submit" disabled={creating}>
+            {creating ? 'Generating…' : 'Generate key'}
+          </Button>
+        </form>
+        <ErrorNote error={error} className="mt-3" />
+      </Panel>
+
+      {apiKeys.length > 0 && (
+        <Panel label="Keys">
+          <PanelTitle
+            right={
+              <span className="font-display text-label font-medium" style={{ color: C.faint }}>
+                {apiKeys.length} {apiKeys.length === 1 ? 'key' : 'keys'}
+              </span>
+            }
+          >
+            Keys
+          </PanelTitle>
+          <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
+            <DataTable
+              columns={keyColumns}
+              rows={keyPage.items}
+              rowKey={(k) => k.id}
+              rowClassName={(k) => (k.revokedAt ? 'opacity-50' : '')}
+            />
+          </div>
+          <div className="mt-4">
             <Pagination
               page={keyPage.page}
               pageCount={Math.max(1, Math.ceil(keyPage.total / keyPage.pageSize))}
@@ -185,27 +225,9 @@ function ApiKeys() {
               noun="keys"
               onChange={setPage}
             />
-          </>
-        )}
-
-        <Card className="p-4">
-          <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
-            <div className="min-w-48 flex-1">
-              <Label>Key name</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Website intake form"
-                required
-              />
-            </div>
-            <Button type="submit" disabled={creating}>
-              {creating ? 'Generating…' : 'Generate key'}
-            </Button>
-          </form>
-          {error && <p className="mt-2 text-body text-danger">{error}</p>}
-        </Card>
-      </div>
+          </div>
+        </Panel>
+      )}
     </SettingsPage>
   )
 }

@@ -1,14 +1,23 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { useId } from 'react'
 import { cn } from './cn'
+import { Button } from './Button'
+import { Input, Label } from './fields'
 
 /**
- * Form furniture for the signed-out screens only.
+ * Form furniture for the signed-out screens.
  *
- * Deliberately separate from `ui/Button` + `ui/fields`: those are used on every screen
- * in the app, and the auth pages are the first surface built to the new design. Keeping
- * them apart means this redesign can't restyle the rest of the app by accident. When the
- * design tokens land properly, these should collapse back into the shared components.
+ * These used to be a PARALLEL kit — their own input box, their own button — built when
+ * the auth pages were the first surface drawn to the new design and the rest of the app
+ * was not, so keeping them apart was what stopped the redesign leaking sideways. The
+ * note left here said they should collapse back into the shared components once the
+ * design tokens landed properly. They landed (10–11 Aug), so they have.
+ *
+ * What survives is only what is genuinely particular to being signed out: a label/field
+ * pairing, Google's own button, a divider and a notice. Each one now composes `Button`
+ * and `fields` rather than restating them — which is what fixes the thing you could see
+ * from across the room: the primary button on the app's front door was charcoal, and
+ * every other primary action in the app is brand green.
  */
 
 export function AuthInput({
@@ -21,22 +30,8 @@ export function AuthInput({
   const inputId = id ?? generated
   return (
     <div>
-      {label && (
-        <label htmlFor={inputId} className="mb-1.5 block text-body font-medium text-grey-700">
-          {label}
-        </label>
-      )}
-      <input
-        id={inputId}
-        className={cn(
-          'w-full rounded-control border border-grey-200 bg-background px-3.5 py-3 text-body text-grey-900',
-          'placeholder:text-grey-500/60',
-          'transition-colors duration-150',
-          'focus:border-brand focus:bg-white focus:outline-hidden focus:ring-4 focus:ring-brand/20',
-          className,
-        )}
-        {...props}
-      />
+      {label && <Label htmlFor={inputId}>{label}</Label>}
+      <Input id={inputId} className={className} {...props} />
     </div>
   )
 }
@@ -50,23 +45,22 @@ export function AuthButton({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean; loadingLabel?: string }) {
   return (
-    <button
+    <Button
       type="submit"
+      variant="primary"
       disabled={loading || disabled}
-      className={cn(
-        'w-full rounded-control bg-grey-900 px-4 py-3 text-body font-medium text-white',
-        'transition-colors duration-150 hover:bg-grey-700',
-        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-brand/20',
-        'disabled:cursor-not-allowed disabled:opacity-40',
-        className,
-      )}
+      className={cn('w-full', className)}
       {...props}
     >
       {loading && loadingLabel ? loadingLabel : children}
-    </button>
+    </Button>
   )
 }
 
+/**
+ * Google's button. The one place a literal hex belongs in a component: the four colours
+ * below are Google's brand, not ours, and a token that changed them would be wrong.
+ */
 export function GoogleButton({
   onClick,
   loading,
@@ -77,17 +71,12 @@ export function GoogleButton({
   label: string
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
       onClick={onClick}
       disabled={loading}
-      className={cn(
-        'flex w-full items-center justify-center gap-2.5 rounded-control border border-grey-200 bg-white px-4 py-3',
-        'text-body font-medium text-grey-700',
-        'transition-colors duration-150 hover:bg-background',
-        'focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-brand/20',
-        'disabled:opacity-50',
-      )}
+      className="w-full"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
         <path
@@ -108,7 +97,7 @@ export function GoogleButton({
         />
       </svg>
       {loading ? 'Redirecting to Google…' : label}
-    </button>
+    </Button>
   )
 }
 
@@ -119,19 +108,26 @@ export function Divider({ children }: { children: ReactNode }) {
         <div className="w-full border-t border-grey-200" />
       </div>
       <div className="relative flex justify-center">
-        <span className="bg-white px-3 text-body text-grey-500">{children}</span>
+        <span className="bg-white px-3 font-display text-body text-grey-500">{children}</span>
       </div>
     </div>
   )
 }
 
+/**
+ * The outcome of the last attempt. Wears the same tinted box as `ErrorNote` (the inline
+ * failure note used inside the app) rather than a shape of its own — a rounded-chip at
+ * the 10% tint, hairline at 20%.
+ */
 export function Notice({ tone, children }: { tone: 'error' | 'success'; children: ReactNode }) {
   return (
     <p
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
-        'mt-5 rounded-control px-3.5 py-3 text-body leading-relaxed',
-        tone === 'error' ? 'bg-accent-blush/20 text-danger' : 'bg-brand-secondary text-brand',
+        'mt-5 rounded-chip border px-3 py-2 font-display text-body leading-relaxed',
+        tone === 'error'
+          ? 'border-danger/20 bg-danger/10 text-danger'
+          : 'border-brand/20 bg-brand/10 text-brand',
       )}
     >
       {children}

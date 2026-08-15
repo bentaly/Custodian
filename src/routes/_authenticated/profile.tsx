@@ -11,7 +11,8 @@ import {
   type AvatarSource,
 } from '../../lib/avatar'
 import { AvatarCropper } from '../../components/AvatarCropper'
-import { Avatar, Button, Input } from '../../components/ui'
+import { Avatar, Button, ErrorNote, Input, Label, Panel, PanelTitle } from '../../components/ui'
+import { C } from '../../components/ui/tokens'
 import { longerTimeout } from '../../lib/requestTimeout'
 
 export const Route = createFileRoute('/_authenticated/profile')({
@@ -142,15 +143,25 @@ function Profile() {
   }
 
   return (
-    <div className="max-w-lg">
-      <h1 className="text-heading font-semibold text-grey-900">Profile</h1>
-      <p className="mt-1 text-body text-grey-500">Your account details</p>
+    // Capped like the settings pages, and wearing their header — this screen sat at
+    // `max-w-lg` with a `font-semibold` title, which made it the narrowest and heaviest
+    // page in the app.
+    <div className="flex max-w-4xl flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display text-heading font-medium" style={{ color: C.ink }}>
+          Profile
+        </h1>
+        <p className="font-display text-body" style={{ color: C.sub }}>
+          Your account details, and how you appear to the rest of your foundation.
+        </p>
+      </div>
 
-      <div className="mt-8 space-y-6">
-        <div className="flex items-center gap-4">
+      <Panel label="Photo">
+        <PanelTitle>Photo</PanelTitle>
+        <div className="flex flex-wrap items-center gap-4">
           <Avatar name={user.name} image={photo} size={64} />
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="secondary"
@@ -160,17 +171,17 @@ function Profile() {
                 {photoBusy ? 'Uploading…' : photo ? 'Change photo' : 'Upload photo'}
               </Button>
               {photo && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={handlePhotoRemove}
                   disabled={photoBusy}
-                  className="text-body text-grey-500 hover:text-grey-700 disabled:opacity-50"
                 >
                   Remove
-                </button>
+                </Button>
               )}
             </div>
-            <p className="mt-1.5 text-label text-grey-500">
+            <p className="mt-1.5 font-display text-label" style={{ color: C.sub }}>
               JPEG, PNG or WebP, up to 10MB. You can reposition it after choosing.
             </p>
           </div>
@@ -182,88 +193,113 @@ function Profile() {
             className="hidden"
           />
         </div>
-        {photoError && <p className="text-body text-danger">{photoError}</p>}
+        <ErrorNote error={photoError} className="mt-3" />
         {source && (
-          <AvatarCropper
-            source={source}
-            busy={photoBusy}
-            onCancel={closeCropper}
-            onConfirm={handlePhotoConfirm}
-          />
+          <div className="mt-4">
+            <AvatarCropper
+              source={source}
+              busy={photoBusy}
+              onCancel={closeCropper}
+              onConfirm={handlePhotoConfirm}
+            />
+          </div>
         )}
+      </Panel>
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-body font-medium text-grey-700">Name</label>
+      <Panel label="Account">
+        <PanelTitle
+          right={
+            <span className="font-display text-label font-medium" style={{ color: C.faint }}>
+              {ROLE_LABELS[user.role] ?? user.role}
+            </span>
+          }
+        >
+          Account
+        </PanelTitle>
+        <form onSubmit={handleSave} className="flex flex-col gap-4">
+          <div className="max-w-sm">
+            <Label htmlFor="profile-name">Name</Label>
             <Input
+              id="profile-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1"
               required
             />
           </div>
-          <div>
-            <label className="block text-body font-medium text-grey-700">Email</label>
-            <input
-              type="email"
-              value={user.email}
-              readOnly
-              className="mt-1 w-full rounded-chip border border-grey-200 bg-grey-50 px-3 py-2 text-body text-grey-500 cursor-not-allowed"
-            />
-          </div>
-          {error && <p className="text-body text-danger">{error}</p>}
-          <Button type="submit" disabled={saving || name === user.name}>
-            {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
-          </Button>
-        </form>
-
-        <div className="border-t border-grey-100 pt-6 space-y-3">
-          <div className="flex items-center justify-between text-body">
-            <span className="text-grey-500">Role</span>
-            <span className="font-medium text-grey-800">{ROLE_LABELS[user.role] ?? user.role}</span>
-          </div>
-        </div>
-
-        {user.role === 'superadmin' && (
-          <div className="border-t border-grey-100 pt-6">
-            <h2 className="text-body font-semibold text-grey-900">Log in as a foundation</h2>
-            <p className="mt-1 text-label text-grey-500">
-              See a foundation's data as one of its members. Create foundations from the admin app.
+          <div className="max-w-sm">
+            <Label htmlFor="profile-email">Email</Label>
+            {/* A disabled field on the app's own field surface, rather than a hand-painted
+                grey box: the address is how you sign in, and changing it is not a profile
+                edit. */}
+            <Input id="profile-email" type="email" value={user.email} readOnly disabled />
+            <p className="mt-1.5 font-display text-label" style={{ color: C.faint }}>
+              Your email is how you sign in and cannot be changed here.
             </p>
-            {impersonateError && <p className="mt-2 text-body text-danger">{impersonateError}</p>}
-            <div className="mt-3 space-y-3">
-              {clients.length === 0 && <p className="text-body text-grey-500">No foundations yet.</p>}
-              {clients.map((client) => (
-                <div key={client.id} className="rounded-card border border-grey-200 p-3">
-                  <p className="text-body font-medium text-grey-900">{client.name}</p>
-                  <div className="mt-2 space-y-1">
-                    {client.users.length === 0 && (
-                      <p className="text-label text-grey-400">
-                        No members yet — admin invite pending.
-                      </p>
-                    )}
-                    {client.users.map((u) => (
-                      <div key={u.id} className="flex items-center justify-between text-body">
-                        <span className="text-grey-600">
-                          {u.name} · <span className="text-grey-400">{u.email}</span>
-                        </span>
-                        <button
-                          onClick={() => handleImpersonate(u.id)}
-                          disabled={impersonatingId !== null}
-                          className="rounded-chip border border-grey-300 px-2 py-1 text-label text-grey-700 hover:bg-grey-50 disabled:opacity-50"
-                        >
-                          {impersonatingId === u.id ? 'Signing in…' : 'Log in as'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
-        )}
-      </div>
+          <ErrorNote error={error} />
+          <div>
+            <Button type="submit" disabled={saving || name === user.name}>
+              {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
+            </Button>
+          </div>
+        </form>
+      </Panel>
+
+      {user.role === 'superadmin' && (
+        <Panel label="Impersonation">
+          <PanelTitle>Log in as a foundation</PanelTitle>
+          <p className="-mt-2 mb-3 font-display text-body" style={{ color: C.sub }}>
+            See a foundation's data as one of its members. Create foundations from the admin app.
+          </p>
+          <ErrorNote error={impersonateError} className="mb-3" />
+          {clients.length === 0 && (
+            <p className="font-display text-body" style={{ color: C.sub }}>
+              No foundations yet.
+            </p>
+          )}
+          <div className="flex flex-col gap-3">
+            {clients.map((client) => (
+              <div
+                key={client.id}
+                className="rounded-control border p-3"
+                style={{ borderColor: C.line }}
+              >
+                <p className="font-display text-body font-medium" style={{ color: C.ink }}>
+                  {client.name}
+                </p>
+                <ul className="mt-2 flex flex-col">
+                  {client.users.length === 0 && (
+                    <li className="font-display text-label" style={{ color: C.faint }}>
+                      No members yet — admin invite pending.
+                    </li>
+                  )}
+                  {client.users.map((u) => (
+                    <li
+                      key={u.id}
+                      className="flex items-center justify-between gap-3 border-t py-2 first:border-t-0"
+                      style={{ borderColor: C.wash }}
+                    >
+                      <span className="min-w-0 truncate font-display text-body">
+                        <span style={{ color: C.body }}>{u.name}</span>{' '}
+                        <span style={{ color: C.faint }}>· {u.email}</span>
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => handleImpersonate(u.id)}
+                        disabled={impersonatingId !== null}
+                      >
+                        {impersonatingId === u.id ? 'Signing in…' : 'Log in as'}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
     </div>
   )
 }

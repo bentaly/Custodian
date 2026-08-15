@@ -16,7 +16,7 @@ import {
   prepareImport,
   rollbackImport,
 } from '../../server/fns/dataImport'
-import { Breadcrumb, Button } from '../../components/ui'
+import { Breadcrumb, Button, Select } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { columnAsk, SHEETS } from '../../lib/dataImport/columns'
 import type { CellIssue, GrantRow, PaymentRow, ReportRow } from '../../lib/dataImport/parse'
@@ -110,11 +110,13 @@ function Panel({
 }) {
   return (
     <section className="rounded-card border bg-white p-4" style={{ borderColor: C.line }}>
-      <h2 className="text-body font-semibold" style={{ color: C.ink }}>
+      {/* The panel heading the rest of the app uses (`ui/Detail`'s PanelTitle): 16px
+          medium, not 14px semibold. This screen predates it. */}
+      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
         {title}
       </h2>
       {description && (
-        <p className="mt-1 text-body leading-relaxed" style={{ color: C.sub }}>
+        <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.sub }}>
           {description}
         </p>
       )}
@@ -388,12 +390,14 @@ function DataImport() {
   const rec = prepared?.reconciliation
 
   return (
+    // Same header as `SettingsPage` gives every other settings screen. This page does not
+    // use that shell because its stepper sits between the title and the body.
     <div className="max-w-4xl">
       <Breadcrumb items={[{ label: 'Settings', to: '/settings' }, { label: 'Data import' }]} />
-      <h1 className="mt-3 text-heading font-semibold" style={{ color: C.ink }}>
+      <h1 className="mt-4 font-display text-heading font-medium" style={{ color: C.ink }}>
         Data import
       </h1>
-      <p className="mt-1 max-w-2xl text-body leading-relaxed" style={{ color: C.sub }}>
+      <p className="mt-1 max-w-2xl font-display text-body leading-relaxed" style={{ color: C.sub }}>
         Bring the grants you have already made into Custodian, so your payments, reports and totals
         are right from the day you start. Begin with the grants that still owe you money or a report
         — you can come back and add the rest later.
@@ -451,7 +455,7 @@ function DataImport() {
                       className="rounded-control border p-3.5"
                       style={{ borderColor: C.line }}
                     >
-                      <div className="text-body font-semibold" style={{ color: C.brand }}>
+                      <div className="font-display text-body font-medium" style={{ color: C.ink }}>
                         {SHEETS[key].title}
                       </div>
                       <div className="mt-1 text-label leading-relaxed" style={{ color: C.sub }}>
@@ -491,7 +495,9 @@ function DataImport() {
                   className="rounded-control border-2 border-dashed px-6 py-10 text-center transition-colors"
                   style={{
                     borderColor: dragging ? C.brand : C.line,
-                    backgroundColor: dragging ? 'var(--color-background)' : 'var(--color-background)',
+                    backgroundColor: dragging
+                      ? 'var(--color-background)'
+                      : 'var(--color-background)',
                   }}
                 >
                   <HugeiconsIcon
@@ -571,21 +577,18 @@ function DataImport() {
                         {r.reason && ` · ${r.reason}`}
                       </div>
                     </div>
-                    <select
+                    {/* The app's Select, not the browser's — these were the last two
+                        native dropdowns left in the product. */}
+                    <Select
+                      className="w-56 shrink-0"
+                      aria-label={`Programme for “${r.value}”`}
                       value={programmeChoice[r.value] ?? ''}
-                      onChange={(e) =>
-                        setProgrammeChoice((prev) => ({ ...prev, [r.value]: e.target.value }))
+                      onChange={(next) =>
+                        setProgrammeChoice((prev) => ({ ...prev, [r.value]: next }))
                       }
-                      className="rounded-chip border px-2.5 py-1.5 text-label"
-                      style={{ borderColor: C.line, color: C.ink }}
-                    >
-                      <option value="">Choose a programme…</option>
-                      {prepared.programmes.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Choose a programme…"
+                      options={prepared.programmes.map((p) => ({ value: p.id, label: p.name }))}
+                    />
                   </div>
                 ))}
 
@@ -604,26 +607,23 @@ function DataImport() {
                         {r.reason && ` · ${r.reason}`}
                       </div>
                     </div>
-                    <select
+                    <Select
+                      className="w-56 shrink-0"
+                      aria-label={`Round for “${r.value}”`}
                       value={
                         roundChoice[r.value] === null ? '__new__' : (roundChoice[r.value] ?? '')
                       }
-                      onChange={(e) =>
+                      onChange={(next) =>
                         setRoundChoice((prev) => ({
                           ...prev,
-                          [r.value]: e.target.value === '__new__' ? null : e.target.value,
+                          [r.value]: next === '__new__' ? null : next,
                         }))
                       }
-                      className="rounded-chip border px-2.5 py-1.5 text-label"
-                      style={{ borderColor: C.line, color: C.ink }}
-                    >
-                      <option value="__new__">Create “{r.value}” as a new round</option>
-                      {prepared.rounds.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '__new__', label: `Create “${r.value}” as a new round` },
+                        ...prepared.rounds.map((p) => ({ value: p.id, label: p.name })),
+                      ]}
+                    />
                   </div>
                 ))}
               </div>

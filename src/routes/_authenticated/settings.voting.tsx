@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { getClientProfile, upsertClientProfile } from '../../server/fns/clients'
-import { Card } from '../../components/ui'
+import { Card, ErrorNote, Toggle } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
 
 export const Route = createFileRoute('/_authenticated/settings/voting')({
@@ -13,14 +13,16 @@ export const Route = createFileRoute('/_authenticated/settings/voting')({
   component: Voting,
 })
 
+/** The setting's own copy, announced with the switch rather than left beside it. */
+const COPY_ID = 'admin-voting-explainer'
+
 function Voting() {
   const { profile } = Route.useLoaderData()
   const [enabled, setEnabled] = useState(profile?.allowAdminVoting ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleToggle() {
-    const next = !enabled
+  async function handleToggle(next: boolean) {
     setEnabled(next)
     setSaving(true)
     setError('')
@@ -39,33 +41,24 @@ function Voting() {
       title="Voting"
       description="Trustees vote yes or no on shortlisted applications, and a majority is needed before a grant can be awarded."
     >
-      <Card className="flex items-center justify-between p-4">
-        <div className="pr-4">
-          <p className="text-body font-medium text-grey-700">
+      <Card className="flex items-center justify-between gap-4 p-4">
+        <div>
+          <p className="font-display text-body font-medium text-grey-900">
             Allow admins to vote on behalf of trustees
           </p>
-          <p className="mt-0.5 text-body text-grey-500">
+          <p id={COPY_ID} className="mt-0.5 font-display text-body leading-relaxed text-grey-500">
             When enabled, admins can record yes/no votes for any trustee on an application — useful
             when a trustee sends their decision outside the platform.
           </p>
-          {error && <p className="mt-1 text-label text-danger">{error}</p>}
+          <ErrorNote error={error} className="mt-2" />
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          onClick={handleToggle}
-          disabled={saving}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-            enabled ? 'bg-grey-900' : 'bg-grey-300'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              enabled ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
+        <Toggle
+          checked={enabled}
+          onChange={handleToggle}
+          busy={saving}
+          label="Allow admins to vote on behalf of trustees"
+          describedBy={COPY_ID}
+        />
       </Card>
     </SettingsPage>
   )
