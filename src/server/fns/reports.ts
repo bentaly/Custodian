@@ -1,15 +1,22 @@
 import { notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db'
 import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { dueStatus, type DueStatus } from '../../lib/schedule'
-import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
-import { paginate, PAGE_SIZE } from '../../lib/pagination'
-import { sortRows } from '../../lib/sortRows'
+import { type FacetOption } from '../../lib/facets'
+import { PAGE_SIZE } from '../../lib/pagination'
+import {
+  arrivedQuery,
+  outstandingQuery,
+  structuralWhere,
+  type ArrivedQuery,
+  type ArrivedRow,
+  type OutstandingQuery,
+} from '../reports/query'
 
 export type { DueStatus } from '../../lib/schedule'
 
@@ -71,232 +78,270 @@ export const listReports = createServerFn({ method: 'GET' })
   )
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
-    if (!user.clientId) {
-      return {
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: PAGE_SIZE,
-        upcoming: [],
-        totals: emptyTotals(),
-        facets: {
-          programmes: [] as FacetOption[],
-          themes: [] as FacetOption[],
-          rounds: [] as FacetOption[],
-        },
-      }
-    }
-
-    const clientAwards = await getDb().query.awards.findMany({
-      where: eq(awards.clientId, user.clientId),
-      with: {
-        application: {
-          columns: { id: true, organisationName: true, deliveryArea: true },
-          with: {
-            roundProgramme: {
-              columns: { id: true, programmeId: true },
-              with: {
-                programme: {
-                  columns: { name: true, impactUnit: true, impactUnitLabel: true, tags: true },
-                },
-                round: { columns: { id: true, name: true } },
-              },
-            },
-          },
-        },
-        schedule: true,
-        reports: true,
-      },
-    })
-
-    type SubmissionRow = (typeof clientAwards)[number]['reports'][number]
-
-    // Shape the submission into an explicitly serializable payload (raw rows carry
-    // loosely-typed jsonb that the server-fn serializer rejects).
-    function toSubmissionView(s: SubmissionRow) {
-      return {
-        id: s.id,
-        submittedAt: s.submittedAt.toISOString(),
-        impactSummary: s.impactSummary,
-        challenges: s.challenges,
-        lessons: s.lessons,
-        analysisStatus: s.analysisStatus,
-        aiSummary: s.aiSummary,
-        aiChallenges: s.aiChallenges,
-        aiLessons: s.aiLessons,
-        applicationAlignment: s.applicationAlignment,
-        programmeAlignment: s.programmeAlignment,
-        impactQuantity: s.impactQuantity,
-        impactQuantitySource: s.impactQuantitySource,
-        impactQuantityQuote: s.impactQuantityQuote,
-        impactUnitLabel: s.impactUnitLabel,
-        reviewedAt: s.reviewedAt ? s.reviewedAt.toISOString() : null,
-        reviewedBy: s.reviewedBy,
-        flags: ((s.analysisDetail as { flags?: string[] } | null)?.flags ?? []) as string[],
-      }
-    }
-    type SubmissionView = ReturnType<typeof toSubmissionView>
-
-    // Reports that have arrived — the screen's primary table.
-    const items: Array<{
-      key: string
-      awardId: string
-      applicationId: string
-      organisationName: string
-      programmeId: string | null
-      programmeName: string | null
-      roundId: string | null
-      roundName: string | null
-      tags: string[]
-      /** The schedule label this report answered, or "Unscheduled report". */
-      label: string
-      dueDate: string | null
-      submittedAt: string
-      status: ReceivedStatus
-      submission: SubmissionView
-    }> = []
-
-    // Dates still outstanding — the chase-list, shown in the drawer.
-    const upcoming: Array<{
-      key: string
-      awardId: string
-      applicationId: string
-      organisationName: string
-      programmeId: string | null
-      programmeName: string | null
-      roundId: string | null
-      roundName: string | null
-      tags: string[]
-      label: string
-      dueDate: string
-      status: DueStatus
-    }> = []
-
-    for (const g of clientAwards) {
-      const org = g.application.organisationName
-      const programmeId = g.application.roundProgramme?.programmeId ?? null
-      const programmeName = g.application.roundProgramme?.programme?.name ?? null
-      const roundId = g.application.roundProgramme?.round?.id ?? null
-      const roundName = g.application.roundProgramme?.round?.name ?? null
-      const tags = ((g.application.roundProgramme?.programme?.tags as string[] | null) ??
-        []) as string[]
-      const scheduleById = new Map(g.schedule.map((m) => [m.id, m]))
-
-      for (const s of g.reports) {
-        const milestone = s.scheduleId ? (scheduleById.get(s.scheduleId) ?? null) : null
-        items.push({
-          key: s.id,
-          awardId: g.id,
-          applicationId: g.application.id,
-          organisationName: org,
-          programmeId,
-          programmeName,
-          roundId,
-          roundName,
-          tags,
-          label: milestone?.label ?? 'Unscheduled report',
-          dueDate: milestone?.dueDate ?? null,
-          submittedAt: s.submittedAt.toISOString(),
-          status: s.reviewedAt ? 'reviewed' : 'received',
-          submission: toSubmissionView(s),
-        })
-      }
-
-      // A schedule row is outstanding until something ticks it off.
-      for (const m of g.schedule) {
-        if (m.submittedDate) continue
-        upcoming.push({
-          key: m.id,
-          awardId: g.id,
-          applicationId: g.application.id,
-          organisationName: org,
-          programmeId,
-          programmeName,
-          roundId,
-          roundName,
-          tags,
-          label: m.label,
-          dueDate: m.dueDate,
-          status: dueStatus(m.dueDate),
-        })
-      }
-    }
-
-    // Most recently received first — the newest report is the one you came to read.
-    items.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
-    // Most overdue first — the chase-list is ordered by urgency.
-    upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-
-    // Counted over every report in scope, before the programme filter below — a pill
-    // whose own options shrank as you used it would let you filter into a corner.
-    // Faceted over BOTH lists, not just the arrived ones: a round whose reports are all
-    // still outstanding is exactly the round you want to be able to select, and faceting
-    // over `items` alone would leave it out of the pill entirely.
-    const forFacets = [...items, ...upcoming]
-    const facets = {
-      programmes: facetBy(forFacets, (i) =>
-        i.programmeId
-          ? { value: i.programmeId, label: i.programmeName ?? 'Untitled programme' }
-          : null,
-      ),
-      themes: facetByMany(forFacets, (i) => i.tags.map((t) => ({ value: t, label: t }))),
-      rounds: facetBy(forFacets, (i) =>
-        i.roundId ? { value: i.roundId, label: i.roundName ?? 'Untitled round' } : null,
-      ),
-    }
-
-    // The structural filters are this screen's context, so they land before the totals:
-    // the panel, the tab counts, the table and the chase-list all describe one slice.
-    const inContext = <
-      T extends { programmeId: string | null; roundId: string | null; tags: string[] },
-    >(
-      rows: T[],
-    ) =>
-      rows.filter(
-        (r) =>
-          (!data?.programmeId || r.programmeId === data.programmeId) &&
-          (!data?.roundId || r.roundId === data.roundId) &&
-          (!data?.tag || r.tags.includes(data.tag)),
-      )
-    const scopedUpcoming = inContext(upcoming)
-
-    // The received-date window applies to arrived reports only, and is applied here
-    // rather than beside the tab filter so the tab COUNTS sit inside it too — a tab
-    // reading 12 above a table showing 3 is the bug this ordering prevents.
-    const inWindow = (submittedAt: string) =>
-      (!data?.from || submittedAt.slice(0, 10) >= data.from) &&
-      (!data?.to || submittedAt.slice(0, 10) <= data.to)
-    const scopedItems = inContext(items).filter((i) => inWindow(i.submittedAt))
-
-    const totals = {
-      received: scopedItems.filter((i) => i.status === 'received').length,
-      reviewed: scopedItems.filter((i) => i.status === 'reviewed').length,
-      overdue: scopedUpcoming.filter((i) => i.status === 'overdue').length,
-      dueSoon: scopedUpcoming.filter((i) => i.status === 'due_soon').length,
-      outstanding: scopedUpcoming.length,
-    }
-
-    // The tab is a server-side filter so that the page is a page of the tab, not a page
-    // of everything with the tab applied afterwards. `upcoming` is the drawer's
-    // chase-list — short by nature, and read as a whole — so it stays unpaged.
-    const filtered = data?.status
-      ? scopedItems.filter((i) => i.status === data.status)
-      : scopedItems
-    const sorted = sortRows(
-      filtered,
-      { by: data?.sortBy, dir: data?.sortDir },
-      {
-        organisation: (i) => i.organisationName,
-        programme: (i) => i.programmeName,
-        round: (i) => i.roundName,
-        report: (i) => i.label,
-        received: (i) => i.submittedAt,
-        // Unread before read: `received` is a report waiting on someone.
-        status: (i) => (i.status === 'received' ? 0 : 1),
-      },
-    )
-    return { ...paginate(sorted, data?.page), upcoming: scopedUpcoming, totals, facets }
+    if (!user.clientId) return emptyReportsList()
+    return reportsList(getDb(), user.clientId, data ?? {})
   })
+
+/** Everything the screen is filtered, sorted and paged by — the validator's shape. */
+export type ReportsListInput = {
+  status?: ReceivedStatus
+  programmeId?: string
+  roundId?: string
+  tag?: string
+  from?: string
+  to?: string
+  sortBy?: ReportSortKey
+  sortDir?: 'asc' | 'desc'
+  page?: number
+}
+
+type ReportSortKey = 'organisation' | 'programme' | 'round' | 'report' | 'received' | 'status'
+
+/**
+ * The Reports screen, as a plain function of (connection, tenant, filters) — the same
+ * seam Finance and Awards have, so everything below the auth check runs without a
+ * session.
+ *
+ * One `db.batch()`: the table's page, its count, both tab counts, the chase-list, the
+ * outstanding tallies and three facets. One round trip, one snapshot, so the drawer's
+ * badge cannot disagree with the drawer.
+ */
+export async function reportsList(
+  db: ReturnType<typeof getDb>,
+  clientId: string,
+  data: ReportsListInput,
+) {
+  const arrived = arrivedQuery(db, clientId)
+  const outstanding = outstandingQuery(db, clientId)
+  const page = data.page && data.page > 0 ? data.page : 1
+
+  // The structural filters narrow both lists. The received-date window narrows the
+  // arrived one only — see `structuralWhere` on why the drawer is left out of it.
+  const arrivedWhere = and(
+    structuralWhere(arrived, data),
+    data.from ? sql`${arrived.submittedDay} >= ${data.from}` : undefined,
+    data.to ? sql`${arrived.submittedDay} <= ${data.to}` : undefined,
+  )
+  const onTab = (status: ReceivedStatus) => and(arrivedWhere, eq(arrived.status, status))
+  const outstandingWhere = structuralWhere(outstanding, data)
+
+  const countArrived = (where: SQL | undefined) =>
+    db
+      .select({ n: sql<number>`(count(*))::int` })
+      .from(arrived)
+      .where(where)
+
+  // Facets are counted over BOTH lists and before the filters: a round whose reports are
+  // all still outstanding is exactly the round you want to be able to pick, and one
+  // counted over arrived reports alone would leave it out of the pill entirely.
+  const facetOn = (q: ArrivedQuery | OutstandingQuery, value: SQLWrapper, label: SQLWrapper) =>
+    db
+      .select({
+        value: value as SQL<string | null>,
+        label: label as SQL<string | null>,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(q as ArrivedQuery)
+      .groupBy(value as SQL, label as SQL)
+  const themeFacet = (q: ArrivedQuery | OutstandingQuery) =>
+    db
+      .select({
+        value: sql<string>`theme.value`,
+        label: sql<string>`theme.value`,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(q as ArrivedQuery)
+      .innerJoin(sql`lateral jsonb_array_elements_text(${q.tags}) as theme(value)`, sql`true`)
+      .groupBy(sql`theme.value`)
+
+  const [
+    rows,
+    tabAll,
+    tabReceived,
+    tabReviewed,
+    chase,
+    dueTallies,
+    progA,
+    progO,
+    themeA,
+    themeO,
+    roundA,
+    roundO,
+  ] = await db.batch([
+    db
+      .select()
+      .from(arrived)
+      .where(data.status ? onTab(data.status) : arrivedWhere)
+      .orderBy(...orderFor(arrived, data.sortBy, data.sortDir))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    countArrived(arrivedWhere),
+    countArrived(onTab('received')),
+    countArrived(onTab('reviewed')),
+    // The chase-list is short by nature and read as a whole, so it stays unpaged —
+    // most overdue first, because it is ordered by urgency rather than by recency.
+    db
+      .select()
+      .from(outstanding)
+      .where(outstandingWhere)
+      .orderBy(sql`${outstanding.dueDate} asc`),
+    db
+      .select({
+        overdue: sql<number>`(count(*) filter (where ${outstanding.status} = 'overdue'))::int`,
+        dueSoon: sql<number>`(count(*) filter (where ${outstanding.status} = 'due_soon'))::int`,
+        outstanding: sql<number>`(count(*))::int`,
+      })
+      .from(outstanding)
+      .where(outstandingWhere),
+    facetOn(arrived, arrived.programmeId, arrived.programmeName),
+    facetOn(outstanding, outstanding.programmeId, outstanding.programmeName),
+    themeFacet(arrived),
+    themeFacet(outstanding),
+    facetOn(arrived, arrived.roundId, arrived.roundName),
+    facetOn(outstanding, outstanding.roundId, outstanding.roundName),
+  ])
+
+  // `total` is the count of the OPEN tab — it is what the pager reads, so it has to be
+  // the size of the list being paged rather than of everything behind the tabs.
+  const total =
+    data.status === 'received'
+      ? (tabReceived[0]?.n ?? 0)
+      : data.status === 'reviewed'
+        ? (tabReviewed[0]?.n ?? 0)
+        : (tabAll[0]?.n ?? 0)
+
+  return {
+    items: rows.map(toReportRow),
+    total,
+    page,
+    pageSize: PAGE_SIZE,
+    upcoming: chase.map((r) => ({
+      key: r.key,
+      awardId: r.awardId,
+      applicationId: r.applicationId,
+      organisationName: r.organisationName,
+      programmeId: r.programmeId,
+      programmeName: r.programmeName,
+      roundId: r.roundId,
+      roundName: r.roundName,
+      tags: (r.tags as string[] | null) ?? [],
+      label: r.label,
+      dueDate: r.dueDate,
+      status: r.status as DueStatus,
+    })),
+    totals: {
+      received: tabReceived[0]?.n ?? 0,
+      reviewed: tabReviewed[0]?.n ?? 0,
+      ...dueTallies[0]!,
+    },
+    facets: {
+      programmes: mergeFacets(progA, progO, 'Untitled programme'),
+      themes: mergeFacets(themeA, themeO, ''),
+      rounds: mergeFacets(roundA, roundO, 'Untitled round'),
+    },
+  }
+}
+
+/** A tenant-less caller (a superadmin with no client) still gets the screen's shape. */
+export function emptyReportsList(): Awaited<ReturnType<typeof reportsList>> {
+  return {
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize: PAGE_SIZE,
+    upcoming: [],
+    totals: emptyTotals(),
+    facets: { programmes: [], themes: [], rounds: [] },
+  }
+}
+
+/**
+ * One facet over two lists. A programme with three reports in and two still owed reads
+ * as five, which is what the count means here: how much of this screen it accounts for.
+ */
+function mergeFacets(
+  a: Array<{ value: string | null; label: string | null; count: number }>,
+  b: Array<{ value: string | null; label: string | null; count: number }>,
+  fallback: string,
+): FacetOption[] {
+  const out = new Map<string, FacetOption>()
+  for (const row of [...a, ...b]) {
+    if (row.value === null) continue
+    const existing = out.get(row.value)
+    if (existing) existing.count += row.count
+    else out.set(row.value, { value: row.value, label: row.label ?? fallback, count: row.count })
+  }
+  return [...out.values()].sort((x, y) => x.label.localeCompare(y.label))
+}
+
+/** The row the table renders, with the submission it opens. */
+function toReportRow(r: ArrivedRow) {
+  return {
+    key: r.key,
+    awardId: r.awardId,
+    applicationId: r.applicationId,
+    organisationName: r.organisationName,
+    programmeId: r.programmeId,
+    programmeName: r.programmeName,
+    roundId: r.roundId,
+    roundName: r.roundName,
+    tags: (r.tags as string[] | null) ?? [],
+    label: r.label,
+    dueDate: r.dueDate,
+    submittedAt: r.submittedAt,
+    status: r.status as ReceivedStatus,
+    submission: {
+      id: r.key,
+      submittedAt: r.submittedAt,
+      impactSummary: r.impactSummary,
+      challenges: r.challenges,
+      lessons: r.lessons,
+      analysisStatus: r.analysisStatus,
+      aiSummary: r.aiSummary,
+      aiChallenges: r.aiChallenges,
+      aiLessons: r.aiLessons,
+      applicationAlignment: r.applicationAlignment,
+      programmeAlignment: r.programmeAlignment,
+      impactQuantity: r.impactQuantity,
+      impactQuantitySource: r.impactQuantitySource,
+      impactQuantityQuote: r.impactQuantityQuote,
+      impactUnitLabel: r.impactUnitLabel,
+      reviewedAt: r.reviewedAt,
+      reviewedBy: r.reviewedBy,
+      flags: (r.flags as string[] | null) ?? [],
+    },
+  }
+}
+
+/**
+ * Column sort, in SQL. Text sorts case-insensitively with NULLs last; with no explicit
+ * sort the newest report is first, because it is the one you came to read.
+ */
+function orderFor(
+  q: ArrivedQuery,
+  by: ReportSortKey | undefined,
+  dir: 'asc' | 'desc' | undefined,
+): SQL[] {
+  const d = sql.raw(dir === 'asc' ? 'asc' : 'desc')
+  const text = (col: SQLWrapper) => sql`lower(${col}) ${d} nulls last`
+  switch (by) {
+    case 'organisation':
+      return [text(q.organisationName)]
+    case 'programme':
+      return [text(q.programmeName)]
+    case 'round':
+      return [text(q.roundName)]
+    case 'report':
+      return [text(q.label)]
+    case 'received':
+      return [sql`${q.submittedAt} ${d}`]
+    // Unread before read: `received` is a report waiting on someone.
+    case 'status':
+      return [sql`case ${q.status} when 'received' then 0 else 1 end ${d}`]
+    default:
+      return [sql`${q.submittedAt} desc`]
+  }
+}
 
 function emptyTotals() {
   return { received: 0, reviewed: 0, overdue: 0, dueSoon: 0, outstanding: 0 }
