@@ -169,8 +169,15 @@ export type UpcomingPayment = {
 /** A horizon's worth of them: the whole bucket's money, and the first few by date. */
 export type UpcomingBucket = { total: number; count: number; items: UpcomingPayment[] }
 
-/** How many payments each bucket names before it just says how many more there are. */
-const UPCOMING_SHOWN = 4
+/**
+ * How many each bucket names before it just says how many more there are.
+ *
+ * Three, so the three horizon cards stay the same height as each other and as the
+ * design (Figma 661:24659). A fourth row makes one card outgrow its neighbours, and a
+ * strip of three cards that are not the same height reads as a layout fault rather
+ * than as one card having more in it — which the "+n more" line already says.
+ */
+const UPCOMING_SHOWN = 3
 
 function emptyUpcoming() {
   const none: UpcomingBucket = { total: 0, count: 0, items: [] }

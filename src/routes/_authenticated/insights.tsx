@@ -546,6 +546,9 @@ function niceMax(n: number): number {
   return step * pow
 }
 
+/** How many themes the panel lists before offering the rest behind a toggle. */
+const THEMES_SHOWN = 3
+
 /** "Community & Place + 1 other" — the programmes a theme's grants came from. */
 function programmeSummary(names: string[]): string {
   const uniq = [...new Set(names)]
@@ -654,6 +657,7 @@ function InsightsPage() {
   // mode was dropped: a running total answers a different question and read as if
   // the round totals themselves were growing.)
   const [chartMode, setChartMode] = useState<'bars' | 'line'>('bars')
+  const [showAllThemes, setShowAllThemes] = useState(false)
   const timelineRounds = [
     ...new Map(fil.filter((g) => g.roundId).map((g) => [g.roundId!, g])).keys(),
   ]
@@ -690,10 +694,20 @@ function InsightsPage() {
         programmes: programmeSummary(
           grants.map((g) => g.programmeName).filter((n): n is string => Boolean(n)),
         ),
+        // The full list behind "Warm Homes + 1 other". The summary is what fits on the
+        // line; this is what the row's tooltip shows, so the abbreviation is never a
+        // dead end.
+        programmesFull: [
+          ...new Set(grants.map((g) => g.programmeName).filter((n): n is string => Boolean(n))),
+        ].join(', '),
       }
     })
     .sort((a, b) => b.amount - a.amount)
   const themedTotal = themes.reduce((s, t) => s + t.amount, 0)
+  // Themes are sorted by amount, so the first three are the ones carrying the giving;
+  // a foundation with a dozen tags otherwise turns this panel into a long scroll beside
+  // a short chart, and the tail is mostly 1–2% rows. The rest stay one click away.
+  const visibleThemes = showAllThemes ? themes : themes.slice(0, THEMES_SHOWN)
 
   // ── Geography: the choropleth + its donut ──
   //
@@ -1067,7 +1081,7 @@ function InsightsPage() {
                 </p>
               ) : (
                 <div className="flex flex-col gap-1">
-                  {themes.map((t) => {
+                  {visibleThemes.map((t) => {
                     const pct = themedTotal > 0 ? Math.round((t.amount / themedTotal) * 100) : 0
                     return (
                       // A white wrapper card holds the tinted headline and the line
@@ -1113,13 +1127,25 @@ function InsightsPage() {
                         <p
                           className="truncate px-3 font-display text-label"
                           style={{ color: C.sub }}
-                          title={t.programmes}
+                          // The full list, not the abbreviation the line already shows —
+                          // a tooltip that repeats "+ 1 other" answers nothing.
+                          title={t.programmesFull}
                         >
                           {t.programmes}
                         </p>
                       </div>
                     )
                   })}
+                  {themes.length > THEMES_SHOWN && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllThemes((v) => !v)}
+                      className="self-start px-3 pt-1 font-display text-label font-medium underline underline-offset-2"
+                      style={{ color: C.sub }}
+                    >
+                      {showAllThemes ? 'Show fewer themes' : `Show all ${themes.length} themes`}
+                    </button>
+                  )}
                 </div>
               )}
             </Panel>

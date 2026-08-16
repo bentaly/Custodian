@@ -86,8 +86,14 @@ export function Horizon({
   )
 }
 
-const ROW =
-  'flex w-full items-center justify-between gap-3 border-t border-grey-200 pt-3 text-left first:border-t-0 first:pt-0'
+// Rows are separated by the container's `gap-3` alone — 12px, as the design has it
+// (Figma 661:24659, a two-row card measuring 120px).
+//
+// This used to carry `border-t … pt-3` as well, which double-counted the separation:
+// the gap AND the row's own top padding AND a divider, 25px where the design says 12,
+// and a card 15px taller than it should be. The design separates rows by space, not by
+// a rule, so the rule goes rather than the spacing being tuned around it.
+const ROW = 'flex w-full items-center justify-between gap-3 text-left'
 
 function HorizonRow({ item, colour }: { item: HorizonItem; colour: string }) {
   const inner = (

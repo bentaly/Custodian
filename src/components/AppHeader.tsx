@@ -40,8 +40,13 @@ function inDays(date: Date | string) {
   return days === 1 ? 'in 1 day' : `in ${days} days`
 }
 
-// "Spring 2026 closed · Summer 2027 opens in 11 days" — the most recently
-// closed round in grey, then the live signal (open round / next opening) in green.
+// "Spring 2026 closed · Summer 2027 opens in 11 days" — the most recently closed round
+// in grey, then the live signal (open round / next opening) in green.
+//
+// The grey half only appears when there is NO round open. Its job is to answer "what
+// happened last?" during a gap between rounds; once a round is open, that is what the
+// header is for, and naming the previous one alongside it reads as though both are
+// live. So when `green` describes an open round, the grey half is dropped.
 function roundStatusParts(rounds: HeaderRound[]) {
   const byStatus = rounds.map((r) => ({ ...r, status: getRoundStatus(r) }))
 
@@ -59,7 +64,6 @@ function roundStatusParts(rounds: HeaderRound[]) {
     .filter((r) => r.status === 'upcoming' && r.openedAt)
     .sort((a, b) => new Date(a.openedAt!).getTime() - new Date(b.openedAt!).getTime())[0]
 
-  const grey = lastClosed ? `${lastClosed.name} closed` : null
   const green = open
     ? open.closedAt
       ? `${open.name} closes ${inDays(open.closedAt)}`
@@ -67,6 +71,9 @@ function roundStatusParts(rounds: HeaderRound[]) {
     : nextUpcoming
       ? `${nextUpcoming.name} opens ${inDays(nextUpcoming.openedAt!)}`
       : null
+
+  // Suppressed while a round is open — see the note above.
+  const grey = !open && lastClosed ? `${lastClosed.name} closed` : null
 
   return { grey, green }
 }

@@ -244,8 +244,15 @@ export async function reportsList(
   }
 }
 
-/** How many a horizon names before it just says how many more there are. */
-const HORIZON_SHOWN = 4
+/**
+ * How many each bucket names before it just says how many more there are.
+ *
+ * Three, so the three horizon cards stay the same height as each other and as the
+ * design (Figma 661:24659). A fourth row makes one card outgrow its neighbours, and a
+ * strip of three cards that are not the same height reads as a layout fault rather
+ * than as one card having more in it — which the "+n more" line already says.
+ */
+const HORIZON_SHOWN = 3
 
 /** The three horizons the panel reads, as one CASE both its queries share. */
 function horizonOf(q: OutstandingQuery): SQL<string | null> {

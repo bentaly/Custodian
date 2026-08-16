@@ -28,6 +28,24 @@ export interface RunDueDiligenceInput {
   amountRequested: number
 }
 
+/**
+ * A company number as Companies House expects it: eight characters, zero-padded.
+ *
+ * Companies House 404s on an unpadded number — "612172" is not found, "00612172" is an
+ * active company — and an unpadded number is exactly what foundations' forms collect,
+ * because it is how the Charity Commission's own register publishes it. Without this the
+ * same valid company screened `clear` or `blocked` depending on how the applicant happened
+ * to type it, and `blocked` is the answer that stops a grant.
+ *
+ * Prefixed numbers (SC…, NI…, RC…, OC…) are already canonical and are only upper-cased —
+ * padding them would corrupt them.
+ */
+export function normaliseCompanyNumber(raw: string | null | undefined): string | undefined {
+  const trimmed = raw?.trim().toUpperCase().replace(/\s+/g, '')
+  if (!trimmed) return undefined
+  return /^\d+$/.test(trimmed) ? trimmed.padStart(8, '0') : trimmed
+}
+
 /** Build a 360Giving org identifier from the most authoritative number we hold. */
 function threeSixtyGivingId(charityNumber?: string, companyNumber?: string): string | null {
   if (charityNumber) {
@@ -60,7 +78,7 @@ export async function runDueDiligence(
   const checkedAt = now.toISOString()
 
   const charityNumber = input.charityNumber?.trim() || undefined
-  const companyNumber = input.companyNumber?.trim() || undefined
+  const companyNumber = normaliseCompanyNumber(input.companyNumber)
   const ctx: CheckContext = { amountRequested: input.amountRequested, now }
 
   // No identifiers at all → can't screen automatically; block for manual

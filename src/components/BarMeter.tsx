@@ -86,7 +86,10 @@ export function BarMeter({
       {colours.slice(0, bars).map((c, i) => (
         <span
           key={i}
-          className={animate ? 'tick' : ''}
+          // `tick` is the once-on-load rise; `tick-shift` carries the meter between
+          // states afterwards. Both are keyed on the bar's index so the wave runs
+          // left-to-right, and both are inert under prefers-reduced-motion.
+          className={animate ? 'tick tick-shift' : ''}
           style={{
             width: barWidth,
             flexShrink: 0,
@@ -94,6 +97,9 @@ export function BarMeter({
             borderRadius: 9999,
             backgroundColor: c,
             animationDelay: animate ? `${i * 11}ms` : undefined,
+            // Faster stagger than the load rise: this fires on every filter change, so
+            // it has to feel like a response, not a performance.
+            transitionDelay: animate ? `${i * 4}ms` : undefined,
           }}
         />
       ))}

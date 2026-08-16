@@ -21,6 +21,13 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
+    "demo:seed": "tsx scripts/demo/seed.ts",
+    "demo:apply": "tsx scripts/demo/apply.ts",
+    "demo:decide": "tsx scripts/demo/decide.ts",
+    "demo:report": "tsx scripts/demo/report.ts",
+    "demo:snapshot": "tsx scripts/demo/snapshot.ts",
+    "demo:teardown": "tsx scripts/demo/teardown.ts",
+    "demo:all": "pnpm demo:seed && pnpm demo:apply && pnpm demo:decide && pnpm demo:report",
     "geo:build": "tsx scripts/build-geo.ts",
     "prepare": "simple-git-hooks"
   },

@@ -199,6 +199,21 @@
   }
 }
 
+/* A meter whose DATA changed (e.g. switching programme on the applications list):
+   each bar eases to its new colour, staggered left-to-right by an inline delay, so the
+   change reads as the same meter re-filling rather than one picture being swapped for
+   another. Distinct from `.tick`, which is the once-on-load rise — that animates
+   transform and opacity, this animates only colour, so the two never fight. */
+.tick-shift {
+  transition: background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick-shift {
+    transition: none;
+  }
+}
+
 /* Horizontal progress/budget bars grow from the left on load, sharing the tick's
    easing so the whole app animates with one feel. Staggered via inline delay. */
 @keyframes bar-grow {

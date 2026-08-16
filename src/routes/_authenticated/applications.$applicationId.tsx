@@ -324,6 +324,7 @@ function ApplicationDetail() {
   const { user } = Route.useRouteContext()
   const router = useRouter()
   const [rerunningDD, setRerunningDD] = useState(false)
+  const [showAllDd, setShowAllDd] = useState(false)
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -356,6 +357,12 @@ function ApplicationDetail() {
   const grantPurpose = application.grantPurpose?.trim() || null
 
   const ddRecords = (application.dueDiligenceChecks as DueDiligenceCheckRecord[] | null) ?? []
+  // A clean screen is twenty-odd green rows, and the one thing worth reading — a flag —
+  // is somewhere among them. So passed checks are collapsed by default and anything
+  // that is NOT a pass (a failure, or a check that couldn't be verified) always shows:
+  // hiding a flag behind a toggle is the one thing this panel must never do.
+  const passedDdCount = ddRecords.filter((r) => r.result === 'pass').length
+  const visibleDdRecords = showAllDd ? ddRecords : ddRecords.filter((r) => r.result !== 'pass')
 
   const deprivation = application.deprivationContext as DeprivationContext | null
   const depResolved = application.deprivationStatus === 'resolved' && deprivation != null
@@ -787,7 +794,7 @@ function ApplicationDetail() {
           </PanelTitle>
           {ddRecords.length > 0 ? (
             <div className="flex flex-col gap-1">
-              {ddRecords.map((r, i) => {
+              {visibleDdRecords.map((r, i) => {
                 const def = CHECK_DEFINITIONS[r.key]
                 const ok = r.result === 'pass'
                 const failed = r.result === 'fail'
@@ -818,6 +825,18 @@ function ApplicationDetail() {
                   </div>
                 )
               })}
+              {passedDdCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllDd((v) => !v)}
+                  className="self-start px-1 pt-1 font-display text-label font-medium underline underline-offset-2"
+                  style={{ color: C.sub }}
+                >
+                  {showAllDd
+                    ? `Hide ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`
+                    : `Show ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
+                </button>
+              )}
             </div>
           ) : noRegistrationNumber ? (
             // "Not screened yet" reads as pending. When there is no registration

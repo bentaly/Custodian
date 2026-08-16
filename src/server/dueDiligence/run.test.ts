@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { runDueDiligence } from './run'
+import { normaliseCompanyNumber, runDueDiligence } from './run'
 import type { DueDiligenceFetchers } from './fetchers'
 
 const NOW = new Date('2026-06-13T00:00:00Z')
@@ -188,5 +188,32 @@ describe('runDueDiligence failure modes', () => {
       },
     )
     expect(res.status).toBe('clear')
+  })
+})
+
+describe('normaliseCompanyNumber', () => {
+  it('zero-pads a bare numeric company number to eight characters', () => {
+    // Companies House 404s on the unpadded form, which is how the Charity Commission
+    // register publishes it — so an applicant typing "612172" used to be screened as
+    // "company not found" and blocked.
+    expect(normaliseCompanyNumber('612172')).toBe('00612172')
+    expect(normaliseCompanyNumber('61625')).toBe('00061625')
+  })
+
+  it('leaves an already-padded number alone', () => {
+    expect(normaliseCompanyNumber('00612172')).toBe('00612172')
+  })
+
+  it('upper-cases but never pads a prefixed number', () => {
+    // SC/NI/RC/OC numbers are already canonical at their own length; padding corrupts them.
+    expect(normaliseCompanyNumber('rc000521')).toBe('RC000521')
+    expect(normaliseCompanyNumber('SC123456')).toBe('SC123456')
+  })
+
+  it('strips whitespace and treats empty as absent', () => {
+    expect(normaliseCompanyNumber('  612172 ')).toBe('00612172')
+    expect(normaliseCompanyNumber('   ')).toBeUndefined()
+    expect(normaliseCompanyNumber(null)).toBeUndefined()
+    expect(normaliseCompanyNumber(undefined)).toBeUndefined()
   })
 })
