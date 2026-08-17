@@ -49,6 +49,9 @@ const TIER_BADGE: Record<FieldTier, { label: string; className: string } | null>
   // No badge: an `expected` field is genuinely optional to send. Its cost is spelled
   // out in the description instead, where it reads as guidance rather than a demand.
   expected: null,
+  // Nor here — an `optional` field costs nothing at all when it is absent, so there is
+  // even less to say about it than an `expected` one.
+  optional: null,
 }
 
 const TABS: TabItem<Kind>[] = [

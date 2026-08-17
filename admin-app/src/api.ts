@@ -83,7 +83,7 @@ export interface CanonicalField {
    * blocks it only if no sibling in `oneOfGroup` resolves, `expected` never blocks.
    * Optional because the report registry is still two-tier and omits it.
    */
-  tier?: 'required' | 'one_of' | 'expected'
+  tier?: 'required' | 'one_of' | 'expected' | 'optional'
   /** Index of the one-of group this field belongs to; null for every other field. */
   oneOfGroup?: number | null
   description?: string
@@ -236,7 +236,9 @@ export function resolvedValue(
   row: { resolved: Record<string, string> | null; rawPayload: Record<string, unknown> },
   canonicalKey: string,
 ): string | null {
-  const entry = Object.entries(row.resolved ?? {}).find(([, canonical]) => canonical === canonicalKey)
+  const entry = Object.entries(row.resolved ?? {}).find(
+    ([, canonical]) => canonical === canonicalKey,
+  )
   if (!entry) return null
   const value = row.rawPayload[entry[0]]
   return value == null || value === '' ? null : String(value)

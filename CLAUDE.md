@@ -224,9 +224,11 @@ canonical fields (`CreateApplicationSchema`).
 ## Canonical field tiers
 
 Every field in `src/lib/fieldMapping/canonical.ts` carries a `tier` saying what its absence costs.
-A two-state model (required / optional) shipped a real bug, so the middle tier is load-bearing:
+A two-state model (required / optional) shipped a real bug, so the middle tiers are load-bearing.
+`optional` still exists, but it is now a claim that has to be earned rather than the default
+bucket for anything not required:
 
-- **`required`** (9 fields) — no application without it. Unresolved → the ingest holds at
+- **`required`** (8 fields) — no application without it. Unresolved → the ingest holds at
   `needs_review`. Derived as `REQUIRED_CANONICAL_KEYS`.
 - **`one_of`** — belongs to a group in `REQUIRED_ONE_OF_GROUPS` (today just
   `[charityNumber, companyNumber]`) of which at least one member must resolve. Neither is required
@@ -239,6 +241,17 @@ A two-state model (required / optional) shipped a real bug, so the middle tier i
   `degrades` string that is **shown on the application** ("Not captured" panel) rather than left
   silent. Holding these would be disproportionate: a foundation that doesn't ask for a delivery
   area shouldn't have every submission stuck in a queue.
+- **`optional`** — promotes without it and **nothing is degraded**, so nothing is said anywhere.
+  The line against `expected` is whether you can NAME what stops working; if you can't, inventing
+  a degradation just prints a complaint on every application and teaches admins to skim the panel.
+  Today only `bankName`: the sort code is what identifies the bank and what `checkBankAccount`
+  verifies, so the name is read solely to print beside the digits on the payment panel. It was
+  `required` until Arete's live form — account name, number and sort code, no bank name, which is
+  what real foundation forms look like — held every submission over a field no feature reads. The
+  column was always nullable and Finance could always clear it, so `required` was only ever true
+  of the ingest. **A tier change alone is not enough**: `CreateApplicationSchema` gates the
+  assembled application separately, and leaving `min(1)` there holds the row at `needs_review`
+  regardless of tier.
 
 `fieldGaps()` (`src/lib/fieldMapping/gaps.ts`) turns this metadata into the list the application
 screen renders. The principle: **a lost field must never be indistinguishable from a question the

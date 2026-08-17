@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CANONICAL_FIELDS,
+  CANONICAL_FIELD_BY_KEY,
   EXPECTED_CANONICAL_KEYS,
   REQUIRED_CANONICAL_KEYS,
   REQUIRED_ONE_OF_GROUPS,
@@ -11,21 +12,38 @@ import {
 import { fieldGaps, missingRegistrationNumber } from './gaps'
 
 describe('canonical tiers', () => {
-  it('keeps the nine hard-required fields required', () => {
+  it('keeps the eight hard-required fields required', () => {
     // Guards the refactor from boolean → tier: these are the fields without which an
     // application cannot exist, and silently demoting one would let a submission
-    // through with no bank details or no programme.
+    // through with no payable account or no programme.
     expect(REQUIRED_CANONICAL_KEYS).toEqual([
       'programmeName',
       'externalApplicationId',
       'organisationName',
       'applicantEmail',
       'amountRequested',
-      'bankName',
       'bankAccountName',
       'bankAccountNumber',
       'bankSortCode',
     ])
+  })
+
+  it('does not require the bank name', () => {
+    // The three fields above are what a payment needs; the bank's NAME is not one of
+    // them (the sort code identifies the bank, and `checkBankAccount` never reads this).
+    // Required, it held every submission from a form that doesn't ask for it — which is
+    // what real foundation forms look like. See the field's comment in the registry.
+    expect(REQUIRED_CANONICAL_KEYS).not.toContain('bankName')
+    expect(CANONICAL_FIELD_BY_KEY.bankName.tier).toBe('optional')
+  })
+
+  it('gives no `optional` field a `degrades` explanation', () => {
+    // The mirror of the `expected` rule below, and the line between the two tiers: an
+    // optional field with something to say about its absence was misfiled — it is
+    // `expected`, and the sentence belongs on the application.
+    for (const field of CANONICAL_FIELDS.filter((f) => f.tier === 'optional')) {
+      expect(field.degrades, `${field.key} is optional but claims a degradation`).toBeFalsy()
+    }
   })
 
   it('does not mark either registration number as required on its own', () => {

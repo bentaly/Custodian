@@ -14,6 +14,14 @@
 //               one member must resolve. Individually optional, collectively not.
 //   expected  — the application is created without it, but a feature is degraded,
 //               so the absence is stated on the application rather than left silent.
+//   optional   — the application is created without it and NOTHING is degraded, so
+//               nothing is said about it anywhere.
+//
+// The test between the last two is whether you can NAME what stops working. If you
+// can, it is `expected` and the sentence goes in `degrades`. If the honest answer is
+// "a reader loses a convenience", it is `optional` — inventing a degradation for it
+// would print a complaint on every application that arrives without it, and the
+// "Not captured" panel only works while every line in it is worth reading.
 //
 // The middle tier exists because a two-state model (required / optional) cost us a
 // real bug: `charityNumber` and `companyNumber` are each individually optional — an
@@ -26,6 +34,11 @@
 // be disproportionate: a foundation that doesn't ask for a delivery area shouldn't
 // have every application stuck in a queue, but nor should the deprivation lookup
 // silently never run. Promote, and say so.
+//
+// `optional` is not a retreat to that two-state model. What cost us the bug was fields
+// that LOOKED optional while something real depended on them; `optional` is for the
+// rare field where nothing does, and it earns the tier by surviving the question above
+// rather than by nobody having got round to classifying it.
 //
 // Two `expected` fields can also answer the same question by different means — a
 // budget sent as line items, or as a link to a spreadsheet. EXPECTED_ONE_OF_GROUPS
@@ -52,7 +65,7 @@ export type CanonicalFieldKey =
   | 'proposedImpactQuantity'
 
 /** How much a field's absence costs. See the header for what each tier means. */
-export type FieldTier = 'required' | 'one_of' | 'expected'
+export type FieldTier = 'required' | 'one_of' | 'expected' | 'optional'
 
 export interface CanonicalField {
   key: CanonicalFieldKey
@@ -117,8 +130,19 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
   {
     key: 'bankName',
     label: 'Bank name',
-    tier: 'required',
-    description: "The name of the bank holding the applicant's account.",
+    // The only `optional` field, and it earns the tier: nothing at all breaks without
+    // it. The sort code identifies the bank — it is what `checkBankAccount` verifies
+    // and what a BACS payment is actually made against — so this column is read only
+    // to print a name beside the digits on the payment panel. It was `required`, which
+    // meant a foundation that collects bank details in earnest but never asks which
+    // bank (Arete's live form does exactly this: account name, number, sort code, and
+    // no bank name) had EVERY submission held in the review queue over a field no
+    // feature reads. The column has always been nullable and Finance has always been
+    // able to clear it, so `required` was never true of anything but the ingest.
+    tier: 'optional',
+    description:
+      'The name of the bank holding the applicant\'s account (e.g. "Barclays"). ' +
+      'Do NOT map the account holder name — that is `bankAccountName`.',
   },
   {
     key: 'bankAccountName',
@@ -193,7 +217,7 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'with no view of what the money would be spent on.',
     description:
       'A LINK TO A BUDGET DOCUMENT the applicant uploaded or shared — a spreadsheet or similar ' +
-      'holding the project budget (e.g. a file-upload question on the foundation\'s form, which ' +
+      "holding the project budget (e.g. a file-upload question on the foundation's form, which " +
       'typically arrives as a URL to the stored file). Map only an http(s) URL. ' +
       'Do NOT map line items or category→amount pairs; a structured breakdown belongs in ' +
       '`budgetBreakdown`. Do NOT map a link to something that is not the budget.',

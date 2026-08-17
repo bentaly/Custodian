@@ -55,7 +55,12 @@ export const CreateApplicationSchema = z.object({
   companyNumber: z.string().max(50).optional(),
   // Free-text area where the project is delivered (community served). Optional.
   deliveryArea: z.string().max(255).optional(),
-  bankName: z.string().min(1).max(255),
+  // Optional, matching the `optional` tier in the canonical registry: the sort code
+  // identifies the bank, and nothing but the payment panel's display reads this. Left
+  // required here it would hold every submission from a form that doesn't ask for it,
+  // however the tier was set — the tier decides whether the mapper waits for a field,
+  // this decides whether the assembled application is allowed to exist without one.
+  bankName: z.string().max(255).optional(),
   bankAccountName: z.string().min(1).max(255),
   bankAccountNumber: z.string().min(1).max(50),
   bankSortCode: z.string().min(1).max(20),
@@ -112,7 +117,9 @@ export const ApplicationFiltersSchema = z.object({
   submittedTo: z.iso.date().optional(),
   // Column sort. Only base-table columns are sortable; programme/theme are the
   // grouping (tabs) and filter axes.
-  sortBy: z.enum(['organisation', 'amount', 'received', 'status', 'score', 'dueDiligence']).optional(),
+  sortBy: z
+    .enum(['organisation', 'amount', 'received', 'status', 'score', 'dueDiligence'])
+    .optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),
   page: z.number().int().min(1).default(1),
   // Cap is high enough to cover a whole-programme CSV export in one call.
