@@ -11,7 +11,7 @@ const getAuthUser = vi.fn()
 vi.mock('./session', () => ({ getAuthUser }))
 vi.mock('@sentry/cloudflare', () => ({ captureException: vi.fn() }))
 
-const { toClientError } = await import('./errors')
+const { toClientError, serverFnDeadline } = await import('./errors')
 const { forbidden, notFoundError, conflict } = await import('../lib/errors')
 
 const SUPERADMIN = { id: 'u1', role: 'superadmin', clientId: null }
@@ -105,5 +105,35 @@ describe('unexpected faults are redacted', () => {
     getAuthUser.mockResolvedValue(null)
     const out = (await toClientError(fault())) as Error & { serverStack?: string }
     expect(out.serverStack).toBeUndefined()
+  })
+})
+
+// The deadline in `src/start.ts` is thrown by a middleware that sits OUTSIDE the one
+// calling `toClientError`, so it is the one error that could reach a browser
+// unredacted. It is converted deliberately on the way out; these pin that it lands in
+// the same shape as any other fault rather than leaking a stack.
+describe('a server-function deadline is redacted like any other fault', () => {
+  it('answers 503 with copy the user can act on', async () => {
+    const out = (await toClientError(serverFnDeadline('getMe', 20_000))) as Error & {
+      status: number
+    }
+    expect(out.status).toBe(503)
+    expect(out.message).toBe('The server did not respond in time. Please try again.')
+  })
+
+  it('carries no stack, not even for a superadmin', async () => {
+    getAuthUser.mockResolvedValue(SUPERADMIN)
+    const out = (await toClientError(serverFnDeadline('listAwards', 20_000))) as Error & {
+      serverStack?: string
+    }
+    expect(out.stack).toBe('')
+    expect(out.serverStack).toBeUndefined()
+  })
+
+  it('is reported rather than swallowed', async () => {
+    const captured = vi.mocked(await import('@sentry/cloudflare')).captureException
+    captured.mockClear()
+    await toClientError(serverFnDeadline('getMe', 20_000))
+    expect(captured).toHaveBeenCalledOnce()
   })
 })

@@ -1,5 +1,5 @@
 import { createMiddleware, createStart } from '@tanstack/react-start'
-import { toClientError } from './server/errors'
+import { isServerFnDeadline, serverFnDeadline, toClientError } from './server/errors'
 
 /**
  * Runs around every server function, so error handling cannot be forgotten at a call
@@ -52,14 +52,15 @@ const SLOW_FN_MS = 1_000
  */
 const READ_DEADLINE_MS = 20_000
 
-class ServerFnDeadline extends Error {
-  override name = 'ServerFnDeadline'
-}
-
 /**
  * Sits OUTSIDE `errorMiddleware` in the chain, so the elapsed time it reports covers
  * error handling too and the name it logs is attached to whatever `toClientError`
  * eventually returned.
+ *
+ * That ordering has one consequence to keep in mind: an error thrown by THIS middleware
+ * has not passed through `toClientError`, so it would reach the browser with its stack
+ * intact and never reach Sentry. Only the deadline can do that, so only the deadline is
+ * converted on the way out.
  */
 const observeServerFn = createMiddleware({ type: 'function' }).server(
   async ({ next, method, serverFnMeta }) => {
@@ -74,7 +75,7 @@ const observeServerFn = createMiddleware({ type: 'function' }).server(
       return result
     } catch (error) {
       console.warn(`[fn] ✕ ${label} ${Date.now() - startedAt}ms: ${describe(error)}`)
-      throw error
+      throw isServerFnDeadline(error) ? await toClientError(error) : error
     }
   },
 )
@@ -89,7 +90,7 @@ async function withDeadline<T>(work: Promise<T>, label: string): Promise<T> {
   const deadline = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
       console.error(`[fn] ⏱ ${label} exceeded ${READ_DEADLINE_MS}ms — abandoning the wait`)
-      reject(new ServerFnDeadline(`${label} did not answer within ${READ_DEADLINE_MS}ms`))
+      reject(serverFnDeadline(label, READ_DEADLINE_MS))
     }, READ_DEADLINE_MS)
   })
 

@@ -36,6 +36,17 @@ export async function toClientError(err: unknown): Promise<unknown> {
   // kept rather than replaced with the generic copy. Read and write are told apart
   // because only one of them leaves a question about what happened: a write that timed
   // out may still have committed (see `databaseTimeout`).
+  // We stopped waiting rather than the database refusing — see `src/start.ts`. Same
+  // shape of answer as a read that timed out, and deliberately the same copy, because
+  // it is the same question for the user: nothing happened, try again. Handled here
+  // rather than in the middleware that throws it so that a deadline is redacted and
+  // reported exactly like every other server fault, instead of being the one error
+  // that reaches the browser with its stack attached.
+  if (isServerFnDeadline(err)) {
+    reportServerError(err)
+    return clientError(503, 'The server did not respond in time. Please try again.')
+  }
+
   const timeout = databaseTimeout(err)
   if (timeout) {
     reportServerError(err)
@@ -124,6 +135,24 @@ function reportServerError(err: unknown): void {
     // No Sentry client bound (local dev, or the two-instance case above). The console
     // line above is the durable record either way.
   }
+}
+
+const FN_DEADLINE = 'ServerFnDeadline' as const
+
+/**
+ * Thrown when a read exceeded the last-resort bound in `src/start.ts`.
+ *
+ * Lives here, not there, so `toClientError` can recognise it without importing from
+ * the middleware that imports `toClientError`.
+ */
+export function serverFnDeadline(label: string, ms: number): Error {
+  const error = new Error(`${label} did not answer within ${ms}ms`)
+  error.name = FN_DEADLINE
+  return error
+}
+
+export function isServerFnDeadline(err: unknown): boolean {
+  return (err as { name?: unknown } | null)?.name === FN_DEADLINE
 }
 
 /** Re-exported so server code has one import for throwing and shaping errors. */
