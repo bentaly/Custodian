@@ -13,6 +13,7 @@ import {
   UserMultipleIcon,
 } from '@hugeicons/core-free-icons'
 import { authClient } from '../lib/auth-client'
+import { invalidateCurrentUser } from '../lib/currentUser'
 import { getRoundStatus } from '../lib/roundStatus'
 import { globalSearch, type SearchResult, type SearchResultType } from '../server/fns/search'
 import { Avatar, initials } from './ui'
@@ -364,6 +365,7 @@ export function AppHeader({
     setSigningOut(true)
     try {
       await authClient.signOut()
+      invalidateCurrentUser()
       navigate({ to: '/sign-in' })
     } finally {
       setSigningOut(false)

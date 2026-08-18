@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
+import { invalidateCurrentUser } from '../lib/currentUser'
 import { AuthShell } from '../components/AuthShell'
 import { CodeInput } from '../components/ui/CodeInput'
 import { Button, Label, Tabs } from '../components/ui'
@@ -65,7 +66,11 @@ function SignInPage() {
     const { error } = await authClient.signIn.email({ email, password })
     setLoading(false)
     if (error) setError(error.message ?? 'Sign in failed')
-    else navigate({ to: '/dashboard' })
+    else {
+      // The cached identity belongs to whoever was here before.
+      invalidateCurrentUser()
+      navigate({ to: '/dashboard' })
+    }
   }
 
   async function handleGoogle() {
@@ -106,7 +111,11 @@ function SignInPage() {
     const { error } = await authClient.signIn.emailOtp({ email, otp })
     setLoading(false)
     if (error) setError(otpMessage(error, 'Sign in failed'))
-    else navigate({ to: '/dashboard' })
+    else {
+      // The cached identity belongs to whoever was here before.
+      invalidateCurrentUser()
+      navigate({ to: '/dashboard' })
+    }
   }
 
   async function handleRequestReset(e: React.FormEvent) {
@@ -143,6 +152,7 @@ function SignInPage() {
       setNotice('Password updated. Sign in with it below.')
       return
     }
+    invalidateCurrentUser()
     navigate({ to: '/dashboard' })
   }
 

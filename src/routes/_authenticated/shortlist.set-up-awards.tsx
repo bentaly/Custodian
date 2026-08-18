@@ -15,6 +15,7 @@ import {
 } from '../../server/fns/awardSetup'
 import { getRoundBudgetSummary, listAwards } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
+import { myRoundsForFallback } from '../../lib/myRounds'
 import { AwardWizard } from '../../components/shortlist/AwardWizard'
 import { ShortlistHeader } from '../../components/shortlist/ShortlistHeader'
 import { getRoundStatus } from '../../lib/roundStatus'
@@ -96,7 +97,7 @@ export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')(
       throw redirect({ to: '/shortlist', search: { roundId: search.roundId, page: undefined } })
     }
     if (search.roundId) return
-    const fallback = selectableRounds(await listMyRounds())[0]
+    const fallback = selectableRounds(await myRoundsForFallback())[0]
     if (fallback) {
       throw redirect({ to: '/shortlist/set-up-awards', search: { roundId: fallback.id } })
     }

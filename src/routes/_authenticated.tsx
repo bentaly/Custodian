@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Outlet, redirect, useRouterState } from '@tanstack/react-router'
-import { getMe } from '../server/fns/auth'
+import { currentUser, invalidateCurrentUser } from '../lib/currentUser'
 import { listRoundDates } from '../server/fns/rounds'
 import { authClient } from '../lib/auth-client'
 import { Sidebar } from '../components/Sidebar'
@@ -8,7 +8,7 @@ import { AppHeader } from '../components/AppHeader'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async () => {
-    const user = await getMe()
+    const user = await currentUser()
     if (!user) throw redirect({ to: '/sign-in' })
     // Invite-only: a signed-in user with no tenant (and not a platform superadmin)
     // has no foundation to see. getMe already tried to auto-claim a pending invite
@@ -57,6 +57,7 @@ function ImpersonationBanner() {
 
   async function handleStop() {
     await authClient.admin.stopImpersonating()
+    invalidateCurrentUser()
     window.location.href = '/profile'
   }
 

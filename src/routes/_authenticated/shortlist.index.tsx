@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { listShortlist } from '../../server/fns/shortlist'
 import { listMyRounds } from '../../server/fns/rounds'
+import { myRoundsForFallback } from '../../lib/myRounds'
 import { VoteCard } from '../../components/shortlist/VoteCard'
 import { ShortlistHeader } from '../../components/shortlist/ShortlistHeader'
 import { ProposedSpend } from '../../components/shortlist/SpendCards'
@@ -39,7 +40,7 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
   // arriving without a round lands you on the most recent one.
   beforeLoad: async ({ search }) => {
     if (search.roundId) return
-    const fallback = selectableRounds(await listMyRounds())[0]
+    const fallback = selectableRounds(await myRoundsForFallback())[0]
     if (fallback)
       throw redirect({ to: '/shortlist', search: { roundId: fallback.id, page: undefined } })
   },

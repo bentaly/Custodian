@@ -1,12 +1,12 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { getMe } from '../server/fns/auth'
+import { currentUser, invalidateCurrentUser } from '../lib/currentUser'
 import { authClient } from '../lib/auth-client'
 import { AuthShell } from '../components/AuthShell'
 import { Button } from '../components/ui'
 
 export const Route = createFileRoute('/no-access')({
   beforeLoad: async () => {
-    const user = await getMe()
+    const user = await currentUser()
     // Not signed in → nothing to deny; send to sign-in.
     if (!user) throw redirect({ to: '/sign-in' })
     // Already has a tenant (or is a superadmin) → they do have access; send them in.
@@ -20,6 +20,7 @@ function NoAccessPage() {
 
   async function handleSignOut() {
     await authClient.signOut()
+    invalidateCurrentUser()
     navigate({ to: '/sign-in' })
   }
 

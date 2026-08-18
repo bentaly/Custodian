@@ -118,14 +118,23 @@ function warnIfSlow(elapsedMs: number, init?: RequestInit): void {
 }
 
 /**
- * A database timeout, recognised after Neon has wrapped it: `neon()` catches whatever
- * the fetch threw and re-throws its own `NeonDbError`, keeping the original on
- * `sourceError`.
+ * A database timeout, recognised however deeply it has been wrapped: `neon()` catches
+ * whatever the fetch threw and re-throws its own `NeonDbError` with the original on
+ * `sourceError`, and callers above it (BetterAuth's adapter, notably) may wrap that
+ * again with `cause`. Walk the whole chain rather than peeling one layer — missing it
+ * downgrades a database fault to a generic 500, or worse to a silent sign-out.
  */
 export function databaseTimeout(err: unknown): { isWrite: boolean } | null {
-  const source = (err as { sourceError?: unknown } | null)?.sourceError ?? err
-  if ((source as { name?: unknown } | null)?.name !== DB_TIMEOUT) return null
-  return { isWrite: (source as DatabaseTimeoutError).isWrite }
+  const seen = new Set<unknown>()
+  let node: unknown = err
+  while (node !== null && node !== undefined && !seen.has(node)) {
+    seen.add(node)
+    if ((node as { name?: unknown }).name === DB_TIMEOUT) {
+      return { isWrite: (node as DatabaseTimeoutError).isWrite }
+    }
+    node = (node as { sourceError?: unknown }).sourceError ?? (node as { cause?: unknown }).cause
+  }
+  return null
 }
 
 let configured = false

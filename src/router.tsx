@@ -42,6 +42,23 @@ export function getRouter() {
     routeTree,
     scrollRestoration: true,
     defaultPreload: 'intent',
+    /**
+     * Loader results survive 30 seconds of navigation.
+     *
+     * Until this existed the default was `0`: not one route in the app set `staleTime`,
+     * so every navigation refetched everything it had just fetched. Preloads were
+     * covered (`defaultPreloadStaleTime` defaults to 30s) but real navigations were not,
+     * which is backwards — hovering was cheaper than clicking.
+     *
+     * Mutations are unaffected: `router.invalidate()` marks matches `invalid`, and
+     * `load-matches` reloads an invalid match whatever its stale time. So the window
+     * only covers changes made by SOMEONE ELSE, which on a foundation's board of a
+     * handful of people is a fair trade for not re-querying on every back button.
+     *
+     * `_authenticated`'s own loader keeps its longer 5 minutes; a per-route value still
+     * wins over this.
+     */
+    defaultStaleTime: 30_000,
     // Assigned to whichever route threw, so the failure renders at that route's own
     // position — inside `_authenticated`'s <Outlet /> for app pages, keeping the
     // sidebar and header. See RouteError for why this is not on the layout route.

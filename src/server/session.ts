@@ -2,15 +2,35 @@ import { forbidden, unauthorized } from '../lib/errors'
 import { getRequest } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { getAuth } from './auth'
-import { getDb } from './db'
+import { databaseTimeout, getDb } from './db'
 import { clients, users } from '../../drizzle/schema'
+
+/**
+ * A failure that means "we could not tell", not "you are not signed in".
+ *
+ * The distinction is load-bearing. Both `catch`es below used to swallow everything and
+ * return `null`, which reads identically to a signed-out visitor — so a database that
+ * did not answer sent the caller to `/sign-in`, and because redirects are deliberately
+ * filtered out of Sentry as router control flow (`isRouterControlFlow`), nothing
+ * anywhere recorded that it had happened. A user got logged out because Neon was slow
+ * and we had no way to know.
+ *
+ * Rethrowing hands the error to `toClientError`, which already has the right 503 and
+ * the right copy for it.
+ */
+function rethrowIfDatabaseFault(err: unknown): void {
+  if (databaseTimeout(err)) throw err
+}
 
 export async function getAuthUser() {
   const request = getRequest()
   let session: Awaited<ReturnType<ReturnType<typeof getAuth>['api']['getSession']>>
   try {
     session = await getAuth().api.getSession({ headers: request.headers })
-  } catch {
+  } catch (err) {
+    // Anything else here is BetterAuth rejecting the cookie — an expired or forged
+    // session is genuinely "not signed in".
+    rethrowIfDatabaseFault(err)
     return null
   }
   if (!session) return null
@@ -34,7 +54,8 @@ export async function getAuthUser() {
       .leftJoin(clients, eq(users.clientId, clients.id))
       .where(eq(users.id, session.user.id))
     return rows[0] ?? null
-  } catch {
+  } catch (err) {
+    rethrowIfDatabaseFault(err)
     return null
   }
 }
