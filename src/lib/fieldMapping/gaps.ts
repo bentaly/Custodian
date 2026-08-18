@@ -51,10 +51,10 @@ export interface FieldGaps {
    */
   expectedGroups: OneOfGap[]
   /**
-   * One-of groups with no member set. On a NEW submission the pipeline holds these
-   * rather than promoting, so a gap here means an application created before the rule
-   * existed (or one a superadmin created directly) — still worth stating, since the
-   * consequence is the same either way.
+   * Required one-of groups with no member set — the pipeline holds these rather than
+   * promoting, so a gap here means an application that predates the group (or one a
+   * superadmin created directly). Empty in practice while REQUIRED_ONE_OF_GROUPS is:
+   * the registration pair reports through `expectedGroups` now.
    */
   oneOf: OneOfGap[]
   /** True when anything at all is missing — the cheap check for "render the panel". */
@@ -105,11 +105,17 @@ export function fieldGaps(values: Partial<Record<CanonicalFieldKey, unknown>>): 
   }
 }
 
-/** Whether the registration pair is entirely absent — the due diligence precondition. */
+/**
+ * Whether the registration pair is entirely absent — the due diligence precondition,
+ * and the reason the application screen says "not screened" rather than "not screened
+ * YET". Reads both group buckets so it keeps answering the same question whichever
+ * tier the pair sits in.
+ */
 export function missingRegistrationNumber(
   values: Partial<Record<CanonicalFieldKey, unknown>>,
 ): boolean {
-  return fieldGaps(values).oneOf.some((g) => g.keys.includes('charityNumber'))
+  const gaps = fieldGaps(values)
+  return [...gaps.oneOf, ...gaps.expectedGroups].some((g) => g.keys.includes('charityNumber'))
 }
 
 export { CANONICAL_FIELD_BY_KEY }

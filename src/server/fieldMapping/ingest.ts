@@ -195,13 +195,12 @@ export async function processIngest(
   //    treated as unresolved → needs_review. We can only attempt validation when
   //    the round programme is known.
   //
-  //    A one-of group with no member resolved holds the submission too. Neither
-  //    `charityNumber` nor `companyNumber` is required on its own — an applicant may
-  //    hold either — but with neither there is no registry to screen against, so due
-  //    diligence can never run for this application. Left as two plain optionals that
-  //    promoted quietly, which is how a submission reached an admin looking screened
-  //    when it had never been checked at all. Holding costs a reviewer a few seconds
-  //    and the pair is usually one ambiguous label away from resolving.
+  //    A required one-of group with no member resolved holds the submission too —
+  //    "at least one of these, we don't mind which". REQUIRED_ONE_OF_GROUPS is empty
+  //    today (the registration pair that used to live there is now `expected`, stated
+  //    on the application instead of held), so this costs an empty loop; the check
+  //    stays because the reviewer path in `resolve.ts` enforces the same rule, and the
+  //    two must never disagree about what may be promoted.
   const unmetGroups = unmetOneOfGroups(Object.keys(resolved))
 
   let status: IngestStatus

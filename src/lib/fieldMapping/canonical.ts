@@ -12,6 +12,9 @@
 //               human review.
 //   one_of    — belongs to a group (see REQUIRED_ONE_OF_GROUPS) of which at least
 //               one member must resolve. Individually optional, collectively not.
+//               No field wears this today — the registration pair that motivated it now
+//               sits in `expected` (see below) — but the gate is kept, because "any one
+//               of these, we don't mind which" is a real shape a foundation can need.
 //   expected  — the application is created without it, but a feature is degraded,
 //               so the absence is stated on the application rather than left silent.
 //   optional   — the application is created without it and NOTHING is degraded, so
@@ -23,17 +26,26 @@
 // would print a complaint on every application that arrives without it, and the
 // "Not captured" panel only works while every line in it is worth reading.
 //
-// The middle tier exists because a two-state model (required / optional) cost us a
+// The middle tiers exist because a two-state model (required / optional) cost us a
 // real bug: `charityNumber` and `companyNumber` are each individually optional — an
 // applicant may hold either — but an application with NEITHER can never be screened
 // for due diligence. Marked plain optional, such a submission promoted quietly, the
 // registry checks never ran, and nothing anywhere reported a problem. It is exactly
 // the failure a required field is meant to prevent; it just doesn't fit on one field.
 //
-// `expected` answers the same problem for fields where holding the submission would
-// be disproportionate: a foundation that doesn't ask for a delivery area shouldn't
-// have every application stuck in a queue, but nor should the deprivation lookup
-// silently never run. Promote, and say so.
+// `expected` answers that problem for fields where holding the submission would be
+// disproportionate: a foundation that doesn't ask for a delivery area shouldn't have
+// every application stuck in a queue, but nor should the deprivation lookup silently
+// never run. Promote, and say so.
+//
+// The registration pair is now one of those, having spent a while as the only `one_of`
+// group. Arete's live data settled it: applicants holding neither number are ordinary
+// (an unincorporated community group, a project hosted by an unregistered body), and
+// the foundation may well decline them for it — but that is a decision to take on the
+// application, not one to take by holding the submission in a queue over a number that
+// is never coming. What the bug actually demanded was that the absence be VISIBLE and
+// that nothing pretend to have screened; both are satisfied by `expected` plus
+// `runDueDiligence` returning `no_registration` instead of running a check it can't.
 //
 // `optional` is not a retreat to that two-state model. What cost us the bug was fields
 // that LOOKED optional while something real depended on them; `optional` is for the
@@ -165,13 +177,22 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
   {
     key: 'charityNumber',
     label: 'Charity number',
-    tier: 'one_of',
+    // Reported as a pair with `companyNumber` (REGISTRATION_PAIR_DEGRADES) — either one
+    // is a register to screen against, so naming them separately would print "no due
+    // diligence" beside a perfectly good company number.
+    tier: 'expected',
+    degrades:
+      'Without a charity number or a company number there is no register to look this ' +
+      'organisation up in, so no due diligence check has been run on this application.',
     description: 'Registered charity number (Charity Commission E&W, or OSCR with an SC prefix).',
   },
   {
     key: 'companyNumber',
     label: 'Company number',
-    tier: 'one_of',
+    tier: 'expected',
+    degrades:
+      'Without a company number or a charity number there is no register to look this ' +
+      'organisation up in, so no due diligence check has been run on this application.',
     description: 'Companies House registration number.',
   },
   {
@@ -247,12 +268,20 @@ export const REQUIRED_CANONICAL_KEYS: CanonicalFieldKey[] = CANONICAL_FIELDS.fil
 ).map((f) => f.key)
 
 /**
- * Groups of which AT LEAST ONE member must resolve. Declared as a list of groups
- * rather than a flag on the field because the constraint is a property of the group,
- * not of either member: neither `charityNumber` nor `companyNumber` is required, but
- * an application holding neither cannot be screened for due diligence at all.
+ * Groups of which AT LEAST ONE member must resolve, or the submission is HELD. Declared
+ * as a list of groups rather than a flag on the field because the constraint is a
+ * property of the group, not of either member.
+ *
+ * Deliberately empty, not vestigial. Its one occupant was the registration pair, moved
+ * to `expected` once Arete's live data showed how many real applicants hold neither
+ * number: the pair's absence is now stated on the application and due diligence reports
+ * `no_registration` rather than being quietly skipped, which is what the rule was
+ * actually protecting. The gate itself stays wired through `ingest.ts`, `resolve.ts`
+ * and `diagnose.ts` — adding a group back is one line, and the two enforcement points
+ * must keep agreeing (a reviewer must not be able to wave through what the pipeline
+ * held).
  */
-export const REQUIRED_ONE_OF_GROUPS: CanonicalFieldKey[][] = [['charityNumber', 'companyNumber']]
+export const REQUIRED_ONE_OF_GROUPS: CanonicalFieldKey[][] = []
 
 /**
  * `expected` fields that answer the same question by different means, of which any one
@@ -266,12 +295,26 @@ export const REQUIRED_ONE_OF_GROUPS: CanonicalFieldKey[][] = [['charityNumber', 
 export const EXPECTED_ONE_OF_GROUPS: Array<{
   keys: CanonicalFieldKey[]
   degrades: string
+  /** Extra guidance for the published spec only; never shown on an application. */
+  note?: string
 }> = [
+  {
+    keys: ['charityNumber', 'companyNumber'],
+    degrades:
+      'Without either there is no register to look this organisation up in, so no due ' +
+      'diligence check has been run on this application.',
+    note:
+      'A registration number can be added later on the application itself, which screens ' +
+      'it on the spot.',
+  },
   {
     keys: ['budgetBreakdown', 'budgetBreakdownLink'],
     degrades:
       'Without either, the application shows only the total ask, with no view of what the ' +
       'money would be spent on.',
+    note:
+      'A document is shown to reviewers as a link; only line items feed the budget breakdown ' +
+      'and the Custodian score.',
   },
 ]
 
@@ -299,9 +342,15 @@ export const CANONICAL_KEYS: CanonicalFieldKey[] = CANONICAL_FIELDS.map((f) => f
  * chose). Both must agree, or a submission the pipeline held could be waved through by
  * a reviewer who left the pair blank.
  */
-export function unmetOneOfGroups(resolvedKeys: Iterable<string>): CanonicalFieldKey[][] {
+export function unmetOneOfGroups(
+  resolvedKeys: Iterable<string>,
+  // Overridable so the rule stays testable while REQUIRED_ONE_OF_GROUPS is empty:
+  // exercised only through the live registry, the test would prove nothing but that
+  // nothing is declared.
+  groups: CanonicalFieldKey[][] = REQUIRED_ONE_OF_GROUPS,
+): CanonicalFieldKey[][] {
   const have = new Set(resolvedKeys)
-  return REQUIRED_ONE_OF_GROUPS.filter((group) => !group.some((k) => have.has(k)))
+  return groups.filter((group) => !group.some((k) => have.has(k)))
 }
 
 /** Human phrasing for an unmet group: "a charity number or a company number". */

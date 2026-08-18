@@ -399,9 +399,14 @@ export function VoteCard({
         ? 'Due diligence blocked'
         : app.dueDiligenceStatus === 'review'
           ? 'Due diligence needs a manual check'
-          : app.dueDiligenceStatus === 'pending'
-            ? 'Due diligence not run'
-            : null
+          : app.dueDiligenceStatus === 'no_registration'
+            ? // Said plainly rather than as "not run": the board is about to vote, and
+              // "no register to check" is a fact about the applicant they should weigh,
+              // not a job somebody forgot to do.
+              'No charity or company number — not screened'
+            : app.dueDiligenceStatus === 'pending'
+              ? 'Due diligence not run'
+              : null
 
   // Figure and unit are separated so the figure can carry the weight (Figma 765:3377):
   // what a board scans this strip for is the numbers, not the words between them.
@@ -702,7 +707,7 @@ export function VoteCard({
             className="mt-auto pt-1 text-center font-display text-label font-medium hover:underline"
             style={{ color: C.brand }}
           >
-            View application details →
+            View Application Details →
           </Link>
         </div>
       </div>

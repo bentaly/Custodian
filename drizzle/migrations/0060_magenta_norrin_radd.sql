@@ -1,0 +1,1 @@
+ALTER TYPE "public"."due_diligence_status" ADD VALUE 'no_registration';

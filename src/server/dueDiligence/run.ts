@@ -81,10 +81,13 @@ export async function runDueDiligence(
   const companyNumber = normaliseCompanyNumber(input.companyNumber)
   const ctx: CheckContext = { amountRequested: input.amountRequested, now }
 
-  // No identifiers at all → can't screen automatically; block for manual
-  // clarification (spec §routing).
+  // No identifiers at all → there is nothing to screen against, and no amount of
+  // re-running will produce one. Reported as its own status rather than `review`: a
+  // review is work waiting for a person, and this is not (see DueDiligenceStatus).
+  // The application states the gap and offers the only fix — adding a number, which
+  // screens on the spot.
   if (!charityNumber && !companyNumber) {
-    return { status: 'review', checks: [], checkedAt }
+    return { status: 'no_registration', checks: [], checkedAt }
   }
 
   const checks: DueDiligenceCheckRecord[] = []

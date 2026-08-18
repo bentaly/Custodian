@@ -6,6 +6,7 @@ import {
   Cancel01Icon,
   CheckmarkCircle02Icon,
   CancelCircleIcon,
+  MinusSignCircleIcon,
   Alert02Icon,
 } from '@hugeicons/core-free-icons'
 import {
@@ -369,13 +370,27 @@ const DD_ICON: Record<string, { icon: typeof CheckmarkCircle02Icon; colour: stri
   warning: { icon: Alert02Icon, colour: C.amber },
   blocked: { icon: Alert02Icon, colour: C.danger },
   review: { icon: CancelCircleIcon, colour: C.faint },
+  // Its own mark, not review's: nothing was attempted and nothing can be. Muted, because
+  // an applicant holding neither number is ordinary — it is a fact about the submission,
+  // not a flag against the organisation.
+  no_registration: { icon: MinusSignCircleIcon, colour: C.faint },
   pending: null,
+}
+
+// A column of bare icons with no header legend, so the mark says what it means on hover.
+const DD_LABEL: Record<string, string> = {
+  clear: 'Due diligence clear',
+  warning: 'Due diligence warnings',
+  blocked: 'Due diligence blocked',
+  review: 'Due diligence needs a manual check',
+  no_registration: 'No charity or company number — not screened',
+  pending: 'Not screened yet',
 }
 
 function DueDiligenceCell({ status }: { status: DueDiligenceStatus }) {
   const d = DD_ICON[status]
   return (
-    <div className="flex justify-center">
+    <div className="flex justify-center" title={DD_LABEL[status] ?? ''}>
       {d ? (
         <HugeiconsIcon icon={d.icon} size={20} color={d.colour} />
       ) : (

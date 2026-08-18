@@ -274,15 +274,18 @@ export function diagnoseIngest(row: DiagnosableIngest, index: ProgrammeIndex): I
     })
   }
 
-  // 2. One-of groups (charity number / company number) with neither member resolved.
+  // 2. Required one-of groups with no member resolved. Empty today — the registration
+  //    pair moved to `expected`, so a submission with neither number is created and
+  //    says so rather than waiting here — but the code tracks REQUIRED_ONE_OF_GROUPS
+  //    so a group added back explains itself in the queue on the same day.
   for (const group of unmetOneOfGroups(resolvedKeys)) {
     blockers.push({
       code: 'one_of_unmet',
       severity: 'blocking',
       title: `No ${describeOneOfGroup(group)} arrived`,
       detail:
-        'Neither number is required on its own — an applicant may be a charity, a company, or both — but with neither there is no register to look the organisation up in, so due diligence can never run for this application. It is held rather than promoted so nobody sees an application that looks screened and never was.',
-      fix: 'Map whichever number this applicant supplied. If they genuinely have neither, this submission cannot be screened; delete it or take it up with the foundation.',
+        'No single one of these is required — but at least one must be present, and none of them could be matched to an incoming field. The submission is held rather than promoted.',
+      fix: 'Map whichever of them this applicant supplied. If they genuinely sent none, take it up with the foundation.',
       fields: group.map((k) => ({ key: k, label: labelFor(k) })),
     })
   }

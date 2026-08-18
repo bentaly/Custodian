@@ -103,23 +103,13 @@ describe('diagnoseIngest', () => {
     ])
   })
 
-  it('reports an unmet one-of group when neither register number resolved', () => {
+  it('does not hold a submission that carries no registration number', () => {
+    // The pair used to be a required one-of group, so a submission from an applicant
+    // holding neither number waited here for a reviewer who could never resolve it.
+    // Nothing to answer in the queue now: the application is created and states that
+    // it was not screened.
     const row = cleanIngest()
     delete row.resolved!['charity']
-    const blockers = diagnoseIngest(row, emptyIndex)
-    const oneOf = blockers.find((b) => b.code === 'one_of_unmet')!
-    expect(oneOf.severity).toBe('blocking')
-    expect(oneOf.fields!.map((f) => f.key)).toEqual(['charityNumber', 'companyNumber'])
-    // The reason matters more than the rule: this is the hold that stops an
-    // unscreenable application looking screened.
-    expect(oneOf.detail).toMatch(/due diligence/)
-  })
-
-  it('accepts a company number alone as satisfying the one-of group', () => {
-    const row = cleanIngest()
-    delete row.resolved!['charity']
-    row.rawPayload['company'] = '03782379'
-    row.resolved!['company'] = 'companyNumber'
     expect(codes(diagnoseIngest(row, emptyIndex))).not.toContain('one_of_unmet')
   })
 

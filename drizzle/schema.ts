@@ -57,12 +57,15 @@ export const awardLetterStatusEnum = pgEnum('award_letter_status', ['draft', 'se
 //   warning  — one or more soft flags, no hard blocks
 //   blocked  — at least one hard block (e.g. charity removed from register)
 //   review   — could not screen automatically (API error, or org type with no API); needs manual review
+//   no_registration — no charity or company number was supplied, so there is no register to
+//                     check: not a pending run, not a flag, and not fixable by re-running
 export const dueDiligenceStatusEnum = pgEnum('due_diligence_status', [
   'pending',
   'clear',
   'warning',
   'blocked',
   'review',
+  'no_registration',
 ])
 
 // State of the AI "Custodian score" assessment for an application.

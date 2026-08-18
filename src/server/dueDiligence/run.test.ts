@@ -34,12 +34,16 @@ const activeCharityRaw = {
 }
 
 describe('runDueDiligence routing', () => {
-  it('returns review with no checks when no numbers are supplied', async () => {
+  it('reports no_registration — not review — when no numbers are supplied', async () => {
+    // The distinction the status exists for: `review` (see the register-error test
+    // below) is work waiting for a person and counts on the dashboard. With no number
+    // there is nothing to check and nothing a re-run can change, so it must not sit in
+    // an admin's flag count for the life of the application.
     const res = await runDueDiligence(
       { charityNumber: '', companyNumber: undefined, amountRequested: 1000 },
       { fetchers: stubFetchers(), now: NOW },
     )
-    expect(res.status).toBe('review')
+    expect(res.status).toBe('no_registration')
     expect(res.checks).toHaveLength(0)
   })
 

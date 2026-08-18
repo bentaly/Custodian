@@ -124,10 +124,16 @@ function Submissions() {
           </p>
           <p>
             Fields marked <span className="font-medium text-grey-900">Required</span> must be
-            present and understood before a submission can go through. Where a field is marked{' '}
-            <span className="font-medium text-grey-900">One of a pair</span>, at least one of the
-            two must be present — neither is needed on its own, but a submission with neither is
-            held for review.
+            present and understood before a submission can go through.
+            {REQUIRED_ONE_OF_GROUPS.length > 0 && (
+              <>
+                {' '}
+                Where a field is marked{' '}
+                <span className="font-medium text-grey-900">One of a pair</span>, at least one of
+                the two must be present — neither is needed on its own, but a submission with
+                neither is held for review.
+              </>
+            )}
           </p>
           <p>
             Everything else is optional to send. Some of it still earns its place: each field below
@@ -180,6 +186,9 @@ function Submissions() {
                 with neither waits in the review queue.
               </p>
             ))}
+          {/* Each group's own words, not a hard-coded sentence about the budget: the
+              registration pair joined this list, and copy written for one pair would
+              have quietly described the other one wrongly. */}
           {tab === 'applications' &&
             EXPECTED_ONE_OF_GROUPS.map((group) => (
               <p
@@ -188,10 +197,10 @@ function Submissions() {
                 style={{ backgroundColor: C.wash, color: C.sub }}
               >
                 Send a <strong>{describeOneOfGroup(group.keys)}</strong> — either one answers the
-                question, so there is no need to send both. Unlike the pair above, neither holds a
-                submission: send neither and the application is still created, noting that no budget
-                was captured. A document is shown to reviewers as a link; only line items feed the
-                budget breakdown and the Custodian score.
+                question, so there is no need to send both. Neither is required: send neither and
+                the application is still created, saying plainly what is unavailable as a result.{' '}
+                {group.degrades}
+                {group.note ? ` ${group.note}` : ''}
               </p>
             ))}
         </div>

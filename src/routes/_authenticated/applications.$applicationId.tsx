@@ -44,7 +44,7 @@ import {
 import { applicationStatusLabel } from '../../lib/validators/application'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
-import { fieldGaps } from '../../lib/fieldMapping/gaps'
+import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
@@ -101,12 +101,14 @@ function durationLabel(years: number | null | undefined) {
  * registration number can never be screened, and pressing Re-run reads the same empty
  * columns and returns "not screened" forever.
  *
- * Two routes lead here, and neither can be fixed upstream. A grant imported from a
- * foundation's back catalogue arrives already awarded and deliberately unscreened, and
- * the import treats a missing number as a degradation rather than a blocker — refusing
- * history is not an option. And an application awarded before the one-of gate existed
- * has its ingest mapping frozen, because the award letter was written from those
- * figures. A registration number is not one of those figures, and a grantee still
+ * This is now the ordinary case rather than an exotic one. A submission arriving with
+ * neither number is created rather than held (the pair is `expected`, not `one_of`),
+ * because plenty of real applicants hold neither — so this panel is where a foundation
+ * that later obtains a number gets the screening done. It also serves the two routes
+ * that could never be fixed upstream: a grant imported from a back catalogue arrives
+ * already awarded and deliberately unscreened, and an application awarded before the
+ * one-of gate has its ingest mapping frozen because the award letter was written from
+ * those figures. A registration number is not one of those figures, and a grantee still
  * receiving instalments is exactly the one worth screening late.
  */
 function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; canEdit: boolean }) {
@@ -392,15 +394,16 @@ function ApplicationDetail() {
   // indistinguishable from a question the foundation never asked — so the feature it
   // feeds silently doesn't run. Stating it is the difference between noticing in the
   // queue and noticing weeks later, if at all.
-  const gaps = fieldGaps({
+  const gapValues = {
     charityNumber: application.charityNumber,
     companyNumber: application.companyNumber,
     deliveryArea: application.deliveryArea,
     budgetBreakdown: budgetLines,
     budgetBreakdownLink: application.budgetBreakdownLink,
     proposedImpactQuantity: application.proposedImpactQuantity,
-  })
-  const noRegistrationNumber = gaps.oneOf.length > 0
+  }
+  const gaps = fieldGaps(gapValues)
+  const noRegistrationNumber = missingRegistrationNumber(gapValues)
 
   async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
     setError(null)

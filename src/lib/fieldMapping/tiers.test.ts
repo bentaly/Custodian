@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CANONICAL_FIELDS,
+  type CanonicalFieldKey,
   CANONICAL_FIELD_BY_KEY,
   EXPECTED_CANONICAL_KEYS,
   REQUIRED_CANONICAL_KEYS,
@@ -53,8 +54,26 @@ describe('canonical tiers', () => {
     expect(REQUIRED_CANONICAL_KEYS).not.toContain('companyNumber')
   })
 
-  it('groups the two registration numbers as one-of', () => {
-    expect(REQUIRED_ONE_OF_GROUPS).toEqual([['charityNumber', 'companyNumber']])
+  it('never holds a submission over the registration pair', () => {
+    // The pair spent a while as the only `one_of` group, which held every submission
+    // from an applicant holding neither number — ordinary enough in real foundation
+    // data that the queue filled with rows nobody could ever clear. `expected` keeps
+    // what the rule was actually protecting: the absence is stated on the application
+    // and due diligence reports `no_registration` rather than quietly not running.
+    expect(REQUIRED_ONE_OF_GROUPS.flat()).not.toContain('charityNumber')
+    expect(REQUIRED_ONE_OF_GROUPS.flat()).not.toContain('companyNumber')
+    expect(CANONICAL_FIELD_BY_KEY.charityNumber.tier).toBe('expected')
+    expect(CANONICAL_FIELD_BY_KEY.companyNumber.tier).toBe('expected')
+  })
+
+  it('reports the registration pair as one gap, not two', () => {
+    // Named separately, an applicant sending a company number alone would be told on
+    // their own application that no charity number was captured — beside a register we
+    // did in fact screen against.
+    expect(EXPECTED_ONE_OF_GROUPS.map((g) => g.keys)).toContainEqual([
+      'charityNumber',
+      'companyNumber',
+    ])
   })
 
   it('gives every expected field a `degrades` explanation', () => {
@@ -74,21 +93,25 @@ describe('canonical tiers', () => {
 })
 
 describe('unmetOneOfGroups', () => {
-  it('reports the group when neither member resolved', () => {
-    const unmet = unmetOneOfGroups(['organisationName', 'amountRequested'])
-    expect(unmet).toEqual([['charityNumber', 'companyNumber']])
+  // The gate itself, exercised against a group the registry doesn't currently declare:
+  // REQUIRED_ONE_OF_GROUPS is empty, so testing it through the real registry would only
+  // ever prove that nothing holds. What must keep working is the rule — if a foundation
+  // ever needs "at least one of these", `ingest.ts` and `resolve.ts` both read this.
+  it('holds nothing while no group is declared', () => {
+    expect(REQUIRED_ONE_OF_GROUPS).toEqual([])
+    expect(unmetOneOfGroups([])).toEqual([])
   })
 
-  it('is satisfied by the charity number alone', () => {
-    expect(unmetOneOfGroups(['charityNumber'])).toEqual([])
+  it('reports a declared group when no member resolved', () => {
+    const group: CanonicalFieldKey[] = ['charityNumber', 'companyNumber']
+    expect(unmetOneOfGroups(['organisationName'], [group])).toEqual([group])
   })
 
-  it('is satisfied by the company number alone', () => {
-    expect(unmetOneOfGroups(['companyNumber'])).toEqual([])
-  })
-
-  it('is satisfied by both', () => {
-    expect(unmetOneOfGroups(['charityNumber', 'companyNumber'])).toEqual([])
+  it('is satisfied by any one member', () => {
+    const group: CanonicalFieldKey[] = ['charityNumber', 'companyNumber']
+    expect(unmetOneOfGroups(['charityNumber'], [group])).toEqual([])
+    expect(unmetOneOfGroups(['companyNumber'], [group])).toEqual([])
+    expect(unmetOneOfGroups(['charityNumber', 'companyNumber'], [group])).toEqual([])
   })
 })
 
@@ -104,19 +127,25 @@ describe('fieldGaps', () => {
     const gaps = fieldGaps(complete)
     expect(gaps.any).toBe(false)
     expect(gaps.expected).toEqual([])
+    expect(gaps.expectedGroups).toEqual([])
     expect(gaps.oneOf).toEqual([])
   })
 
   it('reports the registration pair when neither number is held', () => {
-    const gaps = fieldGaps({ ...complete, charityNumber: null })
-    expect(gaps.oneOf).toHaveLength(1)
-    expect(gaps.oneOf[0]!.label).toBe('charity number or company number')
-    expect(missingRegistrationNumber({ ...complete, charityNumber: null })).toBe(true)
+    // Stated on the application — the whole reason the pair can be promoted rather
+    // than held. Say nothing here and it is once again indistinguishable from a
+    // question the foundation never asked.
+    const values = { ...complete, charityNumber: null }
+    const gaps = fieldGaps(values)
+    expect(gaps.expectedGroups.map((g) => g.label)).toContain('charity number or company number')
+    expect(gaps.expectedGroups[0]!.degrades).toMatch(/due diligence/)
+    expect(missingRegistrationNumber(values)).toBe(true)
   })
 
   it('accepts a company number in place of a charity number', () => {
-    const gaps = fieldGaps({ ...complete, charityNumber: null, companyNumber: '09876543' })
-    expect(gaps.oneOf).toEqual([])
+    const values = { ...complete, charityNumber: null, companyNumber: '09876543' }
+    expect(fieldGaps(values).expectedGroups).toEqual([])
+    expect(missingRegistrationNumber(values)).toBe(false)
   })
 
   it('reports a missing delivery area with what it costs', () => {
@@ -133,7 +162,7 @@ describe('fieldGaps', () => {
     ['empty string', ''],
     ['whitespace', '   '],
   ])('treats %s as not captured', (_label, value) => {
-    expect(fieldGaps({ ...complete, charityNumber: value }).oneOf).toHaveLength(1)
+    expect(missingRegistrationNumber({ ...complete, charityNumber: value })).toBe(true)
   })
 
   it('treats an empty budget array as not captured', () => {
@@ -149,8 +178,10 @@ describe('fieldGaps', () => {
   it('reports every gap at once', () => {
     const gaps = fieldGaps({})
     expect(gaps.any).toBe(true)
-    expect(gaps.oneOf).toHaveLength(1)
-    expect(gaps.expectedGroups).toHaveLength(1)
+    expect(gaps.expectedGroups.map((g) => g.keys)).toEqual([
+      ['charityNumber', 'companyNumber'],
+      ['budgetBreakdown', 'budgetBreakdownLink'],
+    ])
     expect(gaps.expected.map((g) => g.key)).toEqual(['deliveryArea', 'proposedImpactQuantity'])
   })
 })
@@ -169,15 +200,16 @@ describe('the budget pair', () => {
   const LINK = 'https://api.typeform.com/responses/files/abc123/Project_Budget.ods'
 
   it('groups the two budget fields without blocking the submission', () => {
-    expect(EXPECTED_ONE_OF_GROUPS.map((g) => g.keys)).toEqual([
-      ['budgetBreakdown', 'budgetBreakdownLink'],
+    expect(EXPECTED_ONE_OF_GROUPS.map((g) => g.keys)).toContainEqual([
+      'budgetBreakdown',
+      'budgetBreakdownLink',
     ])
     // The distinction that matters: `one_of` holds an ingest, `expected` never does.
     // If this pair ever reached REQUIRED_ONE_OF_GROUPS, every foundation that doesn't
     // ask for a budget would have every submission stuck in the review queue.
     expect(REQUIRED_ONE_OF_GROUPS.flat()).not.toContain('budgetBreakdown')
     expect(REQUIRED_ONE_OF_GROUPS.flat()).not.toContain('budgetBreakdownLink')
-    expect(unmetOneOfGroups(['charityNumber'])).toEqual([])
+    expect(unmetOneOfGroups([])).toEqual([])
   })
 
   it('reports nothing when the breakdown is present', () => {
@@ -192,11 +224,10 @@ describe('the budget pair', () => {
   })
 
   it('reports once — not twice — when neither is present', () => {
-    const gaps = fieldGaps(base)
-    expect(gaps.expectedGroups).toHaveLength(1)
-    expect(gaps.expectedGroups[0]?.label).toBe('budget breakdown or budget document')
-    expect(gaps.expectedGroups[0]?.degrades).toMatch(/only the total ask/)
-    expect(gaps.any).toBe(true)
+    const budget = fieldGaps(base).expectedGroups.filter((g) => g.keys.includes('budgetBreakdown'))
+    expect(budget).toHaveLength(1)
+    expect(budget[0]?.label).toBe('budget breakdown or budget document')
+    expect(budget[0]?.degrades).toMatch(/only the total ask/)
   })
 
   it('never lists a grouped field individually', () => {

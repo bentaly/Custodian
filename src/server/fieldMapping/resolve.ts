@@ -50,12 +50,16 @@ export type ResolveResult =
     }
 
 /**
- * The one-of groups a reviewer's mapping leaves unsatisfied, as validation issues.
+ * The required one-of groups a reviewer's mapping leaves unsatisfied, as validation
+ * issues.
  *
- * The pipeline holds a submission that resolved neither member of a group; without the
- * same check here a reviewer could clear the queue by leaving the pair blank and create
- * exactly the un-screenable application the hold exists to prevent. Reported through the
- * normal `invalid` channel so the admin app renders it like any other field error.
+ * The pipeline holds a submission that resolved no member of such a group; without the
+ * same check here a reviewer could clear the queue by leaving the group blank and create
+ * exactly the application the hold exists to prevent. Reported through the normal
+ * `invalid` channel so the admin app renders it like any other field error.
+ *
+ * REQUIRED_ONE_OF_GROUPS is empty today, so this yields nothing — kept in step with
+ * `ingest.ts` so a group added there is enforced on both paths at once.
  */
 function oneOfIssues(mapping: ResolveInput['mapping']): Array<{ field: string; message: string }> {
   const chosen = Object.entries(mapping)
@@ -63,7 +67,7 @@ function oneOfIssues(mapping: ResolveInput['mapping']): Array<{ field: string; m
     .map(([canonical]) => canonical)
   return unmetOneOfGroups(chosen).map((group) => ({
     field: group[0]!,
-    message: `Map a ${describeOneOfGroup(group)} — without one of them this application can never be screened for due diligence.`,
+    message: `Map a ${describeOneOfGroup(group)} — a submission needs at least one of them.`,
   }))
 }
 

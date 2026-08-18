@@ -230,17 +230,31 @@ bucket for anything not required:
 
 - **`required`** (8 fields) — no application without it. Unresolved → the ingest holds at
   `needs_review`. Derived as `REQUIRED_CANONICAL_KEYS`.
-- **`one_of`** — belongs to a group in `REQUIRED_ONE_OF_GROUPS` (today just
-  `[charityNumber, companyNumber]`) of which at least one member must resolve. Neither is required
-  alone — an applicant may be a charity, a company, or both — but with **neither** there is no
-  register to check, so due diligence can never run. As two plain optionals this promoted silently
-  and an admin saw an application that looked screened and never had been. Enforced in **both**
-  `ingest.ts` (step 6) and `resolve.ts` (`oneOfIssues`) — a reviewer must not be able to wave
-  through what the pipeline held.
+- **`one_of`** — belongs to a group in `REQUIRED_ONE_OF_GROUPS` of which at least one member must
+  resolve; a group with none held the submission. Enforced in **both** `ingest.ts` (step 6) and
+  `resolve.ts` (`oneOfIssues`) — a reviewer must not be able to wave through what the pipeline
+  held. **`REQUIRED_ONE_OF_GROUPS` is empty today**: its one occupant, `[charityNumber,
+  companyNumber]`, moved to `expected` (below). The machinery is kept wired, empty, because "at
+  least one of these" is a real shape — adding a group back is one line, and both enforcement
+  points must keep agreeing.
 - **`expected`** — promotes without it, but a feature is degraded, so the field carries a
   `degrades` string that is **shown on the application** ("Not captured" panel) rather than left
   silent. Holding these would be disproportionate: a foundation that doesn't ask for a delivery
-  area shouldn't have every submission stuck in a queue.
+  area shouldn't have every submission stuck in a queue. Two `expected` fields answering the same
+  question pair up in `EXPECTED_ONE_OF_GROUPS` (budget breakdown / budget document; charity number
+  / company number), which reports once and only when **neither** arrived.
+- **The registration pair is `expected`, not `one_of`** — the one tier decision worth knowing.
+  Neither number is required alone (an applicant may be a charity, a company, or both), and with
+  neither there is no register to check, so due diligence cannot run. That held every submission
+  from an applicant holding neither — ordinary in Arete's live data (unincorporated groups,
+  projects hosted by an unregistered body), and a queue nobody could clear, since the number was
+  never coming. The foundation may well decline such an applicant; that is a decision to take on
+  the application, not one to take by holding it. What the original bug demanded was that the
+  absence be **visible** and that nothing pretend to have screened — both survive the move:
+  `runDueDiligence` returns **`no_registration`** (its own status, not `review`, so it never
+  enters the dashboard's flag count — see `DueDiligenceStatus`), the "Not captured" panel names
+  the pair, and the due diligence panel offers the fix (`ScreenWithNumber` → `rerunDueDiligence`
+  with a number, which screens on the spot).
 - **`optional`** — promotes without it and **nothing is degraded**, so nothing is said anywhere.
   The line against `expected` is whether you can NAME what stops working; if you can't, inventing
   a degradation just prints a complaint on every application and teaches admins to skim the panel.
@@ -258,8 +272,10 @@ screen renders. The principle: **a lost field must never be indistinguishable fr
 foundation never asked** — that equivalence is what made the original bug invisible for days.
 
 `/settings/submissions` renders the tiers straight from the registry, so the published spec cannot
-drift from the mapper. The admin review queue gets group membership via `oneOfGroup` on
-`/api/admin/canonical-fields` rather than inferring it from `tier`.
+drift from the mapper — including each expected group's own `degrades`/`note`, since copy written
+for one pair described the other one wrongly the moment a second group existed. The admin review
+queue gets group membership via `oneOfGroup` on `/api/admin/canonical-fields` rather than inferring
+it from `tier`.
 
 ## The admin app (`admin-app/`)
 
@@ -288,7 +304,8 @@ registry or the validators, and rows held before this existed explain themselves
 The codes worth knowing: `pipeline_running` vs `pipeline_stalled` (same `received` status, but one
 wants patience and the other only moves via Reprocess — five minutes apart, `STUCK_AFTER_MS`);
 `programme_unknown` vs `programme_not_open` (rename the programme vs reopen the round — different
-remedies, so not one "out of round" message); `required_unmapped`; `one_of_unmet`; `invalid_value`;
+remedies, so not one "out of round" message); `required_unmapped`; `one_of_unmet` (never fires
+while `REQUIRED_ONE_OF_GROUPS` is empty, kept in step with it); `invalid_value`;
 and reports-only `grant_unmatched`. **`invalid_value` is the one that justifies the module**: a
 field that maps but holds a value the validators reject leaves a mapping grid that looks complete,
 so the row sat in `needs_review` looking ready to promote with nothing anywhere saying otherwise.
@@ -315,16 +332,18 @@ that posts `{}` before the canonical registry loads cannot blank a live applicat
 
 `rerunDueDiligence` takes optional `charityNumber` / `companyNumber`. Without them it re-checks
 what is on the row; with them it **writes them first**, which is the only way out of the one dead
-end due diligence has — with both columns NULL a re-run reads the same nothing and returns `review`
-with zero checks however often it is pressed. Surfaced on the application screen exactly where that
-message appears, so the fix sits with the problem. Clearing both is refused; supplying them writes
-an `application_registration_set` audit row (a statement about who is being funded, not a typo fix).
+end due diligence has — with both columns NULL a re-run reads the same nothing and returns
+`no_registration` with zero checks however often it is pressed. Surfaced on the application screen
+exactly where that message appears, so the fix sits with the problem. Clearing both is refused;
+supplying them writes an `application_registration_set` audit row (a statement about who is being
+funded, not a typo fix).
 
-Two routes reach that dead end and **neither can be fixed upstream**, which is why this exists
-despite the one-of gate covering new submissions: a grant imported from a back catalogue arrives
-already awarded and deliberately unscreened, and the import treats a missing number as a
-degradation rather than a blocker (refusing history is not an option); and anything awarded before
-the one-of gate has its mapping frozen by the rule above. Allowed after an award on purpose — a
+This is now the **ordinary** route rather than an exotic one: a submission with neither number is
+created rather than held, so this panel is where a foundation that later obtains a number gets the
+screening done. It also serves the two cases that can never be fixed upstream — a grant imported
+from a back catalogue arrives already awarded and deliberately unscreened (the import treats a
+missing number as a degradation, since refusing history is not an option), and anything awarded
+before has its ingest mapping frozen by the rule above. Allowed after an award on purpose — a
 registration number is not a figure the award letter was written from, and a grantee still
 receiving instalments is precisely the one worth screening late.
 

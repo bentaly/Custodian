@@ -34,8 +34,23 @@ export interface DueDiligenceCheckRecord {
   detail: string | null
 }
 
-/** Overall screening outcome stored on the application row. */
-export type DueDiligenceStatus = 'pending' | 'clear' | 'warning' | 'blocked' | 'review'
+/**
+ * Overall screening outcome stored on the application row.
+ *
+ * `no_registration` is not a flavour of `review`, and the difference is the whole point
+ * of it: `review` means a check was attempted and a person must finish it, so it counts
+ * on the dashboard and reads as work. An applicant with no charity or company number
+ * has nothing to check against — there is no work, and nothing a re-run will change —
+ * so it must not sit in an admin's flag count forever. What it does instead is say so
+ * on the application (see the "Not captured" panel and the due diligence panel).
+ */
+export type DueDiligenceStatus =
+  | 'pending'
+  | 'clear'
+  | 'warning'
+  | 'blocked'
+  | 'review'
+  | 'no_registration'
 
 /**
  * Every check the system can produce. Adding a check means adding a key here
