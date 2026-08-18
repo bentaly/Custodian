@@ -14,7 +14,11 @@ export const SaveProgrammeSchema = z
   .object({
     /** Absent creates a programme; present edits that one. */
     id: z.uuid().optional(),
-    name: z.string().min(1, 'Give the programme a name').max(255),
+    // Trimmed before validating: a stray trailing space is invisible on every screen
+    // that renders the name, but it is not invisible to the programme-name lookup the
+    // submission pipeline runs — see `findActiveRoundProgrammeByName`. `.trim()` runs
+    // first, so a name of only whitespace fails `min(1)` rather than saving as "".
+    name: z.string().trim().min(1, 'Give the programme a name').max(255),
     /** Objectives, criteria and priorities. Markdown from the rich text editor. */
     goal: z.string().max(20000).nullable(),
     tags: z.array(z.string().min(1).max(100)),

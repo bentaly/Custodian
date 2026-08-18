@@ -24,6 +24,10 @@
 import { and, eq, inArray, or, isNull, gt, lte } from 'drizzle-orm'
 import { getDb } from '../db'
 import { programmes, roundProgrammes, rounds } from '../../../drizzle/schema'
+// Generic string-similarity helpers. They live under `dataImport` because that is where
+// they were first needed, not because they are specific to it — same job here: tell a
+// human which known name the one in front of them nearly is.
+import { SUGGEST_THRESHOLD, matchReason, similarity } from '../../lib/dataImport/match'
 import {
   CANONICAL_FIELD_BY_KEY,
   REQUIRED_CANONICAL_KEYS,
@@ -95,16 +99,28 @@ function labelFor(key: string): string {
  * endpoint renders up to a few hundred, and this is the only IO diagnosis needs.
  */
 interface ProgrammeIndex {
+  /** clientId → the client's programme names as spelled, for suggesting a near miss. */
+  names: Map<string, string[]>
   /** clientId → lowercased programme names that exist at all. */
   known: Map<string, Set<string>>
   /** clientId → lowercased programme names currently in an open round. */
   open: Map<string, Set<string>>
 }
 
+/** The form both sides of a programme-name comparison are reduced to. Mirrors
+ *  `findActiveRoundProgrammeByName`, which the pipeline actually routes on — if the two
+ *  ever diverge the queue starts explaining a hold that isn't happening, or worse, fails
+ *  to explain one that is. Trimmed because a name stored with a trailing space is
+ *  invisible on every screen that renders it, and cost us a whole afternoon. */
+function routingKey(name: string): string {
+  return name.trim().toLowerCase()
+}
+
 async function loadProgrammeIndex(clientIds: string[]): Promise<ProgrammeIndex> {
+  const names = new Map<string, string[]>()
   const known = new Map<string, Set<string>>()
   const open = new Map<string, Set<string>>()
-  if (clientIds.length === 0) return { known, open }
+  if (clientIds.length === 0) return { names, known, open }
 
   const db = getDb()
   const now = new Date()
@@ -130,15 +146,18 @@ async function loadProgrammeIndex(clientIds: string[]): Promise<ProgrammeIndex> 
 
   for (const r of all) {
     const set = known.get(r.clientId) ?? new Set<string>()
-    set.add(r.name.toLowerCase())
+    set.add(routingKey(r.name))
     known.set(r.clientId, set)
+    const list = names.get(r.clientId) ?? []
+    list.push(r.name.trim())
+    names.set(r.clientId, list)
   }
   for (const r of openRows) {
     const set = open.get(r.clientId) ?? new Set<string>()
-    set.add(r.name.toLowerCase())
+    set.add(routingKey(r.name))
     open.set(r.clientId, set)
   }
-  return { known, open }
+  return { names, known, open }
 }
 
 /**
@@ -149,14 +168,47 @@ export async function diagnoseIngests(
   rows: DiagnosableIngest[],
 ): Promise<Map<string, IngestBlocker[]>> {
   // Only rows that could name a programme they never routed to need the index.
-  const clientIds = [
-    ...new Set(rows.filter((r) => !r.roundProgrammeId).map((r) => r.clientId)),
-  ]
+  const clientIds = [...new Set(rows.filter((r) => !r.roundProgrammeId).map((r) => r.clientId))]
   const index = await loadProgrammeIndex(clientIds)
   return new Map(rows.map((row) => [row.id, diagnoseIngest(row, index)]))
 }
 
 /** The blockers on one ingest. Pure — all IO is in the pre-loaded `index`. */
+/**
+ * What to actually do about a programme name that matched nothing.
+ *
+ * "Programme names are matched exactly" is true and useless on its own: the operator is
+ * staring at a name that LOOKS right, with no way to see which of the foundation's
+ * programmes it nearly is. So name the closest one and say how it differs — the same
+ * `matchReason` phrasing the data-import review screen uses, for the same reason ("differs
+ * by spacing or punctuation" is instantly checkable in a way that a score never is).
+ *
+ * A suggestion only. Routing is decided by `findActiveRoundProgrammeByName`, and nothing
+ * here relaxes it: a blocker is advice to a human, never a gate. Which is also why a near
+ * miss is never silently applied — two programmes can sit one character apart, and picking
+ * between them is a judgement about which grant this is, not a string operation.
+ */
+function nearestProgrammeAdvice(programmeName: string, candidates: string[]): string {
+  const correct =
+    'Use Edit & resend to correct the name, or add a lookup so the foundation’s wording maps to the right programme in future.'
+  if (candidates.length === 0) {
+    return `This foundation has no programmes yet — create one in the main app, put it in an open round, then Reprocess. ${correct}`
+  }
+
+  let best: { name: string; score: number } | null = null
+  for (const candidate of candidates) {
+    const score = similarity(programmeName, candidate)
+    if (!best || score > best.score) best = { name: candidate, score }
+  }
+
+  if (best && best.score >= SUGGEST_THRESHOLD) {
+    return `Did you mean “${best.name}”? It ${matchReason(programmeName, best.name)}. ${correct}`
+  }
+  const list = candidates.slice(0, 6).join('”, “')
+  const more = candidates.length > 6 ? `, and ${candidates.length - 6} more` : ''
+  return `This foundation's programmes are “${list}”${more}. ${correct}`
+}
+
 export function diagnoseIngest(row: DiagnosableIngest, index: ProgrammeIndex): IngestBlocker[] {
   // A row still at `received` has never been through the pipeline, so there is
   // nothing to diagnose yet — only whether it is taking suspiciously long. The
@@ -249,9 +301,9 @@ export function diagnoseIngest(row: DiagnosableIngest, index: ProgrammeIndex): I
         fields: [{ key: 'programmeName', label: labelFor('programmeName') }],
       })
     } else {
-      const lower = programmeName.toLowerCase()
-      const knownHere = index.known.get(row.clientId)?.has(lower) ?? false
-      const openHere = index.open.get(row.clientId)?.has(lower) ?? false
+      const key = routingKey(programmeName)
+      const knownHere = index.known.get(row.clientId)?.has(key) ?? false
+      const openHere = index.open.get(row.clientId)?.has(key) ?? false
       if (!openHere) {
         blockers.push(
           knownHere
@@ -269,8 +321,8 @@ export function diagnoseIngest(row: DiagnosableIngest, index: ProgrammeIndex): I
                 severity: 'blocking',
                 title: `No programme called “${programmeName}”`,
                 detail:
-                  'The name matched no programme belonging to this foundation. Programme names are matched exactly (case-insensitively), so this is usually a typo, a renamed programme, or the foundation’s form offering a label that differs from the programme’s name.',
-                fix: 'Use Edit & resend to correct the name, or add a lookup so the foundation’s wording maps to the right programme in future.',
+                  'The name matched no programme belonging to this foundation. Programme names are matched exactly (case-insensitively, ignoring surrounding spaces), so this is usually a typo, a renamed programme, or the foundation’s form offering a label that differs from the programme’s name.',
+                fix: nearestProgrammeAdvice(programmeName, index.names.get(row.clientId) ?? []),
                 fields: [{ key: 'programmeName', label: labelFor('programmeName') }],
               },
         )

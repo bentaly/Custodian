@@ -4,12 +4,21 @@ import { diagnoseIngest, STUCK_AFTER_MS, type DiagnosableIngest } from './diagno
 // `diagnoseIngest` is the pure half: all IO is pre-loaded into the programme index,
 // so the reasons an ingest is held can be tested without a database.
 
-const emptyIndex = { known: new Map<string, Set<string>>(), open: new Map<string, Set<string>>() }
+const emptyIndex = {
+  names: new Map<string, string[]>(),
+  known: new Map<string, Set<string>>(),
+  open: new Map<string, Set<string>>(),
+}
+
+// `known`/`open` are keyed the way the pipeline routes — trimmed and lowercased — while
+// `names` keeps the foundation's own spelling, which is what a suggestion has to quote.
+const key = (n: string) => n.trim().toLowerCase()
 
 function indexWith(clientId: string, opts: { known?: string[]; open?: string[] }) {
   return {
-    known: new Map([[clientId, new Set((opts.known ?? []).map((n) => n.toLowerCase()))]]),
-    open: new Map([[clientId, new Set((opts.open ?? []).map((n) => n.toLowerCase()))]]),
+    names: new Map([[clientId, (opts.known ?? []).map((n) => n.trim())]]),
+    known: new Map([[clientId, new Set((opts.known ?? []).map(key))]]),
+    open: new Map([[clientId, new Set((opts.open ?? []).map(key))]]),
   }
 }
 
@@ -133,6 +142,44 @@ describe('diagnoseIngest', () => {
     expect(blockers.filter((b) => b.fields?.some((f) => f.key === 'amountRequested'))).toHaveLength(
       1,
     )
+  })
+
+  it('routes on a trimmed name, so a stored trailing space is not a mismatch', () => {
+    // The pipeline (`findActiveRoundProgrammeByName`) trims both sides. If diagnosis did
+    // not, the queue would explain a hold that is no longer happening. Arete's programme
+    // was stored as "Long-term local partnerships " and nothing on any screen showed it.
+    const unrouted = cleanIngest({ roundProgrammeId: null })
+    const blockers = diagnoseIngest(
+      unrouted,
+      indexWith(CLIENT, { known: ['Youth Fund '], open: ['  Youth Fund'] }),
+    )
+    expect(codes(blockers)).not.toContain('programme_unknown')
+    expect(codes(blockers)).not.toContain('programme_not_open')
+  })
+
+  it('names the closest programme when nothing matched', () => {
+    // "Matched exactly" is true and useless on its own — the operator is looking at a
+    // name that LOOKS right. Naming the near miss and how it differs is what makes this
+    // a ten-second fix instead of an afternoon.
+    const unrouted = cleanIngest({ roundProgrammeId: null })
+    const blockers = diagnoseIngest(unrouted, indexWith(CLIENT, { known: ['Youth Fun'] }))
+    const unknown = blockers.find((b) => b.code === 'programme_unknown')!
+    expect(unknown.fix).toContain('Youth Fun')
+    expect(unknown.fix).toContain('differs by one character')
+  })
+
+  it('lists the real programmes when nothing is even close', () => {
+    const unrouted = cleanIngest({ roundProgrammeId: null })
+    const blockers = diagnoseIngest(
+      unrouted,
+      indexWith(CLIENT, { known: ['Coastal Restoration', 'Arts Access'] }),
+    )
+    const unknown = blockers.find((b) => b.code === 'programme_unknown')!
+    // No suggestion is offered, because a wrong one is worse than none — but the operator
+    // is still shown what this foundation actually has, rather than being left guessing.
+    expect(unknown.fix).not.toContain('Did you mean')
+    expect(unknown.fix).toContain('Coastal Restoration')
+    expect(unknown.fix).toContain('Arts Access')
   })
 
   it('distinguishes a programme that does not exist from one whose round is shut', () => {

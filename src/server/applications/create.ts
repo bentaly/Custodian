@@ -34,7 +34,18 @@ export type RoundProgrammeForApplication = NonNullable<
   Awaited<ReturnType<typeof fetchRoundProgrammeForApplication>>
 >
 
-/** Find the open roundProgramme for a client where the programme name matches (case-insensitive).
+/** Find the open roundProgramme for a client where the programme name matches
+ *  (case-insensitive, and insensitive to surrounding whitespace).
+ *
+ *  Both sides are trimmed because a programme name carrying a trailing space is
+ *  INVISIBLE everywhere a human would look for it: the rounds dialog, the programme
+ *  card and the admin queue's "no programme called X" blocker all render it with the
+ *  space collapsed away, so a reviewer is shown two identical strings and told they
+ *  don't match. Arete's live programme was stored as "Long-term local partnerships "
+ *  and every submission to it held at `programme_unknown` with nothing on any screen
+ *  to explain why. The save path now trims too (SaveProgrammeSchema), but trimming
+ *  here as well is what fixes the rows already stored.
+ *
  *  Returns null when no active round contains a programme with that name. */
 export async function findActiveRoundProgrammeByName(
   clientId: string,
@@ -49,7 +60,7 @@ export async function findActiveRoundProgrammeByName(
     .where(
       and(
         eq(programmes.clientId, clientId),
-        sql`lower(${programmes.name}) = lower(${programmeName})`,
+        sql`lower(trim(${programmes.name})) = lower(trim(${programmeName}))`,
         lte(rounds.openedAt, now),
         or(isNull(rounds.closedAt), gt(rounds.closedAt, now)),
       ),

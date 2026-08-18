@@ -52,6 +52,21 @@ describe('SaveProgrammeSchema', () => {
     expect(SaveProgrammeSchema.safeParse({ ...base, name: '' }).success).toBe(false)
   })
 
+  it('trims the name, and treats a whitespace-only one as missing', () => {
+    // A trailing space is invisible on every screen that renders a programme name, but
+    // not to the submission pipeline's name lookup: a programme stored as
+    // "Long-term local partnerships " matched nothing, and every application to it held
+    // in the review queue saying no such programme existed, beside a dialog showing it.
+    const parsed = SaveProgrammeSchema.safeParse({
+      ...base,
+      name: '  Long-term local partnerships  ',
+    })
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && parsed.data.name).toBe('Long-term local partnerships')
+    // `.trim()` runs before `.min(1)`, so whitespace alone is missing, not a name of "".
+    expect(SaveProgrammeSchema.safeParse({ ...base, name: '   ' }).success).toBe(false)
+  })
+
   it('rejects a blank theme', () => {
     expect(SaveProgrammeSchema.safeParse({ ...base, tags: [''] }).success).toBe(false)
   })
