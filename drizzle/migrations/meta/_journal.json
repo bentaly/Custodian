@@ -428,13 +428,6 @@
       "when": 1787090790534,
       "tag": "0060_magenta_norrin_radd",
       "breakpoints": true
-    },
-    {
-      "idx": 61,
-      "version": "7",
-      "when": 1787091100740,
-      "tag": "0061_due_diligence_no_registration_backfill",
-      "breakpoints": true
     }
   ]
 }
