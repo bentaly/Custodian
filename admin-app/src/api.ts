@@ -217,6 +217,44 @@ export interface IngestRow {
   createdAt: string
   client: { id: string; name: string }
   blockers: Blocker[]
+  /**
+   * Incoming field names that already map themselves, so the grid can stop offering to
+   * teach them. Computed by the main app (server/fieldMapping/provenance.ts) because it
+   * depends on the built-in dictionary and this client's lookup table, neither of which
+   * this app can see. Keyed on the SOURCE key, not the canonical field, so it still
+   * answers correctly after a reviewer changes a dropdown.
+   */
+  autoMappings?: Record<string, { canonicalField: string; via: AutoMappingVia }>
+}
+
+/** How an incoming field name resolves without anyone teaching it. */
+export type AutoMappingVia = 'identity' | 'dictionary' | 'lookup'
+
+/** Badge and explanation for a field that needs no lookup. Null when one is worth adding. */
+export function autoMappingNote(
+  via: AutoMappingVia | undefined,
+): { label: string; title: string } | null {
+  switch (via) {
+    case 'identity':
+      return {
+        label: 'exact',
+        title:
+          'Sent under its canonical name, so it maps itself on the name alone. A lookup would add nothing.',
+      }
+    case 'dictionary':
+      return {
+        label: 'built-in',
+        title:
+          'Matched by the built-in dictionary of common field names, which applies to every foundation. A lookup here would shadow a global rule with a copy of itself.',
+      }
+    case 'lookup':
+      return {
+        label: 'learned',
+        title: "Already in this foundation's lookup table — it will map itself next time.",
+      }
+    default:
+      return null
+  }
 }
 
 /** The canonical fields a blocker points at, for highlighting the mapping grid. */
@@ -324,6 +362,8 @@ export interface ReportIngestRow {
   createdAt: string
   client: { id: string; name: string }
   blockers: Blocker[]
+  /** See `IngestRow.autoMappings` — same contract, report vocabulary. */
+  autoMappings?: Record<string, { canonicalField: string; via: AutoMappingVia }>
 }
 
 /** A client's grant, flattened for the report match picker. */

@@ -22,6 +22,7 @@ import {
   adminDelete,
   adminGet,
   adminPost,
+  autoMappingNote,
   blockedFieldKeys,
   externalIdOf,
   getApplyApiKey,
@@ -271,7 +272,16 @@ function IngestCard({
   const [reprocessMsg, setReprocessMsg] = useState<{ error?: string; notice?: string } | null>(null)
   const [deleteMsg, setDeleteMsg] = useState<{ error?: string } | null>(null)
 
-  const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => mapping[k])
+  // A field whose chosen source key already maps itself needs no lookup — see
+  // `autoMappingNote`. Excluded from "tick all" too, or the control could never reach
+  // "all ticked" and would keep offering to write rows that change nothing.
+  const autoFor = (sourceKey: string) => (sourceKey ? row.autoMappings?.[sourceKey] : undefined)
+  const needsLookup = (canonicalKey: string) => {
+    const chosen = mapping[canonicalKey]
+    if (!chosen) return false
+    return autoFor(chosen)?.canonicalField !== canonicalKey
+  }
+  const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => needsLookup(k))
   const allTicked = mappedKeys.length > 0 && mappedKeys.every((k) => addToLookup[k])
   function toggleAllLookups() {
     setAddToLookup(Object.fromEntries(mappedKeys.map((k) => [k, !allTicked])))
@@ -296,7 +306,8 @@ function IngestCard({
   const flagged = useMemo(() => blockedFieldKeys(row.blockers), [row.blockers])
   const fieldMessages = useMemo(() => {
     const m: Record<string, string> = {}
-    for (const b of row.blockers) for (const f of b.fields ?? []) if (f.message) m[f.key] = f.message
+    for (const b of row.blockers)
+      for (const f of b.fields ?? []) if (f.message) m[f.key] = f.message
     return m
   }, [row.blockers])
 
@@ -358,7 +369,7 @@ function IngestCard({
         `/api/admin/ingests/${row.id}/resolve`,
         {
           mapping: cleanMapping,
-          addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && mapping[k]),
+          addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && needsLookup(k)),
         },
       )
       // Say what a confirm actually did to the application. "Confirmed" alone left the
@@ -401,8 +412,8 @@ function IngestCard({
             <span className="ml-2 font-normal text-slate-400">{row.client.name}</span>
           </p>
           <p className="mt-0.5 text-xs text-slate-400">
-            {externalIdOf(row) ?? 'no reference'} · {timeAgo(row.createdAt)} ·{' '}
-            {payloadKeys.length} fields
+            {externalIdOf(row) ?? 'no reference'} · {timeAgo(row.createdAt)} · {payloadKeys.length}{' '}
+            fields
           </p>
           {headline && !open && (
             <p
@@ -445,6 +456,11 @@ function IngestCard({
               <div className="space-y-1.5">
                 {canonicalFields.map((f) => {
                   const chosen = mapping[f.key] ?? ''
+                  // Only when the auto-mapping is for THIS field: the same source key
+                  // pointed at a different canonical field is a reviewer overriding it,
+                  // which is precisely a mapping worth learning.
+                  const auto = autoFor(chosen)
+                  const autoNote = auto?.canonicalField === f.key ? autoMappingNote(auto.via) : null
                   const proposal = row.proposed?.[f.key]
                   const preview = chosen ? previewValue(row.rawPayload[chosen]) : ''
                   const isFlagged = flagged.has(f.key)
@@ -459,7 +475,10 @@ function IngestCard({
                       <label className="col-span-3 text-xs font-medium text-slate-700">
                         {f.label}
                         {f.required && (
-                          <span className="ml-0.5 text-rose-500" title="Required — blocks promotion">
+                          <span
+                            className="ml-0.5 text-rose-500"
+                            title="Required — blocks promotion"
+                          >
                             *
                           </span>
                         )}
@@ -506,7 +525,15 @@ function IngestCard({
                             AI {Math.round(proposal.confidence * 100)}%
                           </span>
                         )}
-                        {!readOnly && chosen && (
+                        {chosen && autoNote && (
+                          <span
+                            className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-slate-500"
+                            title={autoNote.title}
+                          >
+                            {autoNote.label}
+                          </span>
+                        )}
+                        {!readOnly && chosen && !autoNote && (
                           <label
                             className="flex cursor-pointer items-center gap-1 text-slate-500"
                             title="Remember this incoming field name for this foundation"
@@ -555,7 +582,13 @@ function IngestCard({
             {canResolve && (
               <Action
                 variant="primary"
-                label={isRefiling ? 'Re-apply mapping' : row.applicationId ? 'Confirm mapping' : 'Resolve'}
+                label={
+                  isRefiling
+                    ? 'Re-apply mapping'
+                    : row.applicationId
+                      ? 'Confirm mapping'
+                      : 'Resolve'
+                }
                 busy={saving}
                 busyLabel={isRefiling ? 'Applying' : row.applicationId ? 'Confirming' : 'Resolving'}
                 onClick={resolve}
@@ -627,7 +660,8 @@ function ResendEditor({
   const [fields, setFields] = useState(() =>
     Object.entries(row.rawPayload).map(([key, value]) => ({
       key,
-      value: typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value ?? ''),
+      value:
+        typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value ?? ''),
     })),
   )
   const [busy, setBusy] = useState(false)

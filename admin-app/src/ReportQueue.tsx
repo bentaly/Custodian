@@ -13,6 +13,7 @@ import {
   adminDelete,
   adminGet,
   adminPost,
+  autoMappingNote,
   blockedFieldKeys,
   resolvedValue,
   timeAgo,
@@ -262,7 +263,16 @@ function ReportCard({
     })
   }, [grants, candidateById])
 
-  const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => mapping[k])
+  // A field whose chosen source key already maps itself needs no lookup — see
+  // `autoMappingNote`. Excluded from "tick all" too, or the control could never reach
+  // "all ticked" and would keep offering to write rows that change nothing.
+  const autoFor = (sourceKey: string) => (sourceKey ? row.autoMappings?.[sourceKey] : undefined)
+  const needsLookup = (canonicalKey: string) => {
+    const chosen = mapping[canonicalKey]
+    if (!chosen) return false
+    return autoFor(chosen)?.canonicalField !== canonicalKey
+  }
+  const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => needsLookup(k))
   const allTicked = mappedKeys.length > 0 && mappedKeys.every((k) => addToLookup[k])
   function toggleAllLookups() {
     setAddToLookup(Object.fromEntries(mappedKeys.map((k) => [k, !allTicked])))
@@ -271,7 +281,8 @@ function ReportCard({
   const flagged = useMemo(() => blockedFieldKeys(row.blockers), [row.blockers])
   const fieldMessages = useMemo(() => {
     const m: Record<string, string> = {}
-    for (const b of row.blockers) for (const f of b.fields ?? []) if (f.message) m[f.key] = f.message
+    for (const b of row.blockers)
+      for (const f of b.fields ?? []) if (f.message) m[f.key] = f.message
     return m
   }, [row.blockers])
 
@@ -308,7 +319,7 @@ function ReportCard({
       for (const [k, v] of Object.entries(mapping)) if (v) cleanMapping[k] = v
       await adminPost(`/api/admin/report-ingests/${row.id}/resolve`, {
         mapping: cleanMapping,
-        addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && mapping[k]),
+        addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && needsLookup(k)),
         awardId: awardId || row.matchCandidates?.[0]?.awardId,
       })
       onChanged()
@@ -372,6 +383,11 @@ function ReportCard({
               <div className="space-y-1.5">
                 {canonicalFields.map((f) => {
                   const chosen = mapping[f.key] ?? ''
+                  // Only when the auto-mapping is for THIS field: the same source key
+                  // pointed at a different canonical field is a reviewer overriding it,
+                  // which is precisely a mapping worth learning.
+                  const auto = autoFor(chosen)
+                  const autoNote = auto?.canonicalField === f.key ? autoMappingNote(auto.via) : null
                   const proposal = row.proposed?.[f.key]
                   const preview = chosen ? previewValue(row.rawPayload[chosen]) : ''
                   const message = fieldMessages[f.key]
@@ -416,7 +432,15 @@ function ReportCard({
                             AI {Math.round(proposal.confidence * 100)}%
                           </span>
                         )}
-                        {!readOnly && chosen && (
+                        {chosen && autoNote && (
+                          <span
+                            className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-slate-500"
+                            title={autoNote.title}
+                          >
+                            {autoNote.label}
+                          </span>
+                        )}
+                        {!readOnly && chosen && !autoNote && (
                           <label className="flex cursor-pointer items-center gap-1 text-slate-500">
                             <input
                               type="checkbox"

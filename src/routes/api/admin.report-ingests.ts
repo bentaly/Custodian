@@ -4,6 +4,7 @@ import { getDb } from '../../server/db'
 import { reportIngests } from '../../../drizzle/schema'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 import { diagnoseReportIngests } from '../../server/reportMapping/diagnose'
+import { autoMappingsForReportIngests } from '../../server/fieldMapping/provenance'
 
 const STATUSES = new Set(['received', 'needs_review', 'ai_proposed', 'complete'])
 
@@ -29,10 +30,19 @@ export const Route = createFileRoute('/api/admin/report-ingests')({
           with: { client: { columns: { id: true, name: true } } },
         })
 
-        // See admin.ingests.ts — each row explains why it is held.
-        const diagnosis = await diagnoseReportIngests(rows)
+        // See admin.ingests.ts — each row explains why it is held, and which of its
+        // incoming field names already map themselves so the queue only offers to teach
+        // the rest. Reads the `report` half of the lookup table and the report registry.
+        const [diagnosis, autoMappings] = await Promise.all([
+          diagnoseReportIngests(rows),
+          autoMappingsForReportIngests(rows),
+        ])
         return adminJson(
-          rows.map((row) => ({ ...row, blockers: diagnosis.get(row.id) ?? [] })),
+          rows.map((row) => ({
+            ...row,
+            blockers: diagnosis.get(row.id) ?? [],
+            autoMappings: autoMappings.get(row.id) ?? {},
+          })),
           200,
         )
       },
