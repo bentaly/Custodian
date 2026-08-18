@@ -99,6 +99,21 @@ function ProgrammeDialogForm({
   const [pendingTag, setPendingTag] = useState('')
   const [blockedByTag, setBlockedByTag] = useState(false)
 
+  // Would saving change anything? Compared against `draft` — the form is keyed on the
+  // programme, so `draft` is a stable baseline for as long as this form is mounted.
+  // Values are compared as they would be SUBMITTED (trimmed), so adding and removing a
+  // space is correctly nothing. A theme typed but not yet turned into a chip counts as
+  // dirty: it is unsaved work, and Save is the gesture that would otherwise drop it.
+  const dirty =
+    name.trim() !== draft.name.trim() ||
+    goal.trim() !== draft.goal.trim() ||
+    impactUnit !== draft.impactUnit ||
+    impactUnitLabel.trim() !== draft.impactUnitLabel.trim() ||
+    colour !== draft.colour ||
+    tags.length !== draft.tags.length ||
+    tags.some((t, i) => t !== draft.tags[i]) ||
+    pendingTag.trim() !== ''
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (pendingTag) {
@@ -148,7 +163,7 @@ function ProgrammeDialogForm({
           )}
           {error && <p className="font-display text-body text-danger">{error}</p>}
           <div className="flex justify-end">
-            <Button type="submit" form={FORM_ID} disabled={saving}>
+            <Button type="submit" form={FORM_ID} disabled={saving || !dirty}>
               {saving ? 'Saving…' : editing ? 'Save changes' : 'Create programme'}
             </Button>
           </div>

@@ -86,6 +86,27 @@ function RoundDialogForm({
 
   const nameById = useMemo(() => new Map(programmes.map((p) => [p.id, p.name])), [programmes])
 
+  // Would saving change anything? Compared against the rows as they would be SUBMITTED,
+  // which is why the blank trailing row is dropped first exactly as `handleSubmit` drops
+  // it — otherwise opening a round with no programmes yet would look dirty on sight,
+  // because the form seeds itself with one empty row to invite the first entry.
+  const submittedRows = rows.filter((r) => r.programmeId !== '')
+  const dirty =
+    name.trim() !== draft.name.trim() ||
+    openedAt !== draft.openedAt ||
+    closedAt !== draft.closedAt ||
+    submittedRows.length !== draft.programmes.length ||
+    submittedRows.some((r, i) => {
+      const was = draft.programmes[i]
+      return (
+        !was ||
+        r.programmeId !== was.programmeId ||
+        r.budget !== was.budget ||
+        r.maxGrantAmount !== was.maxGrantAmount ||
+        r.grantDurationYears !== was.grantDurationYears
+      )
+    })
+
   // The round's budget is the sum of what its programmes are given — there is no
   // separate pot it could hold that these allocations don't already describe.
   const totalBudget = rows.reduce((sum, r) => sum + (parseFloat(r.budget) || 0), 0)
@@ -135,7 +156,7 @@ function RoundDialogForm({
         <div className="flex flex-col gap-3">
           {error && <p className="font-display text-body text-danger">{error}</p>}
           <div className="flex justify-end">
-            <Button type="submit" form={FORM_ID} disabled={saving}>
+            <Button type="submit" form={FORM_ID} disabled={saving || !dirty}>
               {saving ? 'Saving…' : editing ? 'Save changes' : 'Create round'}
             </Button>
           </div>
