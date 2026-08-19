@@ -1,5 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { listReports, type ReportRowStatus } from '../../server/fns/reports'
+import {
+  listReports,
+  REPORTS_ARRIVED_DEFAULT_SORT,
+  REPORTS_AWAITED_DEFAULT_SORT,
+  type ReportRowStatus,
+} from '../../server/fns/reports'
 import {
   Card,
   DataTable,
@@ -12,6 +17,7 @@ import {
   Pagination,
   StatusPill,
   Tabs,
+  TruncatedList,
   type TableColumn,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
@@ -185,6 +191,23 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     ),
   },
   {
+    // Filterable, so readable: the Theme pill has to leave a visible mark on the rows it
+    // keeps. Not sortable — a grant carrying three themes has no place in an ordering.
+    id: 'theme',
+    hideBelow: 'xl',
+    header: 'Theme',
+    width: 'sm:w-[160px]',
+    cell: (item) => (
+      <TruncatedList
+        items={item.tags}
+        label="Themes for this grant"
+        className={`font-display text-body ${
+          item.tags.length > 0 ? 'text-grey-500' : 'text-grey-400'
+        }`}
+      />
+    ),
+  },
+  {
     id: 'received',
     sortable: true,
     hideBelow: 'md',
@@ -263,6 +286,23 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     header: 'Round',
     cell: (item) => (
       <span className="font-display text-body text-grey-500">{item.roundName ?? '—'}</span>
+    ),
+  },
+  {
+    // Filterable, so readable: the Theme pill has to leave a visible mark on the rows it
+    // keeps. Not sortable — a grant carrying three themes has no place in an ordering.
+    id: 'theme',
+    hideBelow: 'xl',
+    header: 'Theme',
+    width: 'sm:w-[160px]',
+    cell: (item) => (
+      <TruncatedList
+        items={item.tags}
+        label="Themes for this grant"
+        className={`font-display text-body ${
+          item.tags.length > 0 ? 'text-grey-500' : 'text-grey-400'
+        }`}
+      />
     ),
   },
   {
@@ -466,7 +506,9 @@ function ReportsPage() {
               onRowClick={(item) =>
                 navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
               }
-              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+              // Each tab has its OWN default — most overdue first when chasing,
+              // most recent first when reading — so each header marks its own.
+              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : REPORTS_AWAITED_DEFAULT_SORT}
               onSort={setSort}
               empty={
                 <div className="p-4">
@@ -487,7 +529,7 @@ function ReportsPage() {
               onRowClick={(item) =>
                 navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
               }
-              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+              sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : REPORTS_ARRIVED_DEFAULT_SORT}
               onSort={setSort}
               empty={
                 <div className="p-4">

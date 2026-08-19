@@ -25,7 +25,7 @@
     "jsx-a11y/no-aria-hidden-on-focusable": "error",
     "jsx-a11y/no-autofocus": "warn",
     "jsx-a11y/no-distracting-elements": "error",
-    "jsx-a11y/no-noninteractive-tabindex": "error",
+    "jsx-a11y/no-noninteractive-tabindex": ["error", { "roles": ["note"] }],
     "jsx-a11y/no-redundant-roles": "error",
     "jsx-a11y/prefer-tag-over-role": "warn",
     "jsx-a11y/role-has-required-aria-props": "error",

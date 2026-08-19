@@ -13,6 +13,8 @@ import {
   CheckmarkCircle02Icon,
   Alert02Icon,
   Tick01Icon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
 } from '@hugeicons/core-free-icons'
 import {
   getApplication,
@@ -30,19 +32,20 @@ import {
   Breadcrumb,
   Button,
   DetailHeader,
+  KPI_TINTS,
   LinkButton,
   MiniKpi,
   Panel,
   PanelTitle,
 } from '../../components/ui'
-import { Donut } from '../../components/charts/Donut'
+import { ScoreRing } from '../../components/charts/ScoreRing'
 import {
   CRITERION_DEFINITIONS,
   CRITERION_ORDER,
   type CustodianScoreDetail,
 } from '../../lib/custodianScore'
 import { applicationStatusLabel } from '../../lib/validators/application'
-import { impactUnitLabel } from '../../lib/impactUnits'
+import { impactUnitLabel, impactUnitSingular } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
 import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
 import type { DeprivationContext } from '../../lib/deprivation/types'
@@ -61,27 +64,16 @@ const C = {
   ...TOKENS,
   ink700: 'var(--color-grey-700)',
 }
+// The stat row's five tints are `KPI_TINTS` — the shared list, in the order the comps
+// (435:38511) read across. This screen used to carry its own copy built from the
+// SEMANTIC hues, which is why its cream and blush cards came out tan and grey-pink and
+// its last card mixed an `info` fill with a `sky` accent.
 const KPI = {
-  amount: {
-    bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)',
-    accent: 'var(--color-accent-violet)',
-  },
-  programme: {
-    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
-    accent: 'var(--color-success)',
-  },
-  area: {
-    bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)',
-    accent: 'var(--color-warning)',
-  },
-  headroom: {
-    bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
-    accent: 'var(--color-danger)',
-  },
-  community: {
-    bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)',
-    accent: 'var(--color-accent-sky)',
-  },
+  amount: KPI_TINTS.violet,
+  programme: KPI_TINTS.green,
+  area: KPI_TINTS.amber,
+  headroom: KPI_TINTS.pink,
+  community: KPI_TINTS.sky,
 }
 const BUDGET_COLOURS = PROGRAMME_COLOURS
 
@@ -95,6 +87,41 @@ function durationLabel(years: number | null | undefined) {
 }
 
 // ─── Primitives ──────────────────────────────────────────────────────────────────
+
+/**
+ * The "show the rest" control this screen uses twice — under the score's flags and
+ * under the due diligence checks. One component, because they sit a screen apart and
+ * had already drifted into two different things (an underlined bare `<button>` and
+ * nothing at all).
+ *
+ * A `Button`, not a hand-rolled `<button>`: `secondary` gives it the app's control
+ * chrome, so a thing you click looks like a thing you click. The chevron turns over,
+ * which is the only part of the state a glance actually reads.
+ */
+function Disclosure({
+  open,
+  onToggle,
+  showLabel,
+  hideLabel,
+}: {
+  open: boolean
+  onToggle: () => void
+  showLabel: string
+  hideLabel: string
+}) {
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      icon={open ? ArrowUp01Icon : ArrowDown01Icon}
+      iconPosition="right"
+      onClick={onToggle}
+      aria-expanded={open}
+    >
+      {open ? hideLabel : showLabel}
+    </Button>
+  )
+}
 
 /**
  * The way out of the one dead end due diligence has: an application with no
@@ -249,48 +276,6 @@ function HeaderButton({
   )
 }
 
-// Score gauge — the same Recharts `Donut` the dashboard/insights use (so it animates
-// its arc in on load for free), as a two-slice score/remainder ring with the money
-// tooltip switched off.
-function ScoreRing({
-  score,
-  size = 120,
-  thickness = 12,
-}: {
-  score: number
-  size?: number
-  thickness?: number
-}) {
-  const pct = Math.max(0, Math.min(100, score))
-  // The shared banding — this screen used to band at 75/50 and paint the top band
-  // `brand`, so a 76 was a green ring here and an amber bar on the list it opened from.
-  const band = bandForScore(score)
-  return (
-    <Donut
-      size={size}
-      thickness={thickness}
-      tooltip={false}
-      data={[
-        { name: 'Score', value: pct, colour: band.fill },
-        { name: 'Remaining', value: 100 - pct, colour: withAlpha(band.fill, 0.2) },
-      ]}
-      center={
-        <div className="flex items-baseline gap-1">
-          <span
-            className="font-display text-heading font-medium leading-none"
-            style={{ color: C.ink }}
-          >
-            {score}
-          </span>
-          <span className="font-display text-label" style={{ color: C.faint }}>
-            /100
-          </span>
-        </div>
-      }
-    />
-  )
-}
-
 function CriterionBar({ label, score }: { label: string; score: number }) {
   // Out of 10, so the bands are 7/4 — same registry as the composite ring above.
   const colour = bandForScore(score, 10).fill
@@ -327,6 +312,7 @@ function ApplicationDetail() {
   const router = useRouter()
   const [rerunningDD, setRerunningDD] = useState(false)
   const [showAllDd, setShowAllDd] = useState(false)
+  const [showAllFlags, setShowAllFlags] = useState(false)
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -358,6 +344,15 @@ function ApplicationDetail() {
   const scored = scoreStatus === 'scored' && score != null && scoreDetail != null
   const grantPurpose = application.grantPurpose?.trim() || null
 
+  // The model can return a dozen flags, and a wall of red under the score buries the
+  // score. Two is enough to say "there are concerns here"; the rest are one click away.
+  // Unlike the due diligence panel below — where a flag must never be behind a toggle —
+  // these are all the same kind of thing, so cutting the list hides no distinction.
+  const FLAGS_SHOWN = 2
+  const allFlags = scored ? scoreDetail.flags : []
+  const visibleFlags = showAllFlags ? allFlags : allFlags.slice(0, FLAGS_SHOWN)
+  const hiddenFlagCount = allFlags.length - FLAGS_SHOWN
+
   const ddRecords = (application.dueDiligenceChecks as DueDiligenceCheckRecord[] | null) ?? []
   // A clean screen is twenty-odd green rows, and the one thing worth reading — a flag —
   // is somewhere among them. So passed checks are collapsed by default and anything
@@ -382,7 +377,7 @@ function ApplicationDetail() {
   // Beneficiaries + cost-per-beneficiary come from what the applicant PROPOSES on
   // this application (a forward-looking count in the programme's impact unit).
   const unitLabel = impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
-  const unitSingular = unitLabel.replace(/s$/i, '') || unitLabel
+  const unitSingular = impactUnitSingular(programme.impactUnit, programme.impactUnitLabel)
   const proposedImpact =
     application.proposedImpactQuantity != null
       ? parseFloat(application.proposedImpactQuantity)
@@ -493,7 +488,7 @@ function ApplicationDetail() {
               </HeaderButton>
             )}
             <HeaderButton tone="brand" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
-              View submission
+              View Submission
             </HeaderButton>
             {isAwarded ? (
               // Awarded is terminal *here*: `updateApplicationStatus` refuses to move an
@@ -574,6 +569,10 @@ function ApplicationDetail() {
             panel rather than a line inside the assessment below, because it is a
             statement of fact carrying no judgement, and because it is present on rows
             the score is missing from (an imported grant, a failed scoring run). */}
+        {/* The applicant's own ask. The grant it becomes carries its OWN purpose — what
+            the foundation agreed to fund, written at award set-up and printed on the
+            letter — shown under "Awarded for" on the grant screen. That one is prefilled
+            from this one and then edited, so the two differ on most grants. */}
         {grantPurpose && (
           <Panel label="grant purpose">
             <PanelTitle>Grant purpose</PanelTitle>
@@ -626,23 +625,35 @@ function ApplicationDetail() {
           )}
 
           {scored && scoreDetail.flags.length > 0 && (
-            <ul className="mt-4 flex flex-col gap-1.5">
-              {scoreDetail.flags.map((f, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-1.5 rounded-chip p-1.5 font-display text-label font-medium"
-                  style={{ backgroundColor: withAlpha(C.danger, 0.05), color: C.danger }}
-                >
-                  <HugeiconsIcon
-                    icon={Alert02Icon}
-                    size={16}
-                    color={C.danger}
-                    className="shrink-0"
+            <>
+              <ul className="mt-4 flex flex-col gap-1.5">
+                {visibleFlags.map((f, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-1.5 rounded-chip p-1.5 font-display text-label font-medium"
+                    style={{ backgroundColor: withAlpha(C.danger, 0.05), color: C.danger }}
+                  >
+                    <HugeiconsIcon
+                      icon={Alert02Icon}
+                      size={16}
+                      color={C.danger}
+                      className="shrink-0"
+                    />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              {hiddenFlagCount > 0 && (
+                <div className="mt-2">
+                  <Disclosure
+                    open={showAllFlags}
+                    onToggle={() => setShowAllFlags((v) => !v)}
+                    showLabel={`Show ${hiddenFlagCount} more flag${hiddenFlagCount === 1 ? '' : 's'}`}
+                    hideLabel="Show fewer flags"
                   />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
+                </div>
+              )}
+            </>
           )}
         </Panel>
 
@@ -829,16 +840,14 @@ function ApplicationDetail() {
                 )
               })}
               {passedDdCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllDd((v) => !v)}
-                  className="self-start px-1 pt-1 font-display text-label font-medium underline underline-offset-2"
-                  style={{ color: C.sub }}
-                >
-                  {showAllDd
-                    ? `Hide ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`
-                    : `Show ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
-                </button>
+                <div className="pt-1">
+                  <Disclosure
+                    open={showAllDd}
+                    onToggle={() => setShowAllDd((v) => !v)}
+                    showLabel={`Show ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
+                    hideLabel={`Hide ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
+                  />
+                </div>
               )}
             </div>
           ) : noRegistrationNumber ? (

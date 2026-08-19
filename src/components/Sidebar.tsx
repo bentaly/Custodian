@@ -27,14 +27,15 @@ const itemClass =
 // Icons are the ones named on the Figma rail (126:31806) — `note`, `wallet-03`,
 // `audit-02`, `chart-average` — not lookalikes. Shortlist and Awards are ours:
 // the design's rail is an older IA (Partnerships / Review / Giving) with no
-// counterpart for them.
-const NAV = [
+// counterpart for them. They are also the app's area icons everywhere else — see
+// `AREA_ICON` below.
+export const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardSquare01Icon },
   { to: '/applications', label: 'Applications', icon: NoteIcon, search: { roundId: undefined } },
   { to: '/shortlist', label: 'Shortlist', icon: CheckListIcon, search: { roundId: undefined } },
-  { to: '/awards', label: 'Awards', icon: MailOpenLoveIcon, search: { roundId: undefined } },
   { to: '/finance', label: 'Finance', icon: Wallet03Icon },
   { to: '/reports', label: 'Reports', icon: Audit02Icon },
+  { to: '/awards', label: 'Awards', icon: MailOpenLoveIcon, search: { roundId: undefined } },
   { to: '/insights', label: 'Insights', icon: ChartAverageIcon },
 ] as const satisfies readonly {
   to: string
@@ -42,6 +43,19 @@ const NAV = [
   icon: IconSvgElement
   search?: { roundId: undefined }
 }[]
+
+/**
+ * One glyph per AREA of the app, keyed by the area's route.
+ *
+ * The rail happens to be where these are declared, but they are not "the nav's icons":
+ * they are what Applications, Shortlist, Finance, Reports, Awards and Insights LOOK
+ * like, wherever any of them is referred to — a dashboard KPI card, an "On your desk"
+ * row, an empty state's call to action. That is why the name is `AREA_ICON` and why
+ * every such place reads it from here instead of picking a lookalike from the icon set.
+ */
+export const AREA_ICON: Record<string, IconSvgElement> = Object.fromEntries(
+  NAV.map((item) => [item.to, item.icon]),
+)
 
 // No `isAdmin` any more: every nav entry is now visible to every role, and the
 // admin-only config it used to gate lives behind Settings, which filters itself.

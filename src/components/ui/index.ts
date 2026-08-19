@@ -2,8 +2,10 @@ export { cn } from './cn'
 export {
   Button,
   LinkButton,
+  AnchorButton,
   type ButtonProps,
   type LinkButtonProps,
+  type AnchorButtonProps,
   type ButtonVariant,
   type ButtonSize,
 } from './Button'
@@ -17,6 +19,7 @@ export { ConfirmDialog } from './ConfirmDialog'
 export { Checkbox, type CheckboxProps } from './Checkbox'
 export { Toggle } from './Toggle'
 export { Tooltip } from './Tooltip'
+export { TruncatedText, TruncatedList } from './TruncatedText'
 export { DateField, type DateFieldProps } from './DateField'
 export { ColourPicker } from './ColourPicker'
 export { Breadcrumb, type Crumb } from './Breadcrumb'

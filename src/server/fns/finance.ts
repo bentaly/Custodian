@@ -33,6 +33,7 @@ import {
 type SortKey =
   | 'organisation'
   | 'programme'
+  | 'round'
   | 'committed'
   | 'paid'
   | 'next'
@@ -229,6 +230,7 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
           .enum([
             'organisation',
             'programme',
+            'round',
             'committed',
             'paid',
             'next',
@@ -341,7 +343,12 @@ export async function financeList(
     // but paid-to-date counts them, because that money genuinely went out.
     db
       .select({
-        grantCount: sql<number>`(count(*) filter (where ${payable(g)}))::int`,
+        // "Live commitments" means grants that still owe money, so it is counted through
+        // `tabWhere(to_pay)` — the very population of the To pay tab — rather than
+        // through `payable`, which only excludes cancelled grants. Counting the wider
+        // set made the subtitle read `8 live commitments` over tabs of 5 and 4: it was
+        // silently including three grants paid in full, and reconciled with neither tab.
+        grantCount: sql<number>`(count(*) filter (where ${tabWhere(g, 'to_pay')}))::int`,
         committed: sql<number>`coalesce(sum(${g.committed}) filter (where ${payable(g)}), 0)::float8`,
         paidToDate: sql<number>`coalesce(sum(${g.paidTotal}), 0)::float8`,
         paidCount: sql<number>`coalesce(sum(${g.paidCount}), 0)::int`,
@@ -511,6 +518,8 @@ function orderFor(g: GrantsQuery, by: SortKey | undefined, dir: 'asc' | 'desc' |
       return [text(g.organisationName)]
     case 'programme':
       return [text(g.programmeName)]
+    case 'round':
+      return [text(g.roundName)]
     case 'committed':
       return [sql`${g.committed} ${d}`]
     case 'paid':
@@ -524,8 +533,20 @@ function orderFor(g: GrantsQuery, by: SortKey | undefined, dir: 'asc' | 'desc' |
     case 'status':
       return [sql`${statusRank(g)} ${d}`]
     default:
-      return [sql`${g.chaseDate} asc nulls last`, sql`${g.lastPaidDate} desc nulls last`]
+      // The declared default plus a tiebreak, rather than a second spelling of it: the
+      // screen draws its arrow on `FINANCE_DEFAULT_SORT`, so the first key here has to
+      // BE that sort and not merely look like it.
+      return [
+        ...orderFor(g, FINANCE_DEFAULT_SORT.by, FINANCE_DEFAULT_SORT.dir),
+        sql`${g.lastPaidDate} desc nulls last`,
+      ]
   }
+}
+
+/** The order with nothing clicked — and the arrow the header shows on landing. */
+export const FINANCE_DEFAULT_SORT = { by: 'next', dir: 'asc' } as const satisfies {
+  by: SortKey
+  dir: 'asc' | 'desc'
 }
 
 /**

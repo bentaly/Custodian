@@ -14,6 +14,7 @@ import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Alert02Icon, Tick01Icon } from '@hugeicons/core-free-icons'
 import { Badge, Panel, PanelTitle } from './ui'
+import { ScoreRing } from './charts/ScoreRing'
 import { ProgressBar } from './ProgressBar'
 import { C } from './ui/tokens'
 import { fmtDate } from '../lib/format'
@@ -131,6 +132,17 @@ export function ReportAnalysisPanel({
   const meta = STATUS_META[status] ?? STATUS_META.pending
   const a = analysis
 
+  // The report's one headline score: the mean of the two alignments it has. There is no
+  // third input and no weighting — the two questions ("did they do what they said" and
+  // "did it serve the programme") are the whole judgement, and inventing a weight
+  // between them would be a claim the model never made. With only one alignment the
+  // mean is that one; with neither there is no ring, and the panel says so in words.
+  const alignments = [a?.applicationAlignment?.score, a?.programmeAlignment?.score].filter(
+    (n): n is number => typeof n === 'number',
+  )
+  const overall =
+    alignments.length > 0 ? alignments.reduce((t, n) => t + n, 0) / alignments.length : null
+
   return (
     <Panel label="Report analysis">
       <PanelTitle
@@ -183,14 +195,23 @@ export function ReportAnalysisPanel({
             </span>
           </div>
 
-          {(a.applicationAlignment || a.programmeAlignment) && (
-            <div className="flex flex-col gap-3 lg:w-[280px] lg:shrink-0">
-              {a.applicationAlignment && (
-                <AlignmentBar label="Vs application" score={a.applicationAlignment.score} />
-              )}
-              {a.programmeAlignment && (
-                <AlignmentBar label="Vs programme" score={a.programmeAlignment.score} />
-              )}
+          {overall != null && (
+            <div className="flex flex-col items-center gap-4 lg:w-[280px] lg:shrink-0 lg:flex-row">
+              {/* The same ring the application detail draws its Custodian score in, and
+                  banded by the same registry — this panel is the report's answer to that
+                  screen's assessment, and a headline figure beside a bank of bars is how
+                  that one reads. Quoted out of 10 because its parts are: an alignment is
+                  a criterion, and a criterion is never restated on the composite's
+                  scale. */}
+              <ScoreRing score={overall} outOf={10} size={96} thickness={10} decimals={1} />
+              <div className="flex w-full flex-col gap-3">
+                {a.applicationAlignment && (
+                  <AlignmentBar label="Vs application" score={a.applicationAlignment.score} />
+                )}
+                {a.programmeAlignment && (
+                  <AlignmentBar label="Vs programme" score={a.programmeAlignment.score} />
+                )}
+              </div>
             </div>
           )}
         </div>

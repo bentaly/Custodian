@@ -28,7 +28,13 @@ import { chart, fmtMoney, tooltipBox } from './theme'
 // light end ≥ 2:1 on white, single hue — spread is 1°). Do not hand-tweak a step
 // without re-running that check; the light end in particular sits deliberately
 // close to its 2:1 floor and a "nicer" paler green would disappear on the panel.
-const RAMP = ['var(--color-grey-400)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)', 'var(--color-brand)'] as const
+const RAMP = [
+  'var(--color-grey-400)',
+  'var(--color-brand)',
+  'var(--color-brand)',
+  'var(--color-brand)',
+  'var(--color-brand)',
+] as const
 
 // Areas with no grants. Distinct from — and lighter than — every ramp step, so
 // "we funded nothing here" can never be misread as "we funded a little here".
@@ -367,6 +373,7 @@ export function Choropleth({
   onSelect,
   highlight = null,
   onHighlight,
+  scale = 1,
 }: {
   view: MapView
   onViewChange: (view: MapView) => void
@@ -378,6 +385,9 @@ export function Choropleth({
    *  whichever of the map, donut or list the pointer is currently over. */
   highlight?: string | null
   onHighlight?: (key: string | null) => void
+  /** Fraction of the column's width the drawn map takes, centred. Below 1 it is a
+   *  smaller map, not a cropped one — see the `style` on the `<svg>`. */
+  scale?: number
 }) {
   const { data, error } = useGeo(view)
   const [hover, setHover] = useState<{ x: number; y: number; f: GeoFeature } | null>(null)
@@ -535,16 +545,20 @@ export function Choropleth({
 
   const total = useMemo(() => [...values.values()].reduce((s, v) => s + v.amount, 0), [values])
 
+  // The placeholder has to be the size of the map it stands in for, `scale` included,
+  // or the panel jumps as the boundaries land.
+  const frameHeight = Math.round(height * scale)
+
   if (error) {
     return (
-      <Frame height={height}>
+      <Frame height={frameHeight}>
         <p className="font-display text-body" style={{ color: chart.sub }}>
           Couldn’t load the map boundaries.
         </p>
       </Frame>
     )
   }
-  if (!pathFor) return <Frame height={height}>{null}</Frame>
+  if (!pathFor) return <Frame height={frameHeight}>{null}</Frame>
 
   const funded = features.filter((f) => (values.get(keyOf(f, src.key))?.amount ?? 0) > 0).length
   const viewKey =
@@ -555,9 +569,7 @@ export function Choropleth({
         : view.kind
 
   return (
-    // Full height so the map can sit centred against a taller sibling column,
-    // rather than hanging from the top with the imbalance pooled underneath it.
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       {/* Breadcrumb and key share the top rule — where you are on the left,
           how to read it on the right. The key used to sit under the map, which
           put the one static thing on the panel at whatever height the current
@@ -567,9 +579,14 @@ export function Choropleth({
         <Legend cuts={cuts} hasEmpty={features.length > funded} />
       </div>
 
+      {/* No `flex-1 items-center`. The map used to stretch to its taller sibling column
+          and sit centred in the slack, which read as padding above and below it — most
+          visible on the UK, which is a portrait shape drawn at whatever height its
+          column's width implied. It now takes only the height it draws, and the leftover
+          collects once, under the whole column. */}
       <div
         ref={wrap}
-        className="relative flex flex-1 items-center"
+        className="relative"
         onMouseLeave={() => {
           setHover(null)
           onHighlight?.(null)
@@ -580,7 +597,18 @@ export function Choropleth({
           // Not `overflow: visible` — a zoomed country fits its own bounds, so
           // its neighbours extend well past the viewBox and would otherwise
           // paint over the legend and the panel beside it.
-          style={{ width: '100%', height: 'auto', display: 'block' }}
+          //
+          // `scale` shrinks the DRAWING, not the projection: the geometry, the dot
+          // pitch and the hit areas are all computed against `width`, so scaling the
+          // element keeps every proportion and simply asks for less of the panel. The
+          // panel's height follows, which is the point — at full width the UK made this
+          // the tallest thing on the screen.
+          style={{
+            width: `${scale * 100}%`,
+            height: 'auto',
+            display: 'block',
+            margin: '0 auto',
+          }}
           role="img"
           aria-label={`Funding by area — ${funded} of ${features.length} areas funded, ${fmtMoney(total)} total`}
         >

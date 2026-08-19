@@ -52,6 +52,12 @@ export type TableColumn<T> = {
   /** Extra classes for the body cell (e.g. 'tabular-nums'). */
   cellClassName?: string
   /**
+   * Keep clicks inside this cell from reaching `onRowClick`. For a cell whose content
+   * is itself something to interact with — a tooltip you open to read, an inline
+   * control — where opening it must not also open the row.
+   */
+  stopRowClick?: boolean
+  /**
    * Drop this column below the given breakpoint. Every row here is a link into a
    * detail screen that carries the full record, so on a phone the table earns its
    * keep as a *list* — identity plus the one or two figures you scan for — rather
@@ -80,7 +86,14 @@ export type TableSelection<T> = {
 }
 
 /** Row/header checkbox. The visual and the semantics both live in `Checkbox`; this only
- *  stops the click reaching the row's own `onRowClick`. */
+ *  stops the click reaching the row's own `onRowClick`.
+ *
+ *  The `flex` wrapper is load-bearing, not spacing. `Checkbox` is an `inline-flex`
+ *  `<label>`, so on its own it sits in a line box and aligns its bottom edge to the
+ *  TEXT BASELINE — leaving room for a descender under it that the header's text cells
+ *  don't have. The box therefore rode a couple of pixels above "Organisation". Making
+ *  the cell's content a flex container takes the checkbox out of inline flow, so the
+ *  cell's `vertical-align: middle` centres the box itself. */
 function CellCheckbox({
   checked,
   indeterminate,
@@ -93,13 +106,15 @@ function CellCheckbox({
   label: string
 }) {
   return (
-    <Checkbox
-      checked={checked}
-      indeterminate={indeterminate}
-      onChange={onToggle}
-      onClick={(e) => e.stopPropagation()}
-      aria-label={label}
-    />
+    <div className="flex items-center">
+      <Checkbox
+        checked={checked}
+        indeterminate={indeterminate}
+        onChange={onToggle}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={label}
+      />
+    </div>
   )
 }
 
@@ -212,6 +227,7 @@ export function DataTable<T>({
               {columns.map((col) => (
                 <td
                   key={col.id}
+                  onClick={col.stopRowClick ? (e) => e.stopPropagation() : undefined}
                   className={`px-3 align-middle ${col.width ?? ''} ${col.align === 'right' ? 'text-right' : ''} ${col.hideBelow ? HIDE_BELOW[col.hideBelow] : ''} ${col.cellClassName ?? ''}`}
                 >
                   {col.cell(row)}

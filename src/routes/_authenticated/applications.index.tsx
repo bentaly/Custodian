@@ -17,6 +17,7 @@ import {
 import { listMyRounds } from '../../server/fns/rounds'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus } from '../../lib/roundStatus'
+import { APPLICATIONS_DEFAULT_SORT } from '../../server/fns/applications'
 import {
   APPLICATION_STATUS_OPTIONS,
   ApplicationStatus,
@@ -35,6 +36,8 @@ import {
   StatusPill,
   RoundSelect,
   SelectPill,
+  Tooltip,
+  TruncatedList,
   type TableColumn,
 } from '../../components/ui'
 import { fmtAmount, fmtCompact, fmtDate } from '../../lib/format'
@@ -377,25 +380,66 @@ const DD_ICON: Record<string, { icon: typeof CheckmarkCircle02Icon; colour: stri
   pending: null,
 }
 
-// A column of bare icons with no header legend, so the mark says what it means on hover.
-const DD_LABEL: Record<string, string> = {
-  clear: 'Due diligence clear',
-  warning: 'Due diligence warnings',
-  blocked: 'Due diligence blocked',
-  review: 'Due diligence needs a manual check',
-  no_registration: 'No charity or company number — not screened',
-  pending: 'Not screened yet',
+/**
+ * A column of bare marks with no legend, so each one has to say what it means where it
+ * is. Every status carries a name (the tooltip's accessible name, which is what a
+ * screen reader reads for the cell) and a sentence saying what it means and what the
+ * mark asks of you — six statuses share five glyphs across three colours, and "amber
+ * triangle" is not self-evident.
+ */
+const DD_MEANING: Record<string, { name: string; detail: string }> = {
+  clear: {
+    name: 'Due diligence clear',
+    detail: 'Every registry check passed.',
+  },
+  warning: {
+    name: 'Due diligence warnings',
+    detail: 'Some checks flagged something worth being aware of.',
+  },
+  blocked: {
+    name: 'Due diligence blocked',
+    detail: 'A check failed in a way that should stop a grant.',
+  },
+  review: {
+    name: 'Due diligence needs a manual check',
+    detail: 'The registers could not answer, please manually check.',
+  },
+  no_registration: {
+    name: 'Not screened — no registration number',
+    // No instruction: adding a number is admin-only (`rerunDueDiligence`), and this
+    // column is read by trustees too. Say what is true for everyone; the application
+    // screen offers the fix to the people who have it.
+    detail: 'No charity or company number was captured, so there is no register to check against.',
+  },
+  pending: {
+    name: 'Not screened yet',
+    detail: 'Screening has not run for this application.',
+  },
 }
 
+// A `title` attribute would be the cheap version of this and is not good enough: it is
+// unreachable by touch, appears after a delay nobody controls, and most screen readers
+// ignore it. `Tooltip` is a real focusable button with `aria-describedby`, so the
+// explanation reaches a keyboard and a screen reader too.
 function DueDiligenceCell({ status }: { status: DueDiligenceStatus }) {
   const d = DD_ICON[status]
+  const meaning = DD_MEANING[status] ?? DD_MEANING.pending!
   return (
-    <div className="flex justify-center" title={DD_LABEL[status] ?? ''}>
-      {d ? (
-        <HugeiconsIcon icon={d.icon} size={20} color={d.colour} />
-      ) : (
-        <span className="block size-5 rounded-full border" style={{ borderColor: C.line }} />
-      )}
+    <div className="flex justify-center">
+      <Tooltip
+        label={meaning.name}
+        triggerClassName="flex rounded-full focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+        trigger={
+          d ? (
+            <HugeiconsIcon icon={d.icon} size={20} color={d.colour} />
+          ) : (
+            <span className="block size-5 rounded-full border" style={{ borderColor: C.line }} />
+          )
+        }
+      >
+        <span className="block font-medium text-grey-900">{meaning.name}</span>
+        <span className="mt-0.5 block">{meaning.detail}</span>
+      </Tooltip>
     </div>
   )
 }
@@ -467,22 +511,20 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     hideBelow: 'xl',
     header: 'Theme',
     width: 'sm:w-[160px]',
-    cell: (app) => {
-      const themes = (app.roundProgramme?.programme?.tags as string[] | null) ?? []
-      if (themes.length === 0) {
-        return (
-          <span className="font-display text-body" style={{ color: C.faint }}>
-            —
-          </span>
-        )
-      }
-      return (
-        <span className="font-display text-body" style={{ color: C.sub }}>
-          {themes[0]}
-          {themes.length > 1 && <span style={{ color: C.faint }}> +{themes.length - 1}</span>}
-        </span>
-      )
-    },
+    // Every theme, clipped to the column, with the rest on hover — not "Environment +2",
+    // which threw away the names at widths where they fitted and left "+2" meaning
+    // nothing in particular. See `ui/TruncatedText`.
+    cell: (app) => (
+      <TruncatedList
+        items={(app.roundProgramme?.programme?.tags as string[] | null) ?? []}
+        label="Themes for this programme"
+        className={`font-display text-body ${
+          ((app.roundProgramme?.programme?.tags as string[] | null) ?? []).length > 0
+            ? 'text-grey-500'
+            : 'text-grey-400'
+        }`}
+      />
+    ),
   },
   {
     // `submittedAt` is when the submission reached us, not a date the applicant typed —
@@ -526,6 +568,8 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     header: 'Due diligence',
     width: 'sm:w-[120px]',
     sortable: true,
+    // Opening the mark to read what it means must not also open the application.
+    stopRowClick: true,
     cell: (app) => (
       <DueDiligenceCell status={(app.dueDiligenceStatus ?? 'pending') as DueDiligenceStatus} />
     ),
@@ -889,7 +933,10 @@ function ApplicationsList() {
             onRowClick={(app) =>
               navigate({ to: '/applications/$applicationId', params: { applicationId: app.id } })
             }
-            sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+            // Never `undefined`: with no explicit sort the list IS ordered — by the
+            // server's default — so the header shows that column's arrow rather than
+            // implying the rows arrived in no order at all.
+            sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : APPLICATIONS_DEFAULT_SORT}
             onSort={(id) => setSort(id as SortKey)}
             selection={
               canSetStatus

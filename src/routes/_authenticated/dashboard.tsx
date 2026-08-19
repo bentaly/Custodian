@@ -3,19 +3,15 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
   Audit02Icon,
-  CheckListIcon,
   CheckmarkCircle02Icon,
   CheckmarkSquare01Icon,
   CancelSquareIcon,
   BubbleChatIcon,
   BankIcon,
-  NoteIcon,
-  Note03Icon,
-  Wallet03Icon,
-  MoneySavingJarIcon,
   ArrowRight01Icon,
 } from '@hugeicons/core-free-icons'
 import { Card as UiCard, TextLink } from '../../components/ui'
+import { AREA_ICON } from '../../components/Sidebar'
 import { BarMeter, type BarSegment, withAlpha } from '../../components/BarMeter'
 import { ProgressBar } from '../../components/ProgressBar'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
@@ -60,14 +56,18 @@ const KPI = {
   // read is not an error. The genuinely bad news inside them still reaches for the
   // semantic hues — overdue reports, bank-detail issues — and now stands out because the
   // card around it no longer shouts.
+  // All four sit at the SAME 10% fill / 20% border as the `MiniKpi` stat rows, which is
+  // what the comps draw (126:31795, 435:38511). Finance and Reports were at 20/40 —
+  // twice the saturation of the two beside them, so a row of four cards read as two
+  // pairs, and the two shouting were the ones whose news is routine.
   finance: {
-    bg: T('accent-amber', 20),
-    border: T('accent-amber', 40),
+    bg: T('accent-amber', 10),
+    border: T('accent-amber', 20),
     accent: 'var(--color-accent-amber)',
   },
   reports: {
-    bg: T('accent-blush', 20),
-    border: T('accent-blush', 40),
+    bg: T('accent-blush', 10),
+    border: T('accent-blush', 20),
     accent: 'var(--color-accent-blush)',
   },
 }
@@ -253,19 +253,25 @@ function KpiCard({
 // copy with the lead in Gray/900 and the rest in Gray/500, and a chevron affordance.
 const DESK_TILE = 'var(--color-surface)'
 
+/**
+ * A row takes NO icon of its own: the glyph is the area's, read out of `AREA_ICON` by
+ * where the row goes. A vote queue marked with one glyph here and another on the rail
+ * teaches two marks for one place. Hand-picked icons had drifted (Shortlist wore
+ * `note-03` and `money-saving-jar`, Finance's wallet pointed at Awards), which is why
+ * the icon is derived rather than passed.
+ */
 function DeskRow({
-  icon,
   lead,
   rest,
   to,
   search,
 }: {
-  icon: IconSvgElement
   lead: string
   rest: string
   to: string
   search?: Record<string, unknown>
 }) {
+  const icon = AREA_ICON[to]
   return (
     <Link
       to={to}
@@ -276,7 +282,14 @@ function DeskRow({
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip"
         style={{ backgroundColor: DESK_TILE }}
       >
-        <HugeiconsIcon icon={icon} className="h-5 w-5" strokeWidth={1.5} style={{ color: C.sub }} />
+        {icon && (
+          <HugeiconsIcon
+            icon={icon}
+            className="h-5 w-5"
+            strokeWidth={1.5}
+            style={{ color: C.sub }}
+          />
+        )}
       </span>
       <span className="min-w-0 flex-1 text-body font-medium" style={{ color: C.sub }}>
         <span style={{ color: C.ink }}>{lead}</span> {rest}
@@ -329,7 +342,6 @@ function Dashboard() {
   const desk: Array<React.ComponentProps<typeof DeskRow>> = []
   if (a.toReview.count > 0)
     desk.push({
-      icon: NoteIcon,
       lead: `${a.toReview.count} application${plural(a.toReview.count)}`,
       rest: 'ready to review',
       to: '/applications',
@@ -337,15 +349,14 @@ function Dashboard() {
     })
   if (paymentsDue > 0)
     desk.push({
-      icon: Wallet03Icon,
       lead: `${paymentsDue} payment${plural(paymentsDue)}`,
       rest: 'due to be paid',
-      to: '/awards',
-      search: { roundId: undefined },
+      // Finance, not Awards: this row is about money leaving, and Finance is the
+      // payments lens over the same grants (To pay / Paid).
+      to: '/finance',
     })
   if (d.awaitingVotes > 0)
     desk.push({
-      icon: Note03Icon,
       lead: `${d.awaitingVotes} application${plural(d.awaitingVotes)}`,
       rest: 'await a trustee vote',
       to: '/shortlist',
@@ -353,7 +364,6 @@ function Dashboard() {
     })
   if (a.readyToAward.count > 0)
     desk.push({
-      icon: MoneySavingJarIcon,
       lead: `${a.readyToAward.count} award${plural(a.readyToAward.count)}`,
       rest: 'ready to set up',
       to: '/shortlist',
@@ -361,7 +371,6 @@ function Dashboard() {
     })
   if (d.reportsToReview > 0)
     desk.push({
-      icon: Audit02Icon,
       lead: `${d.reportsToReview} report${plural(d.reportsToReview)}`,
       rest: 'to review',
       to: '/reports',
@@ -434,7 +443,7 @@ function Dashboard() {
           value={String(d.pipeline.total)}
           sub={`+${d.submittedThisWeek} this week`}
           subColour={C.success}
-          icon={NoteIcon}
+          icon={AREA_ICON['/applications']!}
           label="Applications"
           meta={round?.roundName}
           to="/applications"
@@ -451,7 +460,7 @@ function Dashboard() {
           // spend — an awarded grant is committed, not proposed.
           value={String(d.awaitingVotes + approved)}
           sub={`${fmtCompact(a.shortlist.proposed)} proposed`}
-          icon={CheckListIcon}
+          icon={AREA_ICON['/shortlist']!}
           label="Shortlist"
           to="/shortlist"
           search={{ roundId: undefined }}
@@ -464,7 +473,7 @@ function Dashboard() {
           tint={KPI.finance}
           value={fmtCompact(d.paymentsThisMonth.amount)}
           sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
-          icon={Wallet03Icon}
+          icon={AREA_ICON['/finance']!}
           label="Finance"
           to="/finance"
           meter={<BarMeter progress={financeProgress} colour={KPI.finance.accent} />}
@@ -488,7 +497,7 @@ function Dashboard() {
               'up to date'
             )
           }
-          icon={Audit02Icon}
+          icon={AREA_ICON['/reports']!}
           label="Reports"
           to="/reports"
           meter={<BarMeter segments={toSegments(reportsCats)} colour={KPI.reports.accent} />}

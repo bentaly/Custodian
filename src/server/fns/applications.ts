@@ -53,6 +53,14 @@ import {
   type GrantsQuery as AwardGrantsQuery,
 } from '../awards/query'
 
+/**
+ * The order the list arrives in when nothing has been clicked — and therefore the sort
+ * arrow the header DRAWS on landing. One constant, read by the SQL above and by the
+ * screen's `DataTable`, so the mark and the order cannot disagree. Before this, every
+ * list opened looking unsorted while being sorted.
+ */
+export const APPLICATIONS_DEFAULT_SORT = { by: 'received', dir: 'desc' } as const
+
 export const listApplications = createServerFn({ method: 'GET' })
   .validator(ApplicationFiltersSchema)
   .handler(async ({ data }) => {
@@ -148,7 +156,7 @@ export const listApplications = createServerFn({ method: 'GET' })
     // appended — a second key on the same column would only repeat itself.
     const orderBy = !sortExpr
       ? [desc(applications.submittedAt)]
-      : filters.sortBy === 'received'
+      : filters.sortBy === APPLICATIONS_DEFAULT_SORT.by
         ? [sortExpr]
         : [sortExpr, desc(applications.submittedAt)]
 
@@ -735,8 +743,20 @@ function awardOrderFor(
     case 'status':
       return [sql`case ${g.status} when 'active' then 0 when 'completed' then 1 else 2 end ${d}`]
     default:
-      return [sql`${g.decisionAt} desc`]
+      return awardOrderFor(g, AWARDS_DEFAULT_SORT.by, AWARDS_DEFAULT_SORT.dir)
   }
+}
+
+/**
+ * The order the register arrives in when nothing has been clicked — and, because the
+ * table shows the sort arrow on whichever column `sort` names, also what the header
+ * DRAWS on landing. It is one constant rather than two agreeing ones: the arrow used to
+ * appear only after a click, so every list opened looking unsorted while being sorted.
+ * The `default:` branch above routes through it, so the SQL cannot drift from the mark.
+ */
+export const AWARDS_DEFAULT_SORT = { by: 'awarded', dir: 'desc' } as const satisfies {
+  by: AwardSortKey
+  dir: 'asc' | 'desc'
 }
 
 /** Award lifecycle labels, shared by the facet and the client's status pill. */

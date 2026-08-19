@@ -4,15 +4,16 @@ import { useState } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
 import { ReportFields } from '../../components/ReportFields'
 import { ReportAnalysisPanel, type ReportAnalysisStatus } from '../../components/reportAnalysis'
-import { ProgressBar } from '../../components/ProgressBar'
 import {
   Calendar03Icon,
   Coins01Icon,
   DocumentAttachmentIcon,
   File01Icon,
+  Mail01Icon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import {
+  AnchorButton,
   Badge,
   Breadcrumb,
   Button,
@@ -26,6 +27,7 @@ import {
   PanelTitle,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
+import { AREA_ICON } from '../../components/Sidebar'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
@@ -144,23 +146,47 @@ function ReportDetail() {
         // of the same four strings on one screen.
         actions={
           <>
-            {/* No icons on these two: the row already carries a File on "View
-                submission", and a second document glyph beside it would say the two
-                buttons do the same kind of thing. */}
+            {/* Each of these two wears its DESTINATION's area glyph, from `AREA_ICON` —
+                the same marks the rail uses for Applications and Awards, and the same
+                pairing the grant screen's "View Application" carries. Going bare was an
+                attempt to avoid a second document icon beside "View Report"; the answer
+                to that is the right icons, not none. */}
             <LinkButton
               to="/applications/$applicationId"
               params={{ applicationId: report.applicationId }}
+              icon={AREA_ICON['/applications']}
             >
-              Application
+              View Application
             </LinkButton>
-            <LinkButton to="/awards/$awardId" params={{ awardId: report.grant.id }}>
-              Grant
+            <LinkButton
+              to="/awards/$awardId"
+              params={{ awardId: report.grant.id }}
+              icon={AREA_ICON['/awards']}
+            >
+              View Award
             </LinkButton>
-            {/* "View submission" is what the application screen calls the same gesture —
+            {/* Chasing a late report is the same gesture as chasing an applicant, so it
+                is the same control: a plain mailto into the grants team's own client.
+                Offered only while the report is actually outstanding — once it has
+                arrived, "Email applicant" is an action in search of a reason. */}
+            {!s && report.status === 'overdue' && report.applicantEmail && (
+              <AnchorButton
+                icon={Mail01Icon}
+                title={report.applicantEmail}
+                href={`mailto:${encodeURIComponent(report.applicantEmail)}?subject=${encodeURIComponent(
+                  `${report.label} for your grant${
+                    report.reference ? ` (${report.reference})` : ''
+                  }`,
+                )}`}
+              >
+                Email applicant
+              </AnchorButton>
+            )}
+            {/* "View Report" is what the application screen calls the same gesture —
                 open the thing exactly as it was sent, before anything we made of it. */}
             {s && (
               <Button variant="tinted" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
-                View submission
+                View Report
               </Button>
             )}
             {s && canReview && (
@@ -172,7 +198,7 @@ function ReportDetail() {
                   isReviewed && s.reviewedBy ? `Marked as reviewed by ${s.reviewedBy}` : undefined
                 }
               >
-                {reviewing ? '…' : isReviewed ? 'Undo review' : 'Mark as reviewed'}
+                {reviewing ? '…' : isReviewed ? 'Undo review' : 'Mark as Reviewed'}
               </Button>
             )}
           </>
@@ -232,19 +258,12 @@ function ReportDetail() {
           tint={KPI_TINTS.green}
           icon={DocumentAttachmentIcon}
           label="Reporting on this grant"
+          // No meter: "3 of 5" already IS the fraction, stated exactly, and the bar
+          // under it only redrew the same ratio while making this tile taller than the
+          // three beside it. Same call as the grant screen's "Paid to date".
           value={`${receivedCount} of ${totalMilestones}`}
           sub={nextDue ? `next due ${fmtDate(nextDue)}` : 'schedule complete'}
-        >
-          {totalMilestones > 0 && (
-            <ProgressBar
-              className="mt-3"
-              value={receivedCount / totalMilestones}
-              colour={C.success}
-              track={C.white}
-              height={4}
-            />
-          )}
-        </MiniKpi>
+        />
       </div>
 
       {!s ? (

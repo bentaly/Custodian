@@ -83,15 +83,35 @@ export function KeyFact({
   )
 }
 
-/** The grey status pill in a detail header (Figma 435:42454) — a coloured dot and a
- *  label. The list screens' `StatusPill` tints its whole background; up here the record's
- *  name is what the eye should land on, so the pill stays neutral and only the dot
- *  carries the colour. */
-export function HeaderPill({ colour, children }: { colour: string; children: ReactNode }) {
+/**
+ * The status pill in a detail header (Figma 435:42454) — a coloured dot and a label.
+ *
+ * Two tones, and the choice is about what the status IS, not about emphasis:
+ *
+ *   `neutral` — the record's state is a fact you'd read in passing (a report received,
+ *      an application for review). The name is what the eye should land on, so the pill
+ *      recedes and only the dot carries colour. This is the comp's treatment.
+ *   `toned` — the state is the headline. A grant is Active, Done or Cancelled, and
+ *      which one governs whether money is still moving; that answer arriving in grey
+ *      made the most consequential word on the screen the quietest.
+ */
+export function HeaderPill({
+  colour,
+  tone = 'neutral',
+  children,
+}: {
+  colour: string
+  tone?: 'neutral' | 'toned'
+  children: ReactNode
+}) {
+  const toned = tone === 'toned'
   return (
     <span
-      className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 font-display text-label font-medium"
-      style={{ backgroundColor: C.wash, color: C.sub }}
+      className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 font-display text-label font-medium"
+      style={{
+        backgroundColor: toned ? `color-mix(in srgb, ${colour} 10%, transparent)` : C.wash,
+        color: toned ? colour : C.sub,
+      }}
     >
       <span className="size-[3px] rounded-full" style={{ backgroundColor: colour }} />
       {children}
@@ -122,7 +142,7 @@ export function DetailHeader({
   name: string
   /** The one line saying what this record belongs to — programme, round, dates. */
   subline: ReactNode
-  status?: { label: string; colour: string }
+  status?: { label: string; colour: string; tone?: 'neutral' | 'toned' }
   actions?: ReactNode
 }) {
   return (
@@ -156,7 +176,11 @@ export function DetailHeader({
         </div>
       </div>
 
-      {status && <HeaderPill colour={status.colour}>{status.label}</HeaderPill>}
+      {status && (
+        <HeaderPill colour={status.colour} tone={status.tone}>
+          {status.label}
+        </HeaderPill>
+      )}
 
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

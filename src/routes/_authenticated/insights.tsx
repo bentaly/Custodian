@@ -15,6 +15,7 @@ import {
   ExportButton,
   FilterPill,
   MiniKpi,
+  TruncatedList,
   formatDateRange,
 } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
@@ -549,13 +550,10 @@ function niceMax(n: number): number {
 /** How many themes the panel lists before offering the rest behind a toggle. */
 const THEMES_SHOWN = 3
 
-/** "Community & Place + 1 other" — the programmes a theme's grants came from. */
-function programmeSummary(names: string[]): string {
-  const uniq = [...new Set(names)]
-  if (uniq.length === 0) return 'No programme recorded'
-  const [first, ...rest] = uniq
-  if (rest.length === 0) return first!
-  return `${first} + ${rest.length} other${rest.length !== 1 ? 's' : ''}`
+/** The programmes a theme's grants came from — all of them, in the order they were
+ *  first seen. Clipping is `TruncatedText`'s job, and only at widths that need it. */
+function programmeNames(names: string[]): string[] {
+  return [...new Set(names)]
 }
 
 /** Funding spread across deciles 1–10, weighting each grant's amount by its histogram. */
@@ -691,15 +689,13 @@ function InsightsPage() {
         amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
         count: grants.length,
         people: sumImpact(grants.filter((g) => g.unitKey === 'people')),
-        programmes: programmeSummary(
+        // Every programme, not "Warm Homes + 1 other". That summary threw the names
+        // away at all widths, including the ones where they fitted, and left "+1"
+        // meaning nothing in particular. `TruncatedList` clips only when it must and
+        // hands the rest over on hover.
+        programmes: programmeNames(
           grants.map((g) => g.programmeName).filter((n): n is string => Boolean(n)),
         ),
-        // The full list behind "Warm Homes + 1 other". The summary is what fits on the
-        // line; this is what the row's tooltip shows, so the abbreviation is never a
-        // dead end.
-        programmesFull: [
-          ...new Set(grants.map((g) => g.programmeName).filter((n): n is string => Boolean(n))),
-        ].join(', '),
       }
     })
     .sort((a, b) => b.amount - a.amount)
@@ -1124,15 +1120,14 @@ function InsightsPage() {
                             </span>
                           </span>
                         </div>
-                        <p
-                          className="truncate px-3 font-display text-label"
-                          style={{ color: C.sub }}
-                          // The full list, not the abbreviation the line already shows —
-                          // a tooltip that repeats "+ 1 other" answers nothing.
-                          title={t.programmesFull}
-                        >
-                          {t.programmes}
-                        </p>
+                        <div className="px-3">
+                          <TruncatedList
+                            items={t.programmes}
+                            label={`Programmes funding ${t.tag}`}
+                            empty="No programme recorded"
+                            className="font-display text-label text-grey-500"
+                          />
+                        </div>
                       </div>
                     )
                   })}
@@ -1167,6 +1162,11 @@ function InsightsPage() {
               <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
                 <div className="flex flex-col">
                   <Choropleth
+                    // 70%. The UK is a portrait shape fitted to its column, so at full
+                    // width this panel ran taller than everything beside it and the map
+                    // was the reason. Shrinking the drawing rather than the column keeps
+                    // the donut and the list where they are.
+                    scale={0.7}
                     view={mapView}
                     onViewChange={(v) => {
                       setMapView(v)

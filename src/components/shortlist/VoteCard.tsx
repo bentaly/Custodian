@@ -14,7 +14,7 @@ import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/cust
 import type { DeprivationResult } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney } from '../../lib/format'
-import { Avatar, ErrorNote, initials } from '../ui'
+import { Avatar, ErrorNote, TextLink, initials } from '../ui'
 import { useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
 import { withAlpha } from '../BarMeter'
@@ -701,14 +701,18 @@ export function VoteCard({
 
           <ErrorNote error={error} />
 
-          <Link
+          {/* The way off this card and onto the whole application, so it is the card's
+              own body size (14px) rather than the 12px meta scale everything else in
+              this column wears — it was reading as a footnote. No trailing arrow: the
+              app draws direction with a Hugeicons chevron on a control, never as a
+              glyph inside a sentence, and this was the only "→" in any copy. */}
+          <TextLink
             to="/applications/$applicationId"
             params={{ applicationId: app.id }}
-            className="mt-auto pt-1 text-center font-display text-label font-medium hover:underline"
-            style={{ color: C.brand }}
+            className="mt-auto pt-1 text-center text-body"
           >
-            View Application Details →
-          </Link>
+            View Application details
+          </TextLink>
         </div>
       </div>
 

@@ -454,8 +454,14 @@ function arrivedOrder(
     case 'received':
       return [sql`${q.submittedAt} ${d}`]
     default:
-      return [sql`${q.submittedAt} desc`]
+      return arrivedOrder(q, REPORTS_ARRIVED_DEFAULT_SORT.by, REPORTS_ARRIVED_DEFAULT_SORT.dir)
   }
+}
+
+/** The Received tab's order with nothing clicked — and the arrow its header shows. */
+export const REPORTS_ARRIVED_DEFAULT_SORT = { by: 'received', dir: 'desc' } as const satisfies {
+  by: ReportSortKey
+  dir: 'asc' | 'desc'
 }
 
 /**
@@ -482,8 +488,16 @@ function outstandingOrder(
     case 'due':
       return [sql`${q.dueDate} ${d}`]
     default:
-      return [sql`${q.dueDate} asc`]
+      return outstandingOrder(q, REPORTS_AWAITED_DEFAULT_SORT.by, REPORTS_AWAITED_DEFAULT_SORT.dir)
   }
+}
+
+/** The Awaited tab's order with nothing clicked — most overdue first, and the arrow its
+ *  header shows. Deliberately a different column from the Received tab's: the two tabs
+ *  answer different questions, so they cannot share one default. */
+export const REPORTS_AWAITED_DEFAULT_SORT = { by: 'due', dir: 'asc' } as const satisfies {
+  by: ReportSortKey
+  dir: 'asc' | 'desc'
 }
 
 function emptyTotals() {
@@ -536,7 +550,16 @@ export const getReport = createServerFn({ method: 'GET' })
       where: eq(awards.id, awardId),
       with: {
         application: {
-          columns: { id: true, organisationName: true, deliveryArea: true, amountRequested: true },
+          columns: {
+            id: true,
+            organisationName: true,
+            deliveryArea: true,
+            amountRequested: true,
+            // The address to chase an overdue report at, and the foundation's own
+            // reference for the grant to put in the subject line.
+            applicantEmail: true,
+            externalApplicationId: true,
+          },
           with: {
             roundProgramme: {
               columns: { id: true },
@@ -595,6 +618,8 @@ export const getReport = createServerFn({ method: 'GET' })
         status: award.status,
       },
       applicationId: award.application.id,
+      applicantEmail: award.application.applicantEmail,
+      reference: award.application.externalApplicationId,
       organisationName: award.application.organisationName,
       programmeName: award.application.roundProgramme?.programme?.name ?? null,
       roundName: award.application.roundProgramme?.round?.name ?? null,

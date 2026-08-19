@@ -12,14 +12,12 @@ import {
 } from '../../server/fns/applications'
 import { resendAwardLetter } from '../../server/fns/awardSetup'
 import { AwardLetterPreview } from '../../components/AwardLetterPreview'
-import { ProgressBar } from '../../components/ProgressBar'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Alert02Icon,
   BankIcon,
   Calendar03Icon,
   Coins01Icon,
-  File01Icon,
   Mail01Icon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
@@ -39,6 +37,7 @@ import {
   TextLink,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
+import { AREA_ICON } from '../../components/Sidebar'
 import { fmtDate, fmtMoney } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
@@ -119,18 +118,25 @@ function AwardDetail() {
         backLabel="Back to awards"
         name={award.organisationName}
         subline={subline}
+        // Toned, not neutral: whether this grant is Active, Done or Cancelled decides
+        // whether money is still moving, and it was arriving in grey.
         status={{
           label: GRANT_STATUS_LABELS[award.status] ?? award.status,
           colour: AWARD_STATUS_HEX[award.status] ?? C.sub,
+          tone: 'toned',
         }}
         actions={
           <>
+            {/* The area's own glyph, from `AREA_ICON` — a link to an Application wears
+                the Applications mark, here and on the report screen. `File01Icon` is
+                what "open the raw submission" wears, and using it here said the two
+                buttons went to the same kind of place. */}
             <LinkButton
               to="/applications/$applicationId"
               params={{ applicationId: award.application.id }}
-              icon={File01Icon}
+              icon={AREA_ICON['/applications']}
             >
-              View application
+              View Application
             </LinkButton>
             {award.letter && (
               <Button variant="tinted" icon={Mail01Icon} onClick={() => setLetterOpen(true)}>
@@ -156,20 +162,14 @@ function AwardDetail() {
           icon={BankIcon}
           label="Paid to date"
           value={fmtMoney(award.paidToDate)}
+          // No meter. The supporting line already states the outstanding balance in
+          // pounds, which is the number Finance acts on; a bar under it re-stated the
+          // same ratio less precisely and made this one tile taller than the three
+          // beside it.
           sub={
             award.outstanding > 0 ? `${fmtMoney(award.outstanding)} outstanding` : 'paid in full'
           }
-        >
-          {award.amountAwarded > 0 && (
-            <ProgressBar
-              className="mt-3"
-              value={award.paidToDate / award.amountAwarded}
-              colour={C.success}
-              track={C.white}
-              height={4}
-            />
-          )}
-        </MiniKpi>
+        />
         <MiniKpi
           tint={KPI_TINTS.amber}
           icon={Calendar03Icon}
@@ -238,6 +238,20 @@ function AwardDetail() {
 
 // ─── Purpose and conditions ──────────────────────────────────────────────────
 
+/**
+ * "Awarded for", NOT "Grant purpose" — and the rename is the point.
+ *
+ * `awards.purpose` and `applications.grant_purpose` are two different sentences about
+ * one grant, by design: the application's is what the applicant asked for (mapped from
+ * their own submission), the award's is what the foundation agreed to fund, written at
+ * set-up and printed on the letter as "towards {purpose}". `createAwards` PRE-FILLS the
+ * second from the first and then lets the admin reword or replace it, so the two
+ * legitimately differ on most grants.
+ *
+ * Both panels used to be titled "Grant purpose", which made a deliberate distinction
+ * read as the same field disagreeing with itself across two screens. The heading is the
+ * fix: this one names the decision, the application's names the request.
+ */
 function PurposePanel({ award }: { award: AwardData }) {
   // One per line, as `renderAwardLetter` numbers them on the letter — a grant set up with
   // three bespoke terms must not read here as one paragraph.
@@ -249,15 +263,15 @@ function PurposePanel({ award }: { award: AwardData }) {
   if (!award.purpose && bespoke.length === 0) return null
 
   return (
-    <Panel label="Grant purpose">
-      <PanelTitle>Grant purpose</PanelTitle>
+    <Panel label="Awarded for">
+      <PanelTitle>Awarded for</PanelTitle>
       {award.purpose ? (
         <p className="font-display text-body leading-relaxed" style={{ color: C.ink }}>
           {award.purpose}
         </p>
       ) : (
         <p className="font-display text-body" style={{ color: C.sub }}>
-          No purpose was recorded for this grant.
+          No purpose was recorded when this grant was set up.
         </p>
       )}
       {bespoke.length > 0 && (

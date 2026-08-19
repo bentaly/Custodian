@@ -8,12 +8,40 @@ import { C } from './tokens'
 // stat row above a list screen. Lifted out of Insights / the application detail, which
 // each had their own copy.
 
-/** The four pastel tints, in the order they read across a stat row. */
+/**
+ * The pastel tints, in the order they read across a stat row — the five fills sampled
+ * off the Figma stat row (435:38511): #F1F1FC, #E7F2EA, #FEF9F0, #FEF5F9, #EBFAFE.
+ *
+ * Four of the five are the **Accent** family, not the semantic hues, and that is the
+ * whole point of this list. `amber` and `pink` used to be `--color-warning` and
+ * `--color-danger`; since those were darkened to clear 4.5:1 as TEXT (see `tokens.ts`),
+ * warning at 10% is a dull tan and danger at 10% a grey-pink — neither is the cream and
+ * blush the comps draw. Same split as `SCORE_BAND`: accents fill, semantics label.
+ *
+ * A tint here carries no meaning. It is the card's place in the row, which is why the
+ * keys are colours rather than states — nothing should read "pink" as "bad".
+ */
 export const KPI_TINTS = {
-  violet: { bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)', accent: 'var(--color-accent-violet)' },
-  green: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', accent: 'var(--color-success)' },
-  amber: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', accent: 'var(--color-warning)' },
-  pink: { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', accent: 'var(--color-danger)' },
+  violet: {
+    bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)',
+    accent: 'var(--color-accent-violet)',
+  },
+  green: {
+    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
+    accent: 'var(--color-success)',
+  },
+  amber: {
+    bg: 'color-mix(in srgb, var(--color-accent-amber) 10%, transparent)',
+    accent: 'var(--color-accent-amber)',
+  },
+  pink: {
+    bg: 'color-mix(in srgb, var(--color-accent-blush) 10%, transparent)',
+    accent: 'var(--color-accent-blush)',
+  },
+  sky: {
+    bg: 'color-mix(in srgb, var(--color-accent-sky) 10%, transparent)',
+    accent: 'var(--color-accent-sky)',
+  },
 } as const
 
 export type KpiTint = { bg: string; accent: string }
@@ -74,10 +102,7 @@ export function MiniKpi({
 }) {
   const scale = SCALE[size]
   return (
-    <div
-      className="flex flex-col rounded-pill border bg-white p-1"
-      style={{ borderColor: C.line }}
-    >
+    <div className="flex flex-col rounded-pill border bg-white p-1" style={{ borderColor: C.line }}>
       <div
         className={`relative overflow-hidden rounded-card ${scale.panel}`}
         style={{ backgroundColor: tint.bg }}

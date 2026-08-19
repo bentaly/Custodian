@@ -190,3 +190,37 @@ export function LinkButton({
     </Link>
   )
 }
+
+export type AnchorButtonProps = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  variant?: ButtonVariant
+  size?: ButtonSize
+  icon?: IconElement
+}
+
+/**
+ * The same box on a plain `<a>` — for a destination the router knows nothing about.
+ * In practice that is `mailto:`: emailing a grantee is the grants team picking up the
+ * phone, so it opens in their own mail client with their own signature and a copy in
+ * their sent items, rather than being something we send on their behalf.
+ *
+ * It exists so that is not a reason to hand-paint the button's height, radius and
+ * border again — which is exactly what the application screen had done, and what the
+ * report screen was about to copy.
+ */
+export function AnchorButton({
+  variant = 'secondary',
+  size = 'md',
+  icon,
+  className,
+  children,
+  style,
+  ...props
+}: AnchorButtonProps) {
+  const chrome = buttonChrome(variant, size, icon != null && children == null)
+  return (
+    <a className={cn(chrome.className, className)} style={{ ...chrome.style, ...style }} {...props}>
+      {icon && <HugeiconsIcon icon={icon} size={chrome.iconSize} color="currentColor" />}
+      {children}
+    </a>
+  )
+}

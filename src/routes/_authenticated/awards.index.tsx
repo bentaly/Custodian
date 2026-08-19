@@ -8,12 +8,14 @@ import {
   Pagination,
   SearchInput,
   StatusPill,
+  TruncatedList,
+  TruncatedText,
   initials,
   type TableColumn,
 } from '../../components/ui'
 import { BarMeter } from '../../components/BarMeter'
 import { ProgressBar } from '../../components/ProgressBar'
-import { listAwards, GRANT_STATUS_LABELS } from '../../server/fns/applications'
+import { listAwards, GRANT_STATUS_LABELS, AWARDS_DEFAULT_SORT } from '../../server/fns/applications'
 import { facetLabel } from '../../lib/facets'
 import { C } from '../../components/ui/tokens'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
@@ -26,8 +28,9 @@ type AwardStatus = 'active' | 'completed' | 'cancelled'
 // No 'status' key: the lifecycle pill moved into the Paid column, and sorting by a
 // column that no longer has a header is unreachable. Status is still a FILTER — the
 // server keeps accepting the old key, so a stale bookmarked URL degrades to the
-// default order rather than erroring.
-type SortKey = 'organisation' | 'programme' | 'awarded' | 'amount' | 'paid' | 'duration'
+// default order rather than erroring. 'geography' likewise: it is the row's subline,
+// and reachable through search.
+type SortKey = 'organisation' | 'programme' | 'round' | 'awarded' | 'amount' | 'paid' | 'duration'
 type SortDir = 'asc' | 'desc'
 
 type AwardsSearch = {
@@ -45,9 +48,17 @@ type AwardsSearch = {
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled']
-const SORT_KEYS: SortKey[] = ['organisation', 'programme', 'awarded', 'amount', 'paid', 'duration']
+const SORT_KEYS: SortKey[] = [
+  'organisation',
+  'programme',
+  'round',
+  'awarded',
+  'amount',
+  'paid',
+  'duration',
+]
 /** Text reads best A–Z; money, dates and counts read best biggest/newest first. */
-const ASC_FIRST: SortKey[] = ['organisation', 'programme']
+const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round']
 
 export const Route = createFileRoute('/_authenticated/awards/')({
   validateSearch: (search: Record<string, unknown>): AwardsSearch => ({
@@ -118,18 +129,15 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     id: 'organisation',
     sortable: true,
     header: 'Organisation',
-    // Monogram + two-line identity, as on Applications. The subline is what identifies a
-    // grantee at a glance without opening the row — where they work and which sitting
-    // funded them.
+    // Monogram + two-line identity, as on Applications. The subline is where the grantee
+    // works — the one identifying fact with no column of its own, and reachable through
+    // search rather than a pill.
     //
-    // Round and Geography have no columns of their own precisely because they live here.
-    // Carrying both was straightforwardly duplication: the same two strings twice on
-    // every row, once in the subline and once out at the right-hand edge. Folding them in
-    // is also what makes the pattern fit — Applications has no Geography column for the
-    // same reason. Their sort keys went with them; both are still reachable, round as a
-    // filter pill and geography through search.
+    // Round LEFT the subline when it gained a column. The rule the register follows now:
+    // anything you can FILTER by has somewhere on the row to be read, or the filter is a
+    // control whose effect you cannot see — pick a round and every row looks the same.
     cell: (g) => {
-      const subline = [g.deliveryArea, g.roundName].filter(Boolean).join(' · ') || '—'
+      const subline = g.deliveryArea || '—'
       return (
         <div className="flex items-center gap-2">
           <div
@@ -164,6 +172,35 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     hideBelow: 'lg',
     header: 'Programme',
     cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
+  },
+  {
+    id: 'round',
+    sortable: true,
+    hideBelow: 'xl',
+    header: 'Round',
+    width: 'sm:w-[150px]',
+    cell: (g) => (
+      <TruncatedText
+        text={g.roundName ?? '—'}
+        label="Round"
+        className={`font-display text-body ${g.roundName ? 'text-grey-500' : 'text-grey-400'}`}
+      />
+    ),
+  },
+  {
+    // Not sortable: themes are a jsonb array on the programme, so "sorted by theme" has
+    // no answer for a grant carrying three of them. It is a filter and a fact to read.
+    id: 'theme',
+    hideBelow: 'xl',
+    header: 'Theme',
+    width: 'sm:w-[160px]',
+    cell: (g) => (
+      <TruncatedList
+        items={g.tags}
+        label="Themes for this grant"
+        className={`font-display text-body ${g.tags.length > 0 ? 'text-grey-500' : 'text-grey-400'}`}
+      />
+    ),
   },
   {
     id: 'awarded',
@@ -495,7 +532,9 @@ function AwardsPage() {
                 onRowClick={(g) =>
                   navigate({ to: '/awards/$awardId', params: { awardId: g.awardId } })
                 }
-                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+                // With nothing clicked the register is still ordered — most recently
+                // awarded first — so the header says so.
+                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : AWARDS_DEFAULT_SORT}
                 onSort={setSort}
               />
             </div>

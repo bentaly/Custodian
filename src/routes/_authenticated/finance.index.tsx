@@ -4,6 +4,7 @@ import {
   listFinanceGrants,
   getFinanceGrant,
   FINANCE_STATUS_LABELS,
+  FINANCE_DEFAULT_SORT,
   type BankStatus,
   type FinanceStatus,
   type UpcomingBucket,
@@ -20,6 +21,8 @@ import {
   Pagination,
   StatusPill,
   Tabs,
+  TruncatedList,
+  TruncatedText,
   type TableColumn,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
@@ -36,6 +39,7 @@ type Totals = FinanceData['totals']
 type SortKey =
   | 'organisation'
   | 'programme'
+  | 'round'
   | 'committed'
   | 'paid'
   | 'next'
@@ -62,6 +66,7 @@ const FINANCE_STATUSES = Object.keys(FINANCE_STATUS_LABELS) as FinanceStatus[]
 const SORT_KEYS: SortKey[] = [
   'organisation',
   'programme',
+  'round',
   'committed',
   'paid',
   'next',
@@ -70,7 +75,7 @@ const SORT_KEYS: SortKey[] = [
   'status',
 ]
 /** Text reads best A–Z; money, dates and the two urgency ranks read best worst-first. */
-const ASC_FIRST: SortKey[] = ['organisation', 'programme']
+const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round']
 
 export const Route = createFileRoute('/_authenticated/finance/')({
   // Tab, filters and page in the URL: a view you cannot link to is a view you lose
@@ -165,6 +170,39 @@ const PROGRAMME: TableColumn<FinanceRow> = {
   cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
 }
 
+// Round and Theme are both filter pills on this screen, so both have to be readable on
+// a row: a pill whose effect you cannot see on the rows it left behind is a control that
+// appears to do nothing. Theme is not sortable — a grant carrying three of them has no
+// place in an ordering.
+const ROUND: TableColumn<FinanceRow> = {
+  id: 'round',
+  sortable: true,
+  hideBelow: 'xl',
+  header: 'Round',
+  width: 'sm:w-[150px]',
+  cell: (g) => (
+    <TruncatedText
+      text={g.roundName ?? '—'}
+      label="Round"
+      className={`font-display text-body ${g.roundName ? 'text-grey-500' : 'text-grey-400'}`}
+    />
+  ),
+}
+
+const THEME: TableColumn<FinanceRow> = {
+  id: 'theme',
+  hideBelow: 'xl',
+  header: 'Theme',
+  width: 'sm:w-[160px]',
+  cell: (g) => (
+    <TruncatedList
+      items={g.tags}
+      label="Themes for this grant"
+      className={`font-display text-body ${g.tags.length > 0 ? 'text-grey-500' : 'text-grey-400'}`}
+    />
+  ),
+}
+
 const COMMITTED: TableColumn<FinanceRow> = {
   id: 'committed',
   sortable: true,
@@ -236,6 +274,8 @@ const STATUS: TableColumn<FinanceRow> = {
 const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
   ORGANISATION,
   PROGRAMME,
+  ROUND,
+  THEME,
   COMMITTED,
   PAID,
   {
@@ -274,6 +314,8 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
 const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
   ORGANISATION,
   PROGRAMME,
+  ROUND,
+  THEME,
   COMMITTED,
   PAID,
   {
@@ -521,7 +563,9 @@ function FinancePage() {
                 rowKey={(g) => g.awardId}
                 rowClassName={(g) => (opening === g.awardId ? 'opacity-60' : '')}
                 onRowClick={(g) => openGrant(g.awardId)}
-                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : undefined}
+                // The default order is a real order (soonest owed first), so its
+                // column carries the arrow from the moment the screen opens.
+                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : FINANCE_DEFAULT_SORT}
                 onSort={setSort}
               />
             </div>
@@ -637,6 +681,7 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     'Organisation',
     'Programme',
     'Round',
+    'Theme',
     'Committed',
     'Paid to date',
     'Outstanding',
@@ -652,6 +697,7 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     g.organisationName,
     g.programmeName ?? '',
     g.roundName ?? '',
+    g.tags.join('; '),
     g.committed,
     g.paidToDate,
     g.outstanding,
