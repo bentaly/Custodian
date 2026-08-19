@@ -139,6 +139,37 @@ function createAuth() {
         verification: verifications,
       },
     }),
+    // Serve the session from a signed cookie instead of a database round trip.
+    //
+    // Off by default whenever a `database` is configured (`create-context.mjs:48` only
+    // auto-enables it for DB-less setups), so until now EVERY session check — on every
+    // server function, on every request — was a Neon query.
+    //
+    // **90s, not the library's default of 300.** The cost of caching a session is that
+    // revoking it is not instant, so the window is the thing to argue about. 90s keeps
+    // essentially all of the saving (a burst of navigation is a handful of seconds)
+    // while keeping the stale window short enough to describe honestly.
+    //
+    // The exposure is narrower than it first looks, because `getAuthUser` makes TWO
+    // trips and this only caches the first. Our own users+clients query is never
+    // cached, so a role change, a tenant reassignment or a deleted user row is still
+    // caught on the very next request. What this window does cover is BetterAuth's own
+    // view of session validity — an explicitly revoked session, or a ban through the
+    // admin plugin.
+    //
+    // Note there is currently no in-app way to remove a member or change a role, so
+    // the obvious "sack someone and they keep access" case is not reachable today. If
+    // one is added, revoke the session there rather than relying on this expiring, and
+    // revisit this number.
+    //
+    // `refreshCache` is deliberately not set: it is meant for stateless setups and
+    // better-auth logs a warning and disables it when a database is configured.
+    session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: 90,
+      },
+    },
     account: {
       accountLinking: {
         requireLocalEmailVerified: false,
