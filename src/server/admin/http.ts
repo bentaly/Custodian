@@ -9,6 +9,16 @@ const ADMIN_CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, x-admin-token, x-admin-actor',
+  // Without this the browser preflights EVERY request, because `x-admin-token` is a
+  // non-simple header — so the admin app was paying two Worker invocations for each
+  // call it made, forever. Its queue poll showed up in Cloudflare's logs as six OPTIONS
+  // followed by six GETs, twice a minute, for as long as a tab stayed open.
+  //
+  // 7200s is the practical ceiling: Chrome clamps this to 2 hours whatever we send
+  // (Firefox allows 24). Safe to cache for that long because the answer is a constant —
+  // these three lines — and not a per-user or per-token decision. The token itself is
+  // still checked on every real request; a preflight authorises nothing.
+  'Access-Control-Max-Age': '7200',
 }
 
 export function adminOptions(): Response {

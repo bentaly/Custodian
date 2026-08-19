@@ -46,14 +46,49 @@ export default function App() {
   const { buckets, reload } = useQueues()
 
   // Queue counts age quickly — a submission sent from the Testing tab lands seconds
-  // later — so refresh on an interval and whenever the tab regains focus.
+  // later — so refresh on an interval while somebody is actually watching, and
+  // immediately whenever the tab is brought back.
+  //
+  // **Only while visible**, which is the whole point. Each tick is six requests (three
+  // active statuses across two endpoints) — and was TWELVE until `Access-Control-Max-Age`
+  // was added on the server, since `x-admin-token` made every call preflight. So a tab
+  // left open on another screen was a dozen Worker invocations every 30s, indefinitely,
+  // for counts nobody was reading. That is also why the database never autosuspended: on
+  // 18 Aug 2026 this poll kept the compute awake for three and a half hours straight. On
+  // Neon's free plan a single forgotten tab bills several times the monthly allowance.
+  //
+  // The 30s cadence itself is kept — when someone IS looking, that was a deliberate
+  // call and the forgotten tab was the actual cost.
+  //
+  // `visibilitychange` rather than `focus`: switching tabs within one window does not
+  // reliably fire `focus`, so coming back to the queue could sit on stale counts for a
+  // full interval. This fixes that as a side effect of fixing the cost.
   useEffect(() => {
-    const id = setInterval(reload, 30_000)
-    const onFocus = () => reload()
-    window.addEventListener('focus', onFocus)
+    let id: number | undefined
+    const stop = () => {
+      if (id !== undefined) clearInterval(id)
+      id = undefined
+    }
+    const start = () => {
+      stop()
+      id = window.setInterval(reload, 30_000)
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        reload()
+        start()
+      } else {
+        stop()
+      }
+    }
+
+    // Mount starts the timer only — `useQueues` has already done the first fetch.
+    if (document.visibilityState === 'visible') start()
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
-      clearInterval(id)
-      window.removeEventListener('focus', onFocus)
+      stop()
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [reload])
 
