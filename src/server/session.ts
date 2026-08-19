@@ -43,6 +43,50 @@ async function timed<T>(label: string, work: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * How long an impersonation session is allowed to live, enforced here because
+ * BetterAuth does not actually enforce its own.
+ *
+ * The admin plugin creates an impersonation session with `expiresAt = now + 1 hour`
+ * (`plugins/admin/routes.mjs:596`). But its "should I extend this session?" test is
+ *
+ *     expiresAt - expiresIn(7d) + updateAge(1d) <= now
+ *
+ * (`api/routes/session.mjs:207`), which assumes every session started life at the full
+ * `expiresIn`. For a one-hour session that expression is **always true**, so every
+ * request takes the refresh branch and rewrites `expiresAt` to `now + 7 days`. The cap
+ * therefore never binds: impersonation lasts a week and renews on every request for as
+ * long as it is used.
+ *
+ * The library's own switches (`disableSessionRefresh`, `deferSessionRefresh`) would fix
+ * it only by changing when ORDINARY users get signed out, which is a much bigger blast
+ * radius than the problem. Enforcing the cap ourselves touches nothing else: an
+ * impersonation session is created fresh when impersonation starts, so `createdAt` is
+ * the moment it began, and a normal session has no `impersonatedBy` at all and never
+ * reaches this check.
+ */
+const IMPERSONATION_MAX_MS = 60 * 60 * 1000
+
+/** BetterAuth may hand this back as a `Date` or as a string, depending on adapter. */
+function startedAt(value: unknown): number | null {
+  const ms = value instanceof Date ? value.getTime() : Date.parse(String(value))
+  return Number.isFinite(ms) ? ms : null
+}
+
+/**
+ * An impersonation session past its hour. Treated as not signed in — the superadmin
+ * signs in again as themselves, which is what a one-hour cap means.
+ *
+ * Fails OPEN on an unreadable `createdAt`: refusing every impersonation session because
+ * a timestamp did not parse would break the feature outright, and the row is ours.
+ */
+function impersonationExpired(session: { impersonatedBy?: unknown; createdAt?: unknown }): boolean {
+  if (!session.impersonatedBy) return false
+  const began = startedAt(session.createdAt)
+  if (began === null) return false
+  return Date.now() - began > IMPERSONATION_MAX_MS
+}
+
 export async function getAuthUser() {
   const request = getRequest()
   let session: Awaited<ReturnType<AuthInstance['api']['getSession']>>
@@ -57,6 +101,11 @@ export async function getAuthUser() {
     return null
   }
   if (!session) return null
+
+  if (impersonationExpired(session.session)) {
+    console.warn('[session] impersonation past its hour — treating as signed out')
+    return null
+  }
 
   try {
     const rows = await timed('user+client', () =>
@@ -98,3 +147,6 @@ export async function requireRole(...roles: UserRole[]) {
   if (!roles.includes(user.role)) throw forbidden()
   return user
 }
+
+/** Exposed for `impersonation.test.ts`; not part of the module's real surface. */
+export const __testing = { impersonationExpired, IMPERSONATION_MAX_MS }

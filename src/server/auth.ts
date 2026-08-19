@@ -48,8 +48,14 @@ export function getAuth(): ReturnType<typeof createAuth> {
  * How long an auth call may take before we conclude this isolate's auth instance is
  * poisoned. Deliberately under `READ_DEADLINE_MS` (12s) so this fires first and the
  * failure is attributed here rather than to whatever server function called in.
+ *
+ * 5s is ~15-150x the 30-300ms these calls actually take, so a false positive is
+ * implausible, and it is the longest anyone waits in the broken case. It was 8s; with
+ * the pre-seed in `worker-entry.js` now preventing the stall rather than only catching
+ * it, there is no reason to make somebody sit through the extra three seconds on the
+ * rare path where this still fires.
  */
-const AUTH_CALL_DEADLINE_MS = 8_000
+const AUTH_CALL_DEADLINE_MS = 5_000
 
 /** The plugin-augmented instance, for callers that need to name its types. */
 export type AuthInstance = ReturnType<typeof createAuth>

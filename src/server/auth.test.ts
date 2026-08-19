@@ -46,7 +46,7 @@ describe('callAuth', () => {
 
       const first = callAuth('getSession', (a) => a.api.getSession())
       const settled = expect(first).rejects.toSatisfy(isAuthStalled)
-      await vi.advanceTimersByTimeAsync(8_000)
+      await vi.advanceTimersByTimeAsync(5_000)
       await settled
 
       const builtAfterStall = built
