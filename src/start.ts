@@ -53,8 +53,15 @@ const SLOW_FN_MS = 1_000
  * hazard `couldWrite` in `db.ts` exists to avoid; telling a caller "timed out" about a
  * write that landed is worse than leaving them waiting. GET server functions carry no
  * such risk, and every hang seen so far has been a GET.
+ *
+ * **It must stay BELOW `REQUEST_TIMEOUT_MS` (15s, the browser's own bound.)** At 20s it
+ * was above it, and the 18 Aug incident shows what that cost: the browser gave up at
+ * 15s with a bare `TimeoutError` five seconds before the server produced its careful
+ * "did not respond in time" 503, so the user never saw the good message and Sentry
+ * logged the same event twice from both ends. A bound the other end never waits for is
+ * not a bound. 12s keeps ~30x headroom over the slowest GET actually observed (420ms).
  */
-const READ_DEADLINE_MS = 20_000
+const READ_DEADLINE_MS = 12_000
 
 /**
  * Sits OUTSIDE `errorMiddleware` in the chain, so the elapsed time it reports covers

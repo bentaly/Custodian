@@ -22,11 +22,34 @@ function rethrowIfDatabaseFault(err: unknown): void {
   if (databaseTimeout(err)) throw err
 }
 
+/**
+ * Tells the two halves of this function apart in the logs.
+ *
+ * Worth the line because on 18 Aug 2026 the hang was provably NOT the database in
+ * general: while `getMe` sat past 20s on custodian.fund, the admin app's polling hit
+ * `/api/admin/ingests` — same Worker, same seconds — and got 200s in 17-300ms, and
+ * Neon's compute was awake throughout. What the hanging requests had in common was the
+ * session lookup; the healthy ones never touch it. This says which half was waiting.
+ */
+const SLOW_SESSION_MS = 1_000
+
+async function timed<T>(label: string, work: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now()
+  try {
+    return await work()
+  } finally {
+    const elapsed = Date.now() - startedAt
+    if (elapsed >= SLOW_SESSION_MS) console.warn(`[session] ${label} ${elapsed}ms`)
+  }
+}
+
 export async function getAuthUser() {
   const request = getRequest()
   let session: Awaited<ReturnType<ReturnType<typeof getAuth>['api']['getSession']>>
   try {
-    session = await getAuth().api.getSession({ headers: request.headers })
+    session = await timed('betterauth', () =>
+      getAuth().api.getSession({ headers: request.headers }),
+    )
   } catch (err) {
     // Anything else here is BetterAuth rejecting the cookie — an expired or forged
     // session is genuinely "not signed in".
@@ -36,23 +59,25 @@ export async function getAuthUser() {
   if (!session) return null
 
   try {
-    const rows = await getDb()
-      .select({
-        id: users.id,
-        email: users.email,
-        // Whether the address was *proven* (Google, or an emailed invite token) rather
-        // than merely typed. `claimPendingInvite` gates tenant attachment on this.
-        emailVerified: users.emailVerified,
-        name: users.name,
-        // Avatar. Populated by Google OAuth on sign-up; falls back to initials in the UI.
-        image: users.image,
-        role: users.role,
-        clientId: users.clientId,
-        clientName: clients.name,
-      })
-      .from(users)
-      .leftJoin(clients, eq(users.clientId, clients.id))
-      .where(eq(users.id, session.user.id))
+    const rows = await timed('user+client', () =>
+      getDb()
+        .select({
+          id: users.id,
+          email: users.email,
+          // Whether the address was *proven* (Google, or an emailed invite token) rather
+          // than merely typed. `claimPendingInvite` gates tenant attachment on this.
+          emailVerified: users.emailVerified,
+          name: users.name,
+          // Avatar. Populated by Google OAuth on sign-up; falls back to initials in the UI.
+          image: users.image,
+          role: users.role,
+          clientId: users.clientId,
+          clientName: clients.name,
+        })
+        .from(users)
+        .leftJoin(clients, eq(users.clientId, clients.id))
+        .where(eq(users.id, session.user.id)),
+    )
     return rows[0] ?? null
   } catch (err) {
     rethrowIfDatabaseFault(err)
