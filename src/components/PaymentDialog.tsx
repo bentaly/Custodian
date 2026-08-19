@@ -73,13 +73,6 @@ export function PaymentDialog({
           </TextLink>
         </span>
       }
-      footer={
-        <div className="flex justify-end">
-          <Button variant="secondary" onClick={onClose} disabled={busyId !== null}>
-            Close
-          </Button>
-        </div>
-      }
     >
       <div className="flex flex-col gap-4">
         {error && <p className="font-display text-body text-danger">{error}</p>}
