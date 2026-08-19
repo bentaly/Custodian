@@ -522,7 +522,10 @@ function Schedule({
                   </span>
                 }
                 className={rowBusy ? 'opacity-60' : undefined}
-                value={<span className="font-semibold text-brand">{fmtMoney(inst.amount)}</span>}
+                // Weight, not colour: the amount is the row's figure, and `Row` already
+                // inks every value grey-900. Green read as a status the money does not
+                // have — a scheduled instalment is not an approval.
+                value={<span className="font-semibold">{fmtMoney(inst.amount)}</span>}
                 action={
                   grant.canEdit ? (
                     // Marking paid is the routine act, so it sits on the row rather than
@@ -553,7 +556,7 @@ function Schedule({
             <Row
               label="Total"
               value={
-                <span className="font-semibold text-brand">
+                <span className="font-semibold">
                   {fmtMoney(editing ? draftTotal : grant.scheduledTotal)}
                 </span>
               }
