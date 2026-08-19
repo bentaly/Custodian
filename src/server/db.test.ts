@@ -106,6 +106,55 @@ describe('query retries', () => {
   })
 })
 
+describe('the query bound', () => {
+  // The regression this exists to catch: relying on `AbortSignal.timeout` to end the
+  // fetch. It does not, in this runtime — on 18 Aug 2026 a session query carrying that
+  // signal ran for 90.7 seconds while plain timers in the same isolate fired on
+  // schedule. A fetch that never settles must still be given up on.
+  it('gives up on a fetch that never settles or rejects', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+
+      const pending = installedFetch()('https://neon/sql', {
+        body: body('select 1'),
+      })
+      const settled = expect(pending).rejects.toMatchObject({
+        name: 'DatabaseTimeout',
+        isWrite: false,
+      })
+
+      // Once for the first attempt, once for the read's single retry.
+      await vi.advanceTimersByTimeAsync(4_000)
+      await vi.advanceTimersByTimeAsync(4_000)
+
+      await settled
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not abandon a write it might have committed twice', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+
+      const pending = installedFetch()('https://neon/sql', {
+        body: body('insert into "awards" ("amount") values ($1)'),
+      })
+      const settled = expect(pending).rejects.toMatchObject({ isWrite: true })
+
+      await vi.advanceTimersByTimeAsync(4_000)
+
+      await settled
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('databaseTimeout', () => {
   it('recognises the error after neon has wrapped it', async () => {
     fetchMock.mockImplementation(dead)

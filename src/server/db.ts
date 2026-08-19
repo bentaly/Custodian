@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/neon-http'
 import { neon, neonConfig } from '@neondatabase/serverless'
 import * as schema from '../../drizzle/schema'
+import { withDeadline } from './deadline'
 
 /**
  * How long a single query may take before we give up on it.
@@ -15,6 +16,10 @@ import * as schema from '../../drizzle/schema'
  *
  * 4s is generous against real latency: queries here answer in 20-300ms, and the slowest
  * legitimate case — one that has to wake a suspended compute — was ~1s.
+ *
+ * The bound is enforced by `withDeadline`, not by the abort signal passed to `fetch`.
+ * On 18 Aug 2026 a session query carrying this signal ran for 90.7 seconds — see
+ * `deadline.ts` for the evidence that timers work here where aborts do not.
  */
 const QUERY_TIMEOUT_MS = 4_000
 
@@ -54,10 +59,11 @@ async function queryFetch(url: Parameters<typeof fetch>[0], init?: RequestInit):
   for (let attempt = 0; ; attempt++) {
     const startedAt = Date.now()
     try {
-      const response = await fetch(url, {
-        ...init,
-        signal: AbortSignal.timeout(QUERY_TIMEOUT_MS),
-      })
+      const response = await withDeadline(
+        fetch(url, { ...init, signal: AbortSignal.timeout(QUERY_TIMEOUT_MS) }),
+        QUERY_TIMEOUT_MS,
+        () => new Error(`Neon fetch did not settle within ${QUERY_TIMEOUT_MS}ms`),
+      )
       warnIfSlow(Date.now() - startedAt, init)
       return response
     } catch (cause) {

@@ -1,4 +1,5 @@
 import { createMiddleware, createStart } from '@tanstack/react-start'
+import { withDeadline } from './server/deadline'
 import { isServerFnDeadline, serverFnDeadline, toClientError } from './server/errors'
 
 /**
@@ -37,13 +38,16 @@ const SLOW_FN_MS = 1_000
 /**
  * A last-resort bound on a read, well above anything legitimate.
  *
- * `src/server/db.ts` already aborts each query at 4s via `AbortSignal.timeout`. On
- * 17 Aug that bound demonstrably did not fire — 45 seconds of wall clock, no
- * `DatabaseTimeout` in Sentry, no `[db] slow query` line, and Neon awake throughout —
- * so the Worker was parked on an outbound fetch whose abort never arrived. This races
- * the whole function against a plain timer instead, on the theory that a different
- * mechanism may survive whatever swallowed the first. If the two disagree we will see
- * it, because the deadline logs distinctly when it wins.
+ * `src/server/db.ts` bounds each query at 4s. On 17 Aug that bound demonstrably did not
+ * fire — 45 seconds of wall clock, no `DatabaseTimeout` in Sentry, no `[db] slow query`
+ * line, and Neon awake throughout — so the Worker was parked on an outbound fetch whose
+ * abort never arrived. This races the whole function against a plain timer instead, on
+ * the theory that a different mechanism may survive whatever swallowed the first.
+ *
+ * It does. On 18 Aug this deadline fired five times, exactly on schedule, against the
+ * same hang — which is what moved `db.ts` off `AbortSignal.timeout` and onto the same
+ * timer. This stays as the outer backstop: it covers a server function that hangs
+ * somewhere other than a query.
  *
  * **Reads only.** A write we abandon may still have committed, which is the exact
  * hazard `couldWrite` in `db.ts` exists to avoid; telling a caller "timed out" about a
@@ -69,7 +73,7 @@ const observeServerFn = createMiddleware({ type: 'function' }).server(
     console.log(`[fn] → ${label} (${method})`)
 
     try {
-      const result = method === 'GET' ? await withDeadline(next(), label) : await next()
+      const result = method === 'GET' ? await readWithinDeadline(next(), label) : await next()
       const elapsed = Date.now() - startedAt
       if (elapsed >= SLOW_FN_MS) console.warn(`[fn] ← ${label} ${elapsed}ms`)
       return result
@@ -80,25 +84,12 @@ const observeServerFn = createMiddleware({ type: 'function' }).server(
   },
 )
 
-/**
- * Race a promise against a timer. The losing work is NOT cancelled — nothing here can
- * cancel it — so this bounds what the caller waits for, not what the Worker does. That
- * is the honest limit of the approach, and the reason the deadline is generous.
- */
-async function withDeadline<T>(work: Promise<T>, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => {
-      console.error(`[fn] ⏱ ${label} exceeded ${READ_DEADLINE_MS}ms — abandoning the wait`)
-      reject(serverFnDeadline(label, READ_DEADLINE_MS))
-    }, READ_DEADLINE_MS)
+/** The read bound, with the log line that names which function hit it. */
+function readWithinDeadline<T>(work: Promise<T>, label: string): Promise<T> {
+  return withDeadline(work, READ_DEADLINE_MS, () => {
+    console.error(`[fn] ⏱ ${label} exceeded ${READ_DEADLINE_MS}ms — abandoning the wait`)
+    return serverFnDeadline(label, READ_DEADLINE_MS)
   })
-
-  try {
-    return await Promise.race([work, deadline])
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 /** Short and safe: never the message, which can carry SQL or an applicant's answers. */
