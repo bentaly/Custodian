@@ -235,8 +235,9 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
 }
 
 // Commitment over time (Figma 128:42632 / 434:26775): the same per-round series in
-// two readings — Bars for "what did each round commit", Line for the shape of the
-// trend. Both sit on the shared dot-matrix backdrop with a 5-tick money axis.
+// two readings — Line (the default) for the shape of the trend, Bars for "what did
+// each round commit". Both sit on the shared dot-matrix backdrop with a 5-tick money
+// axis.
 const PLOT_H = 206
 const AXIS_W = 40
 
@@ -651,10 +652,13 @@ function InsightsPage() {
     .sort((a, b) => b.committed - a.committed)
 
   // ── Commitment over time (by round, chronological) ──
-  // Bars and Line plot the same series — what each round committed. (A cumulative
-  // mode was dropped: a running total answers a different question and read as if
-  // the round totals themselves were growing.)
-  const [chartMode, setChartMode] = useState<'bars' | 'line'>('bars')
+  // Line and Bars plot the same series — what each round committed. Line leads and is
+  // the default: the panel is called "over time", and the shape of the trend is the
+  // question a round-by-round series is opened for; bars are the reading you switch to
+  // when comparing one round against another. (A cumulative mode was dropped: a running
+  // total answers a different question and read as if the round totals themselves were
+  // growing.)
+  const [chartMode, setChartMode] = useState<'bars' | 'line'>('line')
   const [showAllThemes, setShowAllThemes] = useState(false)
   const timelineRounds = [
     ...new Map(fil.filter((g) => g.roundId).map((g) => [g.roundId!, g])).keys(),
@@ -1026,7 +1030,8 @@ function InsightsPage() {
                     className="flex items-center gap-0.5 rounded-chip p-0.5"
                     style={{ backgroundColor: C.wash }}
                   >
-                    {(['bars', 'line'] as const).map((m) => (
+                    {/* Line first, and the default — see `chartMode`. */}
+                    {(['line', 'bars'] as const).map((m) => (
                       <button
                         key={m}
                         type="button"
