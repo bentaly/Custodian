@@ -4,6 +4,7 @@ import { admin, emailOTP } from 'better-auth/plugins'
 import { createAccessControl } from 'better-auth/plugins/access'
 import { defaultStatements } from 'better-auth/plugins/admin/access'
 import { getDb } from './db'
+import { withDeadline } from './deadline'
 import { sendSignInCodeEmail, sendPasswordResetCodeEmail } from '../lib/email'
 import { users, sessions, accounts, verifications } from '../../drizzle/schema'
 
@@ -41,6 +42,79 @@ export function getAuth(): ReturnType<typeof createAuth> {
     _auth = createAuth()
   }
   return _auth
+}
+
+/**
+ * How long an auth call may take before we conclude this isolate's auth instance is
+ * poisoned. Deliberately under `READ_DEADLINE_MS` (12s) so this fires first and the
+ * failure is attributed here rather than to whatever server function called in.
+ */
+const AUTH_CALL_DEADLINE_MS = 8_000
+
+/** The plugin-augmented instance, for callers that need to name its types. */
+export type AuthInstance = ReturnType<typeof createAuth>
+
+const AUTH_STALLED = 'AuthStalled' as const
+
+export function isAuthStalled(err: unknown): boolean {
+  return (err as { name?: unknown } | null)?.name === AUTH_STALLED
+}
+
+/**
+ * Every call into BetterAuth goes through here, because the cached instance above can
+ * be poisoned for the life of the isolate — and this is the only way out of that.
+ *
+ * ## The bug
+ *
+ * `betterAuth()` builds its `$context` lazily, as a promise created inside whichever
+ * request happens to touch auth first in a fresh isolate. On Cloudflare, when a client
+ * disconnects, workerd cancels that request's IoContext — and **promises created in a
+ * cancelled context are abandoned, not rejected**. They never settle, and nothing
+ * throws. So if the request that initialised auth is aborted mid-init, `_auth.$context`
+ * stays pending forever, and every later request that awaits it hangs forever too,
+ * until the isolate is evicted.
+ *
+ * This is better-auth issue #10315, open against 1.6.25 (the version in package.json)
+ * with no merged fix. Our production telemetry matches the reports in that thread
+ * closely: tens of seconds of wall time against ~1-20ms of CPU, `outcome: canceled`,
+ * zero errors reported, non-auth routes on the same Worker answering normally
+ * throughout, and — as others in the thread also demonstrated — the database itself
+ * provably healthy and serving concurrent queries.
+ *
+ * It also explains the shape of 18 Aug 2026: five deadline events inside one minute,
+ * from one user. That is not five coincidences, it is one poisoned isolate serving
+ * hang after hang.
+ *
+ * ## Why the fix is a timer and a reset
+ *
+ * The stall cannot be cancelled — an `AbortSignal` is itself bound to an IoContext, so
+ * it cannot reach a promise anchored in a dead one, which is exactly why the 4s abort
+ * in `db.ts` never fired in three incidents. A plain timer is the only thing that
+ * works here.
+ *
+ * And detecting it is only half the job: unless the poisoned instance is thrown away,
+ * the next request hits the same dead promise. Clearing `_auth` makes the isolate
+ * **self-heal** — one request pays 8s, the one after it rebuilds auth and succeeds,
+ * instead of every request hanging until Cloudflare happens to evict the isolate.
+ */
+export async function callAuth<T>(
+  label: string,
+  call: (auth: ReturnType<typeof createAuth>) => Promise<T>,
+): Promise<T> {
+  try {
+    return await withDeadline(call(getAuth()), AUTH_CALL_DEADLINE_MS, () => {
+      const error = new Error(`auth ${label} stalled past ${AUTH_CALL_DEADLINE_MS}ms`)
+      error.name = AUTH_STALLED
+      return error
+    })
+  } catch (err) {
+    if (isAuthStalled(err)) {
+      // Throw the instance away rather than keep serving hangs from it.
+      console.error(`[auth] ${label} stalled — discarding this isolate's auth instance`)
+      _auth = undefined
+    }
+    throw err
+  }
 }
 
 function createAuth() {

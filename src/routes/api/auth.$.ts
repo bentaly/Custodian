@@ -10,11 +10,14 @@ import { withDeadline } from '../../server/deadline'
  * response — the longest hang in the incident, and the only request in it with no
  * deadline of any kind. Every server function beside it stopped at 20s on schedule.
  *
- * 20s matches `READ_DEADLINE_MS`, deliberately: this is the same kind of last-resort
+ * 12s matches `READ_DEADLINE_MS`, deliberately: this is the same kind of last-resort
  * bound on the same kind of work, and one number that is obviously a backstop is worth
- * more than two finely-tuned ones that invite the question of why they differ.
+ * more than two finely-tuned ones that invite the question of why they differ. Both
+ * must stay under the browser's own 15s (`REQUEST_TIMEOUT_MS`) — a bound the other end
+ * never waits for is not a bound, and this route is the one that produced the 90.7s
+ * hang, so it is the last place that should be left above it.
  */
-const AUTH_READ_DEADLINE_MS = 20_000
+const AUTH_READ_DEADLINE_MS = 12_000
 
 /**
  * **GET only.** POSTs to `/api/auth/*` are sign-in, sign-up and password reset — writes,
@@ -25,10 +28,14 @@ export const Route = createFileRoute('/api/auth/$')({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
-        const { getAuth } = await import('../../server/auth')
+        const { callAuth } = await import('../../server/auth')
         try {
+          // `callAuth` carries its own 8s bound AND, crucially, discards a poisoned
+          // auth instance so the isolate recovers — see the note on better-auth
+          // #10315 there. The outer bound stays as a backstop for anything that
+          // stalls outside the auth instance itself.
           return await withDeadline(
-            Promise.resolve(getAuth().handler(request)),
+            callAuth('handler', (auth) => Promise.resolve(auth.handler(request))),
             AUTH_READ_DEADLINE_MS,
             () => new Error(`auth handler exceeded ${AUTH_READ_DEADLINE_MS}ms`),
           )

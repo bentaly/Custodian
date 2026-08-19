@@ -1,7 +1,7 @@
 import { forbidden, unauthorized } from '../lib/errors'
 import { getRequest } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
-import { getAuth } from './auth'
+import { callAuth, type AuthInstance } from './auth'
 import { databaseTimeout, getDb } from './db'
 import { clients, users } from '../../drizzle/schema'
 
@@ -45,10 +45,10 @@ async function timed<T>(label: string, work: () => Promise<T>): Promise<T> {
 
 export async function getAuthUser() {
   const request = getRequest()
-  let session: Awaited<ReturnType<ReturnType<typeof getAuth>['api']['getSession']>>
+  let session: Awaited<ReturnType<AuthInstance['api']['getSession']>>
   try {
     session = await timed('betterauth', () =>
-      getAuth().api.getSession({ headers: request.headers }),
+      callAuth('getSession', (auth) => auth.api.getSession({ headers: request.headers })),
     )
   } catch (err) {
     // Anything else here is BetterAuth rejecting the cookie — an expired or forged
