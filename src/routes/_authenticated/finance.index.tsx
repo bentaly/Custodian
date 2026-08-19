@@ -3,6 +3,7 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import {
   listFinanceGrants,
   getFinanceGrant,
+  BANK_STATUS_LABELS,
   FINANCE_STATUS_LABELS,
   FINANCE_DEFAULT_SORT,
   type BankStatus,
@@ -54,6 +55,7 @@ type FinanceSearch = {
   programmeId?: string
   tag?: string
   status?: FinanceStatus
+  bank?: BankStatus
   from?: string
   to?: string
   sortBy?: SortKey
@@ -63,6 +65,7 @@ type FinanceSearch = {
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 const FINANCE_STATUSES = Object.keys(FINANCE_STATUS_LABELS) as FinanceStatus[]
+const BANK_STATUSES = Object.keys(BANK_STATUS_LABELS) as BankStatus[]
 const SORT_KEYS: SortKey[] = [
   'organisation',
   'programme',
@@ -88,6 +91,9 @@ export const Route = createFileRoute('/_authenticated/finance/')({
     status: FINANCE_STATUSES.includes(search.status as FinanceStatus)
       ? (search.status as FinanceStatus)
       : undefined,
+    bank: BANK_STATUSES.includes(search.bank as BankStatus)
+      ? (search.bank as BankStatus)
+      : undefined,
     from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
     to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
     sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
@@ -109,6 +115,7 @@ export const Route = createFileRoute('/_authenticated/finance/')({
         programmeId: deps.programmeId,
         tag: deps.tag,
         status: deps.status,
+        bank: deps.bank,
         from: deps.from,
         to: deps.to,
         sortBy: deps.sortBy,
@@ -143,10 +150,18 @@ const STATUS_HEX: Record<FinanceStatus, string> = {
   cancelled: 'var(--color-grey-400)',
 }
 
-const BANK_ISSUE_LABELS: Partial<Record<BankStatus, string>> = {
-  missing: 'No details',
-  invalid: 'Check failed',
-  unchecked: 'Unverified',
+/**
+ * The modulus verdict, coloured by what it means for a payment run. `unchecked` is grey
+ * rather than red: it is "we could not run the check" (a sort code or account number of
+ * the wrong shape, or a grant written before the verdict was stored), which is not the
+ * same claim as "these details are wrong" — and the Attention banner counts it as
+ * neither, so the pill must not either.
+ */
+const BANK_HEX: Record<BankStatus, string> = {
+  valid: 'var(--color-success)',
+  invalid: 'var(--color-danger)',
+  missing: 'var(--color-warning)',
+  unchecked: 'var(--color-grey-500)',
 }
 
 const txtSub = 'font-display text-body text-grey-500'
@@ -235,32 +250,21 @@ const PAID: TableColumn<FinanceRow> = {
   ),
 }
 
-const BANK: TableColumn<FinanceRow> = {
+/**
+ * Whether the account we would pay into passes the level-1 modulus check — the one
+ * question the Bank column (last four digits of an account number) never answered. It
+ * keeps the `bank` sort key, so the ordering stays the useful one: the details that
+ * would stop a payment going out, first.
+ */
+const VALID: TableColumn<FinanceRow> = {
   id: 'bank',
   sortable: true,
   hideBelow: 'xl',
-  header: 'Bank',
-  width: 'sm:w-[120px]',
-  cell: (g) => {
-    const issue = BANK_ISSUE_LABELS[g.bank.status]
-    if (!issue) {
-      return (
-        <span className="whitespace-nowrap font-display text-body tabular-nums text-grey-500">
-          ••••{g.bank.last4 ?? '—'}
-        </span>
-      )
-    }
-    return (
-      <span
-        className="whitespace-nowrap font-display text-body font-medium"
-        style={{
-          color: g.bank.status === 'missing' ? 'var(--color-warning)' : 'var(--color-danger)',
-        }}
-      >
-        {issue}
-      </span>
-    )
-  },
+  header: 'Valid',
+  width: 'sm:w-[130px]',
+  cell: (g) => (
+    <StatusPill label={BANK_STATUS_LABELS[g.bank.status]} colour={BANK_HEX[g.bank.status]} />
+  ),
 }
 
 const STATUS: TableColumn<FinanceRow> = {
@@ -307,7 +311,7 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
       )
     },
   },
-  BANK,
+  VALID,
   STATUS,
 ]
 
@@ -326,7 +330,7 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
     width: 'sm:w-[150px]',
     cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.lastPaidDate)}</span>,
   },
-  BANK,
+  VALID,
   STATUS,
 ]
 
@@ -353,6 +357,7 @@ function FinancePage() {
     programmeId,
     tag,
     status,
+    bank,
     from,
     to,
     sortBy,
@@ -453,12 +458,16 @@ function FinancePage() {
           programmeId,
           tag,
           status,
+          bank,
           from,
           to,
           sortBy,
           sortDir,
           page: 1,
           pageSize: 10_000,
+          // The export is a reconciliation file people take to their bank: it carries
+          // the payable details, which the rows on screen deliberately do not.
+          includeBankDetails: true,
         },
       })
       exportCsv(all.items, tab)
@@ -511,6 +520,13 @@ function FinancePage() {
             onChange={(v) => setFilter({ status: (v as FinanceStatus) || undefined })}
           />
           <FilterPill
+            label="Valid"
+            plural="bank checks"
+            value={bank}
+            options={facets.bank.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ bank: (v as BankStatus) || undefined })}
+          />
+          <FilterPill
             label="Programme"
             plural="programmes"
             value={programmeId}
@@ -543,7 +559,7 @@ function FinancePage() {
         {rows.length === 0 ? (
           <EmptyState>
             <p className="text-body text-grey-500">
-              {status || programmeId || tag || roundId || from || to
+              {status || bank || programmeId || tag || roundId || from || to
                 ? 'No grants match these filters.'
                 : tab === 'to_pay'
                   ? 'Nothing outstanding — every grant is paid up.'
@@ -671,10 +687,35 @@ function Attention({ totals }: { totals: Totals }) {
 
 // ─── Export ──────────────────────────────────────────────────────────────────
 
+/** `089999` / `08 99 99` / `08-99-99` all leave as `08-99-99`; anything else, as typed. */
+function dashedSortCode(sortCode: string | null | undefined): string {
+  if (!sortCode) return ''
+  const digits = sortCode.replace(/\D/g, '')
+  return digits.length === 6 ? digits.replace(/(\d{2})(\d{2})(\d{2})/, '$1-$2-$3') : sortCode
+}
+
 /**
- * A reconciliation export of the current tab — the figures on screen, as a
- * spreadsheet. Deliberately NOT a payment file: it carries only the masked account
- * (last four), so it can be shared without handing over payable bank details.
+ * A payment export of the current tab — the figures on screen, as a spreadsheet, with
+ * the details each payment would be made against: account name, sort code, account
+ * number.
+ *
+ * It used to carry the masked account (last four) only, on the reasoning that a file
+ * which cannot be paid from is a file that can be shared freely. That made it the wrong
+ * file for the job it is actually used for: a finance officer reconciling a payment run
+ * against their bank, who then had to open every grant to copy the numbers out one at a
+ * time. Whoever can press this button can already read the same details in the payment
+ * dialog, so this is not a new disclosure — but the file IS now payable, so treat it as
+ * one.
+ *
+ * The sort code is written **dashed** (`08-99-99`) rather than as six digits. Quoting a
+ * CSV field does not stop a spreadsheet reading it as a number, and `089999` opened in
+ * Excel is `89999` — a sort code that has silently lost its first digit. The dashes are
+ * also how a bank asks for it. (An account number beginning with a zero has the same
+ * hazard and no such convention to hide behind; it is exported as stored, so check one
+ * against the app if a payment file is being built from this.)
+ *
+ * `bankName` is deliberately absent: the sort code is what identifies the bank, and the
+ * name is the one bank field no feature reads (see the canonical tiers).
  */
 function exportCsv(rows: FinanceRow[], tab: Tab) {
   const header = [
@@ -690,8 +731,10 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     'Next payment due',
     'Last paid',
     'Status',
-    'Bank',
-    'Account (last 4)',
+    'Account name',
+    'Sort code',
+    'Account number',
+    'Valid',
   ]
   const body = rows.map((g) => [
     g.organisationName,
@@ -706,8 +749,10 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     g.nextPayment?.dueDate ?? '',
     g.lastPaidDate ?? '',
     FINANCE_STATUS_LABELS[g.status],
-    g.bank.status,
-    g.bank.last4 ?? '',
+    g.bank.accountName ?? '',
+    dashedSortCode(g.bank.sortCode),
+    g.bank.accountNumber ?? '',
+    BANK_STATUS_LABELS[g.bank.status],
   ])
   const csv = [header, ...body]
     .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))

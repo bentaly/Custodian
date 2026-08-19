@@ -154,15 +154,20 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
       roundName: sql<string | null>`${rounds.name}`.as('round_name'),
       tags: sql<unknown>`${programmes.tags}`.as('tags'),
       awardStatus: sql<string>`${awards.status}`.as('award_status'),
-      // The account number is here because the column shows its last four. The verdict
-      // beside it is the STORED one (`lib/bankVerification`'s `bankStatus`, written by
-      // `bankFields()` on every path that sets the numbers) — which is what makes the
-      // Bank column sortable and `bankIssueCount` countable without running a modulus
-      // algorithm over every grant in the tenant. NULL on rows written before the
-      // column existed; `bankRank` puts those last rather than guessing.
+      // The verdict here is the STORED one (`lib/bankVerification`'s `bankStatus`,
+      // written by `bankFields()` on every path that sets the numbers) — which is what
+      // makes the Valid column sortable and filterable, and `bankIssueCount` countable,
+      // without running a modulus algorithm over every grant in the tenant. NULL on rows
+      // written before the column existed; `bankVerdict` reads those as `unchecked` and
+      // `bankRank` sorts them with the clean ones rather than guessing.
       bankAccountNumber: sql<string | null>`${applications.bankAccountNumber}`.as(
         'bank_account_number',
       ),
+      // The account name and sort code ride along for the CSV export only — the list
+      // itself shows neither. `listFinanceGrants` drops them from the row unless the
+      // caller asked for a payable file, so a page view still carries no payable pair.
+      bankAccountName: sql<string | null>`${applications.bankAccountName}`.as('bank_account_name'),
+      bankSortCode: sql<string | null>`${applications.bankSortCode}`.as('bank_sort_code'),
       bankStatus: sql<string | null>`${applications.bankCheckStatus}`.as('bank_check_status'),
       committed: committed.as('committed'),
       paidTotal: paidTotal.as('paid_to_date'),
@@ -230,6 +235,18 @@ export function grantRows(db: Db, g: GrantsQuery) {
 }
 export type GrantRow = Awaited<ReturnType<typeof grantRows>>[number]
 
+/**
+ * A grant's stored bank verdict, with NULL read as `unchecked`.
+ *
+ * The column is NULL on grants written before it existed, and the row mapper has always
+ * shown those as `unchecked` — an honest "we do not know", not a problem. This is that
+ * same coalesce in SQL, so the facet count, the filter and the pill on the row are one
+ * definition rather than three.
+ */
+export function bankVerdict(g: GrantsQuery): SQL<string> {
+  return sql<string>`coalesce(${g.bankStatus}, 'unchecked')`
+}
+
 /** Which tab a grant belongs to. Every grant is on exactly one, so the two are exhaustive. */
 export function tabWhere(g: GrantsQuery, tab: 'to_pay' | 'paid'): SQL {
   const settled = sql`${g.status} in ('paid', 'cancelled')`
@@ -252,6 +269,7 @@ export function filterWhere(
     programmeId?: string
     tag?: string
     status?: string
+    bank?: string
     from?: string
     to?: string
   },
@@ -262,6 +280,10 @@ export function filterWhere(
     f.programmeId ? eq(g.programmeId, f.programmeId) : undefined,
     f.tag ? sql`${g.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
     f.status ? eq(g.status, f.status) : undefined,
+    // Through `bankVerdict`, so the filter matches what the column DRAWS: a row written
+    // before the status column existed reads as `unchecked` on screen, and picking
+    // "Not checked" has to return it.
+    f.bank ? sql`${bankVerdict(g)} = ${f.bank}` : undefined,
     // A row with no date at all is outside any window — it cannot be shown to be inside
     // one, and showing it anyway would make the filter mean "or unknown".
     f.from ? sql`${day} >= ${f.from}` : undefined,

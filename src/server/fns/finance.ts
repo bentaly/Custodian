@@ -24,6 +24,7 @@ import {
   grantsQuery,
   tabWhere,
   grantsCol,
+  bankVerdict,
   type FinanceDates,
   type GrantRow,
   type GrantsQuery,
@@ -211,6 +212,8 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
         status: z
           .enum(['overdue', 'due_soon', 'scheduled', 'unscheduled', 'paid', 'cancelled'])
           .optional(),
+        /** The stored modulus verdict, as the Valid column draws it. */
+        bank: z.enum(['valid', 'invalid', 'unchecked', 'missing']).optional(),
         /** Inclusive `yyyy-mm-dd` window against the tab's payment date — see `paymentDate`. */
         from: z
           .string()
@@ -243,6 +246,14 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
         page: z.number().int().positive().optional(),
         /** Raised by the CSV export, which is the whole filtered set by definition. */
         pageSize: z.number().int().positive().max(10_000).optional(),
+        /**
+         * Put the payable bank details on every row: account name, sort code, account
+         * number in full. Only the CSV export asks for this — the screen shows a verdict
+         * and nothing else, so an ordinary page view never ships a payable pair to the
+         * browser. Same audience either way: anyone who can open a grant here already
+         * sees these in the payment dialog.
+         */
+        includeBankDetails: z.boolean().optional(),
       })
       .optional(),
   )
@@ -262,12 +273,14 @@ export type FinanceListInput = {
   programmeId?: string
   tag?: string
   status?: FinanceStatus
+  bank?: BankStatus
   from?: string
   to?: string
   sortBy?: SortKey
   sortDir?: 'asc' | 'desc'
   page?: number
   pageSize?: number
+  includeBankDetails?: boolean
 }
 
 /**
@@ -324,6 +337,7 @@ export async function financeList(
     horizons,
     soonest,
     statusFacet,
+    bankFacet,
     programmeFacet,
     themeFacet,
     roundFacet,
@@ -370,6 +384,7 @@ export async function financeList(
     upcomingTotals(db, g, dates),
     upcomingItems(db, g, dates),
     facetOn(g.status, g.status),
+    facetOn(bankVerdict(g), bankVerdict(g)),
     facetOn(g.programmeId, g.programmeName),
     db
       .select({
@@ -384,7 +399,7 @@ export async function financeList(
     facetOn(g.roundId, g.roundName),
   ])
 
-  const items = rows.map(toFinanceRow)
+  const items = rows.map((r) => toFinanceRow(r, data.includeBankDetails ?? false))
   const totalsBase = totalsRow[0]!
   const totals = {
     ...totalsBase,
@@ -411,6 +426,13 @@ export async function financeList(
         statusFacet.map((f) => ({
           value: f.value as FinanceStatus,
           label: FINANCE_STATUS_LABELS[f.value as FinanceStatus] ?? f.value,
+          count: f.count,
+        })),
+      ),
+      bank: sortFacet(
+        bankFacet.map((f) => ({
+          value: f.value as BankStatus,
+          label: BANK_STATUS_LABELS[f.value as BankStatus] ?? f.value,
           count: f.count,
         })),
       ),
@@ -468,7 +490,7 @@ function sortFacet(options: FacetOption[]): FacetOption[] {
  * The row the table renders. The money arrives as `float8` (JS numbers) rather than
  * numeric strings, because every consumer parsed them anyway.
  */
-function toFinanceRow(r: GrantRow) {
+function toFinanceRow(r: GrantRow, includeBankDetails: boolean) {
   return {
     awardId: r.awardId,
     applicationId: r.applicationId,
@@ -495,13 +517,37 @@ function toFinanceRow(r: GrantRow) {
     overdueCount: r.overdueCount,
     dueSoonAmount: r.dueSoonAmount,
     dueSoonCount: r.dueSoonCount,
-    // The stored verdict, not a fresh check: the list must show what it sorted and
-    // counted by. `unchecked` is the honest answer for a row that predates the column.
-    bank: {
-      status: (r.bankStatus ?? 'unchecked') as BankStatus,
-      last4: last4(r.bankAccountNumber),
-    },
+    // The stored verdict, not a fresh check: the list must show what it sorted, filtered
+    // and counted by. `unchecked` is the honest answer for a row that predates the column.
+    bank: bankCell(r, includeBankDetails),
   }
+}
+
+/**
+ * The bank part of a row: the verdict always, the payable details only where the caller
+ * asked for them (the CSV export). Declared rather than inferred so the optional half is
+ * one shape with three optional fields, not a union the screen has to narrow.
+ *
+ * No masked `last4` any more — the Valid column replaced the digits with the verdict, and
+ * a field the screen does not draw is one nobody can see has gone wrong.
+ */
+type BankCell = {
+  status: BankStatus
+  accountName?: string | null
+  sortCode?: string | null
+  accountNumber?: string | null
+}
+
+function bankCell(r: GrantRow, includeBankDetails: boolean): BankCell {
+  const cell: BankCell = { status: (r.bankStatus ?? 'unchecked') as BankStatus }
+  // Only for the export: the screen shows the verdict alone, so a payable pair is not
+  // sitting in the page payload of every finance officer's browser.
+  if (includeBankDetails) {
+    cell.accountName = r.bankAccountName
+    cell.sortCode = r.bankSortCode
+    cell.accountNumber = r.bankAccountNumber
+  }
+  return cell
 }
 
 /**
@@ -680,13 +726,28 @@ export const FINANCE_STATUS_LABELS: Record<FinanceStatus, string> = {
   cancelled: 'Cancelled',
 }
 
+/**
+ * One vocabulary for the modulus verdict, shared by the Valid column and its filter.
+ *
+ * They are worded as what they mean for a payment run rather than as the checker's own
+ * words: `unchecked` is not a failure — it is a pair we could not run the algorithm over
+ * (wrong shape), or a grant written before the column existed.
+ */
+export const BANK_STATUS_LABELS: Record<BankStatus, string> = {
+  valid: 'Valid',
+  invalid: 'Check failed',
+  missing: 'No details',
+  unchecked: 'Not checked',
+}
+
 function emptyFacets(): {
   statuses: FacetOption[]
+  bank: FacetOption[]
   programmes: FacetOption[]
   themes: FacetOption[]
   rounds: FacetOption[]
 } {
-  return { statuses: [], programmes: [], themes: [], rounds: [] }
+  return { statuses: [], bank: [], programmes: [], themes: [], rounds: [] }
 }
 
 function emptyTotals() {
