@@ -155,6 +155,20 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
+/** A programme column's second line: how many grants, and what they add up to. */
+function subline(p: {
+  grants: number
+  impact: number | null
+  unitLabel: string
+  hasProposed: boolean
+}): string {
+  const grants = `${p.grants} grant${p.grants !== 1 ? 's' : ''}`
+  if (p.impact == null || p.impact <= 0) return grants
+  return `${grants} · ${impactPhrase(p.impact, p.unitLabel)}${
+    p.hasProposed ? ' (incl. proposed)' : ''
+  }`
+}
+
 /** The three bands the chart's legend names, each by a decile inside it. */
 const DECILE_LEGEND = [
   { decile: 1, label: '1–3 most deprived' },
@@ -1083,14 +1097,14 @@ function InsightsPage() {
                         >
                           <TruncatedText text={p.name} label="Programme name" />
                         </div>
-                        <p className="truncate font-display text-label" style={{ color: C.sub }}>
-                          {p.grants} grant{p.grants !== 1 ? 's' : ''}
-                          {p.impact != null && p.impact > 0
-                            ? ` · ${impactPhrase(p.impact, p.unitLabel)}${
-                                p.hasProposed ? ' (incl. proposed)' : ''
-                              }`
-                            : ''}
-                        </p>
+                        {/* `TruncatedText`, as the programme name above it — these
+                            columns are sized by share of the total, so a small
+                            programme's is narrow enough to clip "31,000 items
+                            delivered" to "31,000 ite…", and a bare CSS truncate leaves
+                            the number with no way to be read. */}
+                        <div className="font-display text-label" style={{ color: C.sub }}>
+                          <TruncatedText text={subline(p)} label="Grants and impact" />
+                        </div>
                       </div>
                     </Fragment>
                   )
@@ -1244,11 +1258,15 @@ function InsightsPage() {
               <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]">
                 <div className="flex flex-col">
                   <Choropleth
-                    // 70%. The UK is a portrait shape fitted to its column, so at full
-                    // width this panel ran taller than everything beside it and the map
-                    // was the reason. Shrinking the drawing rather than the column keeps
-                    // the donut and the list where they are.
-                    scale={0.7}
+                    // The shrink is for PORTRAIT views only. The UK is a portrait shape
+                    // fitted to its column, so at full width this panel ran taller than
+                    // everything beside it and the map was the reason; 70% keeps the
+                    // donut and the list where they are. The world is the opposite shape
+                    // — landscape, fitted at about 1.7:1 — so the same 70% bought nothing
+                    // and cost height, leaving a letterbox with white either side of it.
+                    // At full column width it draws around 40% taller with no more space
+                    // taken from the panel than the UK view already takes.
+                    scale={mapView.kind === 'world' || mapView.kind === 'country' ? 1 : 0.7}
                     view={mapView}
                     onViewChange={(v) => {
                       setMapView(v)
