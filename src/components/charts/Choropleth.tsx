@@ -838,6 +838,9 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
           Less
         </span>
         <span className="flex">
+          {/* Keyed by POSITION, not colour: the ramp's top four steps are all
+              `--color-brand` (the lightness comes from the dot density, not the hue),
+              so a colour key is four duplicates. A band's identity is where it sits. */}
           {RAMP.map((c, i) => {
             const swatch = (
               <span
@@ -855,7 +858,7 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
             )
             // Without cuts the ramp is only "less → more" and the swatch has nothing to
             // say, so it stays a plain block rather than an empty tab stop.
-            if (!cuts.length) return <span key={c}>{swatch}</span>
+            if (!cuts.length) return <span key={i}>{swatch}</span>
             const band =
               i === 0
                 ? `up to ${fmtMoney(cuts[0]!)}`
@@ -864,7 +867,7 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
                   : `${fmtMoney(cuts[i - 1]!)} – ${fmtMoney(cuts[i]!)}`
             return (
               <Tooltip
-                key={c}
+                key={i}
                 label={`Band ${i + 1} of ${RAMP.length}`}
                 trigger={swatch}
                 triggerClassName="flex focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
