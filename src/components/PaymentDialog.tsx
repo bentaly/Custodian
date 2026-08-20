@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Alert02Icon, PencilEdit02Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { Alert02Icon, Mail01Icon, PencilEdit02Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import { setInstalmentPaid, updateInstalment } from '../server/fns/applications'
 import { updateGrantBankDetails } from '../server/fns/finance'
 import type { getFinanceGrant, BankStatus } from '../server/fns/finance'
@@ -136,10 +136,7 @@ function GrantLinks({ grant }: { grant: FinanceGrant }) {
     grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''
   }`
   return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"
-      style={{ borderColor: C.line }}
-    >
+    <div className="flex flex-wrap items-center justify-between gap-3">
       {grant.applicantEmail ? (
         // `control`: the address DESCRIBES a link that already names itself, so the
         // tooltip must not add a tab stop or a second name over the top of it.
@@ -148,9 +145,13 @@ function GrantLinks({ grant }: { grant: FinanceGrant }) {
           label="Grantee email address"
           trigger={
             <ExternalTextLink
-              className="text-body"
+              className="inline-flex items-center gap-1.5 text-body"
               href={`mailto:${encodeURIComponent(grant.applicantEmail)}?subject=${encodeURIComponent(subject)}`}
             >
+              {/* The same mark "email this organisation" wears on the application and
+                  report screens — `currentColor` so it is the link's brand, and 16px,
+                  which is what `Button` gives a small control's leading icon. */}
+              <HugeiconsIcon icon={Mail01Icon} size={16} color="currentColor" />
               Email grantee
             </ExternalTextLink>
           }
