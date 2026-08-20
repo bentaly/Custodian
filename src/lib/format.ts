@@ -115,3 +115,16 @@ export function isoValue(date: Date | string): string {
   if (typeof date === 'string' && ISO_DAY.test(date)) return date
   return new Date(date).toISOString()
 }
+
+/**
+ * The foundation's OWN reference for an application, as a line of subtext: `Ref A-1234`.
+ *
+ * Prefixed rather than bare because it is always read among other facts — a programme, a
+ * region, a round — and an unlabelled code in that company reads as one more of them.
+ * The word matches the one search already uses when it matches on the ref. `null` for a
+ * submission that carried no reference, so callers can drop it from a `·`-joined line
+ * rather than printing an empty label.
+ */
+export function fmtRef(ref: string | null | undefined): string | null {
+  return ref ? `Ref ${ref}` : null
+}

@@ -148,6 +148,10 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
       awardId: sql<string>`${awards.id}`.as('award_id'),
       applicationId: sql<string>`${applications.id}`.as('application_id'),
       organisationName: sql<string>`${applications.organisationName}`.as('organisation_name'),
+      /** The foundation's own reference — the row's subtext, and a column in the export. */
+      externalApplicationId: sql<string | null>`${applications.externalApplicationId}`.as(
+        'external_application_id',
+      ),
       programmeId: sql<string | null>`${roundProgrammes.programmeId}`.as('programme_id'),
       programmeName: sql<string | null>`${programmes.name}`.as('programme_name'),
       roundId: sql<string | null>`${roundProgrammes.roundId}`.as('round_id'),

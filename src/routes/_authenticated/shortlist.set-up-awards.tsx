@@ -33,7 +33,7 @@ import {
   type TableColumn,
 } from '../../components/ui'
 import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
-import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
+import { fmtCompact, fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 
 const PAGE_SIZE = 25
@@ -184,7 +184,7 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
         subline={[
           c.charityNumber ? 'Reg. charity' : c.companyNumber ? 'Company' : null,
           c.deliveryArea,
-          c.externalApplicationId,
+          fmtRef(c.externalApplicationId),
         ]
           .filter(Boolean)
           .join(' · ')}
@@ -420,8 +420,8 @@ function SetUpAwards() {
             Set up awards
           </p>
           <p className="font-display text-body" style={{ color: C.sub }}>
-            Board-approved applications, ready to convert into live, scheduled grants. Trustees do
-            not see this tab.
+            Board-approved applications, ready to convert into live, scheduled grants. You can set
+            up many awards in at the same time.
           </p>
         </div>
       </div>

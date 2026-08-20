@@ -29,7 +29,7 @@ import {
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { AREA_ICON } from '../../components/Sidebar'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
   loader: ({ params }) => orNotFound(getReport({ data: { key: params.reportKey } })),
@@ -121,6 +121,7 @@ function ReportDetail() {
     report.label,
     report.programmeName,
     report.roundName,
+    fmtRef(report.reference),
     `${fmtMoney(grantAmount)} awarded ${fmtDate(report.grant.decisionAt)}`,
   ]
     .filter(Boolean)

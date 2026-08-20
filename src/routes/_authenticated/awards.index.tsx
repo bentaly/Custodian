@@ -19,7 +19,7 @@ import { listAwards, GRANT_STATUS_LABELS, AWARDS_DEFAULT_SORT } from '../../serv
 import { facetLabel } from '../../lib/facets'
 import { C } from '../../components/ui/tokens'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
-import { fmtCompact, fmtDate, fmtMoney } from '../../lib/format'
+import { fmtCompact, fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 
 type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
@@ -130,14 +130,15 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     header: 'Organisation',
     // Monogram + two-line identity, as on Applications. The subline is where the grantee
-    // works — the one identifying fact with no column of its own, and reachable through
-    // search rather than a pill.
+    // works and the foundation's own reference for them — the two identifying facts with
+    // no column of their own, both reachable through search rather than a pill.
     //
     // Round LEFT the subline when it gained a column. The rule the register follows now:
     // anything you can FILTER by has somewhere on the row to be read, or the filter is a
     // control whose effect you cannot see — pick a round and every row looks the same.
     cell: (g) => {
-      const subline = g.deliveryArea || '—'
+      const subline =
+        [g.deliveryArea, fmtRef(g.externalApplicationId)].filter(Boolean).join(' · ') || '—'
       return (
         <div className="flex items-center gap-2">
           <div

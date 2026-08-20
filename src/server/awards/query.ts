@@ -70,6 +70,10 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
       awardId: sql<string>`${awards.id}`.as('award_id'),
       applicationId: sql<string>`${applications.id}`.as('application_id'),
       organisationName: sql<string>`${applications.organisationName}`.as('organisation_name'),
+      /** The foundation's own reference for the application this grant came from. */
+      externalApplicationId: sql<string | null>`${applications.externalApplicationId}`.as(
+        'external_application_id',
+      ),
       programmeId: sql<string | null>`${roundProgrammes.programmeId}`.as('programme_id'),
       programmeName: sql<string | null>`${programmes.name}`.as('programme_name'),
       programmeColour: sql<string | null>`${programmes.colour}`.as('programme_colour'),

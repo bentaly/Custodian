@@ -495,6 +495,7 @@ function toFinanceRow(r: GrantRow, includeBankDetails: boolean) {
     awardId: r.awardId,
     applicationId: r.applicationId,
     organisationName: r.organisationName,
+    externalApplicationId: r.externalApplicationId,
     programmeId: r.programmeId,
     programmeName: r.programmeName,
     roundId: r.roundId,

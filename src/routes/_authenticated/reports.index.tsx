@@ -22,7 +22,7 @@ import {
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { facetLabel } from '../../lib/facets'
-import { fmtDate } from '../../lib/format'
+import { fmtDate, fmtRef } from '../../lib/format'
 
 // From the server fn, not the route loader: `Route.useLoaderData` is circular here
 // (the route's component uses this type), which resolves to `any`.
@@ -31,9 +31,6 @@ type ReportItem = Awaited<ReturnType<typeof listReports>>['items'][number]
 type AwaitingItem = Awaited<ReturnType<typeof listReports>>['awaiting'][number]
 type Horizons = Awaited<ReturnType<typeof listReports>>['horizons']
 
-// `report` stays a sort key even though the Report column folded into the identity cell
-// below: the server still accepts it, and the label is the obvious thing to want back as
-// a column the moment a foundation names its milestones something worth sorting on.
 type SortKey = 'organisation' | 'programme' | 'round' | 'report' | 'received' | 'due'
 type SortDir = 'asc' | 'desc'
 const SORT_KEYS: SortKey[] = ['organisation', 'programme', 'round', 'report', 'received', 'due']
@@ -136,14 +133,14 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     id: 'organisation',
     sortable: true,
     header: 'Organisation',
-    width: 'sm:w-[36%]',
-    // The house identity cell: monogram, then who it is over what it is. The milestone
-    // label rides in the subline rather than a column of its own, because "Year 1 report"
-    // only means anything attached to the grantee it belongs to — and a report named
-    // twice on one row (subline and column) is a column's worth of width spent on nothing.
-    // Round is NOT in the subline for exactly that reason: it has a column now.
+    width: 'sm:w-[28%]',
+    // The house identity cell: monogram, then who it is over what it is. The subtext is
+    // the foundation's OWN reference for the grant — the same fact in the same place as on
+    // the Applications list, so a row can be tied back to their other systems without
+    // opening it. The milestone label left the subline when it gained a column of its
+    // own; nothing on a row is stated twice.
     cell: (item) => {
-      const subline = item.label || '—'
+      const subline = fmtRef(item.externalApplicationId) ?? '—'
       return (
         <div className="flex items-center gap-2">
           <div
@@ -171,6 +168,20 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
         </div>
       )
     },
+  },
+  {
+    // What the report IS — "Year 1 report", "Final report", whatever the foundation named
+    // the milestone. It has a column rather than riding in the subline because it is the
+    // one fact that tells two reports from the same grantee apart, and because the row's
+    // subtext is now the foundation's own reference. Sortable: the server has taken this
+    // key all along.
+    id: 'report',
+    sortable: true,
+    header: 'Report',
+    width: 'sm:w-[180px]',
+    cell: (item) => (
+      <span className="font-display text-body text-grey-500">{item.label || '—'}</span>
+    ),
   },
   {
     id: 'programme',
@@ -232,17 +243,18 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
 ]
 
 /**
- * The Awaiting tab's columns. Same first three as the documents table, so switching tab
- * does not move the grantee, the programme and the round out from under you — then Due
- * rather than Received, and a status from the other vocabulary (`overdue` / `due_soon` /
- * `upcoming`), because these rows have not arrived and cannot be "reviewed".
+ * The Awaiting tab's columns. Same leading columns as the documents table, so switching
+ * tab does not move the grantee, the report, the programme and the round out from under
+ * you — then Due rather than Received, and a status from the other vocabulary
+ * (`overdue` / `due_soon` / `upcoming`), because these rows have not arrived and cannot
+ * be "reviewed".
  */
 const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
   {
     id: 'organisation',
     sortable: true,
     header: 'Organisation',
-    width: 'sm:w-[36%]',
+    width: 'sm:w-[28%]',
     cell: (item) => (
       <div className="flex items-center gap-2">
         <div
@@ -264,10 +276,21 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
             {item.organisationName}
           </Link>
           <p className="truncate font-display text-label" style={{ color: C.sub }}>
-            {item.label || '—'}
+            {fmtRef(item.externalApplicationId) ?? '—'}
           </p>
         </div>
       </div>
+    ),
+  },
+  {
+    // The milestone's own name, as on the documents table — the two tabs keep the same
+    // leading columns, so switching tab does not move a fact out from under you.
+    id: 'report',
+    sortable: true,
+    header: 'Report',
+    width: 'sm:w-[180px]',
+    cell: (item) => (
+      <span className="font-display text-body text-grey-500">{item.label || '—'}</span>
     ),
   },
   {

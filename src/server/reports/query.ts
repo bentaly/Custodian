@@ -38,6 +38,10 @@ function grantColumns() {
     awardId: sql<string>`${awards.id}`.as('award_id'),
     applicationId: sql<string>`${applications.id}`.as('application_id'),
     organisationName: sql<string>`${applications.organisationName}`.as('organisation_name'),
+    /** The foundation's own reference for the grant — the row's subtext, as elsewhere. */
+    externalApplicationId: sql<string | null>`${applications.externalApplicationId}`.as(
+      'external_application_id',
+    ),
     programmeId: sql<string | null>`${roundProgrammes.programmeId}`.as('programme_id'),
     programmeName: sql<string | null>`${programmes.name}`.as('programme_name'),
     roundId: sql<string | null>`${rounds.id}`.as('round_id'),

@@ -13,7 +13,7 @@ import { castVote } from '../../server/fns/comments'
 import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/custodianScore'
 import type { DeprivationResult } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import { fmtMoney } from '../../lib/format'
+import { fmtMoney, fmtRef } from '../../lib/format'
 import { Avatar, ErrorNote, TextLink, initials } from '../ui'
 import { useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
@@ -382,7 +382,7 @@ export function VoteCard({
   // Narrow on the payload's own discriminant rather than the denormalised status
   // column, so the fields we read are guaranteed present by the type.
   const deprivation = app.deprivationContext?.status === 'resolved' ? app.deprivationContext : null
-  const subline = [app.deliveryRegion ?? app.deliveryArea, app.externalApplicationId]
+  const subline = [app.deliveryRegion ?? app.deliveryArea, fmtRef(app.externalApplicationId)]
     .filter(Boolean)
     .join(' · ')
 
@@ -711,7 +711,7 @@ export function VoteCard({
             params={{ applicationId: app.id }}
             className="mt-auto pt-1 text-center text-body"
           >
-            View Application details
+            View Application details →
           </TextLink>
         </div>
       </div>

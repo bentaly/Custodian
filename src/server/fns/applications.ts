@@ -678,6 +678,7 @@ function toAwardRow(r: AwardGrantRow) {
     awardId: r.awardId,
     applicationId: r.applicationId,
     organisationName: r.organisationName,
+    externalApplicationId: r.externalApplicationId,
     programmeName: r.programmeName,
     programmeColour: r.programmeColour,
     roundName: r.roundName,

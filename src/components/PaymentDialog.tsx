@@ -6,7 +6,7 @@ import { updateGrantBankDetails } from '../server/fns/finance'
 import type { getFinanceGrant, BankStatus } from '../server/fns/finance'
 import { Badge, Button, DateField, Dialog, Input, TextLink, cn } from './ui'
 import { C } from './ui/tokens'
-import { fmtDate, fmtMoney } from '../lib/format'
+import { fmtDate, fmtMoney, fmtRef } from '../lib/format'
 import { messageFor } from '../lib/errors'
 
 // The payment panel (Figma 672:25886) — one grant's money in a dialog over the Finance
@@ -59,6 +59,15 @@ export function PaymentDialog({
         // no emphasised half: the comp gives the whole line Gray/500.
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
           <span>{grant.organisationName}</span>
+          {/* Their own reference for the grant: this dialog is where a payment is marked
+              paid, so it is exactly where someone is holding a bank statement or a
+              ledger line and needs to know they have the right grant. */}
+          {grant.externalApplicationId && (
+            <>
+              <span aria-hidden>·</span>
+              <span>{fmtRef(grant.externalApplicationId)}</span>
+            </>
+          )}
           {grant.programmeName && (
             <>
               <span aria-hidden>·</span>

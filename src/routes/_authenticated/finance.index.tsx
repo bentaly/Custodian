@@ -29,7 +29,7 @@ import {
 import { C } from '../../components/ui/tokens'
 import { facetLabel } from '../../lib/facets'
 import { messageFor } from '../../lib/errors'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 
 // Derived from the server fn rather than the route loader: `Route.useLoaderData` is
 // circular here (the route's component uses these types), which resolves to `any`.
@@ -168,12 +168,23 @@ const txtSub = 'font-display text-body text-grey-500'
 
 // ─── Columns ─────────────────────────────────────────────────────────────────
 
+// Two lines: the grantee, then the foundation's OWN reference for the grant beneath it.
+// Finance is the screen where a row is matched against something outside Custodian — a
+// ledger, a payment run, an invoice — and the ref is what it is matched ON, so a
+// reconciler had to open every grant to read it.
 const ORGANISATION: TableColumn<FinanceRow> = {
   id: 'organisation',
   sortable: true,
   header: 'Organisation',
   cell: (g) => (
-    <span className="font-display text-body font-medium text-grey-900">{g.organisationName}</span>
+    <div className="min-w-0">
+      <p className="truncate font-display text-body font-medium text-grey-900">
+        {g.organisationName}
+      </p>
+      <p className="truncate font-display text-label" style={{ color: C.sub }}>
+        {fmtRef(g.externalApplicationId) ?? '—'}
+      </p>
+    </div>
   ),
 }
 
@@ -720,6 +731,9 @@ function dashedSortCode(sortCode: string | null | undefined): string {
 function exportCsv(rows: FinanceRow[], tab: Tab) {
   const header = [
     'Organisation',
+    // The foundation's own reference, second: this file exists to be reconciled against
+    // their ledger, and the ref is the column the two are joined on.
+    'Reference',
     'Programme',
     'Round',
     'Theme',
@@ -738,6 +752,7 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
   ]
   const body = rows.map((g) => [
     g.organisationName,
+    g.externalApplicationId ?? '',
     g.programmeName ?? '',
     g.roundName ?? '',
     g.tags.join('; '),

@@ -26,7 +26,7 @@ import {
   type AwardLetterInput,
 } from '../../lib/awardLetter'
 import { CADENCES, buildSchedule, cadenceMonths, type CadenceKey } from '../../lib/awardSchedule'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 import { todayIso } from '../../lib/schedule'
 import { longerTimeout } from '../../lib/requestTimeout'
 
@@ -763,7 +763,9 @@ export function AwardWizard({
                           {c.organisationName}
                         </span>
                         <span className="font-display text-label" style={{ color: C.sub }}>
-                          {[c.deliveryArea, c.externalApplicationId].filter(Boolean).join(' · ')}
+                          {[c.deliveryArea, fmtRef(c.externalApplicationId)]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </span>
                       </div>
                       <div className="mt-0.5 font-display text-label" style={{ color: C.sub }}>

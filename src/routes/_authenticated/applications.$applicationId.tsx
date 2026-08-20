@@ -53,7 +53,7 @@ import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gap
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
-import { fmtCompact, fmtMoney } from '../../lib/format'
+import { fmtCompact, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, PROGRAMME_COLOURS, bandForScore } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
@@ -464,6 +464,9 @@ function ApplicationDetail() {
           application.charityNumber ? `Charity no. ${application.charityNumber}` : null,
           region,
           roundName ? `${roundName} round` : null,
+          // Their own reference for this application — the string they quote when they
+          // ring up about it, and the one identifying fact the header had not got.
+          fmtRef(application.externalApplicationId),
         ]
           .filter(Boolean)
           .join(' · ')}

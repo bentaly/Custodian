@@ -38,7 +38,7 @@ import {
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { AREA_ICON } from '../../components/Sidebar'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
   loader: ({ params }) => orNotFound(getAward({ data: { id: params.awardId } })),
@@ -97,6 +97,10 @@ function AwardDetail() {
     award.programmeName,
     award.roundName,
     award.deliveryArea,
+    // The foundation's own reference, in the header rather than only in the key facts
+    // far below: it is how they will look this grant up in their own systems, and it
+    // reads in the same place on every screen that names a grantee.
+    fmtRef(award.application.externalApplicationId),
     `Awarded ${fmtDate(award.decisionAt)}`,
     durationLabel(award.durationYears),
   ]
@@ -882,7 +886,9 @@ function ApplicationPanel({ award }: { award: AwardData }) {
       >
         Source application
       </PanelTitle>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 xl:grid-cols-5">
+      {/* Four facts, not five: "Their reference" moved up to the header subline, where
+          every other screen states it. */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 xl:grid-cols-4">
         <KeyFact label="Requested" value={fmtMoney(a.amountRequested)} />
         <KeyFact
           label="Awarded"
@@ -911,7 +917,6 @@ function ApplicationPanel({ award }: { award: AwardData }) {
             a.charityNumber ? 'charity number' : a.companyNumber ? 'company number' : 'none held'
           }
         />
-        <KeyFact label="Their reference" value={a.externalApplicationId ?? '—'} />
       </div>
     </Panel>
   )
