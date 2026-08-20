@@ -155,18 +155,22 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
+/**
+ * A theme tile's second line: how many grants, what they came to, and the impact —
+ * one total per unit, because a theme spans programmes and programmes measure in
+ * different things.
+ */
+function themeLine(t: { count: number; amount: number; impact: UnitTotal[] }): string {
+  return [
+    `${t.count} grant${t.count !== 1 ? 's' : ''}`,
+    fmtCompact(t.amount),
+    ...t.impact.map(unitPhrase),
+  ].join(' · ')
+}
+
 /** A programme column's second line: how many grants, and what they add up to. */
-function subline(p: {
-  grants: number
-  impact: number | null
-  unitLabel: string
-  hasProposed: boolean
-}): string {
-  const grants = `${p.grants} grant${p.grants !== 1 ? 's' : ''}`
-  if (p.impact == null || p.impact <= 0) return grants
-  return `${grants} · ${impactPhrase(p.impact, p.unitLabel)}${
-    p.hasProposed ? ' (incl. proposed)' : ''
-  }`
+function subline(p: { grants: number; impact: UnitTotal[] }): string {
+  return [`${p.grants} grant${p.grants !== 1 ? 's' : ''}`, ...p.impact.map(unitPhrase)].join(' · ')
 }
 
 /** The three bands the chart's legend names, each by a decile inside it. */
@@ -571,8 +575,41 @@ function effImpact(g: InsightsGrant): { value: number; source: ImpactSource } | 
     return { value: g.proposedImpactQuantity, source: 'proposed' }
   return null
 }
-function sumImpact(grants: InsightsGrant[]): number {
-  return grants.reduce((s, g) => s + (effImpact(g)?.value ?? 0), 0)
+/** One unit's worth of impact: the total, and whether an estimate is inside it. */
+type UnitTotal = { key: string; label: string; value: number; hasProposed: boolean }
+
+/**
+ * Impact totalled WITHIN each unit the given grants measure in, never across them —
+ * the one rule this screen has about impact, and the reason there is no single
+ * "total impact" number anywhere on it. Ordered by size, so a mixed set leads with
+ * the unit carrying most of it.
+ *
+ * A set spanning "people" and "meals" has no combined total: 1,200 + 31,000 is not
+ * 32,200 of anything. It has two totals, and the honest thing is to say both.
+ */
+function impactByUnit(grants: InsightsGrant[]): UnitTotal[] {
+  const byUnit = new Map<string, UnitTotal>()
+  for (const g of grants) {
+    const eff = effImpact(g)
+    if (!eff) continue
+    const t = byUnit.get(g.unitKey) ?? {
+      key: g.unitKey,
+      label: g.unitLabel,
+      value: 0,
+      hasProposed: false,
+    }
+    t.value += eff.value
+    // Same honesty as everywhere else impact is quoted: a sum containing an
+    // applicant's proposal is not a sum of what was achieved.
+    t.hasProposed = t.hasProposed || eff.source === 'proposed'
+    byUnit.set(g.unitKey, t)
+  }
+  return [...byUnit.values()].sort((a, b) => b.value - a.value)
+}
+
+/** `1,200 people`, `31,000 items delivered (incl. proposed)`. */
+function unitPhrase(t: UnitTotal): string {
+  return `${impactPhrase(t.value, t.label)}${t.hasProposed ? ' (incl. proposed)' : ''}`
 }
 
 type RoundProgramme = {
@@ -581,11 +618,10 @@ type RoundProgramme = {
   name: string
   grants: number
   total: number
-  /** Impact in this programme's own unit — `null` when no grant has stated a figure. */
-  impact: number | null
-  unitLabel: string
-  /** True when any figure in the sum is the applicant's proposal rather than a report. */
-  hasProposed: boolean
+  /** Impact in this programme's own unit — empty when no grant has stated a figure.
+   *  A list because it comes from the one helper every impact figure on this screen
+   *  goes through; a programme has one unit, so it holds at most one total. */
+  impact: UnitTotal[]
 }
 
 /**
@@ -598,17 +634,12 @@ function roundProgrammes(grants: InsightsGrant[]): RoundProgramme[] {
   return [...new Set(grants.map((g) => g.programmeId))]
     .map((pid) => {
       const own = grants.filter((g) => g.programmeId === pid)
-      const eff = own
-        .map(effImpact)
-        .filter((e): e is { value: number; source: ImpactSource } => e !== null)
       return {
         id: pid,
         name: own[0]!.programmeName ?? '—',
         grants: own.length,
         total: own.reduce((s, g) => s + g.amountAwarded, 0),
-        impact: eff.length > 0 ? eff.reduce((s, e) => s + e.value, 0) : null,
-        unitLabel: own[0]!.unitLabel,
-        hasProposed: eff.some((e) => e.source === 'proposed'),
+        impact: impactByUnit(own),
       }
     })
     .sort((a, b) => b.total - a.total)
@@ -684,17 +715,28 @@ function InsightsPage() {
   const minGrant = amounts.length ? Math.min(...amounts) : 0
   const maxGrant = amounts.length ? Math.max(...amounts) : 0
 
-  const selectedProgramme = programmeId ? fil.find((g) => g.programmeId === programmeId) : undefined
-  const impactPool = selectedProgramme ? fil : fil.filter((g) => g.unitKey === 'people')
-  // Provenance-aware: prefer reported actuals, fall back to proposed. Track the split
-  // so estimates are surfaced, never silently passed off as achieved impact.
-  const impactEff = impactPool
+  // A stat card holds ONE number, so it has to speak in one unit — and the unit it
+  // picks is the portfolio's own biggest, not `people`.
+  //
+  // `people` was hard-coded here because it is the app's DEFAULT unit, which is not a
+  // reason: a foundation whose programmes all measure meals, hectares or tonnes CO₂e
+  // got a card reading "—" over "no people-measured programmes here", as though it had
+  // never collected an impact figure in its life. The card is labelled with whichever
+  // unit it is speaking in, so it is never read as covering units it left out — and
+  // the per-programme and per-theme panels below state every unit in play.
+  const impactUnits = impactByUnit(fil)
+  const headlineUnit = impactUnits[0] ?? null
+  // Provenance-aware: prefer reported actuals, fall back to proposed. The split is
+  // surfaced in the card's sub, so an estimate is never passed off as achieved impact.
+  const impactEff = (headlineUnit ? fil.filter((g) => g.unitKey === headlineUnit.key) : [])
     .map(effImpact)
     .filter((e): e is { value: number; source: ImpactSource } => e !== null)
-  const impactTotal = impactEff.reduce((s, e) => s + e.value, 0)
+  const impactTotal = headlineUnit?.value ?? 0
   const impactReportedCount = impactEff.filter((e) => e.source === 'reported').length
   const impactProposedCount = impactEff.filter((e) => e.source === 'proposed').length
-  const impactLabel = selectedProgramme ? selectedProgramme.unitLabel : 'People reached'
+  // Grants measuring in something else — counted in the sub, never silently folded in.
+  const impactOtherUnits = Math.max(0, impactUnits.length - 1)
+  const impactLabel = headlineUnit?.label ?? 'Impact'
 
   const located = fil.filter((g) => g.deprivation)
   const locatedAmt = located.reduce((s, g) => s + g.amountAwarded, 0)
@@ -712,28 +754,18 @@ function InsightsPage() {
   ]
     .map((pid, i) => {
       const grants = fil.filter((g) => g.programmeId === pid)
-      // Impact in the programme's OWN unit — the same reasoning `roundProgrammes` sets
-      // out. The headline stat and the Themes panel restrict themselves to `people`
-      // because they sum ACROSS programmes, where "meals" and "hours" have no common
-      // scale; this panel is one column per programme, so that restriction was simply
-      // copied where it does not apply, and every programme not measuring people showed
-      // its grant count and nothing else. Read as "no data" rather than as a filter.
-      const eff = grants
-        .map(effImpact)
-        .filter((e): e is { value: number; source: ImpactSource } => e !== null)
       return {
         id: pid,
         name: grants[0]!.programmeName ?? '—',
         colour: PALETTE[i % PALETTE.length]!,
         committed: grants.reduce((s, g) => s + g.amountAwarded, 0),
         grants: grants.length,
-        // `null` where no grant in it has stated a figure at all — nothing is said, as
-        // against a `0` that would claim the programme reached nobody.
-        impact: eff.length > 0 ? eff.reduce((sum, e) => sum + e.value, 0) : null,
-        // Same honesty as the round panel: a sum containing an applicant's proposal is
-        // not a sum of what was achieved, and must not be quoted as one.
-        hasProposed: eff.some((e) => e.source === 'proposed'),
-        unitLabel: grants[0]!.unitLabel,
+        // In the programme's OWN unit, whatever that is. This panel used to state a
+        // figure only where the unit was `people` — a restriction that belongs to a
+        // total summed ACROSS programmes, copied to one that is a column PER
+        // programme. Every programme measuring anything else showed its grant count
+        // and nothing, which reads as "nobody reported" rather than "we won't say".
+        impact: impactByUnit(grants),
       }
     })
     .sort((a, b) => b.committed - a.committed)
@@ -783,7 +815,12 @@ function InsightsPage() {
         colour: PALETTE[i % PALETTE.length]!,
         amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
         count: grants.length,
-        people: sumImpact(grants.filter((g) => g.unitKey === 'people')),
+        // A theme spans programmes, so it can span units — which is exactly why it
+        // sums within each one and prints them all. It used to sum the `people`
+        // grants alone and label the result "people": a theme whose grants measured
+        // meals showed nothing, and a theme mixing the two showed the people and
+        // silently dropped the meals.
+        impact: impactByUnit(grants),
         // Every programme, not "Warm Homes + 1 other". That summary threw the names
         // away at all widths, including the ones where they fitted, and left "+1"
         // meaning nothing in particular. `TruncatedList` clips only when it must and
@@ -1023,9 +1060,15 @@ function InsightsPage() {
               label={impactLabel}
               value={impactEff.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
               sub={
-                impactPool.length === 0
-                  ? 'no people-measured programmes here'
-                  : `${impactReportedCount} reported${impactProposedCount > 0 ? ` · ${impactProposedCount} proposed` : ''}`
+                impactEff.length === 0
+                  ? 'no impact figures yet'
+                  : `${impactReportedCount} reported${
+                      impactProposedCount > 0 ? ` · ${impactProposedCount} proposed` : ''
+                    }${
+                      impactOtherUnits > 0
+                        ? ` · ${impactOtherUnits} other unit${impactOtherUnits === 1 ? '' : 's'}`
+                        : ''
+                    }`
               }
             />
             <MiniKpi
@@ -1196,15 +1239,13 @@ function InsightsPage() {
                             >
                               <TruncatedText text={t.tag} label="Theme" />
                             </div>
-                            <p
-                              className="mt-1 truncate font-display text-label"
-                              style={{ color: C.sub }}
-                            >
-                              {t.count} grant{t.count !== 1 ? 's' : ''} · {fmtCompact(t.amount)}
-                              {t.people > 0
-                                ? ` · ${Math.round(t.people).toLocaleString('en-GB')} people`
-                                : ''}
-                            </p>
+                            {/* `TruncatedText`, as the theme name above it: a theme
+                                spanning three units has a long line, and a clipped
+                                figure with no way to read it is worse than no
+                                figure. */}
+                            <div className="mt-1 font-display text-label" style={{ color: C.sub }}>
+                              <TruncatedText text={themeLine(t)} label="Grants and impact" />
+                            </div>
                           </div>
                           <span
                             className="shrink-0 font-display text-heading font-medium leading-none"
@@ -1423,9 +1464,7 @@ function RoundProgrammeCard({
   colour: string
 }) {
   const impact =
-    p.impact === null
-      ? 'no impact figures yet'
-      : `${impactPhrase(p.impact, p.unitLabel)}${p.hasProposed ? ' (incl. proposed)' : ''}`
+    p.impact.length === 0 ? 'no impact figures yet' : p.impact.map(unitPhrase).join(' · ')
   const bg = { backgroundColor: `color-mix(in srgb, ${colour} 12%, transparent)` }
   const body = (
     <>
