@@ -177,6 +177,37 @@ export async function sendAwardLetterEmail({
   return { ok: true }
 }
 
+/**
+ * The weekly payments digest. Returns a result rather than swallowing the error, like
+ * `sendAwardLetterEmail` and unlike the fire-and-forget helpers above: the caller
+ * records a receipt only on success, and a user with no receipt is retried by the next
+ * run. A silent failure here would mean a finance officer believing there is nothing
+ * due when there is.
+ */
+export async function sendFinanceDigestEmail({
+  to,
+  subject,
+  text,
+  html,
+}: {
+  to: string
+  subject: string
+  text: string
+  html: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const resend = getResend()
+  if (!resend) {
+    console.warn('RESEND_API_KEY not set — skipping finance digest email')
+    return { ok: false, error: 'Email is not configured (no RESEND_API_KEY).' }
+  }
+  const { error } = await resend.emails.send({ from: fromAddress(), to, subject, text, html })
+  if (error) {
+    console.error(`Resend rejected finance digest to ${to}:`, error)
+    return { ok: false, error: error.message ?? 'The email provider rejected the message.' }
+  }
+  return { ok: true }
+}
+
 export async function sendInvitationEmail({
   to,
   inviteUrl,

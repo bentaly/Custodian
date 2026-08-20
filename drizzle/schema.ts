@@ -171,6 +171,16 @@ export const users = pgTable('users', {
   // BetterAuth required
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  // Opt-in to the Monday payments digest. NULL is not "off" — it is "has never chosen",
+  // and it resolves at read time to the role default (`digestDefaultOn` in
+  // src/lib/financeDigest/optIn.ts: on for `finance`, off for everyone else). Same
+  // convention as `client_profiles.award_letter_template`: a stored value is a decision
+  // the user made and always wins; NULL keeps following whatever we think is sensible.
+  //
+  // A boolean is cheap enough to sit on this row even though `getAuthUser` selects it on
+  // every authenticated call — the reason `user_avatars` is a separate table is image
+  // bytes, which does not generalise to a flag.
+  weeklyFinanceDigest: boolean('weekly_finance_digest'),
   updatedAt: timestamp('updated_at')
     .notNull()
     .$defaultFn(() => new Date()),
@@ -1035,6 +1045,58 @@ export const auditLog = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('audit_log_client_created_idx').on(t.clientId, t.createdAt)],
+)
+
+// ─── Scheduled email ────────────────────────────────────────────────────────
+
+/**
+ * A receipt: this user was sent the payments digest for this week.
+ *
+ * It is a RECEIPT, written after Resend accepts the message — not a claim written
+ * before. That choice is the whole failure model. Cron Triggers are at-least-once and
+ * a run can be cut short (a 10ms CPU ceiling on the Workers Free plan makes that a
+ * real possibility, not a theoretical one), so the question is what a re-run does:
+ *
+ *   receipt-after  — a re-run finishes the users who never got one, skips those who
+ *                    did. Worst case, a send that succeeded while the insert failed
+ *                    sends one duplicate.
+ *   claim-before   — a run killed mid-flight leaves rows saying "sent" for people who
+ *                    got nothing, and no re-run will ever correct it.
+ *
+ * A duplicate digest is an annoyance; a missing one means a payment is missed, which is
+ * the entire thing this email exists to prevent. So: receipt-after.
+ *
+ * The unique key is what makes the digest safe to trigger by hand and safe to re-run:
+ * Cron Triggers are at-least-once, a partial run wants finishing, and during the dry-run
+ * period the endpoint is being curled by a person. All three arrive at the same table
+ * and the second one through does nothing.
+ */
+export const financeDigestSends = pgTable(
+  'finance_digest_sends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    // The Monday of the week the digest covered, `yyyy-mm-dd`. A calendar date, so
+    // `text` like every other date the schedule reads (see src/lib/schedule.ts).
+    weekOf: text('week_of').notNull(),
+    // What was in it. Stored so "why didn't I get one this week?" has an answer that is
+    // not "read the logs" — a week with nothing due sends nothing and writes no row, and
+    // these two columns are how a week that DID send is told apart from one that had
+    // nothing to say.
+    itemCount: integer('item_count').notNull(),
+    totalAmount: numeric('total_amount').notNull(),
+    sentAt: timestamp('sent_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // The dedupe. `onConflictDoNothing` against this is what makes a second run a no-op
+    // rather than a second email.
+    unique('finance_digest_sends_user_week_uniq').on(t.userId, t.weekOf),
+  ],
 )
 
 // ─── Relations ────────────────────────────────────────────────────────────────

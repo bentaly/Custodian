@@ -25,6 +25,21 @@ export function addDaysIso(iso: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+/**
+ * The Monday of the week containing `iso`, as `yyyy-mm-dd`.
+ *
+ * The week the payments digest reports on, and the key it dedupes by. Monday-based
+ * because that is the week a UK finance office runs on — and because the digest is sent
+ * on a Monday, so a run and the week it covers must agree even when the run is a manual
+ * one late on the Sunday.
+ */
+export function startOfWeekIso(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  // getUTCDay: 0 = Sunday. Sunday belongs to the week that began six days earlier.
+  const back = (d.getUTCDay() + 6) % 7
+  return addDaysIso(iso, -back)
+}
+
 /** `2026-08-11` → `2026-08-31`. Day 0 of the next month is the last of this one. */
 export function endOfMonthIso(iso: string): string {
   const [y, m] = iso.split('-').map(Number)

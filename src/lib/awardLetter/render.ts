@@ -6,6 +6,7 @@
 // literally what the renderer will store.
 
 import { fmtDate, fmtMoney } from '../format'
+import { escapeHtml } from '../html'
 import {
   DEFAULT_AWARD_LETTER_SUBJECT,
   DEFAULT_AWARD_LETTER_TEMPLATE,
@@ -152,14 +153,6 @@ export function renderAwardLetter({
     bodyHtml: awardLetterHtml(bodyText),
     conditions,
   }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 /**

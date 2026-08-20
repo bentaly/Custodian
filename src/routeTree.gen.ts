@@ -27,6 +27,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as ApiApplyRouteImport } from './routes/api/apply'
+import { Route as ApiDigestUnsubscribeRouteImport } from './routes/api/digest-unsubscribe'
 import { Route as ApiRoundsRouteImport } from './routes/api/rounds'
 import { Route as ApiSubmitReportRouteImport } from './routes/api/submit-report'
 import { Route as AuthenticatedApplicationsIndexRouteImport } from './routes/_authenticated/applications.index'
@@ -57,6 +58,7 @@ import { Route as ApiAdminReportCanonicalFieldsRouteImport } from './routes/api/
 import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.report-ingests'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiAvatarUserIdRouteImport } from './routes/api/avatar.$userId'
+import { Route as ApiCronFinanceDigestRouteImport } from './routes/api/cron.finance-digest'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
@@ -153,6 +155,11 @@ const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
 const ApiApplyRoute = ApiApplyRouteImport.update({
   id: '/api/apply',
   path: '/api/apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDigestUnsubscribeRoute = ApiDigestUnsubscribeRouteImport.update({
+  id: '/api/digest-unsubscribe',
+  path: '/api/digest-unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRoundsRoute = ApiRoundsRouteImport.update({
@@ -325,6 +332,11 @@ const ApiAvatarUserIdRoute = ApiAvatarUserIdRouteImport.update({
   path: '/api/avatar/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronFinanceDigestRoute = ApiCronFinanceDigestRouteImport.update({
+  id: '/api/cron/finance-digest',
+  path: '/api/cron/finance-digest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
   id: '/api/round/$roundId',
   path: '/api/round/$roundId',
@@ -382,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/shortlist': typeof AuthenticatedShortlistRouteWithChildren
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/api/digest-unsubscribe': typeof ApiDigestUnsubscribeRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
@@ -404,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
+  '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -430,6 +444,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/api/digest-unsubscribe': typeof ApiDigestUnsubscribeRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
@@ -452,6 +467,7 @@ export interface FileRoutesByTo {
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
+  '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/awards': typeof AuthenticatedAwardsIndexRoute
@@ -488,6 +504,7 @@ export interface FileRoutesById {
   '/_authenticated/shortlist': typeof AuthenticatedShortlistRouteWithChildren
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
+  '/api/digest-unsubscribe': typeof ApiDigestUnsubscribeRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
@@ -510,6 +527,7 @@ export interface FileRoutesById {
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
+  '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -546,6 +564,7 @@ export interface FileRouteTypes {
     | '/shortlist'
     | '/users'
     | '/api/apply'
+    | '/api/digest-unsubscribe'
     | '/api/rounds'
     | '/api/submit-report'
     | '/applications/$applicationId'
@@ -568,6 +587,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-ingests'
     | '/api/auth/$'
     | '/api/avatar/$userId'
+    | '/api/cron/finance-digest'
     | '/api/round/$roundId'
     | '/applications/'
     | '/awards/'
@@ -594,6 +614,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/users'
     | '/api/apply'
+    | '/api/digest-unsubscribe'
     | '/api/rounds'
     | '/api/submit-report'
     | '/applications/$applicationId'
@@ -616,6 +637,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-ingests'
     | '/api/auth/$'
     | '/api/avatar/$userId'
+    | '/api/cron/finance-digest'
     | '/api/round/$roundId'
     | '/applications'
     | '/awards'
@@ -651,6 +673,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shortlist'
     | '/_authenticated/users'
     | '/api/apply'
+    | '/api/digest-unsubscribe'
     | '/api/rounds'
     | '/api/submit-report'
     | '/_authenticated/applications/$applicationId'
@@ -673,6 +696,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-ingests'
     | '/api/auth/$'
     | '/api/avatar/$userId'
+    | '/api/cron/finance-digest'
     | '/api/round/$roundId'
     | '/_authenticated/applications/'
     | '/_authenticated/awards/'
@@ -697,6 +721,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
+  ApiDigestUnsubscribeRoute: typeof ApiDigestUnsubscribeRoute
   ApiRoundsRoute: typeof ApiRoundsRoute
   ApiSubmitReportRoute: typeof ApiSubmitReportRoute
   ApiAdminAwardsRoute: typeof ApiAdminAwardsRoute
@@ -708,6 +733,7 @@ export interface RootRouteChildren {
   ApiAdminReportIngestsRoute: typeof ApiAdminReportIngestsRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAvatarUserIdRoute: typeof ApiAvatarUserIdRoute
+  ApiCronFinanceDigestRoute: typeof ApiCronFinanceDigestRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
 }
 
@@ -837,6 +863,13 @@ declare module '@tanstack/react-router' {
       path: '/api/apply'
       fullPath: '/api/apply'
       preLoaderRoute: typeof ApiApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/digest-unsubscribe': {
+      id: '/api/digest-unsubscribe'
+      path: '/api/digest-unsubscribe'
+      fullPath: '/api/digest-unsubscribe'
+      preLoaderRoute: typeof ApiDigestUnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/rounds': {
@@ -1047,6 +1080,13 @@ declare module '@tanstack/react-router' {
       path: '/api/avatar/$userId'
       fullPath: '/api/avatar/$userId'
       preLoaderRoute: typeof ApiAvatarUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/finance-digest': {
+      id: '/api/cron/finance-digest'
+      path: '/api/cron/finance-digest'
+      fullPath: '/api/cron/finance-digest'
+      preLoaderRoute: typeof ApiCronFinanceDigestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/round/$roundId': {
@@ -1329,6 +1369,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
+  ApiDigestUnsubscribeRoute: ApiDigestUnsubscribeRoute,
   ApiRoundsRoute: ApiRoundsRoute,
   ApiSubmitReportRoute: ApiSubmitReportRoute,
   ApiAdminAwardsRoute: ApiAdminAwardsRoute,
@@ -1340,6 +1381,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminReportIngestsRoute: ApiAdminReportIngestsRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAvatarUserIdRoute: ApiAvatarUserIdRoute,
+  ApiCronFinanceDigestRoute: ApiCronFinanceDigestRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
 }
 export const routeTree = rootRouteImport

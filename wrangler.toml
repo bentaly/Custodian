@@ -39,6 +39,37 @@ SENTRY_ENVIRONMENT = "production"
 enabled = true
 head_sampling_rate = 1
 
+# ─── Weekly payments digest — NOT WIRED YET ─────────────────────────────────
+#
+# `/api/cron/finance-digest` exists and works (POST, `Authorization: Bearer
+# $CRON_SECRET`, `?dryRun=1` to render without sending). Nothing calls it on a schedule
+# yet, deliberately: we want to read a few Mondays' worth of dry runs before anyone
+# receives one. To wire it, uncomment below — and read all three notes first.
+#
+# 1. `triggers` is an INHERITABLE key. Unlike `vars`, `observability` and the unsafe
+#    bindings above, `[env.staging]` inherits it — the same trap `routes = []` exists to
+#    dodge. Without the staging override, BOTH Workers fire and every finance officer
+#    gets two emails; worse, staging runs a prod snapshot, so the duplicate looks real.
+#
+# 2. `worker-entry.js` bridges `env` into `process.env` INSIDE `fetch`. A `scheduled`
+#    invocation never runs that loop, so DATABASE_URL and RESEND_API_KEY would be
+#    undefined and the run would fail silently every Monday. Lift the bridging out and
+#    call it from both handlers, then have `scheduled` call `handler.fetch()` with a
+#    synthetic Request (an in-process call — no subrequest, no loopback).
+#
+# 3. Cron fires on UTC and does not follow British Summer Time, so `0 8 * * 1` is 9am
+#    London in summer and 8am in winter. That drift is deliberately accepted — the
+#    requirement is "in the morning", not a fixed local hour, and pinning it would cost
+#    a second trigger out of the five this account gets.
+#
+# CPU budget: a scheduled handler gets 10ms CPU on the Workers Free plan (on Paid, a
+# trigger at a >= 1 hour interval gets 15 minutes). Neon queries and Resend calls are
+# I/O and do not count toward it — near enough all of this run is waiting on the network
+# — but it is why `run.ts` batches its lookups instead of querying per user.
+#
+[triggers]
+crons = ["0 8 * * 1"]
+
 # Rate limiters for /api/apply. `simple.limit` is requests per `period` (seconds; must
 # be 10 or 60). namespace_id is an arbitrary unique id per limiter. Used in
 # src/server/rateLimit.ts via the stashed env (see worker-entry.js).
@@ -77,6 +108,13 @@ SENTRY_ENVIRONMENT = "staging"
 [env.staging.observability]
 enabled = true
 head_sampling_rate = 1
+
+# Staging must NOT send the digest. `triggers` is an inheritable key, so without this
+# override staging inherits the cron above and every recipient gets the email twice —
+# and staging's user rows are copied from the same Neon lineage as prod, so some of those
+# addresses are real mailboxes. An empty list is the override.
+[env.staging.triggers]
+crons = []
 
 # Unsafe bindings are not inherited by named environments — repeat them for staging.
 [[env.staging.unsafe.bindings]]

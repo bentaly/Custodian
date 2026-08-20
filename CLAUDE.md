@@ -82,7 +82,9 @@ Only skip expand/contract for a deliberately-accepted brief blip on this low-tra
 Local: `.env` file (loaded via `dotenv/config` in drizzle.config.ts and scripts).
 Production: Cloudflare secrets — verify with `npx wrangler secret list`.
 
-Required secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `CHARITY_COMMISSION_KEY`, `COMPANIES_HOUSE_KEY`, `ANTHROPIC_API_KEY` (AI "Custodian score" scoring AND field-mapping AI fallback; both degrade gracefully if absent — scoring → `pending`, mapping → `needs_review`), `ADMIN_API_TOKEN` (shared secret gating the `/api/admin/*` field-mapping endpoints), `FROM_EMAIL`
+Required secrets: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `CHARITY_COMMISSION_KEY`, `COMPANIES_HOUSE_KEY`, `ANTHROPIC_API_KEY` (AI "Custodian score" scoring AND field-mapping AI fallback; both degrade gracefully if absent — scoring → `pending`, mapping → `needs_review`), `ADMIN_API_TOKEN` (shared secret gating the `/api/admin/*` field-mapping endpoints), `CRON_SECRET`
+(bearer token gating `POST /api/cron/finance-digest`; fails closed — unset means every call is
+refused), `FROM_EMAIL`
 (the sender, `Name <box@custodian.fund>` — the verified Resend domain is the **apex**
 `custodian.fund`, which is where the DKIM key lives; `send.custodian.fund` is only the
 bounce/return-path subdomain, so never put it in a From address. Set in both Workers but **not** in
@@ -421,6 +423,52 @@ reader/writer); `src/server/fns/dataImport.ts` is the IO.
 - ExcelJS is **browser-side** via dynamic import (a ~900KB route chunk) — parsing on the Worker would
   mean pushing a binary through a request body. It is in `optimizeDeps.include` so dev doesn't
   re-optimise mid-flow. The server re-validates everything; the browser is never the authority.
+
+## Weekly payments digest
+
+A Monday email to finance users listing what needs paying. Cloudflare Cron Triggers →
+`POST /api/cron/finance-digest` → Resend, the same send path as award letters. Resend has no
+scheduler that could compute a per-person digest, so the schedule is ours.
+
+**The cron is not wired yet** — `wrangler.toml` carries the commented trigger plus the three
+traps to read before uncommenting (`triggers` is an inheritable key so staging would also fire;
+`worker-entry.js` only bridges env inside `fetch`, so a `scheduled` handler gets no
+`DATABASE_URL`). Until then the endpoint is driven by hand: `?dryRun=1` renders the whole run
+and returns it without sending.
+
+**The schedule is `0 8 * * 1` — one trigger, UTC, no BST correction.** That is 9am London in
+summer and 8am in winter, and the drift is accepted: the requirement is "in the morning", and
+pinning the local hour would spend a second trigger out of the five the Free plan allows.
+
+- **`src/lib/financeDigest`** is the pure half (model, opt-in rule, renderer);
+  **`src/server/financeDigest`** is the IO (`query.ts`, `run.ts`, `unsubscribe.ts`).
+- **The cron has no session**, so `visibleRoundProgrammeIds` / `assertClientAccess` do not apply.
+  `digestWindow` REQUIRES a `clientId` and filters `awards.client_id` directly, and there is
+  deliberately no "all clients" variant to reach for by accident — the failure mode is emailing
+  one foundation's payment schedule to another foundation's finance officer.
+- **`finance_digest_sends` is a receipt, not a claim** — written after Resend accepts, not before
+  the send. Cron Triggers are at-least-once, a partial run wants finishing, and the endpoint gets
+  curled by hand, so the question is what a re-run does: with a receipt it finishes whoever was missed; with a claim it would leave rows
+  saying "sent" for people who got nothing and never correct itself. A duplicate digest is an
+  annoyance; a missing one means a missed payment, which is the entire point of the email.
+- **A week with nothing due sends nothing.** No "all clear". A recurring email that is usually
+  empty gets filtered, and a filtered digest is worse than none — the week it finally matters is
+  the week it goes unread.
+- **Overdue is listed first and counted separately**, including in the subject line. Ordering by
+  date alone buries a payment missed a fortnight ago under Friday's.
+- **The window is 7 days, not `DUE_SOON_DAYS` (30).** Finance's "due soon" is a planning horizon;
+  this email is the week's work. A month of payments repeated every Monday is the same list four
+  times. Undated ("TBC") instalments are excluded — outstanding, but never *due this week*.
+- **`users.weekly_finance_digest` is nullable and NULL is not "off"** — it means "has never
+  chosen" and resolves to the role default (`digestDefaultOn`: on for `finance`, off for
+  everyone else), the same convention as `client_profiles.award_letter_template`. An unsubscribe
+  therefore writes an explicit `false`; writing NULL would put them straight back on.
+- **One-click unsubscribe** (`/api/digest-unsubscribe`) is an HMAC over the user id keyed on
+  `BETTER_AUTH_SECRET` — no expiry, because the link must still work in a six-month-old email.
+  It is a GET that shows a confirmation and a POST that writes, so a scanning mail proxy cannot
+  unsubscribe someone by fetching the link. Not politeness: an unsubscribe people cannot find is
+  answered with the junk button, and that reputation damage lands on the same `custodian.fund`
+  that carries award letters.
 
 ## Route structure
 

@@ -3,6 +3,7 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
 import { listClients } from '../../server/fns/platform'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
+import { getMyEmailPreferences, setWeeklyFinanceDigest } from '../../server/fns/users'
 import {
   AvatarError,
   cropAvatar,
@@ -11,17 +12,31 @@ import {
   type AvatarSource,
 } from '../../lib/avatar'
 import { AvatarCropper } from '../../components/AvatarCropper'
-import { Avatar, Button, ErrorNote, Input, Label, Panel, PanelTitle } from '../../components/ui'
+import {
+  Avatar,
+  Button,
+  ErrorNote,
+  Input,
+  Label,
+  Panel,
+  PanelTitle,
+  Toggle,
+} from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { longerTimeout } from '../../lib/requestTimeout'
 
 export const Route = createFileRoute('/_authenticated/profile')({
   // Impersonation targets are only needed for platform superadmins; everyone
   // else skips the (superadmin-gated) query entirely.
-  loader: async ({ context }) =>
-    context.user.role === 'superadmin' ? { clients: await listClients() } : { clients: [] },
+  loader: async ({ context }) => ({
+    clients: context.user.role === 'superadmin' ? await listClients() : [],
+    emailPrefs: await getMyEmailPreferences(),
+  }),
   component: Profile,
 })
+
+/** The setting's own copy, announced with the switch rather than left beside it. */
+const DIGEST_COPY_ID = 'weekly-digest-explainer'
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Super Admin',
@@ -32,13 +47,34 @@ const ROLE_LABELS: Record<string, string> = {
 
 function Profile() {
   const { user } = Route.useRouteContext()
-  const { clients } = Route.useLoaderData()
+  const { clients, emailPrefs } = Route.useLoaderData()
   const router = useRouter()
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [impersonateError, setImpersonateError] = useState('')
+
+  // ── Email preferences ────────────────────────────────────────────────────────
+  // Flipped optimistically and reverted on failure — the switch tracks the intent, not
+  // the request (see the note on `Toggle`).
+  const [digest, setDigest] = useState(emailPrefs.weeklyFinanceDigest)
+  const [digestBusy, setDigestBusy] = useState(false)
+  const [digestError, setDigestError] = useState('')
+
+  async function handleDigestToggle(next: boolean) {
+    setDigest(next)
+    setDigestBusy(true)
+    setDigestError('')
+    try {
+      await setWeeklyFinanceDigest({ data: { enabled: next } })
+    } catch {
+      setDigest(!next)
+      setDigestError('Could not save that. Try again.')
+    } finally {
+      setDigestBusy(false)
+    }
+  }
 
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
   async function handleImpersonate(userId: string) {
@@ -245,6 +281,35 @@ function Profile() {
           </div>
         </form>
       </Panel>
+
+      {emailPrefs.available && (
+        <Panel label="Email">
+          <PanelTitle>Email</PanelTitle>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-display text-body font-medium" style={{ color: C.ink }}>
+                Weekly payment reminders
+              </p>
+              <p
+                id={DIGEST_COPY_ID}
+                className="mt-0.5 font-display text-body leading-relaxed"
+                style={{ color: C.sub }}
+              >
+                A Monday email listing the grant payments due that week, and anything already
+                overdue. Nothing is sent in a week with no payments due.
+              </p>
+            </div>
+            <Toggle
+              checked={digest}
+              onChange={handleDigestToggle}
+              busy={digestBusy}
+              label="Weekly payment reminders"
+              describedBy={DIGEST_COPY_ID}
+            />
+          </div>
+          <ErrorNote error={digestError} className="mt-3" />
+        </Panel>
+      )}
 
       {user.role === 'superadmin' && (
         <Panel label="Impersonation">

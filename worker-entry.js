@@ -54,25 +54,79 @@ betterAuthGlobal.context.adapterAsyncStorage ??= new AsyncLocalStorage()
 const SENTRY_DSN =
   'https://99a1bb7960228a135ed95825e59e6297@o4511832040079360.ingest.de.sentry.io/4511832062820432'
 
-const worker = {
-  async fetch(request, env, ctx) {
-    if (env && typeof env === 'object') {
-      for (const [key, value] of Object.entries(env)) {
-        if (typeof value === 'string') {
-          globalThis.process ??= { env: {} }
-          globalThis.process.env ??= {}
-          globalThis.process.env[key] = value
-        }
+/**
+ * Copy the Worker's bindings into the places server code looks for them.
+ *
+ * This MUST run at the top of every entry point, not just `fetch`. It lived inline in
+ * the fetch handler until the Cron Trigger arrived, and a `scheduled` invocation does
+ * not go through `fetch` — so without this being shared, the weekly run would wake up
+ * with no DATABASE_URL and no RESEND_API_KEY and fail quietly every Monday.
+ */
+function bridgeEnv(env, ctx) {
+  if (env && typeof env === 'object') {
+    for (const [key, value] of Object.entries(env)) {
+      if (typeof value === 'string') {
+        globalThis.process ??= { env: {} }
+        globalThis.process.env ??= {}
+        globalThis.process.env[key] = value
       }
     }
-    // Non-string bindings (rate limiters, KV, etc.) can't go through process.env,
-    // so stash the live env for server code that needs them (see src/server/rateLimit.ts).
-    globalThis.__cfEnv = env
-    // Execution context, for post-response work via ctx.waitUntil (see
-    // src/server/background.ts). Like __cfEnv this is overwritten per request;
-    // registering on a concurrent request's ctx still keeps the work alive.
-    globalThis.__cfCtx = ctx
+  }
+  // Non-string bindings (rate limiters, KV, etc.) can't go through process.env,
+  // so stash the live env for server code that needs them (see src/server/rateLimit.ts).
+  globalThis.__cfEnv = env
+  // Execution context, for post-response work via ctx.waitUntil (see
+  // src/server/background.ts). Like __cfEnv this is overwritten per request;
+  // registering on a concurrent request's ctx still keeps the work alive.
+  globalThis.__cfCtx = ctx
+}
+
+const worker = {
+  async fetch(request, env, ctx) {
+    bridgeEnv(env, ctx)
     return handler.fetch(request, env, ctx)
+  },
+
+  /**
+   * Cron Triggers land here (`[triggers]` in wrangler.toml). Today that is only the
+   * weekly payments digest, Mondays at 08:00 UTC.
+   *
+   * It reaches the app by calling `handler.fetch` with a synthetic Request rather than
+   * importing the digest code, because this file is bundled by wrangler and cannot see
+   * anything under `src/`. That call is in-process — no network hop, no subrequest — and
+   * it means the scheduled path and the manual `curl` path are the same code.
+   *
+   * Everything here is logged rather than thrown. A cron has no caller to return an
+   * error to, so Workers Logs is the only record that Monday happened at all.
+   */
+  async scheduled(event, env, ctx) {
+    bridgeEnv(env, ctx)
+
+    if (!env.CRON_SECRET) {
+      // The endpoint fails closed on a missing secret, so this would be a silent 401
+      // every week. Say so loudly instead — this is the one failure nobody would notice.
+      console.error('[cron] CRON_SECRET is not set — the digest endpoint will refuse the call')
+      return
+    }
+
+    const origin = (env.BETTER_AUTH_URL || 'https://custodian.fund').replace(/\/+$/, '')
+    const started = Date.now()
+    try {
+      const response = await handler.fetch(
+        new Request(`${origin}/api/cron/finance-digest`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${env.CRON_SECRET}` },
+        }),
+        env,
+        ctx,
+      )
+      const body = await response.text()
+      console.log(
+        `[cron] ${event.cron} → ${response.status} in ${Date.now() - started}ms: ${body.slice(0, 2000)}`,
+      )
+    } catch (err) {
+      console.error(`[cron] ${event.cron} threw after ${Date.now() - started}ms:`, err)
+    }
   },
 }
 
