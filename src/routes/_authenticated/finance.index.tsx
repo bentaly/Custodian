@@ -288,8 +288,8 @@ const STATUS: TableColumn<FinanceRow> = {
 
 const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
   ORGANISATION,
-  PROGRAMME,
   ROUND,
+  PROGRAMME,
   THEME,
   COMMITTED,
   PAID,
@@ -328,8 +328,8 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
 
 const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
   ORGANISATION,
-  PROGRAMME,
   ROUND,
+  PROGRAMME,
   THEME,
   COMMITTED,
   PAID,
@@ -531,11 +531,11 @@ function FinancePage() {
             onChange={(v) => setFilter({ status: (v as FinanceStatus) || undefined })}
           />
           <FilterPill
-            label="Valid"
-            plural="bank checks"
-            value={bank}
-            options={facets.bank.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={(v) => setFilter({ bank: (v as BankStatus) || undefined })}
+            label="Round"
+            plural="rounds"
+            value={roundId}
+            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ roundId: v })}
           />
           <FilterPill
             label="Programme"
@@ -552,11 +552,11 @@ function FinancePage() {
             onChange={(v) => setFilter({ tag: v })}
           />
           <FilterPill
-            label="Round"
-            plural="rounds"
-            value={roundId}
-            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={(v) => setFilter({ roundId: v })}
+            label="Valid"
+            plural="bank checks"
+            value={bank}
+            options={facets.bank.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ bank: (v as BankStatus) || undefined })}
           />
           {/* The window runs against the date the open tab is about: the next payment due
               on "To pay", the last one made on "Paid". */}

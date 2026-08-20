@@ -168,13 +168,6 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     },
   },
   {
-    id: 'programme',
-    sortable: true,
-    hideBelow: 'lg',
-    header: 'Programme',
-    cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
-  },
-  {
     id: 'round',
     sortable: true,
     hideBelow: 'xl',
@@ -187,6 +180,13 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
         className={`font-display text-body ${g.roundName ? 'text-grey-500' : 'text-grey-400'}`}
       />
     ),
+  },
+  {
+    id: 'programme',
+    sortable: true,
+    hideBelow: 'lg',
+    header: 'Programme',
+    cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
   },
   {
     // Not sortable: themes are a jsonb array on the programme, so "sorted by theme" has
@@ -485,6 +485,13 @@ function AwardsPage() {
             onChange={setStatus}
           />
           <FilterPill
+            label="Round"
+            plural="rounds"
+            value={roundId}
+            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={setRound}
+          />
+          <FilterPill
             label="Programme"
             plural="programmes"
             value={programmeId}
@@ -497,13 +504,6 @@ function AwardsPage() {
             value={tag}
             options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
             onChange={setTag}
-          />
-          <FilterPill
-            label="Round"
-            plural="rounds"
-            value={roundId}
-            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={setRound}
           />
           <DateRangePicker
             value={{ from, to }}

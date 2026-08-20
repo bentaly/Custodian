@@ -53,7 +53,7 @@ import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gap
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
-import { fmtCompact, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtCompact, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, PROGRAMME_COLOURS, bandForScore } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
@@ -83,11 +83,6 @@ const BUDGET_COLOURS = PROGRAMME_COLOURS
 // (The monogram's `initials` is `ui/Avatar`'s now, via `DetailHeader` — this screen used
 // to take first + last word where the applications table takes the first two, so the same
 // organisation wore two different monograms on the row and the page it opened.)
-function durationLabel(years: number | null | undefined) {
-  if (!years) return null
-  return years === 1 ? '12 months' : `${years} years`
-}
-
 // ─── Primitives ──────────────────────────────────────────────────────────────────
 
 /**
@@ -692,7 +687,7 @@ function ApplicationDetail() {
             icon={Coins01Icon}
             label="Amount requested"
             value={fmtCompact(amountRequested)}
-            sub={durationLabel(rp.grantDurationYears) ?? 'Duration not set'}
+            sub={fmtDuration(rp.grantDurationYears) ?? 'Duration not set'}
           />
           <MiniKpi
             tint={KPI.programme}

@@ -4,7 +4,17 @@ import { Alert02Icon, PencilEdit02Icon, Tick02Icon } from '@hugeicons/core-free-
 import { setInstalmentPaid, updateInstalment } from '../server/fns/applications'
 import { updateGrantBankDetails } from '../server/fns/finance'
 import type { getFinanceGrant, BankStatus } from '../server/fns/finance'
-import { Badge, Button, DateField, Dialog, Input, TextLink, cn } from './ui'
+import {
+  Badge,
+  Button,
+  DateField,
+  Dialog,
+  ExternalTextLink,
+  Input,
+  TextLink,
+  Tooltip,
+  cn,
+} from './ui'
 import { C } from './ui/tokens'
 import { fmtDate, fmtMoney, fmtRef } from '../lib/format'
 import { messageFor } from '../lib/errors'
@@ -57,6 +67,11 @@ export function PaymentDialog({
         // explanatory copy. Here it is the grant's identity — who this money is for —
         // so this one dialog states it at 14px (Figma 823:118), in one flat grey with
         // no emphasised half: the comp gives the whole line Gray/500.
+        //
+        // Identity ONLY. The two ways out of the dialog used to hang off the end of this
+        // line, which made a sentence that was half fact and half navigation, and grew a
+        // little worse with each thing worth stating about the grant. They now sit in the
+        // footer, where a dialog's actions live.
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
           <span>{grant.organisationName}</span>
           {/* Their own reference for the grant: this dialog is where a payment is marked
@@ -74,14 +89,9 @@ export function PaymentDialog({
               <span>{grant.programmeName}</span>
             </>
           )}
-          <span aria-hidden>·</span>
-          {/* The one way out of this dialog into the decision behind it: the terms, the
-              letter and the reporting schedule all live on the award record. */}
-          <TextLink to="/awards/$awardId" params={{ awardId: grant.id }}>
-            View Award →
-          </TextLink>
         </span>
       }
+      footer={<GrantLinks grant={grant} />}
     >
       <div className="flex flex-col gap-4">
         {error && <p className="font-display text-body text-danger">{error}</p>}
@@ -102,6 +112,60 @@ export function PaymentDialog({
         />
       </div>
     </Dialog>
+  )
+}
+
+/**
+ * The two places this dialog leads: the grantee, and the decision behind the money.
+ *
+ * They are the footer rather than a tail on the identity line because they are not facts
+ * about the grant — and because "email the grantee" is the thing a finance officer wants
+ * at exactly the moment the numbers in front of them are wrong: a sort code that fails
+ * the modulus check, an instalment nobody can evidence, an invoice that never came. The
+ * address was only ever on the application, three clicks away, so the payment got left
+ * open in one tab while the grantee was looked up in another.
+ *
+ * `mailto:` rather than anything we send: this is the foundation writing to a grantee in
+ * their own words, from their own client, with a copy in their own sent items — the same
+ * choice the application and report screens make. Offered only when the application
+ * carried an address; there is no "no email held" placeholder, because a control that
+ * cannot act is worse than an absent one.
+ */
+function GrantLinks({ grant }: { grant: FinanceGrant }) {
+  const subject = `Your grant payment${
+    grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''
+  }`
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"
+      style={{ borderColor: C.line }}
+    >
+      {grant.applicantEmail ? (
+        // `control`: the address DESCRIBES a link that already names itself, so the
+        // tooltip must not add a tab stop or a second name over the top of it.
+        <Tooltip
+          control
+          label="Grantee email address"
+          trigger={
+            <ExternalTextLink
+              className="text-body"
+              href={`mailto:${encodeURIComponent(grant.applicantEmail)}?subject=${encodeURIComponent(subject)}`}
+            >
+              Email grantee
+            </ExternalTextLink>
+          }
+        >
+          {grant.applicantEmail}
+        </Tooltip>
+      ) : (
+        <span />
+      )}
+      {/* The way out of this dialog into the decision behind it: the terms, the letter
+          and the reporting schedule all live on the award record. */}
+      <TextLink to="/awards/$awardId" params={{ awardId: grant.id }} className="text-body">
+        View Award →
+      </TextLink>
+    </div>
   )
 }
 

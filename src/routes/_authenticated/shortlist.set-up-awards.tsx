@@ -33,7 +33,7 @@ import {
   type TableColumn,
 } from '../../components/ui'
 import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
-import { fmtCompact, fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtCompact, fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 
 const PAGE_SIZE = 25
@@ -209,7 +209,7 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
     width: 'sm:w-[140px]',
     cell: (c) => (
       <span className="font-display text-body" style={{ color: C.ink }}>
-        {c.grantDurationYears ? `Over ${c.grantDurationYears * 12} months` : '—'}
+        {fmtDuration(c.grantDurationYears) ?? '—'}
       </span>
     ),
   },

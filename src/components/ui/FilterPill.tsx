@@ -16,8 +16,17 @@ import { C } from './tokens'
 // Every row follows the same rules, so that "how do I narrow this" is learned once
 // rather than per screen:
 //
-//  1. **Order**: Status · Programme · Theme · Round · AI score, then the date range last.
-//     A screen simply omits what it hasn't got; it never reorders what it has.
+//  1. **Order**: Status · Round · Programme · Theme · the screen's own (AI score, Valid),
+//     then the date range last. A screen simply omits what it hasn't got; it never
+//     reorders what it has.
+//
+//     **Round comes before Programme, here and in the table's columns**, because that is
+//     the containment: a round holds programmes, a programme holds the row. Reading
+//     outward-in is the same order the data is shaped in, and it makes the two controls
+//     that narrow by "which pot" adjacent and always the same way round — the screens
+//     had them in three different orders, so the pill you wanted was in a different
+//     place on each. Where a screen is READ inside one round (Applications, Shortlist)
+//     the round is the context above the row, not a pill in it, and Programme leads.
 //  2. **Options are faceted with counts** (`src/lib/facets.ts` → `facetLabel`), so a pill
 //     only ever offers values the rows in view actually hold — "Youth work (24)". Fixed
 //     vocabularies (status enums, score bands) are the exception: those name every value

@@ -128,3 +128,24 @@ export function isoValue(date: Date | string): string {
 export function fmtRef(ref: string | null | undefined): string | null {
   return ref ? `Ref ${ref}` : null
 }
+
+/**
+ * How long a grant runs, from `round_programmes.grant_duration_years`: `Single year`,
+ * `2 years`, `3 years`. `null` when the round-programme never set one, so a caller can
+ * print its own "not set".
+ *
+ * It was three different strings on four screens — `Over 36 months` on the award queue
+ * and in the wizard, `12 months` on the application, `3 years` on the grant — so the
+ * same grant's length was quoted in two units depending on where you read it, and 36
+ * months is arithmetic a reader should not have to do to learn a grant runs for three.
+ * Years, always, because years are the unit the duration is STORED and decided in.
+ *
+ * One year is `Single year` rather than `1 year`: in a column of `2 years` / `3 years`
+ * the eye is scanning for multi-year commitments, and the point of that row is that it
+ * is not one. It says nothing about instalments — a single-year grant may still be paid
+ * in three — so it deliberately avoids the word "payment".
+ */
+export function fmtDuration(years: number | null | undefined): string | null {
+  if (!years || years <= 0) return null
+  return years === 1 ? 'Single year' : `${years} years`
+}

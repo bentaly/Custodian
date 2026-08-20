@@ -64,6 +64,20 @@ export function impactUnitLabel(
   return IMPACT_UNIT_BY_KEY[DEFAULT_IMPACT_UNIT]!.label
 }
 
+/**
+ * A quantity with its unit, as it reads after a number: `1,240 people`,
+ * `12 tonnes CO₂e`, `840 items delivered`.
+ *
+ * Only the FIRST character is lowered, not the whole label. `toLowerCase()` on the
+ * label — what the two call sites did separately — turns "Tonnes CO₂e" into
+ * "tonnes co₂e", and a foundation's own phrase for `other` loses whatever it
+ * capitalised on purpose (a place name, an acronym).
+ */
+export function impactPhrase(quantity: number, label: string): string {
+  const unit = label.charAt(0).toLowerCase() + label.slice(1)
+  return `${Math.round(quantity).toLocaleString('en-GB')} ${unit}`
+}
+
 // ─── Singulars ───────────────────────────────────────────────────────────────────
 //
 // The rule above — collect the plural, never inflect — holds everywhere a COUNT is

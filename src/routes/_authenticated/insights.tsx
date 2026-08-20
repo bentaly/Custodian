@@ -34,7 +34,8 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
 import { fmtCompact, fmtMoney } from '../../lib/format'
-import { C, PROGRAMME_COLOURS } from '../../components/ui/tokens'
+import { impactPhrase } from '../../lib/impactUnits'
+import { C, PROGRAMME_COLOURS, bandForDecile } from '../../components/ui/tokens'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
@@ -154,8 +155,19 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
-// Column chart of funding across IMD deciles 1–10. Deciles 1–4 (the "most deprived
-// 40%") carry the accent; 5–10 recede.
+/** The three bands the chart's legend names, each by a decile inside it. */
+const DECILE_LEGEND = [
+  { decile: 1, label: '1–3 most deprived' },
+  { decile: 4, label: '4–7' },
+  { decile: 8, label: '8–10 least deprived' },
+] as const
+
+// Column chart of funding across IMD deciles 1–10, banded 3-4-3 in the app's RAG fills
+// (`bandForDecile`): 1–3 red, 4–7 amber, 8–10 green. It used to be two flat colours —
+// the brand for 1–4, a wash for the rest — which said "in the most deprived 40% or not"
+// and threw away the ordering the deciles ARE: decile 1 looked exactly like decile 4,
+// and 5 exactly like 10. Red is the most deprived tenth, so a portfolio leaning red is
+// the intended outcome; the legend says so rather than leaving the colour to argue it.
 function DecileChart({ amounts, total, max }: { amounts: number[]; total: number; max: number }) {
   return (
     <div>
@@ -189,7 +201,7 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
                       className="mx-auto w-full max-w-[26px] rounded-t-chip"
                       style={{
                         height: `${Math.max(amt > 0 ? 3 : 0, h)}%`,
-                        backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2),
+                        backgroundColor: bandForDecile(i + 1).fill,
                       }}
                     />
                   </>
@@ -212,24 +224,23 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
           </span>
         ))}
       </div>
-      <div className="mt-3 flex items-center gap-4">
-        <span
-          className="flex items-center gap-1.5 font-display text-label"
-          style={{ color: C.sub }}
-        >
-          <span className="size-2 rounded-swatch" style={{ backgroundColor: C.brand }} /> Most
-          deprived 40%
-        </span>
-        <span
-          className="flex items-center gap-1.5 font-display text-label"
-          style={{ color: C.sub }}
-        >
+      {/* Three bands, worded so the colours cannot be misread as a verdict on the
+          foundation: the ends are named ("most deprived" / "least deprived") and the
+          middle is left as its numbers. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {DECILE_LEGEND.map((band) => (
           <span
-            className="size-2 rounded-swatch"
-            style={{ backgroundColor: withAlpha(C.success, 0.2) }}
-          />{' '}
-          Deciles 5–10
-        </span>
+            key={band.label}
+            className="flex items-center gap-1.5 font-display text-label"
+            style={{ color: C.sub }}
+          >
+            <span
+              className="size-2 rounded-swatch"
+              style={{ backgroundColor: bandForDecile(band.decile).fill }}
+            />
+            {band.label}
+          </span>
+        ))}
       </div>
     </div>
   )
@@ -687,13 +698,27 @@ function InsightsPage() {
   ]
     .map((pid, i) => {
       const grants = fil.filter((g) => g.programmeId === pid)
+      // Impact in the programme's OWN unit — the same reasoning `roundProgrammes` sets
+      // out. The headline stat and the Themes panel restrict themselves to `people`
+      // because they sum ACROSS programmes, where "meals" and "hours" have no common
+      // scale; this panel is one column per programme, so that restriction was simply
+      // copied where it does not apply, and every programme not measuring people showed
+      // its grant count and nothing else. Read as "no data" rather than as a filter.
+      const eff = grants
+        .map(effImpact)
+        .filter((e): e is { value: number; source: ImpactSource } => e !== null)
       return {
         id: pid,
         name: grants[0]!.programmeName ?? '—',
         colour: PALETTE[i % PALETTE.length]!,
         committed: grants.reduce((s, g) => s + g.amountAwarded, 0),
         grants: grants.length,
-        people: grants[0]!.unitKey === 'people' ? sumImpact(grants) : null,
+        // `null` where no grant in it has stated a figure at all — nothing is said, as
+        // against a `0` that would claim the programme reached nobody.
+        impact: eff.length > 0 ? eff.reduce((sum, e) => sum + e.value, 0) : null,
+        // Same honesty as the round panel: a sum containing an applicant's proposal is
+        // not a sum of what was achieved, and must not be quoted as one.
+        hasProposed: eff.some((e) => e.source === 'proposed'),
         unitLabel: grants[0]!.unitLabel,
       }
     })
@@ -1060,8 +1085,10 @@ function InsightsPage() {
                         </div>
                         <p className="truncate font-display text-label" style={{ color: C.sub }}>
                           {p.grants} grant{p.grants !== 1 ? 's' : ''}
-                          {p.people != null && p.people > 0
-                            ? ` · ${Math.round(p.people).toLocaleString('en-GB')} ${p.unitLabel.toLowerCase()}`
+                          {p.impact != null && p.impact > 0
+                            ? ` · ${impactPhrase(p.impact, p.unitLabel)}${
+                                p.hasProposed ? ' (incl. proposed)' : ''
+                              }`
                             : ''}
                         </p>
                       </div>
@@ -1380,7 +1407,7 @@ function RoundProgrammeCard({
   const impact =
     p.impact === null
       ? 'no impact figures yet'
-      : `${Math.round(p.impact).toLocaleString('en-GB')} ${p.unitLabel.toLowerCase()}${p.hasProposed ? ' (incl. proposed)' : ''}`
+      : `${impactPhrase(p.impact, p.unitLabel)}${p.hasProposed ? ' (incl. proposed)' : ''}`
   const bg = { backgroundColor: `color-mix(in srgb, ${colour} 12%, transparent)` }
   const body = (
     <>

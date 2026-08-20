@@ -38,7 +38,7 @@ import {
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { AREA_ICON } from '../../components/Sidebar'
-import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
   loader: ({ params }) => orNotFound(getAward({ data: { id: params.awardId } })),
@@ -76,11 +76,6 @@ const SCHED_STATUS = {
 const SM_FIELD =
   'h-8 rounded-chip bg-grey-100 px-2.5 font-display text-body text-grey-900 placeholder:text-grey-500 focus:outline-hidden focus:ring-2 focus:ring-brand/20'
 
-function durationLabel(years: number | null | undefined) {
-  if (!years) return null
-  return years === 1 ? '1 year' : `${years} years`
-}
-
 function AwardDetail() {
   const award = Route.useLoaderData()
   const { impact } = award
@@ -102,7 +97,7 @@ function AwardDetail() {
     // reads in the same place on every screen that names a grantee.
     fmtRef(award.application.externalApplicationId),
     `Awarded ${fmtDate(award.decisionAt)}`,
-    durationLabel(award.durationYears),
+    fmtDuration(award.durationYears),
   ]
     .filter(Boolean)
     .join(' · ')

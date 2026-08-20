@@ -91,6 +91,26 @@ export function bandForScore(score: number, outOf: 100 | 10 = 100) {
   return SCORE_BAND[score >= good ? 'good' : score >= fair ? 'fair' : 'poor']
 }
 
+/**
+ * The RAG band an IMD decile falls in — the 3-4-3 split of the ten: **1–3 red, 4–7
+ * amber, 8–10 green**.
+ *
+ * Read it as a scale of DEPRIVATION, not of performance. Red is the most deprived
+ * tenth of areas in its nation, which for most foundations is where the money is meant
+ * to go — a portfolio weighted red is the good outcome, and the panel's legend says so
+ * in words rather than leaving the colour to argue it. The point of banding at all is
+ * that a decile is an ordered scale, and two flat colours ("1–4" against "the rest")
+ * threw away the ordering between 1 and 4, and between 5 and 10.
+ *
+ * It reuses `SCORE_BAND`'s fills so the app has one red, one amber and one green in
+ * chart-fill weight; only the direction is reversed. The "Deprivation reach" KPI still
+ * counts deciles 1–4 — that is a defined measure (the most deprived 40%), not a colour
+ * band, so it is deliberately not 3-4-3.
+ */
+export function bandForDecile(decile: number) {
+  return SCORE_BAND[decile <= 3 ? 'poor' : decile <= 7 ? 'fair' : 'good']
+}
+
 /** The colours a foundation picks a programme's colour from — the Figma Accent family
  *  plus Semantic/Success, exactly the five bound on the Programmes comp (674:33847). */
 export const PROGRAMME_COLOURS = [

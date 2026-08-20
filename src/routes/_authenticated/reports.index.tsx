@@ -184,21 +184,21 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     ),
   },
   {
-    id: 'programme',
-    sortable: true,
-    hideBelow: 'lg',
-    header: 'Programme',
-    cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.programmeName ?? '—'}</span>
-    ),
-  },
-  {
     id: 'round',
     sortable: true,
     hideBelow: 'xl',
     header: 'Round',
     cell: (item) => (
       <span className="font-display text-body text-grey-500">{item.roundName ?? '—'}</span>
+    ),
+  },
+  {
+    id: 'programme',
+    sortable: true,
+    hideBelow: 'lg',
+    header: 'Programme',
+    cell: (item) => (
+      <span className="font-display text-body text-grey-500">{item.programmeName ?? '—'}</span>
     ),
   },
   {
@@ -244,7 +244,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
 
 /**
  * The Awaiting tab's columns. Same leading columns as the documents table, so switching
- * tab does not move the grantee, the report, the programme and the round out from under
+ * tab does not move the grantee, the report, the round and the programme out from under
  * you — then Due rather than Received, and a status from the other vocabulary
  * (`overdue` / `due_soon` / `upcoming`), because these rows have not arrived and cannot
  * be "reviewed".
@@ -294,21 +294,21 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     ),
   },
   {
-    id: 'programme',
-    sortable: true,
-    hideBelow: 'lg',
-    header: 'Programme',
-    cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.programmeName ?? '—'}</span>
-    ),
-  },
-  {
     id: 'round',
     sortable: true,
     hideBelow: 'xl',
     header: 'Round',
     cell: (item) => (
       <span className="font-display text-body text-grey-500">{item.roundName ?? '—'}</span>
+    ),
+  },
+  {
+    id: 'programme',
+    sortable: true,
+    hideBelow: 'lg',
+    header: 'Programme',
+    cell: (item) => (
+      <span className="font-display text-body text-grey-500">{item.programmeName ?? '—'}</span>
     ),
   },
   {
@@ -472,12 +472,19 @@ function ReportsPage() {
         </div>
 
         {/* The shared filter row (see `ui/FilterPill`), in the shared order. Status is
-            absent because the tabs already are it. Programme, Theme and Round narrow the
+            absent because the tabs already are it. Round, Programme and Theme narrow the
             panel above too — `listReports`' deliberate choice, since "reports for this
             programme" is a question about the table, the counts and the chase-list alike.
             The date range is the exception: it runs against the RECEIVED date, which a
             report still awaited does not have, so it narrows the table alone. */}
         <div className="flex flex-wrap items-center gap-3">
+          <FilterPill
+            label="Round"
+            plural="rounds"
+            value={roundId}
+            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={(v) => setFilter({ roundId: v })}
+          />
           <FilterPill
             label="Programme"
             plural="programmes"
@@ -491,13 +498,6 @@ function ReportsPage() {
             value={tag}
             options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
             onChange={(v) => setFilter({ tag: v })}
-          />
-          <FilterPill
-            label="Round"
-            plural="rounds"
-            value={roundId}
-            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={(v) => setFilter({ roundId: v })}
           />
           {/* The window runs against the RECEIVED date, which an awaited report has not
               got — so on that tab the control is not hidden state, it is absent. The

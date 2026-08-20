@@ -26,7 +26,7 @@ import {
   type AwardLetterInput,
 } from '../../lib/awardLetter'
 import { CADENCES, buildSchedule, cadenceMonths, type CadenceKey } from '../../lib/awardSchedule'
-import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { todayIso } from '../../lib/schedule'
 import { longerTimeout } from '../../lib/requestTimeout'
 
@@ -204,12 +204,6 @@ function isEvenSplit(g: GrantState): boolean {
   const even = evenSplit(g)
   if (even.length === 0) return true
   return g.rows.every((r, i) => Math.abs((parseFloat(r.amount) || 0) - even[i]!) < 0.005)
-}
-
-/** A grant's duration, in the comps' words. */
-function durationLabel(years: number | null): string | null {
-  if (!years || years <= 0) return null
-  return `Over ${years * 12} months`
 }
 
 // ─── The wizard ─────────────────────────────────────────────────────────────────
@@ -746,7 +740,7 @@ export function AwardWizard({
 
             {candidates.map((c) => {
               const g = grants[c.id]!
-              const duration = durationLabel(c.grantDurationYears)
+              const duration = fmtDuration(c.grantDurationYears)
               return (
                 <div
                   key={c.id}

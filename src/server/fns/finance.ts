@@ -830,6 +830,10 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
       id: award.id,
       applicationId: app.id,
       organisationName: app.organisationName,
+      // The address a finance officer chases a payment at — a wrong sort code or a
+      // missing invoice is answered by writing to the grantee, and until now that meant
+      // leaving the payment to go and find it on the application.
+      applicantEmail: app.applicantEmail,
       programmeName: rp?.programme?.name ?? null,
       roundName: rp?.round?.name ?? null,
       awardStatus: award.status,
