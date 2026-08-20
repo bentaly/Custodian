@@ -43,11 +43,20 @@ export function TruncatedText({
   useEffect(() => {
     measure()
     const node = el.current
-    if (!node || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(measure)
-    ro.observe(node)
-    return () => ro.disconnect()
-  }, [measure, text])
+    if (!node) return
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(node)
+    // Web fonts land AFTER the first measure, and swapping to one changes how wide the
+    // TEXT is without changing the BOX it sits in — so `ResizeObserver`, which watches
+    // the box, never fires. A line measured in the fallback face and found to fit would
+    // then stay silent for good, however far the real face overflows it. `fonts.ready`
+    // is the only signal for that, and this app draws every one of these in `font-display`.
+    document.fonts?.ready.then(measure).catch(() => {})
+    return () => ro?.disconnect()
+    // `clipped` is a dependency because flipping it REPLACES the measured node: the span
+    // moves inside the tooltip's wrapper. Without it the observer would be left watching
+    // a node that is no longer in the document.
+  }, [measure, text, clipped])
 
   const line = (
     <span ref={el} className={cn('block min-w-0 truncate', className)}>
@@ -58,7 +67,16 @@ export function TruncatedText({
   if (!clipped) return line
 
   return (
-    <Tooltip label={label} trigger={line} triggerClassName="block min-w-0 w-full cursor-default">
+    // The wrapper is told to be the same box the bare `line` was — a block that fills
+    // its parent. Left as the tooltip's default `inline-flex` it would shrink to fit
+    // instead, so the act of wrapping would change the width the clipping was measured
+    // against, which is how a tooltip ends up flickering on and off at one exact size.
+    <Tooltip
+      label={label}
+      trigger={line}
+      className="block min-w-0"
+      triggerClassName="block min-w-0 w-full cursor-default"
+    >
       {text}
     </Tooltip>
   )
