@@ -25,6 +25,7 @@ import {
   MiniKpi,
   Panel,
   PanelTitle,
+  Tooltip,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { AREA_ICON } from '../../components/Sidebar'
@@ -169,19 +170,31 @@ function ReportDetail() {
                 is the same control: a plain mailto into the grants team's own client.
                 Offered only while the report is actually outstanding — once it has
                 arrived, "Email applicant" is an action in search of a reason. */}
-            {!s && report.status === 'overdue' && report.applicantEmail && (
-              <AnchorButton
-                icon={Mail01Icon}
-                title={report.applicantEmail}
-                href={`mailto:${encodeURIComponent(report.applicantEmail)}?subject=${encodeURIComponent(
-                  `${report.label} for your grant${
-                    report.reference ? ` (${report.reference})` : ''
-                  }`,
-                )}`}
-              >
-                Email applicant
-              </AnchorButton>
-            )}
+            {!s &&
+              report.status === 'overdue' &&
+              report.applicantEmail && (
+                // `control`: the address describes a link that already names itself —
+                // no extra tab stop, and the description lands on the anchor where a
+                // screen reader will actually read it.
+                <Tooltip
+                  control
+                  label="Applicant email address"
+                  trigger={
+                    <AnchorButton
+                      icon={Mail01Icon}
+                      href={`mailto:${encodeURIComponent(report.applicantEmail)}?subject=${encodeURIComponent(
+                        `${report.label} for your grant${
+                          report.reference ? ` (${report.reference})` : ''
+                        }`,
+                      )}`}
+                    >
+                      Email applicant
+                    </AnchorButton>
+                  }
+                >
+                  {report.applicantEmail}
+                </Tooltip>
+              )}
             {/* "View Report" is what the application screen calls the same gesture —
                 open the thing exactly as it was sent, before anything we made of it. */}
             {s && (
@@ -189,18 +202,29 @@ function ReportDetail() {
                 View Report
               </Button>
             )}
-            {s && canReview && (
-              <Button
-                variant={isReviewed ? 'secondary' : 'primary'}
-                onClick={handleReview}
-                disabled={reviewing}
-                title={
-                  isReviewed && s.reviewedBy ? `Marked as reviewed by ${s.reviewedBy}` : undefined
-                }
-              >
-                {reviewing ? '…' : isReviewed ? 'Undo review' : 'Mark as Reviewed'}
-              </Button>
-            )}
+            {s &&
+              canReview &&
+              (() => {
+                const reviewButton = (
+                  <Button
+                    variant={isReviewed ? 'secondary' : 'primary'}
+                    onClick={handleReview}
+                    disabled={reviewing}
+                  >
+                    {reviewing ? '…' : isReviewed ? 'Undo review' : 'Mark as Reviewed'}
+                  </Button>
+                )
+                // Only worn once there IS a reviewer to name — a tooltip that opens on
+                // nothing teaches people the ones that do carry something aren't worth
+                // opening either.
+                return isReviewed && s.reviewedBy ? (
+                  <Tooltip control label="Who reviewed this report" trigger={reviewButton}>
+                    Marked as reviewed by {s.reviewedBy}
+                  </Tooltip>
+                ) : (
+                  reviewButton
+                )
+              })()}
           </>
         }
       />

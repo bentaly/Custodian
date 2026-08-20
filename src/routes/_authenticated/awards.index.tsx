@@ -232,7 +232,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     //
     // The lifecycle pill lives here rather than in a column of its own because it is a
     // statement ABOUT this progress and nothing else: `awards.status` is re-derived from
-    // the instalments on every payment (`markInstalmentPaid`), so "Done" means precisely
+    // the instalments on every payment (`markInstalmentPaid`), so "Complete" means precisely
     // "the bar is full". Standing alone it read as a second, independent fact.
     cell: (g) => {
       const pill = (

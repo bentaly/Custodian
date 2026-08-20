@@ -91,7 +91,7 @@ export function KeyFact({
  *   `neutral` — the record's state is a fact you'd read in passing (a report received,
  *      an application for review). The name is what the eye should land on, so the pill
  *      recedes and only the dot carries colour. This is the comp's treatment.
- *   `toned` — the state is the headline. A grant is Active, Done or Cancelled, and
+ *   `toned` — the state is the headline. A grant is Active, Complete or Cancelled, and
  *      which one governs whether money is still moving; that answer arriving in grey
  *      made the most consequential word on the screen the quietest.
  */

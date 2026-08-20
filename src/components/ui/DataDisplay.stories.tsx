@@ -51,7 +51,7 @@ const ROWS: Row[] = [
 ]
 
 const STATUS_HEX = { active: C.success, completed: C.sub, cancelled: C.danger }
-const STATUS_LABEL = { active: 'Active', completed: 'Done', cancelled: 'Cancelled' }
+const STATUS_LABEL = { active: 'Active', completed: 'Complete', cancelled: 'Cancelled' }
 
 const COLUMNS: TableColumn<Row>[] = [
   {

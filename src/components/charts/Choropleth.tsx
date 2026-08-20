@@ -3,6 +3,7 @@ import { geoConicEqualArea, geoEqualEarth, geoPath } from 'd3-geo'
 import { feature } from 'topojson-client'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import { chart, fmtMoney, tooltipBox } from './theme'
+import { Tooltip } from '../ui/Tooltip'
 
 // Choropleth — "where the money went", drawn as the Figma's dot matrix.
 //
@@ -837,29 +838,41 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
           Less
         </span>
         <span className="flex">
-          {RAMP.map((c, i) => (
-            <span
-              key={c}
-              title={
-                cuts.length
-                  ? i === 0
-                    ? `up to ${fmtMoney(cuts[0]!)}`
-                    : i === RAMP.length - 1
-                      ? `${fmtMoney(cuts.at(-1)!)} and above`
-                      : `${fmtMoney(cuts[i - 1]!)} – ${fmtMoney(cuts[i]!)}`
-                  : undefined
-              }
-              style={{
-                width: 22,
-                height: 10,
-                background: c,
-                borderTopLeftRadius: i === 0 ? 3 : 0,
-                borderBottomLeftRadius: i === 0 ? 3 : 0,
-                borderTopRightRadius: i === RAMP.length - 1 ? 3 : 0,
-                borderBottomRightRadius: i === RAMP.length - 1 ? 3 : 0,
-              }}
-            />
-          ))}
+          {RAMP.map((c, i) => {
+            const swatch = (
+              <span
+                className="block"
+                style={{
+                  width: 22,
+                  height: 10,
+                  background: c,
+                  borderTopLeftRadius: i === 0 ? 3 : 0,
+                  borderBottomLeftRadius: i === 0 ? 3 : 0,
+                  borderTopRightRadius: i === RAMP.length - 1 ? 3 : 0,
+                  borderBottomRightRadius: i === RAMP.length - 1 ? 3 : 0,
+                }}
+              />
+            )
+            // Without cuts the ramp is only "less → more" and the swatch has nothing to
+            // say, so it stays a plain block rather than an empty tab stop.
+            if (!cuts.length) return <span key={c}>{swatch}</span>
+            const band =
+              i === 0
+                ? `up to ${fmtMoney(cuts[0]!)}`
+                : i === RAMP.length - 1
+                  ? `${fmtMoney(cuts.at(-1)!)} and above`
+                  : `${fmtMoney(cuts[i - 1]!)} – ${fmtMoney(cuts[i]!)}`
+            return (
+              <Tooltip
+                key={c}
+                label={`Band ${i + 1} of ${RAMP.length}`}
+                trigger={swatch}
+                triggerClassName="flex focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+              >
+                {band}
+              </Tooltip>
+            )
+          })}
         </span>
         <span className="font-display text-label" style={{ color: chart.faint }}>
           More

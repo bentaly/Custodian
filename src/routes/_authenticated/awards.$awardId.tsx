@@ -118,7 +118,7 @@ function AwardDetail() {
         backLabel="Back to awards"
         name={award.organisationName}
         subline={subline}
-        // Toned, not neutral: whether this grant is Active, Done or Cancelled decides
+        // Toned, not neutral: whether this grant is Active, Complete or Cancelled decides
         // whether money is still moving, and it was arriving in grey.
         status={{
           label: GRANT_STATUS_LABELS[award.status] ?? award.status,

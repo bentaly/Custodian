@@ -15,7 +15,9 @@ import {
   ExportButton,
   FilterPill,
   MiniKpi,
+  Tooltip,
   TruncatedList,
+  TruncatedText,
   formatDateRange,
 } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
@@ -84,17 +86,6 @@ const KPI = {
   },
 }
 const PALETTE = PROGRAMME_COLOURS
-// Rotating pastel tints for the round grant cards.
-const CARD_TINTS = [
-  {
-    bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)',
-    ink: 'var(--color-accent-violet)',
-  },
-  { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', ink: 'var(--color-brand)' },
-  { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', ink: 'var(--color-warning)' },
-  { bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', ink: 'var(--color-danger)' },
-  { bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)', ink: 'var(--color-info)' },
-]
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
 
@@ -175,27 +166,37 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
             const pct = total > 0 ? Math.round((amt / total) * 100) : 0
             const h = Math.round((amt / max) * 100)
             return (
-              <div
+              // The money behind a column is nowhere else on the screen — only the
+              // percentage is, and only above the taller ones — so the column has to
+              // hand it over. `Tooltip` rather than a `title` because a bar a keyboard
+              // user cannot reach is a bar whose value they never learn.
+              <Tooltip
                 key={i}
-                className="group flex h-full flex-1 flex-col justify-end"
-                title={`Decile ${i + 1} · ${fmtMoney(amt)} · ${pct}%`}
+                label={`Decile ${i + 1}`}
+                className="flex h-full flex-1"
+                triggerClassName="group flex h-full w-full flex-col justify-end rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+                trigger={
+                  <>
+                    {amt > 0 && pct >= 4 && (
+                      <span
+                        className="mb-1 text-center font-display text-label"
+                        style={{ color: C.faint }}
+                      >
+                        {pct}%
+                      </span>
+                    )}
+                    <div
+                      className="mx-auto w-full max-w-[26px] rounded-t-chip"
+                      style={{
+                        height: `${Math.max(amt > 0 ? 3 : 0, h)}%`,
+                        backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2),
+                      }}
+                    />
+                  </>
+                }
               >
-                {amt > 0 && pct >= 4 && (
-                  <span
-                    className="mb-1 text-center font-display text-label"
-                    style={{ color: C.faint }}
-                  >
-                    {pct}%
-                  </span>
-                )}
-                <div
-                  className="mx-auto w-full max-w-[26px] rounded-t-chip"
-                  style={{
-                    height: `${Math.max(amt > 0 ? 3 : 0, h)}%`,
-                    backgroundColor: i < 4 ? C.brand : withAlpha(C.success, 0.2),
-                  }}
-                />
-              </div>
+                Decile {i + 1} · {fmtMoney(amt)} · {pct}%
+              </Tooltip>
             )
           })}
         </div>
@@ -281,19 +282,23 @@ function CommitmentChart({
               {series.map((p) => {
                 const h = (p.value / max) * 100
                 return (
-                  <div
+                  <Tooltip
                     key={p.id}
-                    className="flex h-full flex-1 items-end justify-center"
-                    title={`${p.label} · ${fmtMoney(p.value)}`}
+                    label={p.label}
+                    className="flex h-full flex-1"
+                    triggerClassName="flex h-full w-full items-end justify-center rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+                    trigger={
+                      <div
+                        className="w-8 rounded-t-chip"
+                        style={{
+                          height: `${Math.max(1, h)}%`,
+                          backgroundColor: 'var(--color-accent-violet)',
+                        }}
+                      />
+                    }
                   >
-                    <div
-                      className="w-8 rounded-t-chip"
-                      style={{
-                        height: `${Math.max(1, h)}%`,
-                        backgroundColor: 'var(--color-accent-violet)',
-                      }}
-                    />
-                  </div>
+                    {p.label} · {fmtMoney(p.value)}
+                  </Tooltip>
                 )
               })}
             </div>
@@ -319,14 +324,22 @@ function CommitmentChart({
               {pts.map((p) => (
                 <span
                   key={p.id}
-                  title={`${p.label} · ${fmtMoney(p.value)}`}
-                  className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white"
-                  style={{
-                    left: `${p.x}%`,
-                    top: `${p.y}%`,
-                    borderColor: 'var(--color-accent-violet)',
-                  }}
-                />
+                  className="absolute -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                >
+                  <Tooltip
+                    label={p.label}
+                    triggerClassName="flex rounded-full focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+                    trigger={
+                      <span
+                        className="block size-2.5 rounded-full border-2 bg-white"
+                        style={{ borderColor: 'var(--color-accent-violet)' }}
+                      />
+                    }
+                  >
+                    {p.label} · {fmtMoney(p.value)}
+                  </Tooltip>
+                </span>
               ))}
             </div>
           )}
@@ -341,13 +354,9 @@ function CommitmentChart({
                 {fmtCompact(p.value)}
               </p>
             )}
-            <p
-              className="truncate font-display text-label"
-              style={{ color: C.sub }}
-              title={p.label}
-            >
-              {p.label}
-            </p>
+            <div className="font-display text-label" style={{ color: C.sub }}>
+              <TruncatedText text={p.label} label="Full label" className="text-center" />
+            </div>
           </div>
         ))}
       </div>
@@ -541,6 +550,45 @@ function sumImpact(grants: InsightsGrant[]): number {
   return grants.reduce((s, g) => s + (effImpact(g)?.value ?? 0), 0)
 }
 
+type RoundProgramme = {
+  /** `null` for grants whose round-programme pairing no longer resolves. */
+  id: string | null
+  name: string
+  grants: number
+  total: number
+  /** Impact in this programme's own unit — `null` when no grant has stated a figure. */
+  impact: number | null
+  unitLabel: string
+  /** True when any figure in the sum is the applicant's proposal rather than a report. */
+  hasProposed: boolean
+}
+
+/**
+ * A round's grants folded into the programmes that funded them. Impact is summed
+ * per programme rather than per round: a round's programmes each measure in their
+ * OWN unit ("people", "meals", "hours"), so a round-level total would be adding
+ * quantities that don't share a scale — inside one programme they do.
+ */
+function roundProgrammes(grants: InsightsGrant[]): RoundProgramme[] {
+  return [...new Set(grants.map((g) => g.programmeId))]
+    .map((pid) => {
+      const own = grants.filter((g) => g.programmeId === pid)
+      const eff = own
+        .map(effImpact)
+        .filter((e): e is { value: number; source: ImpactSource } => e !== null)
+      return {
+        id: pid,
+        name: own[0]!.programmeName ?? '—',
+        grants: own.length,
+        total: own.reduce((s, g) => s + g.amountAwarded, 0),
+        impact: eff.length > 0 ? eff.reduce((s, e) => s + e.value, 0) : null,
+        unitLabel: own[0]!.unitLabel,
+        hasProposed: eff.some((e) => e.source === 'proposed'),
+      }
+    })
+    .sort((a, b) => b.total - a.total)
+}
+
 /** Round a chart's top gridline up to 1/2/5 × a power of ten, so ticks divide evenly. */
 function niceMax(n: number): number {
   const pow = 10 ** Math.floor(Math.log10(n))
@@ -650,6 +698,9 @@ function InsightsPage() {
       }
     })
     .sort((a, b) => b.committed - a.committed)
+  // One colour per programme for the whole screen — the round panel below draws the
+  // same programme in the same colour this panel gives it, so the two read as one set.
+  const programmeColour = new Map(byProgramme.map((p) => [p.id, p.colour]))
 
   // ── Commitment over time (by round, chronological) ──
   // Line and Bars plot the same series — what each round committed. Line leads and is
@@ -672,6 +723,7 @@ function InsightsPage() {
         name: grants[0]!.roundName ?? '—',
         openedAt: grants[0]!.roundOpenedAt,
         grants,
+        programmes: roundProgrammes(grants),
         total: grants.reduce((s, g) => s + g.amountAwarded, 0),
       }
     })
@@ -1000,13 +1052,12 @@ function InsightsPage() {
                           className="my-2 w-full"
                           segments={[{ value: 1, colour: p.colour }]}
                         />
-                        <p
-                          className="truncate font-display text-body font-medium"
+                        <div
+                          className="font-display text-body font-medium"
                           style={{ color: C.ink }}
-                          title={p.name}
                         >
-                          {p.name}
-                        </p>
+                          <TruncatedText text={p.name} label="Programme name" />
+                        </div>
                         <p className="truncate font-display text-label" style={{ color: C.sub }}>
                           {p.grants} grant{p.grants !== 1 ? 's' : ''}
                           {p.people != null && p.people > 0
@@ -1098,13 +1149,12 @@ function InsightsPage() {
                           style={{ backgroundColor: withAlpha(t.colour, 0.1) }}
                         >
                           <div className="min-w-0 flex-1">
-                            <p
-                              className="truncate font-display text-body font-medium"
+                            <div
+                              className="font-display text-body font-medium"
                               style={{ color: C.ink }}
-                              title={t.tag}
                             >
-                              {t.tag}
-                            </p>
+                              <TruncatedText text={t.tag} label="Theme" />
+                            </div>
                             <p
                               className="mt-1 truncate font-display text-label"
                               style={{ color: C.sub }}
@@ -1280,7 +1330,7 @@ function InsightsPage() {
                 {timelineRounds
                   .slice()
                   .reverse()
-                  .map((r, ri) => (
+                  .map((r) => (
                     <div key={r.id}>
                       <div className="mb-2.5 flex items-center gap-2.5">
                         <span
@@ -1294,17 +1344,18 @@ function InsightsPage() {
                           {r.name}
                         </span>
                         <span className="font-display text-label" style={{ color: C.sub }}>
+                          {r.programmes.length} programme{r.programmes.length !== 1 ? 's' : ''} ·{' '}
                           {r.grants.length} grant{r.grants.length !== 1 ? 's' : ''} ·{' '}
                           {fmtCompact(r.total)}
                         </span>
                         <span className="h-px flex-1" style={{ backgroundColor: C.line }} />
                       </div>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        {r.grants.map((g, gi) => (
-                          <RoundGrantCard
-                            key={g.awardId}
-                            grant={g}
-                            tint={CARD_TINTS[(ri + gi) % CARD_TINTS.length]!}
+                        {r.programmes.map((p) => (
+                          <RoundProgrammeCard
+                            key={p.id ?? '—'}
+                            programme={p}
+                            colour={(p.id && programmeColour.get(p.id)) || C.sub}
                           />
                         ))}
                       </div>
@@ -1319,49 +1370,61 @@ function InsightsPage() {
   )
 }
 
-function RoundGrantCard({
-  grant: g,
-  tint,
+function RoundProgrammeCard({
+  programme: p,
+  colour,
 }: {
-  grant: InsightsGrant
-  tint: { bg: string; ink: string }
+  programme: RoundProgramme
+  colour: string
 }) {
-  const eff = g.unitKey === 'people' ? effImpact(g) : null
-  const detail = [g.programmeName, g.ladName ?? g.region].filter(Boolean).join(' · ')
-  return (
-    <Link
-      to="/applications/$applicationId"
-      params={{ applicationId: g.applicationId }}
-      className="block rounded-card p-4 transition-shadow hover:shadow-xs"
-      style={{ backgroundColor: tint.bg }}
-    >
+  const impact =
+    p.impact === null
+      ? 'no impact figures yet'
+      : `${Math.round(p.impact).toLocaleString('en-GB')} ${p.unitLabel.toLowerCase()}${p.hasProposed ? ' (incl. proposed)' : ''}`
+  const bg = { backgroundColor: `color-mix(in srgb, ${colour} 12%, transparent)` }
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-            {g.organisationName}
-          </p>
-          <p className="font-display text-label" style={{ color: C.sub }}>
-            {eff
-              ? `${Math.round(eff.value).toLocaleString('en-GB')} ${g.unitLabel.toLowerCase()}${eff.source === 'proposed' ? ' (proposed)' : ''}`
-              : 'no report yet'}
+          <div className="flex items-center gap-2">
+            {/* The swatch carries the colour; the text never does — at the palette's
+                fixed lightness these hues sit near 3:1 on white. */}
+            <span
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: colour }}
+              aria-hidden
+            />
+            <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
+              {p.name}
+            </p>
+          </div>
+          <p className="mt-0.5 font-display text-label" style={{ color: C.sub }}>
+            {p.grants} grant{p.grants !== 1 ? 's' : ''}
           </p>
         </div>
-        <span
-          className="shrink-0 font-display text-heading font-medium"
-          style={{ color: tint.ink }}
-        >
-          {fmtCompact(g.amountAwarded)}
+        <span className="shrink-0 font-display text-heading font-medium" style={{ color: C.ink }}>
+          {fmtCompact(p.total)}
         </span>
       </div>
-      {detail && (
-        <p
-          className="mt-3 truncate font-display text-label"
-          style={{ color: C.sub }}
-          title={detail}
-        >
-          {detail}
-        </p>
-      )}
+      <p className="mt-3 truncate font-display text-label" style={{ color: C.sub }} title={impact}>
+        {impact}
+      </p>
+    </>
+  )
+  // Filtering the whole screen to this programme is the drill a programme card offers
+  // — there is no programme detail route, and the filter pill above shows the state.
+  return p.id ? (
+    <Link
+      to="/insights"
+      search={(prev) => ({ ...prev, programmeId: p.id! })}
+      className="block rounded-card p-4 transition-shadow hover:shadow-xs"
+      style={bg}
+    >
+      {body}
     </Link>
+  ) : (
+    <div className="rounded-card p-4" style={bg}>
+      {body}
+    </div>
   )
 }

@@ -13,7 +13,11 @@ import {
   listAwardCandidates,
   type AwardCandidate,
 } from '../../server/fns/awardSetup'
-import { getRoundBudgetSummary, listAwards } from '../../server/fns/applications'
+import {
+  GRANT_STATUS_LABELS,
+  getRoundBudgetSummary,
+  listAwards,
+} from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
 import { myRoundsForFallback } from '../../lib/myRounds'
 import { AwardWizard } from '../../components/shortlist/AwardWizard'
@@ -298,7 +302,7 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
     width: 'sm:w-[120px]',
     cell: (a) => (
       <StatusPill
-        label={a.status === 'active' ? 'Active' : a.status === 'completed' ? 'Done' : 'Cancelled'}
+        label={GRANT_STATUS_LABELS[a.status] ?? a.status}
         colour={a.status === 'cancelled' ? C.danger : a.status === 'completed' ? C.sub : C.brand}
       />
     ),

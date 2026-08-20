@@ -37,6 +37,8 @@ import {
   MiniKpi,
   Panel,
   PanelTitle,
+  Tooltip,
+  TruncatedText,
 } from '../../components/ui'
 import { ScoreRing } from '../../components/charts/ScoreRing'
 import {
@@ -238,17 +240,18 @@ function HeaderButton({
   icon,
   onClick,
   disabled,
-  title,
   href,
   children,
+  ...described
 }: {
   tone: keyof typeof HEADER_TONE
   icon?: typeof File01Icon
   onClick?: () => void
   disabled?: boolean
-  title?: string
   href?: string
   children: React.ReactNode
+  /** Forwarded so a wrapping `Tooltip control` can describe the control itself. */
+  'aria-describedby'?: string
 }) {
   const variant = HEADER_TONE[tone]
   if (href) {
@@ -260,7 +263,7 @@ function HeaderButton({
     return (
       <a
         href={href}
-        title={title}
+        {...described}
         className="inline-flex h-10 shrink-0 items-center gap-2 rounded-control border px-4 font-display text-body font-medium"
         style={style}
       >
@@ -270,7 +273,7 @@ function HeaderButton({
     )
   }
   return (
-    <Button variant={variant} icon={icon} onClick={onClick} disabled={disabled} title={title}>
+    <Button variant={variant} icon={icon} onClick={onClick} disabled={disabled} {...described}>
       {children}
     </Button>
   )
@@ -472,20 +475,29 @@ function ApplicationDetail() {
                 own signature and a copy in their sent items. Hidden when the
                 application carries no contact address. */}
             {application.applicantEmail && (
-              <HeaderButton
-                tone="plain"
-                icon={Mail01Icon}
-                title={application.applicantEmail}
-                href={`mailto:${encodeURIComponent(application.applicantEmail)}?subject=${encodeURIComponent(
-                  `Your application to ${clientName ?? 'us'}${
-                    application.externalApplicationId
-                      ? ` (${application.externalApplicationId})`
-                      : ''
-                  }`,
-                )}`}
+              // `control`: the address DESCRIBES a link that already names itself, so
+              // the tooltip must not add a tab stop or a second name over the top of it.
+              <Tooltip
+                control
+                label="Applicant email address"
+                trigger={
+                  <HeaderButton
+                    tone="plain"
+                    icon={Mail01Icon}
+                    href={`mailto:${encodeURIComponent(application.applicantEmail)}?subject=${encodeURIComponent(
+                      `Your application to ${clientName ?? 'us'}${
+                        application.externalApplicationId
+                          ? ` (${application.externalApplicationId})`
+                          : ''
+                      }`,
+                    )}`}
+                  >
+                    Email applicant
+                  </HeaderButton>
+                }
               >
-                Email applicant
-              </HeaderButton>
+                {application.applicantEmail}
+              </Tooltip>
             )}
             <HeaderButton tone="brand" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
               View Submission
@@ -525,24 +537,37 @@ function ApplicationDetail() {
                   <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
                     {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
                   </HeaderButton>
-                  <HeaderButton
-                    tone={isShortlisted ? 'plain' : 'primary'}
-                    onClick={handleShortlist}
-                    disabled={shortlisting || isBudgetFull}
-                    title={
-                      isBudgetFull
-                        ? 'Budget committed — no funds remaining in this programme'
-                        : undefined
-                    }
-                  >
-                    {shortlisting
-                      ? '…'
-                      : isShortlisted
-                        ? 'Remove from shortlist'
-                        : isBudgetFull
-                          ? 'Budget full'
-                          : 'Shortlist'}
-                  </HeaderButton>
+                  {/* The reason a button is DISABLED is the one explanation a `title`
+                      can never deliver: a disabled button takes no focus, so a keyboard
+                      user has no way to reach it, and several browsers decline to draw
+                      the tip at all. So when the budget is full the button is wrapped in
+                      the tooltip's own focusable trigger — which is a tab stop precisely
+                      because the button it wraps is not. When the button is live it
+                      wears nothing, and stays the single tab stop it should be. */}
+                  {(() => {
+                    const shortlistButton = (
+                      <HeaderButton
+                        tone={isShortlisted ? 'plain' : 'primary'}
+                        onClick={handleShortlist}
+                        disabled={shortlisting || isBudgetFull}
+                      >
+                        {shortlisting
+                          ? '…'
+                          : isShortlisted
+                            ? 'Remove from shortlist'
+                            : isBudgetFull
+                              ? 'Budget full'
+                              : 'Shortlist'}
+                      </HeaderButton>
+                    )
+                    return isBudgetFull ? (
+                      <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
+                        Budget committed — no funds remaining in this programme.
+                      </Tooltip>
+                    ) : (
+                      shortlistButton
+                    )
+                  })()}
                 </>
               )
             )}
@@ -736,13 +761,12 @@ function ApplicationDetail() {
                         className="size-2 shrink-0 rounded-swatch"
                         style={{ backgroundColor: BUDGET_COLOURS[i % BUDGET_COLOURS.length] }}
                       />
-                      <span
-                        className="flex-1 truncate font-display text-body"
+                      <div
+                        className="min-w-0 flex-1 font-display text-body"
                         style={{ color: C.ink }}
-                        title={l.item}
                       >
-                        {l.item}
-                      </span>
+                        <TruncatedText text={l.item} label="Budget line" />
+                      </div>
                       <span
                         className="w-24 text-right font-display text-body font-medium tabular-nums"
                         style={{ color: C.ink }}

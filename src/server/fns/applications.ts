@@ -762,7 +762,7 @@ export const AWARDS_DEFAULT_SORT = { by: 'awarded', dir: 'desc' } as const satis
 /** Award lifecycle labels, shared by the facet and the client's status pill. */
 export const GRANT_STATUS_LABELS: Record<string, string> = {
   active: 'Active',
-  completed: 'Done',
+  completed: 'Complete',
   cancelled: 'Cancelled',
 }
 
@@ -1018,7 +1018,7 @@ export const updateInstalment = createServerFn({ method: 'POST' })
   })
 
 // Mark an instalment paid (records today, or an explicit date) or clear it back to
-// outstanding. Paying the final instalment auto-completes the award ("Done");
+// outstanding. Paying the final instalment auto-completes the award ("Complete");
 // reopening a paid instalment on a completed award flips it back to active. A
 // cancelled award is never touched — the award's lifecycle simply tracks whether
 // the money is fully out the door.

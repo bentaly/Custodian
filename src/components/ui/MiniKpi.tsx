@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { withAlpha } from '../BarMeter'
 import { C } from './tokens'
+import { TruncatedText } from './TruncatedText'
 
 // The small sibling of the dashboard's KPI card (Figma 112:134): a white card with a
 // tinted inner panel — big number, supporting line, icon + label footer. Used as the
@@ -121,12 +122,19 @@ export function MiniKpi({
           }}
         />
         <div className="relative z-10">
-          <div
-            className={`truncate ${valueClass ?? VALUE_SIZE[size]}`}
-            style={{ color: valueColour ?? C.ink }}
-            title={typeof value === 'string' ? value : undefined}
-          >
-            {value}
+          {/* A long figure ("£1,284,500 of £2m") is clipped by the card, so the whole
+              of it is handed over on hover AND on focus — `TruncatedText` wires that
+              only when the string is actually cut off, so cards that fit stay silent. */}
+          <div style={{ color: valueColour ?? C.ink }}>
+            {typeof value === 'string' ? (
+              <TruncatedText
+                text={value}
+                label={label}
+                className={valueClass ?? VALUE_SIZE[size]}
+              />
+            ) : (
+              <div className={`truncate ${valueClass ?? VALUE_SIZE[size]}`}>{value}</div>
+            )}
           </div>
           <div
             className={`mt-1 truncate font-medium ${scale.sub}`}

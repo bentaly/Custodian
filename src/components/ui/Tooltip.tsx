@@ -1,4 +1,12 @@
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  cloneElement,
+  isValidElement,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { InformationCircleIcon } from '@hugeicons/core-free-icons'
@@ -22,6 +30,12 @@ import { InformationCircleIcon } from '@hugeicons/core-free-icons'
 //     ignores your click is a promise the page does not keep, and a status glyph is not
 //     an action. `tabIndex={0}` and `role="note"` keep it reachable and announced,
 //     which is the part `title` gives up.
+//   • `control` is for a trigger that is ALREADY focusable — a button, a link. Wrapping
+//     one in the `role="note"` span above would put a second tab stop around a control
+//     that already has one, and announce a note wrapping a button. So the wrapper stays
+//     inert and the DESCRIPTION is cloned onto the control itself: hover and focus are
+//     handled on the wrapper (both bubble out of the control), while `aria-describedby`
+//     has to sit on the focused element or no screen reader will read it.
 //
 // The bubble is PORTALLED to `document.body` and positioned `fixed`. It has to be: these
 // live inside the round dialog's scrolling body, and an ancestor with `overflow` clips
@@ -39,9 +53,15 @@ export function Tooltip({
   label,
   children,
   trigger,
+  className,
   triggerClassName,
+  control = false,
 }: {
-  /** Accessible name for the trigger, e.g. "About max per award". */
+  /**
+   * Accessible name for the trigger, e.g. "About max per award". Ignored when
+   * `control` is set — the button or link already names itself, and a second name
+   * over the top of it is how a control ends up announced as something it isn't.
+   */
   label: string
   /** The explanation. Keep it to a sentence or two. */
   children: ReactNode
@@ -54,9 +74,22 @@ export function Tooltip({
    * `title` attribute gives up.
    */
   trigger?: ReactNode
+  /**
+   * Replaces the wrapper's default `inline-flex`. The wrapper is a real box in the
+   * layout, so where the trigger was a flex child carrying its own sizing — a chart
+   * column with `h-full flex-1` — that sizing has to move out here, or the wrapper
+   * collapses and takes the bar with it.
+   */
+  className?: string
   /** Replaces the custom trigger's default classes. Ignored for the ⓘ, which owns its
-   *  own look. */
+   *  own look, and for `control`, which adds no classes of its own. */
   triggerClassName?: string
+  /**
+   * The `trigger` is itself an interactive, focusable element (a `Button`, an
+   * `AnchorButton`, a `Link`). It keeps its own tab stop and its own name; this just
+   * describes it. The element must forward `aria-describedby` to its DOM node.
+   */
+  control?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<Position | null>(null)
@@ -98,10 +131,9 @@ export function Tooltip({
     }
   }, [open])
 
-  // Shared by both trigger shapes. Stopping a click from reaching a clickable row
+  // Shared by all three trigger shapes. Stopping a click from reaching a clickable row
   // underneath is the CELL's job, not this component's — see `DueDiligenceCell`.
   const shared = {
-    ref: triggerEl as React.Ref<never>,
     'aria-describedby': open ? id : undefined,
     onMouseEnter: () => setOpen(true),
     onMouseLeave: () => setOpen(false),
@@ -113,8 +145,30 @@ export function Tooltip({
   }
 
   return (
-    <span className="inline-flex">
-      {trigger !== undefined ? (
+    <span
+      className={className ?? 'inline-flex'}
+      // In `control` mode the wrapper is the measured box and the hover/focus target:
+      // `mouseenter` on a span that tightly wraps the control is the control's own
+      // hover, and `focus`/`blur` bubble out of it.
+      {...(control
+        ? {
+            ref: triggerEl as React.Ref<never>,
+            onMouseEnter: shared.onMouseEnter,
+            onMouseLeave: shared.onMouseLeave,
+            onFocus: shared.onFocus,
+            onBlur: shared.onBlur,
+            onKeyDown: shared.onKeyDown,
+          }
+        : {})}
+    >
+      {control ? (
+        // Only the description is cloned on. Everything else the control already has.
+        isValidElement<{ 'aria-describedby'?: string }>(trigger) ? (
+          cloneElement(trigger, { 'aria-describedby': shared['aria-describedby'] })
+        ) : (
+          trigger
+        )
+      ) : trigger !== undefined ? (
         // No click handler on purpose. It opens on hover and on focus — and tapping a
         // `tabindex` element focuses it — so there is nothing a click could add except
         // the appearance of an action, which is what a `<button>` here got wrong.
@@ -125,6 +179,7 @@ export function Tooltip({
         // case (`.oxlintrc.json`) — nothing else in the app should reach for it.
         <span
           {...shared}
+          ref={triggerEl as React.Ref<never>}
           role="note"
           aria-label={label}
           tabIndex={0}
@@ -138,6 +193,7 @@ export function Tooltip({
       ) : (
         <button
           {...shared}
+          ref={triggerEl as React.Ref<never>}
           type="button"
           aria-label={label}
           aria-expanded={open}
