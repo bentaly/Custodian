@@ -222,7 +222,7 @@ export function ReportAnalysisPanel({
           <div className="grid gap-5 lg:grid-cols-2">
             {a.applicationAlignment && (
               <div>
-                <Heading>Against the application</Heading>
+                <Heading>Application alignment</Heading>
                 <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
                   {a.applicationAlignment.narrative}
                 </p>
@@ -242,7 +242,7 @@ export function ReportAnalysisPanel({
 
             {a.programmeAlignment && (
               <div>
-                <Heading>Against the programme</Heading>
+                <Heading>Programme alignment</Heading>
                 <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
                   {a.programmeAlignment.narrative}
                 </p>
