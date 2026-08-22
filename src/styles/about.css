@@ -1,0 +1,693 @@
+/*
+  The public explainer at /about. Scoped entirely under `.about` — this file is imported
+  by the route module, so Vite ships it in that route's chunk and no other screen pays
+  for it (nor can it reach them).
+  =============================================================================
+  Why this page carries its own tokens rather than using the app's:
+
+  `globals.css` deletes Tailwind's stock scales (`--text-*`, `--radius-*`, `--color-*` set
+  to `initial`) so that anything off-Figma fails visibly. That is right for the product —
+  the app can only express the five type sizes and 25 colours the designer chose. It is
+  wrong for a marketing page, which needs a 116px display size the app has no business
+  having. So the palette here is the SAME brand values, restated as local custom
+  properties, and the type scale is this page's own.
+
+  Keep the colour values in step with `globals.css`; they are deliberately the same
+  hexes, not approximations.
+*/
+
+.about {
+  /* Brand — the same values as globals.css's @theme block. */
+  --ab-brand: #1f7a5c;
+  --ab-brand-hover: #17614a;
+  --ab-wash: #dff3ea;
+
+  --ab-ink: #141c24; /* grey-900 */
+  --ab-body: #344051; /* grey-700 */
+  --ab-muted: #637083; /* grey-500 */
+  --ab-faint: #97a1af; /* grey-400 */
+
+  --ab-paper: #f7faf8; /* a green-cast off-white, chosen for this page */
+  --ab-surface: #ffffff;
+  --ab-rule: #e3e9e6;
+  --ab-rule-strong: #c9d5cf;
+  --ab-quiet: #f1f6f3;
+
+  --ab-plate-edge: #e4e7ec; /* grey-200 */
+  --ab-plate-shadow: 0 1px 2px rgba(20, 28, 36, 0.05), 0 18px 40px -18px rgba(20, 28, 36, 0.18);
+
+  --ab-measure: 62ch;
+  --ab-gutter: clamp(20px, 5vw, 64px);
+
+  --ab-xs: 11px;
+  --ab-s: 13px;
+  --ab-m: 16px;
+  --ab-xl: clamp(28px, 3.6vw, 42px);
+  /* The wordmark. Capped at 72px rather than filling the column: at Inter 600 it is
+     a LOGO, not a display headline, and past ~72px it stops reading as the app's
+     mark and starts competing with the screenshot beneath it. */
+  --ab-2xl: clamp(42px, 5.5vw, 72px);
+
+  background: var(--ab-paper);
+  color: var(--ab-body);
+  /* The app pins `opsz 32` on <html> for Inter Display, which is a heading optical size.
+     This page is long-form reading, so its running text takes the Text cut instead. */
+  font-variation-settings: 'opsz' 16;
+  font-size: var(--ab-m);
+  line-height: 1.65;
+  min-height: 100vh;
+}
+
+.about h1,
+.about h2,
+.about h3 {
+  color: var(--ab-ink);
+  text-wrap: balance;
+  margin: 0;
+}
+.about p {
+  margin: 0;
+}
+
+.about a {
+  color: var(--ab-brand);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(31, 122, 92, 0.35);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.about a:hover {
+  color: var(--ab-brand-hover);
+  border-bottom-color: currentcolor;
+}
+.about a:focus-visible {
+  outline: 2px solid var(--ab-brand);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.about .skip {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 100;
+  background: var(--ab-surface);
+  color: var(--ab-brand);
+  border: 1px solid var(--ab-rule-strong);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: var(--ab-s);
+}
+.about .skip:focus {
+  left: 8px;
+}
+
+.about .wrap {
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: var(--ab-gutter);
+}
+
+.about .prose {
+  max-width: var(--ab-measure);
+}
+.about .prose > * + * {
+  margin-top: 1em;
+}
+
+.about .eyebrow {
+  display: block;
+  font-size: var(--ab-xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ab-brand);
+}
+
+.about .h2 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 32;
+  font-size: var(--ab-xl);
+  line-height: 1.12;
+  margin-top: 12px;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+.about .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(247, 250, 248, 0.86);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ab-rule);
+}
+.about .topbar-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 60px;
+}
+/* The wordmark is the app's own lockup (see AuthShell's `Wordmark`) — Inter semibold,
+   tight tracking, grey-900 beside the mark — the product's lockup, not this page's. */
+.about .brandmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 0;
+}
+.about .brandmark:hover {
+  border-bottom: 0;
+}
+.about .brandmark span {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--ab-ink);
+  font-variation-settings: 'opsz' 32;
+}
+.about .stamp {
+  font-size: var(--ab-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ab-muted);
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+.about .hero {
+  padding: clamp(48px, 11vh, 108px) 0 0;
+}
+/* The hero heading is the BRAND wordmark, and it takes the app's own lockup treatment
+   (see AuthShell's `Wordmark`): Inter semibold, tracking -0.025em, grey-900, at Inter's
+   Display optical size — so the header and the hero read as one mark.
+
+   There is deliberately NO second typeface on this page. A display serif was tried and
+   dropped: it could not express hierarchy by weight (the face had one), and it dated a
+   modernising argument to the 18th century. With one family, WEIGHT does the work —
+   600 for the wordmark and every heading, 400 for the ledes — which is also exactly how
+   the app itself is set, so the page and the product are one voice. */
+.about .wordmark {
+  font-weight: 600;
+  font-size: var(--ab-2xl);
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 32;
+  color: var(--ab-ink);
+  margin-top: 22px;
+}
+.about .wordmark .dot,
+.about .brandmark .dot {
+  color: var(--ab-brand);
+}
+.about .hero-lede {
+  font-weight: 400;
+  font-size: clamp(20px, 2.5vw, 28px);
+  line-height: 1.36;
+  letter-spacing: -0.015em;
+  color: var(--ab-muted);
+  max-width: 26ch;
+  margin-top: 22px;
+}
+.about .hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ab-rule);
+  font-size: var(--ab-s);
+  color: var(--ab-muted);
+}
+.about .hero-meta b {
+  color: var(--ab-ink);
+  font-weight: 600;
+}
+.about .hero-plate {
+  margin-top: clamp(32px, 7vh, 76px);
+}
+
+/* ── Screenshot plates ────────────────────────────────────────────────────── */
+.about .plate {
+  background: #fff;
+  border: 1px solid var(--ab-plate-edge);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--ab-plate-shadow);
+}
+.about .plate img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Mobile-first: screenshots render at their natural aspect ratio. The desktop crop is
+   added back at >=700px only.
+   These are 1440px-wide desktop captures. Forcing the crop's fixed 460px height into a
+   ~340px-wide column makes `object-fit: cover` scale the image ~1.9x to cover the box,
+   so a phone gets a blown-up corner of a screenshot instead of the screen. */
+.about .plate-crop img {
+  height: auto;
+}
+@media (min-width: 700px) {
+  .about .plate-crop {
+    max-height: 460px;
+  }
+  .about .plate-crop img {
+    height: 460px;
+    object-fit: cover;
+    object-position: top center;
+  }
+  /* The hero plate opens the page and gets more room than the inline ones. */
+  .about .plate-hero {
+    max-height: 650px;
+  }
+  .about .plate-hero img {
+    height: 650px;
+  }
+}
+
+.about figure {
+  margin: 0;
+}
+.about figcaption {
+  margin-top: 12px;
+  font-size: var(--ab-s);
+  line-height: 1.55;
+  color: var(--ab-muted);
+  max-width: 66ch;
+}
+.about .plate-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: var(--ab-xs);
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ab-muted);
+}
+.about .plate-label::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ab-brand);
+}
+
+/* ── Bands ────────────────────────────────────────────────────────────────── */
+.about .band {
+  padding: clamp(56px, 11vh, 128px) 0;
+}
+.about .band + .band {
+  border-top: 1px solid var(--ab-rule);
+}
+.about .band-quiet {
+  background: var(--ab-quiet);
+}
+
+/* Eyebrow, heading and prose are direct children so they can sit on explicit rows.
+   The eyebrow takes row 1 alone; the heading and the prose share row 2, which is what
+   makes the first line of body copy start level with the HEADING rather than with the
+   little uppercase label above it. Doing it with rows rather than a padding fudge means
+   it holds however tall the eyebrow or heading wrap to. */
+.about .two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: clamp(24px, 5vw, 72px);
+  row-gap: 14px;
+  align-items: start;
+}
+.about .two-col > .h2,
+.about .two-col > .close-quote {
+  margin-top: 0;
+}
+@media (min-width: 900px) {
+  .about .two-col {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    row-gap: 12px;
+  }
+  .about .two-col > .eyebrow {
+    grid-area: 1 / 1;
+  }
+  .about .two-col > .h2,
+  .about .two-col > .close-quote {
+    grid-area: 2 / 1;
+  }
+  .about .two-col > .prose {
+    grid-area: 2 / 2;
+    /* Optical alignment. Equal box tops are NOT equal text tops: half-leading is
+       (line-height - font-size) / 2, which is 6% of the heading's em but 32.5% of the
+       prose's, so with the boxes flush the small text's x-height sits several pixels
+       ABOVE the heading's and reads high. Push it down by the difference.
+
+       Measured in-browser against Inter rather than assumed: the top of the x-height
+       falls at ~0.51 x font-size for the heading (line-height 1.12) and at a flat
+       ~13.3px for 16px/1.65 body copy. Derived from --ab-xl so it stays correct as the
+       heading clamps between 28px and 42px, instead of being right at one width only. */
+    padding-top: calc(0.51 * var(--ab-xl) - 13.3px);
+  }
+  /* The closing section's heading is .close-quote — its own size ramp and a looser
+     line-height (1.26), so 0.13 of the em is half-leading and the coefficient rises. */
+  .about .two-col-close > .prose {
+    padding-top: calc(0.58 * clamp(23px, 3vw, 34px) - 13.3px);
+  }
+}
+
+/* ── The lifecycle rail ───────────────────────────────────────────────────── */
+.about .lifecycle {
+  display: grid;
+  gap: clamp(28px, 5vw, 60px);
+  grid-template-columns: 1fr;
+}
+.about .rail {
+  display: none;
+}
+@media (min-width: 1000px) {
+  .about .lifecycle {
+    grid-template-columns: 186px minmax(0, 1fr);
+  }
+  .about .rail {
+    display: block;
+    position: sticky;
+    top: 108px;
+    align-self: start;
+  }
+}
+.about .rail ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 18px;
+  border-left: 1px solid var(--ab-rule-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.about .rail li {
+  position: relative;
+}
+.about .rail li::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: 0.62em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ab-paper);
+  border: 1px solid var(--ab-rule-strong);
+  transition:
+    background 0.25s,
+    border-color 0.25s,
+    transform 0.25s;
+}
+.about .rail a {
+  display: block;
+  border-bottom: 0;
+  font-size: var(--ab-s);
+  line-height: 1.35;
+  color: var(--ab-faint);
+  transition: color 0.25s;
+}
+.about .rail a:hover {
+  color: var(--ab-body);
+  border-bottom: 0;
+}
+.about .rail .n {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--ab-xs);
+  letter-spacing: 0.1em;
+  color: var(--ab-faint);
+  transition: color 0.25s;
+}
+.about .rail li.on::before {
+  background: var(--ab-brand);
+  border-color: var(--ab-brand);
+  transform: scale(1.25);
+}
+.about .rail li.on a {
+  color: var(--ab-ink);
+  font-weight: 500;
+}
+.about .rail li.on .n {
+  color: var(--ab-brand);
+}
+
+.about .stage {
+  scroll-margin-top: 96px;
+}
+.about .stage + .stage {
+  margin-top: clamp(48px, 9vh, 104px);
+}
+.about .stage-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.about .stage-n {
+  flex: none;
+  font-size: var(--ab-s);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ab-brand);
+  font-variant-numeric: tabular-nums;
+}
+.about .stage h3 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 32;
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.2;
+}
+.about .figs {
+  margin-top: 30px;
+  display: grid;
+  gap: 26px;
+}
+
+/* The "opens into" nesting carried over from the explainer document. */
+.about .drill {
+  padding-left: 16px;
+  border-left: 2px solid var(--ab-wash);
+}
+@media (min-width: 700px) {
+  .about .drill {
+    padding-left: 24px;
+  }
+}
+.about .drill-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: var(--ab-s);
+  font-weight: 500;
+  color: var(--ab-brand);
+}
+.about .drill-label .arrow {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* ── Trust grid ───────────────────────────────────────────────────────────── */
+.about .trust-grid {
+  display: grid;
+  gap: 1px;
+  margin-top: 34px;
+  background: var(--ab-rule);
+  border: 1px solid var(--ab-rule);
+  border-radius: 14px;
+  overflow: hidden;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 720px) {
+  .about .trust-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1040px) {
+  .about .trust-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.about .trust-cell {
+  background: var(--ab-surface);
+  padding: 22px 20px;
+}
+.about .trust-cell dt {
+  margin-bottom: 8px;
+  font-size: var(--ab-xs);
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ab-brand);
+}
+.about .trust-cell dd {
+  margin: 0;
+  font-size: var(--ab-s);
+  line-height: 1.55;
+  color: var(--ab-body);
+}
+
+/* ── Close ────────────────────────────────────────────────────────────────── */
+.about .close-quote {
+  margin-top: 14px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 32;
+  font-size: clamp(23px, 3vw, 34px);
+  line-height: 1.26;
+  color: var(--ab-ink);
+  max-width: 22ch;
+}
+
+.about footer {
+  border-top: 1px solid var(--ab-rule);
+  padding: 30px 0 44px;
+  font-size: var(--ab-s);
+  color: var(--ab-muted);
+}
+.about .foot-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+/* ── Reveal ───────────────────────────────────────────────────────────────── */
+.about .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.7, 0.3, 1),
+    transform 0.7s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.about .reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about *,
+  .about *::before,
+  .about *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .about .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Print ────────────────────────────────────────────────────────────────────
+   The explainer began life as a PDF whose page breaks landed badly. This is the
+   replacement for that: Cmd-P on this route should produce a clean document.  */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 13mm;
+  }
+
+  .about {
+    background: #fff;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    --ab-paper: #ffffff;
+    --ab-quiet: #ffffff;
+    --ab-plate-shadow: none;
+  }
+  .about .topbar,
+  .about .rail,
+  .about .no-print {
+    display: none !important;
+  }
+  .about .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .about .wrap {
+    max-width: none;
+    padding-inline: 0;
+  }
+  .about .band {
+    padding: 0 0 18pt;
+    border: 0 !important;
+  }
+  .about .hero {
+    padding-top: 0;
+  }
+  .about .lifecycle {
+    display: block;
+  }
+
+  .about .wordmark {
+    font-size: 30pt;
+  }
+  .about .hero-lede {
+    font-size: 15pt;
+    max-width: none;
+  }
+  .about .h2 {
+    font-size: 19pt;
+  }
+  .about .stage h3 {
+    font-size: 14pt;
+  }
+
+  /* Keep a heading with its paragraph, a caption with its image, and never split
+     a figure across a page — the three faults in the original PDF. */
+  .about h1,
+  .about h2,
+  .about h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .about figcaption {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+  .about figure,
+  .about .plate,
+  .about .trust-cell,
+  .about .drill {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .about p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* A screenshot must never be taller than the page box it sits in. */
+  .about .plate-crop,
+  .about .plate-hero {
+    max-height: none;
+  }
+  .about .plate img,
+  .about .plate-crop img,
+  .about .plate-hero img {
+    height: auto;
+    max-height: 150mm;
+    object-fit: contain;
+  }
+
+  .about #applications,
+  .about #insight {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .about a {
+    color: #1f7a5c;
+    border-bottom: 0;
+  }
+}
