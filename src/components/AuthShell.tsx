@@ -1,5 +1,14 @@
 import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import type { IconSvgElement } from '@hugeicons/react'
+import {
+  AiMagicIcon,
+  HeartHandshakeIcon,
+  Shield01Icon,
+  StarAward02Icon,
+} from '@hugeicons/core-free-icons'
 import { LogoMark } from './ui/LogoMark'
+import { AREA_ICON } from './Sidebar'
 
 /**
  * Split layout for the signed-out screens: brand panel one side, form the other.
@@ -10,49 +19,93 @@ import { LogoMark } from './ui/LogoMark'
  * it, so a phone gets the sign-in form on first paint and the product copy after,
  * rather than a screen of marketing to scroll past.
  *
- * The panel walks the five stages of the grant lifecycle in order, which is also the
- * order of the app's own navigation, and says once — at the end — that AI runs through
- * all five rather than being bolted onto one.
+ * The panel walks the six stages of the grant lifecycle in order, then makes three
+ * claims about the whole of it. Copy is the 16 Aug 2026 revision; the layout is
+ * Figma 827:1406.
  */
 
-/** The lifecycle, in the order the app itself is arranged. */
+/**
+ * The lifecycle, in the order the app itself is arranged.
+ *
+ * Each stage is marked with the AREA icon of the screen it becomes once you are signed
+ * in — read from `AREA_ICON` rather than picked here, so the promise on this page and
+ * the rail behind it can never drift apart. The comp numbers the rows 1–6; the icons
+ * replace the numerals, and the order still carries (hence `<ol>`).
+ *
+ * Partnerships is the exception: the screen does not exist yet, so its glyph comes
+ * straight from the design that will introduce it (Figma 709:55, `heart-handshake`)
+ * and is NOT added to the rail.
+ */
 const STAGES = [
   {
     title: 'Applications',
-    badge: 'AI scoring',
-    body: 'Intake, eligibility and due diligence in one queue — AI scores every application and shows its working.',
+    icon: AREA_ICON['/applications']!,
+
+    body: "Inbound applications land in one queue — eligibility, due diligence and AI scoring handled as they arrive, with the AI's working shown for every score.",
+  },
+  {
+    title: 'Partnerships',
+    icon: HeartHandshakeIcon,
+
+    body: 'For foundations sourcing grantees, prospective partners are logged, with eligibility, alignment and due diligence performed by AI.',
   },
   {
     title: 'Trustee voting',
-    badge: 'AI briefs',
-    body: 'Board papers, comments and votes in one place, each application opening with a plain-English AI brief.',
+    icon: AREA_ICON['/shortlist']!,
+
+    body: 'Proposals, shortlists and board papers in one place. Trustees read, vote and comment in a single view, with AI summaries distilling each proposal to its essentials.',
   },
   {
     title: 'Reporting',
-    badge: 'AI summaries',
-    body: 'Grantee reports arrive structured and chased automatically; AI pulls out the themes so nothing goes unread.',
+    icon: AREA_ICON['/reports']!,
+
+    body: 'Grantee submissions are assessed with AI and tracked against schedule, with overdue reports flagged automatically.',
   },
   {
-    title: 'Payments',
-    badge: 'AI checks',
-    body: 'Schedules, approvals and bank verification tracked end to end, with AI flagging anything out of step before it leaves.',
+    title: 'Finance',
+    icon: AREA_ICON['/finance']!,
+
+    body: 'Payment schedules run end to end, with every approval and regulatory step logged. Grantee bank details are validated, and any inconsistencies flagged. Giving budgets are reconciled with balances.',
   },
   {
     title: 'Portfolio insight',
-    badge: 'Ask AI',
-    body: 'Committed spend, reach and deprivation, live — ask a question of the whole portfolio and get a sourced answer.',
+    icon: AREA_ICON['/insights']!,
+    body: 'Outcomes, themes and impact measured across the entire giving portfolio — mapped against deprivation indices and geographic reach.',
+  },
+]
+
+/**
+ * What is true of all six stages at once, which is why these sit below the list rather
+ * than inside it. The lead clause is the claim; the rest is what backs it up.
+ */
+const NOTES: { icon: IconSvgElement; lead?: string; body: ReactNode }[] = [
+  {
+    icon: AiMagicIcon,
+    lead: 'AI runs through all stages.',
+    body: 'It shows its reasoning as it reads, scores, summarises and checks. Final decisions remain with your team.',
+  },
+  {
+    icon: Shield01Icon,
+    lead: 'Audit-ready by default.',
+    body: 'Every decision, payment and report leaves a complete, timestamped trail — so compliance checks, board scrutiny and regulator requests are answered from a single source of truth.',
+  },
+  {
+    icon: StarAward02Icon,
+    body: (
+      <>
+        Designed by a foundation chief executive and trustee with 20 years' experience, built by a
+        leading cyber security engineer, and developed with{' '}
+        <strong className="font-medium text-grey-900">national foundations</strong>.
+      </>
+    ),
   },
 ]
 
 function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
   return (
-    <div className="flex items-center gap-3">
-      <LogoMark className={size === 'lg' ? 'h-11 w-11' : 'h-9 w-9'} />
-      <span
-        className={`font-semibold tracking-tight text-grey-900 ${size === 'lg' ? 'text-heading' : 'text-heading'}`}
-      >
-        Custodian
-      </span>
+    <div className="flex items-center gap-2">
+      <LogoMark className={size === 'lg' ? 'h-10 w-10' : 'h-9 w-9'} />
+      <span className="text-heading font-semibold tracking-tight text-grey-900">Custodian</span>
     </div>
   )
 }
@@ -88,39 +141,34 @@ export function AuthShell({ children }: { children: ReactNode }) {
             <Wordmark />
           </div>
 
-          {/* The one deliberate exception to the type ramp. This is the signed-out brand
-              panel — marketing copy, not product chrome, and the only screen with no
-              Figma design. It scales fluidly with the viewport (and compacts again on a
-              short one), which no fixed ramp step can do; pinning it to `text-display`
-              would either overflow the panel or leave it undersized on a wide display. */}
+          {/* The one deliberate exception to the type ramp. The comp sets this at a flat
+              40px, which is right at the width it was drawn to — but the panel is a
+              percentage of the viewport, so it must also survive a 1024px display and a
+              short one. It therefore scales fluidly and tops out at the comp's 40px,
+              which no fixed ramp step could do. */}
           <h2
-            className="font-display max-w-[21ch] text-[clamp(28px,2.7vw,42px)] font-semibold leading-[1.06] text-grey-900 lg:mt-8 compact:mt-6 compact:text-[clamp(26px,2.4vw,34px)]"
-            style={{ letterSpacing: '-0.035em', textWrap: 'pretty' }}
+            className="font-display max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-6 compact:mt-5 compact:text-[clamp(26px,2.3vw,34px)]"
+            style={{ letterSpacing: '-0.02em', textWrap: 'pretty' }}
           >
-            The entire grant lifecycle, for the whole foundation team.
+            The entire grant lifecycle for the whole foundation team.
           </h2>
 
-          <ol className="mt-8 compact:mt-6">
-            {STAGES.map((stage, i) => (
+          {/* Hairlines BETWEEN the stages only: the list is a run of copy, not a boxed
+              table, so it has no outer rules. */}
+          <ol className="mt-7 divide-y divide-grey-200 compact:mt-5">
+            {STAGES.map((stage) => (
               <li
                 key={stage.title}
-                className="grid grid-cols-[30px_1fr] gap-4 border-t border-brand/20 py-3.5 last:border-b compact:py-2.5"
+                className="grid grid-cols-[24px_1fr] gap-3 py-4 first:pt-0 last:pb-0 compact:py-2.5"
               >
                 <span
                   aria-hidden
-                  className="flex h-[30px] w-[30px] items-center justify-center rounded-chip bg-brand-secondary text-body font-bold text-brand"
+                  className="flex h-6 w-6 items-center justify-center rounded-chip border border-brand/20 bg-brand/10 text-brand"
                 >
-                  {i + 1}
+                  <HugeiconsIcon icon={stage.icon} className="h-4 w-4" strokeWidth={1.75} />
                 </span>
                 <div>
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="text-title font-semibold tracking-tight text-grey-900">
-                      {stage.title}
-                    </span>
-                    <span className="rounded-full bg-brand-secondary px-2 py-[3px] text-label font-bold uppercase tracking-[0.09em] text-brand">
-                      {stage.badge}
-                    </span>
-                  </div>
+                  <span className="text-title font-medium text-grey-900">{stage.title}</span>
                   <p
                     className="mt-1 text-body leading-[1.5] text-grey-500"
                     style={{ textWrap: 'pretty' }}
@@ -132,23 +180,27 @@ export function AuthShell({ children }: { children: ReactNode }) {
             ))}
           </ol>
 
-          <div className="mt-6 flex items-start gap-3.5 rounded-card border border-brand/20 bg-white p-4 compact:mt-4 compact:p-3.5">
-            <span
-              aria-hidden
-              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip bg-brand text-label font-extrabold tracking-wide text-white"
-            >
-              AI
-            </span>
-            <p className="text-body leading-[1.55] text-grey-500" style={{ textWrap: 'pretty' }}>
-              <strong className="font-semibold text-grey-900">
-                AI runs through all five stages, not bolted on to one.
-              </strong>{' '}
-              It reads, scores, summarises and checks — with every judgement traceable to the
-              source. Your team still decides.
-            </p>
+          <div className="mt-6 space-y-3 compact:mt-4 compact:space-y-2">
+            {NOTES.map((note, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 rounded-control border border-brand/20 bg-brand/10 p-2"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-brand/10 text-brand"
+                >
+                  <HugeiconsIcon icon={note.icon} className="h-5 w-5" strokeWidth={1.5} />
+                </span>
+                <p className="text-body leading-[1.5] text-grey-500" style={{ textWrap: 'pretty' }}>
+                  {note.lead && <strong className="font-medium text-grey-900">{note.lead} </strong>}
+                  {note.body}
+                </p>
+              </div>
+            ))}
           </div>
 
-          <p className="mt-auto pt-6 text-body text-grey-500 compact:pt-4">
+          <p className="mt-auto pt-6 text-center text-body text-grey-500 compact:pt-4">
             Custodian is invite-only. Your administrator can send you an invitation.
           </p>
         </div>
