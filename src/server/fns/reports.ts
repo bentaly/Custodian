@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getDb } from '../db'
 import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { recordAudit } from '../audit'
 import { assertClientAccess } from '../scope'
 import {
   addMonthsIso,
@@ -513,7 +514,7 @@ export const markReportReviewed = createServerFn({ method: 'POST' })
     const user = await requireRole('superadmin', 'admin')
     const submission = await getDb().query.reports.findFirst({
       where: eq(reports.id, data.id),
-      columns: { id: true, clientId: true },
+      columns: { id: true, clientId: true, awardId: true },
     })
     if (!submission) throw notFoundError()
     assertClientAccess(user, submission.clientId)
@@ -525,6 +526,22 @@ export const markReportReviewed = createServerFn({ method: 'POST' })
           : { reviewedAt: null, reviewedBy: null },
       )
       .where(eq(reports.id, data.id))
+
+    // A report can arrive before it has been matched to a grant, so there may be no
+    // application to hang this on — the client is always known, and is enough.
+    const award = submission.awardId
+      ? await getDb().query.awards.findFirst({
+          where: eq(awards.id, submission.awardId),
+          columns: { applicationId: true },
+        })
+      : null
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'grant_report_reviewed',
+      ...(award ? { applicationId: award.applicationId } : {}),
+      clientId: submission.clientId,
+      metadata: { reportId: data.id, reviewed: data.reviewed },
+    })
   })
 
 // One report for the detail screen. `key` is either a grant_reports milestone id

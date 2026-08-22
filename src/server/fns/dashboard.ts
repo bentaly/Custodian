@@ -15,6 +15,7 @@ import {
   auditLog,
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
+import { FEED_ACTIONS } from '../../lib/audit'
 import { visibleRoundProgrammeIds } from '../scope'
 import { bucketSeries } from '../../lib/timeSeries'
 import { checkBankAccount } from '../../lib/bankVerification'
@@ -376,7 +377,11 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
           .from(auditLog)
           .leftJoin(users, eq(auditLog.actorUserId, users.id))
           .leftJoin(applications, eq(auditLog.applicationId, applications.id))
-          .where(eq(auditLog.clientId, clientId))
+          // The log holds more than the panel shows (see `FEED_ACTIONS`). Filtered in
+          // SQL rather than after the fetch: this takes the most recent 8 rows, so a
+          // run of key rotations would otherwise return 8 rows the panel can't render
+          // and leave it looking empty.
+          .where(and(eq(auditLog.clientId, clientId), inArray(auditLog.action, FEED_ACTIONS)))
           .orderBy(desc(auditLog.createdAt))
           .limit(8)
       : Promise.resolve(

@@ -48,7 +48,7 @@ export type VoteCardApplication = {
     programme: { name: string; impactUnit: string | null; impactUnitLabel: string | null } | null
     round: { name: string } | null
   } | null
-  votes: Array<{ userId: string; vote: 'yes' | 'no' }>
+  votes: Array<{ userId: string; vote: 'yes' | 'no'; recordedByUserId?: string | null }>
   yesVotes: number
   noVotes: number
   trusteeCount: number
@@ -368,6 +368,10 @@ export function VoteCard({
   const canVoteForTrustees = isAdmin && allowAdminVoting
 
   const voteMap = new Map(app.votes.map((v) => [v.userId, v.vote]))
+  // Whose vote was entered by somebody else. Recording the proxy is only half the fix —
+  // if the roster draws it identically to a vote the trustee cast, the board reading
+  // the roster still cannot tell the two apart, which was the whole problem.
+  const proxiedFor = new Set(app.votes.filter((v) => v.recordedByUserId).map((v) => v.userId))
   const myVote = voteMap.get(userId)
   const detail = app.custodianScoreDetail
   const scored = app.custodianScoreStatus === 'scored' && app.custodianScore !== null
@@ -611,6 +615,11 @@ export function VoteCard({
                       {t.name}
                       {t.id === userId && <span style={{ color: C.faint }}> (You)</span>}
                     </span>
+                    {proxiedFor.has(t.id) && (
+                      <span className="shrink-0 text-label" style={{ color: C.faint }}>
+                        recorded for them
+                      </span>
+                    )}
                     {canVoteForTrustees && (
                       <OnBehalfControl
                         trustee={t}

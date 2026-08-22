@@ -77,9 +77,25 @@ export const deleteComment = createServerFn({ method: 'POST' })
     await assertApplicationAccess(user, comment.applicationId)
     // The author can delete their own comment; admins can delete any.
     const isAdmin = user.role === 'superadmin' || user.role === 'admin'
-    if (comment.userId !== user.id && !isAdmin) throw forbidden('You can only change your own comments.')
+    if (comment.userId !== user.id && !isAdmin)
+      throw forbidden('You can only change your own comments.')
 
     await getDb().delete(applicationComments).where(eq(applicationComments.id, data.id))
+
+    // The comment is gone; the fact that it existed is not. `addComment` logged it
+    // being made, and erasing that row to match would let anyone edit the trail by
+    // deleting their own remark. The body is kept in the metadata deliberately — a
+    // withdrawn concern on a funding decision is exactly what a later reader needs.
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'application_comment_deleted',
+      applicationId: comment.applicationId,
+      metadata: {
+        body: comment.body,
+        authorUserId: comment.userId,
+        deletedByAdmin: comment.userId !== user.id,
+      },
+    })
     return { ok: true }
   })
 
@@ -117,7 +133,12 @@ export const listVotes = createServerFn({ method: 'GET' })
 
     return {
       trustees,
-      votes: votes.map((v) => ({ userId: v.userId, vote: v.vote, createdAt: v.createdAt })),
+      votes: votes.map((v) => ({
+        userId: v.userId,
+        vote: v.vote,
+        createdAt: v.createdAt,
+        recordedByUserId: v.recordedByUserId,
+      })),
       allowAdminVoting: profile?.allowAdminVoting ?? false,
     }
   })
@@ -138,6 +159,7 @@ export const castVote = createServerFn({ method: 'POST' })
     const isAdmin = user.role === 'superadmin' || user.role === 'admin'
 
     let targetUserId: string
+    let proxyForName: string | null = null
     if (isAdmin) {
       // Admins don't have a vote of their own — they may only record one on
       // behalf of a trustee, and only when the client has enabled it.
@@ -163,17 +185,39 @@ export const castVote = createServerFn({ method: 'POST' })
       })
       if (!target) throw badRequest('Not a trustee of this organisation')
       targetUserId = target.id
+      proxyForName = target.name
     } else {
       // Trustees vote as themselves.
       targetUserId = user.id
     }
 
+    // `recordedByUserId` is set on BOTH branches, never left alone: a trustee voting
+    // for themselves after an admin voted for them must clear the proxy, or the row
+    // would keep naming an administrator who had nothing to do with the final vote.
+    const recordedByUserId = isAdmin ? user.id : null
     await getDb()
       .insert(applicationVotes)
-      .values({ applicationId: data.applicationId, userId: targetUserId, vote: data.vote })
+      .values({
+        applicationId: data.applicationId,
+        userId: targetUserId,
+        vote: data.vote,
+        recordedByUserId,
+      })
       .onConflictDoUpdate({
         target: [applicationVotes.applicationId, applicationVotes.userId],
-        set: { vote: data.vote },
+        set: { vote: data.vote, recordedByUserId },
       })
+
+    // Only the proxy case is logged. A trustee voting as themselves is already fully
+    // described by the vote row; an administrator entering a vote for somebody else is
+    // the event a board would want to find later.
+    if (isAdmin) {
+      await recordAudit({
+        actorUserId: user.id,
+        action: 'application_vote_recorded_by_admin',
+        applicationId: data.applicationId,
+        metadata: { onBehalfOf: proxyForName, trusteeUserId: targetUserId, vote: data.vote },
+      })
+    }
     return { ok: true }
   })

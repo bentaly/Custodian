@@ -636,10 +636,23 @@ export const applicationVotes = pgTable(
     applicationId: uuid('application_id')
       .notNull()
       .references(() => applications.id, { onDelete: 'cascade' }),
+    // Whose vote this is. Always the trustee — see `recordedByUserId`.
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     vote: applicationVoteEnum('vote').notNull(),
+    // Who actually entered it, when that is not the trustee themselves. NULL means the
+    // trustee voted for themselves, which is the ordinary case and why the column is
+    // nullable with no backfill — every row predating it was cast by its own user.
+    //
+    // Without this the two are indistinguishable: where a client has enabled admin
+    // voting, an administrator recording a vote produces a row identical to the
+    // trustee having cast it, and a trustee majority is what unlocks awarding a grant.
+    // `set null` on delete keeps the vote and loses only the proxy's name, matching how
+    // `audit_log` treats a departed actor.
+    recordedByUserId: text('recorded_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [unique('application_votes_uniq').on(t.applicationId, t.userId)],
@@ -1018,6 +1031,19 @@ export const auditActionEnum = pgEnum('audit_action', [
   'application_commented',
   'application_registration_set',
   'grant_bank_details_changed',
+  'grant_payment_recorded',
+  'grant_payment_reversed',
+  'grant_payment_amended',
+  'application_comment_deleted',
+  'application_vote_recorded_by_admin',
+  'grant_report_milestone_added',
+  'grant_report_milestone_changed',
+  'grant_report_milestone_removed',
+  'grant_report_reviewed',
+  'award_letter_resent',
+  'api_key_created',
+  'api_key_revoked',
+  'invitation_sent',
 ])
 
 export const auditLog = pgTable(

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import type { FeedAction } from '../../lib/audit'
 import {
   Audit02Icon,
   CheckmarkCircle02Icon,
@@ -8,6 +9,10 @@ import {
   CancelSquareIcon,
   BubbleChatIcon,
   BankIcon,
+  BanknoteIcon,
+  BanknoteXIcon,
+  UserSwitchIcon,
+  TaskDone01Icon,
   ArrowRight01Icon,
 } from '@hugeicons/core-free-icons'
 import { Card as UiCard, TextLink } from '../../components/ui'
@@ -309,7 +314,10 @@ function DeskRow({
 // Figma 126:39615 — one neutral tile for every row, and a Gray/500 glyph in all of them.
 // The feed is a log, not a status board: colouring only the good/bad outcomes made the
 // rest look like a different kind of row rather than reading as one list.
-const LATELY_META: Record<string, { icon: IconSvgElement; verb: string }> = {
+// Typed against `FeedAction`, not `string`: the panel silently rendered nothing for an
+// action it didn't know, so adding one to the log and forgetting it here lost the row
+// with no error anywhere. Now the compiler asks for the glyph and the words.
+const LATELY_META: Record<FeedAction, { icon: IconSvgElement; verb: string }> = {
   application_awarded: { icon: CheckmarkSquare01Icon, verb: 'awarded a grant to' },
   application_declined: { icon: CancelSquareIcon, verb: 'declined' },
   application_shortlisted: { icon: CheckmarkCircle02Icon, verb: 'shortlisted' },
@@ -322,6 +330,18 @@ const LATELY_META: Record<string, { icon: IconSvgElement; verb: string }> = {
     icon: BankIcon,
     verb: 'changed the payment account for',
   },
+  // The building is the account, the note is the money — `BankIcon` above already
+  // means "where the money goes", so these two must not reuse it.
+  grant_payment_recorded: { icon: BanknoteIcon, verb: 'recorded a payment to' },
+  grant_payment_reversed: { icon: BanknoteXIcon, verb: 'reversed a recorded payment to' },
+  // Named as what it is. The whole point of recording a proxy vote is that somebody
+  // reading the feed can tell it apart from the trustee having voted, so the row must
+  // not soften it to "voted on".
+  application_vote_recorded_by_admin: {
+    icon: UserSwitchIcon,
+    verb: "recorded a trustee's vote on",
+  },
+  grant_report_reviewed: { icon: TaskDone01Icon, verb: 'reviewed a report from' },
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────────
@@ -625,7 +645,7 @@ function Dashboard() {
             ) : (
               <div className="-mx-2 min-h-0 flex-1 space-y-1 overflow-y-auto px-2">
                 {d.lately.map((ev) => {
-                  const meta = LATELY_META[ev.action]
+                  const meta = LATELY_META[ev.action as FeedAction]
                   if (!meta) return null
                   const org = ev.organisationName ?? 'an application'
                   const inner = (

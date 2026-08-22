@@ -545,5 +545,19 @@ export const resendAwardLetter = createServerFn({ method: 'POST' })
 
     const result = await resendStoredLetter(letter.id)
     if (!result.ok) throw conflict(result.error ?? 'The letter could not be sent')
+
+    // An outbound communication to a third party, sometimes to a different address
+    // than the original — logged only once the send actually succeeded.
+    const award = await getDb().query.awards.findFirst({
+      where: eq(awards.id, data.awardId),
+      columns: { applicationId: true },
+    })
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'award_letter_resent',
+      ...(award ? { applicationId: award.applicationId } : {}),
+      clientId: letter.clientId,
+      metadata: { recipientEmail: data.recipientEmail ?? letter.recipientEmail },
+    })
     return { ok: true as const }
   })

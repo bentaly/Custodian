@@ -5,6 +5,7 @@ import { eq, and, isNull } from 'drizzle-orm'
 import { getDb } from '../db'
 import { invitations, clients } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { recordAudit } from '../audit'
 import { sendInvitationEmail } from '../../lib/email'
 import { CreateInvitationSchema } from '../../lib/validators/invitation'
 
@@ -50,6 +51,16 @@ export const createInvitation = createServerFn({ method: 'POST' })
       inviteUrl: `${baseUrl}/sign-up?invite=${token}`,
       clientName: clientData.name,
       inviterName: user.name,
+    })
+
+    // The only access-control event there is: a role is chosen here and never edited
+    // afterwards, so this row is the whole answer to "who let them in, and as what".
+    // Written after the email, so the log doesn't claim an invitation that never left.
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'invitation_sent',
+      clientId: user.clientId,
+      metadata: { email: data.email, role: data.role },
     })
 
     return invite

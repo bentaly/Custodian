@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { apiKeys } from '../../../drizzle/schema'
 import { requireRole } from '../session'
+import { recordAudit } from '../audit'
 import { generateApiKey, hashApiKey } from '../apiKeys'
 
 // Keys belong to a client and gate the public /api/apply endpoint. Management is
@@ -46,6 +47,16 @@ export const createApiKey = createServerFn({ method: 'POST' })
         createdAt: apiKeys.createdAt,
       })
 
+    // Tenant-scoped: a key belongs to no application, which is why the audit row is
+    // written against the client directly. `last4` and the name are all that can be
+    // recorded — the key itself is unrecoverable by design.
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'api_key_created',
+      clientId: user.clientId,
+      metadata: { name: data.name, last4 },
+    })
+
     // `key` (plaintext) is returned only here — surfaced once in the UI, never stored.
     return { ...row!, key }
   })
@@ -61,5 +72,12 @@ export const revokeApiKey = createServerFn({ method: 'POST' })
       .where(and(eq(apiKeys.id, data.id), eq(apiKeys.clientId, user.clientId)))
       .returning({ id: apiKeys.id })
     if (!row) throw notFoundError('Key not found')
+
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'api_key_revoked',
+      clientId: user.clientId,
+      metadata: { apiKeyId: row.id },
+    })
     return row
   })

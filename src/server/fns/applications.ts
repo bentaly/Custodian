@@ -937,7 +937,7 @@ async function requireAwardForSchedule(
 ) {
   const row = await getDb().query.reportSchedule.findFirst({
     where: eq(reportSchedule.id, scheduleId),
-    with: { award: { columns: { id: true, clientId: true } } },
+    with: { award: { columns: { id: true, clientId: true, applicationId: true } } },
   })
   if (!row) throw notFoundError()
   assertClientAccess(user, row.award.clientId)
@@ -956,13 +956,21 @@ export const addReportMilestone = createServerFn({ method: 'POST' })
     const user = await requireRole('superadmin', 'admin')
     const award = await getDb().query.awards.findFirst({
       where: eq(awards.id, data.awardId),
-      columns: { id: true, clientId: true },
+      columns: { id: true, clientId: true, applicationId: true },
     })
     if (!award) throw notFoundError()
     assertClientAccess(user, award.clientId)
     await getDb()
       .insert(reportSchedule)
       .values({ awardId: data.awardId, label: data.label, dueDate: data.dueDate })
+
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'grant_report_milestone_added',
+      applicationId: award.applicationId,
+      clientId: award.clientId,
+      metadata: { label: data.label, dueDate: data.dueDate },
+    })
   })
 
 // Edit a reporting milestone's label and/or due date.
@@ -970,11 +978,24 @@ export const updateReportMilestone = createServerFn({ method: 'POST' })
   .validator(ReportMilestoneSchema.extend({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
-    await requireAwardForSchedule(user, data.id)
+    const row = await requireAwardForSchedule(user, data.id)
     await getDb()
       .update(reportSchedule)
       .set({ label: data.label, dueDate: data.dueDate })
       .where(eq(reportSchedule.id, data.id))
+
+    // Both sides are logged: "moved from March to September" is the answer somebody
+    // will want, and the row itself only ever holds the date it ended up at.
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'grant_report_milestone_changed',
+      applicationId: row.award.applicationId,
+      clientId: row.award.clientId,
+      metadata: {
+        from: { label: row.label, dueDate: row.dueDate },
+        to: { label: data.label, dueDate: data.dueDate },
+      },
+    })
   })
 
 // Remove a reporting milestone. Refused once a report has been logged against it —
@@ -988,6 +1009,14 @@ export const deleteReportMilestone = createServerFn({ method: 'POST' })
       throw conflict('This report has already been received and cannot be removed')
     }
     await getDb().delete(reportSchedule).where(eq(reportSchedule.id, data.id))
+
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'grant_report_milestone_removed',
+      applicationId: row.award.applicationId,
+      clientId: row.award.clientId,
+      metadata: { label: row.label, dueDate: row.dueDate },
+    })
   })
 
 // Edit an instalment's amount and/or due date (null dueDate = date TBC).
@@ -1005,7 +1034,7 @@ export const updateInstalment = createServerFn({ method: 'POST' })
     const user = await requireRole('superadmin', 'admin', 'finance')
     const row = await getDb().query.awardInstalments.findFirst({
       where: eq(awardInstalments.id, data.id),
-      with: { award: { columns: { clientId: true } } },
+      with: { award: { columns: { clientId: true, applicationId: true } } },
     })
     if (!row) throw notFoundError()
     assertClientAccess(user, row.award.clientId)
@@ -1016,6 +1045,21 @@ export const updateInstalment = createServerFn({ method: 'POST' })
         ...(data.dueDate !== undefined ? { dueDate: data.dueDate } : {}),
       })
       .where(eq(awardInstalments.id, data.id))
+
+    // Rescheduling money is the same class of act as ticking it off, so it is recorded
+    // the same way — with both sides, since the row keeps only where it landed. Fields
+    // the caller left alone are omitted rather than logged as unchanged.
+    await recordAudit({
+      actorUserId: user.id,
+      action: 'grant_payment_amended',
+      applicationId: row.award.applicationId,
+      clientId: row.award.clientId,
+      metadata: {
+        instalmentNo: row.instalmentNo,
+        ...(data.amount !== undefined ? { amount: { from: row.amount, to: data.amount } } : {}),
+        ...(data.dueDate !== undefined ? { dueDate: { from: row.dueDate, to: data.dueDate } } : {}),
+      },
+    })
   })
 
 // Mark an instalment paid (records today, or an explicit date) or clear it back to
@@ -1035,12 +1079,36 @@ export const setInstalmentPaid = createServerFn({ method: 'POST' })
     const user = await requireRole('superadmin', 'admin', 'finance')
     const row = await getDb().query.awardInstalments.findFirst({
       where: eq(awardInstalments.id, data.id),
-      with: { award: { columns: { id: true, clientId: true, status: true } } },
+      with: {
+        award: {
+          columns: { id: true, clientId: true, status: true, applicationId: true },
+        },
+      },
     })
     if (!row) throw notFoundError()
     assertClientAccess(user, row.award.clientId)
     const paidDate = data.paid ? (data.paidDate ?? new Date().toISOString().slice(0, 10)) : null
     await getDb().update(awardInstalments).set({ paidDate }).where(eq(awardInstalments.id, data.id))
+
+    // The instalment row now holds the date the money went; this is the only record of
+    // who said it went and when they said so. Written after the update, so the log
+    // never claims a payment the schedule doesn't show — `recordAudit` swallows its own
+    // failures, so an audit problem can never block the payment itself.
+    //
+    // `data.paidDate` is deliberately not what goes in the metadata: `paidDate` above is
+    // the date actually written (today, when the caller didn't name one).
+    await recordAudit({
+      actorUserId: user.id,
+      action: data.paid ? 'grant_payment_recorded' : 'grant_payment_reversed',
+      applicationId: row.award.applicationId,
+      clientId: row.award.clientId,
+      metadata: {
+        instalmentNo: row.instalmentNo,
+        amount: row.amount,
+        // On a reversal this is the date being taken back, not one being set.
+        paidDate: data.paid ? paidDate : row.paidDate,
+      },
+    })
 
     // Re-derive the award's lifecycle from its instalments. Only 'active' ⇄
     // 'completed' is automated here; 'cancelled' is a deliberate manual state.

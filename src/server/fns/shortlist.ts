@@ -72,6 +72,7 @@ export const listShortlist = createServerFn({ method: 'GET' })
           applicationId: applicationVotes.applicationId,
           userId: applicationVotes.userId,
           vote: applicationVotes.vote,
+          recordedByUserId: applicationVotes.recordedByUserId,
         })
         .from(applicationVotes)
         .where(inArray(applicationVotes.applicationId, appIds)),
@@ -115,13 +116,16 @@ export const listShortlist = createServerFn({ method: 'GET' })
     ])
 
     const trusteeIds = new Set(trustees.map((t) => t.id))
-    const votesByApp = new Map<string, Array<{ userId: string; vote: 'yes' | 'no' }>>()
+    const votesByApp = new Map<
+      string,
+      Array<{ userId: string; vote: 'yes' | 'no'; recordedByUserId: string | null }>
+    >()
     for (const v of voteRows) {
       // Only current trustees count towards the majority. A vote left behind by
       // somebody whose role changed stays in the table but must not tip a decision.
       if (!trusteeIds.has(v.userId)) continue
       const list = votesByApp.get(v.applicationId) ?? []
-      list.push({ userId: v.userId, vote: v.vote })
+      list.push({ userId: v.userId, vote: v.vote, recordedByUserId: v.recordedByUserId })
       votesByApp.set(v.applicationId, list)
     }
     const committedByRp = new Map(
