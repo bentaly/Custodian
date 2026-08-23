@@ -14,10 +14,10 @@ import { AREA_ICON } from './Sidebar'
 /**
  * Split layout for the signed-out screens: brand panel one side, form the other.
  *
- * The form comes first in the DOM and the panel is placed to its left with
- * `lg:flex-row-reverse`. That keeps reading and tab order on the form — which is the
+ * The form comes first in the DOM & the panel is placed to its left with
+ * `lg:flex-row-reverse`. That keeps reading & tab order on the form — which is the
  * only thing anyone came here to do — while below `lg` the panel simply falls beneath
- * it, so a phone gets the sign-in form on first paint and the product copy after,
+ * it, so a phone gets the sign-in form on first paint & the product copy after,
  * rather than a screen of marketing to scroll past.
  *
  * The panel walks the six stages of the grant lifecycle, then makes three claims about
@@ -28,16 +28,16 @@ import { AREA_ICON } from './Sidebar'
  * The lifecycle, drawn as a RING rather than a list (Figma 684:60).
  *
  * The ring is the argument: these six are one loop a foundation goes round every year,
- * not six features in a rank order. A numbered column said the opposite, and said it
+ * not six features in a rank order. A numbered column said the opposite, & said it
  * with the last stage looking least important.
  *
  * Each stage is marked with the AREA icon of the screen it becomes once you are signed
  * in — read from `AREA_ICON` rather than picked here, so the promise on this page and
  * the rail behind it can never drift apart. Partnerships is the exception: the screen
  * does not exist yet, so its glyph comes straight from the design that will introduce
- * it (Figma 709:55, `heart-handshake`) and is NOT added to the rail.
+ * it (Figma 709:55, `heart-handshake`) & is NOT added to the rail.
  *
- * DOM order is the lifecycle order — it is what a screen reader and a keyboard get.
+ * DOM order is the lifecycle order — it is what a screen reader & a keyboard get.
  * `place` then puts each one at its clock position, which is why every stage names its
  * row explicitly: the visual order (clockwise from 12) is not the DOM order.
  */
@@ -45,37 +45,37 @@ const STAGES = [
   {
     title: 'Applications',
     icon: AREA_ICON['/applications']!,
-    body: 'Submissions scored and assessed for due diligence by AI.',
+    body: 'Submissions scored & assessed for due diligence by AI.',
     place: 'md:col-start-1 md:col-span-3 md:row-start-1 md:justify-self-center md:max-w-[300px]',
   },
   {
     title: 'Partnerships',
     icon: HeartHandshakeIcon,
-    body: 'Sourced grantees screened by AI for alignment and due diligence.',
+    body: 'Sourced grantees screened by AI for alignment & due diligence.',
     place: 'md:col-start-3 md:row-start-2 md:justify-self-start',
   },
   {
     title: 'Trustee voting',
     icon: AREA_ICON['/shortlist']!,
-    body: 'AI brief lets trustees read, comment and vote in one view.',
+    body: 'AI brief lets trustees read, comment & vote in one view.',
     place: 'md:col-start-3 md:row-start-3 md:justify-self-start',
   },
   {
     title: 'Reporting',
     icon: AREA_ICON['/reports']!,
-    body: 'Reports assessed by AI, schedules tracked and overdue submissions flagged.',
+    body: 'Reports assessed by AI, schedules tracked & overdue submissions flagged.',
     place: 'md:col-start-1 md:col-span-3 md:row-start-4 md:justify-self-center md:max-w-[300px]',
   },
   {
     title: 'Finance',
     icon: AREA_ICON['/finance']!,
-    body: 'Payment schedules tracked and flagged, bank details verified, balances reconciled against budget.',
+    body: 'Payment schedules tracked & flagged, bank details verified & balances reconciled against budget.',
     place: 'md:col-start-1 md:row-start-3 md:justify-self-end',
   },
   {
     title: 'Portfolio insight',
     icon: AREA_ICON['/insights']!,
-    body: 'Portfolio outcomes and impact analysed, mapped against themes, deprivation and geographic reach.',
+    body: 'Outcomes & impact analysed, mapped against themes, deprivation & geographic reach.',
     place: 'md:col-start-1 md:row-start-2 md:justify-self-end',
   },
 ]
@@ -92,21 +92,20 @@ const NOTES: { icon: IconSvgElement; title: string; body: ReactNode }[] = [
   {
     icon: AiMagicIcon,
     title: 'AI runs through all stages',
-    body: 'It shows its reasoning as it reads, scores, summarises and checks. Final decisions remain with your team.',
+    body: 'AI shows its reasoning as it reads, scores, summarises & checks. Final decisions remain with your team.',
   },
   {
     icon: Shield01Icon,
     title: 'Audit-ready by default',
-    body: 'Every decision, payment and report leaves a complete, timestamped trail — so compliance checks, board scrutiny and regulator requests are answered from a single source of truth.',
+    body: 'Every decision, payment & report leaves a timestamped trail — for best practice governance & regulatory compliance.',
   },
   {
     icon: StarAward02Icon,
     title: 'Designed with foundations',
     body: (
       <>
-        Designed by a foundation chief executive and trustee with 20 years' experience, built by a
-        leading cyber security engineer, and developed with{' '}
-        <strong className="font-medium text-grey-900">national foundations</strong>.
+        Designed by a foundation CEO & trustee with 20 years' experience, built by a leading cyber
+        security engineer, developed with national foundations.
       </>
     ),
   },
@@ -122,11 +121,11 @@ function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
 }
 
 /**
- * The ring the stages sit on: a dashed orbit, a soft brand wash at the hub, and the
+ * The ring the stages sit on: a dashed orbit, a soft brand wash at the hub, & the
  * mark at the centre of it.
  *
- * Purely decorative, so it is `aria-hidden` and hidden outright below `md`, where the
- * three-column grid collapses to a stack and a circle behind a column of chips would
+ * Purely decorative, so it is `aria-hidden` & hidden outright below `md`, where the
+ * three-column grid collapses to a stack & a circle behind a column of chips would
  * be noise. Everything inside is sized as a PERCENTAGE of the ring, not in pixels, so
  * the whole assembly scales with the panel — which is a share of the viewport, not the
  * comp's fixed 815px.
@@ -180,18 +179,20 @@ export function AuthShell({ children }: { children: ReactNode }) {
       {/* An inset card rather than a full-bleed column (the comp insets it 16px on every
           side).
 
-          57%, not half: the comp gives the form a 609px column of a 1440px frame and
-          the panel the remaining 815px. The panel is carrying six stages and three
-          cards, the form is carrying four fields — splitting the width evenly starves
-          the side that has something to say and leaves the other one padding.
+          63%, not half: the panel is carrying six stages & three cards, the form is
+          carrying four fields — splitting the width evenly starves the side that has
+          something to say & leaves the other one padding. The comp's own split is 56%
+          (a 609px form column of a 1440px frame); this goes further, because the
+          23 Aug copy runs longer than the one-line captions it was drawn around. The
+          form needs 380px plus its gutters, so the ceiling is ~70% at 1440px.
 
-          Two-column: the shell is pinned to the viewport (`lg:h-screen`) and this panel
+          Two-column: the shell is pinned to the viewport (`lg:h-screen`) & this panel
           scrolls INSIDE itself, so a short display never pushes the form — the only
           thing anyone came here for — off the bottom of the page. `compact:` takes the
-          first bite out of the spacing; the ring and the three cards are more copy than
+          first bite out of the spacing; the ring & the three cards are more copy than
           a 740px-tall laptop viewport holds, so past that it scrolls rather than being
           squeezed into illegibility. Stacked: full width, flowing with the page. */}
-      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-6 lg:w-[57%] lg:max-w-[880px] lg:overflow-y-auto lg:p-10 2xl:p-14 compact:p-7">
+      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-6 lg:w-[63%] lg:max-w-[1100px] lg:overflow-y-auto lg:p-10 2xl:p-14 compact:p-7">
         {/* Stacked, the form above has already shown the wordmark. */}
         <div className="hidden lg:block">
           <Wordmark />
@@ -199,8 +200,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
         {/* The one deliberate exception to the type ramp. The comp sets this at a flat
             40px, which is right at the width it was drawn to — but the panel is a
-            percentage of the viewport, so it must also survive a 1024px display and a
-            short one. It therefore scales fluidly and tops out at the comp's 40px,
+            percentage of the viewport, so it must also survive a 1024px display & a
+            short one. It therefore scales fluidly & tops out at the comp's 40px,
             which no fixed ramp step could do. */}
         <h2
           className="font-display max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-5 compact:mt-4 compact:text-[clamp(26px,2.3vw,34px)]"
@@ -209,17 +210,17 @@ export function AuthShell({ children }: { children: ReactNode }) {
           The entire grant lifecycle for the whole foundation team.
         </h2>
 
-        {/* The ring sits behind the stages and is centred on the whole block, so the
-            top and bottom chips ride its arc exactly as they do in the comp. The side
+        {/* The ring sits behind the stages & is centred on the whole block, so the
+            top & bottom chips ride its arc exactly as they do in the comp. The side
             columns take the slack: the middle track is narrower than the ring, so the
-            left and right chips overlap it rather than clearing it. The cap is the
+            left & right chips overlap it rather than clearing it. The cap is the
             width the comp draws the ring group at (751px in an 815px panel), not a
             round number: below it the side copy starts taking a fourth line.
 
-            `items-center` because a grid row stretches by default, and the two chips
+            `items-center` because a grid row stretches by default, & the two chips
             facing each other across the ring never carry the same number of lines —
-            stretched, the shorter one grows to its neighbour's height and reads as a
-            card padded out for no reason. Each chip is now its own height, and the pair
+            stretched, the shorter one grows to its neighbour's height & reads as a
+            card padded out for no reason. Each chip is now its own height, & the pair
             balances on the row's midline, which is where the ring's symmetry puts
             them. */}
         <div className="relative mx-auto my-4 w-full max-w-[720px] compact:my-3">
@@ -256,8 +257,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
               key={note.title}
               className="flex flex-col gap-3 rounded-control border border-grey-200 bg-grey-50 p-4"
             >
-              {/* Icon and title on one row: the tile is a label for the claim, not a
-                  thing in its own right, and stacking them left a 40px square sitting
+              {/* Icon & title on one row: the tile is a label for the claim, not a
+                  thing in its own right, & stacking them left a 40px square sitting
                   alone above a heading in every card. */}
               <div className="flex items-center gap-3">
                 <span
