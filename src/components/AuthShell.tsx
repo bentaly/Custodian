@@ -207,10 +207,17 @@ export function AuthShell({ children }: { children: ReactNode }) {
         {/* The ring sits behind the stages and is centred on the whole block, so the
             top and bottom chips ride its arc exactly as they do in the comp. The side
             columns take the slack: the middle track is narrower than the ring, so the
-            left and right chips overlap it rather than clearing it. */}
+            left and right chips overlap it rather than clearing it.
+
+            `items-center` because a grid row stretches by default, and the two chips
+            facing each other across the ring never carry the same number of lines —
+            stretched, the shorter one grows to its neighbour's height and reads as a
+            card padded out for no reason. Each chip is now its own height, and the pair
+            balances on the row's midline, which is where the ring's symmetry puts
+            them. */}
         <div className="relative mx-auto my-4 w-full max-w-[640px] compact:my-3">
           <OrbitRing />
-          <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.55fr)_1fr] md:gap-x-3 md:gap-y-6 compact:gap-y-4">
+          <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.55fr)_1fr] md:items-center md:gap-x-3 md:gap-y-6 compact:gap-y-4">
             {STAGES.map((stage) => (
               <li
                 key={stage.title}
