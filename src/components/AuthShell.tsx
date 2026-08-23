@@ -69,13 +69,13 @@ const STAGES = [
   {
     title: 'Finance',
     icon: AREA_ICON['/finance']!,
-    body: 'Payment schedules tracked & flagged, bank details verified & balances reconciled against budget.',
+    body: 'Payment tracked, bank details verified, balances & budgets reconciled.',
     place: 'md:col-start-1 md:row-start-3 md:justify-self-end',
   },
   {
     title: 'Portfolio insight',
     icon: AREA_ICON['/insights']!,
-    body: 'Outcomes & impact analysed, mapped against themes, deprivation & geographic reach.',
+    body: 'impact mapped against themes, deprivation & geographic reach.',
     place: 'md:col-start-1 md:row-start-2 md:justify-self-end',
   },
 ]
@@ -115,7 +115,7 @@ function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
   return (
     <div className="flex items-center gap-2">
       <LogoMark className={size === 'lg' ? 'h-10 w-10' : 'h-9 w-9'} />
-      <span className="text-heading font-semibold tracking-tight text-grey-900">Custodian</span>
+      <span className="text-heading font-semibold tracking-tight text-grey-900">Custodian.</span>
     </div>
   )
 }
@@ -192,7 +192,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           first bite out of the spacing; the ring & the three cards are more copy than
           a 740px-tall laptop viewport holds, so past that it scrolls rather than being
           squeezed into illegibility. Stacked: full width, flowing with the page. */}
-      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-6 lg:w-[63%] lg:max-w-[1100px] lg:overflow-y-auto lg:p-10 2xl:p-14 compact:p-7">
+      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-8 lg:w-[63%] lg:max-w-[1100px] lg:overflow-y-auto">
         {/* Stacked, the form above has already shown the wordmark. */}
         <div className="hidden lg:block">
           <Wordmark />
@@ -213,9 +213,20 @@ export function AuthShell({ children }: { children: ReactNode }) {
         {/* The ring sits behind the stages & is centred on the whole block, so the
             top & bottom chips ride its arc exactly as they do in the comp. The side
             columns take the slack: the middle track is narrower than the ring, so the
-            left & right chips overlap it rather than clearing it. The cap is the
-            width the comp draws the ring group at (751px in an 815px panel), not a
-            round number: below it the side copy starts taking a fourth line.
+            left & right chips overlap it rather than clearing it.
+
+            The middle track is what sets how far the four side chips sit off the hub,
+            and it is tuned so that gap MATCHES the one the top & bottom chips have —
+            0.55fr put their inner edges flush against the pale disc while Applications
+            & Reporting cleared it by ~34px, which read as the ring being squeezed from
+            the sides. The dashed orbit still passes behind all six, as in the comp; it
+            is the hub the chips are spaced off.
+
+            `my-auto` gives the ring the slack: the heading holds the top, the cards &
+            the invite-only line hold the bottom, and the ring is centred in whatever
+            is left rather than hugging the heading with all the empty space beneath
+            it. Auto margins collapse to nothing once the panel overflows, so the
+            compact case just stacks.
 
             `items-center` because a grid row stretches by default, & the two chips
             facing each other across the ring never carry the same number of lines —
@@ -223,14 +234,14 @@ export function AuthShell({ children }: { children: ReactNode }) {
             card padded out for no reason. Each chip is now its own height, & the pair
             balances on the row's midline, which is where the ring's symmetry puts
             them. */}
-        <div className="relative mx-auto my-4 w-full max-w-[720px] compact:my-3">
+        <div className="relative mx-auto my-auto w-full max-w-[800px] py-4 compact:py-1">
           <OrbitRing />
-          <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.55fr)_1fr] md:items-center md:gap-x-3 md:gap-y-6 compact:gap-y-4">
+          <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.9fr)_1fr] md:items-center md:gap-x-3 md:gap-y-6 compact:gap-y-3">
             {STAGES.map((stage) => (
               <li
                 key={stage.title}
                 className={cn(
-                  'flex items-center gap-2 rounded-control border border-white bg-white/60 py-2 pl-2 pr-3 backdrop-blur-[8px]',
+                  'flex items-center gap-2 rounded-control border border-grey-50/70 bg-white/10 py-2 pl-2 pr-3 backdrop-blur-[8px]',
                   stage.place,
                 )}
               >
@@ -251,7 +262,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           </ol>
         </div>
 
-        <div className="mt-auto grid gap-4 sm:grid-cols-3 compact:gap-3">
+        <div className="grid gap-4 sm:grid-cols-3 compact:gap-3">
           {NOTES.map((note) => (
             <div
               key={note.title}
@@ -269,14 +280,14 @@ export function AuthShell({ children }: { children: ReactNode }) {
                 </span>
                 <p className="text-title font-medium text-grey-900">{note.title}</p>
               </div>
-              <p className="text-body leading-[1.5] text-grey-700" style={{ textWrap: 'pretty' }}>
+              <p className="text-label leading-[1.5] text-grey-700" style={{ textWrap: 'pretty' }}>
                 {note.body}
               </p>
             </div>
           ))}
         </div>
 
-        <p className="pt-5 text-center text-body text-grey-500 compact:pt-3">
+        <p className="pt-5 text-center text-body text-grey-500 compact:pt-2">
           Custodian is invite-only. Your administrator can send you an invitation.
         </p>
       </aside>
