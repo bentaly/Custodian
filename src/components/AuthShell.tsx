@@ -180,13 +180,18 @@ export function AuthShell({ children }: { children: ReactNode }) {
       {/* An inset card rather than a full-bleed column (the comp insets it 16px on every
           side).
 
+          57%, not half: the comp gives the form a 609px column of a 1440px frame and
+          the panel the remaining 815px. The panel is carrying six stages and three
+          cards, the form is carrying four fields — splitting the width evenly starves
+          the side that has something to say and leaves the other one padding.
+
           Two-column: the shell is pinned to the viewport (`lg:h-screen`) and this panel
           scrolls INSIDE itself, so a short display never pushes the form — the only
           thing anyone came here for — off the bottom of the page. `compact:` takes the
           first bite out of the spacing; the ring and the three cards are more copy than
           a 740px-tall laptop viewport holds, so past that it scrolls rather than being
           squeezed into illegibility. Stacked: full width, flowing with the page. */}
-      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-6 lg:w-[52%] lg:max-w-[860px] lg:overflow-y-auto lg:p-10 2xl:p-14 compact:p-7">
+      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-6 lg:w-[57%] lg:max-w-[880px] lg:overflow-y-auto lg:p-10 2xl:p-14 compact:p-7">
         {/* Stacked, the form above has already shown the wordmark. */}
         <div className="hidden lg:block">
           <Wordmark />
@@ -207,7 +212,9 @@ export function AuthShell({ children }: { children: ReactNode }) {
         {/* The ring sits behind the stages and is centred on the whole block, so the
             top and bottom chips ride its arc exactly as they do in the comp. The side
             columns take the slack: the middle track is narrower than the ring, so the
-            left and right chips overlap it rather than clearing it.
+            left and right chips overlap it rather than clearing it. The cap is the
+            width the comp draws the ring group at (751px in an 815px panel), not a
+            round number: below it the side copy starts taking a fourth line.
 
             `items-center` because a grid row stretches by default, and the two chips
             facing each other across the ring never carry the same number of lines —
@@ -215,7 +222,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             card padded out for no reason. Each chip is now its own height, and the pair
             balances on the row's midline, which is where the ring's symmetry puts
             them. */}
-        <div className="relative mx-auto my-4 w-full max-w-[640px] compact:my-3">
+        <div className="relative mx-auto my-4 w-full max-w-[720px] compact:my-3">
           <OrbitRing />
           <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.55fr)_1fr] md:items-center md:gap-x-3 md:gap-y-6 compact:gap-y-4">
             {STAGES.map((stage) => (
