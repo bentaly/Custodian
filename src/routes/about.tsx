@@ -523,7 +523,7 @@ function About() {
               </div>
               <div className="trust-cell">
                 <dt>Processing</dt>
-                <dd>A formal Data Processing Agreement is provided to every customer.</dd>
+                <dd>Fully ICO compliant.</dd>
               </div>
               <div className="trust-cell">
                 <dt>Model training</dt>

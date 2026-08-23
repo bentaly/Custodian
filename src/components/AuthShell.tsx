@@ -129,14 +129,21 @@ function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
  * be noise. Everything inside is sized as a PERCENTAGE of the ring, not in pixels, so
  * the whole assembly scales with the panel — which is a share of the viewport, not the
  * comp's fixed 815px.
+ *
+ * The diameter comes from the block's HEIGHT, inset by `inset-y-12` — roughly half a
+ * chip — so the top & bottom points of the circle land INSIDE the Applications &
+ * Reporting chips and the arc runs behind them, as it does in the comp. Sized off the
+ * width instead, the circle sat wholly between the two rows and the arc closed above
+ * Applications in plain sight, which is what made it read as a chip parked under a
+ * circle rather than a stage sitting on a lifecycle.
  */
 function OrbitRing() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 hidden place-items-center md:grid"
+      className="pointer-events-none absolute inset-x-0 inset-y-12 hidden place-items-center md:grid"
     >
-      <div className="relative aspect-square w-[52%]">
+      <div className="relative aspect-square h-full">
         <svg viewBox="0 0 100 100" className="h-full w-full">
           <circle
             cx="50"
@@ -236,7 +243,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             them. */}
         <div className="relative mx-auto my-auto w-full max-w-[800px] py-4 compact:py-1">
           <OrbitRing />
-          <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.9fr)_1fr] md:items-center md:gap-x-3 md:gap-y-6 compact:gap-y-3">
+          <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.9fr)_1fr] md:items-center md:gap-x-3 md:gap-y-10 compact:gap-y-4">
             {STAGES.map((stage) => (
               <li
                 key={stage.title}
