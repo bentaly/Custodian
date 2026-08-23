@@ -8,6 +8,7 @@ import {
   StarAward02Icon,
 } from '@hugeicons/core-free-icons'
 import { LogoMark } from './ui/LogoMark'
+import { ExternalTextLink, TextLink } from './ui/TextLink'
 import { cn } from './ui/cn'
 import { AREA_ICON } from './Sidebar'
 
@@ -110,6 +111,14 @@ const NOTES: { icon: IconSvgElement; title: string; body: ReactNode }[] = [
     ),
   },
 ]
+
+/**
+ * Where someone who cannot get in writes to us.
+ *
+ * NOT `FROM_EMAIL` (`noreply@custodian.fund`) — that is the address award letters are
+ * sent FROM, and a no-reply box is the one place a register-of-interest must not land.
+ */
+const INTEREST_EMAIL = 'team@custodian.fund'
 
 function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
   return (
@@ -294,9 +303,29 @@ export function AuthShell({ children }: { children: ReactNode }) {
           ))}
         </div>
 
-        <p className="pt-5 text-center text-body text-grey-500 compact:pt-2">
-          Custodian is invite-only. Your administrator can send you an invitation.
-        </p>
+        {/* The two ways out of the only dead end on the page.
+            This sentence is the sole line addressed to someone who CANNOT sign in, and
+            until now it told them so and stopped — an invite-only product whose
+            signed-out page has no answer for "then how do I get one?". So the links go
+            here rather than in a corner: whoever has just read that they need an
+            invitation is exactly the person who wants to read more or ask for one, and
+            they are already looking at this line. */}
+        <div className="pt-5 text-center compact:pt-2">
+          <p className="text-body text-grey-500">
+            Custodian is invite-only. Your administrator can send you an invitation.
+          </p>
+          <div className="mt-2 flex items-center justify-center gap-3 text-body">
+            <TextLink to="/about">Learn more</TextLink>
+            <span aria-hidden className="text-grey-300">
+              ·
+            </span>
+            <ExternalTextLink
+              href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}`}
+            >
+              Register interest
+            </ExternalTextLink>
+          </div>
+        </div>
       </aside>
     </div>
   )
