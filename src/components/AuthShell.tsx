@@ -256,18 +256,21 @@ export function AuthShell({ children }: { children: ReactNode }) {
               key={note.title}
               className="flex flex-col gap-3 rounded-control border border-grey-200 bg-grey-50 p-4"
             >
-              <span
-                aria-hidden
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-grey-100 text-grey-700"
-              >
-                <HugeiconsIcon icon={note.icon} className="h-5 w-5" strokeWidth={1.5} />
-              </span>
-              <div className="space-y-2">
+              {/* Icon and title on one row: the tile is a label for the claim, not a
+                  thing in its own right, and stacking them left a 40px square sitting
+                  alone above a heading in every card. */}
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-grey-100 text-grey-700"
+                >
+                  <HugeiconsIcon icon={note.icon} className="h-5 w-5" strokeWidth={1.5} />
+                </span>
                 <p className="text-title font-medium text-grey-900">{note.title}</p>
-                <p className="text-body leading-[1.5] text-grey-700" style={{ textWrap: 'pretty' }}>
-                  {note.body}
-                </p>
               </div>
+              <p className="text-body leading-[1.5] text-grey-700" style={{ textWrap: 'pretty' }}>
+                {note.body}
+              </p>
             </div>
           ))}
         </div>
