@@ -331,6 +331,9 @@ function MethodToggle({ mode, onChange }: { mode: 'password' | 'code'; onChange:
       ariaLabel="How to sign in"
       value={mode}
       onChange={(next) => next !== mode && onChange()}
+      // Full width: this sits in a column of full-width fields, and a track hugging
+      // two short words reads as a stray chip rather than as one of the fields.
+      fullWidth
       items={[
         { id: 'password' as const, label: 'Password' },
         { id: 'code' as const, label: 'Email code' },
