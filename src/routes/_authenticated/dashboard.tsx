@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
-import type { FeedAction } from '../../lib/audit'
+import { ACTION_VERB, type FeedAction } from '../../lib/audit'
 import {
   Audit02Icon,
   CheckmarkCircle02Icon,
@@ -316,38 +316,32 @@ function DeskRow({
 // rest look like a different kind of row rather than reading as one list.
 // Typed against `FeedAction`, not `string`: the panel silently rendered nothing for an
 // action it didn't know, so adding one to the log and forgetting it here lost the row
-// with no error anywhere. Now the compiler asks for the glyph and the words.
-const LATELY_META: Record<FeedAction, { icon: IconSvgElement; verb: string }> = {
-  application_awarded: { icon: CheckmarkSquare01Icon, verb: 'awarded a grant to' },
-  application_declined: { icon: CancelSquareIcon, verb: 'declined' },
-  application_shortlisted: { icon: CheckmarkCircle02Icon, verb: 'shortlisted' },
-  application_commented: { icon: BubbleChatIcon, verb: 'commented on' },
-  application_registration_set: {
-    icon: Audit02Icon,
-    verb: 'added a registration number and screened',
-  },
-  grant_bank_details_changed: {
-    icon: BankIcon,
-    verb: 'changed the payment account for',
-  },
+// with no error anywhere. Now the compiler asks for the glyph.
+//
+// Only the glyph. The words live in `ACTION_VERB`, because the Activity screen and the
+// CSV say the same things about the same actions, and three copies of "recorded a
+// payment to" is three chances for them to stop agreeing.
+const LATELY_ICON: Record<FeedAction, IconSvgElement> = {
+  application_awarded: CheckmarkSquare01Icon,
+  application_declined: CancelSquareIcon,
+  application_shortlisted: CheckmarkCircle02Icon,
+  application_commented: BubbleChatIcon,
+  application_registration_set: Audit02Icon,
+  grant_bank_details_changed: BankIcon,
   // The building is the account, the note is the money — `BankIcon` above already
   // means "where the money goes", so these two must not reuse it.
-  grant_payment_recorded: { icon: BanknoteIcon, verb: 'recorded a payment to' },
-  grant_payment_reversed: { icon: BanknoteXIcon, verb: 'reversed a recorded payment to' },
-  // Named as what it is. The whole point of recording a proxy vote is that somebody
-  // reading the feed can tell it apart from the trustee having voted, so the row must
-  // not soften it to "voted on".
-  application_vote_recorded_by_admin: {
-    icon: UserSwitchIcon,
-    verb: "recorded a trustee's vote on",
-  },
-  grant_report_reviewed: { icon: TaskDone01Icon, verb: 'reviewed a report from' },
+  grant_payment_recorded: BanknoteIcon,
+  grant_payment_reversed: BanknoteXIcon,
+  application_vote_recorded_by_admin: UserSwitchIcon,
+  grant_report_reviewed: TaskDone01Icon,
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────────
 
 function Dashboard() {
   const d = Route.useLoaderData()
+  const { user } = Route.useRouteContext()
+  const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
   // Brand-new tenant: nothing exists yet → onboarding.
   if (d.pipeline.total === 0 && d.rounds.length === 0 && d.money.totalAwarded === 0) {
@@ -645,8 +639,8 @@ function Dashboard() {
             ) : (
               <div className="-mx-2 min-h-0 flex-1 space-y-1 overflow-y-auto px-2">
                 {d.lately.map((ev) => {
-                  const meta = LATELY_META[ev.action as FeedAction]
-                  if (!meta) return null
+                  const icon = LATELY_ICON[ev.action as FeedAction]
+                  if (!icon) return null
                   const org = ev.organisationName ?? 'an application'
                   const inner = (
                     <>
@@ -655,7 +649,7 @@ function Dashboard() {
                         style={{ backgroundColor: DESK_TILE }}
                       >
                         <HugeiconsIcon
-                          icon={meta.icon}
+                          icon={icon}
                           className="h-5 w-5"
                           strokeWidth={1.5}
                           style={{ color: C.sub }}
@@ -666,7 +660,8 @@ function Dashboard() {
                         style={{ color: C.sub }}
                       >
                         <span style={{ color: C.ink }}>{ev.actorName ?? 'Someone'}</span>{' '}
-                        {meta.verb} <span style={{ color: C.ink }}>{org}</span>
+                        {ACTION_VERB[ev.action as FeedAction]}{' '}
+                        <span style={{ color: C.ink }}>{org}</span>
                       </span>
                       <span className="shrink-0 text-label font-medium" style={{ color: C.sub }}>
                         {relativeTime(ev.at)}
@@ -689,6 +684,19 @@ function Dashboard() {
                   )
                 })}
               </div>
+            )}
+            {/* The panel is a reading of the log, not the whole of it (see
+                `FEED_ACTIONS`). Without a way through, its deliberate incompleteness
+                looks like the entire record — which is the impression an audit trail
+                can least afford to give. Admin-only, as the screen behind it is. */}
+            {isAdmin && (
+              <Link
+                to="/settings/activity"
+                className="mt-3 shrink-0 text-label font-medium hover:underline"
+                style={{ color: C.brand }}
+              >
+                See all activity
+              </Link>
             )}
           </Panel>
         </div>

@@ -7,6 +7,7 @@ import {
   Idea01Icon,
   Key01Icon,
   Mail01Icon,
+  NoteIcon,
   PlugSocketIcon,
   SourceCodeIcon,
   Target01Icon,
@@ -90,6 +91,14 @@ const GROUPS: Group[] = [
           'The letter emailed to a charity when you award a grant, your standard conditions of grant, and who replies come back to.',
         to: '/settings/award-letter',
         icon: Mail01Icon,
+        adminOnly: true,
+      },
+      {
+        title: 'Activity',
+        description:
+          'Every action anyone has taken — decisions, payments, reporting and access — with a CSV to hand to an auditor.',
+        to: '/settings/activity',
+        icon: NoteIcon,
         adminOnly: true,
       },
     ],

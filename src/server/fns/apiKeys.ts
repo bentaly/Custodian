@@ -70,14 +70,17 @@ export const revokeApiKey = createServerFn({ method: 'POST' })
       .update(apiKeys)
       .set({ revokedAt: new Date() })
       .where(and(eq(apiKeys.id, data.id), eq(apiKeys.clientId, user.clientId)))
-      .returning({ id: apiKeys.id })
+      // `name` and `last4` come back for the audit row, not for the caller: an entry
+      // reading "revoked an API key" with only a UUID names a key nobody can identify
+      // once it is gone, which is precisely when somebody asks which one it was.
+      .returning({ id: apiKeys.id, name: apiKeys.name, last4: apiKeys.last4 })
     if (!row) throw notFoundError('Key not found')
 
     await recordAudit({
       actorUserId: user.id,
       action: 'api_key_revoked',
       clientId: user.clientId,
-      metadata: { apiKeyId: row.id },
+      metadata: { apiKeyId: row.id, name: row.name, last4: row.last4 },
     })
-    return row
+    return { id: row.id }
   })

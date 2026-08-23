@@ -41,6 +41,7 @@ import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
 import { Route as AuthenticatedRoundsIndexRouteImport } from './routes/_authenticated/rounds.index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
+import { Route as AuthenticatedSettingsActivityRouteImport } from './routes/_authenticated/settings.activity'
 import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings.api-keys'
 import { Route as AuthenticatedSettingsAwardLetterRouteImport } from './routes/_authenticated/settings.award-letter'
 import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
@@ -238,6 +239,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsActivityRoute =
+  AuthenticatedSettingsActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsApiKeysRoute =
   AuthenticatedSettingsApiKeysRouteImport.update({
     id: '/api-keys',
@@ -407,6 +414,7 @@ export interface FileRoutesByFullPath {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
+  '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
@@ -458,6 +466,7 @@ export interface FileRoutesByTo {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
+  '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
@@ -519,6 +528,7 @@ export interface FileRoutesById {
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
+  '/_authenticated/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/_authenticated/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
@@ -580,6 +590,7 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/reports/$reportKey'
+    | '/settings/activity'
     | '/settings/api-keys'
     | '/settings/award-letter'
     | '/settings/data-import'
@@ -631,6 +642,7 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/reports/$reportKey'
+    | '/settings/activity'
     | '/settings/api-keys'
     | '/settings/award-letter'
     | '/settings/data-import'
@@ -691,6 +703,7 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/awards/$awardId'
     | '/_authenticated/reports/$reportKey'
+    | '/_authenticated/settings/activity'
     | '/_authenticated/settings/api-keys'
     | '/_authenticated/settings/award-letter'
     | '/_authenticated/settings/data-import'
@@ -976,6 +989,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/activity': {
+      id: '/_authenticated/settings/activity'
+      path: '/activity'
+      fullPath: '/settings/activity'
+      preLoaderRoute: typeof AuthenticatedSettingsActivityRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/api-keys': {
       id: '/_authenticated/settings/api-keys'
       path: '/api-keys'
@@ -1241,6 +1261,7 @@ const AuthenticatedRoundsRouteWithChildren =
   AuthenticatedRoundsRoute._addFileChildren(AuthenticatedRoundsRouteChildren)
 
 interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsActivityRoute: typeof AuthenticatedSettingsActivityRoute
   AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
   AuthenticatedSettingsAwardLetterRoute: typeof AuthenticatedSettingsAwardLetterRoute
   AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
@@ -1252,6 +1273,7 @@ interface AuthenticatedSettingsRouteChildren {
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsActivityRoute: AuthenticatedSettingsActivityRoute,
   AuthenticatedSettingsApiKeysRoute: AuthenticatedSettingsApiKeysRoute,
   AuthenticatedSettingsAwardLetterRoute: AuthenticatedSettingsAwardLetterRoute,
   AuthenticatedSettingsDataImportRoute: AuthenticatedSettingsDataImportRoute,
