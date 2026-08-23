@@ -15,7 +15,7 @@ import '../styles/about.css'
 
 const ORIGIN = 'https://custodian.fund'
 const DESCRIPTION =
-  'Custodian brings assessment, awards, payments, reporting, governance and impact into a single system, across the whole grant lifecycle.'
+  'Custodian brings grant assessment, awards, payments, reporting, governance and impact into a single system, across the whole grant lifecycle.'
 
 export const Route = createFileRoute('/about')({
   head: () => ({
@@ -170,13 +170,12 @@ function About() {
             <h2 className="h2">Giving has outgrown the spreadsheet.</h2>
             <div className="prose">
               <p>
-                Grant-making still runs on spreadsheets, inboxes and disconnected systems:
-                fragmented intake, case-by-case due diligence, board papers built from scratch,
-                bank details and reports chased by hand, and no clear view of impact.
+                Grant-making still runs on spreadsheets, inboxes and disconnected systems. This
+                leads to fragmented intake, case-by-case due diligence, board papers built from
+                scratch, bank details and reports chased by hand, and no clear view of impact.
               </p>
               <p>
-                Giving is growing — but so is regulation, and manual, fragmented work no longer
-                scales.
+                Giving is growing, but so is regulation. Manual, fragmented work no longer scales.
               </p>
             </div>
           </div>
@@ -189,13 +188,13 @@ function About() {
             <h2 className="h2">One intelligent layer, across the whole grant lifecycle.</h2>
             <div className="prose">
               <p>
-                Custodian brings assessment, awards, payments, reporting, governance and impact
-                into a single system. AI runs through every stage — assessing, scoring, tracking
-                and reconciling — and shows its working at each step, while every final decision
-                stays with your team.
+                Custodian brings grant assessment, awards, payments, reporting, governance and
+                impact into a single system. AI runs through every stage, assessing, scoring,
+                tracking and reconciling. AI reasoning is shown at every step, while every final
+                decision stays with your team.
               </p>
               <p>
-                It is audit-ready by default. Every decision, payment and report leaves a
+                Custodian is audit-ready by default. Every decision, payment and report leaves a
                 complete, timestamped trail, so board scrutiny, compliance checks and regulator
                 requests are answered from one source of truth.
               </p>
@@ -234,18 +233,20 @@ function About() {
                 </div>
                 <div className="prose">
                   <p>
-                    Inbound applications arrive in one clean, readable view, each showing its
-                    submission date, funding round and programme. AI performs first-pass due
-                    diligence as they land — drawing on integrated UK data sources such as the
-                    Charity Commission, Companies House, OSCR and 360Giving, alongside wider web
-                    presence — flagging inconsistencies, limited delivery track record,
-                    financial-health concerns and budget irregularities.
+                    Inbound applications arrive in one clean, readable view. AI performs first-pass
+                    due diligence as they land, drawing on integrated UK data sources such as the
+                    Charity Commission, Companies House, OSCR and 360Giving, alongside the
+                    applicant's wider web presence.
+                  </p>
+                  <p>
+                    Inconsistencies and considerations are flagged, such as limited delivery track
+                    record, financial-health concerns and budget irregularities.
                   </p>
                   <p>
                     Each application is then assessed and ranked against the fund's own criteria,
                     held in the platform as a living strategy document, giving your team an
                     evidence-based starting point rather than a blank page. Human review and
-                    commentary sit alongside the automated assessment, and the AI refines to the
+                    commentary sit alongside the automated assessment, and the AI adapts to the
                     fund's approach over time.
                   </p>
                 </div>
@@ -313,11 +314,11 @@ function About() {
                 </div>
                 <div className="prose">
                   <p>
-                    Shortlists arrive as complete board papers: each opportunity with its scoring,
-                    team commentary, due-diligence findings and reference links, and an AI summary
-                    distilling the proposal to its essentials. Trustees read, comment and vote in a
-                    single view — no inboxes, no paperwork — and every question, answer and
-                    decision is recorded against the trustee and held in the audit trail.
+                    Board papers are shown in one place. Shortlisted opportunities are summarised by
+                    AI, along with its scoring, team commentary, due diligence findings and
+                    reference links. Trustees read, comment and vote in a single view, no inboxes,
+                    no paperwork, and every question, answer and decision is recorded against the
+                    trustee and held in the audit trail.
                   </p>
                 </div>
                 <div className="figs">
@@ -350,13 +351,11 @@ function About() {
                 </div>
                 <div className="prose">
                   <p>
-                    The work is far from over once a decision is made. Custodian runs the full
-                    lifecycle from approval through to payment and reconciliation. Bank-detail
-                    verification — one of the most tedious and error-prone jobs in grant admin — is
-                    automatic: account name and details are checked, and any mismatch flagged
-                    before money moves. Award notifications and compliance guidance issue through
-                    the platform, payment schedules run end to end, and every approval and
-                    regulatory step is logged.
+                    Grant award notifications and compliance guidance are issued to grantees
+                    directly through Custodian. Payment schedules are tracked, and overdue
+                    instalments are flagged. Bank-detail verification is automatic, and balances are
+                    reconciled against budgets. Every approval and regulatory step is logged for
+                    best-practice governance.
                   </p>
                 </div>
                 <div className="figs">
@@ -393,8 +392,8 @@ function About() {
                       />
                     </div>
                     <figcaption>
-                      Grant lifecycle, payment schedule and verified bank details for a single
-                      award — every step timestamped as it happens.
+                      Grant lifecycle, payment schedule and verified bank details for a single award
+                      — every step timestamped as it happens.
                     </figcaption>
                   </figure>
                 </div>
@@ -408,11 +407,9 @@ function About() {
                 <div className="prose">
                   <p>
                     Every grant's reporting schedule is tracked in one place, with overdue
-                    submissions flagged automatically. As each report arrives, AI reads it against
-                    the original application — comparing activities, spend, timelines and intended
-                    beneficiaries — and surfaces where delivery diverges: underspend, timeline
-                    slippage, scope change, unmet milestones. Nothing is cross-referenced or chased
-                    by hand.
+                    submissions highlighted automatically. As each report arrives, AI reads it
+                    against the original application, comparing activities, spend, timelines and
+                    intended outcomes, surfacing where delivery and milestones diverge.
                   </p>
                 </div>
               </article>
@@ -425,9 +422,8 @@ function About() {
                 <div className="prose">
                   <p>
                     Every user sees a curated, permission-based view of the activity relevant to
-                    them. Operations, finance and trustees each work from the same live record,
-                    from the angle their role requires — without searching for it, requesting it,
-                    or waiting for someone to compile it.
+                    them. Operations, finance and trustees each work from the same live record, from
+                    the angle their role requires.
                   </p>
                 </div>
                 <div className="figs">
@@ -464,19 +460,22 @@ function About() {
               <div className="prose">
                 <p>
                   Most foundations struggle to see their giving as a whole. When it is time to
-                  report to the board or publish an annual review, teams piece it together from
-                  scattered sources — and the result rarely reflects the true depth of the work.
+                  report to the board or publish an annual review, teams face an operational burden,
+                  piecing information together from multiple sources, and even then, the result
+                  rarely reflects the true depth of the work.
                 </p>
                 <p>
                   Custodian keeps a live, consolidated view of the entire portfolio: commitments by
-                  theme, geography, organisation type and period, with real grantee outcomes
-                  surfaced alongside the financial totals. Geographic reach is mapped against
-                  indices of deprivation — showing not just where giving goes, but the relative
-                  need of the communities it reaches.
+                  theme, organisation type and period, with real grantee outcomes surfaced alongside
+                  the financial totals.
                 </p>
                 <p>
-                  And because everything sits in one place, your team can ask a question of the
-                  whole portfolio in plain language and get an answer drawn from every grant.
+                  Geographic reach is mapped against indices of deprivation, showing not just where
+                  giving goes, but the relative need of the areas it reaches.
+                </p>
+                <p>
+                  The result is not just better reporting, it is a clearer, more confident
+                  understanding of where giving is going and what it is achieving.
                 </p>
               </div>
             </div>
@@ -494,8 +493,8 @@ function About() {
                 />
               </div>
               <figcaption>
-                The whole portfolio in one live view — committed spend by programme, commitment
-                over time, dominant themes, and geographic reach mapped against deprivation.
+                The whole portfolio in one live view — committed spend by programme, commitment over
+                time, dominant themes, and geographic reach mapped against deprivation.
               </figcaption>
             </figure>
           </div>
@@ -511,9 +510,9 @@ function About() {
                 <p>
                   Custodian is built for GDPR from the ground up. An immutable, tamper-proof audit
                   trail records every access and every change, and structured tooling supports
-                  subject-access and erasure requests within statutory windows. Full
-                  data-governance documentation — residency, processing, retention and consent —
-                  is available for review.
+                  subject-access and erasure requests within statutory windows. Full data-governance
+                  documentation — residency, processing, retention and consent — is available for
+                  review.
                 </p>
               </div>
             </div>
