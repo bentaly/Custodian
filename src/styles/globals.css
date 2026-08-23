@@ -3,10 +3,10 @@
 @plugin '@tailwindcss/typography';
 
 /* The signed-out brand panel in its two-column form, on a laptop-height viewport (a
-   900px display is ~810px once browser chrome is taken). Its run of copy is fixed, so
-   it compacts to fit rather than scrolling. Deliberately scoped to `lg` and up: below
-   that the panel sits under the form and scrolls with the page, where compacting a
-   phone-height viewport would be wrong. */
+   900px display is ~810px once browser chrome is taken). It takes the first bite out of
+   the panel's spacing before the panel resorts to scrolling within itself. Deliberately
+   scoped to `lg` and up: below that the panel sits under the form and scrolls with the
+   page, where compacting a phone-height viewport would be wrong. */
 @custom-variant compact (@media (width >= 64rem) and (height <= 880px));
 
 @theme {
