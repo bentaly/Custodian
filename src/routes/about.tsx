@@ -540,8 +540,8 @@ function About() {
         {/* ── Close ──────────────────────────────────────────────────────── */}
         <section className="band">
           <div className="wrap two-col two-col-close">
-            <span className="eyebrow">Built from inside the sector</span>
-            <p className="close-quote">By people who have lived this work.</p>
+            <span className="eyebrow">Designed by industry leaders</span>
+            <p className="close-quote">Built from inside the sector.</p>
             <div className="prose">
               <p>
                 Custodian is designed by a foundation chief executive with a twenty-year career
