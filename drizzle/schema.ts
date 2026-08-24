@@ -565,6 +565,13 @@ export const applicationIngests = pgTable('application_ingests', {
     jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
   // The final mapping applied: sourceKey → canonicalField.
   resolved: jsonb('resolved').$type<Record<string, string>>(),
+  // Canonical fields a reviewer TYPED rather than pointed at an incoming field:
+  // canonicalField → value. Kept separately from `resolved` because that map is keyed
+  // on the source key and a typed value has none. Stored rather than merely applied so
+  // a re-confirm doesn't blank it: `updateApplicationFromCanonical` writes the whole
+  // canonical set, so a value the reviewer supplied and the ingest forgot would be
+  // NULLed the next time anyone pressed Confirm.
+  providedValues: jsonb('provided_values').$type<Record<string, string>>(),
   // Set once promoted to a real application.
   applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'set null' }),
   note: text('note'),

@@ -27,6 +27,7 @@ import {
   externalIdOf,
   getApplyApiKey,
   resolvedValue,
+  PROVIDED,
   submitWithApiKey,
   timeAgo,
   useCanonicalFields,
@@ -246,19 +247,38 @@ function IngestCard({
   // Chosen source key per canonical field: stored resolution, else AI proposal. Seeded
   // here and topped up when the canonical registry arrives (it may load after mount).
   const [mapping, setMapping] = useState<Record<string, string>>({})
+  // Values typed by hand rather than taken from an incoming field. Seeded from the row
+  // so re-opening a resolved one shows what was supplied — and, more importantly, so
+  // pressing Confirm sends it back: a confirm rewrites the whole application, and a
+  // typed value the grid had forgotten would be blanked.
+  const [values, setValues] = useState<Record<string, string>>({})
   useEffect(() => {
+    const provided = row.providedValues ?? {}
     setMapping((prev) => {
       let changed = false
       const next = { ...prev }
       for (const f of canonicalFields) {
         if (next[f.key] === undefined) {
-          next[f.key] = resolvedByCanonical[f.key] ?? row.proposed?.[f.key]?.sourceKey ?? ''
+          next[f.key] = provided[f.key]
+            ? PROVIDED
+            : (resolvedByCanonical[f.key] ?? row.proposed?.[f.key]?.sourceKey ?? '')
           changed = true
         }
       }
       return changed ? next : prev
     })
-  }, [canonicalFields, resolvedByCanonical, row.proposed])
+    setValues((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const [k, v] of Object.entries(provided)) {
+        if (next[k] === undefined) {
+          next[k] = v
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [canonicalFields, resolvedByCanonical, row.proposed, row.providedValues])
 
   const [addToLookup, setAddToLookup] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
@@ -278,7 +298,10 @@ function IngestCard({
   const autoFor = (sourceKey: string) => (sourceKey ? row.autoMappings?.[sourceKey] : undefined)
   const needsLookup = (canonicalKey: string) => {
     const chosen = mapping[canonicalKey]
-    if (!chosen) return false
+    // A lookup maps an incoming FIELD NAME to a canonical field. A typed value has no
+    // field name, so there is nothing to teach — and a row written for the sentinel
+    // would put a phantom field in the foundation's table.
+    if (!chosen || chosen === PROVIDED) return false
     return autoFor(chosen)?.canonicalField !== canonicalKey
   }
   const mappedKeys = canonicalFields.map((f) => f.key).filter((k) => needsLookup(k))
@@ -364,11 +387,22 @@ function IngestCard({
     setResolveMsg(null)
     try {
       const cleanMapping: Record<string, string> = {}
-      for (const [k, v] of Object.entries(mapping)) if (v) cleanMapping[k] = v
+      const cleanValues: Record<string, string> = {}
+      for (const [k, v] of Object.entries(mapping)) {
+        // The sentinel is not a source key, so it never goes in `mapping` — the typed
+        // value travels in `values` instead.
+        if (v === PROVIDED) {
+          const typed = values[k]?.trim()
+          if (typed) cleanValues[k] = typed
+        } else if (v) {
+          cleanMapping[k] = v
+        }
+      }
       const result = await adminPost<{ applicationId: string; updated: boolean; rerun: string[] }>(
         `/api/admin/ingests/${row.id}/resolve`,
         {
           mapping: cleanMapping,
+          values: cleanValues,
           addToLookup: Object.keys(addToLookup).filter((k) => addToLookup[k] && needsLookup(k)),
         },
       )
@@ -448,9 +482,12 @@ function IngestCard({
               </div>
               <p className="mb-3 text-xs leading-relaxed text-slate-500">
                 Left: the canonical field the app stores. Middle: which of this submission's
-                incoming fields holds it. Ticking <strong>lookup</strong> teaches this foundation's
-                table, so the same incoming field name maps itself next time — the only thing that
-                stops a queue like this filling up again.
+                incoming fields holds it — or <strong>type a value</strong>, for an answer that
+                cannot be used as it stands (a paragraph where the app needs a place name). Ticking{' '}
+                <strong>lookup</strong> teaches this foundation's table, so the same incoming field
+                name maps itself next time — the only thing that stops a queue like this filling up
+                again. A typed value teaches nothing: it belongs to this submission, not to a field
+                name.
               </p>
 
               <div className="space-y-1.5">
@@ -462,7 +499,8 @@ function IngestCard({
                   const auto = autoFor(chosen)
                   const autoNote = auto?.canonicalField === f.key ? autoMappingNote(auto.via) : null
                   const proposal = row.proposed?.[f.key]
-                  const preview = chosen ? previewValue(row.rawPayload[chosen]) : ''
+                  const isProvided = chosen === PROVIDED
+                  const preview = chosen && !isProvided ? previewValue(row.rawPayload[chosen]) : ''
                   const isFlagged = flagged.has(f.key)
                   const message = fieldMessages[f.key]
                   return (
@@ -507,15 +545,35 @@ function IngestCard({
                         className="col-span-4 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm disabled:bg-slate-50 disabled:text-slate-500"
                       >
                         <option value="">— none —</option>
+                        {/*
+                          The escape hatch for an answer that cannot be used as it stands:
+                          a prose reply to a question the app needs as a place name, a
+                          number buried in a sentence. Without it the only way to supply a
+                          value was to re-post the whole submission through /api/apply.
+                        */}
+                        <option value={PROVIDED}>— type a value —</option>
                         {payloadKeys.map((k) => (
                           <option key={k} value={k}>
                             {k}
                           </option>
                         ))}
                       </select>
-                      <span className="col-span-3 truncate text-xs text-slate-500" title={preview}>
-                        {preview}
-                      </span>
+                      {isProvided ? (
+                        <input
+                          disabled={readOnly}
+                          value={values[f.key] ?? ''}
+                          onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                          placeholder="Type the value"
+                          className="col-span-3 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs disabled:bg-slate-50 disabled:text-slate-500"
+                        />
+                      ) : (
+                        <span
+                          className="col-span-3 truncate text-xs text-slate-500"
+                          title={preview}
+                        >
+                          {preview}
+                        </span>
+                      )}
                       <div className="col-span-2 flex items-center justify-end gap-1.5 text-xs">
                         {proposal?.sourceKey && (
                           <span

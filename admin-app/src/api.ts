@@ -212,6 +212,13 @@ export interface IngestRow {
   rawPayload: Record<string, unknown>
   proposed: Record<string, { sourceKey: string | null; confidence: number }> | null
   resolved: Record<string, string> | null
+  /**
+   * Canonical fields whose value a reviewer TYPED rather than pointed at an incoming
+   * field: canonicalField → value. Separate from `resolved` because that map is keyed on
+   * the source key and a typed value has none — which is also why the grid has to seed
+   * its inputs from here, or re-opening a resolved row would show the field empty.
+   */
+  providedValues: Record<string, string> | null
   applicationId: string | null
   roundProgrammeId: string | null
   createdAt: string
@@ -226,6 +233,14 @@ export interface IngestRow {
    */
   autoMappings?: Record<string, { canonicalField: string; via: AutoMappingVia }>
 }
+
+/**
+ * Sentinel `sourceKey` meaning "the reviewer typed this value" rather than naming an
+ * incoming field. Mirrors `PROVIDED` in the main app's server/fieldMapping/assemble.ts;
+ * this app cannot import from there, so the two must be changed together — same rule as
+ * `BlockerCode` above.
+ */
+export const PROVIDED = '(provided)'
 
 /** How an incoming field name resolves without anyone teaching it. */
 export type AutoMappingVia = 'identity' | 'dictionary' | 'lookup'

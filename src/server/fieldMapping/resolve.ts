@@ -16,6 +16,7 @@ import { applicationIngests, awards, fieldMappings } from '../../../drizzle/sche
 import {
   buildCanonicalInput,
   computeResponses,
+  providedValuesFor,
   resolvedFromMapping,
   resolvedMapFor,
 } from './assemble'
@@ -59,12 +60,21 @@ export type ResolveResult =
  * `invalid` channel so the admin app renders it like any other field error.
  *
  * REQUIRED_ONE_OF_GROUPS is empty today, so this yields nothing — kept in step with
- * `ingest.ts` so a group added there is enforced on both paths at once.
+ * `ingest.ts` so a group added there is enforced on both paths at once, and with
+ * `input.values` so a group added there is satisfied by either door.
  */
-function oneOfIssues(mapping: ResolveInput['mapping']): Array<{ field: string; message: string }> {
-  const chosen = Object.entries(mapping)
-    .filter(([, sourceKey]) => sourceKey)
-    .map(([canonical]) => canonical)
+function oneOfIssues(input: ResolveInput): Array<{ field: string; message: string }> {
+  const chosen = [
+    ...Object.entries(input.mapping)
+      .filter(([, sourceKey]) => sourceKey)
+      .map(([canonical]) => canonical),
+    // A typed value satisfies the group as surely as a mapped field does — it is the
+    // same canonical field arriving by a different door. Counting only `mapping` would
+    // hold a submission whose registration number the reviewer had just supplied.
+    ...Object.entries(input.values)
+      .filter(([, value]) => value.trim())
+      .map(([canonical]) => canonical),
+  ]
   return unmetOneOfGroups(chosen).map((group) => ({
     field: group[0]!,
     message: `Map a ${describeOneOfGroup(group)} — a submission needs at least one of them.`,
@@ -133,7 +143,7 @@ export async function resolveIngest(
     const roundProgrammeId = ingest.roundProgrammeId
     if (!roundProgrammeId) return { ok: false, error: 'round_programme_missing' }
 
-    const confirmedResolved = resolvedFromMapping(ingest.rawPayload, input.mapping)
+    const confirmedResolved = resolvedFromMapping(ingest.rawPayload, input.mapping, input.values)
     const confirmedResponses = computeResponses(ingest.rawPayload, confirmedResolved)
     const confirmed = CreateApplicationSchema.safeParse(
       buildCanonicalInput(roundProgrammeId, confirmedResolved, confirmedResponses),
@@ -142,7 +152,7 @@ export async function resolveIngest(
       ...(confirmed.success
         ? []
         : confirmed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message }))),
-      ...oneOfIssues(input.mapping),
+      ...oneOfIssues(input),
     ]
     // Refused rather than partially applied. This also guards the degenerate case of a
     // mapping arriving empty (the canonical registry not yet loaded in the client): it
@@ -162,7 +172,13 @@ export async function resolveIngest(
     )
 
     const confirmedMap = resolvedMapFor(confirmedResolved)
-    const updated = JSON.stringify(confirmedMap) !== JSON.stringify(ingest.resolved ?? {})
+    const confirmedValues = providedValuesFor(input.values)
+    // Typed values count as a change in their own right: they leave `resolved` alone
+    // (they have no source key to key it on), so comparing the maps only would report
+    // "the mapping was unchanged" for a confirm that just rewrote the delivery area.
+    const updated =
+      JSON.stringify(confirmedMap) !== JSON.stringify(ingest.resolved ?? {}) ||
+      JSON.stringify(confirmedValues) !== JSON.stringify(ingest.providedValues ?? {})
 
     await getDb()
       .update(applicationIngests)
@@ -171,6 +187,7 @@ export async function resolveIngest(
       .set({
         status: 'complete',
         resolved: confirmedMap,
+        providedValues: confirmedValues,
         resolvedAt: new Date(),
         resolvedBy: actor,
       })
@@ -180,7 +197,7 @@ export async function resolveIngest(
   }
 
   const payload = ingest.rawPayload
-  const resolved = resolvedFromMapping(payload, input.mapping)
+  const resolved = resolvedFromMapping(payload, input.mapping, input.values)
 
   // Resolve round programme: use the stored ID if we have it; otherwise derive it
   // from the programme name the reviewer supplied in their mapping.
@@ -204,7 +221,7 @@ export async function resolveIngest(
     ...(parsed.success
       ? []
       : parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message }))),
-    ...oneOfIssues(input.mapping),
+    ...oneOfIssues(input),
   ]
   if (!parsed.success || issues.length > 0) {
     return { ok: false, error: 'invalid', fields: issues }
@@ -224,6 +241,7 @@ export async function resolveIngest(
       applicationId,
       roundProgrammeId,
       resolved: resolvedMapFor(resolved),
+      providedValues: providedValuesFor(input.values),
       resolvedAt: new Date(),
       resolvedBy: actor,
     })

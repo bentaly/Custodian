@@ -10,8 +10,14 @@ import { z } from 'zod'
 // chosen by the reviewer; `addToLookup` lists the canonical fields whose chosen
 // mapping should be persisted to the foundation's lookup table. The resolving
 // operator is taken from the Cloudflare Access identity header, not the body.
+// `values` is the escape hatch for a field whose incoming answer cannot be used as it
+// stands — most often a prose question ("Where are you based and where do you help?")
+// mapped to a field the app needs as a place name. The reviewer types the value; it
+// wins over `mapping` for that canonical field, and the original answer stays on the
+// application as a response because nothing consumed its source key.
 export const ResolveSchema = z.object({
   mapping: z.record(z.string(), z.string()),
+  values: z.record(z.string(), z.string()).default({}),
   addToLookup: z.array(z.string()).default([]),
 })
 export type ResolveInput = z.infer<typeof ResolveSchema>

@@ -1,0 +1,1 @@
+ALTER TABLE "application_ingests" ADD COLUMN "provided_values" jsonb;

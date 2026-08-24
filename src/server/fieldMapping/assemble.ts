@@ -100,10 +100,19 @@ export function buildCanonicalInput(
   }
 }
 
-/** Build a resolved map from an admin-supplied `canonicalField → sourceKey` mapping. */
+/**
+ * Build a resolved map from an admin-supplied `canonicalField → sourceKey` mapping,
+ * plus any `canonicalField → value` the reviewer typed by hand.
+ *
+ * A typed value WINS over the mapped source key, and is marked `PROVIDED` so it is
+ * neither taught to the lookup table (a lookup is a source key, and this has none) nor
+ * counted as consuming a payload field — which is what leaves the incoming answer it
+ * replaces on the application as a response rather than dropping it.
+ */
 export function resolvedFromMapping(
   payload: Record<string, unknown>,
   mapping: Record<string, string>,
+  values: Record<string, string> = {},
 ): Resolved {
   const resolved: Resolved = {}
   for (const [canonical, sourceKey] of Object.entries(mapping)) {
@@ -111,7 +120,23 @@ export function resolvedFromMapping(
     const value = toStringValue(payload[sourceKey])
     if (value) resolved[canonical as CanonicalFieldKey] = { sourceKey, value }
   }
+  for (const [canonical, raw] of Object.entries(values)) {
+    if (!CANONICAL_KEY_SET.has(canonical)) continue
+    const value = raw.trim()
+    if (value) resolved[canonical as CanonicalFieldKey] = { sourceKey: PROVIDED, value }
+  }
   return resolved
+}
+
+/** The typed values that survived (non-empty, a real canonical key), for storage. */
+export function providedValuesFor(values: Record<string, string>): Record<string, string> {
+  const kept: Record<string, string> = {}
+  for (const [canonical, raw] of Object.entries(values)) {
+    if (!CANONICAL_KEY_SET.has(canonical)) continue
+    const value = raw.trim()
+    if (value) kept[canonical] = value
+  }
+  return kept
 }
 
 /** Storage form: `sourceKey → canonicalField` (skips directly-provided values). */

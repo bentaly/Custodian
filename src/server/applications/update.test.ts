@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { CreateApplicationSchema } from '../../lib/validators/application'
-import { resolvedFromMapping, computeResponses, buildCanonicalInput } from '../fieldMapping/assemble'
+import {
+  PROVIDED,
+  buildCanonicalInput,
+  computeResponses,
+  providedValuesFor,
+  resolvedFromMapping,
+  resolvedMapFor,
+} from '../fieldMapping/assemble'
 
 // The confirm path's guard rails, tested without a database. `updateApplicationFromCanonical`
 // itself is IO all the way down, but the decision that matters — what a reviewer's
@@ -77,5 +84,103 @@ describe('confirming a corrected mapping', () => {
   it('refuses a mapping that drops a required field', () => {
     const { bankSortCode: _dropped, ...withoutSortCode } = AI_MAPPING
     expect(canonicalFor(withoutSortCode).success).toBe(false)
+  })
+})
+
+// ─── Typed values ────────────────────────────────────────────────────────────
+//
+// The Arete case: one form question — "Where are you based and where do you help?" —
+// answered with a 500-word paragraph naming the applicant's office AND the places the
+// grant would serve. It maps to `deliveryArea` correctly and then fails validation at
+// 255 characters, so the submission is held over a field the foundation never asked
+// for separately. Nothing in the grid could supply the place name, because a mapping
+// only ever points at an incoming field.
+
+const PROSE =
+  "WizeUp's North West operations are coordinated by our regional team based in " +
+  'Stockport. From this base, we directly support schools and colleges across Greater ' +
+  'Manchester, Stockport, Chorley, and surrounding areas. As a registered charity, ' +
+  'WizeUp delivers workshops across England, but our North West strategy is driven ' +
+  'locally. Funding will expand delivery westwards into Liverpool and Merseyside.'
+
+const PROSE_PAYLOAD = { ...PAYLOAD, 'Where are you based and where do you help?': PROSE }
+const PROSE_MAPPING = {
+  ...AI_MAPPING,
+  deliveryArea: 'Where are you based and where do you help?',
+}
+
+function canonicalWith(
+  payload: Record<string, unknown>,
+  mapping: Record<string, string>,
+  values: Record<string, string> = {},
+) {
+  const resolved = resolvedFromMapping(payload, mapping, values)
+  const responses = computeResponses(payload, resolved)
+  return {
+    resolved,
+    parsed: CreateApplicationSchema.safeParse(
+      buildCanonicalInput(ROUND_PROGRAMME_ID, resolved, responses),
+    ),
+  }
+}
+
+describe('a value the reviewer types instead of mapping', () => {
+  it('is what holds the submission in the first place', () => {
+    // Guards the premise: without a typed value there is no way through, because the
+    // only field carrying the answer is too long for the column.
+    const { parsed } = canonicalWith(PROSE_PAYLOAD, PROSE_MAPPING)
+    expect(parsed.success).toBe(false)
+    expect(
+      !parsed.success && parsed.error.issues.some((i) => i.path.join('.') === 'deliveryArea'),
+    ).toBe(true)
+  })
+
+  it('wins over the mapped field and lets the submission through', () => {
+    const { parsed } = canonicalWith(PROSE_PAYLOAD, PROSE_MAPPING, {
+      deliveryArea: 'Greater Manchester',
+    })
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && parsed.data.deliveryArea).toBe('Greater Manchester')
+  })
+
+  it("keeps the applicant's own answer as a response rather than dropping it", () => {
+    // The rule the canonical tiers exist to protect: a lost field must never be
+    // indistinguishable from a question the foundation never asked. The reviewer
+    // supplies a usable place name; what the applicant actually wrote still shows.
+    const { parsed } = canonicalWith(PROSE_PAYLOAD, PROSE_MAPPING, {
+      deliveryArea: 'Greater Manchester',
+    })
+    expect(parsed.success).toBe(true)
+    const response =
+      parsed.success &&
+      parsed.data.responses.find((r) => r.label === 'Where are you based and where do you help?')
+    expect(response && response.value).toBe(PROSE)
+  })
+
+  it("is never written to the foundation's lookup table", () => {
+    // A lookup maps an incoming FIELD NAME to a canonical field. A typed value has no
+    // field name, so storing one would put a phantom "(provided)" field in the table
+    // and teach the next submission nothing.
+    const { resolved } = canonicalWith(PROSE_PAYLOAD, PROSE_MAPPING, {
+      deliveryArea: 'Greater Manchester',
+    })
+    expect(resolved.deliveryArea?.sourceKey).toBe(PROVIDED)
+    expect(Object.keys(resolvedMapFor(resolved))).not.toContain(PROVIDED)
+    expect(resolvedMapFor(resolved).deliveryArea).toBeUndefined()
+  })
+
+  it('ignores a blank one rather than storing an empty string', () => {
+    const { resolved } = canonicalWith(PROSE_PAYLOAD, AI_MAPPING, { deliveryArea: '   ' })
+    expect(resolved.deliveryArea).toBeUndefined()
+    expect(providedValuesFor({ deliveryArea: '   ' })).toEqual({})
+  })
+
+  it('stores only trimmed values for real canonical fields', () => {
+    // What goes in `provided_values`, and therefore what a later Confirm sends back.
+    // A key that is not a canonical field would survive into the column and quietly
+    // reappear as an input on every future review.
+    expect(providedValuesFor({ deliveryArea: '  Ashton-under-Lyne ', notAField: 'x' })).toEqual({
+      deliveryArea: 'Ashton-under-Lyne',
+    })
   })
 })
