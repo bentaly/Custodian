@@ -118,7 +118,24 @@ const NOTES: { icon: IconSvgElement; title: string; body: ReactNode }[] = [
  * NOT `FROM_EMAIL` (`noreply@custodian.fund`) — that is the address award letters are
  * sent FROM, and a no-reply box is the one place a register-of-interest must not land.
  */
-const INTEREST_EMAIL = 'team@custodian.fund'
+const INTEREST_EMAIL = 'info@custodian.fund'
+
+/**
+ * The draft we put in their mail client, so "register interest" is a click and a Send
+ * rather than a blank compose window & the job of working out what to ask for.
+ *
+ * Newlines survive `encodeURIComponent` as `%0A`, which every mail client renders as a
+ * line break — so this is written as the letter it will become, blank lines & all.
+ */
+const INTEREST_BODY = `Hi,
+
+I'm getting in touch to learn more about Custodian and how the platform supports grant-making foundations.
+I'd be keen to understand the key features, pricing and implementation process, and would welcome the opportunity to arrange a demo.
+
+Please let me know the best next step.
+
+Many thanks,
+`
 
 function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
   return (
@@ -139,18 +156,23 @@ function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
  * the whole assembly scales with the panel — which is a share of the viewport, not the
  * comp's fixed 815px.
  *
- * The diameter comes from the block's HEIGHT, inset by `inset-y-12` — roughly half a
- * chip — so the top & bottom points of the circle land INSIDE the Applications &
+ * The diameter comes from the HEIGHT of the chip grid, inset by `inset-y-8` — roughly
+ * half a chip — so the top & bottom points of the circle land INSIDE the Applications &
  * Reporting chips and the arc runs behind them, as it does in the comp. Sized off the
  * width instead, the circle sat wholly between the two rows and the arc closed above
  * Applications in plain sight, which is what made it read as a chip parked under a
  * circle rather than a stage sitting on a lifecycle.
+ *
+ * It measures the GRID rather than the spacing wrapper around it deliberately: while it
+ * measured the wrapper, every pixel of breathing room added above Applications or below
+ * Reporting also inflated the circle, so spacing and geometry could not be tuned
+ * separately & the compact case had to run with almost no gap to keep the ring sane.
  */
 function OrbitRing() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 inset-y-12 hidden place-items-center md:grid"
+      className="pointer-events-none absolute inset-x-0 inset-y-8 hidden place-items-center md:grid"
     >
       <div className="relative aspect-square h-full">
         <svg viewBox="0 0 100 100" className="h-full w-full">
@@ -220,7 +242,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             short one. It therefore scales fluidly & tops out at the comp's 40px,
             which no fixed ramp step could do. */}
         <h2
-          className="font-display max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-5 compact:mt-4 compact:text-[clamp(26px,2.3vw,34px)]"
+          className="font-display mb-4 max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-5 compact:mb-3 compact:mt-2 compact:text-[clamp(26px,2.3vw,34px)]"
           style={{ letterSpacing: '-0.02em', textWrap: 'pretty' }}
         >
           The entire grant lifecycle for the whole foundation team.
@@ -242,7 +264,11 @@ export function AuthShell({ children }: { children: ReactNode }) {
             the invite-only line hold the bottom, and the ring is centred in whatever
             is left rather than hugging the heading with all the empty space beneath
             it. Auto margins collapse to nothing once the panel overflows, so the
-            compact case just stacks.
+            compact case just stacks — which is why the FLOOR on that gap is a fixed
+            margin on the heading & on the cards below, not more padding here: this
+            block's height is what sets the ring's diameter (see `OrbitRing`), so
+            padding it would inflate the circle at exactly the sizes where there is
+            already no room. Margins sit outside it & leave the geometry alone.
 
             `items-center` because a grid row stretches by default, & the two chips
             facing each other across the ring never carry the same number of lines —
@@ -250,39 +276,41 @@ export function AuthShell({ children }: { children: ReactNode }) {
             card padded out for no reason. Each chip is now its own height, & the pair
             balances on the row's midline, which is where the ring's symmetry puts
             them. */}
-        <div className="relative mx-auto my-auto w-full max-w-[800px] py-4 compact:py-1">
-          <OrbitRing />
-          <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.9fr)_1fr] md:items-center md:gap-x-3 md:gap-y-10 compact:gap-y-4">
-            {STAGES.map((stage) => (
-              <li
-                key={stage.title}
-                className={cn(
-                  'flex items-center gap-2 rounded-control border border-grey-50/70 bg-white/10 py-2 pl-2 pr-3 backdrop-blur-[8px]',
-                  stage.place,
-                )}
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-white text-brand">
-                  <HugeiconsIcon icon={stage.icon} className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <div>
-                  <span className="text-title font-medium text-grey-900">{stage.title}</span>
-                  <p
-                    className="mt-1 text-label leading-[1.4] text-grey-500"
-                    style={{ textWrap: 'pretty' }}
-                  >
-                    {stage.body}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
+        <div className="mx-auto my-auto w-full max-w-[800px] py-4 compact:py-0">
+          <div className="relative">
+            <OrbitRing />
+            <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.9fr)_1fr] md:items-center md:gap-x-3 md:gap-y-10 compact:gap-y-4">
+              {STAGES.map((stage) => (
+                <li
+                  key={stage.title}
+                  className={cn(
+                    'flex items-center gap-2 rounded-control border border-grey-50/70 bg-white/10 py-2 pl-2 pr-3 backdrop-blur-[8px]',
+                    stage.place,
+                  )}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-white text-brand">
+                    <HugeiconsIcon icon={stage.icon} className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                  <div>
+                    <span className="text-title font-medium text-grey-900">{stage.title}</span>
+                    <p
+                      className="mt-1 text-label leading-[1.4] text-grey-500"
+                      style={{ textWrap: 'pretty' }}
+                    >
+                      {stage.body}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3 compact:gap-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-3 compact:gap-3">
           {NOTES.map((note) => (
             <div
               key={note.title}
-              className="flex flex-col gap-3 rounded-control border border-grey-200 bg-grey-50 p-4"
+              className="flex flex-col gap-3 rounded-control border border-grey-200 bg-grey-50 p-4 compact:p-3"
             >
               {/* Icon & title on one row: the tile is a label for the claim, not a
                   thing in its own right, & stacking them left a 40px square sitting
@@ -310,7 +338,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             here rather than in a corner: whoever has just read that they need an
             invitation is exactly the person who wants to read more or ask for one, and
             they are already looking at this line. */}
-        <div className="pt-5 text-center compact:pt-2">
+        <div className="pt-5 text-center compact:pt-1">
           <p className="text-body text-grey-500">
             Custodian is invite-only. Your administrator can send you an invitation.
           </p>
@@ -320,7 +348,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
               ·
             </span>
             <ExternalTextLink
-              href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}`}
+              href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}&body=${encodeURIComponent(INTEREST_BODY)}`}
             >
               Register interest
             </ExternalTextLink>
