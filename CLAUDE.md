@@ -181,9 +181,29 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
   `visibleRoundProgrammeIds(user)` + `intersectScope` (`src/server/scope.ts`); fetch-by-id goes
   through `assertClientAccess` / `assertApplicationAccess`. `null` scope = superadmin, unrestricted.
   Any query filtering on a cross-tenant column (e.g. `organisationName`) must ALSO scope by client.
-- **Post-response work**: `runInBackground` (`src/server/background.ts`) wraps `ctx.waitUntil` so
-  pipelines survive the Workers teardown after the response is sent. Background work must have a
-  durable failure story (e.g. an ingest row stuck at `received` is visible and reprocessable).
+- **Post-response work has a 30-second ceiling.** `runInBackground`
+  (`src/server/background.ts`) wraps `ctx.waitUntil`, and Cloudflare cancels waitUntil work
+  **30 seconds after the response is sent, on every plan** — silently, because workerd
+  ABANDONS the pending promise rather than rejecting it, so the `.catch` never runs and
+  nothing is logged. That is what stalled a production ingest on 24 Aug 2026 (`wallTimeMs:
+  30500`, `cpuTimeMs: 274`, Anthropic logging a 499 "Client disconnected" 26.8s into the
+  Custodian score). Tasks now carry a 25s deadline of their own so a cancellation surfaces
+  as a reported error instead of silence. Background work must still have a durable failure
+  story (an ingest row stuck at `received` is visible and reprocessable).
+- **Anything longer than that goes on the queue**: `enqueue` (`src/server/pipelineQueue.ts`)
+  puts an id on the `PIPELINE_QUEUE` binding; `worker-entry.js`'s `queue()` handler consumes
+  it and calls `/api/internal/pipeline` (gated by `CRON_SECRET`, the same synthetic-Request
+  trick the cron uses, since that file cannot import `src/`). A consumer gets **15 minutes**,
+  retries with backoff, and a dead-letter queue. `max_batch_size = 1` is required on the Free
+  plan: the 50-subrequest cap is per invocation and one submission spends 13-20 of them
+  (every Neon query is an HTTPS request). Degrades to `runInBackground` when the binding is
+  absent (local dev). A failed `send` is reported, never silently retried inline — it is the
+  one gap a queue cannot cover, since it can only retry a message it actually received.
+- **Writes that belong together go in one `db.batch()`.** An application insert and the
+  ingest-row update that points at it are one fact: `processIngest` only acts on rows still
+  at `received`, so a failure between two separate statements leaves a promoted application
+  no ingest points at, and the next attempt builds a SECOND one. Survivable while only a
+  human could retry; live the moment a queue does it automatically.
 - **Degrade gracefully**: AI features without `ANTHROPIC_API_KEY`, rate limiting without its
   binding, and email without Resend all no-op or fall back rather than failing the request.
 
@@ -561,7 +581,15 @@ pinning the local hour would spend a second trigger out of the five the Free pla
 
 ## Feature modules (each: `src/lib/<x>` pure logic, `src/server/<x>` IO)
 
-- **custodianScore** — Anthropic-scored application quality (0–100 + per-criterion detail)
+- **custodianScore** — Anthropic-scored application quality (0–100 + per-criterion detail).
+  It is **30-58 seconds of model time**, against ~8s for everything else in the ingest
+  pipeline, so it does NOT run inside the submission: `createApplicationFromCanonical` with
+  `score: 'queued'` writes the application immediately with `custodianScoreStatus: 'queued'`
+  and `src/server/applications/score.ts` fills it in from its own queue message. The
+  reviewer's Confirm path still scores **inline**, because someone is watching it happen.
+  `queued` is deliberately distinct from `pending`: `pending` means no score is coming (no
+  `ANTHROPIC_API_KEY`), and a screen that cannot tell "waiting" from "never" would promise
+  "AI is scoring this application" forever — the lost-field bug wearing a different hat
 - **dueDiligence** — registry checks against Charity Commission + Companies House
 - **deprivation** — delivery-area → IMD decile context via postcodes.io + `deprivation_areas`
 - **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback).

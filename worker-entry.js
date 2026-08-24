@@ -88,6 +88,71 @@ const worker = {
   },
 
   /**
+   * Queue messages land here (`[[queues.consumers]]` in wrangler.toml).
+   *
+   * This is where the ingest pipeline runs now. It used to run under
+   * `ctx.waitUntil` on the submission's own request, which Cloudflare cancels 30
+   * seconds after the response — on 24 Aug 2026 it did exactly that, mid-way through
+   * a Custodian score, and because a cancelled waitUntil promise is abandoned rather
+   * than rejected the failure was completely silent. A queue consumer gets 15
+   * minutes, retries with backoff, and a dead-letter queue for what still fails.
+   *
+   * Like `scheduled`, it reaches the app through `handler.fetch` with a synthetic
+   * Request, because this file is bundled by wrangler and cannot see `src/`. That
+   * call is in-process — no network hop, no subrequest.
+   *
+   * Each message is acked or retried on its own. A batch is not all-or-nothing:
+   * `retryAll()` on one bad message would re-run the good ones too, and re-running a
+   * pipeline that already promoted an application is the duplicate we just went to
+   * some trouble to make impossible.
+   */
+  async queue(batch, env, ctx) {
+    bridgeEnv(env, ctx)
+
+    if (!env.CRON_SECRET) {
+      // The endpoint fails closed, so every message would 401 and then dead-letter.
+      // Retry instead: the secret can be set without losing the work.
+      console.error('[queue] CRON_SECRET is not set — cannot dispatch pipeline work')
+      batch.retryAll()
+      return
+    }
+
+    const origin = (env.BETTER_AUTH_URL || 'https://custodian.fund').replace(/\/+$/, '')
+
+    for (const message of batch.messages) {
+      const started = Date.now()
+      const describe = `${message.body?.kind ?? 'unknown'} (attempt ${message.attempts})`
+      try {
+        const response = await handler.fetch(
+          new Request(`${origin}/api/internal/pipeline`, {
+            method: 'POST',
+            headers: {
+              authorization: `Bearer ${env.CRON_SECRET}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify(message.body),
+          }),
+          env,
+          ctx,
+        )
+        if (response.ok) {
+          console.log(`[queue] ${describe} ok in ${Date.now() - started}ms`)
+          message.ack()
+        } else {
+          const body = await response.text()
+          console.error(
+            `[queue] ${describe} → ${response.status} in ${Date.now() - started}ms: ${body.slice(0, 500)}`,
+          )
+          message.retry()
+        }
+      } catch (err) {
+        console.error(`[queue] ${describe} threw after ${Date.now() - started}ms:`, err)
+        message.retry()
+      }
+    }
+  },
+
+  /**
    * Cron Triggers land here (`[triggers]` in wrangler.toml). Today that is only the
    * weekly payments digest, Mondays at 08:00 UTC.
    *

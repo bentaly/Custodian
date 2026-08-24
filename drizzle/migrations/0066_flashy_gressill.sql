@@ -1,0 +1,1 @@
+ALTER TYPE "public"."custodian_score_status" ADD VALUE 'queued' BEFORE 'scored';

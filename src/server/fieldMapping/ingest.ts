@@ -44,6 +44,8 @@ import {
   type RoundProgrammeForApplication,
 } from '../applications/create'
 import { CreateApplicationSchema } from '../../lib/validators/application'
+import { scoreApplication } from '../applications/score'
+import { enqueue } from '../pipelineQueue'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
 
@@ -55,16 +57,28 @@ export type IngestStatus = 'complete' | 'ai_proposed' | 'needs_review'
 export async function saveIngest(params: {
   clientId: string
   payload: Record<string, unknown>
+  /** Supply to make the write idempotent across a retry — see below. */
+  id?: string
 }): Promise<string> {
-  const [ingest] = await getDb()
+  // The id is generated HERE rather than by the database, so this insert can be
+  // repeated safely. `db.ts` deliberately never retries a write, because a write that
+  // times out may still have committed and a blind retry would duplicate the row —
+  // but with the id fixed in advance the second attempt is the same row, and
+  // `onConflictDoNothing` makes it a no-op. This is the one write that stands between
+  // a submission and being lost entirely: everything downstream can fail and be
+  // reprocessed, whereas a failure here returns 5xx and the applicant's answers exist
+  // nowhere but in the sender's retry buffer.
+  const id = params.id ?? crypto.randomUUID()
+  await getDb()
     .insert(applicationIngests)
     .values({
+      id,
       clientId: params.clientId,
       rawPayload: params.payload,
       status: 'received',
     })
-    .returning({ id: applicationIngests.id })
-  return ingest!.id
+    .onConflictDoNothing({ target: applicationIngests.id })
+  return id
 }
 
 export type ProcessIngestResult =
@@ -215,24 +229,51 @@ export async function processIngest(
     status = 'needs_review'
   }
 
-  // 7. Promote (create the application, with scoring + due diligence) or hold.
+  // 7. Promote (create the application, with due diligence + deprivation) or hold.
+  //
+  //    The ingest row is written in the SAME batch as the application insert rather
+  //    than as a follow-up statement. This function only acts on rows still at
+  //    `received`, so a failure between the two would leave a promoted application
+  //    that no ingest points at — and the next attempt would build a SECOND
+  //    application for one submission. That window was survivable while the only way
+  //    to retry was a human pressing Reprocess; a queue retries on its own.
+  const finalise = (promotedId: string | null) => ({
+    status,
+    proposed,
+    resolved: resolvedMap,
+    roundProgrammeId,
+    applicationId: promotedId,
+    resolvedAt: status === 'needs_review' ? null : new Date(),
+  })
+
   let applicationId: string | null = null
   if (status !== 'needs_review' && validInput?.success && resolvedRoundProgramme) {
-    const created = await createApplicationFromCanonical(resolvedRoundProgramme, validInput.data)
+    const created = await createApplicationFromCanonical(resolvedRoundProgramme, validInput.data, {
+      // The Custodian score is 30-58s of model time against ~8s for everything else
+      // in this function, and it is what pushed this pipeline past the 30 seconds
+      // Cloudflare allows after a response. The application is complete and usable
+      // without it; the score follows. See server/applications/score.ts.
+      score: 'queued',
+      alsoInBatch: (newId, db) =>
+        db
+          .update(applicationIngests)
+          .set(finalise(newId))
+          .where(eq(applicationIngests.id, ingestId)),
+    })
     applicationId = created.application?.id ?? null
+  } else {
+    await getDb()
+      .update(applicationIngests)
+      .set(finalise(null))
+      .where(eq(applicationIngests.id, ingestId))
   }
 
-  await getDb()
-    .update(applicationIngests)
-    .set({
-      status,
-      proposed,
-      resolved: resolvedMap,
-      roundProgrammeId,
-      applicationId,
-      resolvedAt: status === 'needs_review' ? null : new Date(),
-    })
-    .where(eq(applicationIngests.id, ingestId))
+  // Ask for the score only once the application and its ingest row are committed, so
+  // a message can never point at a row that does not exist yet.
+  if (applicationId) {
+    const promotedId = applicationId
+    await enqueue({ kind: 'score', applicationId: promotedId }, () => scoreApplication(promotedId))
+  }
 
   return { ok: true, status, applicationId }
 }

@@ -27,10 +27,13 @@ SENTRY_ENVIRONMENT = "production"
 # Workers Logs — persist console output + uncaught exceptions so a failure can be read
 # after the fact in the dashboard (Workers & Pages → the worker → Observability).
 #
-# This is load-bearing for the background pipelines: `/api/apply` answers 202 and then
-# runs mapping/scoring/due diligence via runInBackground, which logs its own failures
-# (`[background] <label> failed:`). Without collection those logs went nowhere, so a
-# crashed ingest left a row stuck at `received` with no way to learn WHY.
+# This is load-bearing for the pipelines: `/api/apply` answers 202 and the mapping /
+# due diligence work happens elsewhere — on the queue below, whose consumer logs every
+# message (`[queue] …`), and in `runInBackground`, which logs `[background] <label>
+# failed:`. Without collection those logs went nowhere, so a crashed ingest left a row
+# stuck at `received` with no way to learn WHY. Note that Cloudflare's own
+# `waitUntil() tasks did not complete` warning also lands here — that line, plus a
+# `wallTimeMs` near 30000, is the signature of work that outlived its invocation.
 #
 # Free on both plans at this app's volume (Free: 200k events/day, 3-day retention;
 # Paid: 20m/month included, 7-day). head_sampling_rate = 1 logs every invocation —
@@ -91,6 +94,45 @@ type = "ratelimit"
 namespace_id = "1002"
 simple = { limit = 60, period = 60 }
 
+# ─── Pipeline queue ─────────────────────────────────────────────────────────
+#
+# Where the ingest pipelines run. `/api/apply` and `/api/submit-report` persist the
+# submission, answer 202, and put an id on this queue; `worker-entry.js`'s `queue()`
+# handler consumes it. They used to run under `ctx.waitUntil`, which Cloudflare
+# cancels 30 seconds after the response is sent — silently, because a cancelled
+# waitUntil promise is abandoned rather than rejected. The promote path is 35-60s.
+#
+# `max_batch_size = 1` is a REQUIREMENT on the Free plan, not a preference: the 50
+# subrequests-per-invocation cap is per INVOCATION, and one submission already spends
+# 13-20 of them (each Neon query is an HTTPS request), so two in a batch would sit at
+# ~30 and three would exceed it.
+#
+# Queue names are per-environment. `queues` is not inherited by named environments,
+# but the names would collide if they were reused — staging consuming production's
+# submissions is the same class of mistake as staging sending production's email.
+[[queues.producers]]
+queue = "custodian-pipeline"
+binding = "PIPELINE_QUEUE"
+
+[[queues.consumers]]
+queue = "custodian-pipeline"
+max_batch_size = 1
+# A submission is worth several minutes of patience before it is parked: the pipeline
+# depends on Anthropic and two public registries, and a brief outage at any of them
+# must not turn into a dead-lettered application.
+max_retries = 5
+retry_delay = 60
+dead_letter_queue = "custodian-pipeline-dlq"
+
+[[queues.consumers]]
+queue = "custodian-pipeline-dlq"
+max_batch_size = 1
+# Nothing drains the dead-letter queue automatically — it is a shelf, not a loop.
+# Declared only so messages have somewhere to land. A submission that reaches here is
+# still safe: its row is in `application_ingests`, shows in the admin queue as
+# `pipeline_stalled`, and can be reprocessed by hand.
+max_retries = 0
+
 [env.staging]
 name = "custodian-staging"
 # `routes` is an inheritable key — without this override, staging inherits the
@@ -128,3 +170,21 @@ name = "APPLY_KEY_LIMITER"
 type = "ratelimit"
 namespace_id = "1002"
 simple = { limit = 60, period = 60 }
+
+# Queues are NOT inherited by named environments — repeated for staging, with its own
+# queue names so the two environments can never consume each other's submissions.
+[[env.staging.queues.producers]]
+queue = "custodian-pipeline-staging"
+binding = "PIPELINE_QUEUE"
+
+[[env.staging.queues.consumers]]
+queue = "custodian-pipeline-staging"
+max_batch_size = 1
+max_retries = 5
+retry_delay = 60
+dead_letter_queue = "custodian-pipeline-staging-dlq"
+
+[[env.staging.queues.consumers]]
+queue = "custodian-pipeline-staging-dlq"
+max_batch_size = 1
+max_retries = 0

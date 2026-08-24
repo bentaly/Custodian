@@ -358,10 +358,19 @@ function AiScoreCell({
           />
         )}
       </div>
-      {has && (
+      {has ? (
         <span className="font-display text-body font-medium" style={{ color: C.ink }}>
           {score}
         </span>
+      ) : (
+        status === 'queued' && (
+          // Only `queued` says this. `pending` means no score is coming (scoring is
+          // not configured), and a row that claims to be "scoring" forever is worse
+          // than one that admits it has no score.
+          <span className="font-display text-label" style={{ color: C.faint }}>
+            Scoring…
+          </span>
+        )
       )}
     </div>
   )

@@ -230,22 +230,33 @@ export async function resolveIngest(
   // Persist confirmed mappings to the foundation's lookup table.
   await persistLookups(ingest.clientId, input, actor)
 
-  const created = await createApplicationFromCanonical(roundProgramme, parsed.data)
+  // The application and the ingest row that points at it are written in ONE batch.
+  // Two statements leave a window where the application exists and the ingest still
+  // says `needs_review` — and this branch is reached precisely when the ingest has no
+  // applicationId, so a reviewer who saw the error and pressed Confirm again would
+  // get a second application for one submission.
+  //
+  // Scoring stays INLINE here, unlike the ingest pipeline: a reviewer pressed a
+  // button and is watching, this runs in a request with no post-response deadline,
+  // and an application that appears already scored is the better answer when someone
+  // is waiting for it.
+  const created = await createApplicationFromCanonical(roundProgramme, parsed.data, {
+    alsoInBatch: (newId, db) =>
+      db
+        .update(applicationIngests)
+        .set({
+          status: 'complete',
+          applicationId: newId,
+          roundProgrammeId,
+          resolved: resolvedMapFor(resolved),
+          providedValues: providedValuesFor(input.values),
+          resolvedAt: new Date(),
+          resolvedBy: actor,
+        })
+        .where(eq(applicationIngests.id, ingestId)),
+  })
   const applicationId = created.application?.id
   if (!applicationId) return { ok: false, error: 'round_programme_missing' }
-
-  await getDb()
-    .update(applicationIngests)
-    .set({
-      status: 'complete',
-      applicationId,
-      roundProgrammeId,
-      resolved: resolvedMapFor(resolved),
-      providedValues: providedValuesFor(input.values),
-      resolvedAt: new Date(),
-      resolvedBy: actor,
-    })
-    .where(eq(applicationIngests.id, ingestId))
 
   return { ok: true, applicationId }
 }

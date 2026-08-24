@@ -1,4 +1,4 @@
-import { captureException } from '@sentry/cloudflare'
+import { reportFault } from './faults'
 import { AppError, isAppError, statusOf } from '../lib/errors'
 import { isRouterControlFlow } from '../lib/sentry'
 import { databaseTimeout } from './db'
@@ -128,13 +128,7 @@ function clientError(status: number, message: string, serverStack?: string | nul
  * recorded somewhere regardless of how that resolves.
  */
 function reportServerError(err: unknown): void {
-  console.error('[server-fn] unhandled error:', err)
-  try {
-    captureException(err)
-  } catch {
-    // No Sentry client bound (local dev, or the two-instance case above). The console
-    // line above is the durable record either way.
-  }
+  reportFault('server-fn', err)
 }
 
 const FN_DEADLINE = 'ServerFnDeadline' as const

@@ -69,11 +69,21 @@ export const dueDiligenceStatusEnum = pgEnum('due_diligence_status', [
 ])
 
 // State of the AI "Custodian score" assessment for an application.
-//   pending — not yet scored (scoring not configured, or never run)
+//   pending — no score, and none is coming: scoring is not configured (no
+//             ANTHROPIC_API_KEY), or the row predates scoring entirely.
+//   queued  — the application exists and a score has been ASKED FOR but has not
+//             arrived yet. Distinct from `pending` because the screens say so out
+//             loud ("AI is scoring this application"), and a message that cannot
+//             tell "waiting" from "never happening" is the lost-field bug again:
+//             on `pending` alone, an app with no API key would claim to be scoring
+//             forever. The score is 30-60s of model time and no longer runs inside
+//             the submission's own invocation, so this state is what the applicant's
+//             application wears for its first minute of life.
 //   scored  — assessment completed successfully
 //   error   — scoring was attempted but failed (API/validation error); re-runnable
 export const custodianScoreStatusEnum = pgEnum('custodian_score_status', [
   'pending',
+  'queued',
   'scored',
   'error',
 ])

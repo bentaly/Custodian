@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { saveIngest, processIngest } from '../../server/fieldMapping/ingest'
-import { runInBackground } from '../../server/background'
+import { enqueue } from '../../server/pipelineQueue'
 import { authenticateApiKey } from '../../server/apiKeys'
 import { checkRateLimit } from '../../server/rateLimit'
 import { parseSubmissionPayload } from '../../lib/submissionPayload'
@@ -71,10 +71,15 @@ export const Route = createFileRoute('/api/apply')({
         }
 
         // Persist first — once the row exists the submission can never be lost —
-        // then acknowledge. The pipeline (mapping → AI fallback → scoring + due
-        // diligence) runs after the response; its outcome lands on the ingest row.
+        // then acknowledge. The pipeline (mapping → AI fallback → due diligence)
+        // runs after the response; its outcome lands on the ingest row.
+        //
+        // It runs on a QUEUE rather than under `ctx.waitUntil`, because waitUntil is
+        // cancelled 30 seconds after the response and this pipeline is longer than
+        // that. When the queue binding is absent (local dev) `enqueue` falls back to
+        // background work, which is what this line used to do outright.
         const ingestId = await saveIngest({ clientId: auth.clientId, payload })
-        runInBackground(`processIngest ${ingestId}`, () => processIngest(ingestId))
+        await enqueue({ kind: 'ingest', ingestId }, () => processIngest(ingestId))
 
         return jsonResponse({ status: 'received', ingestId }, 202)
       },

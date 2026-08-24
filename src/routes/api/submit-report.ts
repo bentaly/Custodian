@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { saveReportIngest, processReportIngest } from '../../server/reportMapping/ingest'
-import { runInBackground } from '../../server/background'
+import { enqueue } from '../../server/pipelineQueue'
 import { authenticateApiKey } from '../../server/apiKeys'
 import { checkRateLimit } from '../../server/rateLimit'
 import { parseSubmissionPayload } from '../../lib/submissionPayload'
@@ -67,7 +67,7 @@ export const Route = createFileRoute('/api/submit-report')({
         // Persist first — once the row exists the report can never be lost — then
         // acknowledge. Mapping, matching and analysis run after the response.
         const ingestId = await saveReportIngest({ clientId: auth.clientId, payload })
-        runInBackground(`processReportIngest ${ingestId}`, () => processReportIngest(ingestId))
+        await enqueue({ kind: 'report_ingest', ingestId }, () => processReportIngest(ingestId))
 
         return jsonResponse({ status: 'received', ingestId }, 202)
       },

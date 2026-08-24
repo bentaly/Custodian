@@ -30,11 +30,19 @@ export interface CriterionScore {
 
 /**
  * Overall scoring state stored on the application row.
- *   pending — not yet scored (scoring not configured, or never run)
+ *   pending — no score and none is coming: scoring is not configured, or the row
+ *             predates scoring. `runCustodianScore` returns this when there is no
+ *             ANTHROPIC_API_KEY.
+ *   queued  — the application exists and a score has been asked for but has not
+ *             arrived. Only ever written by the create path; `runCustodianScore`
+ *             never returns it, because by the time the runner has an answer the
+ *             waiting is over. Kept distinct from `pending` so a screen can say
+ *             "scoring" without saying it forever in an environment where scoring
+ *             will never happen.
  *   scored  — assessment completed successfully
  *   error   — scoring was attempted but failed (API/validation error)
  */
-export type CustodianScoreStatus = 'pending' | 'scored' | 'error'
+export type CustodianScoreStatus = 'pending' | 'queued' | 'scored' | 'error'
 
 /**
  * The detail blob persisted alongside the denormalised composite score. The

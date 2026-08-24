@@ -643,7 +643,9 @@ function ApplicationDetail() {
             <p className="font-display text-body" style={{ color: C.sub }}>
               {scoreStatus === 'error'
                 ? 'Scoring failed — try re-scoring.'
-                : 'This application has not been scored yet.'}
+                : scoreStatus === 'queued'
+                  ? 'AI is currently scoring this application. It usually takes under a minute — reload to see the result.'
+                  : 'This application has not been scored yet.'}
             </p>
           )}
 

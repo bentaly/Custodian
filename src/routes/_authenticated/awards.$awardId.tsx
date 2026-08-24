@@ -903,7 +903,13 @@ function ApplicationPanel({ award }: { award: AwardData }) {
               ? `${a.custodianScore}/100`
               : '—'
           }
-          sub={a.custodianScoreStatus === 'scored' ? 'out of 100' : 'not scored'}
+          sub={
+            a.custodianScoreStatus === 'scored'
+              ? 'out of 100'
+              : a.custodianScoreStatus === 'queued'
+                ? 'scoring…'
+                : 'not scored'
+          }
         />
         <KeyFact
           label="Registration"

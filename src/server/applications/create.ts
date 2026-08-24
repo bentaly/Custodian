@@ -9,6 +9,7 @@
 // application may be promoted by a reviewer after the round has closed).
 
 import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { getDb } from '../db'
 import { applications, programmes, roundProgrammes, rounds } from '../../../drizzle/schema'
 import { runDueDiligence } from '../dueDiligence/run'
@@ -72,11 +73,43 @@ export async function findActiveRoundProgrammeByName(
   return (await fetchRoundProgrammeForApplication(rows[0]!.id)) ?? null
 }
 
+/** The drizzle instance, so a caller's `alsoInBatch` statement is built on the SAME
+ *  session the batch executes on rather than a second `getDb()`. */
+export type Database = ReturnType<typeof getDb>
+
+export interface CreateApplicationOptions {
+  /**
+   * How the Custodian score is produced.
+   *
+   * `inline` scores before the row is written — right for a reviewer who pressed
+   * Confirm and is watching, in a request with no post-response deadline.
+   *
+   * `queued` writes the application with `custodianScoreStatus: 'queued'` and leaves
+   * scoring to its own later step. The score is 30-60s of model time against roughly
+   * 8s for everything else here, so keeping it inline is what made a submission's
+   * whole pipeline outlive the invocation that started it.
+   */
+  score?: 'inline' | 'queued'
+  /**
+   * A statement to commit in the SAME batch as the application insert.
+   *
+   * This exists because "the application row" and "the ingest row that points at it"
+   * are one fact, and writing them as two statements leaves a window where the
+   * application exists and nothing records that it does. `processIngest` only acts on
+   * rows still at `received`, so a retry landing in that window creates a SECOND
+   * application for one submission. Harmless while nothing retried automatically —
+   * live the moment a queue does it for us.
+   */
+  alsoInBatch?: (applicationId: string, db: Database) => BatchItem<'pg'>
+}
+
 export async function createApplicationFromCanonical(
   roundProgramme: RoundProgrammeForApplication,
   input: CreateApplicationInput,
+  opts: CreateApplicationOptions = {},
 ) {
   const programme = roundProgramme.programme
+  const scoreMode = opts.score ?? 'inline'
 
   // Due diligence (external registers) and AI scoring are independent — run them
   // concurrently. Both never throw; a failure surfaces as a status, never a
@@ -87,64 +120,76 @@ export async function createApplicationFromCanonical(
       companyNumber: input.companyNumber,
       amountRequested: input.amountRequested,
     }),
-    runCustodianScore({
-      missionStatement: programme.client.profile?.missionStatement,
-      programmeName: programme.name,
-      programmeGoal: programme.goal,
-      programmeDescription: programme.description,
-      organisationName: input.organisationName,
-      amountRequested: input.amountRequested,
-      budgetBreakdown: input.budgetBreakdown,
-      budgetBreakdownLink: input.budgetBreakdownLink,
-      deliveryArea: input.deliveryArea,
-      charityNumber: input.charityNumber,
-      companyNumber: input.companyNumber,
-      responses: input.responses,
-    }),
+    scoreMode === 'inline'
+      ? runCustodianScore({
+          missionStatement: programme.client.profile?.missionStatement,
+          programmeName: programme.name,
+          programmeGoal: programme.goal,
+          programmeDescription: programme.description,
+          organisationName: input.organisationName,
+          amountRequested: input.amountRequested,
+          budgetBreakdown: input.budgetBreakdown,
+          budgetBreakdownLink: input.budgetBreakdownLink,
+          deliveryArea: input.deliveryArea,
+          charityNumber: input.charityNumber,
+          companyNumber: input.companyNumber,
+          responses: input.responses,
+        })
+      : null,
     resolveDeprivation(input.deliveryArea),
   ])
   const deprivationAttempted = deprivation.status !== 'pending'
   const deprivationGeo = deliveryGeoFromResult(deprivation)
 
   const id = crypto.randomUUID()
-  await getDb()
-    .insert(applications)
-    .values({
-      id,
-      roundProgrammeId: input.roundProgrammeId,
-      externalApplicationId: input.externalApplicationId,
-      organisationName: input.organisationName,
-      applicantEmail: input.applicantEmail,
-      charityNumber: input.charityNumber,
-      companyNumber: input.companyNumber,
-      deliveryArea: input.deliveryArea,
-      bankName: input.bankName,
-      bankAccountName: input.bankAccountName,
-      ...bankFields(input),
-      amountRequested: String(input.amountRequested),
-      proposedImpactQuantity:
-        input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
-      budgetBreakdown: input.budgetBreakdown ?? null,
-      budgetBreakdownLink: input.budgetBreakdownLink ?? null,
-      responses: input.responses,
-      dueDiligenceStatus: dueDiligence.status,
-      dueDiligenceChecks: dueDiligence.checks,
-      dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
-      custodianScoreStatus: custodian.status,
-      custodianScore: custodian.score,
-      custodianScoreDetail: custodian.detail,
-      grantPurpose: custodian.grantPurpose,
-      custodianScoredAt: new Date(custodian.scoredAt),
-      deprivationStatus: deprivation.status,
-      deprivationContext: deprivationAttempted ? deprivation : null,
-      deprivationResolvedAt: deprivationAttempted ? new Date() : null,
-      deliveryNation: deprivationGeo.nation,
-      deliveryRegion: deprivationGeo.region,
-      deliveryLadCode: deprivationGeo.ladCode,
-      deliveryLadName: deprivationGeo.ladName,
-    })
+  const db = getDb()
+  const insertApplication = db.insert(applications).values({
+    id,
+    roundProgrammeId: input.roundProgrammeId,
+    externalApplicationId: input.externalApplicationId,
+    organisationName: input.organisationName,
+    applicantEmail: input.applicantEmail,
+    charityNumber: input.charityNumber,
+    companyNumber: input.companyNumber,
+    deliveryArea: input.deliveryArea,
+    bankName: input.bankName,
+    bankAccountName: input.bankAccountName,
+    ...bankFields(input),
+    amountRequested: String(input.amountRequested),
+    proposedImpactQuantity:
+      input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
+    budgetBreakdown: input.budgetBreakdown ?? null,
+    budgetBreakdownLink: input.budgetBreakdownLink ?? null,
+    responses: input.responses,
+    dueDiligenceStatus: dueDiligence.status,
+    dueDiligenceChecks: dueDiligence.checks,
+    dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
+    custodianScoreStatus: custodian?.status ?? ('queued' as const),
+    custodianScore: custodian?.score ?? null,
+    custodianScoreDetail: custodian?.detail ?? null,
+    grantPurpose: custodian?.grantPurpose ?? null,
+    // Null, not now(): nothing has been scored yet, and a timestamp here would
+    // read as "assessed a moment ago, and it had nothing to say".
+    custodianScoredAt: custodian ? new Date(custodian.scoredAt) : null,
+    deprivationStatus: deprivation.status,
+    deprivationContext: deprivationAttempted ? deprivation : null,
+    deprivationResolvedAt: deprivationAttempted ? new Date() : null,
+    deliveryNation: deprivationGeo.nation,
+    deliveryRegion: deprivationGeo.region,
+    deliveryLadCode: deprivationGeo.ladCode,
+    deliveryLadName: deprivationGeo.ladName,
+  })
 
-  const application = await getDb().query.applications.findFirst({
+  // Spelled out either side rather than built from an array because drizzle types
+  // `batch` on its tuple arity — same reason as `createAwards`.
+  const alsoInBatch = opts.alsoInBatch?.(id, db)
+  if (alsoInBatch) {
+    await db.batch([insertApplication, alsoInBatch])
+  } else {
+    await insertApplication
+  }
+
+  const application = await db.query.applications.findFirst({
     where: (a, { eq }) => eq(a.id, id),
   })
 

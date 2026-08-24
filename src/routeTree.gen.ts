@@ -61,6 +61,7 @@ import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.re
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiAvatarUserIdRouteImport } from './routes/api/avatar.$userId'
 import { Route as ApiCronFinanceDigestRouteImport } from './routes/api/cron.finance-digest'
+import { Route as ApiInternalPipelineRouteImport } from './routes/api/internal.pipeline'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
@@ -350,6 +351,11 @@ const ApiCronFinanceDigestRoute = ApiCronFinanceDigestRouteImport.update({
   path: '/api/cron/finance-digest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInternalPipelineRoute = ApiInternalPipelineRouteImport.update({
+  id: '/api/internal/pipeline',
+  path: '/api/internal/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
   id: '/api/round/$roundId',
   path: '/api/round/$roundId',
@@ -433,6 +439,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
+  '/api/internal/pipeline': typeof ApiInternalPipelineRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -485,6 +492,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
+  '/api/internal/pipeline': typeof ApiInternalPipelineRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/awards': typeof AuthenticatedAwardsIndexRoute
@@ -547,6 +555,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
+  '/api/internal/pipeline': typeof ApiInternalPipelineRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -609,6 +618,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatar/$userId'
     | '/api/cron/finance-digest'
+    | '/api/internal/pipeline'
     | '/api/round/$roundId'
     | '/applications/'
     | '/awards/'
@@ -661,6 +671,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatar/$userId'
     | '/api/cron/finance-digest'
+    | '/api/internal/pipeline'
     | '/api/round/$roundId'
     | '/applications'
     | '/awards'
@@ -722,6 +733,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatar/$userId'
     | '/api/cron/finance-digest'
+    | '/api/internal/pipeline'
     | '/api/round/$roundId'
     | '/_authenticated/applications/'
     | '/_authenticated/awards/'
@@ -760,6 +772,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAvatarUserIdRoute: typeof ApiAvatarUserIdRoute
   ApiCronFinanceDigestRoute: typeof ApiCronFinanceDigestRoute
+  ApiInternalPipelineRoute: typeof ApiInternalPipelineRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
 }
 
@@ -1129,6 +1142,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronFinanceDigestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/pipeline': {
+      id: '/api/internal/pipeline'
+      path: '/api/internal/pipeline'
+      fullPath: '/api/internal/pipeline'
+      preLoaderRoute: typeof ApiInternalPipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/round/$roundId': {
       id: '/api/round/$roundId'
       path: '/api/round/$roundId'
@@ -1425,6 +1445,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAvatarUserIdRoute: ApiAvatarUserIdRoute,
   ApiCronFinanceDigestRoute: ApiCronFinanceDigestRoute,
+  ApiInternalPipelineRoute: ApiInternalPipelineRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
 }
 export const routeTree = rootRouteImport

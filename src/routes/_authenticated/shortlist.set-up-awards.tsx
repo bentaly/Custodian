@@ -144,8 +144,11 @@ function AiScoreCell({ status, score }: { status: string; score: number | null }
           />
         )}
       </div>
-      <span className="font-display text-body font-medium" style={{ color: has ? C.ink : C.faint }}>
-        {has ? score : '—'}
+      <span
+        className={has ? 'font-display text-body font-medium' : 'font-display text-label'}
+        style={{ color: has ? C.ink : C.faint }}
+      >
+        {has ? score : status === 'queued' ? 'Scoring…' : '—'}
       </span>
     </div>
   )
