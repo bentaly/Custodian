@@ -509,21 +509,20 @@ function About() {
               <div className="prose">
                 <p>
                   Custodian is built for GDPR from the ground up. An immutable, tamper-proof audit
-                  trail records every access and every change, and structured tooling supports
-                  subject-access and erasure requests within statutory windows. Full data-governance
-                  documentation — residency, processing, retention and consent — is available for
-                  review.
+                  trail records every action, and structured tooling supports subject-access and
+                  erasure requests within statutory windows. Full data-governance documentation —
+                  residency, processing, retention and consent — is available for review.
                 </p>
               </div>
             </div>
             <dl className="trust-grid">
               <div className="trust-cell">
                 <dt>Residency</dt>
-                <dd>All customer data hosted in the UK or EEA. Never on US servers.</dd>
+                <dd>All customer data hosted in the UK or EEA.</dd>
               </div>
               <div className="trust-cell">
                 <dt>Processing</dt>
-                <dd>Fully ICO compliant.</dd>
+                <dd>ICO registered.</dd>
               </div>
               <div className="trust-cell">
                 <dt>Model training</dt>
@@ -531,7 +530,7 @@ function About() {
               </div>
               <div className="trust-cell">
                 <dt>Audit trail</dt>
-                <dd>Every access and change recorded, immutably and in full.</dd>
+                <dd>Every action immutably recorded in full. Indexed for searching or export.</dd>
               </div>
             </dl>
           </div>
