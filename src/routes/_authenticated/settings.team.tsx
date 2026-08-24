@@ -115,6 +115,7 @@ function Team() {
               {
                 id: 'role',
                 header: 'Role',
+                width: 'sm:w-[15%]',
                 cell: (m: Member) => (
                   <span className={cellSub}>{ROLE_LABELS[m.role] ?? m.role}</span>
                 ),
@@ -123,6 +124,7 @@ function Team() {
                 id: 'joined',
                 header: 'Joined',
                 hideBelow: 'md',
+                width: 'sm:w-[15%]',
                 cell: (m: Member) => (
                   <span className={`whitespace-nowrap ${cellSub}`}>{fmtDate(m.createdAt)}</span>
                 ),
@@ -204,6 +206,7 @@ function Team() {
                 {
                   id: 'role',
                   header: 'Role',
+                  width: 'sm:w-[15%]',
                   cell: (inv: Invite) => (
                     <span className={cellSub}>{ROLE_LABELS[inv.role] ?? inv.role}</span>
                   ),
@@ -212,6 +215,7 @@ function Team() {
                   id: 'expires',
                   header: 'Expires',
                   hideBelow: 'sm',
+                  width: 'sm:w-[15%]',
                   cell: (inv: Invite) => (
                     <span className={`whitespace-nowrap ${cellSub}`}>{fmtDate(inv.expiresAt)}</span>
                   ),

@@ -193,7 +193,14 @@ const PROGRAMME: TableColumn<FinanceRow> = {
   sortable: true,
   hideBelow: 'lg',
   header: 'Programme',
-  cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
+  width: 'sm:w-[11%]',
+  cell: (g) => (
+    <TruncatedText
+      text={g.programmeName ?? '—'}
+      label="Programme"
+      className={`font-display text-body ${g.programmeName ? 'text-grey-500' : 'text-grey-400'}`}
+    />
+  ),
 }
 
 // Round and Theme are both filter pills on this screen, so both have to be readable on
@@ -205,7 +212,7 @@ const ROUND: TableColumn<FinanceRow> = {
   sortable: true,
   hideBelow: 'xl',
   header: 'Round',
-  width: 'sm:w-[150px]',
+  width: 'sm:w-[9%]',
   cell: (g) => (
     <TruncatedText
       text={g.roundName ?? '—'}
@@ -219,7 +226,7 @@ const THEME: TableColumn<FinanceRow> = {
   id: 'theme',
   hideBelow: 'xl',
   header: 'Theme',
-  width: 'sm:w-[160px]',
+  width: 'sm:w-[11%]',
   cell: (g) => (
     <TruncatedList
       items={g.tags}
@@ -233,7 +240,7 @@ const COMMITTED: TableColumn<FinanceRow> = {
   id: 'committed',
   sortable: true,
   header: 'Committed',
-  width: 'sm:w-[120px]',
+  width: 'sm:w-[9%]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
@@ -247,7 +254,7 @@ const PAID: TableColumn<FinanceRow> = {
   sortable: true,
   hideBelow: 'lg',
   header: 'Paid',
-  width: 'sm:w-[130px]',
+  width: 'sm:w-[10%]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <div className="whitespace-nowrap">
@@ -272,7 +279,7 @@ const VALID: TableColumn<FinanceRow> = {
   sortable: true,
   hideBelow: 'xl',
   header: 'Valid',
-  width: 'sm:w-[130px]',
+  width: 'sm:w-[9%]',
   cell: (g) => (
     <StatusPill label={BANK_STATUS_LABELS[g.bank.status]} colour={BANK_HEX[g.bank.status]} />
   ),
@@ -282,7 +289,7 @@ const STATUS: TableColumn<FinanceRow> = {
   id: 'status',
   sortable: true,
   header: 'Status',
-  width: 'sm:w-[130px]',
+  width: 'sm:w-[10%]',
   cell: (g) => <StatusPill label={FINANCE_STATUS_LABELS[g.status]} colour={STATUS_HEX[g.status]} />,
 }
 
@@ -298,7 +305,7 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
     sortable: true,
     hideBelow: 'sm',
     header: 'Next payment',
-    width: 'sm:w-[170px]',
+    width: 'sm:w-[13%]',
     cellClassName: 'tabular-nums',
     cell: (g) => {
       if (!g.nextPayment) {
@@ -338,7 +345,7 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
     sortable: true,
     hideBelow: 'sm',
     header: 'Last payment',
-    width: 'sm:w-[150px]',
+    width: 'sm:w-[13%]',
     cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.lastPaidDate)}</span>,
   },
   VALID,

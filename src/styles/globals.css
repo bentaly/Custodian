@@ -235,3 +235,41 @@
     animation: none;
   }
 }
+
+/* ─── Measure ────────────────────────────────────────────────────────────────
+   Prose is capped at a reading measure rather than run to the width of whatever
+   container it happens to sit in. On a wide screen a settings description or an
+   explanatory note stretched to 1400px is a line the eye loses its place in
+   returning from — the reason typography has always set a measure. 800px at our
+   14–16px body sizes lands around 90–100 characters: wide enough that a two-line
+   note does not become four, short enough to track.
+
+   Applied to the ELEMENTS rather than a `.prose` class so it holds by default and
+   nobody has to remember it. It is a cap, not a width: a paragraph in a 300px card
+   is untouched, and nothing centres or moves — except deliberately centred text,
+   where a cap with no auto margin would shift the line off the middle of its
+   container, so the box is re-centred there.
+
+   Headings are included for the same reason and matter far less often, most being
+   two or three words. Table cells opt out: a cell's width is the COLUMN's, agreed
+   with every other row, and a `<p>` subline inside one is a fragment of a row, not
+   prose. */
+@layer base {
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    max-width: 800px;
+  }
+
+  :is(p, h1, h2, h3, h4, h5, h6).text-center {
+    margin-inline: auto;
+  }
+
+  :is(td, th) :is(p, h1, h2, h3, h4, h5, h6) {
+    max-width: none;
+  }
+}

@@ -41,10 +41,25 @@ export type TableColumn<T> = {
   header: ReactNode
   cell: (row: T) => ReactNode
   /**
-   * Tailwind width class. Prefix it with `sm:` (e.g. `'sm:w-[140px]'`): these widths
-   * are tuned for the full desktop column set, and on a phone the two or three
-   * columns that survive `hideBelow` should share the row instead — pinned widths
-   * there leave the name column a sliver.
+   * Tailwind width class, and under `sm:table-fixed` a real cap rather than a hint —
+   * the column is this wide and its cells truncate. Prefix it with `sm:` (e.g.
+   * `'sm:w-[12%]'`): these widths are tuned for the full desktop column set, and on a
+   * phone the two or three columns that survive `hideBelow` should share the row
+   * instead — pinned widths there leave the name column a sliver.
+   *
+   * A PERCENTAGE, not pixels. Pixel widths cannot over-subscribe safely: eight columns
+   * of 130–160px read as modest until the sidebar and page padding leave a table 1100px
+   * wide, at which point they consume everything and the identity column — the one
+   * declaring no width, living on what is left — collapses to a few characters. It did.
+   * Percentages of the table's own width can't do that, and they widen with the screen
+   * rather than pooling all the extra space in one column.
+   *
+   * LEAVE IT UNSET on the one column that should absorb the remainder — the identity
+   * column every table leads with. Width every other column, and keep their total to
+   * roughly 75–85%, which is the identity column's share.
+   *
+   * A cell in a capped column must truncate its own content (`TruncatedText`, or
+   * `truncate`): fixed layout stops the COLUMN growing, not the text inside it.
    */
   width?: string
   align?: 'left' | 'right'
@@ -190,7 +205,20 @@ export function DataTable<T>({
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
+      {/* `table-fixed` from `sm` up is what makes `col.width` a CAP rather than a
+          suggestion. Under the browser's default auto layout a column grows to fit its
+          widest cell whatever width was declared, so one grantee with seven themes
+          pushed the last three columns off the right-hand edge and a programme called
+          "Long-term local partnerships" stacked three lines deep — the widths were
+          being written and quietly ignored. Fixed layout reads the header row, honours
+          the declared widths, and hands what is left to the columns that declared none;
+          cells then truncate instead of shoving their neighbours.
+
+          Below `sm` it stays auto: the widths are all `sm:`-prefixed for the desktop
+          column set, and fixed layout with none of them declared would split a phone's
+          screen equally between the two or three columns that survive `hideBelow`,
+          leaving the name a sliver. */}
+      <table className="w-full table-auto border-collapse sm:table-fixed">
         <thead>
           <tr className="h-10" style={{ backgroundColor: C.wash }}>
             {selection && (

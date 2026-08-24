@@ -38,6 +38,7 @@ import {
   SelectPill,
   Tooltip,
   TruncatedList,
+  TruncatedText,
   type TableColumn,
 } from '../../components/ui'
 import { fmtAmount, fmtCompact, fmtDate, fmtRef } from '../../lib/format'
@@ -491,7 +492,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   {
     id: 'amount',
     header: 'Amount',
-    width: 'sm:w-[130px]',
+    width: 'sm:w-[9%]',
     sortable: true,
     cell: (app) => (
       <span className="font-display text-body font-medium tabular-nums" style={{ color: C.ink }}>
@@ -503,18 +504,25 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     id: 'programme',
     hideBelow: 'lg',
     header: 'Programme',
-    width: 'sm:w-[200px]',
+    width: 'sm:w-[15%]',
+    // Truncated for the same reason the themes beside it are: a programme is named by
+    // the foundation, and "Long-term local partnerships" is an ordinary length for one.
+    // Left to wrap it stacked three lines deep and set the height of every row on the
+    // screen; hard-clipped it would leave two programmes starting "Long-term local…"
+    // indistinguishable. The tooltip is the rest of the name.
     cell: (app) => (
-      <span className="font-display text-body" style={{ color: C.ink }}>
-        {app.roundProgramme?.programme?.name ?? '—'}
-      </span>
+      <TruncatedText
+        text={app.roundProgramme?.programme?.name ?? '—'}
+        label="Programme"
+        className="font-display text-body"
+      />
     ),
   },
   {
     id: 'theme',
     hideBelow: 'xl',
     header: 'Theme',
-    width: 'sm:w-[160px]',
+    width: 'sm:w-[15%]',
     // Every theme, clipped to the column, with the rest on hover — not "Environment +2",
     // which threw away the names at widths where they fitted and left "+2" meaning
     // nothing in particular. See `ui/TruncatedText`.
@@ -536,7 +544,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     id: 'received',
     hideBelow: 'lg',
     header: 'Received',
-    width: 'sm:w-[130px]',
+    width: 'sm:w-[10%]',
     sortable: true,
     cell: (app) => (
       <span className="whitespace-nowrap font-display text-body" style={{ color: C.sub }}>
@@ -547,7 +555,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   {
     id: 'status',
     header: 'Status',
-    width: 'sm:w-[130px]',
+    width: 'sm:w-[11%]',
     sortable: true,
     cell: (app) => {
       return (
@@ -562,7 +570,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     id: 'score',
     hideBelow: 'md',
     header: 'AI score',
-    width: 'sm:w-[110px]',
+    width: 'sm:w-[9%]',
     sortable: true,
     cell: (app) => <AiScoreCell status={app.custodianScoreStatus} score={app.custodianScore} />,
   },
@@ -570,7 +578,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     id: 'dueDiligence',
     hideBelow: 'xl',
     header: 'Due diligence',
-    width: 'sm:w-[120px]',
+    width: 'sm:w-[9%]',
     sortable: true,
     // Opening the mark to read what it means must not also open the application.
     stopRowClick: true,

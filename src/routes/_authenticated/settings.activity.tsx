@@ -122,7 +122,7 @@ function Activity() {
     {
       id: 'at',
       header: 'When',
-      width: 'sm:w-[170px]',
+      width: 'sm:w-[17%]',
       cell: (r) => (
         <span className="font-display text-body whitespace-nowrap" style={{ color: C.sub }}>
           {fmtDateTime(r.at) ?? '—'}
@@ -132,7 +132,7 @@ function Activity() {
     {
       id: 'actor',
       header: 'Who',
-      width: 'sm:w-[150px]',
+      width: 'sm:w-[15%]',
       hideBelow: 'md',
       cell: (r) => (
         <span className="font-display text-body font-medium" style={{ color: C.ink }}>
@@ -156,7 +156,7 @@ function Activity() {
     {
       id: 'detail',
       header: 'Detail',
-      width: 'sm:w-[260px]',
+      width: 'sm:w-[25%]',
       hideBelow: 'lg',
       cell: (r) =>
         r.detail ? (

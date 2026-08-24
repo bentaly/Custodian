@@ -29,6 +29,8 @@ import {
   FilterPill,
   Pagination,
   StatusPill,
+  TruncatedList,
+  TruncatedText,
   initials,
   type TableColumn,
 } from '../../components/ui'
@@ -194,7 +196,7 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
   {
     id: 'amount',
     header: 'Amount',
-    width: 'sm:w-[130px]',
+    width: 'sm:w-[11%]',
     cellClassName: 'tabular-nums',
     cell: (c) => (
       <span className="font-display text-body font-medium" style={{ color: C.ink }}>
@@ -206,7 +208,7 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
     id: 'duration',
     header: 'Duration',
     hideBelow: 'md',
-    width: 'sm:w-[140px]',
+    width: 'sm:w-[10%]',
     cell: (c) => (
       <span className="font-display text-body" style={{ color: C.ink }}>
         {fmtDuration(c.grantDurationYears) ?? '—'}
@@ -217,35 +219,33 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
     id: 'programme',
     header: 'Programme',
     hideBelow: 'lg',
-    width: 'sm:w-[200px]',
+    width: 'sm:w-[16%]',
     cell: (c) => (
-      <span className="font-display text-body" style={{ color: C.ink }}>
-        {c.programmeName}
-      </span>
+      <TruncatedText text={c.programmeName} label="Programme" className="font-display text-body" />
     ),
   },
   {
     id: 'theme',
     header: 'Theme',
     hideBelow: 'xl',
-    width: 'sm:w-[160px]',
-    cell: (c) =>
-      c.tags.length === 0 ? (
-        <span className="font-display text-body" style={{ color: C.faint }}>
-          —
-        </span>
-      ) : (
-        <span className="font-display text-body" style={{ color: C.sub }}>
-          {c.tags[0]}
-          {c.tags.length > 1 && <span style={{ color: C.faint }}> +{c.tags.length - 1}</span>}
-        </span>
-      ),
+    width: 'sm:w-[15%]',
+    // Every theme, clipped to the column, with the rest on hover — the same list the
+    // Applications, Awards, Finance and Reports tables draw. This column was the last
+    // one still abbreviating to "Environment +2", which loses the names at widths where
+    // they fit and leaves "+2" meaning nothing in particular. See `ui/TruncatedText`.
+    cell: (c) => (
+      <TruncatedList
+        items={c.tags}
+        label="Themes for this programme"
+        className={`font-display text-body ${c.tags.length > 0 ? 'text-grey-500' : 'text-grey-400'}`}
+      />
+    ),
   },
   {
     id: 'score',
     header: 'AI score',
     hideBelow: 'md',
-    width: 'sm:w-[110px]',
+    width: 'sm:w-[10%]',
     cell: (c) => <AiScoreCell status={c.custodianScoreStatus} score={c.custodianScore} />,
   },
 ]
@@ -266,7 +266,7 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
   {
     id: 'amount',
     header: 'Awarded',
-    width: 'sm:w-[130px]',
+    width: 'sm:w-[12%]',
     cellClassName: 'tabular-nums',
     cell: (a) => (
       <span className="font-display text-body font-medium" style={{ color: C.ink }}>
@@ -278,7 +278,7 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
     id: 'schedule',
     header: 'Schedule',
     hideBelow: 'md',
-    width: 'sm:w-[150px]',
+    width: 'sm:w-[14%]',
     cell: (a) => (
       <span className="font-display text-body" style={{ color: C.sub }}>
         {a.paidCount} of {a.instalmentCount} paid
@@ -289,7 +289,7 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
     id: 'decided',
     header: 'Awarded on',
     hideBelow: 'lg',
-    width: 'sm:w-[140px]',
+    width: 'sm:w-[13%]',
     cell: (a) => (
       <span className="font-display text-body" style={{ color: C.sub }}>
         {fmtDate(a.decisionAt)}
@@ -299,7 +299,7 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
   {
     id: 'status',
     header: 'Status',
-    width: 'sm:w-[120px]',
+    width: 'sm:w-[12%]',
     cell: (a) => (
       <StatusPill
         label={GRANT_STATUS_LABELS[a.status] ?? a.status}

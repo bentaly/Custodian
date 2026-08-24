@@ -172,7 +172,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Round',
-    width: 'sm:w-[150px]',
+    width: 'sm:w-[11%]',
     cell: (g) => (
       <TruncatedText
         text={g.roundName ?? '—'}
@@ -186,7 +186,14 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'lg',
     header: 'Programme',
-    cell: (g) => <span className={txtSub}>{g.programmeName ?? '—'}</span>,
+    width: 'sm:w-[14%]',
+    cell: (g) => (
+      <TruncatedText
+        text={g.programmeName ?? '—'}
+        label="Programme"
+        className={`font-display text-body ${g.programmeName ? 'text-grey-500' : 'text-grey-400'}`}
+      />
+    ),
   },
   {
     // Not sortable: themes are a jsonb array on the programme, so "sorted by theme" has
@@ -194,7 +201,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     id: 'theme',
     hideBelow: 'xl',
     header: 'Theme',
-    width: 'sm:w-[160px]',
+    width: 'sm:w-[12%]',
     cell: (g) => (
       <TruncatedList
         items={g.tags}
@@ -208,12 +215,14 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'lg',
     header: 'Awarded',
+    width: 'sm:w-[10%]',
     cell: (g) => <DateText value={g.decisionAt} className={`whitespace-nowrap ${txtSub}`} />,
   },
   {
     id: 'amount',
     sortable: true,
     header: 'Amount',
+    width: 'sm:w-[10%]',
     cellClassName: 'tabular-nums',
     cell: (g) => (
       <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
@@ -226,7 +235,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'md',
     header: 'Paid',
-    width: 'sm:w-[190px]',
+    width: 'sm:w-[15%]',
     // This used to read "£22k / 3" — paid money over an instalment COUNT, two different
     // units either side of a slash, which is why it read as nonsense. It now answers the
     // question the column is actually for: how far through paying this grant are we.
@@ -279,6 +288,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Duration',
+    width: 'sm:w-[8%]',
     cell: (g) => (
       <span className={`whitespace-nowrap ${txtSub}`}>
         {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '—'}

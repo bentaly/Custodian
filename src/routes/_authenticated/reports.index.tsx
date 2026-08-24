@@ -18,6 +18,7 @@ import {
   StatusPill,
   Tabs,
   TruncatedList,
+  TruncatedText,
   type TableColumn,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
@@ -133,7 +134,6 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     id: 'organisation',
     sortable: true,
     header: 'Organisation',
-    width: 'sm:w-[28%]',
     // The house identity cell: monogram, then who it is over what it is. The subtext is
     // the foundation's OWN reference for the grant — the same fact in the same place as on
     // the Applications list, so a row can be tied back to their other systems without
@@ -178,9 +178,13 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     id: 'report',
     sortable: true,
     header: 'Report',
-    width: 'sm:w-[180px]',
+    width: 'sm:w-[14%]',
     cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.label || '—'}</span>
+      <TruncatedText
+        text={item.label || '—'}
+        label="Report"
+        className="font-display text-body text-grey-500"
+      />
     ),
   },
   {
@@ -188,8 +192,13 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Round',
+    width: 'sm:w-[11%]',
     cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.roundName ?? '—'}</span>
+      <TruncatedText
+        text={item.roundName ?? '—'}
+        label="Round"
+        className={`font-display text-body ${item.roundName ? 'text-grey-500' : 'text-grey-400'}`}
+      />
     ),
   },
   {
@@ -197,8 +206,15 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     sortable: true,
     hideBelow: 'lg',
     header: 'Programme',
+    width: 'sm:w-[13%]',
     cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.programmeName ?? '—'}</span>
+      <TruncatedText
+        text={item.programmeName ?? '—'}
+        label="Programme"
+        className={`font-display text-body ${
+          item.programmeName ? 'text-grey-500' : 'text-grey-400'
+        }`}
+      />
     ),
   },
   {
@@ -207,7 +223,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     id: 'theme',
     hideBelow: 'xl',
     header: 'Theme',
-    width: 'sm:w-[160px]',
+    width: 'sm:w-[13%]',
     cell: (item) => (
       <TruncatedList
         items={item.tags}
@@ -223,7 +239,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     sortable: true,
     hideBelow: 'md',
     header: 'Received',
-    width: 'sm:w-[160px]',
+    width: 'sm:w-[11%]',
     cell: (item) => (
       <DateText
         value={item.submittedAt}
@@ -235,7 +251,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     id: 'status',
     sortable: true,
     header: 'Status',
-    width: 'sm:w-[140px]',
+    width: 'sm:w-[11%]',
     cell: (item) => (
       <StatusPill label={STATUS_LABELS[item.status]} colour={STATUS_HEX[item.status]} />
     ),
@@ -254,7 +270,6 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     id: 'organisation',
     sortable: true,
     header: 'Organisation',
-    width: 'sm:w-[28%]',
     cell: (item) => (
       <div className="flex items-center gap-2">
         <div
@@ -288,9 +303,13 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     id: 'report',
     sortable: true,
     header: 'Report',
-    width: 'sm:w-[180px]',
+    width: 'sm:w-[14%]',
     cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.label || '—'}</span>
+      <TruncatedText
+        text={item.label || '—'}
+        label="Report"
+        className="font-display text-body text-grey-500"
+      />
     ),
   },
   {
@@ -298,8 +317,13 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Round',
+    width: 'sm:w-[11%]',
     cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.roundName ?? '—'}</span>
+      <TruncatedText
+        text={item.roundName ?? '—'}
+        label="Round"
+        className={`font-display text-body ${item.roundName ? 'text-grey-500' : 'text-grey-400'}`}
+      />
     ),
   },
   {
@@ -307,8 +331,15 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     sortable: true,
     hideBelow: 'lg',
     header: 'Programme',
+    width: 'sm:w-[13%]',
     cell: (item) => (
-      <span className="font-display text-body text-grey-500">{item.programmeName ?? '—'}</span>
+      <TruncatedText
+        text={item.programmeName ?? '—'}
+        label="Programme"
+        className={`font-display text-body ${
+          item.programmeName ? 'text-grey-500' : 'text-grey-400'
+        }`}
+      />
     ),
   },
   {
@@ -317,7 +348,7 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     id: 'theme',
     hideBelow: 'xl',
     header: 'Theme',
-    width: 'sm:w-[160px]',
+    width: 'sm:w-[13%]',
     cell: (item) => (
       <TruncatedList
         items={item.tags}
@@ -333,7 +364,7 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     sortable: true,
     hideBelow: 'md',
     header: 'Due',
-    width: 'sm:w-[160px]',
+    width: 'sm:w-[11%]',
     cell: (item) => (
       <DateText
         value={item.dueDate}
@@ -346,7 +377,7 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
   {
     id: 'status',
     header: 'Status',
-    width: 'sm:w-[140px]',
+    width: 'sm:w-[11%]',
     cell: (item) => (
       <StatusPill label={STATUS_LABELS[item.status]} colour={STATUS_HEX[item.status]} />
     ),
