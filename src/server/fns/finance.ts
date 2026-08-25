@@ -196,8 +196,9 @@ function emptyUpcoming() {
  * on every page turn.
  *
  * Cancelled awards are included only when money has already left (so the paid history
- * still reconciles) and never contribute to the overdue / due / outstanding totals —
- * there is nothing left to pay on them.
+ * still reconciles — the rule is the WHERE in `grantsQuery`, and one cancelled with
+ * nothing paid is not on this screen at all) and never contribute to the overdue / due
+ * / outstanding totals — there is nothing left to pay on them.
  */
 export const listFinanceGrants = createServerFn({ method: 'GET' })
   .validator(

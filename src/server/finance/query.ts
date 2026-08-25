@@ -124,6 +124,8 @@ function instalmentRollup(db: Db, { today, soonCutoff }: FinanceDates) {
  * left to chase. A grant with no instalments at all is `unscheduled` — money promised
  * with no plan to pay it, which is a finance problem in its own right rather than a
  * quiet zero.
+ *
+ * A cancelled grant that never paid a penny is not here at all — see the WHERE.
  */
 export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates) {
   const roll = instalmentRollup(db, dates)
@@ -209,6 +211,14 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
     .where(
       and(
         eq(applications.status, 'awarded'),
+        // Finance is a payments lens, so a cancelled grant is here only when money has
+        // already left — the paid history still has to reconcile. One that was pulled
+        // before a penny moved has no payment to show and nothing left to pay: it drew
+        // a row on the **Paid** tab reading `Paid —` with a blank last payment, which
+        // reads as a fault rather than a state, and it inflated that tab's count with a
+        // grant no payment run will ever touch. It stays on **Awards**, which is the
+        // register of decisions — cancelling one is a decision, not a payment.
+        sql`${awards.status} <> 'cancelled' or coalesce(${roll.paidTotal}, 0) > 0`,
         // `null` scope is superadmin — unrestricted. An empty array never reaches here;
         // the caller short-circuits, because `inArray(x, [])` is a SQL error.
         scope ? inArray(applications.roundProgrammeId, scope) : undefined,
