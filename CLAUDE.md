@@ -19,9 +19,8 @@ Grant management platform for philanthropic organisations. Clients (charitable f
 - **Production URL**: `https://custodian.fund` — a Cloudflare custom domain on the prod Worker.
   `custodian.bental.workers.dev` is the same Worker's default subdomain, not a redirect: both
   hostnames serve the identical code and data. Use `custodian.fund` in anything a foundation
-  sees. **`BETTER_AUTH_URL` is still the workers.dev host** — moving it to `custodian.fund`
-  means adding `https://custodian.fund/api/auth/callback/google` to the Google Console
-  authorized redirect URIs FIRST, or Google OAuth breaks with "Account not linked".
+  sees. `BETTER_AUTH_URL` moved to it on 2026-08-25; the workers.dev host is still live and
+  still needed by the admin app's `VITE_API_BASE`.
 - **Deploy method**: push to `master` → GitHub Actions (`.github/workflows/ci.yml`) runs typecheck → build → `wrangler deploy`
 - Do NOT run `npx wrangler deploy` manually unless testing outside of CI — the GitHub Action is the deploy path
 - Cloudflare secrets are managed via `npx wrangler secret put <KEY>` — they are NOT in `.env` for production
@@ -125,7 +124,8 @@ The admin app (`admin-app/`) must be built with `VITE_ADMIN_TOKEN` equal to the 
   account exists (anti-enumeration), so sign-in copy must stay "if an account exists…".
 - OTP sign-in resolves by **email only** — no provider check — so a code works regardless of whether
   the user registered via Google or password. It also sets `email_verified = true` as a side effect.
-- Google OAuth authorized redirect URI in Google Console: `https://custodian.bental.workers.dev/api/auth/callback/google`
+- Google OAuth authorized redirect URI in Google Console: `https://custodian.fund/api/auth/callback/google`
+  (the workers.dev, staging and localhost URIs are registered alongside it)
 
 ## Invite-only onboarding
 

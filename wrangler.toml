@@ -8,8 +8,9 @@ compatibility_flags = ["nodejs_compat"]
 # Cloudflare Redirect Rule, so the app runs on a single hostname.
 #
 # workers_dev must stay explicitly true: wrangler defaults it to false once `routes`
-# exist, which disables custodian.bental.workers.dev — still needed by BETTER_AUTH_URL,
-# the Google OAuth redirect URI, and the admin app's VITE_API_BASE.
+# exist, which disables custodian.bental.workers.dev — still needed by the admin app's
+# VITE_API_BASE. BETTER_AUTH_URL moved to custodian.fund on 2026-08-25 and no longer
+# depends on it; both hostnames stay registered as Google OAuth redirect URIs.
 workers_dev = true
 routes = [
   { pattern = "custodian.fund", custom_domain = true },
