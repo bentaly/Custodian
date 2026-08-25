@@ -10,6 +10,7 @@ import {
   Pagination,
   Panel,
   PanelTitle,
+  Select,
   StatusPill,
   TextLink,
   type TableColumn,
@@ -33,8 +34,19 @@ type ApiKeyRow = ReturnType<typeof Route.useLoaderData>['apiKeys'][number]
 const cellInk = 'font-display text-body font-medium text-grey-900'
 const cellSub = 'font-display text-body text-grey-500'
 
-function maskKey(last4: string) {
-  return `cust_sk_••••${last4}`
+type KeyKind = 'secret' | 'webhook'
+
+function maskKey(kind: KeyKind, last4: string) {
+  return `${kind === 'webhook' ? 'cust_wh_' : 'cust_sk_'}••••${last4}`
+}
+
+// A webhook token is only useful as the URL it belongs in — the form platform has one
+// box, and it takes an address. So the reveal shows the whole address, not the token:
+// the alternative is telling somebody to assemble a URL by hand from a secret they can
+// only see once. Built from the live origin so staging and local dev are right too.
+function webhookUrl(token: string) {
+  const origin = typeof window === 'undefined' ? '' : window.location.origin
+  return `${origin}/api/webhooks/typeform/${token}`
 }
 
 function ApiKeys() {
@@ -45,20 +57,24 @@ function ApiKeys() {
   const [page, setPage] = useState(1)
   const keyPage = paginate(apiKeys, page)
   const [name, setName] = useState('')
+  const [kind, setKind] = useState<KeyKind>('secret')
   const [creating, setCreating] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [newKey, setNewKey] = useState<string | null>(null)
+  const [newSecret, setNewSecret] = useState<{ value: string; kind: KeyKind } | null>(null)
   const [copied, setCopied] = useState(false)
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setNewKey(null)
+    setNewSecret(null)
     setCreating(true)
     try {
-      const created = await createApiKey({ data: { name } })
-      setNewKey(created.key)
+      const created = await createApiKey({ data: { name, kind } })
+      setNewSecret({
+        value: kind === 'webhook' ? webhookUrl(created.key) : created.key,
+        kind,
+      })
       setName('')
       router.invalidate()
     } catch (err) {
@@ -82,8 +98,8 @@ function ApiKeys() {
   }
 
   async function copyKey() {
-    if (!newKey) return
-    await navigator.clipboard.writeText(newKey)
+    if (!newSecret) return
+    await navigator.clipboard.writeText(newSecret.value)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -95,7 +111,18 @@ function ApiKeys() {
       hideBelow: 'sm',
       header: 'Key',
       width: 'sm:w-[18%]',
-      cell: (k) => <span className="font-mono text-body text-grey-500">{maskKey(k.last4)}</span>,
+      cell: (k) => (
+        <span className="font-mono text-body text-grey-500">{maskKey(k.kind, k.last4)}</span>
+      ),
+    },
+    {
+      id: 'kind',
+      hideBelow: 'md',
+      header: 'Used by',
+      width: 'sm:w-[14%]',
+      cell: (k) => (
+        <span className={cellSub}>{k.kind === 'webhook' ? 'Form platform' : 'Your server'}</span>
+      ),
     },
     {
       id: 'created',
@@ -146,7 +173,7 @@ function ApiKeys() {
   return (
     <SettingsPage
       title="API keys"
-      description="Keys authenticate your intake integration when it posts applications or reports to Custodian. Send the key from your server in the Authorization header — never expose one in browser code."
+      description="Keys authenticate your intake integration when it posts applications or reports to Custodian. A server sends its key in the Authorization header; a form platform gets a webhook address with the key already in it, because most of them cannot send headers. Never expose either in browser code."
     >
       <p className="font-display text-body" style={{ color: C.sub }}>
         See <TextLink to="/settings/submissions">Submitting applications</TextLink> for the
@@ -155,20 +182,28 @@ function ApiKeys() {
 
       {/* Shown once, and never again — so it is the loudest thing on the screen while it
           is here. */}
-      {newKey && (
+      {newSecret && (
         <div
           className="rounded-card border p-4"
           style={{ borderColor: C.brandBorder, backgroundColor: C.brandBg }}
         >
           <p className="font-display text-body font-medium" style={{ color: C.brand }}>
-            Key created — copy it now. You won't be able to see it again.
+            {newSecret.kind === 'webhook'
+              ? "Webhook address created — copy it now. You won't be able to see it again."
+              : "Key created — copy it now. You won't be able to see it again."}
           </p>
+          {newSecret.kind === 'webhook' && (
+            <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
+              Paste it into your form's webhook settings — in Typeform, Connect → Webhooks → Add a
+              webhook. The address contains the key, so treat it like one.
+            </p>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <code
               className="flex-1 overflow-x-auto rounded-chip border bg-white px-3 py-2 font-mono text-label"
               style={{ borderColor: C.brandBorder, color: C.ink }}
             >
-              {newKey}
+              {newSecret.value}
             </code>
             <Button size="sm" onClick={copyKey}>
               {copied ? 'Copied' : 'Copy'}
@@ -186,12 +221,26 @@ function ApiKeys() {
               id="key-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Website intake form"
+              placeholder={
+                kind === 'webhook' ? 'e.g. Partnerships form' : 'e.g. Website intake form'
+              }
               required
             />
           </div>
+          <div className="min-w-56">
+            <Label htmlFor="key-kind">Where it will be used</Label>
+            <Select
+              id="key-kind"
+              value={kind}
+              onChange={(value) => setKind(value as KeyKind)}
+              options={[
+                { value: 'secret', label: 'Your own server or integration' },
+                { value: 'webhook', label: 'A form platform (Typeform)' },
+              ]}
+            />
+          </div>
           <Button type="submit" disabled={creating}>
-            {creating ? 'Generating…' : 'Generate key'}
+            {creating ? 'Generating…' : kind === 'webhook' ? 'Generate address' : 'Generate key'}
           </Button>
         </form>
         <ErrorNote error={error} className="mt-3" />

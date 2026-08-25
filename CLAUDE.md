@@ -229,6 +229,45 @@ canonical fields (`CreateApplicationSchema`).
   the endpoints and renders the canonical field registries, so those docs cannot drift from the mapper.
 - Test/dev submitters live on the admin app's **Testing** screen; the key is entered once there
   (or baked in as `VITE_APPLY_API_KEY`) and shared by all of them — see "The admin app" below.
+- **A form platform posts to its own route instead**: `POST /api/webhooks/typeform/<token>`.
+  Typeform (and most builders) let you set a webhook address and nothing else — no custom
+  headers — so the credential travels in the PATH. That is a second `api_keys.kind`
+  (`webhook`, prefix `cust_wh_…`), not the same key in a different place: a URL is seen by
+  anyone who can edit the form and lands in request logs, so it must be rotatable without
+  taking the server-side integration down, and `resolveToken` makes the kind part of the
+  LOOKUP so a leaked webhook URL can never be replayed as a Bearer header. Answers **200**,
+  not 202 — Typeform's delivery log is read by a person and treats 200 as unambiguously fine.
+  No CORS headers: nothing browser-side calls it.
+- **The envelope is flattened at the decode boundary** (`src/lib/submissionEnvelope`), so
+  nothing downstream knows envelopes exist. Typeform posts questions in
+  `form_response.definition.fields[]` and answers in `form_response.answers[]`, joined on
+  field id; the reader renders that as the flat `{ question → value }` object a foundation
+  would have posted by hand and the canonical mapper is untouched. Recognition is by
+  **shape, not by route**, so `/api/apply` and `/api/submit-report` unwrap an envelope
+  forwarded to them too. Three keys are synthesised because the form cannot supply them —
+  `Submission ID` (the response token; `externalApplicationId` is required and forms don't
+  ask for a reference, so without it every submission would hold), `Form name`, and
+  `Submitted at` — but they do NOT count toward "did anything arrive": an answerless Typeform
+  *test* delivery must flatten to null and get a 400, or the sender is handed a success for a
+  submission that does not exist. Two questions sharing a title become `Amount` and
+  `Amount (2)` rather than one overwriting the other.
+- **This replaced a Make scenario, and the reason is worth keeping.** Mapping Arete's
+  questions onto canonical names inside Make's UI cost an afternoon, silently dropped any
+  question whose wording later changed (no blocker, no queue entry, no "Not captured" panel),
+  and meant `field_mappings` learned NOTHING — submissions arrived already wearing canonical
+  names, so identity match resolved everything and the per-client lookup table stayed empty.
+  Posting the raw envelope puts the foundation's real question wording back in front of the
+  mapper, which is what the lookup table exists to learn.
+- **Typeform serves uploaded files from two different paths and only one is openable.**
+  `api.typeform.com/responses/files/<hash>/<name>` is a capability URL that works
+  unauthenticated (it is what their own Google Sheets integration writes);
+  `api.typeform.com/forms/<form>/responses/<token>/fields/<field>/files/<name>` is an API path
+  needing `Authorization: Bearer <personal access token>` and 401s in a browser. The Responses
+  API — which is what Make polls — returns the second. So a `budgetBreakdownLink` captured via
+  Make satisfies `EXPECTED_ONE_OF_GROUPS` while being unopenable by anyone: a captured field
+  behaving like a lost one. Which form the raw webhook emits decides whether this fixes
+  itself; if it does not, the URL's own SHAPE says it is unreachable, so that is re-derived
+  from the stored payload like a blocker, never stored as a column.
 - Missing/invalid/revoked key → 401. `/api/apply` is rate-limited two ways (`src/server/rateLimit.ts`,
   bindings in `wrangler.toml`): a per-IP volumetric backstop before auth (`APPLY_IP_LIMITER`) and a
   per-client fairness limit after (`APPLY_KEY_LIMITER`). Degrades open — no binding (local dev) or a

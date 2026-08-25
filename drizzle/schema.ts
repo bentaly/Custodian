@@ -44,6 +44,15 @@ export const applicationStatusEnum = pgEnum('application_status', [
 //   cancelled  — the award was withdrawn after being generated
 export const awardStatusEnum = pgEnum('award_status', ['active', 'completed', 'cancelled'])
 
+// How a key is presented to the sender, and therefore where it may be used. A
+// `secret` key is sent in the Authorization header by a caller we control; a
+// `webhook` token is EMBEDDED IN A URL, because form platforms (Typeform among them)
+// let you set a webhook address and nothing else — no custom headers. The two are
+// kept apart rather than sharing one value: a URL is seen by anyone who can edit the
+// form, and is written into request logs, so it must be rotatable without taking the
+// server-side integration down with it.
+export const apiKeyKindEnum = pgEnum('api_key_kind', ['secret', 'webhook'])
+
 // Delivery state of the award letter that notifies a grantee of its grant.
 //   draft  — rendered and stored, not yet emailed (no recipient, or send deferred)
 //   sent   — handed to Resend without error
@@ -688,6 +697,8 @@ export const apiKeys = pgTable('api_keys', {
   name: text('name').notNull(),
   keyHash: text('key_hash').notNull().unique(),
   last4: text('last4').notNull(),
+  // Every key predating webhooks is a header key, which is what the default says.
+  kind: apiKeyKindEnum('kind').notNull().default('secret'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   createdBy: text('created_by'),
   lastUsedAt: timestamp('last_used_at'),

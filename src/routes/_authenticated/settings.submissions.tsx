@@ -93,8 +93,13 @@ function Submissions() {
   const [tab, setTab] = useState<Kind>('applications')
   const active = ENDPOINTS[tab]
 
+  // The live origin rather than a hardcoded host, so the example is copy-pasteable
+  // from staging and local dev as well as production — and cannot go stale if the
+  // app's address changes.
+  const origin = typeof window === 'undefined' ? '' : window.location.origin
+
   const example = [
-    `curl -X POST https://custodian.bental.workers.dev${active.path} \\`,
+    `curl -X POST ${origin}${active.path} \\`,
     `  -H "Authorization: Bearer cust_sk_your_key_here" \\`,
     `  -H "Content-Type: application/json" \\`,
     `  -d '{ "Your field name": "value", "Another field": "value" }'`,
@@ -140,6 +145,36 @@ function Submissions() {
             says what we can do with it, and what we can't do without it. A submission missing one
             of those goes through, and the application says plainly what is unavailable as a result
             — nothing is dropped quietly.
+          </p>
+        </div>
+      </Panel>
+
+      <Panel label="Connecting a form platform">
+        <PanelTitle>Connecting a form platform</PanelTitle>
+        <div
+          className="flex flex-col gap-3 font-display text-body leading-relaxed"
+          style={{ color: C.body }}
+        >
+          <p>
+            If your applications already come in through a form builder, you do not need to build
+            any of the above. Generate a webhook address on{' '}
+            <span className="font-medium text-grey-900">API keys</span> — choosing{' '}
+            <span className="font-medium text-grey-900">A form platform</span> — and paste it into
+            the form's webhook settings. In Typeform that is{' '}
+            <span className="font-medium text-grey-900">Connect → Webhooks → Add a webhook</span>.
+            Nothing else to configure, and no field mapping to do up front.
+          </p>
+          <p>
+            We read the platform's own payload and treat each question as one of your field names,
+            exactly as though you had posted it yourself. So the fields below still apply — they are
+            matched against your questions as written, and anything we can't place with confidence
+            waits in a queue rather than being guessed at.
+          </p>
+          <p>
+            The address contains its own key, which is why it is a different key from the one your
+            server uses: form platforms cannot send an <Code>Authorization</Code> header, so the
+            credential has to travel in the URL. Treat it as a secret, and revoke it the same way if
+            it ever needs replacing.
           </p>
         </div>
       </Panel>

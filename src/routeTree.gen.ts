@@ -66,6 +66,7 @@ import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
 import { Route as ApiAdminReportIngestsIdRouteImport } from './routes/api/admin.report-ingests.$id'
+import { Route as ApiWebhooksTypeformTokenRouteImport } from './routes/api/webhooks.typeform.$token'
 import { Route as ApiAdminIngestsIdReprocessRouteImport } from './routes/api/admin.ingests.$id.reprocess'
 import { Route as ApiAdminIngestsIdResolveRouteImport } from './routes/api/admin.ingests.$id.resolve'
 import { Route as ApiAdminReportIngestsIdResolveRouteImport } from './routes/api/admin.report-ingests.$id.resolve'
@@ -376,6 +377,12 @@ const ApiAdminReportIngestsIdRoute = ApiAdminReportIngestsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAdminReportIngestsRoute,
 } as any)
+const ApiWebhooksTypeformTokenRoute =
+  ApiWebhooksTypeformTokenRouteImport.update({
+    id: '/api/webhooks/typeform/$token',
+    path: '/api/webhooks/typeform/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAdminIngestsIdReprocessRoute =
   ApiAdminIngestsIdReprocessRouteImport.update({
     id: '/reprocess',
@@ -452,6 +459,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
   '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/resolve': typeof ApiAdminReportIngestsIdResolveRoute
@@ -505,6 +513,7 @@ export interface FileRoutesByTo {
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
   '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/resolve': typeof ApiAdminReportIngestsIdResolveRoute
@@ -568,6 +577,7 @@ export interface FileRoutesById {
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
   '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/resolve': typeof ApiAdminReportIngestsIdResolveRoute
@@ -631,6 +641,7 @@ export interface FileRouteTypes {
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/typeform/$token'
     | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/resolve'
@@ -684,6 +695,7 @@ export interface FileRouteTypes {
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/typeform/$token'
     | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/resolve'
@@ -746,6 +758,7 @@ export interface FileRouteTypes {
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/typeform/$token'
     | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/resolve'
@@ -774,6 +787,7 @@ export interface RootRouteChildren {
   ApiCronFinanceDigestRoute: typeof ApiCronFinanceDigestRoute
   ApiInternalPipelineRoute: typeof ApiInternalPipelineRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
+  ApiWebhooksTypeformTokenRoute: typeof ApiWebhooksTypeformTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1177,6 +1191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminReportIngestsIdRouteImport
       parentRoute: typeof ApiAdminReportIngestsRoute
     }
+    '/api/webhooks/typeform/$token': {
+      id: '/api/webhooks/typeform/$token'
+      path: '/api/webhooks/typeform/$token'
+      fullPath: '/api/webhooks/typeform/$token'
+      preLoaderRoute: typeof ApiWebhooksTypeformTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/ingests/$id/reprocess': {
       id: '/api/admin/ingests/$id/reprocess'
       path: '/reprocess'
@@ -1447,6 +1468,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronFinanceDigestRoute: ApiCronFinanceDigestRoute,
   ApiInternalPipelineRoute: ApiInternalPipelineRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
+  ApiWebhooksTypeformTokenRoute: ApiWebhooksTypeformTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

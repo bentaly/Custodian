@@ -19,11 +19,25 @@
  *
  * Liberal about encoding, strict about content: anything that does not decode to a
  * non-empty object still returns null, and the caller still answers 400.
+ *
+ * Decoding is also where a PLATFORM ENVELOPE is unwrapped. A form platform posts its
+ * own nested shape and gives the foundation no way to reshape it, so `readEnvelope`
+ * recognises the shape and flattens it to the same `{ field → value }` object a
+ * foundation posting from their own server would have sent. It happens here, at the
+ * single decode boundary, so every submission endpoint gets it on the same terms and
+ * nothing further in sees that envelopes exist.
  */
+
+import { readEnvelope } from './submissionEnvelope'
 
 /** True if the body decoded to something we can actually treat as a payload. */
 function orNull(payload: Record<string, unknown>): Record<string, unknown> | null {
   return Object.keys(payload).length > 0 ? payload : null
+}
+
+/** Unwrap a recognised platform envelope; pass an ordinary flat payload through. */
+function unwrap(payload: Record<string, unknown>): Record<string, unknown> {
+  return readEnvelope(payload)?.payload ?? payload
 }
 
 export async function parseSubmissionPayload(
@@ -36,7 +50,7 @@ export async function parseSubmissionPayload(
   // so the bytes alone cannot be split. Sniffing cannot reach this case, by construction.
   if (contentType.includes('multipart/form-data')) {
     try {
-      return orNull(Object.fromEntries(await request.formData()))
+      return orNull(unwrap(Object.fromEntries(await request.formData())))
     } catch {
       return null
     }
@@ -57,12 +71,12 @@ export async function parseSubmissionPayload(
       return null
     }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return null
-    return orNull(body as Record<string, unknown>)
+    return orNull(unwrap(body as Record<string, unknown>))
   }
 
   // Form encoding. Require a `=`: every real urlencoded body has one, and without the
   // check any stray text body (a plain string, an XML document) decodes to a single
   // key named after itself and is accepted as though it were fields.
   if (!text.includes('=')) return null
-  return orNull(Object.fromEntries(new URLSearchParams(text)))
+  return orNull(unwrap(Object.fromEntries(new URLSearchParams(text))))
 }
