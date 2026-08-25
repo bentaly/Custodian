@@ -10,12 +10,13 @@
 // unchanged. That is the whole trick: one reader per platform, and the mapper,
 // the tier registry and the review queue stay exactly as they are.
 //
-// It replaces a Make scenario whose HTTP module did this join by hand, one field
-// at a time, mapping Arete's questions onto canonical names in Make's UI. That cost
-// an afternoon, silently dropped any question whose wording later changed, and
-// meant `field_mappings` never learned anything — submissions arrived already
-// wearing canonical names, so every field resolved by identity match and the
-// per-client lookup table stayed empty.
+// It replaces a Make scenario whose HTTP module did this join by hand, one field at
+// a time. The cost of that is not the mapping — Make forwarded most questions under
+// their real wording, so the mapper still did its job — but that the scenario has to
+// be kept in step with the form BY HAND: a question added in Typeform reaches nobody
+// until someone remembers to add it in Make, and it goes missing with no blocker, no
+// queue entry and no "Not captured" panel, because it never arrives at all. A webhook
+// carries every answer by construction.
 
 /** A Typeform answer carries its value under a key named after its own type. */
 function answerValue(answer: Record<string, unknown>): unknown {

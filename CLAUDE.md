@@ -16,7 +16,12 @@ Grant management platform for philanthropic organisations. Clients (charitable f
 
 ## Deployment
 
-- **Production URL**: `https://custodian.bental.workers.dev`
+- **Production URL**: `https://custodian.fund` — a Cloudflare custom domain on the prod Worker.
+  `custodian.bental.workers.dev` is the same Worker's default subdomain, not a redirect: both
+  hostnames serve the identical code and data. Use `custodian.fund` in anything a foundation
+  sees. **`BETTER_AUTH_URL` is still the workers.dev host** — moving it to `custodian.fund`
+  means adding `https://custodian.fund/api/auth/callback/google` to the Google Console
+  authorized redirect URIs FIRST, or Google OAuth breaks with "Account not linked".
 - **Deploy method**: push to `master` → GitHub Actions (`.github/workflows/ci.yml`) runs typecheck → build → `wrangler deploy`
 - Do NOT run `npx wrangler deploy` manually unless testing outside of CI — the GitHub Action is the deploy path
 - Cloudflare secrets are managed via `npx wrangler secret put <KEY>` — they are NOT in `.env` for production
@@ -251,13 +256,15 @@ canonical fields (`CreateApplicationSchema`).
   *test* delivery must flatten to null and get a 400, or the sender is handed a success for a
   submission that does not exist. Two questions sharing a title become `Amount` and
   `Amount (2)` rather than one overwriting the other.
-- **This replaced a Make scenario, and the reason is worth keeping.** Mapping Arete's
-  questions onto canonical names inside Make's UI cost an afternoon, silently dropped any
-  question whose wording later changed (no blocker, no queue entry, no "Not captured" panel),
-  and meant `field_mappings` learned NOTHING — submissions arrived already wearing canonical
-  names, so identity match resolved everything and the per-client lookup table stayed empty.
-  Posting the raw envelope puts the foundation's real question wording back in front of the
-  mapper, which is what the lookup table exists to learn.
+- **This replaced a Make scenario. What it actually cost is narrower than it first looked**
+  (checked against prod on 2026-08-25): Arete's payload arrives wearing the real Typeform
+  question wording — `Charity/Organisation Name`, `Your bank account's sort code.` — and only
+  `programmeName` and `externalApplicationId` were hand-canonicalised in Make's UI. So the
+  mapper did real work and the lookup table DID learn (5 rows). The cost is that **a question
+  added to the form reaches nobody until someone edits the Make scenario**: no blocker, no
+  queue entry, no "Not captured" panel, because the field never arrives at all. That is the
+  lost-field failure the tier model exists to prevent, sitting one layer upstream of it. A
+  webhook carries every answer by construction, so there is nothing to keep in step.
 - **Typeform serves uploaded files from two different paths and only one is openable.**
   `api.typeform.com/responses/files/<hash>/<name>` is a capability URL that works
   unauthenticated (it is what their own Google Sheets integration writes);
