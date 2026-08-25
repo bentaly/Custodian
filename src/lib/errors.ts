@@ -4,21 +4,39 @@
  *
  * ## Why not `instanceof`
  *
- * A server function's error is serialised (by seroval) and re-thrown on the client.
- * Seroval copies an Error's own properties but **not** its prototype chain, so what
- * arrives in the browser is a plain `Error` with our fields hanging off it —
- * `err instanceof AppError` is always false there. Every predicate below is therefore
- * structural, and `status` is a plain own property specifically so it survives the
- * crossing. This is the whole reason the type exists: before it, the client could only
- * tell a 404 from a 403 by matching on message text.
+ * A server function's error is serialised and re-thrown on the client, losing its
+ * prototype chain on the way — `err instanceof AppError` is always false there. Every
+ * predicate below is therefore structural. This is the whole reason the type exists:
+ * before it, the client could only tell a 404 from a 403 by matching on message text.
+ *
+ * ## Why an own property is not enough on its own
+ *
+ * Being a plain own property is NOT sufficient for `status` to reach the browser,
+ * which is what this file claimed until 25 Aug 2026. TanStack registers its own
+ * `ShallowErrorPlugin` for anything `instanceof Error`, and that plugin keeps the
+ * message and **nothing else** — deliberately, so an error carrying unserialisable
+ * junk (a ZodError's functions) cannot break the response.
+ *
+ * So every server-function error arrived as a bare `Error`: no `status`, no
+ * `isAppError`, no `serverStack`. Silently, and for as long as the app has existed.
+ * `statusOf` read 500 for a 403; `messageFor` replaced every written 4xx message with
+ * "Something went wrong at our end"; `shouldIgnore` stopped recognising an expected
+ * error and let all of them through to Sentry; the superadmin trace never rendered.
+ *
+ * `appErrorSerialization` at the foot of this file is what actually makes the crossing
+ * work. It is registered on `serializationAdapters` in `src/start.ts`, where custom
+ * adapters are tried BEFORE the built-in plugins.
  */
+
+import { createSerializationAdapter } from '@tanstack/react-router'
 
 export type AppErrorStatus = 400 | 401 | 403 | 404 | 409 | 500
 
 export class AppError extends Error {
   /** HTTP-shaped status. 4xx is expected and shown to the user; 5xx is a fault. */
   readonly status: AppErrorStatus
-  /** Structural marker — survives serialisation where the prototype does not. */
+  /** Structural marker, read in place of `instanceof`. It reaches the browser only
+   *  because `appErrorSerialization` below carries it there. */
   readonly isAppError = true
 
   constructor(status: AppErrorStatus, message: string) {
@@ -28,22 +46,16 @@ export class AppError extends Error {
   }
 }
 
-export const badRequest = (message = 'That request was not valid.') =>
-  new AppError(400, message)
-export const unauthorized = (message = 'Please sign in to continue.') =>
-  new AppError(401, message)
-export const forbidden = (message = 'You do not have access to that.') =>
-  new AppError(403, message)
-export const notFoundError = (message = 'We could not find that.') =>
-  new AppError(404, message)
+export const badRequest = (message = 'That request was not valid.') => new AppError(400, message)
+export const unauthorized = (message = 'Please sign in to continue.') => new AppError(401, message)
+export const forbidden = (message = 'You do not have access to that.') => new AppError(403, message)
+export const notFoundError = (message = 'We could not find that.') => new AppError(404, message)
 export const conflict = (message: string) => new AppError(409, message)
 
 /** True for anything carrying our status marker, on either side of the wire. */
 export function isAppError(err: unknown): boolean {
   return (
-    typeof err === 'object' &&
-    err !== null &&
-    (err as { isAppError?: unknown }).isAppError === true
+    typeof err === 'object' && err !== null && (err as { isAppError?: unknown }).isAppError === true
   )
 }
 
@@ -100,3 +112,51 @@ export function messageFor(err: unknown): string {
   }
   return 'Something went wrong at our end. Please try again.'
 }
+
+// ─── Crossing the wire ───────────────────────────────────────────────────────
+
+/**
+ * What an `AppError` is once it has crossed: our own properties hanging off a plain
+ * `Error`, with no prototype chain and no stack.
+ *
+ * `status` is a plain `number`, not `AppErrorStatus` — `toClientError` also sends 503
+ * for a timeout, which is not a status anything throws directly.
+ */
+export type WireAppError = Error & {
+  status: number
+  isAppError: true
+  serverStack?: string
+}
+
+/**
+ * Keeps an `AppError` intact between the Worker and the browser.
+ *
+ * Registered on `serializationAdapters` in `src/start.ts`, which is the whole fix:
+ * custom adapters are tried ahead of the built-in plugins, so ours claims the error
+ * before `ShallowErrorPlugin` can reduce it to its message (see the note at the top of
+ * this file for what that cost).
+ *
+ * It **rebuilds** rather than copying, for the same reason `clientError` does in
+ * `src/server/errors.ts`: only the three properties named here cross, so this cannot
+ * become a second route by which a server stack reaches a user who may not see one.
+ * That decision stays on the server, which attaches `serverStack` when the answer is
+ * yes and omits it otherwise.
+ */
+export const appErrorSerialization = createSerializationAdapter({
+  key: 'custodian/AppError',
+  test: (value: unknown): value is WireAppError => isAppError(value) && value instanceof Error,
+  toSerializable: (err: WireAppError) => ({
+    status: err.status,
+    message: err.message,
+    serverStack: err.serverStack,
+  }),
+  fromSerializable: (wire: { status: number; message: string; serverStack?: string }) => {
+    const err = new Error(wire.message) as WireAppError
+    err.name = 'AppError'
+    err.stack = ''
+    err.status = wire.status
+    err.isAppError = true
+    if (wire.serverStack) err.serverStack = wire.serverStack
+    return err
+  },
+})

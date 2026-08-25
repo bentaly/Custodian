@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
 import { invalidateCurrentUser } from '../lib/currentUser'
+import { DEFAULT_LANDING, oauthCallback, safeReturnPath, signInPath } from '../lib/signInRedirect'
 import { AuthShell } from '../components/AuthShell'
 import { CodeInput } from '../components/ui/CodeInput'
 import { Button, Label, Tabs } from '../components/ui'
@@ -25,15 +26,18 @@ const OTP_ERROR_MESSAGES: Record<string, string> = {
 type Mode = 'password' | 'code-request' | 'code-verify' | 'reset-request' | 'reset-verify'
 
 export const Route = createFileRoute('/sign-in')({
-  validateSearch: (search: Record<string, unknown>): { error?: string } => ({
+  // `redirect` is vetted HERE rather than at each use, so an unusable value is dropped
+  // at the door and every path below can treat what it reads as safe to navigate to.
+  // See `safeReturnPath` for why a leading slash is not enough of a check.
+  validateSearch: (search: Record<string, unknown>): { error?: string; redirect?: string } => ({
     error: typeof search['error'] === 'string' ? search['error'] : undefined,
+    redirect: safeReturnPath(search['redirect']) ?? undefined,
   }),
   component: SignInPage,
 })
 
 function SignInPage() {
-  const navigate = useNavigate()
-  const { error: oauthError } = Route.useSearch()
+  const { error: oauthError, redirect: returnTo } = Route.useSearch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [otp, setOtp] = useState('')
@@ -45,6 +49,17 @@ function SignInPage() {
   )
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  // Where a successful sign-in lands. `returnTo` is set when the user was bounced out
+  // of somewhere — a 401 mid-page, or the `_authenticated` guard — and absent when they
+  // came to /sign-in deliberately, which is the only time the dashboard is the right
+  // answer. A full navigation rather than `navigate()`: the returned-to route needs its
+  // loaders run against the new session, not the ones cached under the old one.
+  const landing = returnTo ?? DEFAULT_LANDING
+  const goToLanding = () => {
+    invalidateCurrentUser()
+    window.location.href = landing
+  }
 
   function switchMode(next: Mode) {
     setError('')
@@ -66,11 +81,8 @@ function SignInPage() {
     const { error } = await authClient.signIn.email({ email, password })
     setLoading(false)
     if (error) setError(error.message ?? 'Sign in failed')
-    else {
-      // The cached identity belongs to whoever was here before.
-      invalidateCurrentUser()
-      navigate({ to: '/dashboard' })
-    }
+    // The cached identity belongs to whoever was here before; `goToLanding` clears it.
+    else goToLanding()
   }
 
   async function handleGoogle() {
@@ -78,8 +90,12 @@ function SignInPage() {
     setGoogleLoading(true)
     const { error } = await authClient.signIn.social({
       provider: 'google',
-      callbackURL: '/dashboard',
-      errorCallbackURL: '/sign-in',
+      // The round trip through Google is a full page load, so the return path cannot be
+      // held in memory — it goes to BetterAuth as the callback and comes back as a
+      // navigation. On failure we return to a /sign-in that still remembers it, so the
+      // user can fall back to a password and still finish where they meant to.
+      callbackURL: oauthCallback(landing, DEFAULT_LANDING),
+      errorCallbackURL: oauthCallback(returnTo ? signInPath(returnTo) : '/sign-in', '/sign-in'),
     })
     if (error) {
       setGoogleLoading(false)
@@ -111,11 +127,8 @@ function SignInPage() {
     const { error } = await authClient.signIn.emailOtp({ email, otp })
     setLoading(false)
     if (error) setError(otpMessage(error, 'Sign in failed'))
-    else {
-      // The cached identity belongs to whoever was here before.
-      invalidateCurrentUser()
-      navigate({ to: '/dashboard' })
-    }
+    // The cached identity belongs to whoever was here before; `goToLanding` clears it.
+    else goToLanding()
   }
 
   async function handleRequestReset(e: React.FormEvent) {
@@ -152,8 +165,7 @@ function SignInPage() {
       setNotice('Password updated. Sign in with it below.')
       return
     }
-    invalidateCurrentUser()
-    navigate({ to: '/dashboard' })
+    goToLanding()
   }
 
   const heading =

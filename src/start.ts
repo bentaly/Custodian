@@ -1,6 +1,8 @@
 import { createMiddleware, createStart } from '@tanstack/react-start'
 import { withDeadline } from './server/deadline'
 import { isServerFnDeadline, serverFnDeadline, toClientError } from './server/errors'
+import { appErrorSerialization, statusOf } from './lib/errors'
+import { signInPath } from './lib/signInRedirect'
 
 /**
  * Runs around every server function, so error handling cannot be forgotten at a call
@@ -108,11 +110,58 @@ function describe(error: unknown): string {
 }
 
 /**
+ * What happens in the browser when the server says 401.
+ *
+ * `_authenticated.beforeLoad` is the app's only auth redirect, and it runs on
+ * NAVIGATION. A server function called from inside a component — a comments panel
+ * loading, a vote being cast — never passes it, so an expired session had nowhere to
+ * go: it surfaced as a rejected promise nobody was catching. On 25 Aug 2026 that was
+ * an unhandled rejection in Sentry (`Please sign in to continue.`, from
+ * `CommentsSection`) and a panel that sat on "Loading…" for as long as the tab stayed
+ * open. The user was signed out and the app never said so.
+ *
+ * It reaches the page at all because `currentUser` caches the guard's answer for five
+ * minutes, so `beforeLoad` can wave someone through on a session the server has
+ * already stopped honouring. That cache is deliberate (see `src/lib/currentUser.ts`);
+ * this is the other half of it.
+ *
+ * A **client** middleware, because the server already knows what it said — the caller
+ * is the half that has to act. And a hard navigation rather than `router.navigate`:
+ * the router would keep every cached loader result and that five-minute identity,
+ * which is the stale state that produced the problem. A reload clears all of it.
+ *
+ * The page being left is handed to /sign-in as `?redirect=`, so signing back in
+ * returns the user to the application they were reading rather than the dashboard —
+ * see `src/lib/signInRedirect.ts`, which is also what vets the value.
+ *
+ * The error is still re-thrown. The call must not resolve with `undefined` while the
+ * browser is on its way out, and Sentry now drops it on the way past — `shouldIgnore`
+ * can finally read the 401, thanks to `appErrorSerialization`.
+ */
+const unauthorizedRedirect = createMiddleware({ type: 'function' }).client(async ({ next }) => {
+  try {
+    return await next()
+  } catch (error) {
+    // `typeof window` excludes SSR, where there is no page to send anywhere. The
+    // pathname check excludes /sign-in itself, which would reload in a loop.
+    if (statusOf(error) === 401 && typeof window !== 'undefined') {
+      const { pathname, search } = window.location
+      if (pathname !== '/sign-in') window.location.href = signInPath(pathname + search)
+    }
+    throw error
+  }
+})
+
+/**
  * Start's global configuration entry, discovered by filename (`src/start.ts`).
  *
  * Order matters: middleware runs outside-in, so `observeServerFn` wraps
  * `errorMiddleware` and therefore times and names every call including its failures.
+ * `unauthorizedRedirect` is outermost of the three, which is what puts it on the far
+ * side of the wire from the other two — it sees the error the browser was actually
+ * handed, after `appErrorSerialization` has rebuilt it.
  */
 export const startInstance = createStart(() => ({
-  functionMiddleware: [observeServerFn, errorMiddleware],
+  serializationAdapters: [appErrorSerialization],
+  functionMiddleware: [unauthorizedRedirect, observeServerFn, errorMiddleware],
 }))

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  appErrorSerialization,
   forbidden,
   isAbort,
   isAppError,
@@ -8,18 +9,21 @@ import {
   serverStackOf,
   statusOf,
 } from './errors'
+import type { WireAppError } from './errors'
 
 /**
- * These predicates run on the *client*, against errors that have crossed seroval
- * serialisation and lost their prototype. Every test therefore also asserts the
- * "arrived over the wire" shape — a plain object with our own properties attached —
- * because that, not the class instance, is what the boundaries actually receive.
+ * These predicates run on the *client*, against errors that have crossed serialisation
+ * and lost their prototype. Every test therefore also asserts the "arrived over the
+ * wire" shape, because that, not the class instance, is what the boundaries receive.
+ *
+ * It goes through `appErrorSerialization` rather than building the shape by hand. The
+ * hand-built version was the reason the 25 Aug 2026 bug was invisible: it attached
+ * `status` itself, so it tested the assumption that own properties survive rather than
+ * what the serializer actually does with them. A helper that fabricates the wire
+ * cannot fail when the wire changes.
  */
 const asDeserialised = (err: Error & { status?: number }) =>
-  Object.assign(new Error(err.message), {
-    status: err.status,
-    isAppError: true,
-  })
+  appErrorSerialization.fromSerializable(appErrorSerialization.toSerializable(err as WireAppError))
 
 describe('statusOf', () => {
   it('reads the status of an AppError', () => {
@@ -60,9 +64,7 @@ describe('messageFor', () => {
   })
 
   it('never shows a raw fault message, which could carry a query or a key', () => {
-    expect(messageFor(new Error('relation "users" does not exist'))).not.toContain(
-      'relation',
-    )
+    expect(messageFor(new Error('relation "users" does not exist'))).not.toContain('relation')
   })
 })
 
@@ -106,5 +108,38 @@ describe('isAbort', () => {
       name: 'TimeoutError',
     })
     expect(messageFor(timedOut)).toBe('Timed out — refresh to check whether this saved.')
+  })
+})
+
+describe('appErrorSerialization', () => {
+  it('claims an AppError, so ShallowErrorPlugin never sees one', () => {
+    expect(appErrorSerialization.test(forbidden())).toBe(true)
+    expect(appErrorSerialization.test(new Error('boom'))).toBe(false)
+    expect(appErrorSerialization.test({ status: 403 })).toBe(false)
+  })
+
+  it('carries status, message and the server trace across', () => {
+    const sent = Object.assign(new Error('Nope.'), {
+      status: 403,
+      isAppError: true,
+      serverStack: 'Error: Nope.\n    at handler',
+    }) as WireAppError
+
+    const received = appErrorSerialization.fromSerializable(
+      appErrorSerialization.toSerializable(sent),
+    )
+
+    expect(statusOf(received)).toBe(403)
+    expect(isAppError(received)).toBe(true)
+    expect(messageFor(received)).toBe('Nope.')
+    expect(serverStackOf(received)).toBe('Error: Nope.\n    at handler')
+  })
+
+  it('sends no stack of its own, and no trace the server withheld', () => {
+    const received = appErrorSerialization.fromSerializable(
+      appErrorSerialization.toSerializable(forbidden() as unknown as WireAppError),
+    )
+    expect(received.stack).toBe('')
+    expect(serverStackOf(received)).toBeNull()
   })
 })

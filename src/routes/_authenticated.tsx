@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Outlet, redirect, useRouterState } from '@tanstack/react-router'
 import { currentUser, invalidateCurrentUser } from '../lib/currentUser'
+import { safeReturnPath } from '../lib/signInRedirect'
 import { listRoundDates } from '../server/fns/rounds'
 import { authClient } from '../lib/auth-client'
 import { Sidebar } from '../components/Sidebar'
 import { AppHeader } from '../components/AppHeader'
 
 export const Route = createFileRoute('/_authenticated')({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const user = await currentUser()
-    if (!user) throw redirect({ to: '/sign-in' })
+    // Carry where they were trying to go, so signing in finishes the journey instead
+    // of landing them on the dashboard. Same parameter the 401 interceptor uses.
+    if (!user) {
+      const from = safeReturnPath(location.href)
+      throw redirect({ to: '/sign-in', search: from ? { redirect: from } : {} })
+    }
     // Invite-only: a signed-in user with no tenant (and not a platform superadmin)
     // has no foundation to see. getMe already tried to auto-claim a pending invite
     // by email, so reaching here means there genuinely isn't one.

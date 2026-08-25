@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { listComments, addComment, updateComment, deleteComment } from '../server/fns/comments'
 import { fmtSince } from '../lib/format'
+import { messageFor } from '../lib/errors'
 import { Button } from './ui'
 import { C as TOKENS } from './ui/tokens'
 
@@ -53,14 +54,25 @@ export function CommentsSection({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editBody, setEditBody] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
 
   const canComment = CAN_COMMENT.has(userRole)
   const isAdmin = userRole === 'superadmin' || userRole === 'admin'
 
+  // Every call here catches, and none of them rethrow. A rejected promise in an effect
+  // or an event handler is invisible to React's error boundaries — it becomes an
+  // unhandled rejection and a panel that does nothing. This one spent an unknown
+  // stretch of 25 Aug 2026 saying "Loading…" to a signed-out trustee.
   const load = useCallback(async () => {
-    const data = await listComments({ data: { applicationId } })
-    setComments(data as Comment[])
-    setLoading(false)
+    try {
+      const data = await listComments({ data: { applicationId } })
+      setComments(data as Comment[])
+      setError(null)
+    } catch (err) {
+      setError(err)
+    } finally {
+      setLoading(false)
+    }
   }, [applicationId])
 
   useEffect(() => {
@@ -72,10 +84,13 @@ export function CommentsSection({
     e.preventDefault()
     if (!body.trim()) return
     setSubmitting(true)
+    setError(null)
     try {
       await addComment({ data: { applicationId, body: body.trim() } })
       setBody('')
       await load()
+    } catch (err) {
+      setError(err)
     } finally {
       setSubmitting(false)
     }
@@ -89,11 +104,14 @@ export function CommentsSection({
   async function handleSaveEdit(id: string) {
     if (!editBody.trim()) return
     setBusyId(id)
+    setError(null)
     try {
       await updateComment({ data: { id, body: editBody.trim() } })
       setEditingId(null)
       setEditBody('')
       await load()
+    } catch (err) {
+      setError(err)
     } finally {
       setBusyId(null)
     }
@@ -102,9 +120,12 @@ export function CommentsSection({
   async function handleDelete(id: string) {
     if (!confirm('Delete this comment?')) return
     setBusyId(id)
+    setError(null)
     try {
       await deleteComment({ data: { id } })
       await load()
+    } catch (err) {
+      setError(err)
     } finally {
       setBusyId(null)
     }
@@ -137,6 +158,12 @@ export function CommentsSection({
           </Button>
         </form>
       )}
+
+      {error ? (
+        <p className="font-display text-body" style={{ color: C.danger }}>
+          {messageFor(error)}
+        </p>
+      ) : null}
 
       {loading ? (
         <p className="font-display text-body" style={{ color: C.faint }}>
