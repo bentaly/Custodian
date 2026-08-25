@@ -51,6 +51,7 @@ export function Donut({
   tooltip = true,
   highlight = null,
   onHighlight,
+  animate = true,
 }: {
   data: DonutSlice[]
   size?: number
@@ -61,6 +62,13 @@ export function Donut({
   /** Slice id held at full strength while the rest recede. */
   highlight?: string | null
   onHighlight?: (id: string | null) => void
+  /**
+   * Whether the ring sweeps in. Off draws it whole, immediately — which is what a
+   * caller wants for a donut that is not being looked at yet (below the fold, or
+   * about to be photographed by the PDF export). Remount it (change its `key`) to
+   * play the sweep once the reader is actually there.
+   */
+  animate?: boolean
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   const slices: DonutSlice[] =
@@ -95,6 +103,7 @@ export function Donut({
           onMouseEnter={(_, i) => onHighlight?.(slices[i]?.areaId ?? null)}
           onMouseLeave={() => onHighlight?.(null)}
           {...anim}
+          isAnimationActive={animate}
         >
           {slices.map((s, i) => (
             <Cell

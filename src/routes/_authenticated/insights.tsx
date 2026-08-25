@@ -19,8 +19,10 @@ import {
   TruncatedList,
   TruncatedText,
   formatDateRange,
+  useReveal,
 } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
+import { lineChart } from '../../components/charts/theme'
 import {
   Choropleth,
   MapAttribution,
@@ -186,7 +188,18 @@ const DECILE_LEGEND = [
 // and threw away the ordering the deciles ARE: decile 1 looked exactly like decile 4,
 // and 5 exactly like 10. Red is the most deprived tenth, so a portfolio leaning red is
 // the intended outcome; the legend says so rather than leaving the colour to argue it.
-function DecileChart({ amounts, total, max }: { amounts: number[]; total: number; max: number }) {
+function DecileChart({
+  amounts,
+  total,
+  max,
+  play = false,
+}: {
+  amounts: number[]
+  total: number
+  max: number
+  /** Grow the columns in — set once the panel has been scrolled to. */
+  play?: boolean
+}) {
   return (
     <div>
       <div className="relative mt-2 h-40">
@@ -216,10 +229,13 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
                       </span>
                     )}
                     <div
-                      className="mx-auto w-full max-w-[26px] rounded-t-chip"
+                      className={`mx-auto w-full max-w-[26px] rounded-t-chip ${play ? 'tick' : ''}`}
                       style={{
                         height: `${Math.max(amt > 0 ? 3 : 0, h)}%`,
                         backgroundColor: bandForDecile(i + 1).fill,
+                        // Staggered most-deprived first, which is the direction the
+                        // legend and the caption read in.
+                        animationDelay: play ? `${i * 45}ms` : undefined,
                       }}
                     />
                   </>
@@ -270,23 +286,37 @@ function DecileChart({ amounts, total, max }: { amounts: number[]; total: number
 // axis.
 const PLOT_H = 206
 const AXIS_W = 40
+/** Two lines — the committed figure over the round's name — held at a fixed height
+ *  because the line mode's labels are positioned, not laid out in flow. */
+const LABEL_H = 42
 
 function CommitmentChart({
   mode,
   series,
   max,
   ticks,
+  play = false,
 }: {
   mode: 'bars' | 'line'
   series: Array<{ id: string; label: string; value: number }>
   max: number
   ticks: number[]
+  /** Draw the series in — set once the panel has been scrolled to. */
+  play?: boolean
 }) {
-  // Points are placed at band centres so the line and the bars share an x scale.
-  const step = 100 / series.length
+  // Bars occupy a band, so they sit at band centres. The line's points sit ON the
+  // axis ends instead — the edge-to-edge scale the dashboard's giving chart uses,
+  // which is also what stops a six-round series drawing as a short line floating in
+  // the middle of a full-width plot.
+  const single = series.length === 1
   const pts = series.map((p, i) => ({
     ...p,
-    x: step * (i + 0.5),
+    x:
+      mode === 'line'
+        ? single
+          ? 50
+          : (i / (series.length - 1)) * 100
+        : (100 / series.length) * (i + 0.5),
     y: 100 - (p.value / max) * 100,
   }))
 
@@ -308,7 +338,7 @@ function CommitmentChart({
           <DotGrid />
           {mode === 'bars' ? (
             <div className="relative flex h-full items-end">
-              {series.map((p) => {
+              {series.map((p, i) => {
                 const h = (p.value / max) * 100
                 return (
                   <Tooltip
@@ -317,11 +347,16 @@ function CommitmentChart({
                     className="flex h-full flex-1"
                     triggerClassName="flex h-full w-full items-end justify-center rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
                     trigger={
+                      // `.tick` is the app's load rise (BarMeter, the sign-in art);
+                      // reusing it here means one column chart cannot drift from the
+                      // rest of the app's motion. Staggered so the row reads
+                      // left-to-right, in round order.
                       <div
-                        className="w-8 rounded-t-chip"
+                        className={`w-8 rounded-t-chip ${play ? 'tick' : ''}`}
                         style={{
                           height: `${Math.max(1, h)}%`,
-                          backgroundColor: 'var(--color-accent-violet)',
+                          backgroundColor: lineChart.stroke,
+                          animationDelay: play ? `${i * 60}ms` : undefined,
                         }}
                       />
                     }
@@ -332,37 +367,70 @@ function CommitmentChart({
               })}
             </div>
           ) : (
-            <div className="relative h-full w-full">
+            // The wipe carries the markers as well as the path, so the dots
+            // arrive with the line that puts them there.
+            <div className={`relative h-full w-full ${play ? 'wipe-in' : ''}`}>
               {/* The path is drawn in a stretched 100×100 space; the markers are
                   plain elements positioned over it, so they stay circular. */}
               <svg
-                className="block h-full w-full"
+                className="block h-full w-full overflow-visible"
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
                 aria-hidden
               >
+                <defs>
+                  {/* Same fill, same purple, same stroke as the dashboard's giving
+                      chart, read from the `lineChart` token both charts share — so
+                      the app has one line-chart look and no way to drift out of it.
+                      `charts/GivingArea` carries the note on why the two are
+                      separate components. */}
+                  <linearGradient id="commitFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor={lineChart.stroke}
+                      stopOpacity={lineChart.fillTop}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={lineChart.stroke}
+                      stopOpacity={lineChart.fillBottom}
+                    />
+                  </linearGradient>
+                </defs>
+                <path d={areaPath(pts)} fill="url(#commitFill)" stroke="none" />
                 <path
                   d={smoothPath(pts)}
                   fill="none"
-                  stroke="var(--color-accent-violet)"
-                  strokeWidth={2}
+                  stroke={lineChart.stroke}
+                  strokeWidth={lineChart.strokeWidth}
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
                 />
               </svg>
               {pts.map((p) => (
+                // `flex`, not the default inline flow: `Tooltip`'s wrapper is
+                // `inline-flex`, so as an inline-level box it sits on a text baseline
+                // and the line box keeps the font's descender space UNDER it. That
+                // padding is part of the height `-translate-y-1/2` halves, which
+                // pushed every marker a few pixels above the curve it marks. As a
+                // flex item the wrapper is blockified and the strut goes away.
                 <span
                   key={p.id}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
+                  className="absolute flex -translate-x-1/2 -translate-y-1/2"
                   style={{ left: `${p.x}%`, top: `${p.y}%` }}
                 >
                   <Tooltip
                     label={p.label}
-                    triggerClassName="flex rounded-full focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+                    // The dashboard's marker: a 5px filled dot that grows to 8px
+                    // under the pointer — the same r 2.5 → 4 its `activeDot` steps
+                    // through. The trigger around it is 20px, because a five-pixel
+                    // mark still has to be something a pointer can find and a focus
+                    // ring can wrap.
+                    triggerClassName="group flex size-5 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
                     trigger={
                       <span
-                        className="block size-2.5 rounded-full border-2 bg-white"
-                        style={{ borderColor: 'var(--color-accent-violet)' }}
+                        className="block size-[5px] rounded-full transition-all duration-150 group-hover:size-2 group-focus-visible:size-2"
+                        style={{ backgroundColor: lineChart.stroke }}
                       />
                     }
                   >
@@ -375,22 +443,64 @@ function CommitmentChart({
         </div>
       </div>
 
-      <div className="flex" style={{ paddingLeft: AXIS_W }}>
-        {series.map((p) => (
-          <div key={p.id} className="min-w-0 flex-1 px-1 text-center">
-            {mode === 'line' && (
-              <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-                {fmtCompact(p.value)}
-              </p>
-            )}
-            <div className="font-display text-label" style={{ color: C.sub }}>
-              <TruncatedText text={p.label} label="Full label" className="text-center" />
+      {/* Bars keep equal cells, one under each band. The line's labels are placed AT
+          their point, and the two ends align inward — centring a label on a point
+          that sits on the axis end would hang half of it off the panel. */}
+      {mode === 'line' ? (
+        <div className="relative" style={{ marginLeft: AXIS_W, height: LABEL_H }}>
+          {pts.map((p, i) => {
+            const align =
+              single || (i > 0 && i < pts.length - 1) ? 'center' : i === 0 ? 'left' : 'right'
+            return (
+              <div
+                key={p.id}
+                className="absolute top-0 min-w-0 px-1"
+                style={{
+                  left: `${p.x}%`,
+                  width: `${100 / pts.length}%`,
+                  transform:
+                    align === 'center'
+                      ? 'translateX(-50%)'
+                      : align === 'right'
+                        ? 'translateX(-100%)'
+                        : 'none',
+                  textAlign: align,
+                }}
+              >
+                <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
+                  {fmtCompact(p.value)}
+                </p>
+                <div className="font-display text-label" style={{ color: C.sub }}>
+                  {/* Alignment comes from the wrapper's inline `textAlign`, which
+                      the span inherits — a `text-${align}` class would not survive
+                      Tailwind's scan of the source. */}
+                  <TruncatedText text={p.label} label="Full label" />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex" style={{ paddingLeft: AXIS_W }}>
+          {series.map((p) => (
+            <div key={p.id} className="min-w-0 flex-1 px-1 text-center">
+              <div className="font-display text-label" style={{ color: C.sub }}>
+                <TruncatedText text={p.label} label="Full label" className="text-center" />
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
+}
+
+/** The same curve closed down to the baseline, for the gradient fill beneath it. */
+function areaPath(pts: Array<{ x: number; y: number }>): string {
+  if (pts.length === 0) return ''
+  const first = pts[0]!
+  const last = pts[pts.length - 1]!
+  return `${smoothPath(pts)} L ${last.x} 100 L ${first.x} 100 Z`
 }
 
 /** Catmull-Rom → cubic bézier: the design's eased curve through every point. */
@@ -946,6 +1056,17 @@ function InsightsPage() {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
 
+  // ── Scroll reveal ──
+  // One handle per export block, in page order. Each panel rises as it is reached,
+  // and the charts inside the last three wait for `shown` before drawing themselves
+  // in — an entry animation that finishes below the fold is one nobody ever sees.
+  const kpiReveal = useReveal()
+  const programmeReveal = useReveal()
+  const commitReveal = useReveal()
+  const areaReveal = useReveal()
+  const decileReveal = useReveal()
+  const impactReveal = useReveal()
+
   // ── PDF export ──
   const exportRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
@@ -956,10 +1077,16 @@ function InsightsPage() {
   const themeLabel = tag ?? 'All themes'
   const regionLabel = region === NO_REGION ? 'No location recorded' : (region ?? 'All locations')
   async function handleExport() {
-    if (!exportRef.current) return
+    const root = exportRef.current
+    if (!root) return
     setExporting(true)
     try {
-      await exportInsightsPdf(exportRef.current, {
+      // `exporting` puts `.reveal-all` on the capture root, and html2canvas reads
+      // computed styles off the live DOM — so the class has to have been painted
+      // before the capture starts. Without the frame, a panel the reader never
+      // scrolled to is photographed at opacity 0 and comes out a blank page.
+      await new Promise((r) => requestAnimationFrame(() => r(null)))
+      await exportInsightsPdf(root, {
         title: 'Insights',
         filters: `${periodLabel} · ${programmeLabel} · ${themeLabel} · ${regionLabel}`,
         summary: `${fil.length} award${fil.length !== 1 ? 's' : ''} · ${fmtCompact(committed)} committed`,
@@ -1042,9 +1169,14 @@ function InsightsPage() {
           </p>
         </EmptyState>
       ) : (
-        <div ref={exportRef} className="flex flex-col gap-4">
+        <div ref={exportRef} className={`flex flex-col gap-4 ${exporting ? 'reveal-all' : ''}`}>
           {/* KPI cards */}
-          <div data-export-block className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div
+            data-export-block
+            ref={kpiReveal.ref}
+            {...kpiReveal.props}
+            className={`grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 ${kpiReveal.props.className}`}
+          >
             <MiniKpi
               size="lg"
               tint={KPI.committed}
@@ -1095,7 +1227,7 @@ function InsightsPage() {
 
           {/* Giving by programme */}
           {byProgramme.length > 0 && (
-            <Panel data-export-block>
+            <Panel data-export-block innerRef={programmeReveal.ref} {...programmeReveal.props}>
               <PanelTitle>Giving by programme</PanelTitle>
               {/* Columns are sized by share of the total, so the row reads as one
                   100%-wide bar broken into programmes — and each meter fills its
@@ -1157,7 +1289,12 @@ function InsightsPage() {
           )}
 
           {/* Commitment over time + Themes */}
-          <div data-export-block className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div
+            data-export-block
+            ref={commitReveal.ref}
+            {...commitReveal.props}
+            className={`grid grid-cols-1 gap-4 lg:grid-cols-2 ${commitReveal.props.className}`}
+          >
             <Panel>
               <PanelTitle
                 right={
@@ -1204,6 +1341,7 @@ function InsightsPage() {
                     series={commitSeries}
                     max={chartMax}
                     ticks={chartTicks}
+                    play={commitReveal.shown}
                   />
                 </>
               )}
@@ -1288,7 +1426,7 @@ function InsightsPage() {
               nothing to paint (e.g. World, before grants carry a country) must
               render an empty map, never unmount the panel under the user. */}
           {fil.length > 0 && (
-            <Panel data-export-block>
+            <Panel data-export-block innerRef={areaReveal.ref} {...areaReveal.props}>
               <PanelTitle>Giving by area</PanelTitle>
 
               {/* The map column is deliberately the narrower of the two. The UK
@@ -1328,6 +1466,12 @@ function InsightsPage() {
                 <div className="flex flex-col gap-3">
                   <div className="flex justify-center">
                     <Donut
+                      // Recharts sweeps the ring on mount. Remounting on reveal is
+                      // what moves that sweep to the moment the panel is reached;
+                      // before then the ring is drawn whole and simply sits inside a
+                      // panel at opacity 0, so the PDF export never catches a sliver.
+                      key={areaReveal.shown ? 'shown' : 'idle'}
+                      animate={areaReveal.shown}
                       data={areaDonut}
                       size={132}
                       thickness={16}
@@ -1385,7 +1529,7 @@ function InsightsPage() {
           )}
 
           {/* Deprivation-decile distribution */}
-          <Panel data-export-block>
+          <Panel data-export-block innerRef={decileReveal.ref} {...decileReveal.props}>
             <PanelTitle>Funding by deprivation decile</PanelTitle>
             {locatedAmt === 0 ? (
               <p className="py-10 text-center font-display text-body" style={{ color: C.faint }}>
@@ -1397,7 +1541,12 @@ function InsightsPage() {
                   Decile 1 is the most deprived 10% of areas in its nation
                   {vintages.length ? ` · ${vintages.join(', ')}` : ''}
                 </p>
-                <DecileChart amounts={decileAmounts} total={locatedAmt} max={decileMax} />
+                <DecileChart
+                  amounts={decileAmounts}
+                  total={locatedAmt}
+                  max={decileMax}
+                  play={decileReveal.shown}
+                />
                 {unlocatedCount > 0 && (
                   <p className="mt-2 font-display text-label" style={{ color: C.faint }}>
                     {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} without a resolvable
@@ -1410,7 +1559,7 @@ function InsightsPage() {
 
           {/* Impact by round */}
           {timelineRounds.length > 0 && (
-            <Panel data-export-block>
+            <Panel data-export-block innerRef={impactReveal.ref} {...impactReveal.props}>
               <PanelTitle>Impact by round</PanelTitle>
               <div className="flex flex-col gap-5">
                 {timelineRounds

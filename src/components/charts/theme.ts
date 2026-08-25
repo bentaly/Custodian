@@ -17,6 +17,20 @@ export const chart = {
   allocateLeft: 'var(--color-grey-200)',
 }
 
+/**
+ * The one line-chart look: the dashboard's giving area (`GivingArea`) and Insights'
+ * commitment line draw the same picture from these numbers, so a change to the fill
+ * or the stroke reaches both. Only the LOOK is shared — the two differ in what sits
+ * around the plot, and `GivingArea` says why.
+ */
+export const lineChart = {
+  stroke: chart.purple,
+  strokeWidth: 2,
+  /** Gradient under the curve: opacity at the curve, and at the baseline. */
+  fillTop: 0.28,
+  fillBottom: 0,
+} as const
+
 // On-load animation — one timing shared by every chart.
 export const anim = { isAnimationActive: true, animationBegin: 0, animationDuration: 700 } as const
 

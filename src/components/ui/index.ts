@@ -50,6 +50,7 @@ export { SearchInput } from './SearchInput'
 export { TextLink, ExternalTextLink } from './TextLink'
 export { C as TOKENS, CONTROL } from './tokens'
 export { Pagination } from './Pagination'
+export { useReveal } from './Reveal'
 export {
   DateRangePicker,
   formatDateRange,

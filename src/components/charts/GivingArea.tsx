@@ -7,7 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { anim, chart, fmtMoney, tooltipBox } from './theme'
+import { anim, chart, fmtMoney, lineChart, tooltipBox } from './theme'
 
 export type GivingPoint = { label: string; amount: number }
 
@@ -37,15 +37,25 @@ function axisMoney(v: number) {
   return String(v)
 }
 
-/** Monthly giving area chart — gradient fill, hover tooltip, on-load animation. */
+/**
+ * Giving over time — gradient fill, hover tooltip, on-load animation.
+ *
+ * Insights' "Commitment over time" wears the same look (`lineChart` in `theme.ts`)
+ * but is a separate, hand-drawn chart, and deliberately so: this series is up to 30
+ * auto-bucketed periods, which needs Recharts' tick thinning and its full-height
+ * hover band to be readable at all. That one is at most a handful of NAMED rounds,
+ * where every point carries its own figure and truncated round name, every point and
+ * bar is a keyboard-reachable `Tooltip` trigger, and the same x scale has to serve a
+ * bars mode. Sharing one component would mean giving one of those two up.
+ */
 export function GivingArea({ data, height = 210 }: { data: GivingPoint[]; height?: number }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
         <defs>
           <linearGradient id="givingFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={chart.purple} stopOpacity={0.28} />
-            <stop offset="100%" stopColor={chart.purple} stopOpacity={0} />
+            <stop offset="0%" stopColor={lineChart.stroke} stopOpacity={lineChart.fillTop} />
+            <stop offset="100%" stopColor={lineChart.stroke} stopOpacity={lineChart.fillBottom} />
           </linearGradient>
           {/* Figma backdrop: 3px dots on a 6px grid, Gray/100 — not ruled lines. */}
           <pattern id="givingDots" width="6" height="6" patternUnits="userSpaceOnUse">
@@ -75,8 +85,8 @@ export function GivingArea({ data, height = 210 }: { data: GivingPoint[]; height
         <Area
           type="monotone"
           dataKey="amount"
-          stroke={chart.purple}
-          strokeWidth={2}
+          stroke={lineChart.stroke}
+          strokeWidth={lineChart.strokeWidth}
           fill="url(#givingFill)"
           dot={{ r: 2.5, fill: chart.purple, strokeWidth: 0 }}
           activeDot={{ r: 4 }}

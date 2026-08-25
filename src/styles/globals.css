@@ -236,6 +236,83 @@
   }
 }
 
+/* ─── Scroll reveal ──────────────────────────────────────────────────────────
+   Panels fade and rise as they are scrolled to (Insights), driven by `useReveal`.
+   Shared easing with `.tick`/`.bar-grow` so the page animates with one feel.
+
+   `[data-reveal]` starts invisible, which makes the reveal a JS dependency — the
+   app already is one (nothing renders without hydration), but it is why
+   `useReveal` shows everything when IntersectionObserver is missing rather than
+   leaving a blank screen.
+
+   `.reveal-all` is the escape hatch the PDF export flips on: html2canvas
+   photographs panels that have never been on screen, and a panel captured at
+   opacity 0 — or with its bars caught mid-rise — is a blank page in the export. */
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+[data-reveal] {
+  opacity: 0;
+}
+
+[data-reveal].reveal-in {
+  opacity: 1;
+  animation: reveal-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.reveal-all [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+.reveal-all .tick,
+.reveal-all .wipe-in {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+  }
+
+  [data-reveal].reveal-in {
+    animation: none;
+  }
+}
+
+/* A line chart draws itself in left-to-right. A wipe over the whole plot rather
+   than a stroke-dash on the path, because the point markers have to arrive with
+   the line that carries them — and because the path is drawn in a stretched
+   viewBox where dash lengths are not the lengths they look like. The negative
+   insets keep a marker's ring from being clipped at the top or the end. */
+@keyframes wipe-in {
+  from {
+    clip-path: inset(-10px 100% -10px -10px);
+  }
+  to {
+    clip-path: inset(-10px -10px -10px -10px);
+  }
+}
+
+.wipe-in {
+  animation: wipe-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wipe-in {
+    animation: none;
+  }
+}
+
 /* ─── Measure ────────────────────────────────────────────────────────────────
    Prose is capped at a reading measure rather than run to the width of whatever
    container it happens to sit in. On a wide screen a settings description or an
