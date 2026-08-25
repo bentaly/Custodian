@@ -272,9 +272,11 @@ canonical fields (`CreateApplicationSchema`).
   needing `Authorization: Bearer <personal access token>` and 401s in a browser. The Responses
   API — which is what Make polls — returns the second. So a `budgetBreakdownLink` captured via
   Make satisfies `EXPECTED_ONE_OF_GROUPS` while being unopenable by anyone: a captured field
-  behaving like a lost one. Which form the raw webhook emits decides whether this fixes
-  itself; if it does not, the URL's own SHAPE says it is unreachable, so that is re-derived
-  from the stored payload like a blocker, never stored as a column.
+  behaving like a lost one. **The raw webhook emits the openable form** (verified 2026-08-25 —
+  200, real xlsx, no headers), so going direct fixed this and no fetch-and-store work is
+  needed. Links captured during the Make period are still dead. If another platform ever
+  hands back an unreachable URL, the shape of the URL is what says so — re-derive it from the
+  stored payload like a blocker, never store it as a column.
 - Missing/invalid/revoked key → 401. `/api/apply` is rate-limited two ways (`src/server/rateLimit.ts`,
   bindings in `wrangler.toml`): a per-IP volumetric backstop before auth (`APPLY_IP_LIMITER`) and a
   per-client fairness limit after (`APPLY_KEY_LIMITER`). Degrades open — no binding (local dev) or a
