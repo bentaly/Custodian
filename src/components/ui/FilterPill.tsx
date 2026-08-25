@@ -1,11 +1,19 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { C } from './tokens'
+import { Listbox } from './Listbox'
 
 // The filter pill every list/analysis screen shares (Figma 393:29540): a 32px
-// bordered chip showing either the label ("Programme") or the chosen value, with
-// a native <select> laid transparently over it so the OS picker — and keyboard
-// support — come for free.
+// bordered chip showing either the label ("Programme") or the chosen value, which
+// opens the app's own `Listbox` panel.
+//
+// It used to lay a transparent native <select> over the chip, which bought keyboard
+// and mobile pickers for free but left the OPEN panel looking like whatever the
+// browser felt like — blue system highlight, system font, no relation to the Gray/100
+// panel `SelectPill` and `Select` drop below them. Two dropdowns side by side on the
+// same row opening two different-looking menus is the drift these components exist to
+// prevent, so this made the same move `SelectPill` had already made: `Listbox` earns
+// back arrow keys, Home/End, Enter/Space, Escape and typeahead by hand.
 //
 // Text, icon and caret are Gray/900 in both states: the words are what you read, and
 // they should not change colour under you when you pick something. What changes is the
@@ -54,7 +62,7 @@ export function FilterPill({
   label: string
   /**
    * The label's plural, which the two stock lines are built from: "All programmes" (the
-   * select's clear option) and "No programmes" (the empty state). One prop rather than
+   * panel's clear row) and "No programmes" (the empty state). One prop rather than
    * two so they cannot disagree — and not derived from `label`, because the obvious
    * `${label.toLowerCase()}s` gives "All statuss" and "All AI scores" is not "All scores".
    */
@@ -63,44 +71,46 @@ export function FilterPill({
   options: Array<{ value: string; label: string }>
   onChange: (v: string | undefined) => void
 }) {
-  const current = options.find((o) => o.value === value)
   const empty = options.length === 0
   // Greyed to the same faint the app uses for "nothing here" everywhere else, so an
   // inert pill is legible as inert without a second visual language for disabled.
   const ink = empty ? C.faint : C.ink
+  const all = [{ value: '', label: `All ${plural}` }, ...options]
+
   return (
-    <div className="relative shrink-0">
-      <div
-        className="flex h-8 items-center gap-1 rounded-chip border py-2 pl-2 pr-1.5"
-        style={{
-          borderColor: current ? C.brand : C.line,
-          backgroundColor: current ? C.brandBg : C.white,
-        }}
-      >
-        <span
-          className="whitespace-nowrap font-display text-body font-medium"
-          style={{ color: ink }}
-        >
-          {empty ? `No ${plural}` : current ? current.label : label}
-        </span>
-        <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={ink} />
-      </div>
-      {/* Disabled rather than absent when there is nothing to pick: the chip keeps its
-          place in the row, but tab order and the OS picker skip a menu of one line. */}
-      <select
-        aria-label={label}
-        disabled={empty}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-        className="absolute inset-0 w-full cursor-pointer opacity-0 disabled:cursor-default"
-      >
-        <option value="">{`All ${plural}`}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
+    <Listbox
+      className="shrink-0"
+      options={all}
+      value={value ?? ''}
+      // The clear row carries `''`; the filter's "off" is `undefined`.
+      onChange={(v) => onChange(v || undefined)}
+      ariaLabel={label}
+      // Disabled rather than absent when there is nothing to pick: the chip keeps its
+      // place in the row, but tab order skips a menu of one line.
+      disabled={empty}
+      renderTrigger={({ open, selected, props }) => {
+        // A value that is no longer in the faceted options reads as unselected, as it
+        // did when this was a <select> that could not show it either.
+        const chosen = selected?.value ? selected : undefined
+        return (
+          <button
+            {...props}
+            className="flex h-8 cursor-pointer items-center gap-1 rounded-chip border py-2 pl-2 pr-1.5 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden disabled:cursor-default"
+            style={{
+              borderColor: chosen || open ? C.brand : C.line,
+              backgroundColor: chosen ? C.brandBg : C.white,
+            }}
+          >
+            <span
+              className="whitespace-nowrap font-display text-body font-medium"
+              style={{ color: ink }}
+            >
+              {empty ? `No ${plural}` : (chosen?.label ?? label)}
+            </span>
+            <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={ink} />
+          </button>
+        )
+      }}
+    />
   )
 }

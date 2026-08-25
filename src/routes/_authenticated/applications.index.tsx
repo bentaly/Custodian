@@ -31,6 +31,7 @@ import {
   EmptyState,
   ExportButton,
   FilterPill,
+  Listbox,
   Pagination,
   SearchInput,
   StatusPill,
@@ -236,7 +237,6 @@ function exportCsv(items: AppItem[], filename: string) {
 
 // ─── Header controls ─────────────────────────────────────────────────────────────
 
-// Filter dropdown pill (Status / Theme / AI score) — Figma style, native <select> over it.
 // ─── Round budget (single dominos bar for the selected round) ────────────────────
 
 type BudgetRow = Awaited<ReturnType<typeof getRoundBudgetSummary>>[number]
@@ -602,33 +602,39 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
 // absent: awarding runs through the dedicated grant flow, not a status flip.
 type SettableStatus = Exclude<ApplicationStatus, 'awarded'>
 
+const BULK_STATUS_OPTIONS = [
+  { value: 'for_review', label: 'Move to review' },
+  { value: 'shortlisted', label: 'Shortlist' },
+  { value: 'declined', label: 'Decline' },
+]
+
 function BulkStatusMenu({ busy, onPick }: { busy: boolean; onPick: (s: SettableStatus) => void }) {
   return (
-    <div className="relative shrink-0">
-      <div className="flex h-8 items-center gap-1 rounded-chip bg-white pl-3 pr-2">
-        <span
-          className="whitespace-nowrap font-display text-body font-medium"
-          style={{ color: C.ink }}
+    <Listbox
+      className="shrink-0"
+      options={BULK_STATUS_OPTIONS}
+      // No value: the control never reflects a state, it applies one and resets. Which
+      // is also why the caret points right rather than down — this is a thing you do,
+      // not a thing you have chosen.
+      value={undefined}
+      onChange={(v) => onPick(v as SettableStatus)}
+      ariaLabel="Change status of selected applications"
+      disabled={busy}
+      renderTrigger={({ props }) => (
+        <button
+          {...props}
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-chip bg-white pl-3 pr-2 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-hidden disabled:cursor-wait"
         >
-          {busy ? 'Updating…' : 'Change status'}
-        </span>
-        <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={C.ink} />
-      </div>
-      <select
-        aria-label="Change status of selected applications"
-        value=""
-        disabled={busy}
-        onChange={(e) => {
-          if (e.target.value) onPick(e.target.value as SettableStatus)
-        }}
-        className="absolute inset-0 w-full cursor-pointer opacity-0 disabled:cursor-wait"
-      >
-        <option value="">Change status…</option>
-        <option value="for_review">Move to review</option>
-        <option value="shortlisted">Shortlist</option>
-        <option value="declined">Decline</option>
-      </select>
-    </div>
+          <span
+            className="whitespace-nowrap font-display text-body font-medium"
+            style={{ color: C.ink }}
+          >
+            {busy ? 'Updating…' : 'Change status'}
+          </span>
+          <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={C.ink} />
+        </button>
+      )}
+    />
   )
 }
 
