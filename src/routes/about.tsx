@@ -521,7 +521,10 @@ function About() {
             <dl className="trust-grid">
               <div className="trust-cell">
                 <dt>Residency</dt>
-                <dd>All customer data hosted in the UK or EEA.</dd>
+                <dd>
+                  Grant data is stored in the UK. Limited supplier processing abroad, under approved
+                  frameworks.
+                </dd>
               </div>
               <div className="trust-cell">
                 <dt>Processing</dt>
