@@ -143,3 +143,44 @@ describe('formatPounds', () => {
     expect(formatPounds(1250.05)).toBe('£1,250.05')
   })
 })
+
+describe('a line that already carries details', () => {
+  it('takes a well-formed details array as given', () => {
+    const lines = parseBudgetBreakdown(
+      JSON.stringify([
+        {
+          item: 'Youth worker',
+          amount: 2520,
+          details: [{ label: 'Calculation', value: '24 weeks x £35' }],
+        },
+      ]),
+    )
+    expect(lines).toEqual([
+      {
+        item: 'Youth worker',
+        amount: 2520,
+        details: [{ label: 'Calculation', value: '24 weeks x £35' }],
+      },
+    ])
+  })
+
+  it('keeps other unknown keys alongside a declared details array', () => {
+    const lines = parseBudgetBreakdown([
+      {
+        item: 'Venue',
+        amount: 300,
+        details: [{ label: 'Year', value: '1' }],
+        supplier: 'Hall Ltd',
+      },
+    ])
+    expect(lines?.[0]?.details).toEqual([
+      { label: 'Year', value: '1' },
+      { label: 'supplier', value: 'Hall Ltd' },
+    ])
+  })
+
+  it('falls back to the flat treatment when details is not line details', () => {
+    const lines = parseBudgetBreakdown([{ item: 'Venue', amount: 300, details: 'see attached' }])
+    expect(lines?.[0]?.details).toEqual([{ label: 'details', value: 'see attached' }])
+  })
+})

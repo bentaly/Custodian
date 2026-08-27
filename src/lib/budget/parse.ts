@@ -72,10 +72,28 @@ function lineFromObject(o: Record<string, unknown>): BudgetLine | null {
   if (!item || item.key === amount.key) return null
 
   const consumed = new Set([amount.key, item.key])
-  const details = Object.entries(o)
-    .filter(([k]) => !consumed.has(k))
-    .map(([k, v]) => ({ label: k, value: detailValue(v) }))
-    .filter((d) => d.value)
+  // A line may already carry a well-formed `details` array — that is `BudgetLine`
+  // itself, which is what a foundation posting canonical JSON sends and what our own
+  // tooling builds. Take it as given. Without this it is treated as one more unknown
+  // key and JSON-stringified into a single detail labelled "details", so every column
+  // the applicant's spreadsheet held collapses into one unreadable blob.
+  const declared = Array.isArray(o.details)
+    ? (o.details as unknown[])
+        .filter(
+          (d): d is Record<string, unknown> => !!d && typeof d === 'object' && !Array.isArray(d),
+        )
+        .map((d) => ({ label: detailValue(d.label), value: detailValue(d.value) }))
+        .filter((d) => d.label && d.value)
+    : null
+  if (declared) consumed.add('details')
+
+  const details = [
+    ...(declared ?? []),
+    ...Object.entries(o)
+      .filter(([k]) => !consumed.has(k))
+      .map(([k, v]) => ({ label: k, value: detailValue(v) }))
+      .filter((d) => d.value),
+  ]
 
   const line: BudgetLine = { item: item.value, amount: amount.value }
   if (details.length) line.details = details
