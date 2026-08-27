@@ -140,6 +140,47 @@ function withSecurityHeaders(response) {
   })
 }
 
+
+/**
+ * Tell somebody a submission failed to process.
+ *
+ * Until the 2026-08-27 audit this path wrote a console line and nothing else. Workers
+ * Logs retains 3 days on the Free plan and 7 on Paid, and nobody watches it — so the
+ * ONLY record that an application never made it through the pipeline expired within a
+ * week, silently. On a grant platform a lost application is the one unforgivable
+ * failure, and this was the single place it could happen unobserved.
+ *
+ * Reported on every attempt rather than only the last, because five retries over five
+ * minutes is itself worth knowing about, and because a message that is about to
+ * dead-letter cannot report its own death: `max_retries` is enforced by the runtime
+ * after this handler returns, so the last attempt we ever see is the one before it is
+ * shelved. `attempts` is on the event so the severity is readable at a glance, and
+ * `fingerprint` keeps a flapping ingest as one issue rather than five.
+ *
+ * The submission itself is never lost — its row is in `application_ingests` and the
+ * admin queue shows it as `pipeline_stalled`. This is about somebody being TOLD.
+ */
+function reportQueueFailure(message, err, isDeadLetter = false) {
+  try {
+    const kind = message.body?.kind ?? 'unknown'
+    Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+      // A dead-letter failure is terminal: nothing retries it and nothing holds it.
+      level: isDeadLetter || message.attempts >= 4 ? 'fatal' : 'error',
+      tags: { source: 'queue', pipeline: kind, deadLetter: String(isDeadLetter) },
+      extra: {
+        kind,
+        attempts: message.attempts,
+        ingestId: message.body?.ingestId ?? null,
+        note: 'A submission that exhausts its retries lands on the dead-letter queue, which nothing drains. Reprocess it from the admin queue.',
+      },
+      fingerprint: ['queue', kind, isDeadLetter ? 'dlq' : 'retry'],
+    })
+  } catch {
+    // Never let reporting a failure become a second failure — the console line above
+    // is the durable record either way.
+  }
+}
+
 const worker = {
   async fetch(request, env, ctx) {
     bridgeEnv(env, ctx)
@@ -178,9 +219,25 @@ const worker = {
 
     const origin = (env.BETTER_AUTH_URL || 'https://custodian.fund').replace(/\/+$/, '')
 
+    // The dead-letter queue is consumed by this same handler — `wrangler.toml` declares
+    // it with `max_retries = 0`, so a message here gets ONE more attempt and is then
+    // dropped for good. Worth saying plainly because CLAUDE.md described the DLQ as "a
+    // shelf, not a loop": it is neither. Reaching it means five retries over five
+    // minutes already failed, which is a page-somebody event rather than a log line,
+    // and if this last attempt fails too there is no third chance and nothing left
+    // holding the message.
+    //
+    // The submission is still safe either way — its row sits in `application_ingests`
+    // at `received` and the admin queue shows it as `pipeline_stalled` — but only a
+    // person can rescue it, and only if a person is told.
+    const isDeadLetter = typeof batch.queue === 'string' && batch.queue.endsWith('-dlq')
+    if (isDeadLetter && batch.messages.length > 0) {
+      console.error(`[queue] ${batch.messages.length} message(s) reached the dead-letter queue`)
+    }
+
     for (const message of batch.messages) {
       const started = Date.now()
-      const describe = `${message.body?.kind ?? 'unknown'} (attempt ${message.attempts})`
+      const describe = `${message.body?.kind ?? 'unknown'} (attempt ${message.attempts}${isDeadLetter ? ', DEAD-LETTER' : ''})`
       try {
         const response = await handler.fetch(
           new Request(`${origin}/api/internal/pipeline`, {
@@ -202,10 +259,12 @@ const worker = {
           console.error(
             `[queue] ${describe} → ${response.status} in ${Date.now() - started}ms: ${body.slice(0, 500)}`,
           )
+          reportQueueFailure(message, new Error(`pipeline returned ${response.status}: ${body.slice(0, 300)}`), isDeadLetter)
           message.retry()
         }
       } catch (err) {
         console.error(`[queue] ${describe} threw after ${Date.now() - started}ms:`, err)
+        reportQueueFailure(message, err, isDeadLetter)
         message.retry()
       }
     }

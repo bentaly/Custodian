@@ -4,6 +4,7 @@ import { routeTree } from './routeTree.gen'
 import { RouteError } from './components/ui/RouteError'
 import { notFoundError } from './lib/errors'
 import { installRequestTimeout } from './lib/requestTimeout'
+import { installStaleChunkReload } from './lib/staleChunk'
 
 /**
  * Start Sentry as early as the browser runs any app code.
@@ -34,9 +35,17 @@ const initSentry = createIsomorphicFn().client(() => {
  */
 const initRequestTimeout = createIsomorphicFn().client(installRequestTimeout)
 
+/**
+ * Recover from a deploy that landed while someone had the app open. Client-only for the
+ * obvious reason — there is no `window` on the server — and installed here so it is
+ * listening before the router preloads its first chunk on hover.
+ */
+const initStaleChunkReload = createIsomorphicFn().client(installStaleChunkReload)
+
 export function getRouter() {
   initSentry()
   initRequestTimeout()
+  initStaleChunkReload()
 
   const router = createRouter({
     routeTree,
