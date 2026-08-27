@@ -15,31 +15,13 @@
 // missing the secret cannot be triggered by anyone.
 import { createFileRoute } from '@tanstack/react-router'
 import { runFinanceDigest } from '../../server/financeDigest/run'
-
-function unauthorised(): Response {
-  return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-    status: 401,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-function authorised(request: Request): boolean {
-  const expected = process.env['CRON_SECRET']
-  if (!expected) return false
-  const header = request.headers.get('authorization') ?? ''
-  const match = /^Bearer\s+(.+)$/i.exec(header.trim())
-  const provided = match?.[1]?.trim()
-  if (!provided || provided.length !== expected.length) return false
-  let diff = 0
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i)
-  return diff === 0
-}
+import { bearerAuthorised, unauthorised } from '../../server/internalAuth'
 
 export const Route = createFileRoute('/api/cron/finance-digest')({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
-        if (!authorised(request)) return unauthorised()
+        if (!bearerAuthorised(request, 'CRON_SECRET')) return unauthorised()
 
         const url = new URL(request.url)
         // `dryRun` defaults to FALSE so a wired Cron Trigger sends. It is spelled out on

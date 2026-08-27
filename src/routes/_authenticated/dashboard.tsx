@@ -23,6 +23,7 @@ import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
 import { fmtCompact } from '../../lib/format'
+import { canSeePayments } from '../../lib/roles'
 import { C, PROGRAMME_COLOURS, tint as T } from '../../components/ui/tokens'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>
@@ -361,7 +362,10 @@ function Dashboard() {
       to: '/applications',
       search: { roundId: undefined, status: 'for_review' },
     })
-  if (paymentsDue > 0)
+  // Only for roles that can open Finance. A trustee following this row would be
+  // redirected straight back here — an item on your desk you cannot pick up is worse
+  // than one that isn't listed.
+  if (paymentsDue > 0 && canSeePayments(user.role))
     desk.push({
       lead: `${paymentsDue} payment${plural(paymentsDue)}`,
       rest: 'due to be paid',
@@ -483,19 +487,23 @@ function Dashboard() {
           <Chips chips={reviewCats} />
         </KpiCard>
 
-        <KpiCard
-          tint={KPI.finance}
-          value={fmtCompact(d.paymentsThisMonth.amount)}
-          sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
-          icon={AREA_ICON['/finance']!}
-          label="Finance"
-          to="/finance"
-          meter={<BarMeter progress={financeProgress} colour={KPI.finance.accent} />}
-        >
-          <p className="mt-3 text-label" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
-            {d.bankIssues > 0 ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}` : null}
-          </p>
-        </KpiCard>
+        {/* Same rule as the desk row: the card links into Finance, so it is only
+            shown to the roles that may go there. */}
+        {canSeePayments(user.role) && (
+          <KpiCard
+            tint={KPI.finance}
+            value={fmtCompact(d.paymentsThisMonth.amount)}
+            sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
+            icon={AREA_ICON['/finance']!}
+            label="Finance"
+            to="/finance"
+            meter={<BarMeter progress={financeProgress} colour={KPI.finance.accent} />}
+          >
+            <p className="mt-3 text-label" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
+              {d.bankIssues > 0 ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}` : null}
+            </p>
+          </KpiCard>
+        )}
 
         <KpiCard
           tint={KPI.reports}

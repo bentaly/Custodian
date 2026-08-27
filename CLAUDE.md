@@ -162,7 +162,14 @@ users server-side and setting `emailAndPassword.disableSignUp`, which the invite
   `superadmin` is platform-level (no `client_id`); `admin` runs a foundation; `trustee` reads/comments/votes;
   `finance` is a trustee plus the payment schedule (instalment edits, marking paid) — but never grant decisions.
   Default is `trustee`, both on the columns and BetterAuth's `defaultRole`. The old `manager`/`contributor`/`observer`
-  values were folded in by migration 0049 (manager→admin, contributor/observer→trustee)
+  values were folded in by migration 0049 (manager→admin, contributor/observer→trustee).
+  **The trustee/finance line is enforced on READS as well as writes** (`canSeePayments`, `src/lib/roles.ts`):
+  the writes always checked the role, but until 2026-08-27 `/finance` had no route guard, the nav item was
+  shown to everyone and `listFinanceGrants` / `getFinanceGrant` asked only for a signed-in user — so any
+  trustee could read every grantee's full account number and sort code, or export them. Bank columns are
+  likewise withheld from `getApplication` for roles that fail `canSeePayments`. Three places must agree
+  (nav, route guard, server fn); only the last is a boundary — the other two exist so nobody is shown a
+  door that redirects them away
 - **user_avatars** — profile photos, kept off the `users` row (which `getAuthUser` selects on
   every authenticated call); `users.image` holds the `/api/avatar/$userId?v=<hash>` URL
 - **client_profiles** — per-tenant settings (mission statement, admin-voting toggle)
@@ -498,11 +505,12 @@ A Monday email to finance users listing what needs paying. Cloudflare Cron Trigg
 `POST /api/cron/finance-digest` → Resend, the same send path as award letters. Resend has no
 scheduler that could compute a per-person digest, so the schedule is ours.
 
-**The cron is not wired yet** — `wrangler.toml` carries the commented trigger plus the three
-traps to read before uncommenting (`triggers` is an inheritable key so staging would also fire;
-`worker-entry.js` only bridges env inside `fetch`, so a `scheduled` handler gets no
-`DATABASE_URL`). Until then the endpoint is driven by hand: `?dryRun=1` renders the whole run
-and returns it without sending.
+**The cron IS wired** — `[triggers] crons = ["0 8 * * 1"]` on the prod Worker, with
+`[env.staging.triggers] crons = []` overriding the inheritable key so staging never fires, and
+`bridgeEnv` lifted out of `fetch` in `worker-entry.js` so the `scheduled` handler gets
+`DATABASE_URL`. Both traps the commented version warned about are closed. The endpoint is still
+drivable by hand — `?dryRun=1` renders the whole run and returns it without sending — which is
+how to check a Monday before trusting it.
 
 **The schedule is `0 8 * * 1` — one trigger, UTC, no BST correction.** That is 9am London in
 summer and 8am in winter, and the drift is accepted: the requirement is "in the morning", and
@@ -622,7 +630,13 @@ pinning the local hour would spend a second trigger out of the five the Free pla
   it was the old all-in-one "Organisation" screen
 - `src/routes/api/auth.$.ts` — BetterAuth handler (GET + POST)
 - `src/routes/api/apply.ts`, `api/submit-report.ts` — public API-key-authed ingest endpoints
-- `src/routes/api/round.$roundId.ts`, `api/rounds.ts` — public round metadata
+- `src/routes/api/round.$roundId.ts`, `api/rounds.ts` — round metadata for the admin app's test
+  submitters and field-mapping screens. **Cross-tenant by design and therefore `x-admin-token`
+  gated**, not public, despite the names. They were unauthenticated with `ACAO: *` until
+  2026-08-27, at which point `/api/rounds` returned every foundation on the platform by name and
+  `/api/round/<id>` returned whole `clients` and `programmes` rows — `goal`, the private funding
+  strategy fed to the Custodian score, and `createdByEmail`, a Canvas operator's address. Columns
+  are now named explicitly so widening the schema cannot silently widen the response
 - `src/routes/api/admin.*.ts` — `/api/admin/*` endpoints for the admin app (`x-admin-token` gated,
   helpers in `src/server/admin/http.ts`)
 - `src/server/fns/` — server functions (TanStack Start server-side, called from routes)

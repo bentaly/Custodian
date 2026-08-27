@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { API_BASE, useApplyApiKey } from './api'
+import { API_BASE, adminGet, useApplyApiKey } from './api'
 
 // Verified against the live registers — handy presets for exercising each
 // due diligence outcome from the form.
@@ -148,9 +148,8 @@ export function Submitter() {
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/rounds`)
-      .then((r) => r.json())
-      .then((data: RoundSummary[]) => {
+    adminGet<RoundSummary[]>('/api/rounds')
+      .then((data) => {
         if (!data.length) throw new Error('No rounds found')
         setAllRounds(data)
         const firstClientId = data[0]!.client.id
@@ -165,10 +164,8 @@ export function Submitter() {
     if (!roundId) return
     setRound(null)
     setProgrammeId(null)
-    fetch(`${API_BASE}/api/round/${roundId}`)
-      .then((r) => r.json())
-      .then((data: Round & { error?: string }) => {
-        if (data.error) throw new Error(data.error)
+    adminGet<Round>(`/api/round/${roundId}`)
+      .then((data) => {
         if (!data.programmes?.length) throw new Error('Round has no programmes')
         setRound(data)
         setProgrammeId(data.programmes[0]!.id)

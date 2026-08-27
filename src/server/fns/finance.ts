@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { and, eq, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applications, awardInstalments, awards } from '../../../drizzle/schema'
-import { requireAuthUser, requireRole } from '../session'
+import { requireRole } from '../session'
 import { recordAudit } from '../audit'
 import { assertClientAccess, visibleRoundProgrammeIds } from '../scope'
 import { checkBankAccount, type ModulusCheckStatus } from '../../lib/bankVerification'
@@ -259,7 +259,9 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
       .optional(),
   )
   .handler(async ({ data }) => {
-    const user = await requireAuthUser()
+    // Payments are finance's, not every trustee's — see `canSeePayments`. This is the
+    // boundary; the route guard and the hidden nav item are only courtesies.
+    const user = await requireRole('superadmin', 'admin', 'finance')
     const roundProgrammeIds = await visibleRoundProgrammeIds(user)
     // An empty scope is a user with access to nothing; `inArray(x, [])` is a SQL error,
     // so it never reaches the query.
@@ -781,7 +783,9 @@ function emptyTotals() {
 export const getFinanceGrant = createServerFn({ method: 'GET' })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireAuthUser()
+    // Returns the grantee's full account number and sort code, so it is gated by role
+    // as well as by tenant.
+    const user = await requireRole('superadmin', 'admin', 'finance')
 
     const award = await getDb().query.awards.findFirst({
       where: eq(awards.id, data.id),

@@ -95,6 +95,23 @@ type = "ratelimit"
 namespace_id = "1002"
 simple = { limit = 60, period = 60 }
 
+# Credential-testing backstop on /api/auth/*. Nothing bounded these before the
+# 2026-08-27 audit: 25 sequential POSTs to /api/auth/sign-in/email from one IP all
+# answered 401, none 429. better-auth ships its own limiter but only self-enables it
+# when NODE_ENV === "production", which is set nowhere in this build — and its default
+# storage is per-isolate memory, which on Workers means each isolate counts from zero.
+# So the library's limiter cannot be the answer here; the edge one can.
+#
+# Applied per IP to the credential paths only (sign-in, sign-up, password reset, OTP),
+# not to every /api/auth POST — sign-out and session calls have no business being
+# rationed. 10/min is many times a human mistyping a password, and still leaves a
+# shared office NAT room for several people signing in at once.
+[[unsafe.bindings]]
+name = "AUTH_IP_LIMITER"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 10, period = 60 }
+
 # ─── Pipeline queue ─────────────────────────────────────────────────────────
 #
 # Where the ingest pipelines run. `/api/apply` and `/api/submit-report` persist the
@@ -171,6 +188,12 @@ name = "APPLY_KEY_LIMITER"
 type = "ratelimit"
 namespace_id = "1002"
 simple = { limit = 60, period = 60 }
+
+[[env.staging.unsafe.bindings]]
+name = "AUTH_IP_LIMITER"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 10, period = 60 }
 
 # Queues are NOT inherited by named environments — repeated for staging, with its own
 # queue names so the two environments can never consume each other's submissions.

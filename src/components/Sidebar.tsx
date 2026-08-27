@@ -14,6 +14,7 @@ import {
   Wallet03Icon,
 } from '@hugeicons/core-free-icons'
 import { LogoMark } from './ui/LogoMark'
+import { canSeePayments } from '../lib/roles'
 
 // Values lifted directly from the Figma sidebar (node 126:31796). #637083 = Gray/500,
 // #E4E7EC = Gray/200, #141C24 = Gray/900 — the real design variables, so matching them
@@ -57,13 +58,17 @@ export const AREA_ICON: Record<string, IconSvgElement> = Object.fromEntries(
   NAV.map((item) => [item.to, item.icon]),
 )
 
-// No `isAdmin` any more: every nav entry is now visible to every role, and the
-// admin-only config it used to gate lives behind Settings, which filters itself.
-function NavBody({ onNavigate }: { onNavigate?: () => void }) {
+// Almost every nav entry is visible to every role — the admin-only config the old
+// `isAdmin` flag gated now lives behind Settings, which filters itself. Finance is the
+// one exception, and not a cosmetic one: it is the payment schedule and a grantee's
+// bank details, which a trustee has no business in (`canSeePayments`). Offering a link
+// that redirects away is worse than not offering it.
+function NavBody({ onNavigate, role }: { onNavigate?: () => void; role: string }) {
+  const items = NAV.filter((item) => item.to !== '/finance' || canSeePayments(role))
   return (
     <>
       <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-        {NAV.map((item) => (
+        {items.map((item) => (
           <Link
             key={item.to}
             to={item.to}
@@ -95,7 +100,15 @@ function NavBody({ onNavigate }: { onNavigate?: () => void }) {
  * slide rather than pop, and is `lg:hidden` so a desktop viewport never sees it even
  * if the open flag is somehow stale.
  */
-export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
+export function Sidebar({
+  mobileOpen,
+  onClose,
+  role,
+}: {
+  mobileOpen: boolean
+  onClose: () => void
+  role: string
+}) {
   // Escape closes, and the page behind must not scroll under the drawer.
   useEffect(() => {
     if (!mobileOpen) return
@@ -118,7 +131,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
           <LogoMark />
           <span className="text-heading font-semibold text-grey-900">Custodian</span>
         </div>
-        <NavBody />
+        <NavBody role={role} />
       </aside>
 
       <div
@@ -153,7 +166,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
             <HugeiconsIcon icon={Cancel01Icon} className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
-        <NavBody onNavigate={onClose} />
+        <NavBody onNavigate={onClose} role={role} />
       </aside>
     </>
   )

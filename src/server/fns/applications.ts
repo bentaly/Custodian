@@ -30,6 +30,7 @@ import {
   reports,
 } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { canSeePayments } from '../../lib/roles'
 import { recordAudit } from '../audit'
 import {
   assertApplicationAccess,
@@ -216,7 +217,23 @@ export const getApplication = createServerFn({ method: 'GET' })
       )
     const committed = committedRows[0]?.committed
 
-    return { ...application, roundProgrammeCommitted: committed ? parseFloat(committed) : 0 }
+    return {
+      ...application,
+      // The applicant supplies these at submission, so they ride along on the row —
+      // but they are the same account number and sort code Finance is gated on, and
+      // `ApplicationFields` renders them on this screen. Withheld from roles that
+      // cannot see the payment schedule; the section disappears rather than showing
+      // blanks, because `bankRows` filters out empty values.
+      ...(canSeePayments(user.role)
+        ? {}
+        : {
+            bankName: null,
+            bankAccountName: null,
+            bankAccountNumber: null,
+            bankSortCode: null,
+          }),
+      roundProgrammeCommitted: committed ? parseFloat(committed) : 0,
+    }
   })
 
 /**

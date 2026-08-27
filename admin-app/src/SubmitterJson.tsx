@@ -11,7 +11,7 @@
 // the mapping pipeline can be exercised end to end without hand-writing JSON.
 
 import { useEffect, useMemo, useState } from 'react'
-import { API_BASE, submitWithApiKey, useApplyApiKey } from './api'
+import { API_BASE, adminGet, submitWithApiKey, useApplyApiKey } from './api'
 import { Button, Callout, Card, SectionHeading, inputClass } from './ui'
 
 type Endpoint = '/api/apply' | '/api/submit-report'
@@ -183,9 +183,8 @@ export function SubmitterJson() {
   const [programme, setProgramme] = useState<string>('')
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/rounds`)
-      .then((r) => r.json())
-      .then((data: RoundSummary[]) => {
+    adminGet<RoundSummary[]>('/api/rounds')
+      .then((data) => {
         setRounds(data)
         setRoundId((id) => id || (data[0]?.id ?? ''))
       })
@@ -195,9 +194,8 @@ export function SubmitterJson() {
   useEffect(() => {
     if (!roundId) return
     setDetail(null)
-    fetch(`${API_BASE}/api/round/${roundId}`)
-      .then((r) => r.json())
-      .then((data: RoundDetail) => {
+    adminGet<RoundDetail>(`/api/round/${roundId}`)
+      .then((data) => {
         setDetail(data)
         setProgramme(data.programmes?.[0]?.name ?? '')
       })
@@ -219,7 +217,9 @@ export function SubmitterJson() {
   }, [text])
 
   function loadPreset(preset: Preset) {
-    const json = JSON.stringify(preset.body, null, 2).split('{{programme}}').join(programme || '{{programme}}')
+    const json = JSON.stringify(preset.body, null, 2)
+      .split('{{programme}}')
+      .join(programme || '{{programme}}')
     setText(json)
     setEndpoint(preset.endpoint)
     setActivePreset(preset)
@@ -333,8 +333,8 @@ export function SubmitterJson() {
 
         <p className="mb-2 text-xs leading-relaxed text-slate-500">
           The body <em>is</em> the payload: a flat object of the foundation's own field names to
-          values, no envelope and no reserved keys. Values may be strings, numbers, or structured
-          (a budget breakdown's line items).
+          values, no envelope and no reserved keys. Values may be strings, numbers, or structured (a
+          budget breakdown's line items).
         </p>
 
         <textarea

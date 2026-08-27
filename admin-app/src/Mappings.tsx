@@ -27,11 +27,10 @@ export function Mappings() {
     if (!canonicalField && canonicalFields.length) setCanonicalField(canonicalFields[0]!.key)
   }, [canonicalFields, canonicalField])
 
-  // Client list comes from the public rounds endpoint (no admin token needed).
+  // Client list is derived from the rounds endpoint — admin-token gated like the rest.
   useEffect(() => {
-    fetch(`${API_BASE}/api/rounds`)
-      .then((r) => r.json())
-      .then((data: Array<{ client: ClientOption }>) => {
+    adminGet<Array<{ client: ClientOption }>>('/api/rounds')
+      .then((data) => {
         const uniq = Array.from(new Map(data.map((r) => [r.client.id, r.client])).values())
         setClients(uniq)
         setClientId((c) => c ?? uniq[0]?.id ?? null)
