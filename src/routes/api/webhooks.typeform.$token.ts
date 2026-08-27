@@ -51,12 +51,16 @@ export const Route = createFileRoute('/api/webhooks/typeform/$token')({
           return jsonResponse({ error: 'Rate limit exceeded. Try again shortly.' }, 429)
         }
 
-        const payload = await parseSubmissionPayload(request)
-        if (!payload) {
+        const body = await parseSubmissionPayload(request)
+        if (!body.ok) {
           // A Typeform "test" delivery sends an envelope with no answers, which
-          // flattens to nothing. Saying so beats a bare 400 in their delivery log.
-          return jsonResponse({ error: 'Request body contained no answers' }, 400)
+          // flattens to nothing. Saying so beats a bare 400 in their delivery log —
+          // and 413 for an oversized one, so the delivery log names the actual problem.
+          return body.reason === 'too_large'
+            ? jsonResponse({ error: 'Request body is too large' }, 413)
+            : jsonResponse({ error: 'Request body contained no answers' }, 400)
         }
+        const payload = body.payload
 
         const ingestId = await saveIngest({ clientId: auth.clientId, payload })
         await enqueue({ kind: 'ingest', ingestId }, () => processIngest(ingestId))

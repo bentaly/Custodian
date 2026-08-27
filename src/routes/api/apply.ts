@@ -65,10 +65,13 @@ export const Route = createFileRoute('/api/apply')({
           return tooManyRequests()
         }
 
-        const payload = await parseSubmissionPayload(request)
-        if (!payload) {
-          return jsonResponse({ error: 'Request body must contain application fields' }, 400)
+        const body = await parseSubmissionPayload(request)
+        if (!body.ok) {
+          return body.reason === 'too_large'
+            ? jsonResponse({ error: 'Request body is too large' }, 413)
+            : jsonResponse({ error: 'Request body must contain application fields' }, 400)
         }
+        const payload = body.payload
 
         // Persist first — once the row exists the submission can never be lost —
         // then acknowledge. The pipeline (mapping → AI fallback → due diligence)

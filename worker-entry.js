@@ -81,10 +81,69 @@ function bridgeEnv(env, ctx) {
   globalThis.__cfCtx = ctx
 }
 
+
+// ─── Security headers ────────────────────────────────────────────────────────
+//
+// The app shipped with none of these — verified against production on 2026-08-27,
+// where `curl -I https://custodian.fund/sign-in` returned nothing but `content-type`.
+//
+// Applied here rather than in the app because this wrapper sees EVERY response:
+// server-rendered pages, server functions, the public API routes and the static
+// assets alike. A header set in one framework layer inevitably misses another, and
+// the miss is silent.
+//
+// What is deliberately NOT here is a `script-src` CSP. A real one on this app needs
+// nonces threaded through TanStack's hydration, and a CSP that breaks the page gets
+// switched off rather than fixed. The three directives below are the ones that cost
+// nothing to be right about: no page may frame us, no plugin content, and no injected
+// `<base>` can repoint every relative URL on the page.
+const SECURITY_HEADERS = {
+  // Clickjacking. This app has one-click destructive actions behind a session —
+  // approve a grant, mark an instalment paid — which is exactly what framing exploits.
+  // `frame-ancestors` is the modern control; X-Frame-Options covers older browsers
+  // that ignore it.
+  'Content-Security-Policy': "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+  'X-Frame-Options': 'DENY',
+  // Stop a browser second-guessing a Content-Type — the reason `/api/avatar` can serve
+  // user-uploaded bytes without one of them being sniffed into something executable.
+  'X-Content-Type-Options': 'nosniff',
+  // Application URLs carry record UUIDs. Send the origin, never the path, off-site.
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  // Nothing here uses any of them; saying so stops an injected iframe asking on our
+  // behalf and makes the permission prompt itself impossible.
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  // A year, apex only. `includeSubDomains` is deliberately absent: it would bind every
+  // present and future subdomain of custodian.fund to HTTPS in browsers that have seen
+  // this header, which is not a promise to make on the way past. Same for `preload`,
+  // which is effectively irreversible.
+  'Strict-Transport-Security': 'max-age=31536000',
+}
+
+/**
+ * Copy the headers onto a response without disturbing what is already there.
+ *
+ * Never overwrites: the admin endpoints set their own CORS headers and `/api/avatar`
+ * sets its own long-lived `Cache-Control`, and a blanket header pass that clobbered
+ * either would be a bug introduced by a security fix.
+ */
+function withSecurityHeaders(response) {
+  // 101 has no headers to rewrite and cloning it throws.
+  if (response.status === 101) return response
+  const headers = new Headers(response.headers)
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    if (!headers.has(key)) headers.set(key, value)
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
 const worker = {
   async fetch(request, env, ctx) {
     bridgeEnv(env, ctx)
-    return handler.fetch(request, env, ctx)
+    return withSecurityHeaders(await handler.fetch(request, env, ctx))
   },
 
   /**

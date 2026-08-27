@@ -284,6 +284,16 @@ canonical fields (`CreateApplicationSchema`).
   needed. Links captured during the Make period are still dead. If another platform ever
   hands back an unreachable URL, the shape of the URL is what says so — re-derive it from the
   stored payload like a blocker, never store it as a column.
+- **Every submission body is capped at `MAX_SUBMISSION_BYTES` (1 MB)**, checked in
+  `parseSubmissionPayload` — the single decode boundary all three endpoints share, so
+  the cap cannot be forgotten on a new one. Over it is **413**, deliberately distinct
+  from the 400 for a body that decoded to no fields: one tells the sender their body is
+  too big, the other that their fields are wrong. Nothing bounded this before
+  2026-08-27, and `saveIngest` writes the payload verbatim into a jsonb column — so a
+  caller holding a webhook token (which travels in a URL, is visible to anyone who can
+  edit the form, and lands in request logs) could fill the database at 60 requests a
+  minute for free. `Content-Length` is where it is really enforced, before the bytes are
+  read; the post-read length check is the backstop for a chunked body.
 - Missing/invalid/revoked key → 401. `/api/apply` is rate-limited two ways (`src/server/rateLimit.ts`,
   bindings in `wrangler.toml`): a per-IP volumetric backstop before auth (`APPLY_IP_LIMITER`) and a
   per-client fairness limit after (`APPLY_KEY_LIMITER`). Degrades open — no binding (local dev) or a
@@ -545,6 +555,28 @@ pinning the local hour would spend a second trigger out of the five the Free pla
   unsubscribe someone by fetching the link. Not politeness: an unsubscribe people cannot find is
   answered with the junk button, and that reputation damage lands on the same `custodian.fund`
   that carries award letters.
+
+## Security headers
+
+Set in `worker-entry.js` (`withSecurityHeaders`), not in the app, because that wrapper is
+the only layer that sees **every** response — SSR pages, server functions, the public API
+routes and static assets alike. The app shipped with none of them; production returned
+nothing but `content-type` until 2026-08-27.
+
+`frame-ancestors 'none'` + `X-Frame-Options: DENY` are the load-bearing pair: this app has
+one-click destructive actions behind a session (approve a grant, mark an instalment paid),
+which is exactly what clickjacking is for. Plus `object-src 'none'`, `base-uri 'self'`,
+`nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, a `Permissions-Policy`
+denying everything, and HSTS at one year.
+
+Headers are only set where absent, never overwritten — the admin endpoints set their own
+CORS and `/api/avatar` its own `Cache-Control`, and a blanket pass that clobbered either
+would be a bug introduced by a security fix.
+
+**There is deliberately no `script-src`.** A real one needs nonces threaded through
+TanStack's hydration, and a CSP that breaks the page gets switched off rather than fixed.
+HSTS omits `includeSubDomains` and `preload` for the same reason — both are promises about
+hosts that do not exist yet.
 
 ## Route structure
 
