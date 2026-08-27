@@ -203,7 +203,15 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at')
     .notNull()
     .$defaultFn(() => new Date()),
-})
+},
+  (t) => [
+    // Composite rather than `client_id` alone because the hot query is always the
+    // pair: `eq(users.role, 'trustee') AND eq(users.clientId, …)` — the vote
+    // denominator, read by Shortlist, the dashboard, the vote panel and award set-up.
+    // A leading `client_id` still serves `listClientUsers` and the digest on its own.
+    index('users_client_role_idx').on(t.clientId, t.role),
+  ],
+)
 
 // Profile photos live in their own table, deliberately NOT as a column on `users`:
 // `getAuthUser` selects the user row on every authenticated server fn, and dragging
@@ -246,7 +254,13 @@ export const rounds = pgTable('rounds', {
   // from every picker and list, still rendered wherever its history is shown.
   archivedAt: timestamp('archived_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+},
+  (t) => [
+    // Every round list is one foundation's: listMyRounds, listRoundsOverview,
+    // listRoundDates (on the authenticated layout, so on every page), search.
+    index('rounds_client_idx').on(t.clientId),
+  ],
+)
 
 export const programmes = pgTable('programmes', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -274,7 +288,17 @@ export const programmes = pgTable('programmes', {
   // were judged against.
   archivedAt: timestamp('archived_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+},
+  (t) => [
+    // `visibleRoundProgrammeIds` (src/server/scope.ts) joins round_programmes to
+    // programmes and filters on this column. That runs on EVERY authenticated list
+    // query in the app — applications, shortlist, awards, finance, reports, insights,
+    // the dashboard, search — so without an index every one of them seq-scans the
+    // programmes table. Postgres indexes primary and unique keys automatically but
+    // never foreign keys, which is how this went unnoticed.
+    index('programmes_client_idx').on(t.clientId),
+  ],
+)
 
 export const roundProgrammes = pgTable(
   'round_programmes',
@@ -502,7 +526,12 @@ export const invitations = pgTable('invitations', {
   expiresAt: timestamp('expires_at').notNull(),
   acceptedAt: timestamp('accepted_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+},
+  (t) => [
+    // `listInvitations` (Settings → Team) filters client_id and pending-only.
+    index('invitations_client_idx').on(t.clientId),
+  ],
+)
 
 export const clientProfiles = pgTable('client_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -597,7 +626,15 @@ export const applicationIngests = pgTable('application_ingests', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   resolvedAt: timestamp('resolved_at'),
   resolvedBy: text('resolved_by'),
-})
+},
+  (t) => [
+    // What `/api/admin/ingests` actually does: filter by status, order by createdAt
+    // desc. NOT client_id, which nothing filters on here — the admin app is
+    // cross-tenant by design. Polled twice a minute for as long as a queue tab is
+    // open, which is what makes it worth an index on a table this small.
+    index('application_ingests_status_created_idx').on(t.status, t.createdAt),
+  ],
+)
 
 // ─── Deprivation reference data ─────────────────────────────────────────────────
 //
@@ -703,7 +740,14 @@ export const apiKeys = pgTable('api_keys', {
   createdBy: text('created_by'),
   lastUsedAt: timestamp('last_used_at'),
   revokedAt: timestamp('revoked_at'),
-})
+},
+  (t) => [
+    // `listApiKeys` on Settings → API keys. Small table, but `resolveToken` also
+    // WRITES `lastUsedAt` on every public submission, so keeping the read cheap
+    // matters more than the index costs.
+    index('api_keys_client_idx').on(t.clientId),
+  ],
+)
 
 // A grant is the live funding relationship created when an award is generated for a
 // successful application (after the trustee-majority vote). It is deliberately a
@@ -886,7 +930,12 @@ export const reportIngests = pgTable('report_ingests', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   resolvedAt: timestamp('resolved_at'),
   resolvedBy: text('resolved_by'),
-})
+},
+  (t) => [
+    // Same query, same reason as `application_ingests` — kept in step with it.
+    index('report_ingests_status_created_idx').on(t.status, t.createdAt),
+  ],
+)
 
 // A charity's submitted grant report, mapped to canonical fields and linked to its
 // grant. Created only once mapping + matching both succeed (unresolved reports wait
@@ -991,7 +1040,13 @@ export const reports = pgTable(
   },
   // Reports are always read through their grant — the Reports list, the award detail,
   // and the Insights impact rollup all start from an award.
-  (t) => [index('reports_award_idx').on(t.awardId)],
+  (t) => [
+    index('reports_award_idx').on(t.awardId),
+    // `reportsList` scopes the whole Reports screen on this column directly, rather
+    // than reaching it through the award — see the note on `clientId` being
+    // denormalised precisely to keep that a single-column filter.
+    index('reports_client_idx').on(t.clientId),
+  ],
 )
 
 // ─── Historical data import ─────────────────────────────────────────────────
