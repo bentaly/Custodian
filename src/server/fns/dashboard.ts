@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, eq, count, inArray, sql, isNotNull, desc } from 'drizzle-orm'
+import { and, eq, ne, count, inArray, sql, isNotNull, desc } from 'drizzle-orm'
 import { getDb } from '../db'
 import {
   applications,
@@ -77,6 +77,24 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   const clientId = user.clientId
   const awardScope = clientId ? eq(awards.clientId, clientId) : undefined
 
+  /**
+   * Money scope: the caller's tenant, minus cancelled grants.
+   *
+   * The rule is stated on `listFinanceGrants` and enforced in `grantsQuery`: a
+   * cancelled award contributes to PAID history (the money genuinely left) but never
+   * to committed or outstanding, because there is nothing left to pay on it. Rounds
+   * (`ne(awards.status, 'cancelled')`) and Shortlist apply it too.
+   *
+   * The dashboard was the only consumer that did not, so it disagreed with the
+   * Finance screen about the same tenant's money. Measured on live data 2026-08-27:
+   * one foundation's dashboard reported £186,166.66 outstanding where Finance
+   * reported £165,666.66 — the £20,500 unpaid half of a cancelled £41,000 grant —
+   * and its "total awarded" carried the full £41,000 of a grant that was withdrawn.
+   *
+   * `paidToDate` deliberately does NOT use this: that figure is money that moved.
+   */
+  const liveAwardScope = and(awardScope, ne(awards.status, 'cancelled'))
+
   const [
     statusRows,
     scoreRows,
@@ -136,14 +154,15 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
           [] as Array<{ id: string; name: string; openedAt: Date | null; closedAt: Date | null }>,
         ),
 
-    // Money: total awarded (all awards) and how many are still active.
+    // Money: total committed, and how many grants are still active. Cancelled grants
+    // are not committed money — see `liveAwardScope`.
     getDb()
       .select({
         totalAwarded: sql<string>`COALESCE(SUM(${awards.amountAwarded}), '0')`,
         activeGrants: sql<number>`COUNT(*) FILTER (WHERE ${awards.status} = 'active')`,
       })
       .from(awards)
-      .where(awardScope),
+      .where(liveAwardScope),
 
     // Awarded amount by programme (for the donut), via the awarded application.
     getDb()
@@ -155,7 +174,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .innerJoin(applications, eq(awards.applicationId, applications.id))
       .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
       .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
-      .where(awardScope)
+      .where(liveAwardScope)
       .groupBy(programmes.name),
 
     // Shortlisted applications with their yes-vote tally (for ready-to-award / awaiting-vote).
@@ -281,7 +300,8 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .leftJoin(applications, eq(awards.applicationId, applications.id))
       .where(
         and(
-          awardScope,
+          // Nobody should be chased for an instalment on a withdrawn grant.
+          liveAwardScope,
           sql`${awardInstalments.paidDate} IS NULL`,
           isNotNull(awardInstalments.dueDate),
         ),
@@ -289,10 +309,16 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .orderBy(awardInstalments.dueDate),
 
     // Paid-to-date / outstanding totals across all scheduled instalments (any due date).
+    //
+    // The two halves scope differently ON PURPOSE, which is why the filter is inside
+    // the aggregate rather than in the WHERE. Money paid on a grant later cancelled
+    // still left the building and still belongs in paid history; the unpaid remainder
+    // of that same grant is owed to nobody. This is the rule `grantsQuery` states as
+    // `case when cancelled then 0`, and the line the dashboard used to get wrong.
     getDb()
       .select({
         paid: sql<string>`COALESCE(SUM(${awardInstalments.amount}) FILTER (WHERE ${awardInstalments.paidDate} IS NOT NULL), '0')`,
-        outstanding: sql<string>`COALESCE(SUM(${awardInstalments.amount}) FILTER (WHERE ${awardInstalments.paidDate} IS NULL), '0')`,
+        outstanding: sql<string>`COALESCE(SUM(${awardInstalments.amount}) FILTER (WHERE ${awardInstalments.paidDate} IS NULL AND ${awards.status} <> 'cancelled'), '0')`,
       })
       .from(awardInstalments)
       .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
@@ -317,14 +343,14 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
         grants: sql<number>`COUNT(*)`,
       })
       .from(awards)
-      .where(awardScope),
+      .where(liveAwardScope),
 
     // Every award's decision date + amount — the raw events the giving chart buckets
     // adaptively per range (day/week/month/quarter/year, chosen from the span).
     getDb()
       .select({ decisionAt: awards.decisionAt, amount: awards.amountAwarded })
       .from(awards)
-      .where(awardScope),
+      .where(liveAwardScope),
 
     // Unpaid instalments falling due this calendar month (Finance KPI).
     getDb()
@@ -336,7 +362,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
       .where(
         and(
-          awardScope,
+          liveAwardScope,
           sql`${awardInstalments.paidDate} IS NULL`,
           sql`${awardInstalments.dueDate} >= ${monthStartIso}`,
           sql`${awardInstalments.dueDate} < ${monthEndIso}`,

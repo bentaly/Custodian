@@ -115,7 +115,13 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
   })
 
   const items: InsightsGrant[] = apps
-    .filter((a) => a.award)
+    // Cancelled grants are excluded, the same rule Finance, Rounds, Shortlist and the
+    // dashboard apply: a withdrawn grant is not committed money. Every figure on this
+    // screen is a sum of `amountAwarded` — committed, by programme, by theme, by
+    // region, the deprivation weighting — so leaving them in overstated all of them at
+    // once. Filtered here rather than at the dozen `reduce` call sites, because a rule
+    // enforced in twelve places is a rule that will be missed in the thirteenth.
+    .filter((a) => a.award && a.award.status !== 'cancelled')
     .map((a) => {
       const award = a.award!
       const programme = a.roundProgramme?.programme ?? null

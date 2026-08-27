@@ -696,6 +696,36 @@ hosts that do not exist yet.
   third parties); `src/server/awardLetter.ts` stores + sends it
 - **budget** — budget-line types/helpers; `validators/` — zod schemas shared client/server
 
+## The money rule: what a cancelled grant counts toward
+
+Five modules compute money and they must agree, because a foundation reads two of them
+side by side. The rule, stated on `listFinanceGrants` and enforced in `grantsQuery`:
+
+- **paid** — INCLUDES cancelled grants. The money left the building; paid history has to
+  reconcile against the foundation's own ledger.
+- **committed / awarded / giving** — EXCLUDES cancelled. A withdrawn grant is not money
+  the foundation has committed.
+- **outstanding / overdue / due soon** — EXCLUDES cancelled. There is nothing left to pay.
+
+Finance (`server/finance/query.ts`), Rounds (`ne(awards.status, 'cancelled')`) and
+Shortlist applied it. **The dashboard and Insights did not**, and were caught by the
+2026-08-27 audit measuring them against live data: one foundation's dashboard reported
+£186,166.66 outstanding where its Finance screen reported £165,666.66 — the £20,500
+unpaid half of a cancelled £41,000 grant — and both the dashboard and Insights counted
+the full £41,000 as committed giving. Two screens, same tenant, same day, £20,500 apart.
+
+`getDashboard` now derives `liveAwardScope` once and uses it for every money query, with
+`paidToDate` deliberately left on the wider scope (the filter sits inside the aggregate,
+not the WHERE, so the two halves can differ). `getInsights` filters cancelled grants out
+of `items` rather than at its dozen `reduce` call sites — a rule enforced in twelve
+places is one that gets missed in the thirteenth.
+
+Note the money invariants held everywhere else when tested against live data: no grant
+scheduled or paid beyond its award, no negative amounts, no duplicate instalment
+numbers, no orphaned awards. `buildSchedule` folds the rounding remainder into the final
+instalment so a split always sums to the award exactly, and `createAwards` re-checks that
+server-side (0.005 tolerance) rather than trusting the wizard.
+
 ## Awards: shortlist → grant
 
 `createAwards` (`src/server/fns/awardSetup.ts`) is the **only** path that mints an award; the old
