@@ -5,6 +5,7 @@ import { RouteError } from './components/ui/RouteError'
 import { notFoundError } from './lib/errors'
 import { installRequestTimeout } from './lib/requestTimeout'
 import { installStaleChunkReload } from './lib/staleChunk'
+import { APP_SCROLL_SELECTOR } from './lib/appScroll'
 
 /**
  * Start Sentry as early as the browser runs any app code.
@@ -50,6 +51,21 @@ export function getRouter() {
   const router = createRouter({
     routeTree,
     scrollRestoration: true,
+    /**
+     * The app's own scroll container, named so a navigation resets it.
+     *
+     * `scrollRestoration` alone only manages `window`, and the shell is pinned to the
+     * viewport (`h-screen`) — the window never scrolls, `_authenticated`'s <main> does.
+     * So every navigation kept whatever scroll offset the previous screen had: opening
+     * an application from halfway down the list opened it halfway down, and a filtered
+     * list re-rendered under a viewport still parked where the old rows were.
+     *
+     * This is additive, not a replacement — `window` is always reset regardless of what
+     * is listed here, so it does not need naming. Restoration still wins over the reset
+     * on a BACK navigation: the router restores a cached offset first & drops that
+     * element from the scroll-to-top set, so returning to the list returns to the row
+     * that was clicked. */
+    scrollToTopSelectors: [APP_SCROLL_SELECTOR],
     defaultPreload: 'intent',
     /**
      * Loader results survive 30 seconds of navigation.

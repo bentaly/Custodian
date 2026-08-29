@@ -8,10 +8,11 @@ import { withAlpha } from '../BarMeter'
  * left of the scale — with the money tooltip switched off.
  *
  * `outOf` is the scale the figure is QUOTED on, and it travels with the number rather
- * than being the caller's business: the Custodian composite is out of 100 and bands at
- * 80/60, a criterion or a report alignment is out of 10 and bands at 7/4. That is what
- * `bandForScore` already encodes, and the reason a score is never quoted on two scales
- * on two screens — a board that reads `9.1/10` here and `91` there will argue about it.
+ * than being the caller's business: the Custodian composite is out of 100, a criterion or
+ * a report alignment out of 10. `bandForScore` normalises against it & bands on the
+ * proportion (70% / 40%), so the colour means the same thing whichever scale is in play.
+ * The scales themselves stay separate for the reason a score is never quoted two ways on
+ * two screens — a board that reads `9.1/10` here and `91` there will argue about it.
  *
  * Lifted out of the application detail when the report screen needed the same gauge for
  * its alignment average. One ring, one banding, one centre layout.

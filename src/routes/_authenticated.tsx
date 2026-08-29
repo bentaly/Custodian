@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Outlet, redirect, useRouterState } from '@tanstack/react-router'
+import { APP_SCROLL_ID } from '../lib/appScroll'
 import { currentUser, invalidateCurrentUser } from '../lib/currentUser'
 import { safeReturnPath } from '../lib/signInRedirect'
 import { listRoundDates } from '../server/fns/rounds'
@@ -46,8 +47,19 @@ function AuthenticatedLayout() {
         <Sidebar mobileOpen={navOpen} onClose={() => setNavOpen(false)} role={user.role} />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader user={user} rounds={rounds} onOpenNav={() => setNavOpen(true)} />
-          {/* 16px all round at every width — the design's page gutter (Figma 126:31899). */}
-          <main className="flex-1 overflow-y-auto bg-white p-4">
+          {/* 16px all round at every width — the design's page gutter (Figma 126:31899).
+
+              THE app's scroll container: the shell is pinned to the viewport, so the
+              window never scrolls and every screen scrolls inside here. That is why it
+              carries a restoration id — the router's `scrollRestoration` only knows
+              about `window` unless an element names itself, so opening an application
+              from halfway down the list used to land you halfway down the application.
+              `scrollToTopSelectors` in `src/router.tsx` names this id; the two have to
+              stay in step. */}
+          <main
+            data-scroll-restoration-id={APP_SCROLL_ID}
+            className="flex-1 overflow-y-auto bg-white p-4"
+          >
             <Outlet />
           </main>
         </div>

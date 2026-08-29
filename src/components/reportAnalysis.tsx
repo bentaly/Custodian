@@ -16,7 +16,7 @@ import { Alert02Icon, Tick01Icon } from '@hugeicons/core-free-icons'
 import { Badge, Panel, PanelTitle } from './ui'
 import { ScoreRing } from './charts/ScoreRing'
 import { ProgressBar } from './ProgressBar'
-import { C } from './ui/tokens'
+import { C, bandForScore } from './ui/tokens'
 import { fmtDate } from '../lib/format'
 
 export type ReportAnalysisStatus = 'pending' | 'analysed' | 'error'
@@ -46,15 +46,14 @@ export interface ReportAnalysisData {
 }
 
 /**
- * RAG colour for a 1–10 alignment score, on the SAME bands as the Custodian score's
- * criteria (`applications.$applicationId`): 7+ green, 4–6 amber, below 4 red. It used to
- * band at 8/5 here, which meant a 7 was green on one screen and amber on the next for no
- * reason a reader could ever discover.
+ * RAG colour for a 1–10 alignment score. Read from `bandForScore` rather than banded
+ * here: this was a hand-copy that had already drifted once (it banded at 8/5, so a 7 was
+ * green on one screen and amber on the next), and it reached for `C.warning` as a BAR
+ * FILL — the one place that token cannot go, since at #ab5c00 a thin bar reads brown
+ * rather than amber. `SCORE_BAND` keeps a separate fill & text amber for exactly that.
  */
 function ragColour(score: number) {
-  if (score >= 7) return C.success
-  if (score >= 4) return C.warning
-  return C.danger
+  return bandForScore(score, 10).fill
 }
 
 /** The criterion bar the application detail uses, on the report's two alignments. */

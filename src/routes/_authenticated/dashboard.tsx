@@ -197,9 +197,22 @@ function KpiCard({
       className="flex flex-col rounded-pill border bg-white p-1 transition-shadow hover:shadow-xs"
       style={{ borderColor: C.line }}
     >
-      {/* Tinted inner panel (Figma 112:134) — inset 4px, holds the number/meter/chips. */}
+      {/* Tinted inner panel (Figma 112:134) — inset 4px, holds the number/meter/chips.
+
+          `grow`, because the four cards are grid siblings & therefore already all as
+          tall as the tallest: without it each tint was only its own content's height and
+          the slack fell BELOW the footer, so four cards with identical borders had their
+          tinted blocks & their labels ending at four different heights.
+
+          `grow` rather than `flex-1`: both align the row, but `flex-1` zeroes the basis,
+          which leaves the tint free to be SHRUNK below its content — and it is the
+          element carrying `overflow-hidden`, so that clips the meter rather than showing
+          it. Keeping the basis auto means the slack can only ever be added.
+
+          Content stays top-aligned, so the meters still line up across the row; it is
+          only the slack that moves inside the tint. */}
       <div
-        className="relative overflow-hidden rounded-card p-4"
+        className="relative grow overflow-hidden rounded-card p-4"
         style={{ backgroundColor: tint.bg }}
       >
         {/* Figma "Mask group" (112:802): a radial accent gradient shown *through* a dot
@@ -499,9 +512,14 @@ function Dashboard() {
             to="/finance"
             meter={<BarMeter progress={financeProgress} colour={KPI.finance.accent} />}
           >
-            <p className="mt-3 text-label" style={{ color: d.bankIssues > 0 ? C.danger : C.faint }}>
-              {d.bankIssues > 0 ? `${d.bankIssues} bank-detail issue${plural(d.bankIssues)}` : null}
-            </p>
+            {/* Rendered only when there IS an issue: an empty <p> still carried its
+                `mt-3`, which is why this card sat 12px taller than Shortlist & Reports
+                while showing exactly the same amount of content. */}
+            {d.bankIssues > 0 && (
+              <p className="mt-3 text-label" style={{ color: C.danger }}>
+                {d.bankIssues} bank-detail issue{plural(d.bankIssues)}
+              </p>
+            )}
           </KpiCard>
         )}
 

@@ -63,7 +63,7 @@ export const C = {
  * the application screen's ring, the shortlist's vote card and the Set up awards queue
  * each used to carry their own copy, and they had drifted — the detail screen banded at
  * 75/50 where the list banded at 80/60, so a 76 was green on one screen and amber on the
- * screen it opened.
+ * screen it opened. `bandForScore` below is the single rule they now all read.
  *
  * Each band carries TWO colours, because a band has to survive at two sizes:
  *
@@ -81,14 +81,22 @@ export const SCORE_BAND = {
 } as const
 
 /**
- * Which band a score falls in. `outOf` is the scale it is quoted on — the composite is
- * out of 100 and bands at 80/60, a single criterion is out of 10 and bands at 7/4. The
- * two scales are deliberate (a composite is never quoted as `7.1/10`), so the thresholds
- * travel with the scale rather than the caller remembering which is which.
+ * Which band a score falls in — **one rule, expressed as a proportion of the scale**:
+ * 70% and up is good, 40% and up is fair, below that is poor.
+ *
+ * `outOf` is the scale the figure is quoted on & is used only to NORMALISE it. The two
+ * scales are deliberate — the composite is out of 100, a single criterion out of 10, and
+ * a composite is never quoted as `7.1/10` — but the colour is a judgement about the
+ * proportion, and it has to mean the same thing on both. It did not: the thresholds used
+ * to be 80/60 out of 100 against 7/4 out of 10, so 70% was AMBER as a composite and
+ * GREEN as a criterion, on screens that sit next to each other.
+ *
+ * Aligning them moves the composite's boundaries, not the criteria's: green now starts
+ * at 70 rather than 80, and amber at 40 rather than 60.
  */
 export function bandForScore(score: number, outOf: 100 | 10 = 100) {
-  const [good, fair] = outOf === 10 ? [7, 4] : [80, 60]
-  return SCORE_BAND[score >= good ? 'good' : score >= fair ? 'fair' : 'poor']
+  const pct = (score / outOf) * 100
+  return SCORE_BAND[pct >= 70 ? 'good' : pct >= 40 ? 'fair' : 'poor']
 }
 
 /**

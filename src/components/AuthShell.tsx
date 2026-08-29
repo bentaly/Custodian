@@ -217,12 +217,20 @@ export function AuthShell({ children }: { children: ReactNode }) {
       {/* An inset card rather than a full-bleed column (the comp insets it 16px on every
           side).
 
-          63%, not half: the panel is carrying six stages & three cards, the form is
-          carrying four fields — splitting the width evenly starves the side that has
-          something to say & leaves the other one padding. The comp's own split is 56%
-          (a 609px form column of a 1440px frame); this goes further, because the
+          Nearly two thirds, not half: the panel is carrying six stages & three cards,
+          the form is carrying four fields — splitting the width evenly starves the side
+          that has something to say & leaves the other one padding. The comp's own split
+          is 56% (a 609px form column of a 1440px frame); this goes further, because the
           23 Aug copy runs longer than the one-line captions it was drawn around. The
           form needs 380px plus its gutters, so the ceiling is ~70% at 1440px.
+
+          The gutter widens with the panel (32 → 40 → 48px), and the width goes 63% → 65%
+          at `xl` to PAY for the last step rather than take it out of the content: at
+          ~1580px the chip grid is already at its 800px cap, so the extra 2% becomes
+          gutter & the three cards stop running out to the panel's edge while the ring
+          above them sits inset — which is what read as cramped on a 1583×778 display.
+          Padding alone would have narrowed the cards enough to rewrap them, & every line
+          they gain is a line off the bottom of a panel that is already scrolling there.
 
           Two-column: the shell is pinned to the viewport (`lg:h-screen`) & this panel
           scrolls INSIDE itself, so a short display never pushes the form — the only
@@ -230,7 +238,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           first bite out of the spacing; the ring & the three cards are more copy than
           a 740px-tall laptop viewport holds, so past that it scrolls rather than being
           squeezed into illegibility. Stacked: full width, flowing with the page. */}
-      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-8 lg:w-[63%] lg:max-w-[1100px] lg:overflow-y-auto">
+      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-8 lg:w-[63%] lg:px-10 xl:w-[65%] xl:px-12 lg:max-w-[1100px] lg:overflow-y-auto">
         {/* Stacked, the form above has already shown the wordmark. */}
         <div className="hidden lg:block">
           <Wordmark />
