@@ -59,6 +59,7 @@ export type DueDiligenceStatus =
  */
 export type CheckKey =
   // Charity Commission (England & Wales)
+  | 'cc_name_match'
   | 'cc_registration_status'
   | 'cc_not_removed'
   | 'cc_solvency'
@@ -70,10 +71,13 @@ export type CheckKey =
   | 'cc_income_trend'
   | 'cc_spending_deficit'
   // OSCR (Scotland)
+  | 'oscr_registration_status'
+  | 'oscr_name_match'
   | 'oscr_grant_vs_income'
   | 'oscr_spending_deficit'
   | 'oscr_accounts_overdue'
   // Companies House
+  | 'ch_name_match'
   | 'ch_company_status'
   | 'ch_company_age'
   | 'ch_accounts_overdue'
@@ -81,3 +85,4 @@ export type CheckKey =
   | 'ch_filing_history'
   // 360Giving
   | 'tsg_prior_funding'
+  | 'tsg_capacity'

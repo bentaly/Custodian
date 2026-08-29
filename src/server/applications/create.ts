@@ -118,6 +118,7 @@ export async function createApplicationFromCanonical(
     runDueDiligence({
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
+      organisationName: input.organisationName,
       amountRequested: input.amountRequested,
     }),
     scoreMode === 'inline'
@@ -232,6 +233,9 @@ export async function updateApplicationFromCanonical(
   const dueDiligenceInputsChanged =
     !same(existing.charityNumber, input.charityNumber) ||
     !same(existing.companyNumber, input.companyNumber) ||
+    // The name is screened too (does this number belong to the applicant?), so a
+    // corrected name must re-run — otherwise a mapping fix leaves the old mismatch.
+    !same(existing.organisationName, input.organisationName) ||
     Number(existing.amountRequested) !== input.amountRequested
   const deprivationInputsChanged = !same(existing.deliveryArea, input.deliveryArea)
   // The score reads most of the application, so nearly anything a reviewer can change
@@ -250,6 +254,7 @@ export async function updateApplicationFromCanonical(
       ? runDueDiligence({
           charityNumber: input.charityNumber,
           companyNumber: input.companyNumber,
+          organisationName: input.organisationName,
           amountRequested: input.amountRequested,
         })
       : null,

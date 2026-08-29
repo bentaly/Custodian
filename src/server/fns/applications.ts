@@ -289,6 +289,7 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
     const result = await runDueDiligence({
       charityNumber,
       companyNumber,
+      organisationName: application.organisationName,
       amountRequested: Number(application.amountRequested),
     })
 

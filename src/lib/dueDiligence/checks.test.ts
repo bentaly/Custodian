@@ -11,7 +11,14 @@ import type { NormalizedCharity, NormalizedCompany } from './normalize'
 import type { CheckKey, DueDiligenceCheckRecord } from './types'
 
 const NOW = new Date('2026-06-13T00:00:00Z')
-const ctx = (amountRequested = 10_000): CheckContext => ({ amountRequested, now: NOW })
+const ctx = (
+  amountRequested = 10_000,
+  applicantName: string | null = 'Arete Foundation',
+): CheckContext => ({
+  amountRequested,
+  applicantName,
+  now: NOW,
+})
 
 /** Pull a single check's outcome out of a result set by key. */
 function outcome(records: DueDiligenceCheckRecord[], key: CheckKey) {
@@ -20,6 +27,7 @@ function outcome(records: DueDiligenceCheckRecord[], key: CheckKey) {
 
 const healthyCharity: NormalizedCharity = {
   found: true,
+  name: 'The Arete Foundation',
   regStatus: 'R',
   dateOfRemoval: null,
   insolvent: false,
@@ -38,6 +46,20 @@ const healthyCharity: NormalizedCharity = {
 }
 
 describe('charityChecks', () => {
+  it('flags a registration number belonging to a different organisation', () => {
+    // The whole point of the check: every other check passes, truthfully, about a
+    // charity that is not the applicant.
+    const records = charityChecks(healthyCharity, ctx(10_000, 'Northbank Youth Project'))
+    expect(outcome(records, 'cc_name_match')).toBe('fail')
+    expect(computeStatus(records)).toBe('warning')
+    expect(records.find((r) => r.key === 'cc_name_match')?.detail).toContain('Northbank')
+  })
+
+  it('does not judge the name when the applicant name is unknown', () => {
+    const records = charityChecks(healthyCharity, ctx(10_000, null))
+    expect(outcome(records, 'cc_name_match')).toBe('unverified')
+  })
+
   it('passes a healthy charity on every check', () => {
     const records = charityChecks(healthyCharity, ctx())
     expect(records.every((r) => r.result === 'pass')).toBe(true)
@@ -137,12 +159,28 @@ describe('charityChecks', () => {
 describe('companyChecks', () => {
   const healthyCompany: NormalizedCompany = {
     found: true,
+    name: 'Arete Foundation Limited',
+    previousNames: [],
     companyStatus: 'active',
     dateOfCreation: '2015-06-01',
     accountsOverdue: false,
     confirmationStatementOverdue: false,
     filingCount: 24,
   }
+
+  it('accepts a company that applied under its former name', () => {
+    const records = companyChecks(
+      { ...healthyCompany, previousNames: ['Northbank Youth Project'] },
+      ctx(10_000, 'Northbank Youth Project'),
+    )
+    expect(outcome(records, 'ch_name_match')).toBe('pass')
+    expect(records.find((r) => r.key === 'ch_name_match')?.detail).toContain('former')
+  })
+
+  it('flags a company number belonging to a different organisation', () => {
+    const records = companyChecks(healthyCompany, ctx(10_000, 'Riverside Housing Trust'))
+    expect(outcome(records, 'ch_name_match')).toBe('fail')
+  })
 
   it('passes a healthy active company', () => {
     const records = companyChecks(healthyCompany, ctx())
@@ -180,15 +218,36 @@ describe('companyChecks', () => {
 describe('oscrChecks', () => {
   it('warns when the grant exceeds 30% of income', () => {
     const records = oscrChecks(
-      { found: true, income: 100_000, expenditure: 90_000, lastReturnsDate: '2026-01-01' },
+      {
+        found: true,
+        name: null,
+        income: 100_000,
+        expenditure: 90_000,
+        lastReturnsDate: '2026-01-01',
+      },
       ctx(50_000),
     )
     expect(outcome(records, 'oscr_grant_vs_income')).toBe('fail')
   })
 
+  it('blocks a charity that is not on the Scottish register, as England does', () => {
+    const records = oscrChecks(
+      { found: false, name: null, income: null, expenditure: null, lastReturnsDate: null },
+      ctx(),
+    )
+    expect(outcome(records, 'oscr_registration_status')).toBe('fail')
+    expect(computeStatus(records)).toBe('blocked')
+  })
+
   it('warns on overdue returns', () => {
     const records = oscrChecks(
-      { found: true, income: 100_000, expenditure: 90_000, lastReturnsDate: '2024-01-01' },
+      {
+        found: true,
+        name: null,
+        income: 100_000,
+        expenditure: 90_000,
+        lastReturnsDate: '2024-01-01',
+      },
       ctx(),
     )
     expect(outcome(records, 'oscr_accounts_overdue')).toBe('fail')
@@ -197,21 +256,52 @@ describe('oscrChecks', () => {
 
 describe('grantHistoryChecks', () => {
   it('is info-only and unverified when no grants are found', () => {
-    const records = grantHistoryChecks({ grants: [] })
+    const records = grantHistoryChecks({ grants: [] }, ctx())
     expect(outcome(records, 'tsg_prior_funding')).toBe('unverified')
     // Info-level outcomes never downgrade the overall status.
     expect(computeStatus(records)).toBe('clear')
   })
 
   it('summarises the latest grants when present', () => {
-    const records = grantHistoryChecks({
-      grants: [
-        { funder: 'Foundation A', amount: 50_000, date: '2025-01-01', purpose: 'Youth work' },
-        { funder: 'Foundation B', amount: 20_000, date: '2024-01-01', purpose: 'Core costs' },
-      ],
-    })
+    const records = grantHistoryChecks(
+      {
+        grants: [
+          { funder: 'Foundation A', amount: 50_000, date: '2025-01-01', purpose: 'Youth work' },
+          { funder: 'Foundation B', amount: 20_000, date: '2024-01-01', purpose: 'Core costs' },
+        ],
+      },
+      ctx(),
+    )
     expect(outcome(records, 'tsg_prior_funding')).toBe('pass')
-    expect(records[0]!.detail).toContain('Foundation A')
+    // Amount, funder, year and purpose — not just the funder's name.
+    expect(records[0]!.detail).toContain('£50,000 from Foundation A (2025) — Youth work')
+  })
+
+  it('notes when the request dwarfs anything they have managed before', () => {
+    const grants = {
+      grants: [
+        { funder: 'Foundation B', amount: 5_000, date: '2024-01-01', purpose: 'Core costs' },
+      ],
+    }
+    const records = grantHistoryChecks(grants, ctx(60_000))
+    expect(outcome(records, 'tsg_capacity')).toBe('fail')
+    expect(records.find((r) => r.key === 'tsg_capacity')?.detail).toContain('12.0×')
+    // Warning-level — it moves the application's overall status.
+    expect(computeStatus(records)).toBe('warning')
+  })
+
+  it('passes a proportionate request', () => {
+    const grants = {
+      grants: [{ funder: 'Foundation B', amount: 40_000, date: '2024-01-01', purpose: 'Core' }],
+    }
+    expect(outcome(grantHistoryChecks(grants, ctx(50_000)), 'tsg_capacity')).toBe('pass')
+  })
+
+  it('cannot judge capacity when no prior amounts are published', () => {
+    const grants = {
+      grants: [{ funder: 'Foundation B', amount: null, date: '2024-01-01', purpose: 'Core' }],
+    }
+    expect(outcome(grantHistoryChecks(grants, ctx(50_000)), 'tsg_capacity')).toBe('unverified')
   })
 })
 

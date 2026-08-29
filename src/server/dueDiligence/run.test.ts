@@ -40,7 +40,12 @@ describe('runDueDiligence routing', () => {
     // there is nothing to check and nothing a re-run can change, so it must not sit in
     // an admin's flag count for the life of the application.
     const res = await runDueDiligence(
-      { charityNumber: '', companyNumber: undefined, amountRequested: 1000 },
+      {
+        charityNumber: '',
+        companyNumber: undefined,
+        organisationName: null,
+        amountRequested: 1000,
+      },
       { fetchers: stubFetchers(), now: NOW },
     )
     expect(res.status).toBe('no_registration')
@@ -56,7 +61,12 @@ describe('runDueDiligence routing', () => {
     }))
     const fetchers = stubFetchers({ oscr })
     const res = await runDueDiligence(
-      { charityNumber: 'SC012345', companyNumber: undefined, amountRequested: 1000 },
+      {
+        charityNumber: 'SC012345',
+        companyNumber: undefined,
+        organisationName: null,
+        amountRequested: 1000,
+      },
       { fetchers, now: NOW },
     )
     expect(oscr).toHaveBeenCalledOnce()
@@ -68,7 +78,12 @@ describe('runDueDiligence routing', () => {
     const charityCommission = vi.fn(async () => activeCharityRaw)
     const charityFinancialHistory = vi.fn(async () => [])
     const res = await runDueDiligence(
-      { charityNumber: '1234567', companyNumber: undefined, amountRequested: 1000 },
+      {
+        charityNumber: '1234567',
+        companyNumber: undefined,
+        organisationName: null,
+        amountRequested: 1000,
+      },
       { fetchers: stubFetchers({ charityCommission, charityFinancialHistory }), now: NOW },
     )
     expect(charityCommission).toHaveBeenCalledOnce()
@@ -85,7 +100,12 @@ describe('runDueDiligence routing', () => {
     }))
     const companiesHouseFilingHistory = vi.fn(async () => ({ items: [{}, {}] }))
     const res = await runDueDiligence(
-      { charityNumber: undefined, companyNumber: '09876543', amountRequested: 1000 },
+      {
+        charityNumber: undefined,
+        companyNumber: '09876543',
+        organisationName: null,
+        amountRequested: 1000,
+      },
       { fetchers: stubFetchers({ companiesHouse, companiesHouseFilingHistory }), now: NOW },
     )
     expect(companiesHouse).toHaveBeenCalledOnce()
@@ -103,7 +123,12 @@ describe('runDueDiligence routing', () => {
     }))
     const companiesHouseFilingHistory = vi.fn(async () => ({ items: [{}] }))
     const res = await runDueDiligence(
-      { charityNumber: '1234567', companyNumber: '09876543', amountRequested: 1000 },
+      {
+        charityNumber: '1234567',
+        companyNumber: '09876543',
+        organisationName: null,
+        amountRequested: 1000,
+      },
       {
         fetchers: stubFetchers({
           charityCommission,
@@ -131,7 +156,12 @@ describe('runDueDiligence routing', () => {
       ],
     }))
     const res = await runDueDiligence(
-      { charityNumber: '1234567', companyNumber: undefined, amountRequested: 1000 },
+      {
+        charityNumber: '1234567',
+        companyNumber: undefined,
+        organisationName: null,
+        amountRequested: 1000,
+      },
       {
         fetchers: stubFetchers({
           charityCommission: vi.fn(async () => activeCharityRaw),
@@ -149,7 +179,12 @@ describe('runDueDiligence routing', () => {
 describe('runDueDiligence failure modes', () => {
   it('blocks when the charity number is not found (404 → null)', async () => {
     const res = await runDueDiligence(
-      { charityNumber: '0000000', companyNumber: undefined, amountRequested: 1000 },
+      {
+        charityNumber: '0000000',
+        companyNumber: undefined,
+        organisationName: null,
+        amountRequested: 1000,
+      },
       {
         fetchers: stubFetchers({
           charityCommission: vi.fn(async () => null),
@@ -163,7 +198,12 @@ describe('runDueDiligence failure modes', () => {
 
   it('falls back to manual review when the primary register errors (never auto-passes)', async () => {
     const res = await runDueDiligence(
-      { charityNumber: undefined, companyNumber: '09876543', amountRequested: 1000 },
+      {
+        charityNumber: undefined,
+        companyNumber: '09876543',
+        organisationName: null,
+        amountRequested: 1000,
+      },
       {
         fetchers: stubFetchers({
           companiesHouse: vi.fn(async () => {
@@ -179,7 +219,12 @@ describe('runDueDiligence failure modes', () => {
 
   it('does not let a 360Giving failure affect the overall status', async () => {
     const res = await runDueDiligence(
-      { charityNumber: '1234567', companyNumber: undefined, amountRequested: 1000 },
+      {
+        charityNumber: '1234567',
+        companyNumber: undefined,
+        organisationName: null,
+        amountRequested: 1000,
+      },
       {
         fetchers: stubFetchers({
           charityCommission: vi.fn(async () => activeCharityRaw),

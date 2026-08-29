@@ -25,6 +25,12 @@ export interface RunDueDiligenceInput {
   charityNumber: string | null | undefined
   /** Companies House number. */
   companyNumber: string | null | undefined
+  /**
+   * The organisation name the applicant gave, checked against the register's own.
+   * Required rather than optional so a new call site cannot quietly omit it and turn
+   * the one check that validates the number itself into a silent "not verified".
+   */
+  organisationName: string | null | undefined
   amountRequested: number
 }
 
@@ -79,7 +85,11 @@ export async function runDueDiligence(
 
   const charityNumber = input.charityNumber?.trim() || undefined
   const companyNumber = normaliseCompanyNumber(input.companyNumber)
-  const ctx: CheckContext = { amountRequested: input.amountRequested, now }
+  const ctx: CheckContext = {
+    amountRequested: input.amountRequested,
+    applicantName: input.organisationName?.trim() || null,
+    now,
+  }
 
   // No identifiers at all → there is nothing to screen against, and no amount of
   // re-running will produce one. Reported as its own status rather than `review`: a
@@ -135,7 +145,7 @@ export async function runDueDiligence(
   if (tsgId) {
     try {
       const grants = await fetchers.threeSixtyGiving(tsgId)
-      checks.push(...grantHistoryChecks(normalizeGrants(grants)))
+      checks.push(...grantHistoryChecks(normalizeGrants(grants), ctx))
     } catch {
       // info-only — ignore
     }

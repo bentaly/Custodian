@@ -44,6 +44,7 @@ async function main() {
     const result = await runDueDiligence({
       charityNumber: app.charityNumber,
       companyNumber: app.companyNumber,
+      organisationName: app.organisationName,
       amountRequested: Number(app.amountRequested),
     })
     await db

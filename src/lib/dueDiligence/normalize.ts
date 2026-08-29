@@ -9,6 +9,8 @@
 export interface NormalizedCharity {
   /** False when the registration number was not found on the register. */
   found: boolean
+  /** Registered name, compared against the name the applicant gave. */
+  name: string | null
   /** Charity Commission `reg_status`: "R" registered, "RM" removed. */
   regStatus: string | null
   dateOfRemoval: string | null
@@ -34,6 +36,7 @@ export interface FinancialYear {
 
 export interface NormalizedOscrCharity {
   found: boolean
+  name: string | null
   income: number | null
   expenditure: number | null
   lastReturnsDate: string | null
@@ -41,6 +44,9 @@ export interface NormalizedOscrCharity {
 
 export interface NormalizedCompany {
   found: boolean
+  name: string | null
+  /** Former registered names — a body that renamed still applies under the old one. */
+  previousNames: string[]
   companyStatus: string | null
   dateOfCreation: string | null
   accountsOverdue: boolean | null
@@ -96,6 +102,7 @@ export function normalizeCharity(
 
   return {
     found: true,
+    name: toStr(raw['charity_name']) ?? toStr(raw['charity_registered_name']),
     regStatus: toStr(raw['reg_status']),
     dateOfRemoval: toStr(raw['date_of_removal']),
     insolvent: toBool(raw['insolvent']),
@@ -127,6 +134,7 @@ function normalizeFinancialHistory(history: unknown[] | null): FinancialYear[] {
 function emptyCharity(found: boolean): NormalizedCharity {
   return {
     found,
+    name: null,
     regStatus: null,
     dateOfRemoval: null,
     insolvent: null,
@@ -148,12 +156,15 @@ function emptyCharity(found: boolean): NormalizedCharity {
 export function normalizeOscr(raw: unknown): NormalizedOscrCharity {
   const rec = Array.isArray(raw) ? raw[0] : raw
   if (!rec || typeof rec !== 'object' || (rec as Record<string, unknown>)['_error']) {
-    return { found: false, income: null, expenditure: null, lastReturnsDate: null }
+    return { found: false, name: null, income: null, expenditure: null, lastReturnsDate: null }
   }
   const r = rec as Record<string, unknown>
   const nested = r['mostRecentYear'] as Record<string, unknown> | undefined
   return {
     found: true,
+    // Field name is not documented for the Azure endpoint; try the plausible spellings
+    // and fall back to null, which reports as "not verified" rather than a false pass.
+    name: toStr(r['charityName']) ?? toStr(r['name']) ?? toStr(r['charity_name']),
     income: toNum(r['mostRecentYearIncome']) ?? toNum(nested?.['income']),
     expenditure: toNum(r['mostRecentYearExpenditure']) ?? toNum(nested?.['expenditure']),
     lastReturnsDate:
@@ -169,6 +180,8 @@ export function normalizeCompany(
   if (!raw || raw['_error'] || raw['_note']) {
     return {
       found: false,
+      name: null,
+      previousNames: [],
       companyStatus: null,
       dateOfCreation: null,
       accountsOverdue: null,
@@ -183,8 +196,18 @@ export function normalizeCompany(
     const items = filingHistory['items']
     filingCount = Array.isArray(items) ? items.length : toNum(filingHistory['total_count'])
   }
+  const previousNames = Array.isArray(raw['previous_company_names'])
+    ? (raw['previous_company_names'] as unknown[])
+        .map((n) =>
+          n && typeof n === 'object' ? toStr((n as Record<string, unknown>)['name']) : null,
+        )
+        .filter((n): n is string => !!n)
+    : []
+
   return {
     found: true,
+    name: toStr(raw['company_name']),
+    previousNames,
     companyStatus: toStr(raw['company_status']),
     dateOfCreation: toStr(raw['date_of_creation']),
     accountsOverdue: toBool(accounts['overdue']),

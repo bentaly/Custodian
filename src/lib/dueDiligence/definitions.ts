@@ -19,6 +19,13 @@ export interface CheckDefinition {
 
 export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
   // ── Charity Commission ──
+  cc_name_match: {
+    source: 'charity_commission',
+    label: 'Registered name',
+    level: 'warning',
+    rationale:
+      'A registration number that belongs to a different organisation makes every other check meaningless. Legal forms, acronyms and former names are allowed for.',
+  },
   cc_registration_status: {
     source: 'charity_commission',
     label: 'Registration status',
@@ -81,6 +88,26 @@ export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
   },
 
   // ── OSCR (Scotland) ──
+  //
+  // `oscr_registration_status` exists to close a real inequality: a charity number
+  // absent from the Scottish register used to be reported against the proportionality
+  // check, which is warning-level, while the identical failure in England & Wales is a
+  // block. A struck-off Scottish charity therefore reached a board looking merely
+  // questionable. Both registers now answer "is this body on the register at all" at
+  // the same severity.
+  oscr_registration_status: {
+    source: 'oscr',
+    label: 'Registration status',
+    level: 'block',
+    rationale: 'The charity must appear on the Scottish Charity Register.',
+  },
+  oscr_name_match: {
+    source: 'oscr',
+    label: 'Registered name',
+    level: 'warning',
+    rationale:
+      'A registration number that belongs to a different organisation makes every other check meaningless. Legal forms, acronyms and former names are allowed for.',
+  },
   oscr_grant_vs_income: {
     source: 'oscr',
     label: 'Grant proportionality',
@@ -101,6 +128,13 @@ export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
   },
 
   // ── Companies House ──
+  ch_name_match: {
+    source: 'companies_house',
+    label: 'Registered name',
+    level: 'warning',
+    rationale:
+      'A registration number that belongs to a different organisation makes every other check meaningless. Legal forms, acronyms and former names are allowed for.',
+  },
   ch_company_status: {
     source: 'companies_house',
     label: 'Company status',
@@ -138,6 +172,17 @@ export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
     label: 'Prior funding history',
     level: 'info',
     rationale: 'Cross-references prior grants from other UK funders.',
+  },
+  // `warning`, not `info`: an organisation whose largest grant to date was £5,000
+  // asking for £60,000 is a capacity question a board should be made to look at, and
+  // a line that cannot move the status is a line that gets skimmed. It is the only
+  // 360Giving check with any severity — the rest of that source stays informational.
+  tsg_capacity: {
+    source: 'threesixtygiving',
+    label: 'Grant size vs funding history',
+    level: 'warning',
+    rationale:
+      'The amount requested against the largest grant this organisation is known to have managed before.',
   },
 }
 

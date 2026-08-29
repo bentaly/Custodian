@@ -5,6 +5,7 @@
 // deterministic and trivially testable.
 
 import { CHECK_DEFINITIONS, LEVEL_RANK } from './definitions'
+import { bestNameMatch } from './nameMatch'
 import type {
   NormalizedCharity,
   NormalizedCompany,
@@ -22,6 +23,11 @@ import type {
 export interface CheckContext {
   /** Grant amount requested, in pounds. Used for proportionality checks. */
   amountRequested: number
+  /**
+   * The organisation name as the APPLICANT gave it, checked against the name on the
+   * register. Null when we don't hold one — reported as unverified, never as a pass.
+   */
+  applicantName: string | null
   /** Reference "now" — injected so checks are deterministic in tests. */
   now: Date
 }
@@ -58,6 +64,8 @@ export function charityChecks(c: NormalizedCharity, ctx: CheckContext): DueDilig
   }
 
   const out: DueDiligenceCheckRecord[] = []
+
+  out.push(nameMatchCheck('cc_name_match', ctx.applicantName, [c.name]))
 
   // reg_status: "R" registered, "RM" removed.
   out.push(
@@ -164,6 +172,42 @@ function spendingDeficit(
     : rec(key, 'pass')
 }
 
+/**
+ * Does the register entry we just screened belong to the applicant?
+ *
+ * Unverified rather than failed when either side is missing: "we could not check
+ * this" and "the names disagree" are different facts, and only one of them is about
+ * the applicant. Failing on absence would put a warning on every application from a
+ * register that happens not to return a name.
+ */
+function nameMatchCheck(
+  key: 'cc_name_match' | 'ch_name_match' | 'oscr_name_match',
+  applicantName: string | null,
+  registeredNames: (string | null)[],
+): DueDiligenceCheckRecord {
+  const candidates = registeredNames.filter((n): n is string => !!n?.trim())
+  if (!applicantName?.trim() || candidates.length === 0) return rec(key, 'unverified')
+
+  const best = bestNameMatch(applicantName, candidates)
+  if (!best) return rec(key, 'unverified')
+
+  if (!best.match) {
+    return rec(
+      key,
+      'fail',
+      `Applied as “${applicantName.trim()}” but the register shows “${candidates[0]}”`,
+    )
+  }
+  if (best.viaPreviousName) {
+    return rec(key, 'pass', `Matches a former registered name (“${best.matched}”)`)
+  }
+  return rec(
+    key,
+    'pass',
+    best.reason === 'identical' ? best.matched : `${best.matched} — ${best.reason}`,
+  )
+}
+
 function grantVsIncome(
   key: 'cc_grant_vs_income' | 'oscr_grant_vs_income',
   income: number | null,
@@ -179,11 +223,23 @@ function grantVsIncome(
 // ─── OSCR ─────────────────────────────────────────────────────────────────────
 
 export function oscrChecks(o: NormalizedOscrCharity, ctx: CheckContext): DueDiligenceCheckRecord[] {
+  // Not on the register at all. Reported against the registration check — a BLOCK,
+  // matching the Charity Commission path. This used to be recorded against the
+  // proportionality check, which is warning-level, so a struck-off Scottish charity
+  // was reported more softly than an English one for the same failure.
   if (!o.found) {
-    return [rec('oscr_grant_vs_income', 'fail', 'Charity not found on the OSCR register')]
+    return [
+      rec(
+        'oscr_registration_status',
+        'fail',
+        'Charity number not found on the Scottish Charity Register',
+      ),
+    ]
   }
 
   const out: DueDiligenceCheckRecord[] = []
+  out.push(rec('oscr_registration_status', 'pass', 'On the Scottish Charity Register'))
+  out.push(nameMatchCheck('oscr_name_match', ctx.applicantName, [o.name]))
   out.push(grantVsIncome('oscr_grant_vs_income', o.income, ctx))
 
   if (o.income == null || o.expenditure == null) {
@@ -216,6 +272,8 @@ export function companyChecks(c: NormalizedCompany, ctx: CheckContext): DueDilig
   }
 
   const out: DueDiligenceCheckRecord[] = []
+
+  out.push(nameMatchCheck('ch_name_match', ctx.applicantName, [c.name, ...c.previousNames]))
 
   out.push(
     c.companyStatus == null
@@ -263,18 +321,61 @@ export function companyChecks(c: NormalizedCompany, ctx: CheckContext): DueDilig
 
 // ─── 360Giving ──────────────────────────────────────────────────────────────
 
-export function grantHistoryChecks(g: NormalizedGrants): DueDiligenceCheckRecord[] {
+export function grantHistoryChecks(
+  g: NormalizedGrants,
+  ctx: CheckContext,
+): DueDiligenceCheckRecord[] {
   if (g.grants.length === 0) {
-    return [rec('tsg_prior_funding', 'unverified', 'No prior funding history found')]
+    return [
+      rec('tsg_prior_funding', 'unverified', 'No prior funding history found'),
+      rec('tsg_capacity', 'unverified', 'No prior grants to compare against'),
+    ]
   }
-  const latest = g.grants.slice(0, 2)
-  const detail = latest
-    .map(
-      (gr) =>
-        `${gr.funder ?? 'Unknown funder'}${gr.amount ? ` £${gr.amount.toLocaleString('en-GB')}` : ''}`,
-    )
+
+  // Name the grants rather than just their funders. We already hold amount, date and
+  // purpose for up to fifty of them and were rendering two funder names; "£20,000 from
+  // the X Trust in 2024 for youth work" is what a trustee actually wants to read.
+  const detail = g.grants
+    .slice(0, 3)
+    .map((gr) => {
+      const amount = gr.amount ? `£${gr.amount.toLocaleString('en-GB')} from ` : ''
+      const funder = gr.funder ?? 'an unnamed funder'
+      const year = gr.date?.slice(0, 4)
+      return `${amount}${funder}${year ? ` (${year})` : ''}${gr.purpose ? ` — ${gr.purpose}` : ''}`
+    })
     .join('; ')
-  return [rec('tsg_prior_funding', 'pass', detail)]
+
+  const summary = g.grants.length > 3 ? `${detail} — and ${g.grants.length - 3} more` : detail
+
+  return [rec('tsg_prior_funding', 'pass', summary), capacityCheck(g, ctx)]
+}
+
+/**
+ * How does this request compare with the largest grant they are known to have handled?
+ *
+ * Warning severity: a request several times larger than anything the organisation has
+ * handled before is something a board should be made to look at, not a line of context
+ * it can skim past.
+ */
+const CAPACITY_MULTIPLE = 3
+
+function capacityCheck(g: NormalizedGrants, ctx: CheckContext): DueDiligenceCheckRecord {
+  const amounts = g.grants.map((gr) => gr.amount).filter((n): n is number => n != null && n > 0)
+  if (amounts.length === 0 || ctx.amountRequested <= 0) {
+    return rec('tsg_capacity', 'unverified', 'Prior grant amounts not published')
+  }
+
+  const largest = Math.max(...amounts)
+  const multiple = ctx.amountRequested / largest
+  const largestText = `£${largest.toLocaleString('en-GB')}`
+
+  return multiple >= CAPACITY_MULTIPLE
+    ? rec(
+        'tsg_capacity',
+        'fail',
+        `Request is ${multiple.toFixed(1)}× the largest prior grant on record (${largestText})`,
+      )
+    : rec('tsg_capacity', 'pass', `Largest prior grant on record ${largestText}`)
 }
 
 // ─── Status roll-up ───────────────────────────────────────────────────────────
