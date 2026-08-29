@@ -9,10 +9,14 @@ type SubmissionApplication = ApplicationFieldsData & {
 
 export function ApplicationSubmissionDialog({
   application,
+  programmeName,
   open,
   onClose,
 }: {
   application: SubmissionApplication
+  /** The programme applied to — a field of the submission that lives on the round
+   *  programme rather than on the application, so the renderer cannot reach it. */
+  programmeName?: string | null
   open: boolean
   onClose: () => void
 }) {
@@ -24,7 +28,7 @@ export function ApplicationSubmissionDialog({
       description={application.organisationName}
       size="lg"
     >
-      <ApplicationFields application={application} />
+      <ApplicationFields application={application} programmeName={programmeName} />
     </Dialog>
   )
 }

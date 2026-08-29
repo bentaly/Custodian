@@ -390,6 +390,18 @@ export const applications = pgTable(
     // to avoid a data-losing column rename migration); the app refers to it as deliveryArea.
     deliveryArea: text('geography'),
     responses: jsonb('responses').$type<Array<{ label: string; value: string }>>(),
+    // The submission's own running order — one entry per incoming field, in the order
+    // the applicant filled it in, naming the canonical field it fed (or null if it
+    // stayed a response). An INDEX, not a copy: no value is stored here, so the
+    // "View submission" dialog reads every value from the columns above and cannot
+    // show a stale figure, or a bank detail the role-based redaction in
+    // `getApplication` has already removed. Derived from the ingest's `field_order`
+    // and `resolved` at promotion. NULL for applications that never came through the
+    // ingest (imports, seeds) and for those promoted before the column existed — the
+    // dialog then falls back to its own fixed order.
+    submittedFields: jsonb('submitted_fields').$type<
+      Array<{ label: string; canonical: string | null }>
+    >(),
     status: applicationStatusEnum('status').notNull().default('for_review'),
     // Summary outcome of the automated due diligence screening — cheap to read for
     // the applications list/detail indicator without parsing the checks array.
@@ -607,6 +619,14 @@ export const applicationIngests = pgTable('application_ingests', {
     onDelete: 'restrict',
   }),
   rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+  // The order the sender's fields arrived in, captured because `raw_payload` cannot
+  // hold it: Postgres normalises jsonb object keys (by length, then bytewise), so the
+  // very write that preserves the submission destroys the order it was made in. A
+  // 38-question form comes back out as "Trustees, Full-time, Part-time, Volunteers,
+  // Budget total…" — an order no applicant ever saw. Written by `saveIngest` from the
+  // decoded body, where the wire order still exists, and it is the only place it does.
+  // NULL on rows that predate the column; their order is not recoverable.
+  fieldOrder: jsonb('field_order').$type<string[]>(),
   status: ingestStatusEnum('status').notNull().default('needs_review'),
   // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
   proposed:

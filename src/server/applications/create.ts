@@ -161,6 +161,7 @@ export async function createApplicationFromCanonical(
     budgetBreakdown: input.budgetBreakdown ?? null,
     budgetBreakdownLink: input.budgetBreakdownLink ?? null,
     responses: input.responses,
+    submittedFields: input.submittedFields ?? null,
     dueDiligenceStatus: dueDiligence.status,
     dueDiligenceChecks: dueDiligence.checks,
     dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
@@ -292,6 +293,11 @@ export async function updateApplicationFromCanonical(
       budgetBreakdown: input.budgetBreakdown ?? null,
       budgetBreakdownLink: input.budgetBreakdownLink ?? null,
       responses: input.responses,
+      // Rewritten, not preserved: a reviewer's confirm can move a field between
+      // canonical and response, and the index has to follow or the dialog will look
+      // for a value where there is no longer one. It is derived from the same payload
+      // either way, so the ORDER never changes — only which entries are canonical.
+      submittedFields: input.submittedFields ?? null,
       ...(dueDiligence
         ? {
             dueDiligenceStatus: dueDiligence.status,

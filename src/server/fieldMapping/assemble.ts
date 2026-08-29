@@ -20,20 +20,84 @@ export const PROVIDED = '(provided)'
 
 type Resolved = LookupResult['resolved']
 
+/**
+ * The payload's keys in the order the sender wrote them.
+ *
+ * `Object.keys` on a payload read back from the database is NOT that order — jsonb
+ * normalises object keys (length, then bytewise), so a form's questions come back
+ * shortest-first. `fieldOrder` is the order captured at `saveIngest`, before the
+ * write; this reconciles the two, tolerating drift in either direction rather than
+ * trusting the stored list blindly: keys named in the order but absent from the
+ * payload are dropped, and keys in the payload the order never mentioned are kept
+ * (appended, in whatever order they came back in). A missing or empty `fieldOrder`
+ * — every row promoted before the column existed — leaves the payload's own order
+ * untouched, which is the status quo rather than a guess.
+ */
+export function orderedKeys(
+  payload: Record<string, unknown>,
+  fieldOrder?: string[] | null,
+): string[] {
+  const present = Object.keys(payload)
+  if (!fieldOrder || fieldOrder.length === 0) return present
+  const presentSet = new Set(present)
+  const seen = new Set<string>()
+  const ordered: string[] = []
+  for (const key of fieldOrder) {
+    if (!presentSet.has(key) || seen.has(key)) continue
+    seen.add(key)
+    ordered.push(key)
+  }
+  for (const key of present) if (!seen.has(key)) ordered.push(key)
+  return ordered
+}
+
 /** Payload entries not consumed as a mapped source and not a canonical key → responses. */
 export function computeResponses(
   payload: Record<string, unknown>,
   resolved: Resolved,
+  fieldOrder?: string[] | null,
 ): Array<{ label: string; value: string }> {
   const used = new Set(
     Object.values(resolved)
       .map((r) => r?.sourceKey)
       .filter((k): k is string => Boolean(k) && k !== PROVIDED),
   )
-  return Object.entries(payload)
-    .filter(([k]) => !used.has(k) && !CANONICAL_KEY_SET.has(k))
-    .map(([k, v]) => ({ label: k, value: toStringValue(v) }))
+  return orderedKeys(payload, fieldOrder)
+    .filter((k) => !used.has(k) && !CANONICAL_KEY_SET.has(k))
+    .map((k) => ({ label: k, value: toStringValue(payload[k]) }))
     .filter((r) => r.value)
+}
+
+/**
+ * The submission's running order, as an index of `{ incoming label → canonical field }`.
+ *
+ * This is what lets the "View submission" dialog show the form the way it was filled
+ * in, instead of the shape our pipeline pulled it into: the applicant's own wording,
+ * their own sequence, with the fields we recognised sitting where they actually asked
+ * them rather than hoisted into a "details" card at the top.
+ *
+ * No values — see the column comment. Empty values are dropped for the same reason
+ * `computeResponses` drops them: a field nobody answered is not part of the submission.
+ */
+export function buildSubmittedFields(
+  payload: Record<string, unknown>,
+  resolved: Resolved,
+  fieldOrder?: string[] | null,
+): Array<{ label: string; canonical: string | null }> {
+  const canonicalBySourceKey = new Map<string, string>()
+  for (const [canonical, r] of Object.entries(resolved)) {
+    if (r && r.sourceKey !== PROVIDED) canonicalBySourceKey.set(r.sourceKey, canonical)
+  }
+  return orderedKeys(payload, fieldOrder)
+    .filter((k) => toStringValue(payload[k]) !== '')
+    .map((k) => ({
+      label: k,
+      // A payload that named a field by its canonical key resolves on the key alone
+      // (`applyLookupOver`'s identity match), so it is canonical even where nothing
+      // pointed at it — otherwise such a field would be indexed as a plain response
+      // and then found to have no value, and would vanish from the dialog.
+      canonical: canonicalBySourceKey.get(k) ?? (CANONICAL_KEY_SET.has(k) ? k : null),
+    }))
 }
 
 /** Build a CreateApplicationInput candidate (unvalidated) from resolved fields. */
@@ -41,6 +105,7 @@ export function buildCanonicalInput(
   roundProgrammeId: string,
   resolved: Resolved,
   responses: Array<{ label: string; value: string }>,
+  submittedFields?: Array<{ label: string; canonical: string | null }>,
 ) {
   const get = (k: CanonicalFieldKey) => resolved[k]?.value
   const amountRaw = get('amountRequested')
@@ -97,6 +162,7 @@ export function buildCanonicalInput(
     budgetBreakdown: budgetBreakdown ?? undefined,
     budgetBreakdownLink: get('budgetBreakdownLink'),
     responses: allResponses,
+    submittedFields,
   }
 }
 

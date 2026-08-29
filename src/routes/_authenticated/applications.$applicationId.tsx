@@ -951,6 +951,7 @@ function ApplicationDetail() {
 
       <ApplicationSubmissionDialog
         application={application}
+        programmeName={application.roundProgramme.programme.name}
         open={submissionOpen}
         onClose={() => setSubmissionOpen(false)}
       />

@@ -15,6 +15,7 @@ import { getDb } from '../db'
 import { applicationIngests, awards, fieldMappings } from '../../../drizzle/schema'
 import {
   buildCanonicalInput,
+  buildSubmittedFields,
   computeResponses,
   providedValuesFor,
   resolvedFromMapping,
@@ -144,9 +145,18 @@ export async function resolveIngest(
     if (!roundProgrammeId) return { ok: false, error: 'round_programme_missing' }
 
     const confirmedResolved = resolvedFromMapping(ingest.rawPayload, input.mapping, input.values)
-    const confirmedResponses = computeResponses(ingest.rawPayload, confirmedResolved)
+    const confirmedResponses = computeResponses(
+      ingest.rawPayload,
+      confirmedResolved,
+      ingest.fieldOrder,
+    )
     const confirmed = CreateApplicationSchema.safeParse(
-      buildCanonicalInput(roundProgrammeId, confirmedResolved, confirmedResponses),
+      buildCanonicalInput(
+        roundProgrammeId,
+        confirmedResolved,
+        confirmedResponses,
+        buildSubmittedFields(ingest.rawPayload, confirmedResolved, ingest.fieldOrder),
+      ),
     )
     const confirmIssues = [
       ...(confirmed.success
@@ -213,8 +223,13 @@ export async function resolveIngest(
   const roundProgramme = await fetchRoundProgrammeForApplication(roundProgrammeId)
   if (!roundProgramme) return { ok: false, error: 'round_programme_missing' }
 
-  const responses = computeResponses(payload, resolved)
-  const candidate = buildCanonicalInput(roundProgrammeId, resolved, responses)
+  const responses = computeResponses(payload, resolved, ingest.fieldOrder)
+  const candidate = buildCanonicalInput(
+    roundProgrammeId,
+    resolved,
+    responses,
+    buildSubmittedFields(payload, resolved, ingest.fieldOrder),
+  )
 
   const parsed = CreateApplicationSchema.safeParse(candidate)
   const issues = [

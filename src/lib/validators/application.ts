@@ -86,6 +86,15 @@ export const CreateApplicationSchema = z.object({
     })
     .optional(),
   responses: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
+  // The order the submission was actually made in — one entry per incoming field,
+  // naming the canonical field it fed. Optional: a direct canonical submission has no
+  // running order to preserve, and an application created any other way (an import)
+  // was never a form. Carries no values, so nothing here can contradict the columns
+  // above; the labels are the applicant's own question wording, hence the generous cap.
+  submittedFields: z
+    .array(z.object({ label: z.string().max(500), canonical: z.string().max(100).nullable() }))
+    .max(500)
+    .optional(),
 })
 export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>
 

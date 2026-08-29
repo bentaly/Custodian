@@ -37,7 +37,12 @@ import {
   type ProposalMap,
 } from '../../lib/fieldMapping'
 import { runFieldMapping, type FieldMappingAssessor } from './run'
-import { buildCanonicalInput, computeResponses, resolvedMapFor } from './assemble'
+import {
+  buildCanonicalInput,
+  buildSubmittedFields,
+  computeResponses,
+  resolvedMapFor,
+} from './assemble'
 import {
   createApplicationFromCanonical,
   findActiveRoundProgrammeByName,
@@ -75,6 +80,12 @@ export async function saveIngest(params: {
       id,
       clientId: params.clientId,
       rawPayload: params.payload,
+      // The one moment the sender's field order exists. `rawPayload` is about to
+      // become jsonb, which sorts object keys by length and then bytewise, so reading
+      // it back gives an order no applicant ever saw — and `responses` inherited it,
+      // which is what made a 38-question form read as a jumble on the application.
+      // Captured here rather than derived later because later is too late.
+      fieldOrder: Object.keys(params.payload),
       status: 'received',
     })
     .onConflictDoNothing({ target: applicationIngests.id })
@@ -97,7 +108,7 @@ export async function processIngest(
   if (!ingest) return { ok: false, error: 'not_found' }
   if (ingest.status !== 'received') return { ok: false, error: 'not_received' }
 
-  const { clientId, rawPayload: payload } = ingest
+  const { clientId, rawPayload: payload, fieldOrder } = ingest
 
   // 1. Lookup-table match.
   const mappings = await getDb().query.fieldMappings.findMany({
@@ -200,9 +211,12 @@ export async function processIngest(
     roundProgrammeId = resolvedRoundProgramme?.id ?? null
   }
 
-  // 5. Build responses (leftover payload) and the stored resolved map.
-  const responses = computeResponses(payload, resolved)
+  // 5. Build responses (leftover payload) and the stored resolved map, both in the
+  //    order the applicant filled the form in rather than the order jsonb hands the
+  //    payload back in.
+  const responses = computeResponses(payload, resolved, fieldOrder)
   const resolvedMap = resolvedMapFor(resolved)
+  const submittedFields = buildSubmittedFields(payload, resolved, fieldOrder)
 
   // 6. Decide status, validating the assembled canonical input. A required field
   //    that resolved to an invalid value (e.g. an amount that won't parse) is
@@ -222,7 +236,7 @@ export async function processIngest(
 
   if (unresolvedRequired.length === 0 && unmetGroups.length === 0 && roundProgrammeId) {
     validInput = CreateApplicationSchema.safeParse(
-      buildCanonicalInput(roundProgrammeId, resolved, responses),
+      buildCanonicalInput(roundProgrammeId, resolved, responses, submittedFields),
     )
     status = validInput.success ? (aiUsed ? 'ai_proposed' : 'complete') : 'needs_review'
   } else {
