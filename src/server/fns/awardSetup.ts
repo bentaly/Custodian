@@ -56,10 +56,29 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
     }
 
     const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
+    return awardCandidatesData(getDb(), roundProgrammeIds)
+  })
+
+/**
+ * The Set up awards queue, as a plain function of (connection, tenant) — the same seam
+ * Finance, Awards and Reports have, so everything below the auth check runs without a
+ * session.
+ *
+ * Extracted so tenant isolation can be asserted on the rows this actually returns
+ * (`src/server/tenancy.itest.ts`). `roundProgrammeIds` is already intersected with any
+ * round filter by the caller; `undefined` is a superadmin, unrestricted.
+ */
+export async function awardCandidatesData(
+  db: ReturnType<typeof getDb>,
+  roundProgrammeIds: string[] | undefined,
+) {
+  {
     const empty = { items: [] as AwardCandidate[], shortlistedCount: 0 }
+    // An empty (non-null) scope is a caller who can see nothing; `inArray(x, [])` is a
+    // SQL error, so it never reaches the query.
     if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) return empty
 
-    const items = await getDb().query.applications.findMany({
+    const items = await db.query.applications.findMany({
       where: (a, { and, eq }) =>
         and(
           eq(a.status, 'shortlisted'),
@@ -73,14 +92,14 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
     const appIds = items.map((a) => a.id)
     const clientIds = [...new Set(items.map((a) => a.roundProgramme.programme.clientId))]
     const [yesRows, trusteeRows] = await Promise.all([
-      getDb()
+      db
         .select({ applicationId: applicationVotes.applicationId, yes: count() })
         .from(applicationVotes)
         .where(
           and(inArray(applicationVotes.applicationId, appIds), eq(applicationVotes.vote, 'yes')),
         )
         .groupBy(applicationVotes.applicationId),
-      getDb()
+      db
         .select({ clientId: users.clientId, trustees: count() })
         .from(users)
         .where(and(eq(users.role, 'trustee'), inArray(users.clientId, clientIds)))
@@ -120,7 +139,8 @@ export const listAwardCandidates = createServerFn({ method: 'GET' })
       }))
 
     return { items: candidates, shortlistedCount: items.length }
-  })
+  }
+}
 
 /** One row of the award-setup queue. Named so the empty payload can be typed. */
 export type AwardCandidate = {

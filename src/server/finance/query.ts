@@ -218,7 +218,18 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
         // reads as a fault rather than a state, and it inflated that tab's count with a
         // grant no payment run will ever touch. It stays on **Awards**, which is the
         // register of decisions — cancelling one is a decision, not a payment.
-        sql`${awards.status} <> 'cancelled' or coalesce(${roll.paidTotal}, 0) > 0`,
+        //
+        // The OUTER PARENTHESES are load-bearing, and their absence was a cross-tenant
+        // leak. `and()` wraps the whole list in one pair of brackets but does not
+        // bracket each member, so a raw `or` escapes its own term and `AND`'s tighter
+        // binding re-associates the entire clause into
+        //   (status = 'awarded' AND awards.status <> 'cancelled')
+        //   OR (paid_total > 0 AND round_programme_id IN <scope>)
+        // — which left the scope filter on one branch only. Every foundation's awarded
+        // grants therefore appeared on every other foundation's Finance screen, and the
+        // CSV export carries payable bank details. Any raw `or` handed to `and()` must
+        // bracket itself; Drizzle's own `or()` helper does it, a template string cannot.
+        sql`(${awards.status} <> 'cancelled' or coalesce(${roll.paidTotal}, 0) > 0)`,
         // `null` scope is superadmin — unrestricted. An empty array never reaches here;
         // the caller short-circuits, because `inArray(x, [])` is a SQL error.
         scope ? inArray(applications.roundProgrammeId, scope) : undefined,

@@ -49,9 +49,36 @@ const SCORE_BANDS = [
  */
 export const getDashboard = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
-  const rpScope = await visibleRoundProgrammeIds(user)
+  return dashboardData(getDb(), await visibleRoundProgrammeIds(user), user)
+})
 
-  // Non-superadmin with no accessible round-programmes: nothing to show.
+/**
+ * Who the dashboard is being drawn FOR. More than the tenant, because three panels are
+ * about the person: the greeting, the role the screen adapts to, and "awaiting my vote".
+ */
+export type DashboardCaller = {
+  id: string
+  name: string
+  role: string
+  clientId: string | null
+}
+
+/**
+ * The dashboard, as a plain function of (connection, tenant, caller) — the same seam
+ * Finance, Awards and Reports have, so everything below the auth check runs without a
+ * session.
+ *
+ * Extracted so tenant isolation can be asserted on the rows this actually returns
+ * (`src/server/tenancy.itest.ts`). `rpScope` is `null` for a superadmin, unrestricted.
+ */
+export async function dashboardData(
+  db: ReturnType<typeof getDb>,
+  rpScope: string[] | null,
+  user: DashboardCaller,
+) {
+  // Non-superadmin with no accessible round-programmes: nothing to show. The guard is
+  // here rather than in the handler because `inArray(x, [])` is a SQL error, and a
+  // guard a new caller has to remember is a guard that will be forgotten.
   if (rpScope !== null && rpScope.length === 0) {
     return emptyDashboard(user.name)
   }
@@ -120,27 +147,27 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     latelyRows,
   ] = await Promise.all([
     // Pipeline counts by status.
-    getDb()
+    db
       .select({ status: applications.status, count: count() })
       .from(applications)
       .where(inScope)
       .groupBy(applications.status),
 
     // Custodian scores (scored only) for the distribution histogram.
-    getDb()
+    db
       .select({ score: applications.custodianScore })
       .from(applications)
       .where(and(inScope, isNotNull(applications.custodianScore))),
 
     // Submission timestamps within the trend window, bucketed in JS.
-    getDb()
+    db
       .select({ submittedAt: applications.submittedAt })
       .from(applications)
       .where(and(inScope, sql`${applications.submittedAt} >= ${trendStart}`)),
 
     // Rounds for this client, with their application counts.
     clientId
-      ? getDb()
+      ? db
           .select({
             id: rounds.id,
             name: rounds.name,
@@ -156,7 +183,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // Money: total committed, and how many grants are still active. Cancelled grants
     // are not committed money — see `liveAwardScope`.
-    getDb()
+    db
       .select({
         totalAwarded: sql<string>`COALESCE(SUM(${awards.amountAwarded}), '0')`,
         activeGrants: sql<number>`COUNT(*) FILTER (WHERE ${awards.status} = 'active')`,
@@ -165,7 +192,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .where(liveAwardScope),
 
     // Awarded amount by programme (for the donut), via the awarded application.
-    getDb()
+    db
       .select({
         programmeName: programmes.name,
         amount: sql<string>`COALESCE(SUM(${awards.amountAwarded}), '0')`,
@@ -178,7 +205,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .groupBy(programmes.name),
 
     // Shortlisted applications with their yes-vote tally (for ready-to-award / awaiting-vote).
-    getDb()
+    db
       .select({
         id: applications.id,
         organisationName: applications.organisationName,
@@ -193,7 +220,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .groupBy(applications.id),
 
     // Applications awaiting first review.
-    getDb()
+    db
       .select({
         id: applications.id,
         organisationName: applications.organisationName,
@@ -208,7 +235,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .limit(6),
 
     // Recent submissions (for the activity feed).
-    getDb()
+    db
       .select({
         id: applications.id,
         organisationName: applications.organisationName,
@@ -220,7 +247,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .limit(8),
 
     // Recent decisions (awarded / declined).
-    getDb()
+    db
       .select({
         id: applications.id,
         organisationName: applications.organisationName,
@@ -233,7 +260,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .limit(8),
 
     // Recent report submissions (for the activity feed).
-    getDb()
+    db
       .select({
         id: reports.id,
         scheduleId: reports.scheduleId,
@@ -249,7 +276,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // Recent report reviews (activity feed). Derived from reviewedAt, so an
     // undone review simply drops out of the feed.
-    getDb()
+    db
       .select({
         id: reports.id,
         scheduleId: reports.scheduleId,
@@ -265,7 +292,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .limit(8),
 
     // Outstanding grant reports, soonest first.
-    getDb()
+    db
       .select({
         awardId: reportSchedule.awardId,
         applicationId: awards.applicationId,
@@ -286,7 +313,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       .orderBy(reportSchedule.dueDate),
 
     // Outstanding (unpaid) grant payments, soonest first.
-    getDb()
+    db
       .select({
         awardId: awardInstalments.awardId,
         applicationId: awards.applicationId,
@@ -315,7 +342,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     // still left the building and still belongs in paid history; the unpaid remainder
     // of that same grant is owed to nobody. This is the rule `grantsQuery` states as
     // `case when cancelled then 0`, and the line the dashboard used to get wrong.
-    getDb()
+    db
       .select({
         paid: sql<string>`COALESCE(SUM(${awardInstalments.amount}) FILTER (WHERE ${awardInstalments.paidDate} IS NOT NULL), '0')`,
         outstanding: sql<string>`COALESCE(SUM(${awardInstalments.amount}) FILTER (WHERE ${awardInstalments.paidDate} IS NULL AND ${awards.status} <> 'cancelled'), '0')`,
@@ -326,7 +353,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // Count of trustees for the client (denominator for the vote majority).
     clientId
-      ? getDb()
+      ? db
           .select({ count: count() })
           .from(users)
           .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId)))
@@ -334,7 +361,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // Giving buckets (on awards.decisionAt): all-time / YTD / this year to last year /
     // this quarter, plus a grant count — all for the "Giving so far" panel + YoY line.
-    getDb()
+    db
       .select({
         allTime: sql<string>`COALESCE(SUM(${awards.amountAwarded}), '0')`,
         ytd: sql<string>`COALESCE(SUM(${awards.amountAwarded}) FILTER (WHERE ${awards.decisionAt} >= ${yearStart}), '0')`,
@@ -347,13 +374,13 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // Every award's decision date + amount — the raw events the giving chart buckets
     // adaptively per range (day/week/month/quarter/year, chosen from the span).
-    getDb()
+    db
       .select({ decisionAt: awards.decisionAt, amount: awards.amountAwarded })
       .from(awards)
       .where(liveAwardScope),
 
     // Unpaid instalments falling due this calendar month (Finance KPI).
-    getDb()
+    db
       .select({
         amount: sql<string>`COALESCE(SUM(${awardInstalments.amount}), '0')`,
         cnt: sql<number>`COUNT(*)`,
@@ -371,7 +398,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // Reports received but not yet signed off (Reports KPI: "to review").
     clientId
-      ? getDb()
+      ? db
           .select({ count: count() })
           .from(reports)
           .where(and(eq(reports.clientId, clientId), sql`${reports.reviewedAt} IS NULL`))
@@ -379,7 +406,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // Bank details for grants whose money is still moving (Finance KPI: the level-1
     // modulus check runs offline, so checking on read is free).
-    getDb()
+    db
       .select({
         sortCode: applications.bankSortCode,
         accountNumber: applications.bankAccountNumber,
@@ -390,7 +417,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
 
     // "Lately" feed — human actions from the audit log, newest first.
     clientId
-      ? getDb()
+      ? db
           .select({
             id: auditLog.id,
             action: auditLog.action,
@@ -482,13 +509,13 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   if (roundRows.length > 0) {
     const roundIds = roundRows.map((r) => r.id)
     const [appCountRows, budgetRows, funnelRows, focusProgrammeRows] = await Promise.all([
-      getDb()
+      db
         .select({ roundId: roundProgrammes.roundId, count: count() })
         .from(applications)
         .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
         .where(inArray(roundProgrammes.roundId, roundIds))
         .groupBy(roundProgrammes.roundId),
-      getDb()
+      db
         .select({
           roundId: roundProgrammes.roundId,
           budget: sql<string>`COALESCE(SUM(${roundProgrammes.budget}), '0')`,
@@ -501,7 +528,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
         .groupBy(roundProgrammes.roundId),
       // Status counts for the focus round only — the basis of the funnel.
       focusRound
-        ? getDb()
+        ? db
             .select({ status: applications.status, count: count() })
             .from(applications)
             .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
@@ -510,9 +537,12 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
         : Promise.resolve([] as Array<{ status: string; count: number }>),
       // Per-programme budget + committed for the focus round (the round rail donut/bars).
       focusRound
-        ? getDb()
+        ? db
             .select({
               programmeName: programmes.name,
+              // The foundation's own colour for the programme, so the round donut and
+              // the budget bars draw it the same as its swatch and its cards.
+              programmeColour: programmes.colour,
               budget: sql<string>`COALESCE(${roundProgrammes.budget}, '0')`,
               committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
             })
@@ -521,9 +551,14 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
             .leftJoin(applications, eq(applications.roundProgrammeId, roundProgrammes.id))
             .leftJoin(awards, eq(awards.applicationId, applications.id))
             .where(eq(roundProgrammes.roundId, focusRound.id))
-            .groupBy(programmes.name, roundProgrammes.budget)
+            .groupBy(programmes.name, programmes.colour, roundProgrammes.budget)
         : Promise.resolve(
-            [] as Array<{ programmeName: string; budget: string; committed: string }>,
+            [] as Array<{
+              programmeName: string
+              programmeColour: string | null
+              budget: string
+              committed: string
+            }>,
           ),
     ])
     const appCountByRound = new Map(appCountRows.map((r) => [r.roundId, r.count]))
@@ -557,6 +592,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       const programmesOut = focusProgrammeRows
         .map((r) => ({
           name: r.programmeName,
+          colour: r.programmeColour,
           budget: parseFloat(r.budget),
           committed: parseFloat(r.committed),
         }))
@@ -744,7 +780,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
     },
     activity,
   }
-})
+}
 
 type DashboardRound = {
   id: string
@@ -770,7 +806,7 @@ type DashboardRoundBreakdown = {
   closedAt: Date | null
   budget: number
   committed: number
-  programmes: Array<{ name: string; budget: number; committed: number }>
+  programmes: Array<{ name: string; colour: string | null; budget: number; committed: number }>
 }
 
 function emptyDashboard(name: string) {

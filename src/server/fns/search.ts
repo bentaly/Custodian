@@ -30,10 +30,29 @@ export const globalSearch = createServerFn({ method: 'GET' })
   .validator(z.object({ q: z.string().trim().min(1).max(100) }))
   .handler(async ({ data }): Promise<SearchResult[]> => {
     const user = await requireAuthUser()
-    const like = `%${data.q}%`
-    const clientId = user.clientId // null for superadmin → unrestricted
+    return searchData(getDb(), await visibleRoundProgrammeIds(user), user.clientId, data.q)
+  })
 
-    const rpIds = await visibleRoundProgrammeIds(user) // string[] | null (null = unrestricted)
+/**
+ * Global search, as a plain function of (connection, tenant, caller's client, query) —
+ * the same seam Finance, Awards and Reports have, so everything below the auth check
+ * runs without a session.
+ *
+ * Extracted so tenant isolation can be asserted on the rows this actually returns
+ * (`src/server/tenancy.itest.ts`). Search is the one screen that reads FIVE tables, and
+ * it needs both currencies of tenancy: applications and awards are scoped by
+ * round-programme (`rpIds`), while reports, programmes and rounds carry `client_id`
+ * directly. Both are `null` for a superadmin, meaning unrestricted.
+ */
+export async function searchData(
+  db: ReturnType<typeof getDb>,
+  rpIds: string[] | null,
+  clientId: string | null,
+  q: string,
+): Promise<SearchResult[]> {
+  {
+    const like = `%${q}%`
+
     // An empty (non-null) scope means the caller can see no applications/awards at all.
     const seesNothing = rpIds !== null && rpIds.length === 0
     const rpScope = rpIds ? inArray(applications.roundProgrammeId, rpIds) : undefined
@@ -49,7 +68,7 @@ export const globalSearch = createServerFn({ method: 'GET' })
     const [appRows, awardRows, reportRows, programmeRows, roundRows] = await Promise.all([
       seesNothing
         ? []
-        : getDb().query.applications.findMany({
+        : db.query.applications.findMany({
             // Awarded applications live in the Awards group; everything else here.
             where: and(rpScope, ne(applications.status, 'awarded'), appMatch),
             columns: { id: true, organisationName: true, status: true },
@@ -67,7 +86,7 @@ export const globalSearch = createServerFn({ method: 'GET' })
           }),
       seesNothing
         ? []
-        : getDb().query.applications.findMany({
+        : db.query.applications.findMany({
             where: and(rpScope, eq(applications.status, 'awarded'), appMatch),
             columns: { id: true, organisationName: true },
             with: {
@@ -83,7 +102,7 @@ export const globalSearch = createServerFn({ method: 'GET' })
             orderBy: (a, { desc }) => [desc(a.decisionAt)],
             limit: PER_GROUP,
           }),
-      getDb().query.reports.findMany({
+      db.query.reports.findMany({
         where: and(
           clientId ? eq(reports.clientId, clientId) : undefined,
           or(ilike(reports.organisationName, like), ilike(reports.externalApplicationId, like)),
@@ -92,7 +111,7 @@ export const globalSearch = createServerFn({ method: 'GET' })
         orderBy: (r, { desc }) => [desc(r.submittedAt)],
         limit: PER_GROUP,
       }),
-      getDb().query.programmes.findMany({
+      db.query.programmes.findMany({
         where: and(
           clientId ? eq(programmes.clientId, clientId) : undefined,
           ilike(programmes.name, like),
@@ -100,7 +119,7 @@ export const globalSearch = createServerFn({ method: 'GET' })
         columns: { id: true, name: true },
         limit: PER_GROUP,
       }),
-      getDb().query.rounds.findMany({
+      db.query.rounds.findMany({
         where: and(clientId ? eq(rounds.clientId, clientId) : undefined, ilike(rounds.name, like)),
         columns: { id: true, name: true },
         orderBy: (r, { desc }) => [desc(r.createdAt)],
@@ -161,4 +180,5 @@ export const globalSearch = createServerFn({ method: 'GET' })
     }
 
     return results
-  })
+  }
+}

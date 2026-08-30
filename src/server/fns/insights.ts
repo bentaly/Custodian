@@ -32,6 +32,8 @@ export type InsightsGrant = {
   organisationName: string
   programmeId: string | null
   programmeName: string | null
+  /** The programme's OWN colour, so a programme is one colour everywhere it is drawn. */
+  programmeColour: string | null
   unitKey: string
   unitLabel: string
   tags: string[]
@@ -69,15 +71,31 @@ const NATION_LABELS: Record<string, string> = {
 export const getInsights = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
   const scope = await visibleRoundProgrammeIds(user)
+  // An empty (non-null) scope is a caller who can see nothing; `inArray(x, [])` is a
+  // SQL error, so it never reaches the query.
   if (scope !== null && scope.length === 0) return { items: [] as InsightsGrant[] }
+  return insightsData(getDb(), scope)
+})
 
+/**
+ * Insights, as a plain function of (connection, tenant) — the same seam Finance,
+ * Awards and Reports have, so everything below the auth check runs without a session.
+ *
+ * Extracted so tenant isolation can be asserted on the rows this actually returns
+ * (`src/server/tenancy.itest.ts`). `scope` is `null` for a superadmin, unrestricted;
+ * an empty array is the caller's short-circuit above and must not reach here.
+ */
+export async function insightsData(
+  db: ReturnType<typeof getDb>,
+  scope: string[] | null,
+): Promise<{ items: InsightsGrant[] }> {
   // Named columns, not the whole row. An application carries five jsonb blobs
   // (`responses`, `custodian_score_detail`, `budget_breakdown`, …) that together are
   // most of its ~2.5KB, and this query loads every awarded application a foundation
   // has. Selecting the dozen fields actually read below is the difference between a
   // few hundred KB and tens of MB once a foundation is making a thousand awards a year.
   // `deprivationContext` is the one jsonb kept — the map is built from it.
-  const apps = await getDb().query.applications.findMany({
+  const apps = await db.query.applications.findMany({
     where: and(
       eq(applications.status, 'awarded'),
       scope ? inArray(applications.roundProgrammeId, scope) : undefined,
@@ -151,6 +169,7 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
         organisationName: a.organisationName,
         programmeId: programme?.id ?? null,
         programmeName: programme?.name ?? null,
+        programmeColour: programme?.colour ?? null,
         unitKey: programme?.impactUnit ?? 'people',
         unitLabel: impactUnitLabel(programme?.impactUnit, programme?.impactUnitLabel),
         tags: (programme?.tags as string[] | null) ?? [],
@@ -173,4 +192,4 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
     })
 
   return { items }
-})
+}

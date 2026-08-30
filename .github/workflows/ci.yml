@@ -27,6 +27,14 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Unconditional, like typecheck: a push to master deploys, so the tests have to
+      # gate the deploy rather than report on it afterwards. `pnpm test` is the offline
+      # suite — no DOM, no network, no database (see vitest.config.ts), so it needs no
+      # secrets and runs on a fork's PR. The tenancy tests are a separate project
+      # (`pnpm test:tenancy`) because they need a real connection.
+      - name: Test
+        run: pnpm test
+
       - name: Build
         run: pnpm build
         if: github.ref == 'refs/heads/master'

@@ -40,12 +40,39 @@ export const listShortlist = createServerFn({ method: 'GET' })
     // Tenant scope (null = superadmin, unrestricted) intersected with the round filter,
     // so a roundId from another client can't widen what's returned.
     const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
+    return shortlistData(db, roundProgrammeIds, user.clientId)
+  })
+
+/**
+ * The shortlist, as a plain function of (connection, tenant, caller's client) — the
+ * same seam Finance, Awards and Reports have, so everything below the auth check runs
+ * without a session.
+ *
+ * Extracted so tenant isolation can be asserted on the rows this actually returns
+ * (`src/server/tenancy.itest.ts`). `roundProgrammeIds` is already intersected with any
+ * round filter by the caller; `undefined` is a superadmin, unrestricted, and an empty
+ * array is the caller's short-circuit and must not reach here.
+ *
+ * `callerClientId` is separate from the scope because the trustee roster and the
+ * voting policy belong to ONE foundation: a superadmin looking across tenants has no
+ * client of their own, so the roster is taken from the applications in hand.
+ */
+export async function shortlistData(
+  db: ReturnType<typeof getDb>,
+  roundProgrammeIds: string[] | undefined,
+  callerClientId: string | null,
+) {
+  {
     const empty = {
       items: [],
       trustees: [],
       allowAdminVoting: false,
       budgets: [],
     }
+    // An empty (non-null) scope is a caller who can see nothing. The guard lives HERE
+    // rather than in the handler, unlike the older extractions, because `inArray(x, [])`
+    // is a SQL error and a guard a new caller has to remember is a guard that will be
+    // forgotten.
     if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) return empty
 
     const items = await db.query.applications.findMany({
@@ -64,7 +91,7 @@ export const listShortlist = createServerFn({ method: 'GET' })
     // The shortlist is scoped to one client for everyone except a superadmin looking
     // across tenants; the trustee roster and voting policy only make sense for one, so
     // take the first (for a single-client caller it is the only one).
-    const clientId = user.clientId ?? clientIds[0]!
+    const clientId = callerClientId ?? clientIds[0]!
 
     const [voteRows, trustees, profile, committedRows, commentRows] = await Promise.all([
       db
@@ -184,4 +211,5 @@ export const listShortlist = createServerFn({ method: 'GET' })
       allowAdminVoting: profile?.allowAdminVoting ?? false,
       budgets,
     }
-  })
+  }
+}
