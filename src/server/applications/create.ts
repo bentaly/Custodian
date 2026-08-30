@@ -166,6 +166,7 @@ export async function createApplicationFromCanonical(
     dueDiligenceStatus: dueDiligence.status,
     dueDiligenceChecks: dueDiligence.checks,
     dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
+    organisationProfile: dueDiligence.profile,
     custodianScoreStatus: custodian?.status ?? ('queued' as const),
     custodianScore: custodian?.score ?? null,
     custodianScoreDetail: custodian?.detail ?? null,
@@ -308,6 +309,7 @@ export async function updateApplicationFromCanonical(
             dueDiligenceStatus: dueDiligence.status,
             dueDiligenceChecks: dueDiligence.checks,
             dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
+            organisationProfile: dueDiligence.profile,
           }
         : {}),
       ...(custodian

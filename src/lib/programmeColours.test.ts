@@ -3,6 +3,7 @@ import {
   PROGRAMME_PALETTE,
   colourForHue,
   colourName,
+  colourSeries,
   hueOf,
   nextProgrammeColour,
   normaliseColour,
@@ -92,19 +93,78 @@ describe('hueOf', () => {
   })
 })
 
-describe('nextProgrammeColour', () => {
-  it('hands out the presets in order while any are free', () => {
-    expect(nextProgrammeColour([])).toBe(PROGRAMME_PALETTE[0]!.hex)
-    expect(nextProgrammeColour([PROGRAMME_PALETTE[0]!.hex])).toBe(PROGRAMME_PALETTE[1]!.hex)
+describe('colourSeries', () => {
+  it('never repeats a colour, however many are asked for', () => {
+    // The bug it exists to stop: a fixed list cycled with `i % length`, where the sixth
+    // budget line wears the first one's colour and the bar stops keying to its legend.
+    for (const n of [1, 2, 3, 5, 6, 9, 12, 24]) {
+      const series = colourSeries(n)
+      expect(series).toHaveLength(n)
+      expect(new Set(series).size).toBe(n)
+    }
   })
 
-  it('skips taken presets rather than the first gap', () => {
+  it('is the palette when there are ten of them', () => {
+    // Same ramp, same anchor, same 36° step — so a budget bar and a programme swatch are
+    // the same family by construction rather than by two lists being kept in step.
+    // (±2 per channel, as above: an 8-bit hue does not round-trip losslessly.)
+    const series = colourSeries(PROGRAMME_PALETTE.length)
+    series.forEach((hex, i) => {
+      const preset = PROGRAMME_PALETTE[i]!.hex
+      for (const j of [1, 3, 5]) {
+        expect(
+          Math.abs(parseInt(hex.slice(j, j + 2), 16) - parseInt(preset.slice(j, j + 2), 16)),
+        ).toBeLessThanOrEqual(2)
+      }
+    })
+  })
+
+  it('spreads as widely as the count allows', () => {
+    const hues = colourSeries(4)
+      .map((c) => hueOf(c)!)
+      .sort((a, b) => a - b)
+    for (let i = 0; i < hues.length; i++) {
+      const gap = (hues[(i + 1) % hues.length]! - hues[i]! + 360) % 360 || 360
+      expect(gap).toBeCloseTo(90, 0)
+    }
+  })
+
+  it('is empty for nothing to colour', () => {
+    expect(colourSeries(0)).toEqual([])
+    expect(colourSeries(-1)).toEqual([])
+  })
+})
+
+describe('nextProgrammeColour', () => {
+  it('starts at the top of the palette when nothing is taken', () => {
+    expect(nextProgrammeColour([])).toBe(PROGRAMME_PALETTE[0]!.hex)
+  })
+
+  it('gives a preset far from the ones in use, not the next one along', () => {
+    // The rule that matters to a foundation with three programmes. Handing them out in
+    // list order gave programmes two and three neighbouring hues — 36° apart, which at
+    // this ramp's chroma read as the same colour in a 12px swatch.
+    const first = PROGRAMME_PALETTE[0]!.hex
+    const second = nextProgrammeColour([first])
+    expect(hueGap(hueOf(first)!, hueOf(second)!)).toBeGreaterThan(150)
+
+    const third = nextProgrammeColour([first, second])
+    for (const prior of [first, second]) {
+      expect(hueGap(hueOf(prior)!, hueOf(third)!)).toBeGreaterThan(60)
+    }
+  })
+
+  it('never repeats a preset that is already in use', () => {
     const taken = [PROGRAMME_PALETTE[0]!.hex, PROGRAMME_PALETTE[2]!.hex]
-    expect(nextProgrammeColour(taken)).toBe(PROGRAMME_PALETTE[1]!.hex)
+    const next = nextProgrammeColour(taken)
+    expect(taken).not.toContain(next)
+    expect(PROGRAMME_PALETTE.map((c) => c.hex)).toContain(next)
   })
 
   it('ignores nulls and casing when working out what is taken', () => {
-    expect(nextProgrammeColour([null, undefined, '#F8518E'])).toBe(PROGRAMME_PALETTE[1]!.hex)
+    const next = nextProgrammeColour([null, undefined, PROGRAMME_PALETTE[0]!.hex.toUpperCase()])
+    expect(next).not.toBe(PROGRAMME_PALETTE[0]!.hex)
+    expect(hueGap(hueOf(PROGRAMME_PALETTE[0]!.hex)!, hueOf(next)!)).toBeGreaterThan(150)
   })
 
   it('keeps generating fresh, well-spaced colours past the tenth programme', () => {
@@ -126,9 +186,14 @@ describe('nextProgrammeColour', () => {
   it('takes account of custom picks when choosing where the space is free', () => {
     // Walking a fixed sequence would ignore this; bisecting the real gap does not.
     // With only two colours in use, the next belongs in one of the two big arcs.
-    const next = nextProgrammeColour(['#f8518e', '#2ab646'])
+    const next = nextProgrammeColour([PROGRAMME_PALETTE[0]!.hex, PROGRAMME_PALETTE[4]!.hex])
     const h = hueOf(next)!
-    expect(Math.min(hueGap(hueOf('#f8518e')!, h), hueGap(hueOf('#2ab646')!, h))).toBeGreaterThan(30)
+    expect(
+      Math.min(
+        hueGap(hueOf(PROGRAMME_PALETTE[0]!.hex)!, h),
+        hueGap(hueOf(PROGRAMME_PALETTE[4]!.hex)!, h),
+      ),
+    ).toBeGreaterThan(30)
   })
 
   it('still returns something when every stored colour is a grey with no hue', () => {
@@ -159,8 +224,8 @@ describe('resolveProgrammeColour', () => {
 
 describe('colourName', () => {
   it('names a preset, whatever the casing', () => {
-    expect(colourName('#f8518e')).toBe('Rose')
-    expect(colourName('#F8518E')).toBe('Rose')
+    expect(colourName(PROGRAMME_PALETTE[0]!.hex)).toBe('Rose')
+    expect(colourName(PROGRAMME_PALETTE[0]!.hex.toUpperCase())).toBe('Rose')
   })
 
   it('calls anything off-palette Custom', () => {

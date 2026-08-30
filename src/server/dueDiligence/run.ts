@@ -11,12 +11,14 @@ import {
   grantHistoryChecks,
   oscrChecks,
   normalizeCharity,
+  normalizeCharityOverview,
   normalizeCompany,
   normalizeGrants,
   normalizeOscr,
   type CheckContext,
   type DueDiligenceCheckRecord,
   type DueDiligenceStatus,
+  type OrganisationProfile,
 } from '../../lib/dueDiligence'
 import { liveFetchers, type DueDiligenceFetchers } from './fetchers'
 
@@ -67,6 +69,14 @@ export interface DueDiligenceResult {
   status: DueDiligenceStatus
   checks: DueDiligenceCheckRecord[]
   checkedAt: string
+  /**
+   * What the register says the applicant IS — read on the same calls the checks are
+   * derived from, so it costs one extra request rather than a second screening run.
+   * `null` whenever there is nothing to read it from: no charity number, a Scottish
+   * charity (OSCR publishes no equivalent), a company-only applicant, or the register
+   * being unreachable. A caller stores it verbatim; nothing screens on it.
+   */
+  profile: OrganisationProfile | null
 }
 
 export interface RunOptions {
@@ -97,11 +107,12 @@ export async function runDueDiligence(
   // The application states the gap and offers the only fix — adding a number, which
   // screens on the spot.
   if (!charityNumber && !companyNumber) {
-    return { status: 'no_registration', checks: [], checkedAt }
+    return { status: 'no_registration', checks: [], checkedAt, profile: null }
   }
 
   const checks: DueDiligenceCheckRecord[] = []
   let primaryFailed = false
+  let profile: OrganisationProfile | null = null
 
   // Charity register — OSCR for SC-prefixed numbers, otherwise the Charity
   // Commission (England & Wales) plus the multi-year financial history.
@@ -115,11 +126,34 @@ export async function runDueDiligence(
       }
     } else {
       try {
-        const [raw, history] = await Promise.all([
+        const [raw, history, overviewRaw] = await Promise.all([
           fetchers.charityCommission(charityNumber),
           fetchers.charityFinancialHistory(charityNumber),
+          fetchers.charityOverview(charityNumber),
         ])
-        checks.push(...charityChecks(normalizeCharity(raw, history), ctx))
+        const charity = normalizeCharity(raw, history)
+        checks.push(...charityChecks(charity, ctx))
+        // Only for a charity that is actually on the register — a profile built from a
+        // 404 would report an organisation we could not find as one with no employees.
+        if (charity.found) {
+          const overview = normalizeCharityOverview(overviewRaw)
+          profile = {
+            source: 'charity_commission',
+            activities: overview?.activities ?? null,
+            // The details call and the overview agree on the money in every sample, but
+            // the details call is the one that must have answered for us to be here.
+            latestIncome: charity.latestIncome ?? overview?.latestIncome ?? null,
+            latestExpenditure: charity.latestExpenditure ?? overview?.latestExpenditure ?? null,
+            financialPeriodEnd: charity.financialPeriodEnd ?? overview?.financialPeriodEnd ?? null,
+            employees: overview?.employees ?? null,
+            volunteers: overview?.volunteers ?? null,
+            trusteeCount: charity.trusteeCount ?? overview?.trustees ?? null,
+            registeredSince: charity.dateOfRegistration,
+            charityType: typeof raw?.['charity_type'] === 'string' ? raw['charity_type'] : null,
+            unrestrictedReserves: null,
+            fetchedAt: checkedAt,
+          }
+        }
       } catch {
         primaryFailed = true
       }
@@ -154,8 +188,8 @@ export async function runDueDiligence(
   // A primary register being unreachable means we couldn't actually screen —
   // never auto-pass; surface for manual review (spec §error handling).
   if (primaryFailed) {
-    return { status: 'review', checks, checkedAt }
+    return { status: 'review', checks, checkedAt, profile }
   }
 
-  return { status: computeStatus(checks), checks, checkedAt }
+  return { status: computeStatus(checks), checks, checkedAt, profile }
 }

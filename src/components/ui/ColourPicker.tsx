@@ -15,6 +15,18 @@ import { C } from './tokens'
 // stay selectable. With ten presets, a foundation with eleven programmes — or archived
 // ones still holding colours — must not reach a picker where nothing can be chosen.
 
+/**
+ * The "custom" tile's rainbow, built from every other preset so it is literally the ramp
+ * this picker offers. It was six hard-coded hexes, which went stale the moment the ramp
+ * was re-tuned and left the tile advertising colours the palette no longer contained.
+ */
+const RAINBOW = `conic-gradient(${[
+  ...PROGRAMME_PALETTE.filter((_, i) => i % 2 === 0),
+  PROGRAMME_PALETTE[0]!,
+]
+  .map((c) => c.hex)
+  .join(', ')})`
+
 export function ColourPicker({
   value,
   onChange,
@@ -87,9 +99,7 @@ export function ColourPicker({
           style={{
             // The custom tile shows the chosen colour once it is off-palette, so the
             // selection is visible without hunting; otherwise it is the rainbow.
-            background: isPreset
-              ? 'conic-gradient(#f8518e, #c88a24, #2ab646, #2aa8c6, #9982f7, #eb2ff5, #f8518e)'
-              : (selected ?? undefined),
+            background: isPreset ? RAINBOW : (selected ?? undefined),
             borderColor: !isPreset && selected ? C.ink : 'transparent',
           }}
         />

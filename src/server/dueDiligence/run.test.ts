@@ -12,6 +12,9 @@ function stubFetchers(overrides: Partial<DueDiligenceFetchers> = {}): DueDiligen
   return {
     charityCommission: vi.fn(notCalled),
     charityFinancialHistory: vi.fn(notCalled),
+    // Supplementary and display-only: a stub that threw would make every existing
+    // charity test fail on a call none of them are about.
+    charityOverview: vi.fn(async () => null),
     oscr: vi.fn(notCalled),
     companiesHouse: vi.fn(notCalled),
     companiesHouseFilingHistory: vi.fn(notCalled),

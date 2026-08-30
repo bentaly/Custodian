@@ -12,7 +12,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
-import type { DueDiligenceCheckRecord } from '../src/lib/dueDiligence/types'
+import type { DueDiligenceCheckRecord, OrganisationProfile } from '../src/lib/dueDiligence/types'
 import type { CustodianScoreDetail } from '../src/lib/custodianScore/types'
 import type { DeprivationResult } from '../src/lib/deprivation/types'
 import type { BudgetLine } from '../src/lib/budget/types'
@@ -411,6 +411,12 @@ export const applications = pgTable(
     // src/lib/dueDiligence. We persist only what was actually checked and its outcome.
     dueDiligenceChecks: jsonb('due_diligence_checks').$type<DueDiligenceCheckRecord[]>(),
     dueDiligenceCheckedAt: timestamp('due_diligence_checked_at'),
+    // What the register says the applicant IS, captured on the same calls the checks
+    // come from — income, headcounts, and the charity's own description of its work.
+    // Written by `runDueDiligence` and read only by the screen: nothing screens on it,
+    // which is why it sits beside the checks rather than inside them. Null until the
+    // application has been screened against a charity register that answered.
+    organisationProfile: jsonb('organisation_profile').$type<OrganisationProfile>(),
     // AI "Custodian score" assessment. `custodianScore` is the denormalised
     // composite (0–100) kept in its own column for cheap list reads and sorting;
     // the per-criterion breakdown, summary, and flags live in `custodianScoreDetail`.

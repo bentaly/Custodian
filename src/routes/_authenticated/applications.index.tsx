@@ -253,10 +253,13 @@ function BudgetLegend({
   count?: number
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    // Compact, like the headline above it: three figures on one scale read as one
+    // breakdown of it, where `£155,000` beside `£155k` reads as a second number. The
+    // exact pounds are a hover away, and in the table below.
+    <div className="flex items-center gap-1.5" title={`${fmtAmount(amount)} ${label}`}>
       <span className="size-2 rounded-swatch" style={{ backgroundColor: colour }} />
       <span className="font-display text-body font-medium" style={{ color: C.faint }}>
-        <span style={{ color: C.ink }}>{fmtAmount(amount)}</span> {label}
+        <span style={{ color: C.ink }}>{fmtCompact(amount)}</span> {label}
         {count != null ? ` (${count})` : ''}
       </span>
     </div>
@@ -282,17 +285,23 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
       </p>
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <p
-            className="font-display text-heading font-medium leading-none"
-            style={{ color: C.ink }}
-          >
+        {/*
+          The headline figure is COMMITTED, not the budget, so it is never read alone:
+          "£155k" beside a card titled "Youth Futures budget" reads as the budget. The
+          label sits on the same baseline as the number it belongs to, and the budget it
+          is measured against follows in the same phrase.
+        */}
+        <p
+          className="flex flex-wrap items-baseline gap-x-1.5 font-display leading-none"
+          title={`${fmtAmount(committed)} committed of ${fmtAmount(totalBudget)}`}
+        >
+          <span className="text-heading font-medium" style={{ color: C.ink }}>
             {fmtCompact(committed)}
-          </p>
-          <p className="font-display text-body" style={{ color: C.sub }}>
-            {fmtAmount(committed)} committed of {fmtAmount(totalBudget)}
-          </p>
-        </div>
+          </span>
+          <span className="text-body" style={{ color: C.sub }}>
+            committed of {fmtCompact(totalBudget)}
+          </span>
+        </p>
 
         <BarMeter
           bars={140}

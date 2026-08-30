@@ -34,6 +34,7 @@
   --text-label: 12px; /* field labels, meta, status pills */
   --text-body: 14px; /* body copy, values, item titles, button labels */
   --text-title: 16px; /* card titles */
+  --text-lede: 18px; /* the one sentence a screen is about — see the application's grant purpose */
   --text-heading: 20px; /* page titles */
   --text-display: 32px; /* KPI numbers and other hero figures */
 

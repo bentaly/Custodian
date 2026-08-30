@@ -118,7 +118,7 @@ const GROUPS: Group[] = [
       {
         title: 'Submitting applications',
         description:
-          'What to send us and what each field means — the endpoints, the format, and the full list of fields we recognise.',
+          'What to send us and what each field means - the endpoints, the format, and the full list of fields we recognise.',
         to: '/settings/submissions',
         icon: SourceCodeIcon,
         adminOnly: true,

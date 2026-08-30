@@ -13,6 +13,8 @@
 export interface DueDiligenceFetchers {
   charityCommission(regNumber: string): Promise<Record<string, unknown> | null>
   charityFinancialHistory(regNumber: string): Promise<unknown[] | null>
+  /** Annual return part B — the charity's own description plus headcounts. */
+  charityOverview(regNumber: string): Promise<Record<string, unknown> | null>
   oscr(regNumber: string): Promise<unknown>
   companiesHouse(regNumber: string): Promise<Record<string, unknown> | null>
   companiesHouseFilingHistory(regNumber: string): Promise<Record<string, unknown> | null>
@@ -58,6 +60,20 @@ export const liveFetchers: DueDiligenceFetchers = {
         { 'Ocp-Apim-Subscription-Key': key },
       )
       return Array.isArray(data) ? data : null
+    } catch {
+      return null
+    }
+  },
+
+  async charityOverview(regNumber) {
+    const key = process.env['CHARITY_COMMISSION_KEY']
+    if (!key) return null // supplementary; absence just means no organisation summary
+    try {
+      const data = await getJson(
+        `https://api.charitycommission.gov.uk/register/api/charityoverview/${encodeURIComponent(regNumber)}/0`,
+        { 'Ocp-Apim-Subscription-Key': key },
+      )
+      return data as Record<string, unknown> | null
     } catch {
       return null
     }

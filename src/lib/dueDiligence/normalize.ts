@@ -242,3 +242,33 @@ export function normalizeGrants(raw: Record<string, unknown> | null): Normalized
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
   return { grants }
 }
+
+// ── Charity Commission: `charityoverview/{number}/0` ──
+// The annual return part B record. Carries the charity's own `activities` prose plus
+// the income/expenditure breakdown and headcounts. Supplementary to the details call:
+// a null here means the overview was unavailable, never that the charity was not found.
+export function normalizeCharityOverview(
+  raw: Record<string, unknown> | null,
+): CharityOverview | null {
+  if (!raw || raw['_error'] || raw['_note']) return null
+  return {
+    activities: toStr(raw['activities']),
+    latestIncome: toNum(raw['latest_income']),
+    latestExpenditure: toNum(raw['latest_expenditure']),
+    financialPeriodEnd:
+      toStr(raw['latest_acc_fin_year_end_date']) ?? toStr(raw['fin_period_end_date']),
+    employees: toNum(raw['employees']),
+    volunteers: toNum(raw['volunteers']),
+    trustees: toNum(raw['trustees']),
+  }
+}
+
+export interface CharityOverview {
+  activities: string | null
+  latestIncome: number | null
+  latestExpenditure: number | null
+  financialPeriodEnd: string | null
+  employees: number | null
+  volunteers: number | null
+  trustees: number | null
+}

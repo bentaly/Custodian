@@ -13,7 +13,7 @@ import { castVote } from '../../server/fns/comments'
 import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/custodianScore'
 import type { DeprivationResult } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import { fmtMoney, fmtRef } from '../../lib/format'
+import { fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { Avatar, ErrorNote, TextLink, initials } from '../ui'
 import { useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
@@ -474,9 +474,7 @@ export function VoteCard({
                 {fmtMoney(amount)}
               </div>
               <div className="font-display text-label" style={{ color: C.faint }}>
-                {years && years > 1
-                  ? `${fmtMoney(amount / years)} per year for ${years}yrs`
-                  : 'requested'}
+                {fmtPerYear(amount, years) ?? 'requested'}
               </div>
             </div>
           </div>

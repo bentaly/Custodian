@@ -119,15 +119,14 @@ export function bandForDecile(decile: number) {
   return SCORE_BAND[decile <= 3 ? 'poor' : decile <= 7 ? 'fair' : 'good']
 }
 
-/** The colours a foundation picks a programme's colour from — the Figma Accent family
- *  plus Semantic/Success, exactly the five bound on the Programmes comp (674:33847). */
-export const PROGRAMME_COLOURS = [
-  'var(--color-accent-sky)',
-  'var(--color-success)',
-  'var(--color-accent-blush)',
-  'var(--color-accent-amber)',
-  'var(--color-accent-violet)',
-] as const
+// A programme's colour does NOT live here. It is the foundation's own choice, stored on
+// `programmes.colour` and read through `resolveProgrammeColour` (`lib/programmeColours`);
+// an ad-hoc series with no owner — budget lines, themes, map areas — takes
+// `colourSeries` off the same ramp. The five Figma accents that used to sit here as
+// `PROGRAMME_COLOURS` were the pre-ramp design, and outlived it as a cycled chart
+// palette on three screens: past the fifth programme two of them came out identical, and
+// being semantic tokens, a contrast fix to `--color-success` would have repainted a
+// foundation's programmes.
 
 /**
  * The two control heights the design uses, and the radius each one wears: 32px

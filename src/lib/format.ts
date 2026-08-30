@@ -149,3 +149,24 @@ export function fmtDuration(years: number | null | undefined): string | null {
   if (!years || years <= 0) return null
   return years === 1 ? 'Single year' : `${years} years`
 }
+
+/**
+ * What a multi-year ask works out at per year: `£11,667 per year for 3 years`.
+ *
+ * A total and a duration side by side ("£35k" over "3 years") does not say which it
+ * is — £35k a year for three years is a grant three times the size, and the card gave
+ * a reader no way to tell. Naming the annual figure settles it in the same breath.
+ *
+ * `null` for a single-year or unset duration, where there is nothing to disambiguate:
+ * the caller falls back to `fmtDuration`.
+ *
+ * Deliberately NOT used for an AWARD. An award has a real instalment schedule, which
+ * `buildSchedule` may split unevenly, so an even division would be a figure nobody
+ * agreed to. An application carries no schedule yet — the split is arithmetic on the
+ * one number the applicant gave, and reads as such.
+ */
+export function fmtPerYear(amount: number, years: number | null | undefined): string | null {
+  if (!years || years <= 1) return null
+  if (!isFinite(amount) || amount <= 0) return null
+  return `${fmtMoney(amount / years)} per year for ${years} years`
+}

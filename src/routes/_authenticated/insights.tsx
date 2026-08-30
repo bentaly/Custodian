@@ -37,7 +37,8 @@ import { getInsights, type InsightsGrant } from '../../server/fns/insights'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
 import { fmtCompact, fmtMoney } from '../../lib/format'
 import { impactPhrase } from '../../lib/impactUnits'
-import { C, PROGRAMME_COLOURS, bandForDecile } from '../../components/ui/tokens'
+import { colourSeries, resolveProgrammeColour } from '../../lib/programmeColours'
+import { C, bandForDecile } from '../../components/ui/tokens'
 
 // Insights: portfolio analysis over every awarded grant. Everything on this
 // screen is computed — from grant amounts, resolved deprivation deciles, and the
@@ -88,7 +89,12 @@ const KPI = {
     accent: 'var(--color-danger)',
   },
 }
-const PALETTE = PROGRAMME_COLOURS
+/**
+ * How many areas the map's ranked list names before the tail is pooled into "other".
+ * It used to be `PALETTE.length` — the count of an unrelated five-colour list, so
+ * adding a colour to that list would have silently changed what this panel shows.
+ */
+const MAX_AREAS = 5
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
 
@@ -867,7 +873,11 @@ function InsightsPage() {
       return {
         id: pid,
         name: grants[0]!.programmeName ?? '—',
-        colour: PALETTE[i % PALETTE.length]!,
+        // The colour the foundation gave the programme on /programmes, not this
+        // panel's position in a list — so a programme is the same colour here, on the
+        // dashboard, on its card and in its swatch. Index is the legacy fallback for
+        // programmes created before `programmes.colour` existed.
+        colour: resolveProgrammeColour(grants[0]!.programmeColour, i),
         committed: grants.reduce((s, g) => s + g.amountAwarded, 0),
         grants: grants.length,
         // In the programme's OWN unit, whatever that is. This panel used to state a
@@ -916,13 +926,17 @@ function InsightsPage() {
   const chartTicks = [4, 3, 2, 1, 0].map((i) => (chartMax * i) / 4)
 
   // ── Themes ──
+  // A theme is not a programme and has no colour of its own, so it takes a generated
+  // series: as many distinct colours as there are themes, off the same ramp the
+  // programme palette is cut from.
   const tagNames = [...new Set(fil.flatMap((g) => g.tags))].sort()
+  const themeColours = colourSeries(tagNames.length)
   const themes = tagNames
     .map((t, i) => {
       const grants = fil.filter((g) => g.tags.includes(t))
       return {
         tag: t,
-        colour: PALETTE[i % PALETTE.length]!,
+        colour: themeColours[i]!,
         amount: grants.reduce((s, g) => s + g.amountAwarded, 0),
         count: grants.length,
         // A theme spans programmes, so it can span units — which is exactly why it
@@ -1018,12 +1032,13 @@ function InsightsPage() {
     .sort((a, b) => b.amount - a.amount)
   const areaTotal = areaRanked.reduce((s, a) => s + a.amount, 0)
   const areaNames = useAreaNames(mapView)
-  const topAreas = areaRanked.slice(0, PALETTE.length).map((a, i) => ({
+  const areaColours = colourSeries(Math.min(areaRanked.length, MAX_AREAS))
+  const topAreas = areaRanked.slice(0, MAX_AREAS).map((a, i) => ({
     ...a,
     name: areaNames.get(a.code) ?? a.code,
-    colour: PALETTE[i % PALETTE.length]!,
+    colour: areaColours[i]!,
   }))
-  const restAmount = areaRanked.slice(PALETTE.length).reduce((s, a) => s + a.amount, 0)
+  const restAmount = areaRanked.slice(MAX_AREAS).reduce((s, a) => s + a.amount, 0)
   const areaDonut: DonutSlice[] = [
     ...topAreas.map((a) => ({ areaId: a.code, name: a.name, value: a.amount, colour: a.colour })),
     // Never generate an 8th hue — the tail folds into one neutral "Other".

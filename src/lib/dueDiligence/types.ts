@@ -86,3 +86,53 @@ export type CheckKey =
   // 360Giving
   | 'tsg_prior_funding'
   | 'tsg_capacity'
+
+/**
+ * What the registers say the applicant IS, as opposed to whether they pass screening.
+ *
+ * Due diligence already fetches all of this and throws it away — the checks keep only
+ * their own verdicts, so the only trace an income figure left was prose inside a check
+ * detail ("Grant is 42% of annual income"). A grants officer reading an application
+ * wants the figure itself, next to the ask.
+ *
+ * Kept apart from `NormalizedCharity` on purpose: that shape is the INPUT to the pure
+ * checks, and a display-only field appearing there invites a check to start reading it.
+ * This one is written to the application row and read by the UI; nothing screens on it.
+ */
+export interface OrganisationProfile {
+  /** Which register this was read from. Only the Charity Commission supplies it today. */
+  source: 'charity_commission'
+  /**
+   * The charity's own prose description of what it does, from the annual return
+   * (`charityoverview.activities`). This is the "who are these people" line — it is
+   * written by the charity, not by us and not by a model, which is why it can be shown
+   * without a hedge. Length is uncontrolled: the National Trust's is one sentence,
+   * Cancer Research UK's runs to a paragraph. Clamp on display, never on write.
+   */
+  activities: string | null
+  /** Total income for the latest filed accounting period. */
+  latestIncome: number | null
+  latestExpenditure: number | null
+  /** End of the period the figures above cover — routinely 12-18 months ago. */
+  financialPeriodEnd: string | null
+  employees: number | null
+  volunteers: number | null
+  trusteeCount: number | null
+  registeredSince: string | null
+  /** e.g. "Charitable company", "CIO". */
+  charityType: string | null
+  /**
+   * NOT AVAILABLE FROM THE REGISTER, and this null is the record of that.
+   *
+   * Checked against the live API on 2026-08-29 across five charities: neither
+   * `allcharitydetailsv2` nor `charityoverview` (which IS annual return part B — it
+   * carries the income and expenditure breakdowns, staff bands, government contract
+   * counts) exposes any funds, reserves or assets field. The only sources are the
+   * Commission's bulk data extract or asking the applicant on the form.
+   *
+   * The field is here so the screen can render its real empty state, and so whoever
+   * wires the form field has one obvious place to write it.
+   */
+  unrestrictedReserves: number | null
+  fetchedAt: string
+}

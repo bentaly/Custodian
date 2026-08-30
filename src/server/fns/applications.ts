@@ -300,6 +300,7 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
         dueDiligenceStatus: result.status,
         dueDiligenceChecks: result.checks,
         dueDiligenceCheckedAt: new Date(result.checkedAt),
+        organisationProfile: result.profile,
       })
       .where(eq(applications.id, data.id))
       .returning()

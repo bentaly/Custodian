@@ -23,8 +23,9 @@ import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
 import { fmtCompact } from '../../lib/format'
+import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { canSeePayments } from '../../lib/roles'
-import { C, PROGRAMME_COLOURS, tint as T } from '../../components/ui/tokens'
+import { C, tint as T } from '../../components/ui/tokens'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>
 
@@ -82,8 +83,9 @@ const KPI = {
 // also the colour of the leading number in its sub-line.
 const REPORTS_CHIP = { toReview: 'var(--color-accent-blush)', overdue: 'var(--color-danger)' }
 
-// Round donut / programme-bar palette.
-const PROG_COLOURS = PROGRAMME_COLOURS
+// The donut and the programme bars take each programme's OWN colour
+// (`resolveProgrammeColour`), so a programme reads the same here as on its card, its
+// swatch and in Insights. This is the one segment that is not a programme.
 const ALLOCATE_LEFT = 'var(--color-grey-200)'
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────────
@@ -413,7 +415,7 @@ function Dashboard() {
         ...round.programmes.map((p, i) => ({
           name: p.name,
           value: p.committed,
-          colour: PROG_COLOURS[i % PROG_COLOURS.length]!,
+          colour: resolveProgrammeColour(p.colour, i),
         })),
         {
           name: 'Unallocated',
@@ -625,8 +627,8 @@ function Dashboard() {
                       <ProgressBar
                         className="mt-2"
                         value={p.budget > 0 ? p.committed / p.budget : 0}
-                        colour={PROG_COLOURS[i % PROG_COLOURS.length]!}
-                        track={withAlpha(PROG_COLOURS[i % PROG_COLOURS.length]!, 0.2)}
+                        colour={resolveProgrammeColour(p.colour, i)}
+                        track={withAlpha(resolveProgrammeColour(p.colour, i), 0.2)}
                         delay={i * 90}
                       />
                     </div>

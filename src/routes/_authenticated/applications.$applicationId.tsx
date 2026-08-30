@@ -1,20 +1,21 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  ArrowDown01Icon,
+  ArrowUp01Icon,
   Coins01Icon,
-  FolderLibraryIcon,
   UserGroupIcon,
   UserGroup02Icon,
-  ChartAverageIcon,
+  Building02Icon,
+  MoneyReceive01Icon,
+  SafeBoxIcon,
   File01Icon,
   Mail01Icon,
   CheckmarkCircle02Icon,
   Alert02Icon,
   Tick01Icon,
-  ArrowDown01Icon,
-  ArrowUp01Icon,
 } from '@hugeicons/core-free-icons'
 import {
   getApplication,
@@ -39,6 +40,8 @@ import {
   PanelTitle,
   Tooltip,
   TruncatedText,
+  useClamp,
+  ClampToggle,
 } from '../../components/ui'
 import { ScoreRing } from '../../components/charts/ScoreRing'
 import {
@@ -51,10 +54,12 @@ import { impactUnitLabel, impactUnitSingular } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
 import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
 import type { DeprivationContext } from '../../lib/deprivation/types'
+import type { OrganisationProfile } from '../../lib/dueDiligence'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
-import { fmtCompact, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
-import { C as TOKENS, PROGRAMME_COLOURS, bandForScore } from '../../components/ui/tokens'
+import { fmtCompact, fmtDate, fmtDuration, fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
+import { colourSeries } from '../../lib/programmeColours'
+import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   loader: ({ params }) => orNotFound(getApplication({ data: { id: params.applicationId } })),
@@ -72,12 +77,11 @@ const C = {
 // its last card mixed an `info` fill with a `sky` accent.
 const KPI = {
   amount: KPI_TINTS.violet,
-  programme: KPI_TINTS.green,
+  income: KPI_TINTS.green,
   area: KPI_TINTS.amber,
-  headroom: KPI_TINTS.pink,
+  reserves: KPI_TINTS.pink,
   community: KPI_TINTS.sky,
 }
-const BUDGET_COLOURS = PROGRAMME_COLOURS
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
 // (The monogram's `initials` is `ui/Avatar`'s now, via `DetailHeader` — this screen used
@@ -94,6 +98,10 @@ const BUDGET_COLOURS = PROGRAMME_COLOURS
  * A `Button`, not a hand-rolled `<button>`: `secondary` gives it the app's control
  * chrome, so a thing you click looks like a thing you click. The chevron turns over,
  * which is the only part of the state a glance actually reads.
+ *
+ * Not what the organisation summary uses. That one opens a paragraph inside a card
+ * sitting BESIDE the grant purpose, where a full-width button costs a row of height the
+ * layout does not have — so it wears `ClampToggle`, a chevron on the heading itself.
  */
 function Disclosure({
   open,
@@ -117,6 +125,54 @@ function Disclosure({
     >
       {open ? hideLabel : showLabel}
     </Button>
+  )
+}
+
+/**
+ * One cell of the organisation panel's fact grid: a label, a figure, and optionally the
+ * period or ratio that figure only means something with.
+ *
+ * `empty` is the load-bearing prop. A missing figure here is never an em dash, because
+ * on this panel a dash is ambiguous in the one way the whole ingest design exists to
+ * prevent: "£0 of reserves", "the register does not publish it" and "we never asked"
+ * are three different facts about a charity, and only one of them is a reason to worry.
+ * So the caller states which, and it is set in the muted weight so it never reads as a
+ * value. See `fieldGaps` for the same rule applied to the application's own fields.
+ */
+function Fact({
+  label,
+  value,
+  empty,
+  note,
+}: {
+  label: string
+  /** `null` means we do not have it — say why in `empty`. */
+  value: string | null
+  /** What to print instead, in the reader's terms. Defaults to a dash only because a
+   *  few cells are omitted entirely when empty and never reach this. */
+  empty?: string
+  /** The qualifier that makes the figure true — "year to 31 Mar 2025", "~9 months'
+   *  spend". A bare £1.4m reads as today's, and the register is routinely 12-18 months
+   *  behind. */
+  note?: string | null
+}) {
+  return (
+    <div>
+      <dt className="font-display text-label" style={{ color: C.sub }}>
+        {label}
+      </dt>
+      <dd
+        className={`mt-0.5 font-display text-body ${value ? 'font-medium' : ''}`}
+        style={{ color: value ? C.ink : C.faint }}
+      >
+        {value ?? empty ?? '—'}
+      </dd>
+      {value && note && (
+        <dd className="font-display text-label" style={{ color: C.sub }}>
+          {note}
+        </dd>
+      )}
+    </div>
   )
 }
 
@@ -365,6 +421,10 @@ function ApplicationDetail() {
 
   const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
   const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || amountRequested
+  // One colour per line rather than a five-entry list cycled — the swatch is the only
+  // thing tying a legend row to its segment in the bar, so two lines sharing one broke
+  // the reading of any budget with six lines in it.
+  const budgetColours = useMemo(() => colourSeries(budgetLines.length), [budgetLines.length])
 
   // A budget sent as a file rather than as fields. Opaque to us — nothing reads it, so
   // it feeds neither the breakdown above nor the Custodian score — but it answers the
@@ -397,6 +457,70 @@ function ApplicationDetail() {
   }
   const gaps = fieldGaps(gapValues)
   const noRegistrationNumber = missingRegistrationNumber(gapValues)
+
+  // ── What the register says the applicant IS ────────────────────────────────
+  // Captured by `runDueDiligence` on the same calls the checks come from, so this
+  // costs no extra screening — see `OrganisationProfile`. Null whenever there was
+  // nothing to read: no charity number, a Scottish charity, or a company-only
+  // applicant. That distinction is stated rather than left as an em dash, because a
+  // blank figure and an unasked question must never look the same.
+  const orgProfile = (application.organisationProfile as OrganisationProfile | null) ?? null
+  // Whether the register's description overflows its two lines, and the open/closed
+  // state of the chevron that reveals the rest. Measured, not guessed — see `useClamp`.
+  const activities = useClamp(orgProfile?.activities)
+  const orgIncome = orgProfile?.latestIncome ?? null
+  // Not available from the Charity Commission at all (verified against the live API —
+  // see the field's note). Always null until it is asked for on the application form,
+  // which is why the card says "not captured" rather than showing nothing.
+  const orgReserves = orgProfile?.unrestrictedReserves ?? null
+  const orgSpend = orgProfile?.latestExpenditure ?? null
+  // The figures are as at the last FILED accounts — routinely twelve to eighteen
+  // months old — so the period travels with them. A bare "£412,000" reads as today's.
+  const orgPeriodEnd = orgProfile?.financialPeriodEnd
+    ? fmtDate(orgProfile.financialPeriodEnd)
+    : null
+  // Months of spending the reserves would cover: what a board actually reasons with,
+  // and the reason reserves are worth holding as a number rather than as a note.
+  const reserveMonths =
+    orgReserves != null && orgSpend != null && orgSpend > 0
+      ? Math.round((orgReserves / orgSpend) * 12)
+      : null
+  // The register facts, as the four cells the panel reads them off in. They were one
+  // dot-joined sentence until the panel went two-up: "Registered 1998 · Charitable
+  // company · income £1.4m (year to 31 Mar 2025) · unrestricted reserves not captured ·
+  // 22 staff" is a line a reader has to PARSE to answer "what is their income", which is
+  // the one question the colleague who asked for this panel asks first. A labelled cell
+  // is read, not parsed. Income and reserves always render — an unanswered question must
+  // look different from a blank, not identical to one — while the two context cells drop
+  // out when the register holds nothing for them.
+  const orgRegistered =
+    [
+      orgProfile?.registeredSince
+        ? `Registered ${new Date(orgProfile.registeredSince).getFullYear()}`
+        : null,
+      orgProfile?.charityType,
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
+  const orgPeople =
+    [
+      orgProfile?.employees != null
+        ? `${orgProfile.employees.toLocaleString('en-GB')} staff`
+        : null,
+      orgProfile?.volunteers != null
+        ? `${orgProfile.volunteers.toLocaleString('en-GB')} volunteers`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
+
+  // Why there is no profile, in the applicant's own terms. Screening that has not run
+  // yet is not the same as an applicant there is nothing to screen.
+  const orgAbsence = noRegistrationNumber
+    ? 'No charity or company number was captured, so there is no register entry to read.'
+    : application.charityNumber
+      ? 'Not read yet — re-run the register checks below to fetch it.'
+      : 'Companies House publishes no income or activity summary, so there is nothing to show for a company-only applicant.'
 
   async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
     setError(null)
@@ -596,12 +720,160 @@ function ApplicationDetail() {
             the foundation agreed to fund, written at award set-up and printed on the
             letter — shown under "Awarded for" on the grant screen. That one is prefilled
             from this one and then edited, so the two differ on most grants. */}
-        {grantPurpose && (
+        {(grantPurpose || orgProfile || noRegistrationNumber) && (
           <Panel label="grant purpose">
-            <PanelTitle>Grant purpose</PanelTitle>
-            <p className="font-display text-body leading-relaxed" style={{ color: C.ink }}>
-              {grantPurpose}
-            </p>
+            {/* Two columns, not two stacked blocks. The ask and who is asking are read
+                together, and stacked they were read in sequence: the organisation
+                arrived as a footnote under a rule, after the eye had already moved on
+                to the score. Side by side, neither is subordinate — and the purpose
+                gains its weight from no longer SHARING its full measure with anything,
+                which is the cheapest emphasis available.
+
+                Weight from TYPE, not from a fill. Three treatments were drawn for this
+                panel: an editorial lede, a brand-green plate and an inverted dark card.
+                The lede is the only one that does not spend a colour the rest of the
+                product has given a meaning. Green is the brand — the AI-analysis pill,
+                the awarded state, primary buttons — so a green plate would read as
+                system-endorsed, which is the opposite of what this sentence is. And
+                there is no dark surface anywhere in the app: a grants officer works
+                through forty of these in a sitting, and by the fifth a black block has
+                stopped reading as emphasis. `text-lede` (18px) sits one step under the
+                page `<h1>`, so it is the largest thing in the BODY without outranking
+                the organisation's own name in the header.
+
+                The columns stack below `lg`, which puts the organisation back
+                underneath — the same order it had before, and the right one when there
+                is only one column's width to give it. */}
+            <div className={grantPurpose ? 'grid gap-6 lg:grid-cols-2 lg:gap-8' : ''}>
+              {/* A column, so the caption can be pushed to the FOOT of it. The grant
+                  purpose is capped at 40 words and the organisation card runs to five
+                  rows, so the left column always bottoms out first and left a hole under
+                  it. Sinking the caption spends that gap on something real and keeps the
+                  two section labels on the same line, which centring the column would
+                  have broken. Below `lg` the columns stack and `mt-auto` is inert, so
+                  the caption goes back to hugging the sentence it qualifies. */}
+              {grantPurpose && (
+                <div className="flex flex-col">
+                  <p
+                    className="font-display text-label font-medium uppercase"
+                    style={{ color: C.sub, letterSpacing: '0.06em' }}
+                  >
+                    Grant purpose
+                  </p>
+                  {/* A brand rule, not a brand fill. The rail carries the green at a
+                      fraction of the surface area a tinted plate would, so the sentence
+                      is marked as the one the panel is about without reading as
+                      system-endorsed — which matters here, because this text is written
+                      by the scoring model rather than quoted from the applicant. */}
+                  <p
+                    className="mt-2 border-l-3 pl-2 font-display text-lede leading-relaxed"
+                    style={{ color: C.ink, borderColor: C.brand }}
+                  >
+                    {grantPurpose}
+                  </p>
+                  {/* The one line of copy on this panel that has to be exactly right.
+                      `grantPurpose` is written by the scoring model (see
+                      `CustodianScoreOutputSchema` — one or two sentences, 40 words, no
+                      judgement), NOT quoted from the applicant. Captions calling it "the
+                      applicant's own words" were drafted for this panel and are false:
+                      the whole point of giving it this much weight is that a reader can
+                      trust what it says it is. The 40-word cap is also what makes the
+                      lede safe — free text at 18px would run to a wall. */}
+                  <p
+                    className="mt-3 font-display text-label lg:mt-auto lg:pt-6"
+                    style={{ color: C.sub }}
+                  >
+                    Summarised from the application
+                  </p>
+                </div>
+              )}
+
+              {/* Who they are, beside what they would do with the money. Everything in
+                  here is read from the register, so it is the one block on the screen
+                  that is neither the applicant's claim nor the model's reading — which
+                  is what the tint is for: a change of ground marking a change of
+                  source, not a decorative panel. */}
+              <div className="rounded-card p-5" style={{ backgroundColor: C.wash }}>
+                {/* The chevron rides the heading rather than sitting under the text.
+                    A full-width disclosure button below the paragraph costs a whole row
+                    of height on a card whose argument is that it fits BESIDE the grant
+                    purpose; here it costs nothing, and it reads as "there is more of
+                    this section" at the moment the eye arrives at the section. It is
+                    rendered only when the description is actually clipped. */}
+                <div className="flex items-center gap-1.5">
+                  <HugeiconsIcon icon={Building02Icon} size={14} color={C.sub} />
+                  <p
+                    className="font-display text-label font-medium uppercase"
+                    style={{ color: C.sub, letterSpacing: '0.06em' }}
+                  >
+                    The organisation
+                  </p>
+                  {activities.clipped && (
+                    <ClampToggle
+                      open={activities.open}
+                      onToggle={activities.toggle}
+                      label="Read the full description"
+                    />
+                  )}
+                  {/* Provenance reads as a byline, so it belongs on the heading row
+                      rather than on a line of its own at the foot of the card: it fills
+                      the empty right half of a row that already exists, and gives the
+                      card back the line it was spending. */}
+                  {orgProfile && (
+                    <p
+                      className="ml-auto font-display text-micro uppercase"
+                      style={{ color: C.faint }}
+                    >
+                      Charity Commission · read {fmtDate(orgProfile.fetchedAt)}
+                    </p>
+                  )}
+                </div>
+
+                {orgProfile?.activities ? (
+                  // The charity's OWN description, from its annual return — not ours
+                  // and not a model's, which is why it needs no hedge. Length is
+                  // uncontrolled (one sentence for a village hall, a paragraph for
+                  // Cancer Research UK), so it is clamped on DISPLAY rather than on
+                  // write: truncating what the register said before storing it would
+                  // lose it for good. The chevron that opens it is up on the heading
+                  // row, and appears only when there is something behind the fold.
+                  <p
+                    ref={activities.ref}
+                    className={`mt-2 font-display text-body leading-relaxed ${activities.className ?? ''}`}
+                    style={{ color: C.ink }}
+                  >
+                    {orgProfile.activities}
+                  </p>
+                ) : (
+                  <p className="mt-2 font-display text-body" style={{ color: C.sub }}>
+                    {orgProfile ? 'The register holds no activity summary.' : orgAbsence}
+                  </p>
+                )}
+
+                {orgProfile && (
+                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <Fact
+                      label="Income (last FY)"
+                      value={orgIncome != null ? fmtCompact(orgIncome) : null}
+                      empty={noRegistrationNumber ? 'no charity number' : 'not captured'}
+                      note={orgPeriodEnd ? `year to ${orgPeriodEnd}` : null}
+                    />
+                    {/* Not published by the Charity Commission at ALL — verified against
+                        the live API, see `OrganisationProfile.unrestrictedReserves`. So
+                        this cell says which question was never asked rather than showing
+                        a dash, which would read as a charity that holds none. */}
+                    <Fact
+                      label="Unrestricted reserves"
+                      value={orgReserves != null ? fmtCompact(orgReserves) : null}
+                      empty="not asked on the form"
+                      note={reserveMonths != null ? `~${reserveMonths} months' spend` : null}
+                    />
+                    {orgRegistered && <Fact label="Registered" value={orgRegistered} />}
+                    {orgPeople && <Fact label="People" value={orgPeople} />}
+                  </dl>
+                )}
+              </div>
+            </div>
           </Panel>
         )}
 
@@ -689,28 +961,68 @@ function ApplicationDetail() {
             icon={Coins01Icon}
             label="Amount requested"
             value={fmtCompact(amountRequested)}
-            sub={fmtDuration(rp.grantDurationYears) ?? 'Duration not set'}
+            /* The annual figure, not just the length: "£35k / 3 years" left it open
+               whether the ask was £35k a year. Falls back to the plain duration for a
+               single-year grant, where there is nothing to mistake it for. */
+            sub={
+              fmtPerYear(amountRequested, rp.grantDurationYears) ??
+              fmtDuration(rp.grantDurationYears) ??
+              'Duration not set'
+            }
           />
-          <MiniKpi
-            tint={KPI.programme}
-            icon={FolderLibraryIcon}
-            label="Programme"
-            value={programme.name}
-            sub={roundName ?? '—'}
-          />
+          {/* Beneficiaries and cost-per-beneficiary are one card, not two: the second
+              is the first divided into the amount already in the card beside it, so as
+              separate cards it read as a new fact when it is the same one restated.
+              Programme lost its card entirely — it is the FIRST item in the header
+              subline above, so nothing is lost, and the two slots it and the cost card
+              freed are what the finances now occupy. */}
           <MiniKpi
             tint={KPI.area}
             icon={UserGroupIcon}
             label="Beneficiaries"
             value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
-            sub={proposedImpact != null ? `${unitLabel.toLowerCase()} · proposed` : 'not stated'}
+            sub={
+              proposedImpact != null
+                ? `${unitLabel.toLowerCase()}${costPerBeneficiary != null ? ` · ${fmtMoney(costPerBeneficiary)} each` : ''}`
+                : 'not stated'
+            }
           />
+          {/* The applicant's own scale, next to what they are asking for — the pair a
+              grants officer reads together to judge whether the ask is proportionate.
+              `cc_grant_vs_income` already screens exactly this ratio; the difference is
+              that a check reports a verdict and this reports the figure. */}
           <MiniKpi
-            tint={KPI.headroom}
-            icon={ChartAverageIcon}
-            label="Cost per beneficiary"
-            value={costPerBeneficiary != null ? fmtMoney(costPerBeneficiary) : '—'}
-            sub={costPerBeneficiary != null ? `per ${unitSingular.toLowerCase()}` : 'no target set'}
+            tint={KPI.income}
+            icon={MoneyReceive01Icon}
+            label="Income (last FY)"
+            value={orgIncome != null ? fmtCompact(orgIncome) : '—'}
+            sub={
+              orgIncome != null
+                ? orgPeriodEnd
+                  ? `year to ${orgPeriodEnd}`
+                  : 'per the register'
+                : noRegistrationNumber
+                  ? 'no charity number'
+                  : 'not captured'
+            }
+          />
+          {/* Always empty today, and that is the honest state rather than an omission:
+              no Charity Commission endpoint publishes reserves (checked against the
+              live API, see `OrganisationProfile.unrestrictedReserves`), so the only
+              source is the application form. Shown rather than hidden so the gap is
+              visible to the people deciding whether to add the question. */}
+          <MiniKpi
+            tint={KPI.reserves}
+            icon={SafeBoxIcon}
+            label="Unrestricted reserves"
+            value={orgReserves != null ? fmtCompact(orgReserves) : '—'}
+            sub={
+              orgReserves != null
+                ? reserveMonths != null
+                  ? `~${reserveMonths} months' spend`
+                  : 'as stated'
+                : 'not asked on the form'
+            }
           />
           {/* The deprivation panel that used to sit in the sidebar. */}
           <MiniKpi
@@ -749,7 +1061,7 @@ function ApplicationDetail() {
                 className="mb-4 w-full"
                 segments={budgetLines.map((l, i) => ({
                   value: l.amount,
-                  colour: BUDGET_COLOURS[i % BUDGET_COLOURS.length]!,
+                  colour: budgetColours[i]!,
                 }))}
               />
               <div className="flex flex-col gap-2.5">
@@ -759,7 +1071,7 @@ function ApplicationDetail() {
                     <div key={i} className="flex items-center gap-3">
                       <span
                         className="size-2 shrink-0 rounded-swatch"
-                        style={{ backgroundColor: BUDGET_COLOURS[i % BUDGET_COLOURS.length] }}
+                        style={{ backgroundColor: budgetColours[i] }}
                       />
                       <div
                         className="min-w-0 flex-1 font-display text-body"

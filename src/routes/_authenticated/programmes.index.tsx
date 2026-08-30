@@ -15,7 +15,7 @@ import {
 import { getRoundStatus } from '../../lib/roundStatus'
 import { impactUnitLabel, DEFAULT_IMPACT_UNIT } from '../../lib/impactUnits'
 import { ActionMenu, Badge, Breadcrumb, Button, Card, EmptyState } from '../../components/ui'
-import { colourName, resolveProgrammeColour } from '../../lib/programmeColours'
+import { resolveProgrammeColour } from '../../lib/programmeColours'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
   loader: async () => {
@@ -183,11 +183,13 @@ function ProgrammeCard({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             {/* `aria-hidden`: the colour is a visual shorthand for the name beside it,
-                so announcing it would only add noise. The `title` is for the sighted
-                reader wondering which of two similar swatches they are looking at. */}
+                so announcing it would only add noise. It carries no tooltip either — the
+                palette's names are an internal label, not something a foundation chose,
+                and they go to "Custom" the moment somebody picks their own colour. A
+                swatch whose meaning has to be explained on hover is the wrong swatch;
+                the fix belongs in how colours are handed out, not in a title. */}
             <span
               aria-hidden="true"
-              title={colourName(colour) ?? undefined}
               className={`size-3 shrink-0 rounded-swatch ${archived ? 'opacity-40' : ''}`}
               style={{ backgroundColor: colour }}
             />
