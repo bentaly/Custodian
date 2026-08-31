@@ -11,6 +11,8 @@ import {
   type UpcomingBucket,
 } from '../../server/fns/finance'
 import { PaymentDialog, type FinanceGrant } from '../../components/PaymentDialog'
+import { getFinanceNav } from '../../server/fns/budget'
+import { FinanceHeader } from '../../components/finance/FinanceHeader'
 import {
   Card,
   DataTable,
@@ -107,22 +109,30 @@ export const Route = createFileRoute('/_authenticated/finance/')({
         : undefined,
   }),
   loaderDeps: ({ search }) => search,
-  loader: async ({ deps }) =>
-    listFinanceGrants({
-      data: {
-        tab: deps.tab ?? 'to_pay',
-        roundId: deps.roundId,
-        programmeId: deps.programmeId,
-        tag: deps.tag,
-        status: deps.status,
-        bank: deps.bank,
-        from: deps.from,
-        to: deps.to,
-        sortBy: deps.sortBy,
-        sortDir: deps.sortDir,
-        page: deps.page,
-      },
-    }),
+  // Two calls in parallel. `getFinanceNav` is only the one flag saying whether Finance
+  // offers its second screen — the payments list is built from a round-programme scope and
+  // knows nothing of `clientId`, so the tab pair cannot come out of it.
+  loader: async ({ deps }) => {
+    const [list, nav] = await Promise.all([
+      listFinanceGrants({
+        data: {
+          tab: deps.tab ?? 'to_pay',
+          roundId: deps.roundId,
+          programmeId: deps.programmeId,
+          tag: deps.tag,
+          status: deps.status,
+          bank: deps.bank,
+          from: deps.from,
+          to: deps.to,
+          sortBy: deps.sortBy,
+          sortDir: deps.sortDir,
+          page: deps.page,
+        },
+      }),
+      getFinanceNav(),
+    ])
+    return { ...list, nav }
+  },
   component: FinancePage,
 })
 
@@ -365,6 +375,7 @@ function FinancePage() {
     totals,
     upcoming,
     facets,
+    nav,
   } = Route.useLoaderData()
   const navigate = Route.useNavigate()
   const router = useRouter()
@@ -498,12 +509,11 @@ function FinancePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="font-display text-heading font-medium text-grey-900">Finance</h1>
-        <p className="mt-0.5 text-body text-grey-400">
-          Grant payments · {totals.grantCount} live commitment{totals.grantCount === 1 ? '' : 's'}
-        </p>
-      </div>
+      <FinanceHeader
+        tab="payments"
+        subtitle={`Grant payments · ${totals.grantCount} live commitment${totals.grantCount === 1 ? '' : 's'}`}
+        showTabs={nav.showBalanceAndBudget}
+      />
 
       {error && <p className="font-display text-body text-danger">{error}</p>}
 

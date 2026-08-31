@@ -11,6 +11,7 @@ export {
 } from './Button'
 export { Panel, PanelTitle, KeyFact, HeaderPill, DetailHeader } from './Detail'
 export { Input, Textarea, Select, Label, FIELD_SURFACE } from './fields'
+export { MoneyInput } from './MoneyInput'
 export { Listbox, ListboxPanel, type ListboxOption } from './Listbox'
 export { Card, EmptyState } from './Card'
 export { Dialog } from './Dialog'

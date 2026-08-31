@@ -36,6 +36,7 @@ import { Route as AuthenticatedApplicationsApplicationIdRouteImport } from './ro
 import { Route as AuthenticatedAwardsIndexRouteImport } from './routes/_authenticated/awards.index'
 import { Route as AuthenticatedAwardsAwardIdRouteImport } from './routes/_authenticated/awards.$awardId'
 import { Route as AuthenticatedFinanceIndexRouteImport } from './routes/_authenticated/finance.index'
+import { Route as AuthenticatedFinanceBalanceRouteImport } from './routes/_authenticated/finance.balance'
 import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
@@ -44,6 +45,7 @@ import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsActivityRouteImport } from './routes/_authenticated/settings.activity'
 import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings.api-keys'
 import { Route as AuthenticatedSettingsAwardLetterRouteImport } from './routes/_authenticated/settings.award-letter'
+import { Route as AuthenticatedSettingsBudgetRouteImport } from './routes/_authenticated/settings.budget'
 import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
@@ -211,6 +213,12 @@ const AuthenticatedFinanceIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedFinanceRoute,
   } as any)
+const AuthenticatedFinanceBalanceRoute =
+  AuthenticatedFinanceBalanceRouteImport.update({
+    id: '/balance',
+    path: '/balance',
+    getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
 const AuthenticatedProgrammesIndexRoute =
   AuthenticatedProgrammesIndexRouteImport.update({
     id: '/',
@@ -257,6 +265,12 @@ const AuthenticatedSettingsAwardLetterRoute =
   AuthenticatedSettingsAwardLetterRouteImport.update({
     id: '/award-letter',
     path: '/award-letter',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsBudgetRoute =
+  AuthenticatedSettingsBudgetRouteImport.update({
+    id: '/budget',
+    path: '/budget',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsDataImportRoute =
@@ -426,10 +440,12 @@ export interface FileRoutesByFullPath {
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
+  '/finance/balance': typeof AuthenticatedFinanceBalanceRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
+  '/settings/budget': typeof AuthenticatedSettingsBudgetRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
@@ -480,10 +496,12 @@ export interface FileRoutesByTo {
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
+  '/finance/balance': typeof AuthenticatedFinanceBalanceRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
+  '/settings/budget': typeof AuthenticatedSettingsBudgetRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
@@ -544,10 +562,12 @@ export interface FileRoutesById {
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
+  '/_authenticated/finance/balance': typeof AuthenticatedFinanceBalanceRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/_authenticated/settings/award-letter': typeof AuthenticatedSettingsAwardLetterRoute
+  '/_authenticated/settings/budget': typeof AuthenticatedSettingsBudgetRoute
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
@@ -608,10 +628,12 @@ export interface FileRouteTypes {
     | '/api/submit-report'
     | '/applications/$applicationId'
     | '/awards/$awardId'
+    | '/finance/balance'
     | '/reports/$reportKey'
     | '/settings/activity'
     | '/settings/api-keys'
     | '/settings/award-letter'
+    | '/settings/budget'
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/submissions'
@@ -662,10 +684,12 @@ export interface FileRouteTypes {
     | '/api/submit-report'
     | '/applications/$applicationId'
     | '/awards/$awardId'
+    | '/finance/balance'
     | '/reports/$reportKey'
     | '/settings/activity'
     | '/settings/api-keys'
     | '/settings/award-letter'
+    | '/settings/budget'
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/submissions'
@@ -725,10 +749,12 @@ export interface FileRouteTypes {
     | '/api/submit-report'
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/awards/$awardId'
+    | '/_authenticated/finance/balance'
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/settings/activity'
     | '/_authenticated/settings/api-keys'
     | '/_authenticated/settings/award-letter'
+    | '/_authenticated/settings/budget'
     | '/_authenticated/settings/data-import'
     | '/_authenticated/settings/giving-strategy'
     | '/_authenticated/settings/submissions'
@@ -981,6 +1007,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinanceIndexRouteImport
       parentRoute: typeof AuthenticatedFinanceRoute
     }
+    '/_authenticated/finance/balance': {
+      id: '/_authenticated/finance/balance'
+      path: '/balance'
+      fullPath: '/finance/balance'
+      preLoaderRoute: typeof AuthenticatedFinanceBalanceRouteImport
+      parentRoute: typeof AuthenticatedFinanceRoute
+    }
     '/_authenticated/programmes/': {
       id: '/_authenticated/programmes/'
       path: '/'
@@ -1035,6 +1068,13 @@ declare module '@tanstack/react-router' {
       path: '/award-letter'
       fullPath: '/settings/award-letter'
       preLoaderRoute: typeof AuthenticatedSettingsAwardLetterRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/budget': {
+      id: '/_authenticated/settings/budget'
+      path: '/budget'
+      fullPath: '/settings/budget'
+      preLoaderRoute: typeof AuthenticatedSettingsBudgetRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/data-import': {
@@ -1253,10 +1293,12 @@ const AuthenticatedAwardsRouteWithChildren =
   AuthenticatedAwardsRoute._addFileChildren(AuthenticatedAwardsRouteChildren)
 
 interface AuthenticatedFinanceRouteChildren {
+  AuthenticatedFinanceBalanceRoute: typeof AuthenticatedFinanceBalanceRoute
   AuthenticatedFinanceIndexRoute: typeof AuthenticatedFinanceIndexRoute
 }
 
 const AuthenticatedFinanceRouteChildren: AuthenticatedFinanceRouteChildren = {
+  AuthenticatedFinanceBalanceRoute: AuthenticatedFinanceBalanceRoute,
   AuthenticatedFinanceIndexRoute: AuthenticatedFinanceIndexRoute,
 }
 
@@ -1305,6 +1347,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsActivityRoute: typeof AuthenticatedSettingsActivityRoute
   AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
   AuthenticatedSettingsAwardLetterRoute: typeof AuthenticatedSettingsAwardLetterRoute
+  AuthenticatedSettingsBudgetRoute: typeof AuthenticatedSettingsBudgetRoute
   AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
@@ -1317,6 +1360,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsActivityRoute: AuthenticatedSettingsActivityRoute,
   AuthenticatedSettingsApiKeysRoute: AuthenticatedSettingsApiKeysRoute,
   AuthenticatedSettingsAwardLetterRoute: AuthenticatedSettingsAwardLetterRoute,
+  AuthenticatedSettingsBudgetRoute: AuthenticatedSettingsBudgetRoute,
   AuthenticatedSettingsDataImportRoute: AuthenticatedSettingsDataImportRoute,
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,

@@ -175,11 +175,16 @@ Traps:
 - **invitations** — token-based invitation flow
 - **api_keys** — per-client secret keys gating `/api/apply`
 - **import_batches** — onboarding data import, makes it reversible
+- **annual_budgets** + **annual_budget_lines** — a year's grant-making plan; a line's NULL
+  `programme_id` is core costs. **Stated, not derived from `round_programmes.budget`** — a
+  foundation may hold money back from rounds, and the reconciliation between the two is the point
+- **bank_balance_readings** — append-only ledger of the grant account's balance, each with the date
+  it was TRUE (not when it was typed). Never updated; a correction is a new row
 - BetterAuth tables: `sessions`, `accounts`, `verifications` (do not modify manually)
 
 ## The money rule: what a cancelled grant counts toward
 
-Five modules compute money and must agree, because a foundation reads two of them side by side.
+Six modules compute money and must agree, because a foundation reads two of them side by side.
 Stated on `listFinanceGrants`, enforced in `grantsQuery`:
 
 - **paid** — INCLUDES cancelled. The money left the building; paid history must reconcile against
@@ -195,6 +200,21 @@ cancelled out of `items` rather than at a dozen `reduce` call sites.
 
 `buildSchedule` folds the rounding remainder into the final instalment so a split sums to the
 award exactly, and `createAwards` re-checks that server-side (0.005 tolerance).
+
+The sixth module is the **annual budget panel** (`src/server/finance/budget.ts`), and it is the
+first to print committed and paid *in the same bar*, which forces a case the rule never had to
+answer: a grant cancelled after a part-payment has paid money `committed` no longer counts, so
+`committed - paid` goes negative. The budget answer is **`used = max(committed, paid)`** — what the
+year's allocation no longer has, whichever way the money left. With no cancellations it is simply
+`committed`, so the screen still reconciles against Finance. Lives in `src/lib/annualBudget.ts`
+with the test that pins it.
+
+**"Committed" means two different things and both are correct.** The dashboard's round meters count
+`shortlisted` OR `awarded` — the pipeline, because that panel is about a round filling up. Finance
+and the budget panel count awarded-and-not-cancelled — decisions, because those are about money
+owed. The two meters look almost identical on screen; a bar that moved when somebody *shortlisted*
+an application would tell a trustee they had spent money they had not committed. Do not blur the
+labels, and do not reuse one rollup for the other.
 
 ## Conventions and naming traps
 
@@ -233,6 +253,17 @@ design rationale; this list is a map, not a summary.
   stores + sends
 - **dataImport** — `/settings/data-import`, onboarding a foundation's existing grants
 - **financeDigest** — the Monday payments email
+- **annualBudget** — `src/lib/annualBudget.ts` (the reconciliation rules) + `src/server/finance/
+  budget.ts` (the screen's queries) + `src/server/fns/budget.ts` (both writes). The budget is set in
+  Settings (a yearly decision); the bank balance is recorded on **Finance → Balance & budget** (an
+  observation off a statement), where **Update balance is the one and only entry point** — it must
+  exist before there is any balance to show, or a foundation's first reading can never be entered.
+  The two halves are independent: budget-without-balance and balance-without-budget are both
+  complete screens. Clearing every line DELETES the budget row, and the read side ignores a header
+  with no lines, so "£0 of £0 with no meters" is unreachable; hiding the feature *without* losing
+  the figures is the Settings switch. `src/lib/financialYear.ts` derives the year from
+  `client_profiles.financial_year_end_month` (a MONTH, because "our year end is 31 March" is what a
+  grant-maker actually knows; default 3)
 - **budget** — budget-line types/helpers; **validators/** — zod schemas shared client/server
 
 ## Public submission auth
@@ -468,10 +499,22 @@ layer that sees **every** response — SSR pages, server functions, public API r
 
 Structural decisions worth knowing before adding a screen:
 
+- **Finance is two routes wearing one header** (`components/finance/FinanceHeader`) — Payments /
+  Balance & budget. Same reasoning as Shortlist below: those header tabs are NAVIGATION, while the
+  To pay / Paid pair inside the grants card is a FILTER over one list, and the two must not be
+  confused. Balance & budget started as a collapsible panel above the payments table, which put a
+  quarterly question (can we cover what we promised?) permanently on top of a daily one and pushed
+  the grants table ~900px down. The tab pair is hidden entirely when
+  `client_profiles.show_balance_and_budget` is false — **a visibility switch that touches no data**,
+  because the only alternative on offer was "delete your budget to hide it".
 - **Shortlist is two routes wearing one header** (`components/shortlist/ShortlistHeader`) — To vote
-  / Set up awards. The tabs are NAVIGATION, not a filter; anything belonging to one screen alone
-  goes on its own line beneath. Set up awards is admin-only. Both tab counts come from one place
-  (`listAwardCandidates` returns `shortlistedCount`) so they cannot disagree.
+  / Set up awards. The tabs are NAVIGATION, not a filter. A screen's own action goes through
+  `actions`, immediately LEFT of the tabs — the right-hand cluster reads outwards, this screen's
+  action first, then the pair that switches screens. It used to sit on its own line beneath, on the
+  reasoning that one screen's thing should not share a row with both screens' tabs, and it read as
+  a button hanging off the bottom of the tabs with nothing to belong to. `FinanceHeader` follows
+  the same rule; keep the two consistent. Set up awards is admin-only. Both tab counts come from
+  one place (`listAwardCandidates` returns `shortlistedCount`) so they cannot disagree.
 - **Scores are stated on one scale** — composite out of 100, criteria out of 10, RAG-banded at
   80/60 and 7/4. One score quoted on two scales is something a board will argue about.
 - **Rounds and Programmes have no detail route.** Each is created and edited in a dialog over the
@@ -489,6 +532,6 @@ Structural decisions worth knowing before adding a screen:
   repaint somebody's programmes. Nullable with no backfill. **Never use these as TEXT** — at
   OKLCH L 0.68 they sit at 2.7–3.4:1 on white.
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
-  `team`, `giving-strategy`, `voting`, `award-letter`, `api-keys`, `submissions`, `data-import`.
+  `team`, `giving-strategy`, `voting`, `award-letter`, `api-keys`, `submissions`, `data-import`, `budget`.
   It links out to `/rounds` and `/programmes`, which is why those left the sidebar. Cards are
   filtered by role. `/users` is now a redirect to `/settings/team`.

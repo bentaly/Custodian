@@ -3,7 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
 import { saveRound } from '../server/fns/rounds'
 import { messageFor } from '../lib/errors'
-import { Button, DateField, Dialog, Input, Label, Select, TOKENS, Tooltip } from './ui'
+import { Button, DateField, Dialog, Input, Label, MoneyInput, Select, TOKENS, Tooltip } from './ui'
 
 // Create or edit a funding round — the whole thing, in one dialog (Figma 674:32922).
 // This replaced a separate `/rounds/$roundId` detail screen: a round is a name, two
@@ -350,40 +350,3 @@ function MobileLabel({ children }: { children: React.ReactNode }) {
 }
 
 /** A money box with the £ inside it, in brand green, as the comp draws it. */
-function MoneyInput({
-  value,
-  label,
-  placeholder,
-  required,
-  onChange,
-}: {
-  value: string
-  label: string
-  placeholder: string
-  required?: boolean
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className="relative">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-display text-body font-medium"
-        style={{ color: TOKENS.brand }}
-      >
-        £
-      </span>
-      <Input
-        type="number"
-        min={0}
-        step="0.01"
-        inputMode="decimal"
-        value={value}
-        aria-label={label}
-        placeholder={placeholder}
-        required={required}
-        onChange={(e) => onChange(e.target.value)}
-        className="pl-7"
-      />
-    </div>
-  )
-}

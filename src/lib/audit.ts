@@ -61,6 +61,15 @@ export type AuditAction =
   // quarters down the schedule is the same class of act as ticking one off, and was
   // the obvious gap left by recording only the tick.
   | 'grant_payment_amended'
+  // The foundation's annual grant-making budget for a financial year was set or
+  // changed. Recorded because it is the figure every "remaining to allocate" number on
+  // the Finance screen is measured against — moving it moves what the organisation
+  // believes it can still give away, and "who raised the budget?" must have an answer.
+  | 'annual_budget_set'
+  // A reading of the grant-making bank balance was entered. The balance is typed by
+  // hand off a statement, so the row IS the provenance: without it the figure a board
+  // acted on has no author and no date it was true.
+  | 'bank_balance_recorded'
 
   // ── Reporting obligations ────────────────────────────────────────────────
   // What a grantee owes, and when. Changing or removing a milestone changes the
@@ -149,6 +158,8 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   grant_payment_recorded: 'money',
   grant_payment_reversed: 'money',
   grant_payment_amended: 'money',
+  annual_budget_set: 'money',
+  bank_balance_recorded: 'money',
   grant_report_milestone_added: 'reporting',
   grant_report_milestone_changed: 'reporting',
   grant_report_milestone_removed: 'reporting',
@@ -186,6 +197,8 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   grant_payment_recorded: 'recorded a payment to',
   grant_payment_reversed: 'reversed a recorded payment to',
   grant_payment_amended: 'changed a scheduled payment for',
+  annual_budget_set: 'set the annual budget',
+  bank_balance_recorded: 'recorded the bank balance',
   grant_report_milestone_added: 'added a reporting milestone for',
   grant_report_milestone_changed: 'changed a reporting milestone for',
   grant_report_milestone_removed: 'removed a reporting milestone for',
@@ -209,6 +222,8 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   grant_payment_recorded: 'Payment recorded',
   grant_payment_reversed: 'Payment reversed',
   grant_payment_amended: 'Payment schedule changed',
+  annual_budget_set: 'Annual budget set',
+  bank_balance_recorded: 'Bank balance recorded',
   grant_report_milestone_added: 'Reporting milestone added',
   grant_report_milestone_changed: 'Reporting milestone changed',
   grant_report_milestone_removed: 'Reporting milestone removed',
@@ -319,6 +334,28 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
         amount ? `£${amount}` : null,
         date ? (action === 'grant_payment_recorded' ? `paid ${date}` : `was ${date}`) : null,
       )
+      break
+    }
+
+    case 'annual_budget_set': {
+      const year = str(metadata, 'financialYear')
+      const total = nested(metadata, 'total')
+      parts.push(
+        year,
+        total
+          ? change(
+              str(total, 'from') !== null ? `£${str(total, 'from')}` : null,
+              str(total, 'to') !== null ? `£${str(total, 'to')}` : null,
+            )
+          : null,
+      )
+      break
+    }
+
+    case 'bank_balance_recorded': {
+      const amount = str(metadata, 'amount')
+      const asAt = str(metadata, 'asAtDate')
+      parts.push(amount ? `£${amount}` : null, asAt ? `as at ${asAt}` : null)
       break
     }
 

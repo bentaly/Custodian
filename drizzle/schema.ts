@@ -579,6 +579,27 @@ export const clientProfiles = pgTable('client_profiles', {
   // a DNS-verified sending domain, but Reply-To needs no proof of ownership, so a
   // grantee hitting reply lands in the foundation's inbox, not ours.
   awardLetterReplyTo: text('award_letter_reply_to'),
+  // ─── Financial year ───
+  // The MONTH the foundation's financial year ends in (1–12), which is how a
+  // grant-maker states it — "our year end is 31 March" is on the front of their signed
+  // accounts. See `src/lib/financialYear.ts` for why the end and not the start, and why
+  // a month and not a full date. NOT NULL with the commonest UK charity year end as the
+  // default, so a foundation that never opens the setting still gets a year that
+  // matches its accounts rather than a calendar year nobody chose.
+  financialYearEndMonth: integer('financial_year_end_month').notNull().default(3),
+  // Does Finance offer the "Balance & budget" screen at all?
+  //
+  // A VISIBILITY preference, not a claim about what exists — which is why it is a column
+  // and the data is left alone. Not every foundation works this way (a family office may
+  // draw grant money from the principal's balance sheet; an endowed foundation's real
+  // number is a portfolio held elsewhere), and the first cut made "off" mean "delete your
+  // budget", which is not a switch, it is a demolition. Turning this off hides the tab and
+  // collapses the settings page to the switch; every figure is still there when it goes
+  // back on.
+  //
+  // Default TRUE: the tab is one word, and it is the only route to a foundation's first
+  // bank-balance reading, so hiding it by default would hide the way in.
+  showBalanceAndBudget: boolean('show_balance_and_budget').notNull().default(true),
   updatedAt: timestamp('updated_at')
     .notNull()
     .$defaultFn(() => new Date()),
@@ -882,6 +903,125 @@ export const reportSchedule = pgTable(
 // money and on what terms.
 //
 // This is a SNAPSHOT, not a view. The letter is rendered once at award set-up from the
+// ─── Annual budget and bank balance ──────────────────────────────────────────
+//
+// Two features that are read together and written apart.
+//
+// The Finance screen answers one question with both: "can we cover what we have
+// promised?" — which needs the cash position AND the year's plan. But they are
+// different KINDS of fact, on different clocks, so they are stored and edited
+// separately: a budget is a decision the trustees make once a year, and a balance is an
+// observation somebody makes off a bank statement. Neither is required, and each works
+// without the other — see `src/server/finance/budget.ts` for what the panel draws when
+// only one is present.
+
+// A foundation's grant-making budget for one financial year.
+//
+// Deliberately per-year rows rather than a mutable figure on `client_profiles`: last
+// year's budget is the comparative that next year's is judged against, and a foundation
+// that overwrites it every April has thrown away the only number that made this year's
+// mean anything. The financial year is stored as resolved dates rather than recomputed
+// from `client_profiles.financial_year_end_month`, so changing the year end later does
+// not silently re-label budgets that were set under the old one.
+export const annualBudgets = pgTable(
+  'annual_budgets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    /** Inclusive `yyyy-mm-dd` bounds of the financial year this budget is for. */
+    financialYearStart: text('financial_year_start').notNull(),
+    financialYearEnd: text('financial_year_end').notNull(),
+    /** "2026/27", or "2026" for a foundation on a calendar year. Rendered as stored. */
+    label: text('label').notNull(),
+    updatedByUserId: text('updated_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    updatedAt: timestamp('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // One budget per foundation per year. Saving is an upsert onto this.
+    unique('annual_budgets_client_year_uniq').on(t.clientId, t.financialYearStart),
+  ],
+)
+
+// One allocation within an annual budget: a programme, or a non-grant line.
+//
+// **`programmeId` NULL is core costs** — the running of the foundation, which is real
+// money out of the same budget and is not a fundable programme. It was tempting to make
+// core costs a `programmes` row so the meters need no special case, but every consumer
+// of that table is grant-shaped (round_programmes, applications, awards, impact units,
+// programme colours, the shortlist), and a programme that can never receive an
+// application would be a permanent exception in all of them. A nullable FK with its own
+// `label` keeps it out, and generalises for free: a foundation wanting separate staff,
+// premises and governance lines gets them without a migration.
+//
+// Amounts are stated, not derived from `round_programmes.budget`. A foundation can
+// budget £366,000 to a programme for the year and put only £300,000 of it into rounds,
+// holding the rest back for unsolicited grants — deriving would make that
+// unrepresentable, and the reconciliation between the two figures is the point of the
+// screen rather than a discrepancy to be designed away.
+export const annualBudgetLines = pgTable(
+  'annual_budget_lines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    budgetId: uuid('budget_id')
+      .notNull()
+      .references(() => annualBudgets.id, { onDelete: 'cascade' }),
+    /** NULL = a non-grant line (core costs), named by `label`. */
+    programmeId: uuid('programme_id').references(() => programmes.id, { onDelete: 'cascade' }),
+    /** Only read for non-grant lines; a programme line is named by the programme. */
+    label: text('label'),
+    amount: numeric('amount').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('annual_budget_lines_budget_idx').on(t.budgetId),
+    // A programme cannot appear twice in one year's budget. Postgres treats NULLs as
+    // distinct in a unique index, which is exactly right here: several core-cost lines
+    // are allowed, several "Youth Futures" lines are not.
+    unique('annual_budget_lines_programme_uniq').on(t.budgetId, t.programmeId),
+  ],
+)
+
+// A reading of the foundation's grant-making bank balance, as somebody recorded it.
+//
+// An append-only LEDGER, not a mutable column, for three reasons: the figure on screen
+// is one a board may act on, so who said it and when is part of the number; a balance
+// with no history cannot be charted or sanity-checked; and when an open-banking feed
+// eventually arrives it becomes another writer of these rows rather than a migration.
+//
+// `asAtDate` is the date the balance was TRUE, which is not `createdAt` — somebody
+// entering Monday's closing balance on Thursday must be able to say so, or the
+// staleness warning on the Finance panel lies in both directions.
+export const bankBalanceReadings = pgTable(
+  'bank_balance_readings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    amount: numeric('amount').notNull(),
+    /** `yyyy-mm-dd` — the date this balance was true, not the date it was typed. */
+    asAtDate: text('as_at_date').notNull(),
+    note: text('note'),
+    recordedByUserId: text('recorded_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // The panel wants the latest reading for one foundation, which is this index read
+    // backwards. `createdAt` breaks the tie when two readings share an as-at date: the
+    // later correction wins, which is what a correction is for.
+    index('bank_balance_readings_client_date_idx').on(t.clientId, t.asAtDate, t.createdAt),
+  ],
+)
+
 // then-current template, conditions, amounts and schedule, and the rendered text is
 // stored here verbatim. That is the whole point: the letter is a contractual record of
 // what was promised, so editing the template in Settings next month, or rescheduling an
@@ -1153,6 +1293,8 @@ export const auditActionEnum = pgEnum('audit_action', [
   'api_key_created',
   'api_key_revoked',
   'invitation_sent',
+  'annual_budget_set',
+  'bank_balance_recorded',
 ])
 
 export const auditLog = pgTable(
@@ -1254,6 +1396,34 @@ export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
 
 export const clientProfilesRelations = relations(clientProfiles, ({ one }) => ({
   client: one(clients, { fields: [clientProfiles.clientId], references: [clients.id] }),
+}))
+
+export const annualBudgetsRelations = relations(annualBudgets, ({ one, many }) => ({
+  client: one(clients, { fields: [annualBudgets.clientId], references: [clients.id] }),
+  updatedByUser: one(users, {
+    fields: [annualBudgets.updatedByUserId],
+    references: [users.id],
+  }),
+  lines: many(annualBudgetLines),
+}))
+
+export const annualBudgetLinesRelations = relations(annualBudgetLines, ({ one }) => ({
+  budget: one(annualBudgets, {
+    fields: [annualBudgetLines.budgetId],
+    references: [annualBudgets.id],
+  }),
+  programme: one(programmes, {
+    fields: [annualBudgetLines.programmeId],
+    references: [programmes.id],
+  }),
+}))
+
+export const bankBalanceReadingsRelations = relations(bankBalanceReadings, ({ one }) => ({
+  client: one(clients, { fields: [bankBalanceReadings.clientId], references: [clients.id] }),
+  recordedByUser: one(users, {
+    fields: [bankBalanceReadings.recordedByUserId],
+    references: [users.id],
+  }),
 }))
 
 export const usersRelations = relations(users, ({ one, many }) => ({

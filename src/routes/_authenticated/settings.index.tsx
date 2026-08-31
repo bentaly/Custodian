@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Building02Icon,
   Calendar03Icon,
+  CoinsPoundIcon,
   DatabaseImportIcon,
   Idea01Icon,
   Key01Icon,
@@ -15,6 +16,7 @@ import {
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import { C } from '../../components/ui/tokens'
+import { canSeePayments } from '../../lib/roles'
 
 // The package declares IconSvgObject but doesn't export it; infer it from an icon.
 type IconSvg = typeof Target01Icon
@@ -33,6 +35,8 @@ type Card = {
   icon: IconSvg
   /** Config the whole foundation shares — trustees and finance may look, not touch. */
   adminOnly?: boolean
+  /** Money: admin and finance only, matching `canSeePayments` and the Finance screen. */
+  moneyOnly?: boolean
 }
 
 type Group = { title: string; icon: IconSvg; cards: Card[] }
@@ -55,6 +59,14 @@ const GROUPS: Group[] = [
           'The themes you fund. Set the tags used to match applications, and the unit each programme measures its impact in.',
         to: '/programmes',
         icon: Target01Icon,
+      },
+      {
+        title: 'Annual budget',
+        description:
+          'What you plan to give away this financial year, by programme, plus the cost of running the foundation. Finance checks your commitments against it.',
+        to: '/settings/budget',
+        icon: CoinsPoundIcon,
+        moneyOnly: true,
       },
       {
         title: 'Giving strategy',
@@ -172,9 +184,12 @@ function Settings() {
 
   // A trustee still needs to see the rounds and programmes their applications sit
   // in, so the hub filters cards rather than hiding itself from non-admins.
+  const seesMoney = canSeePayments(user.role)
   const groups = GROUPS.map((g) => ({
     ...g,
-    cards: g.cards.filter((c) => isAdmin || !c.adminOnly),
+    cards: g.cards.filter(
+      (c) => (isAdmin || !c.adminOnly) && (seesMoney || !c.moneyOnly),
+    ),
   })).filter((g) => g.cards.length > 0)
 
   return (

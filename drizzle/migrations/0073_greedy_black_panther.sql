@@ -1,0 +1,1 @@
+ALTER TABLE "client_profiles" ADD COLUMN "show_balance_and_budget" boolean DEFAULT true NOT NULL;
