@@ -98,11 +98,15 @@ export function BalanceAndBudget({ data }: { data: Data }) {
   const { balance, budget, outstanding, financialYear: fy } = data
   const spare = balance ? headroom(balance.amount, outstanding) : null
 
+  // `EmptyState` is full-bleed, which is right on a list screen where a table frames it.
+  // Here it is the only thing on the page, so the card centres its own contents and the copy
+  // is capped to a readable measure — uncapped, it ran the full width of the display as one
+  // enormous line followed by a stub.
   if (data.empty) {
     return (
-      <EmptyState>
-        <p className="font-display text-body" style={{ color: C.sub }}>
-          Nothing recorded yet. Use <span className="font-medium">Update balance</span> to record
+      <EmptyState className="flex justify-center">
+        <p className="max-w-lg font-display text-body" style={{ color: C.sub }}>
+          Nothing recorded yet. Use <span className="font-medium">Record balance</span> to enter
           what is in the bank, or <TextLink to="/settings/budget">set an annual budget</TextLink> to
           track your giving against the year&rsquo;s plan. Either works on its own.
         </p>
@@ -316,8 +320,8 @@ function BalanceNote({ balance }: { balance: NonNullable<Data['balance']> }) {
 /** Balance recorded, no budget set. */
 function NoBudget() {
   return (
-    <EmptyState>
-      <p className="font-display text-body" style={{ color: C.sub }}>
+    <EmptyState className="flex justify-center">
+      <p className="max-w-lg font-display text-body" style={{ color: C.sub }}>
         No annual budget for this year.{' '}
         <TextLink to="/settings/budget">Set one in Settings</TextLink> to track what you have
         committed against what you planned to give.
