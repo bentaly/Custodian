@@ -22,7 +22,8 @@ import { ProgressBar } from '../../components/ProgressBar'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea } from '../../components/charts/GivingArea'
 import { getDashboard } from '../../server/fns/dashboard'
-import { fmtCompact } from '../../lib/format'
+import { compactExact, fmtCompact } from '../../lib/format'
+import { CompactMoney } from '../../components/ui'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { canSeePayments } from '../../lib/roles'
 import { C, tint as T } from '../../components/ui/tokens'
@@ -165,6 +166,12 @@ function Chips({ chips }: { chips: Chip[] }) {
 
 // ─── KPI card ───────────────────────────────────────────────────────────────────
 
+/** "£4,840 proposed" for a card whose headline had to round, and nothing when it did not. */
+function exactOr(amount: number, noun: string): string | undefined {
+  const exact = compactExact(amount)
+  return exact ? `${exact} ${noun}` : undefined
+}
+
 function KpiCard({
   tint,
   value,
@@ -176,6 +183,7 @@ function KpiCard({
   to,
   search,
   meter,
+  title,
   children,
 }: {
   tint: { bg: string; border: string; accent: string }
@@ -190,12 +198,22 @@ function KpiCard({
   to: string
   search?: Record<string, unknown>
   meter: React.ReactNode
+  /**
+   * The exact figure behind a rounded one, as a phrase: "£4,840 due this month".
+   *
+   * The card is a `<Link>`, and a link may not contain interactive content — so the
+   * focusable trigger `CompactMoney` puts around a rounded number everywhere else
+   * cannot go inside one. A `title` on the anchor gives the same hover with no second
+   * tab stop, which is the trade the facet chips on Applications already make.
+   */
+  title?: string
   children: React.ReactNode
 }) {
   return (
     <Link
       to={to}
       search={search}
+      title={title}
       className="flex flex-col rounded-pill border bg-white p-1 transition-shadow hover:shadow-xs"
       style={{ borderColor: C.line }}
     >
@@ -493,6 +511,7 @@ function Dashboard() {
           // spend — an awarded grant is committed, not proposed.
           value={String(d.awaitingVotes + approved)}
           sub={`${fmtCompact(a.shortlist.proposed)} proposed`}
+          title={exactOr(a.shortlist.proposed, 'proposed')}
           icon={AREA_ICON['/shortlist']!}
           label="Shortlist"
           to="/shortlist"
@@ -508,6 +527,7 @@ function Dashboard() {
           <KpiCard
             tint={KPI.finance}
             value={fmtCompact(d.paymentsThisMonth.amount)}
+            title={exactOr(d.paymentsThisMonth.amount, 'due this month')}
             sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
             icon={AREA_ICON['/finance']!}
             label="Finance"
@@ -586,7 +606,8 @@ function Dashboard() {
                 {round.roundName}
               </PanelTitle>
               <p className="-mt-2 mb-4 text-label" style={{ color: C.sub }}>
-                {fmtCompact(round.committed)} committed of {fmtCompact(round.budget)} budget
+                <CompactMoney amount={round.committed} label="Exact committed" /> committed of{' '}
+                <CompactMoney amount={round.budget} label="Exact round budget" /> budget
               </p>
               <div className="flex items-center gap-6">
                 <Donut
@@ -600,7 +621,8 @@ function Dashboard() {
                         className="mt-0.5 text-center text-label leading-tight"
                         style={{ color: C.sub }}
                       >
-                        {fmtCompact(roundLeft)} left
+                        <CompactMoney amount={roundLeft} label="Exact amount left to allocate" />{' '}
+                        left
                         <br />
                         to allocate
                       </div>
@@ -620,7 +642,8 @@ function Dashboard() {
                           {p.name}
                         </span>
                         <span className="shrink-0 text-label font-medium" style={{ color: C.sub }}>
-                          {fmtCompact(p.committed)} / {fmtCompact(p.budget)}
+                          <CompactMoney amount={p.committed} label={`Exact committed, ${p.name}`} />{' '}
+                          / <CompactMoney amount={p.budget} label={`Exact budget, ${p.name}`} />
                         </span>
                       </div>
                       {/* Figma 126:34735 — the track is the programme's own hue at 20%, not grey. */}
@@ -775,11 +798,13 @@ function GivingSoFar({ giving }: { giving: DashboardData['giving'] }) {
 
       <div className="flex items-baseline gap-3">
         <span className="text-display font-semibold leading-none" style={{ color: C.ink }}>
-          {fmtCompact(headline)}
+          <CompactMoney amount={headline} label="Exact giving in this period" />
         </span>
         {giving.quarter > 0 && (
           <span className="flex items-center gap-1 text-body font-medium">
-            <span style={{ color: C.success }}>+{fmtCompact(giving.quarter)}</span>
+            <span style={{ color: C.success }}>
+              +<CompactMoney amount={giving.quarter} label="Exact giving this quarter" />
+            </span>
             <span style={{ color: C.sub }}>this quarter</span>
           </span>
         )}

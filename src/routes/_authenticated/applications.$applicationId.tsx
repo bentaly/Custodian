@@ -32,6 +32,7 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 import {
   Breadcrumb,
   Button,
+  CompactMoney,
   DetailHeader,
   KPI_TINTS,
   LinkButton,
@@ -57,7 +58,7 @@ import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { OrganisationProfile } from '../../lib/dueDiligence'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
-import { fmtCompact, fmtDate, fmtDuration, fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
+import { fmtDate, fmtDuration, fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { colourSeries } from '../../lib/programmeColours'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 
@@ -146,8 +147,9 @@ function Fact({
   note,
 }: {
   label: string
-  /** `null` means we do not have it — say why in `empty`. */
-  value: string | null
+  /** `null` means we do not have it — say why in `empty`. A node, not a string, so a
+   *  rounded figure can bring its own exact-value tooltip (`CompactMoney`). */
+  value: React.ReactNode
   /** What to print instead, in the reader's terms. Defaults to a dash only because a
    *  few cells are omitted entirely when empty and never reach this. */
   empty?: string
@@ -854,7 +856,11 @@ function ApplicationDetail() {
                   <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
                     <Fact
                       label="Income (last FY)"
-                      value={orgIncome != null ? fmtCompact(orgIncome) : null}
+                      value={
+                        orgIncome != null ? (
+                          <CompactMoney amount={orgIncome} label="Exact income" />
+                        ) : null
+                      }
                       empty={noRegistrationNumber ? 'no charity number' : 'not captured'}
                       note={orgPeriodEnd ? `year to ${orgPeriodEnd}` : null}
                     />
@@ -864,7 +870,11 @@ function ApplicationDetail() {
                         a dash, which would read as a charity that holds none. */}
                     <Fact
                       label="Unrestricted reserves"
-                      value={orgReserves != null ? fmtCompact(orgReserves) : null}
+                      value={
+                        orgReserves != null ? (
+                          <CompactMoney amount={orgReserves} label="Exact reserves" />
+                        ) : null
+                      }
                       empty="not asked on the form"
                       note={reserveMonths != null ? `~${reserveMonths} months' spend` : null}
                     />
@@ -960,7 +970,7 @@ function ApplicationDetail() {
             tint={KPI.amount}
             icon={Coins01Icon}
             label="Amount requested"
-            value={fmtCompact(amountRequested)}
+            value={<CompactMoney amount={amountRequested} label="Exact amount requested" />}
             /* The annual figure, not just the length: "£35k / 3 years" left it open
                whether the ask was £35k a year. Falls back to the plain duration for a
                single-year grant, where there is nothing to mistake it for. */
@@ -995,7 +1005,9 @@ function ApplicationDetail() {
             tint={KPI.income}
             icon={MoneyReceive01Icon}
             label="Income (last FY)"
-            value={orgIncome != null ? fmtCompact(orgIncome) : '—'}
+            value={
+              orgIncome != null ? <CompactMoney amount={orgIncome} label="Exact income" /> : '—'
+            }
             sub={
               orgIncome != null
                 ? orgPeriodEnd
@@ -1015,7 +1027,13 @@ function ApplicationDetail() {
             tint={KPI.reserves}
             icon={SafeBoxIcon}
             label="Unrestricted reserves"
-            value={orgReserves != null ? fmtCompact(orgReserves) : '—'}
+            value={
+              orgReserves != null ? (
+                <CompactMoney amount={orgReserves} label="Exact reserves" />
+              ) : (
+                '—'
+              )
+            }
             sub={
               orgReserves != null
                 ? reserveMonths != null

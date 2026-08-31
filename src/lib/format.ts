@@ -4,9 +4,16 @@
 // These were once copied per-route and drifted (some rounded pennies, some
 // didn't); if a screen needs a new format, add it here rather than locally.
 
-/** Whole pounds with thousands separators: `£12,345`. */
+/**
+ * Whole pounds with thousands separators: `£12,345`, and `-£500` for a negative.
+ *
+ * The minus goes OUTSIDE the sign, which is where `fmtCompact` has always put it —
+ * templating the number straight in gave `£-500`, so the same figure was punctuated two
+ * ways depending on which formatter a screen reached for.
+ */
 export function fmtMoney(n: number): string {
-  return `£${Math.round(n).toLocaleString('en-GB')}`
+  const r = Math.round(n)
+  return `${r < 0 ? '-' : ''}£${Math.abs(r).toLocaleString('en-GB')}`
 }
 
 /** As `fmtMoney`, from a numeric column that may arrive as a string: `—` when absent. */
@@ -17,15 +24,73 @@ export function fmtAmount(amount: string | number | null | undefined): string {
   return fmtMoney(n)
 }
 
-/** KPI-sized money: `£1.2m` / `£45k` / `£950`, negatives prefixed with `-`. */
-export function fmtCompact(n: number): string {
+/**
+ * One band of `fmtCompact`: two significant figures, with a trailing `.0` dropped so a
+ * round £5,000 reads `5` and not `5.0`.
+ */
+function twoSigFigs(v: number): string {
+  return v.toFixed(v >= 10 ? 0 : 1).replace(/\.0$/, '')
+}
+
+/**
+ * The compact string AND the number it actually says, which is what lets a caller tell
+ * an abbreviation (`£5k` for £5,000 — exact, just shorter) from a rounding (`£4.8k` for
+ * £4,840 — £40 short). Only the second needs the exact figure putting somewhere.
+ */
+function compactParts(n: number): { text: string; shown: number } {
   const neg = n < 0
   const a = Math.abs(n)
-  let s: string
-  if (a >= 1_000_000) s = `£${(a / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}m`
-  else if (a >= 1_000) s = `£${Math.round(a / 1_000)}k`
-  else s = `£${Math.round(a).toLocaleString('en-GB')}`
-  return neg ? `-${s}` : s
+  let text: string
+  let shown: number
+  // The millions band opens at 999,500, not 1,000,000: above that the thousands band
+  // rounds to `1000` and prints the unreal `£1000k`.
+  if (a >= 999_500) {
+    const s = twoSigFigs(a / 1_000_000)
+    text = `£${s}m`
+    shown = Number(s) * 1_000_000
+  } else if (a >= 1_000) {
+    const s = twoSigFigs(a / 1_000)
+    text = `£${s}k`
+    shown = Number(s) * 1_000
+  } else {
+    shown = Math.round(a)
+    text = `£${shown.toLocaleString('en-GB')}`
+  }
+  return { text: neg ? `-${text}` : text, shown: neg ? -shown : shown }
+}
+
+/**
+ * KPI-sized money: `£1.2m` / `£4.8k` / `£45k` / `£950`, negatives prefixed with `-`.
+ *
+ * **Two significant figures, always.** The thousands band used to round to whole
+ * thousands at every size, so a £4,840 ask headlined as **£5k** directly above its own
+ * subtext — "£2,420 per year for 2 years", arithmetic that visibly did not add up, and
+ * an overstatement of what a charity had actually asked for. The millions band already
+ * kept a decimal below 10m for exactly this reason; the thousands band did not match it.
+ *
+ * Rounding stays to NEAREST rather than down. This formats money in both directions —
+ * paid as well as committed — so a form that always understated would be as wrong as one
+ * that always overstated; what it no longer does is round a whole significant digit away.
+ * Two figures still cannot carry £4,840, so what is left of the rounding is handed over
+ * on hover by `CompactMoney` — see `compactExact`.
+ *
+ * A figure a reader has to RECONCILE (an award amount, an instalment, a total that must
+ * agree with the foundation's own ledger) wants `fmtMoney`, which is exact.
+ */
+export function fmtCompact(n: number): string {
+  return compactParts(n).text
+}
+
+/**
+ * The exact figure behind a compact one — `£4,840` for `£4.8k` — or `null` when the
+ * compact form rounded nothing away and repeating it would say nothing.
+ *
+ * That `null` is the point. A tooltip on `£5k` that opens to read "£5,000" is noise, and
+ * worse, it makes the ones that DO carry a different number indistinguishable from it.
+ * Same rule as `TruncatedText`, which only wires a tooltip when the text is really cut.
+ */
+export function compactExact(n: number): string | null {
+  return Math.round(n) === compactParts(n).shown ? null : fmtMoney(n)
 }
 
 /**

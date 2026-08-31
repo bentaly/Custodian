@@ -32,10 +32,11 @@ import {
   TruncatedList,
   TruncatedText,
   initials,
+  CompactMoney,
   type TableColumn,
 } from '../../components/ui'
 import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
-import { fmtCompact, fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 
 const PAGE_SIZE = 25
@@ -473,8 +474,14 @@ function SetUpAwards() {
             Grants ready to award
           </p>
           <p className="font-display text-label" style={{ color: C.sub }}>
-            Ask {fmtCompact(totalAsk)}
-            {budgetTotal > 0 && ` · ${fmtCompact(leftInRound)} left in round`}
+            Ask <CompactMoney amount={totalAsk} label="Exact total ask" />
+            {budgetTotal > 0 && (
+              <>
+                {' · '}
+                <CompactMoney amount={leftInRound} label="Exact amount left in round" /> left in
+                round
+              </>
+            )}
           </p>
         </div>
 

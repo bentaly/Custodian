@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { fmtDate, fmtDateTime, isoValue } from './format'
+import { compactExact, fmtCompact, fmtDate, fmtDateTime, isoValue } from './format'
 
 /**
  * These run in NEW YORK, and that is the whole point.
@@ -56,5 +56,64 @@ describe('isoValue', () => {
   it('keeps a calendar date as the day, and an instant as the instant', () => {
     expect(isoValue('2026-08-31')).toBe('2026-08-31')
     expect(isoValue('2026-08-31T23:15:37Z')).toBe('2026-08-31T23:15:37.000Z')
+  })
+})
+
+describe('fmtCompact', () => {
+  it('keeps two significant figures in the thousands', () => {
+    // The bug this pins: a £4,840 ask rendered "£5k" over its own subtext, "£2,420 per
+    // year for 2 years" — arithmetic a reader could see did not add up, and £160 more
+    // than the charity asked for.
+    expect(fmtCompact(4840)).toBe('£4.8k')
+    expect(fmtCompact(1050)).toBe('£1.1k')
+    expect(fmtCompact(9900)).toBe('£9.9k')
+  })
+
+  it('drops a trailing .0, so a round figure stays round', () => {
+    expect(fmtCompact(5000)).toBe('£5k')
+    expect(fmtCompact(1000)).toBe('£1k')
+    expect(fmtCompact(2_000_000)).toBe('£2m')
+  })
+
+  it('drops the decimal once the second figure is a whole unit', () => {
+    expect(fmtCompact(45_300)).toBe('£45k')
+    expect(fmtCompact(186_167)).toBe('£186k')
+    expect(fmtCompact(12_400_000)).toBe('£12m')
+  })
+
+  it('never prints the unreal £1000k', () => {
+    // 999,700 / 1000 rounds to 1000 in the thousands band, so the millions band has to
+    // open below £1m rather than at it.
+    expect(fmtCompact(999_700)).toBe('£1m')
+    expect(fmtCompact(1_240_000)).toBe('£1.2m')
+  })
+
+  it('shows exact pounds below a thousand, and marks a negative', () => {
+    expect(fmtCompact(950)).toBe('£950')
+    expect(fmtCompact(0)).toBe('£0')
+    expect(fmtCompact(-4840)).toBe('-£4.8k')
+  })
+})
+
+describe('compactExact', () => {
+  it('gives the exact figure when the compact one rounded something away', () => {
+    expect(compactExact(4840)).toBe('£4,840')
+    expect(compactExact(45_300)).toBe('£45,300')
+    expect(compactExact(1_284_500)).toBe('£1,284,500')
+  })
+
+  it('is null when the compact form is only shorter, not vaguer', () => {
+    // `£5k` IS £5,000. A tooltip repeating it is noise, and it would make the ones that
+    // carry a different number indistinguishable.
+    expect(compactExact(5000)).toBeNull()
+    expect(compactExact(4_800)).toBeNull()
+    expect(compactExact(2_000_000)).toBeNull()
+    expect(compactExact(950)).toBeNull()
+    expect(compactExact(0)).toBeNull()
+  })
+
+  it('follows the sign', () => {
+    expect(compactExact(-4840)).toBe('-£4,840')
+    expect(compactExact(-5000)).toBeNull()
   })
 })

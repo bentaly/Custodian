@@ -10,6 +10,7 @@ import {
   InformationCircleIcon,
 } from '@hugeicons/core-free-icons'
 import {
+  CompactMoney,
   DateRangePicker,
   EmptyState,
   ExportButton,
@@ -474,7 +475,7 @@ function CommitmentChart({
                 }}
               >
                 <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-                  {fmtCompact(p.value)}
+                  <CompactMoney amount={p.value} label={`Exact total, ${p.label}`} />
                 </p>
                 <div className="font-display text-label" style={{ color: C.sub }}>
                   {/* Alignment comes from the wrapper's inline `textAlign`, which
@@ -584,7 +585,7 @@ function AreaList({
               onFocus={() => onHighlight(a.code)}
               onBlur={() => onHighlight(null)}
               aria-current={on || undefined}
-              title={`${a.name} · ${fmtCompact(a.amount)} · ${a.count} grant${a.count !== 1 ? 's' : ''} · ${pct}%`}
+              title={`${a.name} · ${fmtMoney(a.amount)} · ${a.count} grant${a.count !== 1 ? 's' : ''} · ${pct}%`}
               className="flex w-full items-center gap-2.5 rounded-chip border px-2.5 py-1.5 text-left"
               style={{
                 borderColor: on ? C.brand : 'transparent',
@@ -632,7 +633,7 @@ function AreaList({
             className="shrink-0 font-display text-label tabular-nums"
             style={{ color: C.faint }}
           >
-            {fmtCompact(rest)}
+            <CompactMoney amount={rest} label="Exact total for the rest" />
           </span>
         </li>
       )}
@@ -1104,7 +1105,7 @@ function InsightsPage() {
       await exportInsightsPdf(root, {
         title: 'Insights',
         filters: `${periodLabel} · ${programmeLabel} · ${themeLabel} · ${regionLabel}`,
-        summary: `${fil.length} award${fil.length !== 1 ? 's' : ''} · ${fmtCompact(committed)} committed`,
+        summary: `${fil.length} award${fil.length !== 1 ? 's' : ''} · ${fmtMoney(committed)} committed`,
         generatedAt: new Date().toLocaleDateString('en-GB', {
           day: 'numeric',
           month: 'long',
@@ -1197,7 +1198,7 @@ function InsightsPage() {
               tint={KPI.committed}
               icon={Coins01Icon}
               label="Total committed"
-              value={fmtCompact(committedUp)}
+              value={<CompactMoney amount={committedUp} label="Exact total committed" />}
               sub={`across ${fil.length} grant${fil.length !== 1 ? 's' : ''}`}
             />
             <MiniKpi
@@ -1231,11 +1232,16 @@ function InsightsPage() {
               tint={KPI.avg}
               icon={ChartAverageIcon}
               label="Average grant"
-              value={fmtCompact(avgUp)}
+              value={<CompactMoney amount={avgUp} label="Exact average grant" />}
               sub={
-                amounts.length
-                  ? `${fmtCompact(minGrant)}–${fmtCompact(maxGrant)} range`
-                  : 'across filtered awards'
+                amounts.length ? (
+                  <>
+                    <CompactMoney amount={minGrant} label="Exact smallest grant" />–
+                    <CompactMoney amount={maxGrant} label="Exact largest grant" /> range
+                  </>
+                ) : (
+                  'across filtered awards'
+                )
               }
             />
           </div>
@@ -1265,7 +1271,7 @@ function InsightsPage() {
                             className="font-display text-heading font-medium"
                             style={{ color: C.ink }}
                           >
-                            {fmtCompact(p.committed)}
+                            <CompactMoney amount={p.committed} label="Exact committed" />
                           </span>
                           <span
                             className="font-display text-body font-medium"
@@ -1498,7 +1504,7 @@ function InsightsPage() {
                             className="font-display text-heading font-medium"
                             style={{ color: C.ink }}
                           >
-                            {fmtCompact(areaTotal)}
+                            <CompactMoney amount={areaTotal} label="Exact total for this area" />
                           </div>
                           <div className="font-display text-label" style={{ color: C.faint }}>
                             committed
@@ -1596,7 +1602,7 @@ function InsightsPage() {
                         <span className="font-display text-label" style={{ color: C.sub }}>
                           {r.programmes.length} programme{r.programmes.length !== 1 ? 's' : ''} ·{' '}
                           {r.grants.length} grant{r.grants.length !== 1 ? 's' : ''} ·{' '}
-                          {fmtCompact(r.total)}
+                          <CompactMoney amount={r.total} label="Exact total for this region" />
                         </span>
                         <span className="h-px flex-1" style={{ backgroundColor: C.line }} />
                       </div>
@@ -1651,7 +1657,7 @@ function RoundProgrammeCard({
           </p>
         </div>
         <span className="shrink-0 font-display text-heading font-medium" style={{ color: C.ink }}>
-          {fmtCompact(p.total)}
+          <CompactMoney amount={p.total} label="Exact total for this programme" />
         </span>
       </div>
       <p className="mt-3 truncate font-display text-label" style={{ color: C.sub }} title={impact}>

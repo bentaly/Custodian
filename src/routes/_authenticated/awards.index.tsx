@@ -1,5 +1,7 @@
+import { Fragment } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
+  CompactMoney,
   DataTable,
   DateRangePicker,
   DateText,
@@ -19,7 +21,7 @@ import { listAwards, GRANT_STATUS_LABELS, AWARDS_DEFAULT_SORT } from '../../serv
 import { facetLabel } from '../../lib/facets'
 import { C } from '../../components/ui/tokens'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
-import { fmtCompact, fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 
 type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
@@ -265,8 +267,10 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
             <span className="whitespace-nowrap font-display text-body tabular-nums text-grey-700">
-              <span className="font-medium text-grey-900">{fmtCompact(g.paidToDate)}</span> of{' '}
-              {fmtCompact(g.amountAwarded)}
+              <span className="font-medium text-grey-900">
+                <CompactMoney amount={g.paidToDate} label="Exact paid to date" />
+              </span>{' '}
+              of <CompactMoney amount={g.amountAwarded} label="Exact amount awarded" />
             </span>
             {pill}
           </div>
@@ -345,7 +349,7 @@ function PortfolioCard({ totals }: { totals: Totals }) {
             className="font-display text-heading font-medium leading-none"
             style={{ color: C.ink }}
           >
-            {fmtCompact(totals.totalAwarded)}
+            <CompactMoney amount={totals.totalAwarded} label="Exact total awarded" />
           </p>
           <p className="font-display text-body" style={{ color: C.sub }}>
             {fmtMoney(totals.paidToDate)} paid · {fmtMoney(totals.outstanding)} outstanding
@@ -381,7 +385,10 @@ function ShareLegend({ colour, amount, label }: { colour: string; amount: number
     <div className="flex min-w-0 items-center gap-1.5">
       <span className="size-2 shrink-0 rounded-swatch" style={{ backgroundColor: colour }} />
       <span className="truncate font-display text-body font-medium" style={{ color: C.faint }}>
-        <span style={{ color: C.ink }}>{fmtCompact(amount)}</span> {label}
+        <span style={{ color: C.ink }}>
+          <CompactMoney amount={amount} label={`Exact total for ${label}`} />
+        </span>{' '}
+        {label}
       </span>
     </div>
   )
@@ -397,13 +404,21 @@ function AwardsPage() {
 
   // The headline figures the KPI tiles used to carry. Here they describe the list rather
   // than competing with it — the same job the applications count does on Applications.
-  const metaLine = [
+  // Nodes rather than a joined string, so the two rounded figures can each hand over
+  // their exact value on hover — see `CompactMoney`.
+  const metaLine: React.ReactNode[] = [
     `${totals.count} award${totals.count !== 1 ? 's' : ''}`,
-    totals.count > 0 ? `${fmtCompact(totals.totalAwarded)} awarded` : null,
-    totals.count > 0 ? `${fmtCompact(totals.paidToDate)} paid` : null,
+    ...(totals.count > 0
+      ? [
+          <>
+            <CompactMoney amount={totals.totalAwarded} label="Exact total awarded" /> awarded
+          </>,
+          <>
+            <CompactMoney amount={totals.paidToDate} label="Exact total paid" /> paid
+          </>,
+        ]
+      : []),
   ]
-    .filter(Boolean)
-    .join(' · ')
 
   // Every filter change returns to page 1 — page 4 of the old result set is a different
   // set of awards, and landing there silently is disorienting. Round no longer clears
@@ -461,7 +476,12 @@ function AwardsPage() {
         <h1 className="font-display text-heading font-medium text-grey-900">Awards</h1>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <span className="whitespace-nowrap font-display text-label font-medium text-grey-500">
-            {metaLine}
+            {metaLine.map((part, i) => (
+              <Fragment key={i}>
+                {i > 0 && ' · '}
+                {part}
+              </Fragment>
+            ))}
           </span>
           <SearchInput
             value={q}
