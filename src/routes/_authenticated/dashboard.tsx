@@ -570,23 +570,30 @@ function Dashboard() {
 
       {/* On your desk + Round */}
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <Panel>
-          <PanelTitle>On your desk</PanelTitle>
-          {desk.length === 0 ? (
-            <div className="flex items-center gap-3 py-6 text-body" style={{ color: C.sub }}>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-success">
-                ✓
-              </span>
-              You’re all caught up — nothing needs action right now.
-            </div>
-          ) : (
-            <div className="-mx-2 -mt-2">
-              {desk.map((row, i) => (
-                <DeskRow key={i} {...row} />
-              ))}
-            </div>
-          )}
-        </Panel>
+        {/* Same treatment as "Lately" below: the queue must not set the row height, or a
+            busy desk leaves the round panel stretched with dead space under the donut.
+            Out of flow, the cell is sized by the round panel and the desk scrolls inside
+            it — with a floor so a tenant between rounds (a two-line panel) still gets a
+            readable list. Below lg the two are stacked, so it goes back in flow. */}
+        <div className="relative lg:min-h-[13rem]">
+          <Panel className="flex flex-col lg:absolute lg:inset-0">
+            <PanelTitle>On your desk</PanelTitle>
+            {desk.length === 0 ? (
+              <div className="flex items-center gap-3 py-6 text-body" style={{ color: C.sub }}>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-success">
+                  ✓
+                </span>
+                You’re all caught up — nothing needs action right now.
+              </div>
+            ) : (
+              <div className="-mx-2 -mt-2 min-h-0 flex-1 overflow-y-auto">
+                {desk.map((row, i) => (
+                  <DeskRow key={i} {...row} />
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
 
         <Panel>
           {round ? (
