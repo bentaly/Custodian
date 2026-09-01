@@ -2,18 +2,26 @@
 // it appears — the swatch on the programmes list, chart series, budget bars.
 //
 // ── How the palette was built ────────────────────────────────────────────────────────
-// Ten hues 36° apart, every one at OKLCH lightness 0.76 AND chroma 0.112. Two fixed
-// coordinates, one free: two colours off this ramp differ in hue and in nothing else, so
-// no programme's colour shouts louder than its neighbour's — which a hand-picked set
-// cannot promise. (The designer's earlier ten spanned L 0.50–0.86, so Amber was nearly
-// invisible beside Purple.)
+// Ten hues 36° apart, every one at OKLCH lightness 0.76, each as colourful as it can be
+// up to a shared ceiling of chroma 0.135. Lightness is what keeps the set even — no
+// programme's colour shouts louder than its neighbour's, which a hand-picked set cannot
+// promise. (The designer's earlier ten spanned L 0.50–0.86, so Amber was nearly invisible
+// beside Purple.)
 //
-// Chroma used to be the free one, taken as high as each hue could reach: even in
-// lightness, and 0.11 → 0.29 in colourfulness, so Magenta was three times as loud as
-// Teal at identical weight. It also put the whole set well above the accent family it
-// replaced (L 0.80–0.86, C 0.11–0.13), which is why programmes read as shouting at the
-// pastel UI around them. Holding chroma flat costs vividness — every hue meets where the
-// weakest one can reach — and that is the trade this palette deliberately takes.
+// Chroma was the free coordinate once, taken as high as each hue could reach: even in
+// lightness, and 0.11 → 0.29 in colourfulness, so Magenta was three times as loud as Teal
+// at identical weight. It also put the whole set well above the accent family it replaced
+// (L 0.80–0.86, C 0.11–0.13), which is why programmes read as shouting at the pastel UI
+// around them.
+//
+// The answer to that was to hold chroma perfectly flat as well, at 0.112 — and holding it
+// flat means every hue meets where the WEAKEST one can reach, which at this lightness is
+// Blue. The hues robbed hardest by that are the warm ones, and a gold with the colour
+// taken out of it is a mustard: Amber came out `#dba65b`, Olive `#b5b75f`. So the ceiling
+// is a ceiling and not a floor. Blue, Sky, Teal and Violet still sit at 0.115–0.126,
+// which is all sRGB has for them here; the warm half goes to 0.135 and reads as gold
+// rather than mud. Total spread 0.020, against the 0.180 that made the max-chroma ramp
+// look uneven.
 //
 // These are DELIBERATELY not aliases of `--color-success` / `--color-danger` /
 // `--color-warning`. A programme's colour is a label a person chose; a semantic token is
@@ -24,45 +32,50 @@
 // Swatches, chart series, bars — never TEXT and never a border carrying meaning on its
 // own. At lightness 0.76 these sit at 2.0–2.3:1 on white, well below AA — quieter than
 // the 2.7–3.4 of the max-chroma ramp, and still ahead of the `#37d1f7` sky (1.5:1) the
-// dashboard was drawing programmes in before any of this.
+// dashboard was drawing programmes in before any of this. Raising the warm half barely
+// moved that (2.03–2.28), because chroma is not what contrast is made of.
 
 export type ProgrammeColour = { hex: string; name: string }
 
-/** OKLCH lightness every generated colour sits at. */
+/**
+ * OKLCH lightness every generated colour sits at — the coordinate that is genuinely flat,
+ * and the one doing the work. Together with the chroma ceiling below it lands near the
+ * accent family this replaced (L 0.80–0.86, C 0.11–0.13), which is the register the rest
+ * of the app is drawn in.
+ */
 const RAMP_L = 0.76
 /**
- * OKLCH chroma every generated colour sits at — how colourful it is, held flat for the
- * same reason lightness is.
+ * The MOST chroma any generated colour may take. Not a flat value: a hue that cannot
+ * reach it takes what it can, so this is a ceiling, never a floor.
  *
- * The ramp originally took the MOST chroma each hue could reach at `RAMP_L`, which made
- * the set even in lightness and wildly uneven in colourfulness: Magenta came out at
- * C 0.29 against Teal's 0.11, nearly three times as loud at identical weight. Flat
- * lightness alone is not "no programme shouts louder than its neighbour".
+ * A flat value is what was tried first, and the number it has to be is decided by the
+ * single tightest hue on the whole wheel — at this lightness ~267°, blue-violet, which
+ * falls between Blue and Violet and is therefore exactly where a generated eleventh
+ * programme lands. That capped everything at 0.112 and turned the warm half to mud.
  *
- * 0.112 is the ceiling, and it is set by the WHOLE wheel rather than by the ten presets:
- * the tightest hue at this lightness is ~267° (blue-violet), which sits between Blue and
- * Violet, so a generated eleventh programme is exactly what would have been clipped back
- * off the ramp. Every hue has to meet where the weakest one can reach.
+ * 0.135 is where the warm hues stop being earthy while the cool half is left where it
+ * already was: at L 0.76 the headroom runs Blue 0.115, Violet 0.122, Teal 0.125, Sky
+ * 0.126 against Amber 0.148, Olive 0.153, Magenta 0.216. So this ceiling changes the
+ * colours that needed changing and almost nothing else — Blue moved `#7eb4f7` → `#7cb5f9`.
  *
- * Together with L 0.76 it lands near the accent family this replaced (L 0.80–0.86,
- * C 0.11–0.13) — the register the rest of the app is drawn in, and the reason the ramp
- * read as louder than everything around it.
+ * Raising it further is the dial to turn if the set ever reads too quiet, but past ~0.145
+ * Rose goes hot enough to argue with the red assessment flags it sits beside.
  */
-const RAMP_C = 0.112
+const RAMP_C = 0.135
 /** Back off the gamut edge: right on it, rounding to 8-bit can clip and shift the hue. */
 const RAMP_C_SAFETY = 0.92
 
 export const PROGRAMME_PALETTE: ProgrammeColour[] = [
-  { hex: '#ec92ab', name: 'Rose' },
-  { hex: '#ee977c', name: 'Coral' },
-  { hex: '#dba65b', name: 'Amber' },
-  { hex: '#b5b75f', name: 'Olive' },
-  { hex: '#81c486', name: 'Green' },
-  { hex: '#4dc8b6', name: 'Teal' },
-  { hex: '#4dc2e0', name: 'Sky' },
-  { hex: '#7eb4f7', name: 'Blue' },
-  { hex: '#b0a5f3', name: 'Violet' },
-  { hex: '#d698d7', name: 'Magenta' },
+  { hex: '#f78baa', name: 'Rose' },
+  { hex: '#f99170', name: 'Coral' },
+  { hex: '#e4a341', name: 'Amber' },
+  { hex: '#b7b847', name: 'Olive' },
+  { hex: '#75c87c', name: 'Green' },
+  { hex: '#33cbb7', name: 'Teal' },
+  { hex: '#32c4e6', name: 'Sky' },
+  { hex: '#7cb5f9', name: 'Blue' },
+  { hex: '#b0a3f9', name: 'Violet' },
+  { hex: '#dd92df', name: 'Magenta' },
 ]
 
 export const PROGRAMME_COLOUR_PATTERN = /^#[0-9a-f]{6}$/

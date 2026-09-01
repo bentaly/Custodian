@@ -530,7 +530,11 @@ Structural decisions worth knowing before adding a screen:
   `#rrggbb`. Assigned **server-side** on create so two admins can't be handed the same one.
   Deliberately not aliases of the semantic tokens: a contrast fix to `--color-danger` must not
   repaint somebody's programmes. Nullable with no backfill. **Never use these as TEXT** — at
-  OKLCH L 0.68 they sit at 2.7–3.4:1 on white.
+  OKLCH L 0.76 they sit at 2.0–2.3:1 on white. Lightness is flat across the ten; chroma is
+  **capped, not flattened** (`RAMP_C` is a ceiling), because flattening it caps every hue at what
+  the tightest one on the wheel can reach and turns the warm half to mustard. Regenerating the ten
+  means a migration too — the colour is stored on the row, and one off the current ten reads as
+  "Custom" and can be handed out twice (see `0074_programme_colour_ramp_reweight`).
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
   `team`, `giving-strategy`, `voting`, `award-letter`, `api-keys`, `submissions`, `data-import`, `budget`.
   It links out to `/rounds` and `/programmes`, which is why those left the sidebar. Cards are

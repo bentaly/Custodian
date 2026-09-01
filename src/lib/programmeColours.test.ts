@@ -64,6 +64,32 @@ describe('the palette itself', () => {
     }
   })
 
+  it('lets a hue keep the chroma it has, instead of flattening the set to its weakest', () => {
+    // The mustard bug, pinned. Holding chroma flat caps every hue at what the tightest
+    // one on the wheel can reach — Blue, here — and a gold with the colour taken out of
+    // it is mud. The ceiling is a ceiling, so the warm half stays clear of the cool half;
+    // anyone "tidying" this back to one flat value brings `#dba65b` back with it.
+    const chroma = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => {
+        const v = parseInt(hex.slice(i, i + 2), 16) / 255
+        return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+      }) as [number, number, number]
+      const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+      const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+      const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+      return Math.hypot(
+        1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+        0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+      )
+    }
+    const of = (name: string) => chroma(PROGRAMME_PALETTE.find((c) => c.name === name)!.hex)
+
+    for (const c of PROGRAMME_PALETTE) expect(chroma(c.hex)).toBeLessThanOrEqual(0.136)
+    for (const warm of ['Amber', 'Olive', 'Coral']) {
+      expect(of(warm)).toBeGreaterThan(of('Blue') + 0.01)
+    }
+  })
+
   it('holds every colour at one lightness, which is what stops any one shouting', () => {
     // Regenerating each preset from its own recovered hue lands on the ramp — so every
     // preset IS on the ramp. (Exact hex equality is not asserted: hue recovered from an
