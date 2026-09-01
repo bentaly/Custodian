@@ -33,8 +33,7 @@
   --text-micro: 10px; /* the small pill only — see `Badge`'s `size` prop */
   --text-label: 12px; /* field labels, meta, status pills */
   --text-body: 14px; /* body copy, values, item titles, button labels */
-  --text-title: 16px; /* card titles */
-  --text-lede: 18px; /* the one sentence a screen is about — see the application's grant purpose */
+  --text-title: 16px; /* card titles, and the one sentence a screen is about */
   --text-heading: 20px; /* page titles */
   --text-display: 32px; /* KPI numbers and other hero figures */
 

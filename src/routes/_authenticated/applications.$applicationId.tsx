@@ -739,9 +739,10 @@ function ApplicationDetail() {
                 system-endorsed, which is the opposite of what this sentence is. And
                 there is no dark surface anywhere in the app: a grants officer works
                 through forty of these in a sitting, and by the fifth a black block has
-                stopped reading as emphasis. `text-lede` (18px) sits one step under the
-                page `<h1>`, so it is the largest thing in the BODY without outranking
-                the organisation's own name in the header.
+                stopped reading as emphasis. The size doing the work is `text-title`
+                (16px) — one step over the body around it, and no more than that. The
+                emphasis is carried by the rule, the display face and the half-measure
+                the two columns give it, none of which cost a rank the header needs.
 
                 The columns stack below `lg`, which puts the organisation back
                 underneath — the same order it had before, and the right one when there
@@ -768,7 +769,7 @@ function ApplicationDetail() {
                       system-endorsed — which matters here, because this text is written
                       by the scoring model rather than quoted from the applicant. */}
                   <p
-                    className="mt-2 border-l-3 pl-2 font-display text-lede leading-relaxed"
+                    className="mt-2 border-l-3 pl-2 font-display text-title leading-relaxed"
                     style={{ color: C.ink, borderColor: C.brand }}
                   >
                     {grantPurpose}
@@ -779,8 +780,8 @@ function ApplicationDetail() {
                       judgement), NOT quoted from the applicant. Captions calling it "the
                       applicant's own words" were drafted for this panel and are false:
                       the whole point of giving it this much weight is that a reader can
-                      trust what it says it is. The 40-word cap is also what makes the
-                      lede safe — free text at 18px would run to a wall. */}
+                      trust what it says it is. The 40-word cap is also what keeps it to
+                      a few lines — free text with a column to itself runs to a wall. */}
                   <p
                     className="mt-3 font-display text-label lg:mt-auto lg:pt-6"
                     style={{ color: C.sub }}
