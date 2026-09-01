@@ -1,8 +1,9 @@
 import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { fmtMoney } from '../../lib/format'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
+import { useRemembered } from '../../lib/useRemembered'
 import { BarMeter } from '../BarMeter'
 import { C } from '../ui/tokens'
 
@@ -44,7 +45,9 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
   // board says out loud, and a summary you have to re-open to read is not a summary.
   // The rows are HIDDEN rather than unmounted so Download PDF (window.print) still puts
   // the budget breakdown in the board pack whatever the screen was left looking like.
-  const [open, setOpen] = useState(true)
+  // That is doubly load-bearing now the state is remembered: unmounted, a card someone
+  // collapsed weeks ago would drop the breakdown from every board pack printed since.
+  const [open, setOpen] = useRemembered('shortlist.proposed-spend', true)
   const panelId = useId()
 
   return (
@@ -63,7 +66,7 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
           with was a downgrade on a control with no border of its own to sharpen it. */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={panelId}
         className="flex min-w-0 items-center justify-between gap-3 rounded-chip text-left"

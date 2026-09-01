@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react'
+import { isReloadingForStaleChunk } from './staleChunk'
 import {
   IGNORED_MESSAGES,
   SENTRY_DSN,
@@ -45,6 +46,10 @@ export function initSentryClient(): void {
     initialScope: { tags: { side: 'browser' } },
 
     beforeSend(event, hint) {
+      // A stale-chunk reload is already under way, and the page is throwing on its way
+      // out — see `isReloadingForStaleChunk`. Gated here rather than at the three
+      // `captureException` call sites so it also covers whatever the next one is.
+      if (isReloadingForStaleChunk()) return null
       if (shouldIgnore(hint?.originalException)) return null
       return scrub(event)
     },
@@ -73,11 +78,7 @@ function scrub(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
  * Studio when it matters, and `clientId` answers the question that actually drives
  * triage — is this one foundation's data or everyone's?
  */
-export function identifyUser(user: {
-  id: string
-  role: string
-  clientId: string | null
-}): void {
+export function identifyUser(user: { id: string; role: string; clientId: string | null }): void {
   Sentry.setUser({ id: user.id })
   Sentry.setTags({ role: user.role, clientId: user.clientId ?? 'none' })
 }

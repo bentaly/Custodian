@@ -54,6 +54,7 @@ import { applicationStatusLabel } from '../../lib/validators/application'
 import { impactUnitLabel, impactUnitSingular } from '../../lib/impactUnits'
 import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
 import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
+import { useRemembered } from '../../lib/useRemembered'
 import type { DeprivationContext } from '../../lib/deprivation/types'
 import type { OrganisationProfile } from '../../lib/dueDiligence'
 import type { BudgetLine } from '../../lib/budget/types'
@@ -367,8 +368,11 @@ function ApplicationDetail() {
   const { user } = Route.useRouteContext()
   const router = useRouter()
   const [rerunningDD, setRerunningDD] = useState(false)
-  const [showAllDd, setShowAllDd] = useState(false)
-  const [showAllFlags, setShowAllFlags] = useState(false)
+  // Remembered across reloads: a reviewer who works with the passed checks open should
+  // not re-open them every morning. Keyed on the PANEL, never on the application —
+  // per-row keys would accumulate one per application ever opened and never be cleared.
+  const [showAllDd, setShowAllDd] = useRemembered('application.dd-passed', false)
+  const [showAllFlags, setShowAllFlags] = useRemembered('application.flags-all', false)
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -955,7 +959,7 @@ function ApplicationDetail() {
                 <div className="mt-2">
                   <Disclosure
                     open={showAllFlags}
-                    onToggle={() => setShowAllFlags((v) => !v)}
+                    onToggle={() => setShowAllFlags(!showAllFlags)}
                     showLabel={`Show ${hiddenFlagCount} more flag${hiddenFlagCount === 1 ? '' : 's'}`}
                     hideLabel="Show fewer flags"
                   />
@@ -1203,7 +1207,7 @@ function ApplicationDetail() {
                 <div className="pt-1">
                   <Disclosure
                     open={showAllDd}
-                    onToggle={() => setShowAllDd((v) => !v)}
+                    onToggle={() => setShowAllDd(!showAllDd)}
                     showLabel={`Show ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
                     hideLabel={`Hide ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
                   />

@@ -4,6 +4,7 @@ import {
   forbidden,
   isAbort,
   isAppError,
+  isNetworkError,
   messageFor,
   notFoundError,
   serverStackOf,
@@ -108,6 +109,42 @@ describe('isAbort', () => {
       name: 'TimeoutError',
     })
     expect(messageFor(timedOut)).toBe('Timed out — refresh to check whether this saved.')
+  })
+})
+
+describe('isNetworkError', () => {
+  const typeError = (message: string) => Object.assign(new Error(message), { name: 'TypeError' })
+
+  it('recognises the same dropped connection in all three dialects', () => {
+    expect(isNetworkError(typeError('Failed to fetch'))).toBe(true)
+    expect(isNetworkError(typeError('Load failed'))).toBe(true)
+    expect(isNetworkError(typeError('NetworkError when attempting to fetch resource.'))).toBe(true)
+  })
+
+  // The distinction the whole predicate exists for. Chrome words a missing chunk as a
+  // longer sentence starting with the same four words, and that one is a stale deploy
+  // recovered by `lib/staleChunk` — telling the user to check their wifi would send
+  // them looking in the wrong place entirely.
+  it('does NOT claim a chunk that went missing after a deploy', () => {
+    expect(
+      isNetworkError(
+        typeError('Failed to fetch dynamically imported module: /assets/sign-in-A1.js'),
+      ),
+    ).toBe(false)
+  })
+
+  it('leaves ordinary failures alone', () => {
+    expect(isNetworkError(new Error('Failed to fetch'))).toBe(false)
+    expect(isNetworkError(forbidden())).toBe(false)
+    expect(isNetworkError(null)).toBe(false)
+  })
+
+  // Nothing on our side went wrong, nobody was alerted, and Sentry drops it — so the
+  // generic "at our end… this has been reported" copy would be three lies at once.
+  it('blames the connection rather than the server', () => {
+    expect(messageFor(typeError('Failed to fetch'))).toBe(
+      "Couldn't reach the server — check your connection and try again.",
+    )
   })
 })
 

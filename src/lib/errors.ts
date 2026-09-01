@@ -97,6 +97,41 @@ export function isAbort(err: unknown): boolean {
 }
 
 /**
+ * The three messages a browser gives when a `fetch` never happened at all — no
+ * response, no status, nothing for the server to have logged. Chrome, Safari and
+ * Firefox each word it differently, and Firefox's ends in a full stop.
+ *
+ * Matched EXACTLY rather than as a substring, which is the whole subtlety here:
+ * Chrome also says "Failed to fetch dynamically imported module: …" when a chunk has
+ * gone missing after a deploy. That is a stale build, not a dropped connection, it is
+ * recovered by `lib/staleChunk`, and telling the user to check their wifi would send
+ * them looking in the wrong place.
+ */
+const NETWORK_MESSAGES = new Set([
+  'Failed to fetch',
+  'Load failed',
+  'NetworkError when attempting to fetch resource',
+])
+
+/**
+ * The connection dropped, rather than the server failing.
+ *
+ * Worth separating from a 500 because the advice is the opposite: nothing on our side
+ * went wrong, nobody was alerted, and retrying is genuinely likely to work once the
+ * user is back online. Untreated, these land on the generic fault copy and tell a
+ * foundation the app is broken when their laptop had simply gone to sleep.
+ *
+ * Reads `name` structurally rather than `instanceof TypeError`, matching `isAbort`
+ * above: the same predicate has to hold for an error that has lost its prototype.
+ */
+export function isNetworkError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  if ((err as { name?: unknown }).name !== 'TypeError') return false
+  const message = (err as { message?: unknown }).message
+  return typeof message === 'string' && NETWORK_MESSAGES.has(message.replace(/\.$/, ''))
+}
+
+/**
  * User-facing copy. An `AppError`'s own message is written for the user and is used
  * verbatim; anything else is an unhandled fault whose message could contain a SQL
  * fragment or an API key, so it is replaced wholesale.
@@ -106,6 +141,7 @@ export function messageFor(err: unknown): string {
   // A DOMException's own text ("signal is aborted without reason") tells the user
   // nothing they can act on.
   if (isAbort(err)) return 'Timed out — refresh to check whether this saved.'
+  if (isNetworkError(err)) return "Couldn't reach the server — check your connection and try again."
   const status = statusOf(err)
   if (status >= 400 && status < 500 && err instanceof Error && err.message) {
     return err.message

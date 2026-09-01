@@ -83,14 +83,27 @@ export function shouldIgnore(err: unknown): boolean {
 
 /**
  * Browser noise that says nothing about our code: extension injections, aborted
- * navigations, and the two ResizeObserver warnings Chrome and Firefox emit under
- * normal use.
+ * navigations, dropped connections, and the two ResizeObserver warnings Chrome and
+ * Firefox emit under normal use.
+ *
+ * The last three are one condition in three dialects — a `fetch` that never happened,
+ * because the wifi went or the laptop slept mid-request. They are the user's network,
+ * not our code, and there is nothing on the server to correlate them with. The user
+ * still gets told (see `isNetworkError` in `lib/errors`); we just don't get paged.
+ *
+ * Chrome's is a **regex, anchored**, and that is the one subtlety in this list. Every
+ * other entry is matched as a substring, and a bare `'Failed to fetch'` would also
+ * swallow "Failed to fetch dynamically imported module: …" — a chunk missing after a
+ * deploy. `lib/staleChunk` recovers from that automatically for the client that is
+ * merely stale, so the reports that survive are the ones worth having: a deploy whose
+ * assets are broken for everybody. Do not loosen this to a plain string.
  */
 export const IGNORED_MESSAGES = [
   'ResizeObserver loop limit exceeded',
   'ResizeObserver loop completed with undelivered notifications',
   'Non-Error promise rejection captured',
   'AbortError',
+  /^Failed to fetch$/,
   'Load failed',
   'NetworkError when attempting to fetch resource',
 ]

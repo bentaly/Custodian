@@ -41,12 +41,40 @@ function recentlyReloaded(): boolean {
   }
 }
 
+/**
+ * True from the moment a reload is decided until the page actually goes away.
+ *
+ * That gap is not instant, and it is not quiet. `preventDefault()` above does more
+ * than silence the unhandled rejection: Vite's preload helper ends
+ * `return importer().catch(handlePreloadError)`, and `handlePreloadError` only
+ * rethrows when the event was NOT prevented. Prevented, it returns nothing — so the
+ * import **resolves with `undefined`** instead of rejecting, and the next line of
+ * TanStack's `lazyRouteComponent` reads `undefined['component']`:
+ *
+ *     TypeError: Cannot read properties of undefined (reading 'component')
+ *
+ * which is what Sentry recorded on staging on 2026-09-01 while this handler was doing
+ * exactly its job. Everything thrown after this point is debris from a page that is
+ * already on its way out, so `sentry.client` drops it — see the check in `beforeSend`.
+ *
+ * A module variable, not `sessionStorage`, and deliberately the opposite of
+ * `recentlyReloaded`'s reasoning: that guard has to outlive the page, this one must
+ * NOT. It is only ever true in the seconds before a reload, and the fresh page it
+ * reloads into must start reporting again immediately.
+ */
+let reloading = false
+
+export function isReloadingForStaleChunk(): boolean {
+  return reloading
+}
+
 export function installStaleChunkReload(): void {
   window.addEventListener('vite:preloadError', (event) => {
     if (recentlyReloaded()) return
     // Vite's default is to throw the error onward, which surfaces it as an unhandled
     // rejection. We are handling it, so stop that.
     event.preventDefault()
+    reloading = true
     try {
       sessionStorage.setItem(GUARD_KEY, String(Date.now()))
     } catch {

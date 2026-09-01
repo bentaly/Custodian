@@ -5,8 +5,9 @@ import {
   LockKeyIcon,
   SearchRemoveIcon,
   UserLock01Icon,
+  WifiDisconnected01Icon,
 } from '@hugeicons/core-free-icons'
-import { messageFor, serverStackOf, statusOf } from '../../lib/errors'
+import { isNetworkError, messageFor, serverStackOf, statusOf } from '../../lib/errors'
 import { Button } from './Button'
 import { cn } from './cn'
 
@@ -33,7 +34,7 @@ const FACES: Record<number, Face> = {
   403: {
     icon: LockKeyIcon,
     title: 'That belongs to another organisation',
-    body: "You can only see records belonging to your own foundation.",
+    body: 'You can only see records belonging to your own foundation.',
     tint: 'bg-warning/10 text-warning',
   },
   401: {
@@ -48,6 +49,21 @@ const FACES: Record<number, Face> = {
     body: 'This has been reported. Trying again often works.',
     tint: 'bg-danger/10 text-danger',
   },
+}
+
+/**
+ * A dropped connection wears its own face rather than the 500 one.
+ *
+ * It carries no status, so `statusOf` calls it 500 and it would otherwise be shown as
+ * "Something went wrong at our end… This has been reported" — three claims that are
+ * all false. Nothing went wrong at our end, nothing reached us to go wrong, and
+ * Sentry drops these (see `IGNORED_MESSAGES`), so nobody has been told.
+ */
+const NETWORK_FACE: Face = {
+  icon: WifiDisconnected01Icon,
+  title: "We couldn't reach the server",
+  body: 'Check your connection — this usually works on the next try.',
+  tint: 'bg-warning/10 text-warning',
 }
 
 function faceFor(status: number): Face {
@@ -79,7 +95,8 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   const status = statusOf(error)
-  const face = faceFor(status)
+  const offline = isNetworkError(error)
+  const face = offline ? NETWORK_FACE : faceFor(status)
   const detail = messageFor(error)
   // Present only when the server decided this caller may see it — i.e. a superadmin.
   // The client makes no judgement of its own; see src/server/errors.ts.
