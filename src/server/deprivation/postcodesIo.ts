@@ -94,13 +94,24 @@ export async function geocodePlace(query: string): Promise<GeocodedPlace | null>
   return (await geocodeViaPlaces(query)) ?? (await geocodeViaNominatim(query))
 }
 
-async function geocodeViaPlaces(query: string): Promise<GeocodedPlace | null> {
-  const r = await getJson(`${BASE}/places?q=${encodeURIComponent(query.trim())}&limit=1`)
-  const p = Array.isArray(r) ? r[0] : null
-  if (!p || typeof p.longitude !== 'number' || typeof p.latitude !== 'number') {
-    return null
-  }
-  // Eastings/northings are in metres; fall back to 0 extent if the box is absent.
+/**
+ * OS Open Names settlement classes, most prominent first. Great Britain has many
+ * homonyms and `/places` orders them by NEITHER prominence nor size, so the first
+ * hit is usually a hamlet: "Preston" led with a 1.5km suburban area in Scotland
+ * ahead of the Lancashire city, "Bradford" with a South West hamlet ahead of the
+ * Yorkshire city. Ranking on the class the gazetteer already assigns is what stops
+ * a grant to a city being scored against a hamlet's deprivation decile.
+ */
+const LOCAL_TYPE_RANK = ['City', 'Town', 'Suburban Area', 'Village', 'Hamlet', 'Other Settlement']
+
+function localTypeRank(localType: unknown): number {
+  const i = LOCAL_TYPE_RANK.indexOf(String(localType))
+  // An unknown class sorts below every named one but above nothing at all.
+  return i === -1 ? LOCAL_TYPE_RANK.length : i
+}
+
+/** Bounding-box extent in km — eastings/northings are metres; 0 if the box is absent. */
+function extentKmOf(p: any): number {
   const widthKm =
     typeof p.max_eastings === 'number' && typeof p.min_eastings === 'number'
       ? (p.max_eastings - p.min_eastings) / 1000
@@ -109,11 +120,42 @@ async function geocodeViaPlaces(query: string): Promise<GeocodedPlace | null> {
     typeof p.max_northings === 'number' && typeof p.min_northings === 'number'
       ? (p.max_northings - p.min_northings) / 1000
       : 0
+  return Math.max(widthKm, heightKm)
+}
+
+/**
+ * Pick the place a grant-maker writing this name almost certainly means.
+ *
+ * Exact name matches win outright, so "Bradford" cannot land on "Bradford Moor"
+ * while a plain "Bradford" is on offer. Within that, the most prominent
+ * settlement class wins, and size breaks a tie inside a class.
+ */
+export function pickPlace<T>(query: string, places: T[], read: (p: T) => any): T | null {
+  if (places.length === 0) return null
+  const wanted = query.trim().toLowerCase()
+  const exact = places.filter((p) => String(read(p).name_1 ?? '').toLowerCase() === wanted)
+  const pool = exact.length > 0 ? exact : places
+  return [...pool].sort((a, b) => {
+    const ra = localTypeRank(read(a).local_type)
+    const rb = localTypeRank(read(b).local_type)
+    if (ra !== rb) return ra - rb
+    return extentKmOf(read(b)) - extentKmOf(read(a))
+  })[0]!
+}
+
+async function geocodeViaPlaces(query: string): Promise<GeocodedPlace | null> {
+  // Ask for the whole homonym set, not just the first — see `pickPlace`.
+  const r = await getJson(`${BASE}/places?q=${encodeURIComponent(query.trim())}&limit=20`)
+  const candidates = (Array.isArray(r) ? r : []).filter(
+    (p: any) => typeof p?.longitude === 'number' && typeof p?.latitude === 'number',
+  )
+  const p = pickPlace(query, candidates, (x) => x)
+  if (!p) return null
   return {
     name: p.name_1 ?? query.trim(),
     longitude: p.longitude,
     latitude: p.latitude,
-    extentKm: Math.max(widthKm, heightKm),
+    extentKm: extentKmOf(p),
   }
 }
 
