@@ -971,7 +971,12 @@ function ApplicationDetail() {
             tint={KPI.amount}
             icon={Coins01Icon}
             label="Amount requested"
-            value={<CompactMoney amount={amountRequested} label="Exact amount requested" />}
+            /* Stated in full, never compacted. This is the one figure on the screen the
+               card's own subline does arithmetic on ("£2,420 per year for 2 years"), and
+               a headline that disagrees with the sum beneath it is read as an error in
+               the application rather than in the formatting. It is also the number a
+               grants officer quotes to a board. `sm` type fits seven figures. */
+            value={fmtMoney(amountRequested)}
             /* The annual figure, not just the length: "£35k / 3 years" left it open
                whether the ask was £35k a year. Falls back to the plain duration for a
                single-year grant, where there is nothing to mistake it for. */

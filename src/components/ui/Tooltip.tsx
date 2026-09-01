@@ -45,7 +45,14 @@ import { InformationCircleIcon } from '@hugeicons/core-free-icons'
 
 const GAP = 8
 const EDGE = 8
-const WIDTH = 224
+// A CEILING, not a width. The bubble is `w-max`, so a two-word answer ("£4,840") draws a
+// two-word bubble and only a real sentence reaches this and wraps. A fixed 224 made every
+// tooltip the size of the longest one in the app, which around a short figure reads as an
+// empty panel that happens to contain a number.
+const MAX_WIDTH = 224
+// Keeps the arrow off the bubble's rounded corners once the bubble is narrower than the
+// distance the clamp moved it.
+const ARROW_INSET = 10
 
 type Position = { top: number; left: number; arrowLeft: number; below: boolean }
 
@@ -116,9 +123,13 @@ export function Tooltip({
       // Centred on the trigger, then pulled back inside the viewport. The arrow keeps
       // pointing at the trigger after that nudge, so a clamped bubble still says which
       // control it belongs to.
+      // Measured, not `MAX_WIDTH`: the bubble sizes itself to its content, so centring on
+      // the constant would offset every bubble narrower than the ceiling.
+      const w = b.width
       const centre = t.left + t.width / 2
-      const left = Math.min(Math.max(centre - WIDTH / 2, EDGE), window.innerWidth - WIDTH - EDGE)
-      setPos({ top, left, arrowLeft: centre - left, below })
+      const left = Math.max(EDGE, Math.min(centre - w / 2, window.innerWidth - w - EDGE))
+      const arrowLeft = Math.min(Math.max(centre - left, ARROW_INSET), w - ARROW_INSET)
+      setPos({ top, left, arrowLeft, below })
     }
     place()
     // `true` captures scrolls on any ancestor, including the dialog body — without it
@@ -213,9 +224,9 @@ export function Tooltip({
             ref={bubble}
             id={id}
             role="tooltip"
-            className="pointer-events-none fixed z-[100] block rounded-chip border border-grey-200 bg-white px-3 py-2 font-display text-label leading-snug font-normal text-grey-700 shadow-lg"
+            className="pointer-events-none fixed z-[100] block w-max rounded-chip border border-grey-200 bg-white px-3 py-2 font-display text-label leading-snug font-normal text-grey-700 shadow-lg"
             style={{
-              width: WIDTH,
+              maxWidth: MAX_WIDTH,
               // Rendered before it has been measured so the measurement is possible at
               // all; hidden until then so it is never seen in the top-left corner.
               top: pos?.top ?? 0,
