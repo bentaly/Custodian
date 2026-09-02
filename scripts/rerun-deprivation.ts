@@ -6,8 +6,11 @@
  *   pnpm tsx scripts/rerun-deprivation.ts --pending  # only un-resolved rows
  *   pnpm tsx scripts/rerun-deprivation.ts <appId>    # a single application
  *
- * Requires the same env as the app (DATABASE_URL). Hits postcodes.io / Nominatim and
- * the deprivation_areas table; never throws per-row (failures store as unresolvable).
+ * Requires the same env as the app: DATABASE_URL, and GOOGLE_MAPS_API_KEY for any
+ * row whose delivery area is a place name rather than a postcode. Without the key
+ * those rows store as `pending` (= not run yet), NOT `unresolvable` (= a verdict on
+ * the text) — so a keyless run is recoverable, and `--pending` is how you recover it.
+ * Never throws per-row.
  */
 import { config } from 'dotenv'
 config()

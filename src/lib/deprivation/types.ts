@@ -97,14 +97,15 @@ export const NATION_VINTAGE: Record<DeprivationNation, string> = {
   northern_ireland: 'NIMDM2017',
 }
 
-// Bounding-box extent (larger of width/height, km) decides how wide a unit we snap a
-// place onto — the centroid's ward/LAD stops being representative as a place grows:
-//   ≤ WARD_EXTENT_KM            → ward   (a town, e.g. Potters Bar ≈ 4km)
-//   ≤ LAD_EXTENT_KM            → LAD    (a city, e.g. Leeds ≈ 17km, Birmingham ≈ 22km)
-//   >  LAD_EXTENT_KM           → region (e.g. London ≈ 54km → its statistical region)
-// If a place is region-sized but has no region (non-England, or unmatched) it is
-// reported as too_broad rather than guessing.
-export const WARD_EXTENT_KM = 15
+// Bounding-box extent (larger of width/height, km) above which a place is too wide
+// to be reported as a single district, so its statistical region is used instead —
+// e.g. London ≈ 54km, Cumbria ≈ 128km. If such a place has no region (non-England,
+// or unmatched) it is reported as too_broad rather than guessed at.
+//
+// This is the ONLY size threshold left. Ward-vs-LAD used to be a second one
+// (WARD_EXTENT_KM = 15), and it was wrong in both directions on real data — see
+// `reportingLevel` in src/server/deprivation/googleGeocode.ts, which decides that
+// by asking whether the place names the whole district or somewhere inside it.
 export const LAD_EXTENT_KM = 40
 
 // First letter of a GSS statistical-geography code identifies the nation:

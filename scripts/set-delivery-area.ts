@@ -4,7 +4,7 @@
  *   pnpm tsx scripts/set-delivery-area.ts <appId|name substring> "<area>"
  *   pnpm tsx scripts/set-delivery-area.ts <appId|name substring> "<area>" --apply
  *
- * For correcting an area a foundation stated in a form the gazetteer cannot read
+ * For correcting an area a foundation stated in a form the geocoder cannot read
  * — a venue ("Broadhurst Park, Manchester"), or two places joined by "and".
  * `resolveDeprivation` geocodes the string as ONE settlement name, so those
  * resolve to nothing; the fix is to state the settlement actually meant.

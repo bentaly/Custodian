@@ -3,8 +3,13 @@
  * spreadsheet (Organisation name | Location), then re-resolve deprivation for
  * every row whose area actually changed.
  *
- *   pnpm tsx scripts/set-arete-delivery-area.ts <file.xlsx>            # dry run
- *   pnpm tsx scripts/set-arete-delivery-area.ts <file.xlsx> --apply    # write
+ *   pnpm tsx scripts/set-arete-delivery-area.ts <file>            # dry run
+ *   pnpm tsx scripts/set-arete-delivery-area.ts <file> --apply    # write
+ *
+ * <file> is .csv or .xlsx — both are exports of the same hand-kept sheet. It
+ * carries a title row above the header, trailing empty columns, and at least one
+ * location containing a comma ("Broadhurst Park, Manchester"), so the header row
+ * is FOUND rather than assumed and the CSV is parsed with quoting honoured.
  *
  * Matching is on organisation name, normalised (trimmed, collapsed whitespace,
  * case-folded, punctuation and a leading "The" dropped) — the spreadsheet is
@@ -17,6 +22,7 @@
 import { config } from 'dotenv'
 config()
 
+import { readFile } from 'node:fs/promises'
 import ExcelJS from 'exceljs'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { neon } from '@neondatabase/serverless'
@@ -50,27 +56,83 @@ const norm = (s: string) =>
     .trim()
     .replace(/^the /, '')
 
-async function readSheet(path: string) {
+/**
+ * RFC 4180. Hand-rolled rather than adding a dependency for one script — but it
+ * does have to honour quotes: "Broadhurst Park, Manchester" is a single location
+ * whose comma would otherwise split it into two columns and lose the city.
+ */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let quoted = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!
+    if (quoted) {
+      if (c !== '"') field += c
+      else if (text[i + 1] === '"') ((field += '"'), i++)
+      else quoted = false
+      continue
+    }
+    if (c === '"') quoted = true
+    else if (c === ',') (row.push(field), (field = ''))
+    else if (c === '\n') (row.push(field), rows.push(row), (row = []), (field = ''))
+    else if (c !== '\r') field += c
+  }
+  // A file with no trailing newline still ends on a real row.
+  if (field !== '' || row.length) (row.push(field), rows.push(row))
+  return rows
+}
+
+async function readXlsx(path: string): Promise<string[][]> {
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.readFile(path)
-  const ws = wb.worksheets[0]!
-  const out: Array<{ name: string; location: string }> = []
-  ws.eachRow((row, i) => {
-    if (i === 1) return // header
-    const cell = (n: number) => String(row.getCell(n).text ?? '').trim()
-    const name = cell(1)
-    const location = cell(2)
-    if (name && location) out.push({ name, location })
+  const rows: string[][] = []
+  wb.worksheets[0]!.eachRow((row) => {
+    const cells: string[] = []
+    row.eachCell({ includeEmpty: true }, (c) => cells.push(String(c.text ?? '')))
+    rows.push(cells)
   })
+  return rows
+}
+
+async function readTable(path: string): Promise<string[][]> {
+  return path.toLowerCase().endsWith('.csv')
+    ? parseCsv(await readFile(path, 'utf8'))
+    : readXlsx(path)
+}
+
+/**
+ * Rows → {name, location}. The export carries a title row ("Table 1") ABOVE the
+ * header, so the header is located by its first cell rather than assumed to be
+ * row 1 — an off-by-one here would quietly treat "Organisation name" as a charity
+ * to update, and (worse) shift every real row up by one.
+ */
+function toRecords(rows: string[][]): Array<{ name: string; location: string }> {
+  const headerAt = rows.findIndex((r) => norm(r[0] ?? '') === 'organisation name')
+  if (headerAt === -1) throw new Error('no "Organisation name" header row found')
+  const out: Array<{ name: string; location: string }> = []
+  for (const r of rows.slice(headerAt + 1)) {
+    const name = (r[0] ?? '').trim()
+    const location = (r[1] ?? '').trim()
+    if (name && location) out.push({ name, location })
+  }
   return out
 }
 
 async function main() {
   const file = process.argv[2]
   const apply = process.argv.includes('--apply')
-  if (!file) throw new Error('usage: set-arete-delivery-area.ts <file.xlsx> [--apply]')
+  if (!file) throw new Error('usage: set-arete-delivery-area.ts <file.csv|.xlsx> [--apply]')
 
-  const sheet = await readSheet(file)
+  const sheet = toRecords(await readTable(file))
+
+  // Echo what the file parsed to before touching the database. The sheet is
+  // hand-kept and re-exported, so "did it read the columns I think it did" is
+  // the first thing to check on a dry run.
+  console.log(`Parsed ${sheet.length} row(s) from ${file}:`)
+  for (const s of sheet) console.log(`  ${JSON.stringify(s.name)} -> ${JSON.stringify(s.location)}`)
+  console.log()
 
   const client = (await db.select().from(clients)).find((c) =>
     c.name.toLowerCase().includes(CLIENT_NAME_MATCH),

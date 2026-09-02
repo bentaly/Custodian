@@ -1,19 +1,27 @@
 // ─── Deprivation resolution ──────────────────────────────────────────────────
 //
-// Turns an application's free-text `geography` into a DeprivationResult by combining
-// postcodes.io (geocode / reverse-geocode) with the local `deprivation_areas`
-// reference table (the per-nation IMD deciles, seeded by scripts/seed-deprivation.ts).
+// Turns an application's free-text `geography` into a DeprivationResult. Three
+// layers, each doing the one thing only it can do:
+//
+//   Google Geocoding   free text → a place, its coordinate, and what KIND of thing
+//                      it is (`googleGeocode.ts`)
+//   postcodes.io       postcode → LSOA code; coordinate → ward/LAD/region GSS codes
+//                      (`postcodesIo.ts`)
+//   deprivation_areas  those codes → a decile spread (seeded by seed-deprivation.ts)
+//
+// The middle layer is why Google cannot simply replace the rest: it returns places,
+// never GSS codes, and GSS codes are the only thing our table joins on.
 //
 // The flow, per input:
 //   • looks like a postcode  → forward lookup → its single LSOA → one decile
-//   • a place name           → geocode → bounding box decides granularity:
-//        – town  (≤ WARD_EXTENT_KM)        → reverse geocode → ward → ward's LSOAs
-//        – city  (≤ TOO_BROAD_EXTENT_KM)   → reverse geocode → LAD  → LAD's LSOAs
-//        – region (> TOO_BROAD_EXTENT_KM)  → too_broad (a single decile would mislead)
-//   • no match anywhere      → unresolvable
+//   • a place name           → geocode → reverse geocode → `reportingLevel` picks
+//                              ward / LAD / region from what Google matched and the
+//                              district it landed in → that area's LSOAs → a spread
+//   • nothing matched        → unresolvable (a verdict on the text)
+//   • could not ask          → pending     (a fact about us — see GeocodeOutcome)
 //
-// Like due diligence and scoring, this never throws — any failure resolves to
-// 'unresolvable' so application creation is never blocked.
+// Like due diligence and scoring, this never throws — application creation is
+// never blocked by it.
 
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
@@ -22,11 +30,11 @@ import {
   decileStats,
   looksLikePostcode,
   LAD_EXTENT_KM,
-  WARD_EXTENT_KM,
   type DeprivationContext,
   type DeprivationResult,
 } from '../../lib/deprivation/types'
-import { geocodePlace, lookupPostcode, reverseGeocode } from './postcodesIo'
+import { geocodePlace, reportingLevel, type ReportingLevel } from './googleGeocode'
+import { lookupPostcode, reverseGeocode, type PostcodeArea } from './postcodesIo'
 
 type AreaRow = typeof deprivationAreas.$inferSelect
 
@@ -84,51 +92,58 @@ export async function resolveDeprivation(
     }
   }
 
-  // ── Place name → ward (town) / LAD (city) / region (e.g. London), else too broad ─
-  const place = await geocodePlace(input)
-  if (!place) return { status: 'unresolvable', input }
+  // ── Place name → the level Google's answer justifies ────────────────────────
+  const outcome = await geocodePlace(input)
+  // "We could not ask" is not "there is no such place". `pending` says not-run-yet
+  // and is what `rerun-deprivation.ts --pending` comes back for; `unresolvable` is
+  // a verdict a grants officer reads and acts on. See `GeocodeOutcome`.
+  if (outcome.kind === 'unavailable') return { status: 'pending' }
+  if (outcome.kind === 'no_match') return { status: 'unresolvable', input }
+  const place = outcome.place
 
+  // Reverse geocode first: the level depends on the district the coordinate lands
+  // in, because "is this the whole district or a place inside one?" is the question
+  // that decides ward vs LAD. See `reportingLevel`.
   const rev = await reverseGeocode(place.longitude, place.latitude)
   if (!rev) return { status: 'unresolvable', input }
 
-  // A town snaps to its ward — the centroid's ward is representative at this size.
-  if (place.extentKm <= WARD_EXTENT_KM && rev.wardCode) {
-    const rows = await areasByWard(rev.wardCode)
-    if (rows.length) {
-      return {
-        status: 'resolved',
-        input,
-        ...contextFromRows(rows, 'ward', rev.wardName ?? place.name, 'place'),
-      }
-    }
+  const level = reportingLevel(place, rev.ladName, LAD_EXTENT_KM)
+
+  // Widen, never narrow. The chosen level is the right answer; the ones after it
+  // are there because our table may not carry the code postcodes.io returned (a
+  // Scottish ward, say), and a wider real area beats no answer at all.
+  for (const at of WIDENING[level]) {
+    const found = await lookupAt(at, rev, place.name)
+    if (found) return { status: 'resolved', input, ...found }
   }
 
-  // A city sits within one LAD — use the LAD-wide spread.
-  if (place.extentKm <= LAD_EXTENT_KM && rev.ladCode) {
-    const rows = await areasByLad(rev.ladCode)
-    if (rows.length) {
-      return {
-        status: 'resolved',
-        input,
-        ...contextFromRows(rows, 'lad', rev.ladName ?? place.name, 'place'),
-      }
-    }
-  }
-
-  // Larger than a LAD (e.g. "London") — the centroid's LAD is no longer
-  // representative, so report the statistical region's spread instead.
-  if (rev.region) {
-    const rows = await areasByRegion(rev.region)
-    if (rows.length) {
-      return {
-        status: 'resolved',
-        input,
-        ...contextFromRows(rows, 'region', rev.region, 'place'),
-      }
-    }
-  }
-
-  // Region-sized but no region to anchor to (non-England, or "North of England"
-  // spanning several regions) — decline rather than guess.
+  // Nothing to anchor to — a country, or a region-sized place outside England
+  // (which has no statistical region) — so decline rather than guess.
   return { status: 'too_broad', input, matchedName: place.name, extentKm: place.extentKm }
+}
+
+const WIDENING: Record<ReportingLevel, ReadonlyArray<'ward' | 'lad' | 'region'>> = {
+  ward: ['ward', 'lad', 'region'],
+  lad: ['lad', 'region'],
+  region: ['region'],
+  too_broad: [],
+}
+
+/** One level's lookup, or null if it has no code or our table doesn't carry it. */
+async function lookupAt(
+  at: 'ward' | 'lad' | 'region',
+  rev: PostcodeArea,
+  placeName: string,
+): Promise<DeprivationContext | null> {
+  const code = at === 'ward' ? rev.wardCode : at === 'lad' ? rev.ladCode : rev.region
+  if (!code) return null
+  const rows =
+    at === 'ward'
+      ? await areasByWard(code)
+      : at === 'lad'
+        ? await areasByLad(code)
+        : await areasByRegion(code)
+  if (!rows.length) return null
+  const name = at === 'ward' ? rev.wardName : at === 'lad' ? rev.ladName : rev.region
+  return contextFromRows(rows, at, name ?? placeName, 'place')
 }

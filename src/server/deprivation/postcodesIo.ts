@@ -1,10 +1,15 @@
 // ─── postcodes.io client ─────────────────────────────────────────────────────
 //
-// Thin wrapper over the free, key-less postcodes.io API. It does three jobs for
-// deprivation resolution:
+// Thin wrapper over the free, key-less postcodes.io API. It does two jobs for
+// deprivation resolution, and both are the same job seen from two directions —
+// turning a location into the OFFICIAL GSS CODES that `deprivation_areas` joins on:
 //   1. forward postcode lookup  → the postcode's LSOA/Data Zone/SOA code
-//   2. place-name geocode       → a coordinate + bounding box (OS Open Names data)
-//   3. reverse geocode          → the ward/LSOA/LAD for a coordinate
+//   2. reverse geocode          → the ward/LAD/region for a coordinate
+//
+// Place-name lookup used to live here too, against the OS Open Names gazetteer
+// (`/places`) with a Nominatim fallback. Both are gone: see `googleGeocode.ts` for
+// why they could not do the job and what replaced them. postcodes.io stays because
+// it is the only free source of GSS codes, and Google never returns one.
 //
 // Every function returns null on any failure (network, 404, malformed) and NEVER
 // throws — deprivation resolution must never block an application from being created,
@@ -75,128 +80,4 @@ export async function reverseGeocode(
   )
   const first = Array.isArray(r) ? r[0] : null
   return first ? toArea(first) : null
-}
-
-export interface GeocodedPlace {
-  name: string
-  longitude: number
-  latitude: number
-  // Bounding box extent (the larger of width/height) in kilometres — our signal for
-  // how broad the place is (town ≈ 4km, city ≈ 20km, London ≈ 54km).
-  extentKm: number
-}
-
-/** Geocode a free-text place name. Tries postcodes.io /places first (OS Open Names —
- *  fast, key-less, but GREAT BRITAIN ONLY), then falls back to Nominatim (OpenStreetMap)
- *  which covers the whole UK incl. Northern Ireland. Returns null when nothing matches
- *  (e.g. "Yorkshire", typos, regions in no gazetteer). */
-export async function geocodePlace(query: string): Promise<GeocodedPlace | null> {
-  return (await geocodeViaPlaces(query)) ?? (await geocodeViaNominatim(query))
-}
-
-/**
- * OS Open Names settlement classes, most prominent first. Great Britain has many
- * homonyms and `/places` orders them by NEITHER prominence nor size, so the first
- * hit is usually a hamlet: "Preston" led with a 1.5km suburban area in Scotland
- * ahead of the Lancashire city, "Bradford" with a South West hamlet ahead of the
- * Yorkshire city. Ranking on the class the gazetteer already assigns is what stops
- * a grant to a city being scored against a hamlet's deprivation decile.
- */
-const LOCAL_TYPE_RANK = ['City', 'Town', 'Suburban Area', 'Village', 'Hamlet', 'Other Settlement']
-
-function localTypeRank(localType: unknown): number {
-  const i = LOCAL_TYPE_RANK.indexOf(String(localType))
-  // An unknown class sorts below every named one but above nothing at all.
-  return i === -1 ? LOCAL_TYPE_RANK.length : i
-}
-
-/** Bounding-box extent in km — eastings/northings are metres; 0 if the box is absent. */
-function extentKmOf(p: any): number {
-  const widthKm =
-    typeof p.max_eastings === 'number' && typeof p.min_eastings === 'number'
-      ? (p.max_eastings - p.min_eastings) / 1000
-      : 0
-  const heightKm =
-    typeof p.max_northings === 'number' && typeof p.min_northings === 'number'
-      ? (p.max_northings - p.min_northings) / 1000
-      : 0
-  return Math.max(widthKm, heightKm)
-}
-
-/**
- * Pick the place a grant-maker writing this name almost certainly means.
- *
- * Exact name matches win outright, so "Bradford" cannot land on "Bradford Moor"
- * while a plain "Bradford" is on offer. Within that, the most prominent
- * settlement class wins, and size breaks a tie inside a class.
- */
-export function pickPlace<T>(query: string, places: T[], read: (p: T) => any): T | null {
-  if (places.length === 0) return null
-  const wanted = query.trim().toLowerCase()
-  const exact = places.filter((p) => String(read(p).name_1 ?? '').toLowerCase() === wanted)
-  const pool = exact.length > 0 ? exact : places
-  return [...pool].sort((a, b) => {
-    const ra = localTypeRank(read(a).local_type)
-    const rb = localTypeRank(read(b).local_type)
-    if (ra !== rb) return ra - rb
-    return extentKmOf(read(b)) - extentKmOf(read(a))
-  })[0]!
-}
-
-async function geocodeViaPlaces(query: string): Promise<GeocodedPlace | null> {
-  // Ask for the whole homonym set, not just the first — see `pickPlace`.
-  const r = await getJson(`${BASE}/places?q=${encodeURIComponent(query.trim())}&limit=20`)
-  const candidates = (Array.isArray(r) ? r : []).filter(
-    (p: any) => typeof p?.longitude === 'number' && typeof p?.latitude === 'number',
-  )
-  const p = pickPlace(query, candidates, (x) => x)
-  if (!p) return null
-  return {
-    name: p.name_1 ?? query.trim(),
-    longitude: p.longitude,
-    latitude: p.latitude,
-    extentKm: extentKmOf(p),
-  }
-}
-
-// Best-effort fallback for places postcodes.io can't see — chiefly Northern Ireland
-// towns (Belfast, Omagh…), which OS Open Names omits. Honours Nominatim's usage policy
-// (descriptive User-Agent, single request, low volume). `countrycodes=gb` covers the
-// whole UK including NI.
-async function geocodeViaNominatim(query: string): Promise<GeocodedPlace | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-      query.trim(),
-    )}&countrycodes=gb&format=jsonv2&limit=1`
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Custodian/1.0 (grant management; deprivation lookup)' },
-    })
-    if (!res.ok) return null
-    const arr = (await res.json()) as any[]
-    const p = Array.isArray(arr) ? arr[0] : null
-    // Only accept settlements / administrative areas. This rejects fuzzy matches to
-    // streets, buildings, etc. (e.g. "north of england" → a building called "North"),
-    // which would otherwise resolve to a wrong, confident decile.
-    if (p?.category !== 'place' && p?.category !== 'boundary') return null
-    const lat = Number(p?.lat)
-    const lon = Number(p?.lon)
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
-    // boundingbox is [south, north, west, east] in degrees → convert to km.
-    const bb = (p.boundingbox ?? []).map(Number)
-    let extentKm = 0
-    if (bb.length === 4 && bb.every((n: number) => Number.isFinite(n))) {
-      const [south, north, west, east] = bb as [number, number, number, number]
-      const latKm = Math.abs(north - south) * 111
-      const lonKm = Math.abs(east - west) * 111 * Math.cos((((south + north) / 2) * Math.PI) / 180)
-      extentKm = Math.max(latKm, lonKm)
-    }
-    return {
-      name: p.name ?? String(p.display_name ?? query).split(',')[0] ?? query.trim(),
-      longitude: lon,
-      latitude: lat,
-      extentKm,
-    }
-  } catch {
-    return null
-  }
 }

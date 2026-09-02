@@ -101,7 +101,7 @@ Local: `.env` (loaded via `dotenv/config`). Production: Cloudflare secrets — `
 
 `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `CHARITY_COMMISSION_KEY`, `COMPANIES_HOUSE_KEY`,
-`ANTHROPIC_API_KEY`, `ADMIN_API_TOKEN`, `CRON_SECRET`, `FROM_EMAIL`.
+`ANTHROPIC_API_KEY`, `ADMIN_API_TOKEN`, `CRON_SECRET`, `FROM_EMAIL`, `GOOGLE_MAPS_API_KEY`.
 
 Traps:
 
@@ -114,6 +114,13 @@ Traps:
   before testing outbound mail.
 - **`CRON_SECRET`** fails closed — unset means every call to the digest endpoint is refused.
 - **`ANTHROPIC_API_KEY`** absent → scoring degrades to `pending`, field mapping to `needs_review`.
+- **`GOOGLE_MAPS_API_KEY`** is the deprivation place lookup, and is the ONLY geocoder — the
+  postcodes.io `/places` and Nominatim fallbacks were deleted. Restrict the key to the Geocoding
+  API (not by IP: Workers egress IPs aren't stable) and cap Requests-per-day in the Cloud console.
+  Absent or refused → the place branch degrades to **`pending`, never `unresolvable`**: the first
+  is "not run yet" and is what `rerun-deprivation.ts --pending` returns for, the second is a
+  verdict on the applicant's text that a grants officer reads and acts on. A postcode input never
+  calls Google at all.
 - The admin app is built with `VITE_ADMIN_TOKEN` = the main app's `ADMIN_API_TOKEN`, and
   `VITE_API_BASE` pointing at the target main app (`admin-app/.env.local` locally; Cloudflare
   build-env vars in the cloud). `VITE_APPLY_API_KEY` is different in kind — a **foundation's**
@@ -244,7 +251,14 @@ design rationale; this list is a map, not a summary.
 - **dueDiligence** — registry checks against Charity Commission + Companies House. Returns
   **`no_registration`** (its own status, not `review`, so it stays out of the dashboard flag count)
   when there is no number to screen.
-- **deprivation** — delivery-area → IMD decile via postcodes.io + `deprivation_areas`
+- **deprivation** — delivery-area → IMD decile. Three layers, each doing what only it can:
+  **Google Geocoding** (free text → a place, a coordinate, and `types` saying what KIND of thing
+  it matched), **postcodes.io** (postcode → LSOA code; coordinate → ward/LAD/region GSS codes —
+  the only free source of these, and Google never returns one), **`deprivation_areas`** (codes →
+  decile spread). `reportingLevel` picks the geography from Google's `types`, not from
+  bounding-box size: a venue reports the ward containing it, a **county reports the region**
+  (Merseyside is five LADs and its box is ~35km, so sizing it would pick one and drop four), and
+  only town-vs-city still turns on footprint, because Google types Potters Bar and Leeds alike.
 - **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
 - **reportAnalysis** — AI analysis of received reports
 - **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance
