@@ -24,17 +24,17 @@ import {
 } from '@hugeicons/core-free-icons'
 import {
   Badge,
-  Breadcrumb,
+  BreadcrumbBar,
   Button,
   DateField,
   DetailHeader,
   Dialog,
   KeyFact,
   KPI_TINTS,
-  LinkButton,
   MiniKpi,
   Panel,
   PanelTitle,
+  RelatedLink,
   TextLink,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
@@ -112,12 +112,23 @@ function AwardDetail() {
   return (
     <div className="flex flex-col gap-4">
       {/* The crumb is the same gesture as the back arrow below it, so it carries the
-          same list state. */}
-      <Breadcrumb
+          same list state. Opposite it, the record this grant came from: onward
+          NAVIGATION lives on this row on every detail screen, never among the header's
+          actions — see `RelatedLink`. */}
+      <BreadcrumbBar
         items={[
           { label: 'Awards', to: '/awards', search: listSearch },
           { label: award.organisationName },
         ]}
+        related={
+          <RelatedLink
+            to="/applications/$applicationId"
+            params={{ applicationId: award.application.id }}
+            icon={AREA_ICON['/applications']}
+          >
+            Application
+          </RelatedLink>
+        }
       />
 
       <DetailHeader
@@ -137,19 +148,10 @@ function AwardDetail() {
           colour: AWARD_STATUS_HEX[award.status] ?? C.sub,
           tone: 'toned',
         }}
+        // Only what acts on THIS grant — the application it came from is on the
+        // breadcrumb row above, where onward navigation belongs.
         actions={
           <>
-            {/* The area's own glyph, from `AREA_ICON` — a link to an Application wears
-                the Applications mark, here and on the report screen. `File01Icon` is
-                what "open the raw submission" wears, and using it here said the two
-                buttons went to the same kind of place. */}
-            <LinkButton
-              to="/applications/$applicationId"
-              params={{ applicationId: award.application.id }}
-              icon={AREA_ICON['/applications']}
-            >
-              View Application
-            </LinkButton>
             {award.letter && (
               <Button variant="tinted" icon={Mail01Icon} onClick={() => setLetterOpen(true)}>
                 Award letter

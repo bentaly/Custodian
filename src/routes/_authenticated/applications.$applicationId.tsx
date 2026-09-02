@@ -14,7 +14,6 @@ import {
   SafeBoxIcon,
   File01Icon,
   Mail01Icon,
-  CheckmarkCircle02Icon,
   Alert02Icon,
   Tick01Icon,
 } from '@hugeicons/core-free-icons'
@@ -31,21 +30,22 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 // DetailHeader / Panel / PanelTitle are the shared detail-screen furniture (`ui/Detail`),
 // which this screen's grant and report siblings wear too.
 import {
-  Breadcrumb,
+  BreadcrumbBar,
   Button,
   CompactMoney,
   DetailHeader,
   KPI_TINTS,
-  LinkButton,
   MiniKpi,
   Panel,
   PanelTitle,
+  RelatedLink,
   Tooltip,
   TruncatedText,
   useClamp,
   ClampToggle,
 } from '../../components/ui'
 import { ScoreRing } from '../../components/charts/ScoreRing'
+import { AREA_ICON } from '../../components/Sidebar'
 import {
   CRITERION_DEFINITIONS,
   CRITERION_ORDER,
@@ -580,12 +580,21 @@ function ApplicationDetail() {
     <div className="flex flex-col gap-4">
       {/* The crumb is the same gesture as the back arrow below it, so it carries the
           same list state — two ways out that land in two different places would be
-          worse than one. */}
-      <Breadcrumb
+          worse than one. Opposite it, the grant this application became: onward
+          NAVIGATION lives on this row on every detail screen, never among the header's
+          actions — see `RelatedLink`. */}
+      <BreadcrumbBar
         items={[
           { label: 'Applications', to: '/applications', search: listSearch },
           { label: application.organisationName },
         ]}
+        related={
+          awardId ? (
+            <RelatedLink to="/awards/$awardId" params={{ awardId }} icon={AREA_ICON['/awards']}>
+              Award
+            </RelatedLink>
+          ) : undefined
+        }
       />
 
       {/* Header — Figma 435:38405, now the shared `DetailHeader` the grant and report
@@ -648,85 +657,62 @@ function ApplicationDetail() {
             <HeaderButton tone="brand" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
               View Submission
             </HeaderButton>
-            {isAwarded ? (
-              // Awarded is terminal *here*: `updateApplicationStatus` refuses to move an
-              // application with a live award row, so a status button or dropdown in this
-              // slot would be a control that can only ever error. The real onward action
-              // is the grant itself — that is where the schedule, the letter and (when it
-              // is built) cancelling live.
-              awardId ? (
-                <LinkButton
-                  variant="primary"
-                  to="/awards/$awardId"
-                  params={{ awardId }}
-                  icon={CheckmarkCircle02Icon}
-                >
-                  View award
-                </LinkButton>
-              ) : (
-                // Awarded with no award row — not yet backfilled. State, not action.
-                <span
-                  className="flex h-10 shrink-0 items-center gap-2 rounded-control border px-3 font-display text-body font-medium"
-                  style={{
-                    backgroundColor: C.brandBg,
-                    borderColor: C.brandBorder,
-                    color: C.brand,
-                  }}
-                >
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={C.brand} />
-                  Awarded
-                </span>
-              )
-            ) : (
-              canSetStatus && (
-                <>
-                  {/* No Decline once an application is SHORTLISTED. Shortlisting is a
-                      decision the round has already recorded — it commits the ask to the
-                      round's pipeline meter and it is what opens trustee voting — so
-                      declining straight from it retracts all of that in one click, from a
-                      button sitting next to the one that undoes the shortlisting
-                      properly. The way out is Remove from shortlist, then Decline: two
-                      steps, each of which says what it does. (It is not a permission —
-                      the server still accepts shortlisted → declined, which is what the
-                      list's bulk decline uses.) */}
-                  {!isShortlisted && (
-                    <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
-                      {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
+            {/* Awarded is terminal *here*: `updateApplicationStatus` refuses to move an
+                application with a live award row, so a status button or dropdown in this
+                slot would be a control that can only ever error. So an awarded
+                application simply has no decision buttons — the grant it became is one
+                row up, on the breadcrumb, with the header's status pill already saying
+                "Awarded". That pill is why the slot needs nothing of its own: it used to
+                hold a green "Awarded" chip for the not-yet-backfilled case, which was the
+                same word twice on one line. */}
+            {!isAwarded && canSetStatus && (
+              <>
+                {/* No Decline once an application is SHORTLISTED. Shortlisting is a
+                    decision the round has already recorded — it commits the ask to the
+                    round's pipeline meter and it is what opens trustee voting — so
+                    declining straight from it retracts all of that in one click, from a
+                    button sitting next to the one that undoes the shortlisting
+                    properly. The way out is Remove from shortlist, then Decline: two
+                    steps, each of which says what it does. (It is not a permission —
+                    the server still accepts shortlisted → declined, which is what the
+                    list's bulk decline uses.) */}
+                {!isShortlisted && (
+                  <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
+                    {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
+                  </HeaderButton>
+                )}
+                {/* The reason a button is DISABLED is the one explanation a `title`
+                    can never deliver: a disabled button takes no focus, so a keyboard
+                    user has no way to reach it, and several browsers decline to draw
+                    the tip at all. So when the budget is full the button is wrapped in
+                    the tooltip's own focusable trigger — which is a tab stop precisely
+                    because the button it wraps is not. When the button is live it
+                    wears nothing, and stays the single tab stop it should be. */}
+                {(() => {
+                  const shortlistButton = (
+                    <HeaderButton
+                      tone={isShortlisted ? 'plain' : 'primary'}
+                      onClick={handleShortlist}
+                      disabled={shortlisting || isBudgetFull}
+                    >
+                      {shortlisting
+                        ? '…'
+                        : isShortlisted
+                          ? 'Remove from shortlist'
+                          : isBudgetFull
+                            ? 'Budget full'
+                            : 'Shortlist'}
                     </HeaderButton>
-                  )}
-                  {/* The reason a button is DISABLED is the one explanation a `title`
-                      can never deliver: a disabled button takes no focus, so a keyboard
-                      user has no way to reach it, and several browsers decline to draw
-                      the tip at all. So when the budget is full the button is wrapped in
-                      the tooltip's own focusable trigger — which is a tab stop precisely
-                      because the button it wraps is not. When the button is live it
-                      wears nothing, and stays the single tab stop it should be. */}
-                  {(() => {
-                    const shortlistButton = (
-                      <HeaderButton
-                        tone={isShortlisted ? 'plain' : 'primary'}
-                        onClick={handleShortlist}
-                        disabled={shortlisting || isBudgetFull}
-                      >
-                        {shortlisting
-                          ? '…'
-                          : isShortlisted
-                            ? 'Remove from shortlist'
-                            : isBudgetFull
-                              ? 'Budget full'
-                              : 'Shortlist'}
-                      </HeaderButton>
-                    )
-                    return isBudgetFull ? (
-                      <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
-                        Budget committed — no funds remaining in this programme.
-                      </Tooltip>
-                    ) : (
-                      shortlistButton
-                    )
-                  })()}
-                </>
-              )
+                  )
+                  return isBudgetFull ? (
+                    <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
+                      Budget committed — no funds remaining in this programme.
+                    </Tooltip>
+                  ) : (
+                    shortlistButton
+                  )
+                })()}
+              </>
             )}
           </>
         }

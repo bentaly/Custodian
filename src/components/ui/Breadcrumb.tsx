@@ -1,4 +1,7 @@
-import { Link, type LinkProps } from '@tanstack/react-router'
+import { type ReactNode } from 'react'
+import { Link, type LinkComponentProps, type LinkProps } from '@tanstack/react-router'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { cn } from './cn'
 import { C } from './tokens'
 
 // Figma node 400:34124. 12px Inter Display, 8px gaps; ancestors in Gray/700 and the
@@ -75,5 +78,77 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
         })}
       </ol>
     </nav>
+  )
+}
+
+/**
+ * A link to a RELATED RECORD, sitting on the breadcrumb row rather than in the header's
+ * action cluster.
+ *
+ * The detail screens each hang off one or two others — a report has an application and a
+ * grant behind it, a grant has its application — and those links had been living beside
+ * "Mark as Reviewed" and "Email applicant", which is a different kind of thing entirely.
+ * One acts on the record in front of you; the other leaves it. Mixing them made the
+ * report header five controls wide and pushed the real action to the end of a wrapping
+ * row, and it is the same confusion `FinanceHeader` and `ShortlistHeader` already refuse
+ * (their tabs are NAVIGATION and sit apart from the screen's own action).
+ *
+ * The breadcrumb row is where "where am I, and what is next to me" already lives, and it
+ * was carrying one short trail and nothing else. So these go there.
+ *
+ * The label is a NOUN — "Application", not "View application" — because on this row it
+ * names a place, not a thing to do. It wears its destination's `AREA_ICON`, the same mark
+ * the rail uses, passed in by the caller so this file stays clear of the nav.
+ *
+ * Deliberately NOT a "Go to…" dropdown — that was built and thrown away. There are only
+ * ever two of these (an application and a grant; rounds and programmes have no detail
+ * route to point at), so a menu hid one link behind a click while the row it saved space
+ * on had space to spare. If a screen ever grows a fourth destination, that is the day to
+ * collapse them.
+ */
+export function RelatedLink({
+  icon,
+  className,
+  children,
+  ...props
+}: Omit<LinkComponentProps<'a'>, 'children'> & {
+  icon?: Parameters<typeof HugeiconsIcon>[0]['icon']
+  children?: ReactNode
+}) {
+  return (
+    <Link
+      className={cn(
+        'flex items-center gap-1.5 font-display text-label whitespace-nowrap text-grey-700 transition-colors hover:text-grey-900',
+        className,
+      )}
+      {...props}
+    >
+      {icon && <HugeiconsIcon icon={icon} size={14} color="currentColor" />}
+      {children}
+    </Link>
+  )
+}
+
+/**
+ * The breadcrumb row: the trail on the left, any `related` records on the right. Every
+ * detail screen should use this rather than a bare `Breadcrumb`, so the way off a record
+ * is in the same place on each of them.
+ *
+ * "Go to" is stated once, in faint grey, and earns itself: without it a right-aligned
+ * 12px "Award" beside a 12px trail reads as one more crumb.
+ */
+export function BreadcrumbBar({ items, related }: { items: Crumb[]; related?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <Breadcrumb items={items} />
+      {related && (
+        <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="font-display text-label" style={{ color: C.faint }}>
+            Go to
+          </span>
+          {related}
+        </div>
+      )}
+    </div>
   )
 }

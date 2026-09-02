@@ -16,16 +16,16 @@ import {
 import {
   AnchorButton,
   Badge,
-  Breadcrumb,
+  BreadcrumbBar,
   Button,
   DetailHeader,
   Dialog,
   EmptyState,
   KPI_TINTS,
-  LinkButton,
   MiniKpi,
   Panel,
   PanelTitle,
+  RelatedLink,
   Tooltip,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
@@ -137,13 +137,37 @@ function ReportDetail() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Breadcrumb
+      {/* The two records this report hangs off are onward NAVIGATION, so they ride the
+          breadcrumb row rather than the header's action cluster — see `RelatedLink`.
+          They are links rather than a panel of restated facts: the grant's amount,
+          programme and round are already in the subline and the stat row, and a card
+          repeating them would be the third telling of the same four strings on one
+          screen. Each wears its DESTINATION's area glyph, from `AREA_ICON`. */}
+      <BreadcrumbBar
         items={[
           // The crumb is the same gesture as the back arrow below it, so it carries the
           // same list state.
           { label: 'Reports', to: '/reports', search: listSearch },
           { label: `${report.organisationName} · ${report.label}` },
         ]}
+        related={
+          <>
+            <RelatedLink
+              to="/applications/$applicationId"
+              params={{ applicationId: report.applicationId }}
+              icon={AREA_ICON['/applications']}
+            >
+              Application
+            </RelatedLink>
+            <RelatedLink
+              to="/awards/$awardId"
+              params={{ awardId: report.grant.id }}
+              icon={AREA_ICON['/awards']}
+            >
+              Award
+            </RelatedLink>
+          </>
+        }
       />
 
       <DetailHeader
@@ -156,31 +180,10 @@ function ReportDetail() {
         name={report.organisationName}
         subline={subline}
         status={{ label: STATUS_LABELS[report.status], colour: STATUS_HEX[report.status] }}
-        // The two records this report hangs off. They are links rather than a panel of
-        // restated facts: the grant's amount, programme and round are already in the
-        // subline and the stat row, and a card repeating them would be the third telling
-        // of the same four strings on one screen.
+        // Only what acts on THIS report — the two records it hangs off moved to the
+        // breadcrumb row above, where onward navigation belongs.
         actions={
           <>
-            {/* Each of these two wears its DESTINATION's area glyph, from `AREA_ICON` —
-                the same marks the rail uses for Applications and Awards, and the same
-                pairing the grant screen's "View Application" carries. Going bare was an
-                attempt to avoid a second document icon beside "View Report"; the answer
-                to that is the right icons, not none. */}
-            <LinkButton
-              to="/applications/$applicationId"
-              params={{ applicationId: report.applicationId }}
-              icon={AREA_ICON['/applications']}
-            >
-              View Application
-            </LinkButton>
-            <LinkButton
-              to="/awards/$awardId"
-              params={{ awardId: report.grant.id }}
-              icon={AREA_ICON['/awards']}
-            >
-              View Award
-            </LinkButton>
             {/* Chasing a late report is the same gesture as chasing an applicant, so it
                 is the same control: a plain mailto into the grants team's own client.
                 Offered only while the report is actually outstanding — once it has
