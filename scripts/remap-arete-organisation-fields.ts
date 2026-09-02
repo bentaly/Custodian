@@ -53,6 +53,7 @@ import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
 import {
   buildCanonicalInput,
+  buildSubmittedFields,
   computeResponses,
   resolvedFromMapping,
 } from '../src/server/fieldMapping/assemble'
@@ -159,8 +160,18 @@ async function main() {
     const fieldOrder = (row.field_order ?? null) as string[] | null
     const resolved = resolvedFromMapping(payload, mapping, values)
     const responses = computeResponses(payload, resolved, fieldOrder)
+    // The index is built here too, not just the columns. Omitted from the preview, the
+    // first run reported thirteen clean rows and then refused eight of them: Arete's
+    // form ends with a 549-character declaration used as a question title, and only the
+    // index carried a cap on label length. A dry run that validates less than the
+    // commit does is not a dry run.
     const parsed = CreateApplicationSchema.safeParse(
-      buildCanonicalInput(row.round_programme_id as string, resolved, responses),
+      buildCanonicalInput(
+        row.round_programme_id as string,
+        resolved,
+        responses,
+        buildSubmittedFields(payload, resolved, fieldOrder),
+      ),
     )
     const before = ((row.responses ?? []) as unknown[]).length
 

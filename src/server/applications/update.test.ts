@@ -3,6 +3,7 @@ import { CreateApplicationSchema } from '../../lib/validators/application'
 import {
   PROVIDED,
   buildCanonicalInput,
+  buildSubmittedFields,
   computeResponses,
   providedValuesFor,
   resolvedFromMapping,
@@ -182,5 +183,36 @@ describe('a value the reviewer types instead of mapping', () => {
     expect(providedValuesFor({ deliveryArea: '  Ashton-under-Lyne ', notAField: 'x' })).toEqual({
       deliveryArea: 'Ashton-under-Lyne',
     })
+  })
+})
+
+describe('a question long enough to be a paragraph', () => {
+  // Arete's form ends by asking the applicant to agree to a 549-character declaration,
+  // and Typeform sends the whole thing as the question's title. `responses` accepts it
+  // — its label is uncapped — but `submittedFields` capped labels at 500, so the index
+  // built from the SAME payload keys in the same breath refused the application. Eight
+  // of their thirteen live submissions could not be re-confirmed, and any new one
+  // carrying the declaration would have been held in the review queue over a length
+  // nothing on screen could show anybody. The index's cap must never be the tighter of
+  // the two.
+  const DECLARATION = `By submitting this application I confirm that I am authorised to make this submission and sign this declaration. ${'x'.repeat(436)}`
+
+  it('accepts a 549-character question in both the index and the responses', () => {
+    expect(DECLARATION.length).toBe(549)
+    const payload = { ...PAYLOAD, [DECLARATION]: 'I agree' }
+    const resolved = resolvedFromMapping(payload, AI_MAPPING)
+    const parsed = CreateApplicationSchema.safeParse(
+      buildCanonicalInput(
+        ROUND_PROGRAMME_ID,
+        resolved,
+        computeResponses(payload, resolved),
+        buildSubmittedFields(payload, resolved),
+      ),
+    )
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && parsed.data.submittedFields?.map((f) => f.label)).toContain(
+      DECLARATION,
+    )
+    expect(parsed.success && parsed.data.responses.map((r) => r.label)).toContain(DECLARATION)
   })
 })

@@ -101,9 +101,21 @@ export const CreateApplicationSchema = z.object({
   // naming the canonical field it fed. Optional: a direct canonical submission has no
   // running order to preserve, and an application created any other way (an import)
   // was never a form. Carries no values, so nothing here can contradict the columns
-  // above; the labels are the applicant's own question wording, hence the generous cap.
+  // above; the labels are the applicant's own question wording.
+  //
+  // The label cap must never be TIGHTER than the one on `responses` above (which has
+  // none): the two carry the same strings — the incoming question wording — and the
+  // index is written from the same payload keys in the same breath, so a cap only one
+  // of them enforces refuses the whole application over a field the other would have
+  // accepted. It was 500, and Arete's form ends with a 549-character declaration used
+  // as a question title ("By submitting this application I confirm that I am authorised
+  // to make this submission…"). Eight of their thirteen live submissions could not be
+  // re-confirmed, and any new one carrying it would have been held in the review queue
+  // over a length nobody could see. 2,000 is still a real bound — this is an index, and
+  // a runaway key is what the cap is for — with a paragraph's clearance above the
+  // longest wording a real form has produced.
   submittedFields: z
-    .array(z.object({ label: z.string().max(500), canonical: z.string().max(100).nullable() }))
+    .array(z.object({ label: z.string().max(2000), canonical: z.string().max(100).nullable() }))
     .max(500)
     .optional(),
 })
