@@ -73,7 +73,10 @@ export async function scoreApplication(
     programmeGoal: programme.goal,
     programmeDescription: programme.description,
     organisationName: application.organisationName,
+    organisationSummary: application.organisationSummary,
     amountRequested: Number(application.amountRequested),
+    unrestrictedReserves:
+      application.unrestrictedReserves != null ? Number(application.unrestrictedReserves) : null,
     budgetBreakdown: application.budgetBreakdown,
     budgetBreakdownLink: application.budgetBreakdownLink,
     deliveryArea: application.deliveryArea,

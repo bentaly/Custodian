@@ -128,7 +128,9 @@ export async function createApplicationFromCanonical(
           programmeGoal: programme.goal,
           programmeDescription: programme.description,
           organisationName: input.organisationName,
+          organisationSummary: input.organisationSummary,
           amountRequested: input.amountRequested,
+          unrestrictedReserves: input.unrestrictedReserves,
           budgetBreakdown: input.budgetBreakdown,
           budgetBreakdownLink: input.budgetBreakdownLink,
           deliveryArea: input.deliveryArea,
@@ -149,6 +151,7 @@ export async function createApplicationFromCanonical(
     roundProgrammeId: input.roundProgrammeId,
     externalApplicationId: input.externalApplicationId,
     organisationName: input.organisationName,
+    organisationSummary: input.organisationSummary,
     applicantEmail: input.applicantEmail,
     charityNumber: input.charityNumber,
     companyNumber: input.companyNumber,
@@ -157,6 +160,8 @@ export async function createApplicationFromCanonical(
     bankAccountName: input.bankAccountName,
     ...bankFields(input),
     amountRequested: String(input.amountRequested),
+    unrestrictedReserves:
+      input.unrestrictedReserves != null ? String(input.unrestrictedReserves) : null,
     proposedImpactQuantity:
       input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
     budgetBreakdown: input.budgetBreakdown ?? null,
@@ -230,6 +235,11 @@ export async function updateApplicationFromCanonical(
   // Columns are nullable, the input's fields optional — treat those as equivalent.
   const same = (a: string | null | undefined, b: string | null | undefined) =>
     (a ?? '') === (b ?? '')
+  // A `numeric` column comes back as a string ("80647.00"), so its text never equals
+  // the number the input carries. Compared with `same` every confirm would report a
+  // change and re-score the application over a figure nobody touched.
+  const sameNumber = (a: string | null | undefined, b: number | null | undefined) =>
+    (a == null || a === '' ? null : Number(a)) === (b ?? null)
 
   const dueDiligenceInputsChanged =
     !same(existing.charityNumber, input.charityNumber) ||
@@ -245,6 +255,8 @@ export async function updateApplicationFromCanonical(
     dueDiligenceInputsChanged ||
     deprivationInputsChanged ||
     !same(existing.organisationName, input.organisationName) ||
+    !same(existing.organisationSummary, input.organisationSummary) ||
+    !sameNumber(existing.unrestrictedReserves, input.unrestrictedReserves) ||
     !same(existing.budgetBreakdownLink, input.budgetBreakdownLink) ||
     JSON.stringify(existing.budgetBreakdown ?? null) !==
       JSON.stringify(input.budgetBreakdown ?? null) ||
@@ -266,7 +278,9 @@ export async function updateApplicationFromCanonical(
           programmeGoal: programme.goal,
           programmeDescription: programme.description,
           organisationName: input.organisationName,
+          organisationSummary: input.organisationSummary,
           amountRequested: input.amountRequested,
+          unrestrictedReserves: input.unrestrictedReserves,
           budgetBreakdown: input.budgetBreakdown,
           budgetBreakdownLink: input.budgetBreakdownLink,
           deliveryArea: input.deliveryArea,
@@ -286,6 +300,7 @@ export async function updateApplicationFromCanonical(
     .set({
       externalApplicationId: input.externalApplicationId,
       organisationName: input.organisationName,
+      organisationSummary: input.organisationSummary,
       applicantEmail: input.applicantEmail,
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
@@ -294,6 +309,8 @@ export async function updateApplicationFromCanonical(
       bankAccountName: input.bankAccountName,
       ...bankFields(input),
       amountRequested: String(input.amountRequested),
+      unrestrictedReserves:
+        input.unrestrictedReserves != null ? String(input.unrestrictedReserves) : null,
       proposedImpactQuantity:
         input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
       budgetBreakdown: input.budgetBreakdown ?? null,

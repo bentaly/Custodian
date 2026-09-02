@@ -90,8 +90,19 @@ export interface CustodianScoreInput {
   programmeDescription: string | null | undefined
   /** Applicant organisation name. */
   organisationName: string
+  /** The applicant's own description of their organisation, where the form asked for
+   *  one. Before it was a canonical field this text reached the model anyway, as one
+   *  more entry in `responses`; pulling it onto a column would have QUIETLY REMOVED it
+   *  from the prompt, so it is passed explicitly and given a section of its own. */
+  organisationSummary: string | null | undefined
   /** Amount requested, in whole pounds. */
   amountRequested: number
+  /** Unrestricted reserves as stated by the applicant, in pounds — read against the
+   *  ask when judging need. Passed for the same reason as `organisationSummary`: it
+   *  used to arrive as a response, and must not vanish from the prompt now that it
+   *  has a column. Labelled in the prompt as the APPLICANT'S figure — no register
+   *  publishes reserves, so nothing here is verified. */
+  unrestrictedReserves: number | null | undefined
   /** The project budget as line items, when the foundation captured one. Signals
    *  whether the ask is costed credibly — and, where the lines exceed the ask, that
    *  this funder is being asked for part of a larger budget. */

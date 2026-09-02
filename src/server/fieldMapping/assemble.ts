@@ -125,6 +125,22 @@ export function buildCanonicalInput(
       ? impactCoerced
       : undefined
 
+  // Reserves are read the same way, and for the same reason: `coerceAmount` strips the
+  // pound sign and separators a form's own "(£)" field arrives with, and anything that
+  // does not come out a finite non-negative number is left unmapped rather than written
+  // as NaN. A negative figure is refused too — a charity in deficit exists, but so does
+  // a form where somebody typed a minus into the wrong box, and the column is read as
+  // "what they hold".
+  const reservesRaw = get('unrestrictedReserves')
+  const reservesCoerced =
+    reservesRaw != null
+      ? Number(CANONICAL_FIELD_BY_KEY.unrestrictedReserves.coerce!(reservesRaw))
+      : undefined
+  const unrestrictedReserves =
+    reservesCoerced != null && Number.isFinite(reservesCoerced) && reservesCoerced >= 0
+      ? reservesCoerced
+      : undefined
+
   // The breakdown reaches us as a JSON string (`toStringValue` stringifies any
   // structured payload value). A value that isn't actually structured — a prose
   // budget narrative someone mapped here — must not be silently dropped: fall back
@@ -149,6 +165,7 @@ export function buildCanonicalInput(
     roundProgrammeId,
     externalApplicationId: get('externalApplicationId'),
     organisationName: get('organisationName'),
+    organisationSummary: get('organisationSummary'),
     applicantEmail: get('applicantEmail'),
     charityNumber: get('charityNumber'),
     companyNumber: get('companyNumber'),
@@ -158,6 +175,7 @@ export function buildCanonicalInput(
     bankAccountNumber: get('bankAccountNumber'),
     bankSortCode: get('bankSortCode'),
     amountRequested: amount,
+    unrestrictedReserves,
     proposedImpactQuantity,
     budgetBreakdown: budgetBreakdown ?? undefined,
     budgetBreakdownLink: get('budgetBreakdownLink'),

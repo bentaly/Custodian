@@ -47,6 +47,12 @@ export const CreateApplicationSchema = z.object({
   // still validate without one.
   externalApplicationId: z.string().min(1).max(255).optional(),
   organisationName: z.string().min(1).max(255),
+  // The applicant's own description of their organisation. Optional — not every
+  // foundation asks. The cap is generous because this is prose an applicant wrote into
+  // a free-text box, not a field with a shape: the longest on Arete's live form runs to
+  // 3,500 characters, and truncating one at the door would lose the tail of an answer
+  // with nothing to say it had been cut.
+  organisationSummary: z.string().min(1).max(20_000).optional(),
   // The applicant's contact email — required on every application.
   applicantEmail: z.string().email().max(255),
   // Both optional — an applicant may hold a charity number, a company number,
@@ -65,6 +71,11 @@ export const CreateApplicationSchema = z.object({
   bankAccountNumber: z.string().min(1).max(50),
   bankSortCode: z.string().min(1).max(20),
   amountRequested: z.number().positive(),
+  // Unrestricted reserves as stated by the applicant, in pounds. Optional — not every
+  // foundation asks, and no register publishes it. Non-negative: `buildCanonicalInput`
+  // already refuses a negative figure rather than storing it, and this is the boundary
+  // that makes that true of every path in, not just the mapper's.
+  unrestrictedReserves: z.number().min(0).max(1_000_000_000).optional(),
   // The impact the applicant proposes to achieve, in the programme's impact unit
   // (people / trees / hectares …). Optional — not every foundation collects it.
   proposedImpactQuantity: z.number().min(0).max(1_000_000_000).optional(),

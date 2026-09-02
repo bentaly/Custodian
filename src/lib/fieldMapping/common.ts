@@ -61,6 +61,27 @@ export const COMMON_MAPPINGS: Partial<Record<CanonicalFieldKey, string[]>> = {
     'applicant organisation name',
     'company name',
   ],
+  // Only phrasings that unambiguously ask the applicant to describe THEIR OWN
+  // organisation. "Project summary", "summary" and "please give a brief description"
+  // are deliberately absent: on a real form each of those is as likely to be asking
+  // about the project the grant would fund, and mapping one here would put the
+  // project's pitch where the screen prints "who these people are".
+  organisationSummary: [
+    'organisation summary',
+    'summary of your organisation',
+    'organisation description',
+    'description of your organisation',
+    'brief description of your organisation',
+    'about your organisation',
+    'about the organisation',
+    'about your charity',
+    'tell us about your organisation',
+    'tell us about your charity',
+    'what does your organisation do',
+    'what does your charity do',
+    'what your organisation does',
+    'what your charity does',
+  ],
   amountRequested: [
     'amount requested',
     'funding requested',
@@ -70,6 +91,21 @@ export const COMMON_MAPPINGS: Partial<Record<CanonicalFieldKey, string[]>> = {
     'grant amount',
     'grant amount requested',
     'amount of funding requested',
+  ],
+  // Every alias names the funds as UNRESTRICTED. A form asking this normally asks for
+  // restricted reserves and a bank balance in the same breath (Arete's asks for all
+  // three consecutively), so a bare "reserves" is left to the AI/human — it is exactly
+  // the kind of near-miss that would silently record one figure as another.
+  unrestrictedReserves: [
+    'unrestricted reserves',
+    'unrestricted funding reserves',
+    'unrestricted funds',
+    'current unrestricted reserves',
+    'current unrestricted funding reserves',
+    'your current unrestricted reserves',
+    'your current unrestricted funding reserves',
+    'total unrestricted reserves',
+    'unrestricted reserves held',
   ],
   bankName: [
     'bank name',

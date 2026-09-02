@@ -342,6 +342,16 @@ export const applications = pgTable(
     // applications submitted directly (canonical form) have no external reference.
     externalApplicationId: text('external_application_id'),
     organisationName: text('organisation_name').notNull(),
+    // The applicant's own account of what their organisation does — the answer to the
+    // "tell us about your organisation" question nearly every foundation form asks,
+    // however it is worded. Nullable: not every form asks it, and nothing breaks
+    // without it. Where it IS captured it DISPLACES `organisationProfile.activities`
+    // (the charity's own description of itself, from its annual return) on the
+    // application screen: both answer "who are these people", but this one is written
+    // for this funder, about this ask, by the person asking for the money. The register
+    // description stays as the fallback rather than being dropped — it is the only one
+    // available for a foundation whose form never asks.
+    organisationSummary: text('organisation_summary'),
     // The applicant's contact email address. Required for every new application (a
     // required canonical field), but the column is nullable so it can be added without
     // backfilling existing rows.
@@ -363,6 +373,14 @@ export const applications = pgTable(
     // other. NULL means never computed — a row that predates the column.
     bankCheckStatus: text('bank_check_status'),
     amountRequested: numeric('amount_requested').notNull(),
+    // Unrestricted reserves as STATED BY THE APPLICANT, in pounds. The Charity
+    // Commission publishes no reserves figure at all (verified against the live API —
+    // see `OrganisationProfile.unrestrictedReserves`, which shares the name and is
+    // always null), so an application form is the only source there has ever been.
+    // Read beside the register's income and expenditure to answer "how long could they
+    // run on what they hold", which is why it sits on the row rather than in
+    // `responses`. Nullable — not every foundation asks.
+    unrestrictedReserves: numeric('unrestricted_reserves'),
     // The PROJECT budget as line items, in whole pounds. Nullable — not every
     // foundation collects one, and it is captured only when the incoming form has a
     // structured breakdown (a prose budget narrative stays in `responses`).

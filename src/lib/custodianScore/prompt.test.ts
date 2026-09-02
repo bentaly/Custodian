@@ -8,7 +8,9 @@ const base: CustodianScoreInput = {
   programmeGoal: 'Improve employment outcomes for 16–24 year olds.',
   programmeDescription: null,
   organisationName: 'Bradford Youth Trust',
+  organisationSummary: null,
   amountRequested: 25000,
+  unrestrictedReserves: null,
   budgetBreakdown: null,
   budgetBreakdownLink: null,
   deliveryArea: 'Bradford',
@@ -100,5 +102,40 @@ describe('buildSystemPrompt — grant purpose', () => {
 
   it('forbids inventing detail the application does not give', () => {
     expect(prompt).toMatch(/rather than (guessing|inventing detail)/i)
+  })
+})
+
+describe('buildUserPrompt — the organisation', () => {
+  // Both of these reached the model as ordinary `responses` entries before they were
+  // canonical fields. Promoting a field to a column REMOVES it from `responses`, so
+  // without these two lines the change would have quietly deleted the applicant's
+  // description of themselves and their reserves from every future score — a silent
+  // regression, since a prompt that is missing something still returns a number.
+  it('gives the applicant summary its own section', () => {
+    const prompt = buildUserPrompt({
+      ...base,
+      organisationSummary: 'We run a boxing gym for young people excluded from school.',
+    })
+    expect(prompt).toContain("## About the organisation (in the applicant's own words)")
+    expect(prompt).toContain('boxing gym for young people excluded from school')
+    // Above the answers it is read against, not somewhere in the middle of them.
+    expect(prompt.indexOf('## About the organisation')).toBeLessThan(
+      prompt.indexOf('## Application responses'),
+    )
+  })
+
+  it('omits the section entirely when the form did not ask', () => {
+    expect(buildUserPrompt(base)).not.toContain('## About the organisation')
+  })
+
+  it("states reserves as the applicant's own figure", () => {
+    // No register publishes reserves, so unlike the charity number beside it nothing
+    // has checked this. The label has to say so or the model reads it as verified.
+    const prompt = buildUserPrompt({ ...base, unrestrictedReserves: 80647 })
+    expect(prompt).toContain('Unrestricted reserves (as stated by the applicant): £80,647')
+  })
+
+  it('says nothing about reserves when none were captured', () => {
+    expect(buildUserPrompt(base)).not.toContain('Unrestricted reserves')
   })
 })

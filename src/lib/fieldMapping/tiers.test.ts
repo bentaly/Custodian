@@ -119,6 +119,8 @@ describe('fieldGaps', () => {
   const complete = {
     charityNumber: '1089464',
     deliveryArea: 'Harpenden',
+    organisationSummary: 'We run a community theatre for young people in Harpenden.',
+    unrestrictedReserves: '80647',
     budgetBreakdown: [{ item: 'Staff', amount: 1000 }],
     proposedImpactQuantity: '340',
   }
@@ -182,7 +184,29 @@ describe('fieldGaps', () => {
       ['charityNumber', 'companyNumber'],
       ['budgetBreakdown', 'budgetBreakdownLink'],
     ])
-    expect(gaps.expected.map((g) => g.key)).toEqual(['deliveryArea', 'proposedImpactQuantity'])
+    expect(gaps.expected.map((g) => g.key)).toEqual([
+      'organisationSummary',
+      'unrestrictedReserves',
+      'deliveryArea',
+      'proposedImpactQuantity',
+    ])
+  })
+
+  it('reports a missing organisation summary as a fallback to the register', () => {
+    // The degradation is not "nothing is shown" — the register's activity summary
+    // still is. It is that the description reverts to a filing about the charity in
+    // general, and for an applicant with no charity number there is no filing at all.
+    const gaps = fieldGaps({ ...complete, organisationSummary: null })
+    expect(gaps.expected.map((g) => g.key)).toEqual(['organisationSummary'])
+    expect(gaps.expected[0]!.degrades).toMatch(/register/)
+  })
+
+  it('reports missing reserves, which no register can supply', () => {
+    // The only `expected` field with no second source anywhere: the Charity Commission
+    // publishes no reserves figure, so if the form does not ask, nothing knows it.
+    const gaps = fieldGaps({ ...complete, unrestrictedReserves: null })
+    expect(gaps.expected.map((g) => g.key)).toEqual(['unrestrictedReserves'])
+    expect(gaps.expected[0]!.degrades).toMatch(/reserve/)
   })
 })
 
@@ -194,6 +218,8 @@ describe('the budget pair', () => {
   const base = {
     charityNumber: '1123456',
     deliveryArea: 'Bradford',
+    organisationSummary: 'We run employability courses for 16-24 year olds in Bradford.',
+    unrestrictedReserves: 80647,
     proposedImpactQuantity: 340,
   }
   const LINES = [{ item: 'Staff costs', amount: 12000 }]
@@ -242,7 +268,9 @@ describe('the budget pair', () => {
     const gaps = fieldGaps({ charityNumber: '1123456', budgetBreakdown: LINES })
     expect(gaps.expected.map((g) => g.key).sort()).toEqual([
       'deliveryArea',
+      'organisationSummary',
       'proposedImpactQuantity',
+      'unrestrictedReserves',
     ])
   })
 })

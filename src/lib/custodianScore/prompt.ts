@@ -68,6 +68,13 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
     ['Project delivery area', input.deliveryArea],
     ['Registered charity number', input.charityNumber],
     ['Companies House number', input.companyNumber],
+    // Named as the applicant's own figure. No register publishes reserves, so unlike
+    // the two numbers above it: nothing has checked it, and the label must not let the
+    // model read it as verified.
+    [
+      'Unrestricted reserves (as stated by the applicant)',
+      input.unrestrictedReserves != null ? formatPounds(input.unrestrictedReserves) : null,
+    ],
   ]
     .filter(([, v]) => typeof v === 'string' && v.trim())
     .map(([label, v]) => `${label}: ${(v as string).trim()}`)
@@ -109,6 +116,15 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
         `the budget document was not reviewed.`
       : ''
 
+  // The applicant's account of who they are, where a form asked for one. Its own
+  // section rather than another entry in `responses`, because that is what it now is
+  // on the application — and because it is the paragraph the rest of the submission
+  // is read against, so it belongs above the answers, not somewhere in the middle of
+  // them where the form happened to ask it.
+  const about = input.organisationSummary?.trim()
+    ? `\n\n## About the organisation (in the applicant's own words)\n${input.organisationSummary.trim()}`
+    : ''
+
   return `# Funder mission
 ${mission}
 
@@ -117,7 +133,7 @@ Goal: ${goal}${description ? `\nDescription: ${description}` : ''}
 
 # Application
 Organisation: ${input.organisationName}
-Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}${budget}
+Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}${about}${budget}
 
 ## Application responses
 ${responses || '(no responses provided)'}`

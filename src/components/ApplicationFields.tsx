@@ -30,11 +30,13 @@ import { C } from './ui/tokens'
 export type ApplicationFieldsData = {
   externalApplicationId?: string | null
   organisationName?: string | null
+  organisationSummary?: string | null
   applicantEmail?: string | null
   charityNumber?: string | null
   companyNumber?: string | null
   deliveryArea?: string | null
   amountRequested: string
+  unrestrictedReserves?: string | null
   proposedImpactQuantity?: string | null
   budgetBreakdown?: BudgetLine[] | null
   budgetBreakdownLink?: string | null
@@ -102,8 +104,10 @@ type Answer =
 const FALLBACK_ORDER: CanonicalFieldKey[] = [
   'externalApplicationId',
   'organisationName',
+  'organisationSummary',
   'applicantEmail',
   'amountRequested',
+  'unrestrictedReserves',
   'deliveryArea',
   'charityNumber',
   'companyNumber',
@@ -133,10 +137,14 @@ function answerFor(
       return text(application.externalApplicationId)
     case 'organisationName':
       return text(application.organisationName)
+    case 'organisationSummary':
+      return text(application.organisationSummary)
     case 'applicantEmail':
       return text(application.applicantEmail)
     case 'amountRequested':
       return text(fmtAmount(application.amountRequested), true)
+    case 'unrestrictedReserves':
+      return text(fmtAmount(application.unrestrictedReserves))
     case 'proposedImpactQuantity':
       return text(
         application.proposedImpactQuantity != null

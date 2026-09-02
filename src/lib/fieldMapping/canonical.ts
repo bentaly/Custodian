@@ -63,8 +63,10 @@ export type CanonicalFieldKey =
   | 'programmeName'
   | 'externalApplicationId'
   | 'organisationName'
+  | 'organisationSummary'
   | 'applicantEmail'
   | 'amountRequested'
+  | 'unrestrictedReserves'
   | 'bankName'
   | 'bankAccountName'
   | 'bankAccountNumber'
@@ -123,6 +125,30 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     description: 'The legal or trading name of the applicant organisation.',
   },
   {
+    key: 'organisationSummary',
+    label: 'Organisation summary',
+    // `expected`, not `optional`: what it costs is nameable and it is shown on the
+    // application. Without it the organisation card falls back to the charity
+    // register's own activity summary — which describes the charity in general, filed
+    // up to eighteen months ago, and says nothing about this funder or this ask — and
+    // for an applicant with no charity number there is no description at all.
+    tier: 'expected',
+    degrades:
+      "Without it the organisation is described only by the charity register's own " +
+      'activity summary, filed against its last annual return — or, for an applicant ' +
+      'with no charity number, not described at all.',
+    description:
+      'THE APPLICANT ORGANISATION DESCRIBED IN ITS OWN WORDS — who they are, what they do, ' +
+      'who they do it for. Map the form question that asks the applicant to describe their ' +
+      'organisation, however it is phrased (e.g. "About your organisation", "Tell us what your ' +
+      'charity does", or a funder-specific framing like "How does your charity support young ' +
+      'people in your area?"). Prefer the question about the ORGANISATION and its ongoing work. ' +
+      'Do NOT map a description of the PROJECT this grant would fund — what the money would be ' +
+      'spent on is a different question and belongs in `responses`. ' +
+      "Do NOT map the organisation's name, a mission statement of the FUNDER, or a track " +
+      'record / history question if a general "what do you do" question is also present.',
+  },
+  {
     key: 'applicantEmail',
     label: 'Applicant email',
     tier: 'required',
@@ -137,6 +163,26 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Amount requested',
     tier: 'required',
     description: 'The grant amount requested, in GBP — a monetary value.',
+    coerce: coerceAmount,
+  },
+  {
+    key: 'unrestrictedReserves',
+    label: 'Unrestricted reserves',
+    // The only source there has ever been for this figure: no Charity Commission
+    // endpoint publishes reserves, which is why the application screen's reserves cell
+    // has stood empty since it was built. `expected` because the cell is already on the
+    // screen and already says what is missing — this makes the sentence accurate.
+    tier: 'expected',
+    degrades:
+      'Without it there is no view of what the organisation holds in reserve, so the ask ' +
+      'cannot be read against how long they could run without it. No register publishes ' +
+      'the figure, so the application form is the only place it can come from.',
+    description:
+      "THE APPLICANT ORGANISATION'S UNRESTRICTED (free) RESERVES, in GBP — the funds they hold " +
+      'that are not tied to a particular purpose. A single monetary value. ' +
+      'Do NOT map RESTRICTED reserves, a bank balance, total income, total expenditure or the ' +
+      'amount requested — each of those is a different figure, and three of them commonly sit ' +
+      'beside this one on the same form.',
     coerce: coerceAmount,
   },
   {

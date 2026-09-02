@@ -466,6 +466,8 @@ function ApplicationDetail() {
     charityNumber: application.charityNumber,
     companyNumber: application.companyNumber,
     deliveryArea: application.deliveryArea,
+    organisationSummary: application.organisationSummary,
+    unrestrictedReserves: application.unrestrictedReserves,
     budgetBreakdown: budgetLines,
     budgetBreakdownLink: application.budgetBreakdownLink,
     proposedImpactQuantity: application.proposedImpactQuantity,
@@ -480,14 +482,30 @@ function ApplicationDetail() {
   // applicant. That distinction is stated rather than left as an em dash, because a
   // blank figure and an unasked question must never look the same.
   const orgProfile = (application.organisationProfile as OrganisationProfile | null) ?? null
-  // Whether the register's description overflows its two lines, and the open/closed
-  // state of the chevron that reveals the rest. Measured, not guessed — see `useClamp`.
-  const activities = useClamp(orgProfile?.activities)
+  // Who they are, in the applicant's own words, where the foundation's form asked. It
+  // DISPLACES the register's activity summary rather than sitting beside it: both
+  // answer the same question, and printing two descriptions of one charity leaves a
+  // reader deciding which to believe. This one wins because it was written for this
+  // funder and this ask, where the register's was filed against an annual return up to
+  // eighteen months ago — but the register's stays as the fallback, since it is all
+  // there is for a foundation whose form never asks.
+  const orgSummary = application.organisationSummary?.trim() || null
+  // Whether the description overflows its two lines, and the open/closed state of the
+  // chevron that reveals the rest. Measured, not guessed — see `useClamp`. Keyed on
+  // whichever description is being SHOWN, so the applicant's longer prose is clamped
+  // on its own length rather than the register's.
+  const activities = useClamp(orgSummary ?? orgProfile?.activities)
   const orgIncome = orgProfile?.latestIncome ?? null
-  // Not available from the Charity Commission at all (verified against the live API —
-  // see the field's note). Always null until it is asked for on the application form,
-  // which is why the card says "not captured" rather than showing nothing.
-  const orgReserves = orgProfile?.unrestrictedReserves ?? null
+  // The applicant's own figure, and the only one there has ever been: no Charity
+  // Commission endpoint publishes reserves (verified against the live API — see
+  // `OrganisationProfile.unrestrictedReserves`), so that half of the chain has always
+  // read null. It is kept rather than deleted because it is where a register figure
+  // would arrive if one ever existed, and it must not overrule what the applicant said.
+  const orgReserves =
+    application.unrestrictedReserves != null
+      ? parseFloat(application.unrestrictedReserves)
+      : (orgProfile?.unrestrictedReserves ?? null)
+  const reservesFromApplication = application.unrestrictedReserves != null
   const orgSpend = orgProfile?.latestExpenditure ?? null
   // The figures are as at the last FILED accounts — routinely twelve to eighteen
   // months old — so the period travels with them. A bare "£412,000" reads as today's.
@@ -741,7 +759,7 @@ function ApplicationDetail() {
             the foundation agreed to fund, written at award set-up and printed on the
             letter — shown under "Awarded for" on the grant screen. That one is prefilled
             from this one and then edited, so the two differ on most grants. */}
-        {(grantPurpose || orgProfile || noRegistrationNumber) && (
+        {(grantPurpose || orgProfile || orgSummary || noRegistrationNumber) && (
           <Panel label="grant purpose">
             {/* Two columns, not two stacked blocks. The ask and who is asking are read
                 together, and stacked they were read in sequence: the organisation
@@ -810,11 +828,14 @@ function ApplicationDetail() {
                 </div>
               )}
 
-              {/* Who they are, beside what they would do with the money. Everything in
-                  here is read from the register, so it is the one block on the screen
-                  that is neither the applicant's claim nor the model's reading — which
-                  is what the tint is for: a change of ground marking a change of
-                  source, not a decorative panel. */}
+              {/* Who they are, beside what they would do with the money. The tint marks
+                  a change of source, not a decoration: nothing in this block is the
+                  scoring model's reading of the application, which is what everything
+                  else on this panel is. It was one source when it was built — all of it
+                  the register — and now it is two, because the description gives way to
+                  the applicant's own words where the form asked for them. So the
+                  provenance sits per block: a byline on the description, and the register
+                  credited under the facts, which remain entirely its. */}
               <div className="rounded-card p-5" style={{ backgroundColor: C.wash }}>
                 {/* The chevron rides the heading rather than sitting under the text.
                     A full-width disclosure button below the paragraph costs a whole row
@@ -840,31 +861,43 @@ function ApplicationDetail() {
                   {/* Provenance reads as a byline, so it belongs on the heading row
                       rather than on a line of its own at the foot of the card: it fills
                       the empty right half of a row that already exists, and gives the
-                      card back the line it was spending. */}
-                  {orgProfile && (
+                      card back the line it was spending.
+
+                      It names the source of the DESCRIPTION under it, not of the card.
+                      The card was one source when it was built — everything in it came
+                      off the register, which is what the tint marks — and the applicant's
+                      own summary broke that: a byline reading "Charity Commission" over a
+                      paragraph the applicant wrote is the exact confusion the tint exists
+                      to prevent. The register keeps its credit on the facts below, which
+                      are still entirely its. */}
+                  {(orgSummary || orgProfile) && (
                     <p
                       className="ml-auto font-display text-micro uppercase"
                       style={{ color: C.faint }}
                     >
-                      Charity Commission · read {fmtDate(orgProfile.fetchedAt)}
+                      {orgSummary
+                        ? 'From the application'
+                        : `Charity Commission · read ${fmtDate(orgProfile!.fetchedAt)}`}
                     </p>
                   )}
                 </div>
 
-                {orgProfile?.activities ? (
-                  // The charity's OWN description, from its annual return — not ours
-                  // and not a model's, which is why it needs no hedge. Length is
-                  // uncontrolled (one sentence for a village hall, a paragraph for
-                  // Cancer Research UK), so it is clamped on DISPLAY rather than on
-                  // write: truncating what the register said before storing it would
-                  // lose it for good. The chevron that opens it is up on the heading
-                  // row, and appears only when there is something behind the fold.
+                {orgSummary || orgProfile?.activities ? (
+                  // The applicant's own description where the form asked for one, and
+                  // the charity's own description from its annual return otherwise —
+                  // neither ours nor a model's either way, which is why this needs no
+                  // hedge where the grant purpose beside it does. Length is uncontrolled
+                  // (one sentence for a village hall, three thousand characters from an
+                  // applicant with a lot to say), so it is clamped on DISPLAY rather than
+                  // on write: truncating either before storing it would lose it for good.
+                  // The chevron that opens it is up on the heading row, and appears only
+                  // when there is something behind the fold.
                   <p
                     ref={activities.ref}
                     className={`mt-2 font-display text-body leading-relaxed ${activities.className ?? ''}`}
                     style={{ color: C.ink }}
                   >
-                    {orgProfile.activities}
+                    {orgSummary ?? orgProfile!.activities}
                   </p>
                 ) : (
                   <p className="mt-2 font-display text-body" style={{ color: C.sub }}>
@@ -884,10 +917,13 @@ function ApplicationDetail() {
                       empty={noRegistrationNumber ? 'no charity number' : 'not captured'}
                       note={orgPeriodEnd ? `year to ${orgPeriodEnd}` : null}
                     />
-                    {/* Not published by the Charity Commission at ALL — verified against
-                        the live API, see `OrganisationProfile.unrestrictedReserves`. So
-                        this cell says which question was never asked rather than showing
-                        a dash, which would read as a charity that holds none. */}
+                    {/* The one cell in here the register cannot fill: no Charity
+                        Commission endpoint publishes reserves at all (verified against
+                        the live API — see `OrganisationProfile.unrestrictedReserves`), so
+                        the application form is the only source, and the note says so
+                        rather than letting the figure borrow the card's register credit.
+                        Empty still says which question went unanswered rather than
+                        showing a dash, which would read as a charity that holds none. */}
                     <Fact
                       label="Unrestricted reserves"
                       value={
@@ -895,12 +931,32 @@ function ApplicationDetail() {
                           <CompactMoney amount={orgReserves} label="Exact reserves" />
                         ) : null
                       }
-                      empty="not asked on the form"
-                      note={reserveMonths != null ? `~${reserveMonths} months' spend` : null}
+                      empty="not captured"
+                      note={
+                        // Months of cover is the more useful half, so it leads; where it
+                        // cannot be worked out (no register spend to divide by) the
+                        // provenance stands alone rather than the cell going bare.
+                        [
+                          reserveMonths != null ? `~${reserveMonths} months' spend` : null,
+                          reservesFromApplication ? 'stated on the form' : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || null
+                      }
                     />
                     {orgRegistered && <Fact label="Registered" value={orgRegistered} />}
                     {orgPeople && <Fact label="People" value={orgPeople} />}
                   </dl>
+                )}
+
+                {/* The register's credit, when the byline above is already spent naming
+                    the applicant as the source of the description. One line per source,
+                    each sitting with what it actually produced — and nothing printed
+                    twice, which is why this is conditional rather than always on. */}
+                {orgSummary && orgProfile && (
+                  <p className="mt-3 font-display text-micro uppercase" style={{ color: C.faint }}>
+                    Facts from the Charity Commission · read {fmtDate(orgProfile.fetchedAt)}
+                  </p>
                 )}
               </div>
             </div>
@@ -1043,11 +1099,12 @@ function ApplicationDetail() {
                   : 'not captured'
             }
           />
-          {/* Always empty today, and that is the honest state rather than an omission:
-              no Charity Commission endpoint publishes reserves (checked against the
-              live API, see `OrganisationProfile.unrestrictedReserves`), so the only
-              source is the application form. Shown rather than hidden so the gap is
-              visible to the people deciding whether to add the question. */}
+          {/* Filled only from the application form, and that is the whole story: no
+              Charity Commission endpoint publishes reserves (checked against the live
+              API, see `OrganisationProfile.unrestrictedReserves`). It stood empty on
+              every application until the form question became a canonical field, and it
+              is still shown when empty so a foundation that doesn't ask can see what
+              asking would buy them. */}
           <MiniKpi
             tint={KPI.reserves}
             icon={SafeBoxIcon}
@@ -1064,7 +1121,7 @@ function ApplicationDetail() {
                 ? reserveMonths != null
                   ? `~${reserveMonths} months' spend`
                   : 'as stated'
-                : 'not asked on the form'
+                : 'not captured'
             }
           />
           {/* The deprivation panel that used to sit in the sidebar. */}

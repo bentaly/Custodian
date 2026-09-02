@@ -34,7 +34,9 @@ async function main() {
     columns: {
       id: true,
       organisationName: true,
+      organisationSummary: true,
       amountRequested: true,
+      unrestrictedReserves: true,
       budgetBreakdown: true,
       budgetBreakdownLink: true,
       deliveryArea: true,
@@ -59,7 +61,10 @@ async function main() {
       programmeGoal: programme.goal,
       programmeDescription: programme.description,
       organisationName: app.organisationName,
+      organisationSummary: app.organisationSummary,
       amountRequested: Number(app.amountRequested),
+      unrestrictedReserves:
+        app.unrestrictedReserves != null ? Number(app.unrestrictedReserves) : null,
       budgetBreakdown: app.budgetBreakdown,
       budgetBreakdownLink: app.budgetBreakdownLink,
       deliveryArea: app.deliveryArea,
