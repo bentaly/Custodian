@@ -20,10 +20,15 @@ import { getRoundStatus } from '../../lib/roundStatus'
 import { APPLICATIONS_DEFAULT_SORT } from '../../server/fns/applications'
 import {
   APPLICATION_STATUS_OPTIONS,
-  ApplicationStatus,
+  type ApplicationStatus,
   applicationStatusLabel,
-  ScoreBand,
+  type ScoreBand,
 } from '../../lib/validators/application'
+import {
+  parseApplicationsSearch,
+  type ApplicationsSortKey as SortKey,
+  type SortDir,
+} from '../../lib/listSearch'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import {
   DataTable,
@@ -55,54 +60,10 @@ const C = {
   mint: 'var(--color-brand-light)', // its meta text,
 }
 
-type SortKey = 'organisation' | 'amount' | 'received' | 'status' | 'score' | 'dueDiligence'
-type SortDir = 'asc' | 'desc'
-const SORT_KEYS: SortKey[] = [
-  'organisation',
-  'amount',
-  'received',
-  'status',
-  'score',
-  'dueDiligence',
-]
-
-const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
-
-type ApplicationsSearch = {
-  roundId?: string
-  programmeId?: string
-  status?: ApplicationStatus
-  scoreBand?: ScoreBand
-  tag?: string
-  q?: string
-  /** Inclusive submission-date window (`yyyy-mm-dd`). */
-  from?: string
-  to?: string
-  sortBy?: SortKey
-  sortDir?: SortDir
-  page?: number
-}
-
 export const Route = createFileRoute('/_authenticated/applications/')({
-  validateSearch: (search: Record<string, unknown>): ApplicationsSearch => {
-    const page = Number(search.page)
-    return {
-      roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
-      programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
-      status: ApplicationStatus.optional().catch(undefined).parse(search.status),
-      scoreBand: ScoreBand.optional().catch(undefined).parse(search.scoreBand),
-      tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
-      q: typeof search.q === 'string' && search.q ? search.q : undefined,
-      from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
-      to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
-      sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
-      sortDir:
-        search.sortDir === 'asc' || search.sortDir === 'desc'
-          ? (search.sortDir as SortDir)
-          : undefined,
-      page: Number.isInteger(page) && page > 1 ? page : undefined,
-    }
-  },
+  // The shape lives in `lib/listSearch` because the detail screen parses it too — it
+  // carries this list's filters through so its back arrow can hand them back.
+  validateSearch: parseApplicationsSearch,
   loaderDeps: ({ search }) => ({
     roundId: search.roundId,
     programmeId: search.programmeId,
@@ -493,6 +454,11 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
             <Link
               to="/applications/$applicationId"
               params={{ applicationId: app.id }}
+              /* The list's filters ride along to the detail screen, whose back arrow
+                 hands them straight back — see `parseApplicationsSearch`. Parsed rather
+                 than spread because these columns are module-level and so `prev` is
+                 typed as every route's search at once. */
+              search={(prev) => parseApplicationsSearch(prev)}
               onClick={(e) => e.stopPropagation()}
               className="block truncate font-display text-body font-medium hover:underline"
               style={{ color: C.ink }}
@@ -967,7 +933,13 @@ function ApplicationsList() {
             rows={items}
             rowKey={(app) => app.id}
             onRowClick={(app) =>
-              navigate({ to: '/applications/$applicationId', params: { applicationId: app.id } })
+              navigate({
+                to: '/applications/$applicationId',
+                params: { applicationId: app.id },
+                // Same as the organisation link above: clicking the row and clicking the
+                // name must land on the same URL, filters included.
+                search: (prev) => prev,
+              })
             }
             // Never `undefined`: with no explicit sort the list IS ordered — by the
             // server's default — so the header shows that column's arrow rather than

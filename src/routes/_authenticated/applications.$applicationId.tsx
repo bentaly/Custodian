@@ -1,5 +1,6 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
+import { parseApplicationsSearch } from '../../lib/listSearch'
 import { useMemo, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -64,6 +65,11 @@ import { colourSeries } from '../../lib/programmeColours'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
+  // This screen has no search state of its own. What it validates is the LIST's — round,
+  // programme, status, sort, page — carried in by the row that was clicked, so the back
+  // arrow can return the reader to the list they left rather than a defaulted one. It is
+  // read by nothing else here; parsing it is what keeps it in the URL across a reload.
+  validateSearch: parseApplicationsSearch,
   loader: ({ params }) => orNotFound(getApplication({ data: { id: params.applicationId } })),
   component: ApplicationDetail,
 })
@@ -366,6 +372,9 @@ function CriterionBar({ label, score }: { label: string; score: number }) {
 function ApplicationDetail() {
   const application = Route.useLoaderData()
   const { user } = Route.useRouteContext()
+  /* Not this screen's state — the list's, riding through so the back arrow can restore
+     it. `{}` when the reader arrived from anywhere else. */
+  const listSearch = Route.useSearch()
   const router = useRouter()
   const [rerunningDD, setRerunningDD] = useState(false)
   // Remembered across reloads: a reviewer who works with the passed checks open should
@@ -569,9 +578,12 @@ function ApplicationDetail() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* The crumb is the same gesture as the back arrow below it, so it carries the
+          same list state — two ways out that land in two different places would be
+          worse than one. */}
       <Breadcrumb
         items={[
-          { label: 'Applications', to: '/applications', search: { roundId: undefined } },
+          { label: 'Applications', to: '/applications', search: listSearch },
           { label: application.organisationName },
         ]}
       />
@@ -581,7 +593,13 @@ function ApplicationDetail() {
           the whole page is one full-width column. */}
       <DetailHeader
         backTo="/applications"
-        backSearch={{ roundId: undefined }}
+        /* Back to the LIST AS IT WAS — the round and programme being read, the status
+           filter, the sort, the page. Sending `{ roundId: undefined }` instead dropped
+           all of it, and the list then redirected to its default round, so going back
+           from an application in an older round silently moved the reader to a
+           different one. Empty when the reader arrived from anywhere but the list
+           (the dashboard, a grant, search), which lands on the plain list as before. */
+        backSearch={listSearch}
         backLabel="Back to applications"
         name={application.organisationName}
         subline={[
@@ -662,9 +680,20 @@ function ApplicationDetail() {
             ) : (
               canSetStatus && (
                 <>
-                  <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
-                    {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
-                  </HeaderButton>
+                  {/* No Decline once an application is SHORTLISTED. Shortlisting is a
+                      decision the round has already recorded — it commits the ask to the
+                      round's pipeline meter and it is what opens trustee voting — so
+                      declining straight from it retracts all of that in one click, from a
+                      button sitting next to the one that undoes the shortlisting
+                      properly. The way out is Remove from shortlist, then Decline: two
+                      steps, each of which says what it does. (It is not a permission —
+                      the server still accepts shortlisted → declined, which is what the
+                      list's bulk decline uses.) */}
+                  {!isShortlisted && (
+                    <HeaderButton tone="danger" onClick={handleDecline} disabled={declining}>
+                      {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
+                    </HeaderButton>
+                  )}
                   {/* The reason a button is DISABLED is the one explanation a `title`
                       can never deliver: a disabled button takes no focus, so a keyboard
                       user has no way to reach it, and several browsers decline to draw

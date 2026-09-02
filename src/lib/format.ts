@@ -216,11 +216,37 @@ export function fmtDuration(years: number | null | undefined): string | null {
 }
 
 /**
- * What a multi-year ask works out at per year: `£11,667 per year for 3 years`.
+ * Money that has to divide exactly: whole pounds when the figure is whole (`£12,000`),
+ * pennies when it is not (`£11,666.66`).
+ *
+ * Not the app's default money format — `fmtMoney` is, and stays whole-pound, because
+ * every figure a foundation reconciles is a stated amount rather than a derived one.
+ * This is for the few places that show the RESULT of a division, where the pennies are
+ * the difference between arithmetic that checks out and arithmetic that does not.
+ */
+function fmtExact(n: number): string {
+  const whole = Math.abs(n - Math.round(n)) < 0.005
+  return `${n < 0 ? '-' : ''}£${Math.abs(n).toLocaleString('en-GB', {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  })}`
+}
+
+/**
+ * What a multi-year ask works out at per year: `£11,666.66 per year for 3 years`.
  *
  * A total and a duration side by side ("£35k" over "3 years") does not say which it
  * is — £35k a year for three years is a grant three times the size, and the card gave
  * a reader no way to tell. Naming the annual figure settles it in the same breath.
+ *
+ * **Pennies, and rounded DOWN.** £35,000 over three years is £11,666.66r, which the
+ * whole-pound form printed as `£11,667` — three of those is £35,001, a figure larger
+ * than the ask sitting directly above it. This card's whole job is to stop a reader
+ * mistaking the size of the ask, so it must not overstate it: the annual figure is
+ * floored to the penny, so multiplying back out can only ever land on or under the
+ * total. (`buildSchedule` splits an award the same way, flooring every instalment and
+ * folding the remainder into the last.) A division that comes out whole still reads
+ * `£12,000` — no `.00` on a figure with no pennies in it.
  *
  * `null` for a single-year or unset duration, where there is nothing to disambiguate:
  * the caller falls back to `fmtDuration`.
@@ -233,5 +259,8 @@ export function fmtDuration(years: number | null | undefined): string | null {
 export function fmtPerYear(amount: number, years: number | null | undefined): string | null {
   if (!years || years <= 1) return null
   if (!isFinite(amount) || amount <= 0) return null
-  return `${fmtMoney(amount / years)} per year for ${years} years`
+  // The epsilon keeps a division that IS exact off the floor below it: 3000/3 can land
+  // on 999.9999999999999 in binary floating point, which would print as £999.99.
+  const each = Math.floor((amount / years) * 100 + 1e-6) / 100
+  return `${fmtExact(each)} per year for ${years} years`
 }

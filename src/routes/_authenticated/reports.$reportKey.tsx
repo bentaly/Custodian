@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
+import { parseReportsSearch } from '../../lib/listSearch'
 import { useState } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
 import { ReportFields } from '../../components/ReportFields'
@@ -32,6 +33,9 @@ import { AREA_ICON } from '../../components/Sidebar'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
+  // Not this screen's state — the LIST's, carried in by the row that was clicked so the
+  // back arrow returns to the tab and filters the reader left. See `lib/listSearch`.
+  validateSearch: parseReportsSearch,
   loader: ({ params }) => orNotFound(getReport({ data: { key: params.reportKey } })),
   component: ReportDetail,
 })
@@ -79,6 +83,10 @@ function timeliness(submittedAt: string, dueDate: string | null): string {
 function ReportDetail() {
   const report = Route.useLoaderData()
   const { user } = Route.useRouteContext()
+  /* The list's state, riding through so the way out restores it — which tab above all:
+     a report reviewed from the Awaiting tab must not drop the reader back on To review.
+     `{}` when the reader arrived from anywhere else. */
+  const listSearch = Route.useSearch()
   const router = useRouter()
   const s = report.submission
   const [submissionOpen, setSubmissionOpen] = useState(false)
@@ -131,13 +139,19 @@ function ReportDetail() {
     <div className="flex flex-col gap-4">
       <Breadcrumb
         items={[
-          { label: 'Reports', to: '/reports' },
+          // The crumb is the same gesture as the back arrow below it, so it carries the
+          // same list state.
+          { label: 'Reports', to: '/reports', search: listSearch },
           { label: `${report.organisationName} · ${report.label}` },
         ]}
       />
 
       <DetailHeader
         backTo="/reports"
+        /* Back to the LIST AS IT WAS — tab, programme, round, theme, sort, page. Empty
+           when the reader arrived from a grant or the dashboard, which lands on the
+           plain list as before. */
+        backSearch={listSearch}
         backLabel="Back to reports"
         name={report.organisationName}
         subline={subline}

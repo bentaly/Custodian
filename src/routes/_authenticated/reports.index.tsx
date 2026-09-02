@@ -24,6 +24,13 @@ import {
 import { C } from '../../components/ui/tokens'
 import { facetLabel } from '../../lib/facets'
 import { fmtDate, fmtRef } from '../../lib/format'
+import {
+  parseReportsSearch,
+  type ReportsSearch,
+  type ReportsSortKey as SortKey,
+  type ReportsTab as Tab,
+  type SortDir,
+} from '../../lib/listSearch'
 
 // From the server fn, not the route loader: `Route.useLoaderData` is circular here
 // (the route's component uses this type), which resolves to `any`.
@@ -32,48 +39,15 @@ type ReportItem = Awaited<ReturnType<typeof listReports>>['items'][number]
 type AwaitingItem = Awaited<ReturnType<typeof listReports>>['awaiting'][number]
 type Horizons = Awaited<ReturnType<typeof listReports>>['horizons']
 
-type SortKey = 'organisation' | 'programme' | 'round' | 'report' | 'received' | 'due'
-type SortDir = 'asc' | 'desc'
-const SORT_KEYS: SortKey[] = ['organisation', 'programme', 'round', 'report', 'received', 'due']
 /** Text reads best A–Z; the received date newest-first, and a due date soonest-first. */
 const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round', 'report', 'due']
 
-type ReportsSearch = {
-  tab?: Tab
-  programmeId?: string
-  roundId?: string
-  tag?: string
-  from?: string
-  to?: string
-  sortBy?: SortKey
-  sortDir?: SortDir
-  page?: number
-}
-
-const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
-
 export const Route = createFileRoute('/_authenticated/reports/')({
   // The tab, sort and page live in the URL, so a report you were looking at is a link
-  // you can send someone — and so the loader can sort and page on the server.
-  validateSearch: (search: Record<string, unknown>): ReportsSearch => ({
-    // `to_review` is the default and so has no value in the URL — it is the work sitting
-    // with you, and the app lands on its first tab everywhere else.
-    tab: search.tab === 'reviewed' || search.tab === 'awaiting' ? search.tab : undefined,
-    programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
-    roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
-    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
-    from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
-    to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
-    sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
-    sortDir:
-      search.sortDir === 'asc' || search.sortDir === 'desc'
-        ? (search.sortDir as SortDir)
-        : undefined,
-    page:
-      Number.isInteger(Number(search.page)) && Number(search.page) > 1
-        ? Number(search.page)
-        : undefined,
-  }),
+  // you can send someone — and so the loader can sort and page on the server. Shared
+  // with the report screen, which carries it through so its back arrow returns to the
+  // tab and filters the reader left — see `lib/listSearch`.
+  validateSearch: parseReportsSearch,
   loaderDeps: ({ search }) => ({
     tab: search.tab,
     programmeId: search.programmeId,
@@ -127,7 +101,6 @@ const STATUS_HEX: Record<ReportRowStatus, string> = {
  * expectations, which is the merge that made a never-submitted milestone look like a
  * report in the first place.
  */
-type Tab = 'to_review' | 'reviewed' | 'awaiting'
 
 const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
   {
@@ -155,6 +128,10 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
             <Link
               to="/reports/$reportKey"
               params={{ reportKey: item.key }}
+              /* As the row click: same URL either way, tab and filters included. Parsed
+                 rather than spread because these columns are module-level, so `prev` is
+                 typed as every route's search at once. */
+              search={(prev) => parseReportsSearch(prev)}
               onClick={(e) => e.stopPropagation()}
               className="block truncate font-display text-body font-medium hover:underline"
               style={{ color: C.ink }}
@@ -284,6 +261,8 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
           <Link
             to="/reports/$reportKey"
             params={{ reportKey: item.key }}
+            /* As the row click — see the awaiting column above. */
+            search={(prev) => parseReportsSearch(prev)}
             onClick={(e) => e.stopPropagation()}
             className="block truncate font-display text-body font-medium hover:underline"
             style={{ color: C.ink }}
@@ -558,7 +537,13 @@ function ReportsPage() {
               // own screen — where the grant, the grantee's other reports and what else
               // is outstanding from them sit, which is what you need to chase it.
               onRowClick={(item) =>
-                navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
+                navigate({
+                  to: '/reports/$reportKey',
+                  params: { reportKey: item.key },
+                  // The tab and filters ride along, so the report's back arrow returns
+                  // to the list as it was read — see `lib/listSearch`.
+                  search: (prev) => prev,
+                })
               }
               // Each tab has its OWN default — most overdue first when chasing,
               // most recent first when reading — so each header marks its own.
@@ -581,7 +566,13 @@ function ReportsPage() {
               rows={items}
               rowKey={(item) => item.key}
               onRowClick={(item) =>
-                navigate({ to: '/reports/$reportKey', params: { reportKey: item.key } })
+                navigate({
+                  to: '/reports/$reportKey',
+                  params: { reportKey: item.key },
+                  // The tab and filters ride along, so the report's back arrow returns
+                  // to the list as it was read — see `lib/listSearch`.
+                  search: (prev) => prev,
+                })
               }
               sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : REPORTS_ARRIVED_DEFAULT_SORT}
               onSort={setSort}

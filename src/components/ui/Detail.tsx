@@ -136,6 +136,15 @@ export function DetailHeader({
   actions,
 }: {
   backTo: LinkProps['to']
+  /**
+   * The list's own search, so the arrow returns the reader to the list they LEFT — the
+   * round and programme being read, the filters, the sort, the page — rather than a
+   * freshly defaulted one. Every detail screen does this the same way: the row carries
+   * its list's search onto the detail route, the detail route validates the same shape
+   * with `lib/listSearch`'s parser, and hands it straight back here. Empty (`{}`) when
+   * the reader arrived from somewhere with no list behind it, which lands on the plain
+   * list. See `lib/listSearch` for the convention in full.
+   */
   backSearch?: LinkProps['search']
   /** Announced to screen readers, e.g. "Back to awards". */
   backLabel: string

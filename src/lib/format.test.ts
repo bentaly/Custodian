@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { compactExact, fmtCompact, fmtDate, fmtDateTime, isoValue } from './format'
+import { compactExact, fmtCompact, fmtDate, fmtDateTime, fmtPerYear, isoValue } from './format'
 
 /**
  * These run in NEW YORK, and that is the whole point.
@@ -115,5 +115,27 @@ describe('compactExact', () => {
   it('follows the sign', () => {
     expect(compactExact(-4840)).toBe('-£4,840')
     expect(compactExact(-5000)).toBeNull()
+  })
+})
+
+describe('fmtPerYear', () => {
+  it('never multiplies back out to more than the ask', () => {
+    // £35,000 over three years printed `£11,667`, and three of those is £35,001 —
+    // an annual figure larger than the total stated directly above it.
+    expect(fmtPerYear(35_000, 3)).toBe('£11,666.66 per year for 3 years')
+    expect(fmtPerYear(10_000, 3)).toBe('£3,333.33 per year for 3 years')
+  })
+
+  it('keeps a clean division clean', () => {
+    expect(fmtPerYear(4840, 2)).toBe('£2,420 per year for 2 years')
+    expect(fmtPerYear(36_000, 3)).toBe('£12,000 per year for 3 years')
+    // Exact in decimal, not in binary: this is what the epsilon in the floor protects.
+    expect(fmtPerYear(3000, 3)).toBe('£1,000 per year for 3 years')
+  })
+
+  it('has nothing to say about a single year, an unset duration or no ask', () => {
+    expect(fmtPerYear(35_000, 1)).toBeNull()
+    expect(fmtPerYear(35_000, null)).toBeNull()
+    expect(fmtPerYear(0, 3)).toBeNull()
   })
 })

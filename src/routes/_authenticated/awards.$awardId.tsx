@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
+import { parseAwardsSearch } from '../../lib/listSearch'
 import { useState } from 'react'
 import {
   getAward,
@@ -41,6 +42,9 @@ import { AREA_ICON } from '../../components/Sidebar'
 import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/awards/$awardId')({
+  // Not this screen's state — the REGISTER's, carried in by the row that was clicked so
+  // the back arrow returns to the list as it was read. See `lib/listSearch`.
+  validateSearch: parseAwardsSearch,
   loader: ({ params }) => orNotFound(getAward({ data: { id: params.awardId } })),
   component: AwardDetail,
 })
@@ -78,6 +82,9 @@ const SM_FIELD =
 
 function AwardDetail() {
   const award = Route.useLoaderData()
+  /* The register's state, riding through so the way out restores it. `{}` when the
+     reader arrived from anywhere else. */
+  const listSearch = Route.useSearch()
   const { impact } = award
   const [letterOpen, setLetterOpen] = useState(false)
 
@@ -104,16 +111,22 @@ function AwardDetail() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* The crumb is the same gesture as the back arrow below it, so it carries the
+          same list state. */}
       <Breadcrumb
         items={[
-          { label: 'Awards', to: '/awards', search: { roundId: undefined } },
+          { label: 'Awards', to: '/awards', search: listSearch },
           { label: award.organisationName },
         ]}
       />
 
       <DetailHeader
         backTo="/awards"
-        backSearch={{ roundId: undefined }}
+        /* Back to the REGISTER AS IT WAS — round, programme, status, sort, page.
+           `{ roundId: undefined }` dropped all of it. Empty when the reader arrived
+           from anywhere else (Finance, a report, the dashboard), which lands on the
+           plain register as before. */
+        backSearch={listSearch}
         backLabel="Back to awards"
         name={award.organisationName}
         subline={subline}

@@ -22,67 +22,22 @@ import { facetLabel } from '../../lib/facets'
 import { C } from '../../components/ui/tokens'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import {
+  parseAwardsSearch,
+  type AwardStatus,
+  type AwardsSortKey as SortKey,
+  type SortDir,
+} from '../../lib/listSearch'
 
 type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
-type AwardStatus = 'active' | 'completed' | 'cancelled'
-
-// No 'status' key: the lifecycle pill moved into the Paid column, and sorting by a
-// column that no longer has a header is unreachable. Status is still a FILTER — the
-// server keeps accepting the old key, so a stale bookmarked URL degrades to the
-// default order rather than erroring. 'geography' likewise: it is the row's subline,
-// and reachable through search.
-type SortKey = 'organisation' | 'programme' | 'round' | 'awarded' | 'amount' | 'paid' | 'duration'
-type SortDir = 'asc' | 'desc'
-
-type AwardsSearch = {
-  roundId?: string
-  programmeId?: string
-  tag?: string
-  status?: AwardStatus
-  q?: string
-  from?: string
-  to?: string
-  sortBy?: SortKey
-  sortDir?: SortDir
-  page?: number
-}
-
-const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
-const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled']
-const SORT_KEYS: SortKey[] = [
-  'organisation',
-  'programme',
-  'round',
-  'awarded',
-  'amount',
-  'paid',
-  'duration',
-]
 /** Text reads best A–Z; money, dates and counts read best biggest/newest first. */
 const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round']
 
 export const Route = createFileRoute('/_authenticated/awards/')({
-  validateSearch: (search: Record<string, unknown>): AwardsSearch => ({
-    roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
-    programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
-    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
-    status: AWARD_STATUSES.includes(search.status as AwardStatus)
-      ? (search.status as AwardStatus)
-      : undefined,
-    q: typeof search.q === 'string' && search.q ? search.q : undefined,
-    from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
-    to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
-    sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
-    sortDir:
-      search.sortDir === 'asc' || search.sortDir === 'desc'
-        ? (search.sortDir as SortDir)
-        : undefined,
-    page:
-      Number.isInteger(Number(search.page)) && Number(search.page) > 1
-        ? Number(search.page)
-        : undefined,
-  }),
+  // Shared with the grant screen, which carries this search through so its back arrow
+  // returns to the register as it was read — see `lib/listSearch`.
+  validateSearch: parseAwardsSearch,
   loaderDeps: ({ search }) => ({
     roundId: search.roundId,
     programmeId: search.programmeId,
@@ -155,6 +110,10 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
             <Link
               to="/awards/$awardId"
               params={{ awardId: g.awardId }}
+              /* As the row click: same URL either way, filters included. Parsed rather
+                 than spread because these columns are module-level, so `prev` is typed
+                 as every route's search at once. */
+              search={(prev) => parseAwardsSearch(prev)}
               onClick={(e) => e.stopPropagation()}
               className="block truncate font-display text-body font-medium hover:underline"
               style={{ color: C.ink }}
@@ -561,7 +520,13 @@ function AwardsPage() {
                 rows={items}
                 rowKey={(g) => g.awardId}
                 onRowClick={(g) =>
-                  navigate({ to: '/awards/$awardId', params: { awardId: g.awardId } })
+                  navigate({
+                    to: '/awards/$awardId',
+                    params: { awardId: g.awardId },
+                    // The register's filters ride along, so the grant's back arrow can
+                    // return to it as it was read — see `lib/listSearch`.
+                    search: (prev) => prev,
+                  })
                 }
                 // With nothing clicked the register is still ordered — most recently
                 // awarded first — so the header says so.
