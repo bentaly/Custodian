@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
+import { useRemembered } from '../../lib/useRemembered'
 import { getAwardLetterSettings, updateAwardLetterSettings } from '../../server/fns/awardSetup'
 import { SettingsPage } from '../../components/SettingsPage'
 import { AwardLetterPreview } from '../../components/AwardLetterPreview'
@@ -72,6 +73,11 @@ function AwardLetterSettings() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  // Remembered: the token reference is a crib sheet, and someone editing their letter
+  // over several sittings should not have to re-open it each time. A native <details>
+  // driven from state — `onToggle` fires after the element has already flipped itself,
+  // so the stored answer is read off the element rather than inferred.
+  const [tokensOpen, setTokensOpen] = useRemembered('award-letter.tokens', false)
 
   const usingDefaultTemplate = isDefaultTemplate(template)
   const usingDefaultConditions = isDefaultConditions(conditions)
@@ -221,7 +227,12 @@ function AwardLetterSettings() {
             : 'You are using your own letter.'}
         </p>
 
-        <details className="mt-4 rounded-chip border" style={{ borderColor: C.line }}>
+        <details
+          open={tokensOpen}
+          onToggle={(e) => setTokensOpen(e.currentTarget.open)}
+          className="mt-4 rounded-chip border"
+          style={{ borderColor: C.line }}
+        >
           <summary
             className="cursor-pointer px-4 py-2.5 font-display text-body font-medium"
             style={{ color: C.ink }}

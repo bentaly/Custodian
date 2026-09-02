@@ -773,7 +773,7 @@ function ApplicationDetail() {
                       system-endorsed — which matters here, because this text is written
                       by the scoring model rather than quoted from the applicant. */}
                   <p
-                    className="mt-2 border-l-3 pl-2 font-display text-title leading-relaxed"
+                    className="mt-2 border-l-3 pl-2 font-display text-title leading-normal"
                     style={{ color: C.ink, borderColor: C.brand }}
                   >
                     {grantPurpose}
