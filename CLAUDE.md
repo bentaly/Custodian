@@ -256,9 +256,18 @@ design rationale; this list is a map, not a summary.
   it matched), **postcodes.io** (postcode → LSOA code; coordinate → ward/LAD/region GSS codes —
   the only free source of these, and Google never returns one), **`deprivation_areas`** (codes →
   decile spread). `reportingLevel` picks the geography from Google's `types`, not from
-  bounding-box size: a venue reports the ward containing it, a **county reports the region**
-  (Merseyside is five LADs and its box is ~35km, so sizing it would pick one and drop four), and
-  only town-vs-city still turns on footprint, because Google types Potters Bar and Leeds alike.
+  bounding-box size. A venue reports the ward containing it. A settlement reports its **district**
+  when its name IS the district's (Preston, Stockport) and its **ward** when it names somewhere
+  inside one (Birkenhead in Wirral) — that comparison replaced a size threshold that was wrong
+  both ways, reporting Stockport's most deprived ward as the whole borough and all of Wirral for
+  Birkenhead. A **county reports its police force area** (`deprivation_areas.pfa_name`, backfilled
+  by `scripts/backfill-pfa.ts` from the ONS LAD25→PFA25 lookup): ONS publishes no current
+  ceremonial-county lookup, and PFAs carry the exact names foundations use — "Merseyside" is the
+  right five districts. **Matched only on an EXACT name match**, because some forces merge
+  counties, so "Buckinghamshire" against "Thames Valley" fails and falls back to the region
+  exactly as before. Never a wrong answer, sometimes no better one. Scotland and NI are null (one
+  national force each). Only town-vs-city still turns on footprint, because Google types Potters
+  Bar and Leeds alike.
 - **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
 - **reportAnalysis** — AI analysis of received reports
 - **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance

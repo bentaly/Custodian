@@ -15,8 +15,8 @@
 // The flow, per input:
 //   • looks like a postcode  → forward lookup → its single LSOA → one decile
 //   • a place name           → geocode → reverse geocode → `reportingLevel` picks
-//                              ward / LAD / region from what Google matched and the
-//                              district it landed in → that area's LSOAs → a spread
+//                              ward / LAD / PFA / region from what Google matched and
+//                              the district it landed in → those LSOAs → a spread
 //   • nothing matched        → unresolvable (a verdict on the text)
 //   • could not ask          → pending     (a fact about us — see GeocodeOutcome)
 //
@@ -33,7 +33,7 @@ import {
   type DeprivationContext,
   type DeprivationResult,
 } from '../../lib/deprivation/types'
-import { geocodePlace, reportingLevel, type ReportingLevel } from './googleGeocode'
+import { geocodePlace, reportingLevel, sameAreaName, type ReportingLevel } from './googleGeocode'
 import { lookupPostcode, reverseGeocode, type PostcodeArea } from './postcodesIo'
 
 type AreaRow = typeof deprivationAreas.$inferSelect
@@ -49,6 +49,9 @@ async function areasByLad(ladCode: string): Promise<AreaRow[]> {
 }
 async function areasByRegion(regionName: string): Promise<AreaRow[]> {
   return getDb().select().from(deprivationAreas).where(eq(deprivationAreas.regionName, regionName))
+}
+async function areasByPfa(pfaName: string): Promise<AreaRow[]> {
+  return getDb().select().from(deprivationAreas).where(eq(deprivationAreas.pfaName, pfaName))
 }
 
 /** Assemble a resolved context from a set of reference rows (all in one nation). */
@@ -67,9 +70,10 @@ function contextFromRows(
     areaName,
     resolvedVia,
     regionName: head.regionName,
-    // A region-level match spans many LADs, so a single district isn't meaningful there.
-    ladCode: areaType === 'region' ? null : head.ladCode,
-    ladName: areaType === 'region' ? null : head.ladName,
+    // A region- or county-level match spans many LADs, so a single district isn't
+    // meaningful there — Merseyside is five of them.
+    ladCode: areaType === 'region' || areaType === 'pfa' ? null : head.ladCode,
+    ladName: areaType === 'region' || areaType === 'pfa' ? null : head.ladName,
   }
 }
 
@@ -122,28 +126,46 @@ export async function resolveDeprivation(
   return { status: 'too_broad', input, matchedName: place.name, extentKm: place.extentKm }
 }
 
-const WIDENING: Record<ReportingLevel, ReadonlyArray<'ward' | 'lad' | 'region'>> = {
+type LookupLevel = 'ward' | 'lad' | 'pfa' | 'region'
+
+const WIDENING: Record<ReportingLevel, ReadonlyArray<LookupLevel>> = {
   ward: ['ward', 'lad', 'region'],
   lad: ['lad', 'region'],
+  // A county that does not match a police force area — "Buckinghamshire" against
+  // "Thames Valley", "Tyne and Wear" against "Northumbria" — falls back to the
+  // region, which is exactly what it did before the PFA column existed.
+  pfa: ['pfa', 'region'],
   region: ['region'],
   too_broad: [],
 }
 
-/** One level's lookup, or null if it has no code or our table doesn't carry it. */
+/** One level's lookup, or null if it has no code, our table doesn't carry it, or —
+ *  for a PFA — the applicant did not actually name that force area. */
 async function lookupAt(
-  at: 'ward' | 'lad' | 'region',
+  at: LookupLevel,
   rev: PostcodeArea,
   placeName: string,
 ): Promise<DeprivationContext | null> {
-  const code = at === 'ward' ? rev.wardCode : at === 'lad' ? rev.ladCode : rev.region
-  if (!code) return null
+  // A PFA is reached by NAME, not by the coordinate landing in it. Every coordinate
+  // lands in some force area, so without this "Buckinghamshire" would silently
+  // return the whole of Thames Valley. The other three are genuine containments.
+  if (at === 'pfa' && !sameAreaName(placeName, rev.pfa)) return null
+
+  const key =
+    at === 'ward' ? rev.wardCode : at === 'lad' ? rev.ladCode : at === 'pfa' ? rev.pfa : rev.region
+  if (!key) return null
+
   const rows =
     at === 'ward'
-      ? await areasByWard(code)
+      ? await areasByWard(key)
       : at === 'lad'
-        ? await areasByLad(code)
-        : await areasByRegion(code)
+        ? await areasByLad(key)
+        : at === 'pfa'
+          ? await areasByPfa(key)
+          : await areasByRegion(key)
   if (!rows.length) return null
-  const name = at === 'ward' ? rev.wardName : at === 'lad' ? rev.ladName : rev.region
+
+  const name =
+    at === 'ward' ? rev.wardName : at === 'lad' ? rev.ladName : at === 'pfa' ? rev.pfa : rev.region
   return contextFromRows(rows, at, name ?? placeName, 'place')
 }

@@ -39,6 +39,10 @@ export interface PostcodeArea {
   ladName: string | null
   // Statistical region NAME (England only, e.g. "London"); null for the other nations.
   region: string | null
+  // Police Force Area NAME — how a county-shaped delivery area ("Merseyside",
+  // "Greater Manchester", "Cumbria") gets answered. See `deprivation_areas.pfaName`
+  // for why this stands in for a county and why it is only ever matched exactly.
+  pfa: string | null
   country: string | null
 }
 
@@ -58,6 +62,7 @@ function toArea(r: any): PostcodeArea {
     ladCode: codes.admin_district ?? null,
     ladName: r?.admin_district ?? null,
     region: r?.region ?? null,
+    pfa: r?.pfa ?? null,
     country: r?.country ?? null,
   }
 }

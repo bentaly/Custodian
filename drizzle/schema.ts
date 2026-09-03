@@ -176,34 +176,36 @@ export const clients = pgTable('clients', {
 
 // BetterAuth required fields (email_verified, image, updated_at) are included
 // alongside the business fields from the data model. Auth plumbing only.
-export const users = pgTable('users', {
-  id: text('id').primaryKey(),
-  clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  role: userRoleEnum('role').notNull().default('trustee'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  // BetterAuth admin plugin — ban controls (unused for now, required by plugin schema)
-  banned: boolean('banned').notNull().default(false),
-  banReason: text('ban_reason'),
-  banExpires: timestamp('ban_expires'),
-  // BetterAuth required
-  emailVerified: boolean('email_verified').notNull().default(false),
-  image: text('image'),
-  // Opt-in to the Monday payments digest. NULL is not "off" — it is "has never chosen",
-  // and it resolves at read time to the role default (`digestDefaultOn` in
-  // src/lib/financeDigest/optIn.ts: on for `finance`, off for everyone else). Same
-  // convention as `client_profiles.award_letter_template`: a stored value is a decision
-  // the user made and always wins; NULL keeps following whatever we think is sensible.
-  //
-  // A boolean is cheap enough to sit on this row even though `getAuthUser` selects it on
-  // every authenticated call — the reason `user_avatars` is a separate table is image
-  // bytes, which does not generalise to a flag.
-  weeklyFinanceDigest: boolean('weekly_finance_digest'),
-  updatedAt: timestamp('updated_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
-},
+export const users = pgTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    email: text('email').notNull().unique(),
+    role: userRoleEnum('role').notNull().default('trustee'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    // BetterAuth admin plugin — ban controls (unused for now, required by plugin schema)
+    banned: boolean('banned').notNull().default(false),
+    banReason: text('ban_reason'),
+    banExpires: timestamp('ban_expires'),
+    // BetterAuth required
+    emailVerified: boolean('email_verified').notNull().default(false),
+    image: text('image'),
+    // Opt-in to the Monday payments digest. NULL is not "off" — it is "has never chosen",
+    // and it resolves at read time to the role default (`digestDefaultOn` in
+    // src/lib/financeDigest/optIn.ts: on for `finance`, off for everyone else). Same
+    // convention as `client_profiles.award_letter_template`: a stored value is a decision
+    // the user made and always wins; NULL keeps following whatever we think is sensible.
+    //
+    // A boolean is cheap enough to sit on this row even though `getAuthUser` selects it on
+    // every authenticated call — the reason `user_avatars` is a separate table is image
+    // bytes, which does not generalise to a flag.
+    weeklyFinanceDigest: boolean('weekly_finance_digest'),
+    updatedAt: timestamp('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
   (t) => [
     // Composite rather than `client_id` alone because the hot query is always the
     // pair: `eq(users.role, 'trustee') AND eq(users.clientId, …)` — the vote
@@ -240,21 +242,23 @@ export const userAvatars = pgTable('user_avatars', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
-export const rounds = pgTable('rounds', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  openedAt: timestamp('opened_at'),
-  closedAt: timestamp('closed_at'),
-  // Retired, not removed. A round that has applications can never be deleted — its
-  // applications and awards are financial records that must keep pointing at the round
-  // they were judged in — so "I'm done with this" is expressed by archiving: hidden
-  // from every picker and list, still rendered wherever its history is shown.
-  archivedAt: timestamp('archived_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-},
+export const rounds = pgTable(
+  'rounds',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    openedAt: timestamp('opened_at'),
+    closedAt: timestamp('closed_at'),
+    // Retired, not removed. A round that has applications can never be deleted — its
+    // applications and awards are financial records that must keep pointing at the round
+    // they were judged in — so "I'm done with this" is expressed by archiving: hidden
+    // from every picker and list, still rendered wherever its history is shown.
+    archivedAt: timestamp('archived_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
   (t) => [
     // Every round list is one foundation's: listMyRounds, listRoundsOverview,
     // listRoundDates (on the authenticated layout, so on every page), search.
@@ -262,33 +266,35 @@ export const rounds = pgTable('rounds', {
   ],
 )
 
-export const programmes = pgTable('programmes', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description'),
-  goal: text('goal'),
-  tags: jsonb('tags').$type<string[]>(),
-  // The colour this programme is recognised by — a lowercase `#rrggbb`, one of the ten
-  // presets or a custom pick. Nullable: programmes created before this column keep the
-  // positional colour the screen already drew them in (`resolveProgrammeColour`) rather
-  // than being backfilled, so no DML migration has to run against live rows.
-  colour: text('colour'),
-  // Unit this programme measures impact in (key from IMPACT_UNITS, e.g. 'people',
-  // 'hectares'). Drives Insights aggregation and the report-analysis extraction
-  // prompt ("how many {unit} does this report evidence").
-  impactUnit: text('impact_unit').notNull().default('people'),
-  // Free-text PLURAL noun phrase when impactUnit = 'other', e.g. "hectares of
-  // peatland restored". Used verbatim for display and extraction; never inflected.
-  impactUnitLabel: text('impact_unit_label'),
-  // See `rounds.archived_at` — same rule: a programme with grants against it stays,
-  // because its awards reference it through `round_programmes` for the budget they
-  // were judged against.
-  archivedAt: timestamp('archived_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-},
+export const programmes = pgTable(
+  'programmes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    goal: text('goal'),
+    tags: jsonb('tags').$type<string[]>(),
+    // The colour this programme is recognised by — a lowercase `#rrggbb`, one of the ten
+    // presets or a custom pick. Nullable: programmes created before this column keep the
+    // positional colour the screen already drew them in (`resolveProgrammeColour`) rather
+    // than being backfilled, so no DML migration has to run against live rows.
+    colour: text('colour'),
+    // Unit this programme measures impact in (key from IMPACT_UNITS, e.g. 'people',
+    // 'hectares'). Drives Insights aggregation and the report-analysis extraction
+    // prompt ("how many {unit} does this report evidence").
+    impactUnit: text('impact_unit').notNull().default('people'),
+    // Free-text PLURAL noun phrase when impactUnit = 'other', e.g. "hectares of
+    // peatland restored". Used verbatim for display and extraction; never inflected.
+    impactUnitLabel: text('impact_unit_label'),
+    // See `rounds.archived_at` — same rule: a programme with grants against it stays,
+    // because its awards reference it through `round_programmes` for the budget they
+    // were judged against.
+    archivedAt: timestamp('archived_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
   (t) => [
     // `visibleRoundProgrammeIds` (src/server/scope.ts) joins round_programmes to
     // programmes and filters on this column. That runs on EVERY authenticated list
@@ -417,9 +423,8 @@ export const applications = pgTable(
     // and `resolved` at promotion. NULL for applications that never came through the
     // ingest (imports, seeds) and for those promoted before the column existed — the
     // dialog then falls back to its own fixed order.
-    submittedFields: jsonb('submitted_fields').$type<
-      Array<{ label: string; canonical: string | null }>
-    >(),
+    submittedFields:
+      jsonb('submitted_fields').$type<Array<{ label: string; canonical: string | null }>>(),
     status: applicationStatusEnum('status').notNull().default('for_review'),
     // Summary outcome of the automated due diligence screening — cheap to read for
     // the applications list/detail indicator without parsing the checks array.
@@ -546,23 +551,25 @@ export const verifications = pgTable('verifications', {
   updatedAt: timestamp('updated_at'),
 })
 
-export const invitations = pgTable('invitations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  email: text('email').notNull(),
-  role: userRoleEnum('role').notNull().default('trustee'),
-  token: text('token').notNull().unique(),
-  // Nullable: invites created from the (token-gated) admin app have no main-app
-  // user to attribute. In-app invites still set this to the inviting user.
-  invitedBy: text('invited_by').references(() => users.id, { onDelete: 'cascade' }),
-  // Cloudflare Access email of the admin-app operator, when invitedBy is null.
-  invitedByEmail: text('invited_by_email'),
-  expiresAt: timestamp('expires_at').notNull(),
-  acceptedAt: timestamp('accepted_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-},
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: userRoleEnum('role').notNull().default('trustee'),
+    token: text('token').notNull().unique(),
+    // Nullable: invites created from the (token-gated) admin app have no main-app
+    // user to attribute. In-app invites still set this to the inviting user.
+    invitedBy: text('invited_by').references(() => users.id, { onDelete: 'cascade' }),
+    // Cloudflare Access email of the admin-app operator, when invitedBy is null.
+    invitedByEmail: text('invited_by_email'),
+    expiresAt: timestamp('expires_at').notNull(),
+    acceptedAt: timestamp('accepted_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
   (t) => [
     // `listInvitations` (Settings → Team) filters client_id and pending-only.
     index('invitations_client_idx').on(t.clientId),
@@ -655,43 +662,47 @@ export const fieldMappings = pgTable(
 // form. `needs_review` rows wait in the admin queue; `complete`/`ai_proposed` rows
 // are promoted to a real `applications` row (linked via `applicationId`). The raw
 // payload is always retained for audit and re-mapping.
-export const applicationIngests = pgTable('application_ingests', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  roundProgrammeId: uuid('round_programme_id').references(() => roundProgrammes.id, {
-    onDelete: 'restrict',
-  }),
-  rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
-  // The order the sender's fields arrived in, captured because `raw_payload` cannot
-  // hold it: Postgres normalises jsonb object keys (by length, then bytewise), so the
-  // very write that preserves the submission destroys the order it was made in. A
-  // 38-question form comes back out as "Trustees, Full-time, Part-time, Volunteers,
-  // Budget total…" — an order no applicant ever saw. Written by `saveIngest` from the
-  // decoded body, where the wire order still exists, and it is the only place it does.
-  // NULL on rows that predate the column; their order is not recoverable.
-  fieldOrder: jsonb('field_order').$type<string[]>(),
-  status: ingestStatusEnum('status').notNull().default('needs_review'),
-  // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
-  proposed:
-    jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
-  // The final mapping applied: sourceKey → canonicalField.
-  resolved: jsonb('resolved').$type<Record<string, string>>(),
-  // Canonical fields a reviewer TYPED rather than pointed at an incoming field:
-  // canonicalField → value. Kept separately from `resolved` because that map is keyed
-  // on the source key and a typed value has none. Stored rather than merely applied so
-  // a re-confirm doesn't blank it: `updateApplicationFromCanonical` writes the whole
-  // canonical set, so a value the reviewer supplied and the ingest forgot would be
-  // NULLed the next time anyone pressed Confirm.
-  providedValues: jsonb('provided_values').$type<Record<string, string>>(),
-  // Set once promoted to a real application.
-  applicationId: uuid('application_id').references(() => applications.id, { onDelete: 'set null' }),
-  note: text('note'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  resolvedAt: timestamp('resolved_at'),
-  resolvedBy: text('resolved_by'),
-},
+export const applicationIngests = pgTable(
+  'application_ingests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    roundProgrammeId: uuid('round_programme_id').references(() => roundProgrammes.id, {
+      onDelete: 'restrict',
+    }),
+    rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+    // The order the sender's fields arrived in, captured because `raw_payload` cannot
+    // hold it: Postgres normalises jsonb object keys (by length, then bytewise), so the
+    // very write that preserves the submission destroys the order it was made in. A
+    // 38-question form comes back out as "Trustees, Full-time, Part-time, Volunteers,
+    // Budget total…" — an order no applicant ever saw. Written by `saveIngest` from the
+    // decoded body, where the wire order still exists, and it is the only place it does.
+    // NULL on rows that predate the column; their order is not recoverable.
+    fieldOrder: jsonb('field_order').$type<string[]>(),
+    status: ingestStatusEnum('status').notNull().default('needs_review'),
+    // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
+    proposed:
+      jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
+    // The final mapping applied: sourceKey → canonicalField.
+    resolved: jsonb('resolved').$type<Record<string, string>>(),
+    // Canonical fields a reviewer TYPED rather than pointed at an incoming field:
+    // canonicalField → value. Kept separately from `resolved` because that map is keyed
+    // on the source key and a typed value has none. Stored rather than merely applied so
+    // a re-confirm doesn't blank it: `updateApplicationFromCanonical` writes the whole
+    // canonical set, so a value the reviewer supplied and the ingest forgot would be
+    // NULLed the next time anyone pressed Confirm.
+    providedValues: jsonb('provided_values').$type<Record<string, string>>(),
+    // Set once promoted to a real application.
+    applicationId: uuid('application_id').references(() => applications.id, {
+      onDelete: 'set null',
+    }),
+    note: text('note'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at'),
+    resolvedBy: text('resolved_by'),
+  },
   (t) => [
     // What `/api/admin/ingests` actually does: filter by status, order by createdAt
     // desc. NOT client_id, which nothing filters on here — the admin app is
@@ -724,6 +735,23 @@ export const deprivationAreas = pgTable(
     // Statistical region — England only (the 9 regions, e.g. "London"); null elsewhere.
     // Lets a large place like "London" resolve to a region-wide decile range.
     regionName: text('region_name'),
+    // Police Force Area, which is how a COUNTY-shaped input gets answered. Foundations
+    // write "Merseyside" or "Greater Manchester" constantly, and neither is a local
+    // authority: Merseyside is five of them. ONS publishes no current lookup for the
+    // ceremonial counties people actually mean — its only "County" service is the 2017
+    // administrative one, which has no metropolitan counties and predates Cumbria's
+    // 2023 abolition. PFAs are built from ceremonial counties, ARE maintained (the
+    // LAD25→PFA25 lookup), and carry the exact names foundations use.
+    //
+    // Not every PFA is a county — some merge several ("Thames Valley", "Devon &
+    // Cornwall"), and some counties have none of their own ("Tyne and Wear" sits under
+    // Northumbria). Which is why this is stored under the name of what it actually is,
+    // and matched only on an EXACT name match: "Merseyside" resolves, "Buckinghamshire"
+    // does not and falls back to the region exactly as it does today. Never a wrong
+    // answer, sometimes no better answer.
+    //
+    // Backfilled by scripts/backfill-pfa.ts from the ONS lookup; null outside E&W.
+    pfaName: text('pfa_name'),
     nation: deprivationNationEnum('nation').notNull(),
     // 1 = most deprived 10% in this nation … 10 = least. Within-nation only.
     decile: integer('decile').notNull(),
@@ -734,6 +762,7 @@ export const deprivationAreas = pgTable(
     index('deprivation_areas_ward_idx').on(t.wardCode),
     index('deprivation_areas_lad_idx').on(t.ladCode),
     index('deprivation_areas_region_idx').on(t.regionName),
+    index('deprivation_areas_pfa_idx').on(t.pfaName),
   ],
 )
 
@@ -791,21 +820,23 @@ export const applicationVotes = pgTable(
 // the owning client (replacing the old `clientId` body field). Only a SHA-256 hash of
 // the key is stored — the plaintext is shown once at creation and never again. `last4`
 // is kept purely for display (e.g. cust_sk_••••a1b2). Revoking sets `revokedAt`.
-export const apiKeys = pgTable('api_keys', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  keyHash: text('key_hash').notNull().unique(),
-  last4: text('last4').notNull(),
-  // Every key predating webhooks is a header key, which is what the default says.
-  kind: apiKeyKindEnum('kind').notNull().default('secret'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  createdBy: text('created_by'),
-  lastUsedAt: timestamp('last_used_at'),
-  revokedAt: timestamp('revoked_at'),
-},
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    keyHash: text('key_hash').notNull().unique(),
+    last4: text('last4').notNull(),
+    // Every key predating webhooks is a header key, which is what the default says.
+    kind: apiKeyKindEnum('kind').notNull().default('secret'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    createdBy: text('created_by'),
+    lastUsedAt: timestamp('last_used_at'),
+    revokedAt: timestamp('revoked_at'),
+  },
   (t) => [
     // `listApiKeys` on Settings → API keys. Small table, but `resolveToken` also
     // WRITES `lastUsedAt` on every public submission, so keeping the read cheap
@@ -1088,33 +1119,37 @@ export const awardLetters = pgTable('award_letters', {
 // every required canonical field resolved AND a grant identified (exact
 // externalApplicationId match, or an admin pick). The raw payload is always
 // retained for audit and re-mapping.
-export const reportIngests = pgTable('report_ingests', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  clientId: uuid('client_id')
-    .notNull()
-    .references(() => clients.id, { onDelete: 'cascade' }),
-  rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
-  status: ingestStatusEnum('status').notNull().default('needs_review'),
-  // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
-  proposed:
-    jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
-  // The final mapping applied: sourceKey → canonicalField.
-  resolved: jsonb('resolved').$type<Record<string, string>>(),
-  // Ranked grant suggestions computed by the matching heuristics (charity number,
-  // normalised organisation name, programme, amount, award-date fit). Heuristics
-  // NEVER auto-link — an admin confirms one of these in the review queue. Kept on
-  // the row so a future client-facing match UI can render the same suggestions.
-  matchCandidates:
-    jsonb('match_candidates').$type<Array<{ awardId: string; score: number; reasons: string[] }>>(),
-  // Set once promoted to a real report submission.
-  reportId: uuid('report_id').references(() => reports.id, {
-    onDelete: 'set null',
-  }),
-  note: text('note'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  resolvedAt: timestamp('resolved_at'),
-  resolvedBy: text('resolved_by'),
-},
+export const reportIngests = pgTable(
+  'report_ingests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+    status: ingestStatusEnum('status').notNull().default('needs_review'),
+    // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
+    proposed:
+      jsonb('proposed').$type<Record<string, { sourceKey: string | null; confidence: number }>>(),
+    // The final mapping applied: sourceKey → canonicalField.
+    resolved: jsonb('resolved').$type<Record<string, string>>(),
+    // Ranked grant suggestions computed by the matching heuristics (charity number,
+    // normalised organisation name, programme, amount, award-date fit). Heuristics
+    // NEVER auto-link — an admin confirms one of these in the review queue. Kept on
+    // the row so a future client-facing match UI can render the same suggestions.
+    matchCandidates:
+      jsonb('match_candidates').$type<
+        Array<{ awardId: string; score: number; reasons: string[] }>
+      >(),
+    // Set once promoted to a real report submission.
+    reportId: uuid('report_id').references(() => reports.id, {
+      onDelete: 'set null',
+    }),
+    note: text('note'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at'),
+    resolvedBy: text('resolved_by'),
+  },
   (t) => [
     // Same query, same reason as `application_ingests` — kept in step with it.
     index('report_ingests_status_created_idx').on(t.status, t.createdAt),

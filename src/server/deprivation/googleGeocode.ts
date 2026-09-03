@@ -121,10 +121,13 @@ function normaliseSettlement(name: string): string {
     .trim()
 }
 
-/** Did the applicant name the whole district, or a place inside one? */
-export function isWholeDistrict(placeName: string, ladName: string | null): boolean {
-  if (!ladName) return false
-  return normaliseSettlement(placeName) === normaliseSettlement(ladName)
+/** Do these two name the same area? The join between what Google matched and what
+ *  postcodes.io reported — used for the district ("Preston" IS Preston) and for the
+ *  police force area ("Merseyside" IS Merseyside). Exact, after normalisation: it
+ *  never guesses, so a mismatch simply widens to the next geography out. */
+export function sameAreaName(placeName: string, areaName: string | null): boolean {
+  if (!areaName) return false
+  return normaliseSettlement(placeName) === normaliseSettlement(areaName)
 }
 
 /**
@@ -138,10 +141,16 @@ export function isWholeDistrict(placeName: string, ladName: string | null): bool
  *                               the ward containing it is the delivery area. Its
  *                               own footprint (~0.3km) is meaningless.
  *   neighbourhood     → ward    already ward-sized by definition.
- *   county            → region  see `looksLikeCounty` — five LADs, not one.
+ *   county            → pfa     see `looksLikeCounty` — five LADs, not one, so it is
+ *                                answered by police force area (the only maintained
+ *                                stand-in for a ceremonial county) when the names
+ *                                agree, and by the region when they do not.
  *   region / nation   → region  "North West", "Scotland".
  *   country           → too_broad
- *   bigger than a LAD → region  "London" (54km), "Cumbria" (128km).
+ *   bigger than a LAD → pfa     "Cumbria" (128km) arrives as a `colloquial_area`, not
+ *                                a county, so only its footprint catches it. "London"
+ *                                takes the same route and finds no matching PFA
+ *                                ("Metropolitan Police"), so it lands on its region.
  *   town / city       → does the NAME match the district it sits in?
  *
  * That last rule replaced a size threshold, which was wrong in both directions and
@@ -157,7 +166,7 @@ export function isWholeDistrict(placeName: string, ladName: string | null): bool
  * district of Preston, so the applicant means all of it. "Birkenhead" is a town in
  * Wirral, so they mean Birkenhead, and the centroid's ward is the right read.
  */
-export type ReportingLevel = 'ward' | 'lad' | 'region' | 'too_broad'
+export type ReportingLevel = 'ward' | 'lad' | 'pfa' | 'region' | 'too_broad'
 
 const VENUE_TYPES = [
   'establishment',
@@ -189,15 +198,15 @@ export function reportingLevel(
   // that says where the work happens.
   if (has(VENUE_TYPES) || has(NEIGHBOURHOOD_TYPES)) return 'ward'
   if (place.types.includes('country')) return 'too_broad'
-  if (looksLikeCounty(place.types)) return 'region'
+  if (looksLikeCounty(place.types)) return 'pfa'
   if (place.types.includes('administrative_area_level_1')) return 'region'
 
   // Still a size question, and the only one left: anything wider than a district
   // cannot be reported as one. "Cumbria" arrives as a `colloquial_area` rather than
   // a county, and only its 128km footprint says it is too big to be Westmorland.
-  if (place.extentKm > ladExtentKm) return 'region'
+  if (place.extentKm > ladExtentKm) return 'pfa'
 
-  return isWholeDistrict(place.name, ladName) ? 'lad' : 'ward'
+  return sameAreaName(place.name, ladName) ? 'lad' : 'ward'
 }
 
 /**

@@ -28,9 +28,11 @@ export type DeprivationStatus =
 export type DeprivationNation = 'england' | 'scotland' | 'wales' | 'northern_ireland'
 
 // The geography we snapped the location onto. A postcode pins to a single LSOA; a
-// town to its ward; a city to its local authority district; a large place (e.g.
-// "London") to its statistical region — each progressively wider, all shown as a range.
-export type DeprivationAreaType = 'lsoa' | 'ward' | 'lad' | 'region'
+// town to its ward; a city to its local authority district; a county (e.g.
+// "Merseyside") to its police force area, which is the closest maintained stand-in
+// for a ceremonial county; a large place (e.g. "London") to its statistical region —
+// each progressively wider, all shown as a range.
+export type DeprivationAreaType = 'lsoa' | 'ward' | 'lad' | 'pfa' | 'region'
 
 // Distribution of deciles across the small areas the location resolved to. For a
 // postcode this collapses to a single area (min === max === median, count 1).

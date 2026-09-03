@@ -2,12 +2,7 @@
 // this swap exists to fix — a homonym city, a venue, and a county — trimmed to
 // the fields the parser reads. No network: `parseGeocodeResult` is pure.
 import { describe, expect, it } from 'vitest'
-import {
-  isWholeDistrict,
-  looksLikeCounty,
-  parseGeocodeResult,
-  reportingLevel,
-} from './googleGeocode'
+import { sameAreaName, looksLikeCounty, parseGeocodeResult, reportingLevel } from './googleGeocode'
 import { LAD_EXTENT_KM } from '../../lib/deprivation/types'
 
 const PRESTON = {
@@ -151,11 +146,12 @@ describe('reportingLevel', () => {
     expect(level(['neighborhood'], 2)).toBe('ward')
   })
 
-  it('holds a county at the region, whatever its footprint says', () => {
+  it('answers a county at its police force area, whatever its footprint says', () => {
     // Merseyside's box is 44.6km — but Greater Manchester's is 54.2km and both must
-    // land the same way, so the type is what decides, not the size.
-    expect(level(['administrative_area_level_2', 'political'], 44.64)).toBe('region')
-    expect(level(['administrative_area_level_2'], 20)).toBe('region')
+    // land the same way, so the type is what decides, not the size. A PFA that turns
+    // out not to be the named county widens to the region; see `lookupAt`.
+    expect(level(['administrative_area_level_2', 'political'], 44.64)).toBe('pfa')
+    expect(level(['administrative_area_level_2'], 20)).toBe('pfa')
   })
 
   it('reports a statistical region or nation at region level', () => {
@@ -166,14 +162,15 @@ describe('reportingLevel', () => {
     expect(level(['country', 'political'], 900)).toBe('too_broad')
   })
 
-  it('sends anything wider than a district to its region', () => {
+  it('sends anything wider than a district to a county-or-wider lookup', () => {
     // Cumbria arrives as a colloquial_area, not a county — only its 127.58km
     // footprint says it is too big to report as Westmorland and Furness.
-    expect(level(['colloquial_area', 'political'], 127.58, 'Westmorland and Furness')).toBe(
-      'region',
-    )
-    // London: a locality whose name matches no district, and far too wide for one.
-    expect(level(['locality', 'political'], 54, 'City of London', 'London')).toBe('region')
+    // Cumbria is a colloquial_area, not a county — only its footprint catches it. It
+    // then matches the Cumbria force area by name and resolves properly.
+    expect(level(['colloquial_area', 'political'], 127.58, 'Westmorland and Furness')).toBe('pfa')
+    // London takes the same route, finds no PFA called "London" (it is the
+    // Metropolitan Police), and widens to its statistical region.
+    expect(level(['locality', 'political'], 54, 'City of London', 'London')).toBe('pfa')
   })
 
   it('reports a settlement that IS its district at district level', () => {
@@ -198,20 +195,31 @@ describe('reportingLevel', () => {
   })
 })
 
-describe('isWholeDistrict', () => {
+describe('sameAreaName', () => {
   it("sees through the ONS register's spellings", () => {
     // Codes would be exact, but Google never returns one — so this comparison is
     // the join, and it has to survive the register's qualifiers.
-    expect(isWholeDistrict('Bristol', 'Bristol, City of')).toBe(true)
-    expect(isWholeDistrict('Kingston upon Hull', 'Kingston upon Hull, City of')).toBe(true)
-    expect(isWholeDistrict('St Helens', 'St. Helens')).toBe(true)
-    expect(isWholeDistrict('Edinburgh', 'City of Edinburgh')).toBe(true)
-    expect(isWholeDistrict('Newcastle upon Tyne', 'Newcastle upon Tyne')).toBe(true)
+    expect(sameAreaName('Bristol', 'Bristol, City of')).toBe(true)
+    expect(sameAreaName('Kingston upon Hull', 'Kingston upon Hull, City of')).toBe(true)
+    expect(sameAreaName('St Helens', 'St. Helens')).toBe(true)
+    expect(sameAreaName('Edinburgh', 'City of Edinburgh')).toBe(true)
+    expect(sameAreaName('Newcastle upon Tyne', 'Newcastle upon Tyne')).toBe(true)
   })
 
   it('does not match a town to the district containing it', () => {
-    expect(isWholeDistrict('Birkenhead', 'Wirral')).toBe(false)
-    expect(isWholeDistrict('Ashton-under-Lyne', 'Tameside')).toBe(false)
-    expect(isWholeDistrict('Preston', null)).toBe(false)
+    expect(sameAreaName('Birkenhead', 'Wirral')).toBe(false)
+    expect(sameAreaName('Ashton-under-Lyne', 'Tameside')).toBe(false)
+    expect(sameAreaName('Preston', null)).toBe(false)
+  })
+
+  it('matches a county to its force area, and refuses a merged one', () => {
+    expect(sameAreaName('Merseyside', 'Merseyside')).toBe(true)
+    expect(sameAreaName('Greater Manchester', 'Greater Manchester')).toBe(true)
+    expect(sameAreaName('Cumbria', 'Cumbria')).toBe(true)
+    // These are why the check is exact: one force over several counties must not
+    // hand back all of them. Both fall through to the region instead.
+    expect(sameAreaName('Buckinghamshire', 'Thames Valley')).toBe(false)
+    expect(sameAreaName('Devon', 'Devon & Cornwall')).toBe(false)
+    expect(sameAreaName('Tyne and Wear', 'Northumbria')).toBe(false)
   })
 })
