@@ -5,7 +5,14 @@ import { getInvitationByToken } from '../server/fns/invitations'
 import { completeRegistration } from '../server/fns/registrations'
 import { AuthShell } from '../components/AuthShell'
 import { LinkButton, TextLink } from '../components/ui'
-import { AuthButton, AuthInput, Divider, GoogleButton, Notice } from '../components/ui/auth'
+import {
+  AuthButton,
+  AuthInput,
+  Divider,
+  GoogleButton,
+  Notice,
+  PasswordInput,
+} from '../components/ui/auth'
 
 export const Route = createFileRoute('/sign-up')({
   validateSearch: (search: Record<string, unknown>): { invite?: string } => ({
@@ -147,14 +154,17 @@ function SignUpPage() {
           <AuthInput
             label="Email"
             type="email"
+            // The invitee cannot change it, but a password manager still needs to read
+            // it: `username` next to `new-password` is what makes Chrome offer to save
+            // the credential against the right account.
+            autoComplete="username"
             value={email}
             readOnly
             className="cursor-not-allowed text-grey-500"
             required
           />
-          <AuthInput
+          <PasswordInput
             label="Password"
-            type="password"
             autoComplete="new-password"
             placeholder="At least 8 characters"
             value={password}

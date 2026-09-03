@@ -6,7 +6,14 @@ import { DEFAULT_LANDING, oauthCallback, safeReturnPath, signInPath } from '../l
 import { AuthShell } from '../components/AuthShell'
 import { CodeInput } from '../components/ui/CodeInput'
 import { Button, Label, Tabs } from '../components/ui'
-import { AuthButton, AuthInput, Divider, GoogleButton, Notice } from '../components/ui/auth'
+import {
+  AuthButton,
+  AuthInput,
+  Divider,
+  GoogleButton,
+  Notice,
+  PasswordInput,
+} from '../components/ui/auth'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   account_not_linked: `This Google account isn't linked to an existing account. Try signing in with your email and password first.`,
@@ -184,8 +191,13 @@ function SignInPage() {
 
       {(mode === 'code-verify' || mode === 'reset-verify') && (
         <p className="mt-2 text-body leading-relaxed text-grey-500">
-          If an account exists for <span className="font-medium text-grey-900">{email}</span>, we've
-          sent it a 6-digit code. It expires in 5 minutes.
+          If an account exists for{' '}
+          {mode === 'reset-verify' ? (
+            'the address below'
+          ) : (
+            <span className="font-medium text-grey-900">{email}</span>
+          )}
+          , we've sent it a 6-digit code. It expires in 5 minutes.
         </p>
       )}
 
@@ -222,9 +234,8 @@ function SignInPage() {
                   Forgot?
                 </Button>
               </div>
-              <AuthInput
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -302,10 +313,24 @@ function SignInPage() {
 
       {mode === 'reset-verify' && (
         <form onSubmit={handleResetPassword} className="mt-7 space-y-5">
-          <CodeInput value={otp} onChange={setOtp} label="6-digit reset code" autoFocus />
+          {/*
+            The address is a real field on this step, not just prose, because it is the
+            only thing that tells a password manager WHOSE password is changing: without
+            a username in the form Chrome sees a lone new-password box and never offers
+            "update your saved password". Read-only — it was chosen a step ago, and the
+            code in the user's inbox belongs to that account and no other.
+          */}
           <AuthInput
+            label="Email"
+            type="email"
+            autoComplete="username"
+            value={email}
+            readOnly
+            className="cursor-not-allowed text-grey-500"
+          />
+          <CodeInput value={otp} onChange={setOtp} label="6-digit reset code" autoFocus />
+          <PasswordInput
             label="New password"
-            type="password"
             autoComplete="new-password"
             placeholder="At least 8 characters"
             value={newPassword}

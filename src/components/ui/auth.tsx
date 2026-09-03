@@ -1,5 +1,7 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
-import { useId } from 'react'
+import { useId, useState } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ViewIcon, ViewOffSlashIcon } from '@hugeicons/core-free-icons'
 import { cn } from './cn'
 import { Button } from './Button'
 import { Input, Label } from './fields'
@@ -32,6 +34,60 @@ export function AuthInput({
     <div>
       {label && <Label htmlFor={inputId}>{label}</Label>}
       <Input id={inputId} className={className} {...props} />
+    </div>
+  )
+}
+
+/**
+ * A password field with a reveal toggle.
+ *
+ * The eye is not decoration: every password box in this app is either a password being
+ * SET (sign-up, reset) or one being typed on a phone keyboard, and the only way to
+ * check what you typed without it is to clear the field and start again.
+ *
+ * The toggle is a `<button type="button">` — inside a form, a bare `<button>` submits —
+ * and it is drawn here rather than as the shared `Button` because it sits INSIDE the
+ * field box: it needs the field's own height and no chrome of its own. It is skipped in
+ * the tab order (`tabIndex={-1}`) so tabbing runs field → submit, the way it does on
+ * every other form in the app; it stays reachable by pointer and by screen reader.
+ *
+ * The type flips on the SAME element rather than swapping two inputs, so the caret,
+ * the value and the browser's autofill association all survive the toggle.
+ */
+export function PasswordInput({
+  label,
+  className,
+  id,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
+  const generated = useId()
+  const inputId = id ?? generated
+  const [visible, setVisible] = useState(false)
+  return (
+    <div>
+      {label && <Label htmlFor={inputId}>{label}</Label>}
+      <div className="relative">
+        <Input
+          id={inputId}
+          type={visible ? 'text' : 'password'}
+          className={cn('pr-11', className)}
+          {...props}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          tabIndex={-1}
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-control text-grey-500 hover:text-grey-900 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand/20"
+        >
+          <HugeiconsIcon
+            icon={visible ? ViewOffSlashIcon : ViewIcon}
+            size={18}
+            color="currentColor"
+          />
+        </button>
+      </div>
     </div>
   )
 }
