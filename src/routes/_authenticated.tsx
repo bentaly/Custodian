@@ -17,20 +17,23 @@ export const Route = createFileRoute('/_authenticated')({
       const from = safeReturnPath(location.href)
       throw redirect({ to: '/sign-in', search: from ? { redirect: from } : {} })
     }
-    // Nobody reaches a foundation's shell without a foundation, and the two ways of
-    // having none are answered differently.
+    // A superadmin's screen is `/platform`, and the test is the ROLE, not the absence
+    // of a `client_id`. Those look equivalent — a platform user is supposed to have no
+    // tenant — but the column is what actually drifts: promote an existing foundation
+    // admin and they keep the client they came from, and provisioning can set one by
+    // hand. Keyed on the column, this guard admits exactly the superadmin it exists to
+    // turn away, which is what happened on 4 Sep 2026: Google sign-in landed a
+    // superadmin whose `client_id` still pointed at an old test tenant in that
+    // foundation's shell. That is the 3 Sep 2026 report's shape too — the role-based
+    // scope exemption serves every tenant's applications while the header pill names
+    // only the stale one. See the header comment on `routes/platform.tsx`.
     //
-    // A platform superadmin has none legitimately, and their screen is `/platform` —
-    // this shell would hand them a sidebar, a client pill and a round selector that
-    // belong to no tenant. Letting them in anyway is what produced the 3 Sep 2026
-    // report: one foundation's application rendered under another's name. See the
-    // header comment on `routes/platform.tsx`.
-    //
+    // Impersonation is unaffected: BetterAuth swaps the session to the member, so by
+    // the time this runs the role is theirs and the shell is the right answer.
+    if (user.role === 'superadmin') throw redirect({ to: '/platform' })
     // Anyone else with no tenant is an invite that never landed. getMe already tried to
     // auto-claim a pending invite by email, so reaching here means there isn't one.
-    if (!user.clientId) {
-      throw redirect({ to: user.role === 'superadmin' ? '/platform' : '/no-access' })
-    }
+    if (!user.clientId) throw redirect({ to: '/no-access' })
     return { user }
   },
   // Round names + dates for the header status line; cached so per-page
