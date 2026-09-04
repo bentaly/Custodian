@@ -130,8 +130,13 @@ describe('looksLikeCounty', () => {
 
 // ─── Which geography a match justifies ──────────────────────────────────────────
 describe('reportingLevel', () => {
-  const level = (types: string[], extentKm = 0, ladName: string | null = null, name = 'X') =>
-    reportingLevel({ types, extentKm, name }, ladName, LAD_EXTENT_KM)
+  const level = (
+    types: string[],
+    extentKm = 0,
+    ladName: string | null = null,
+    name = 'X',
+    region: string | null = null,
+  ) => reportingLevel({ types, extentKm, name }, { region, ladName }, LAD_EXTENT_KM)
 
   it('reports a venue at the ward containing it, not at its own footprint', () => {
     // Broadhurst Park is ~0.3km of stadium. The question a trustee is asking is
@@ -168,9 +173,8 @@ describe('reportingLevel', () => {
     // Cumbria is a colloquial_area, not a county — only its footprint catches it. It
     // then matches the Cumbria force area by name and resolves properly.
     expect(level(['colloquial_area', 'political'], 127.58, 'Westmorland and Furness')).toBe('pfa')
-    // London takes the same route, finds no PFA called "London" (it is the
-    // Metropolitan Police), and widens to its statistical region.
-    expect(level(['locality', 'political'], 54, 'City of London', 'London')).toBe('pfa')
+    // A locality wider than any district takes the same route.
+    expect(level(['locality', 'political'], 54, 'Westminster', 'Somewhere Vast')).toBe('pfa')
   })
 
   it('reports a settlement that IS its district at district level', () => {
@@ -192,6 +196,24 @@ describe('reportingLevel', () => {
 
   it('falls back to ward when there is no district to compare against', () => {
     expect(level(['locality', 'political'], 5, null, 'Somewhere')).toBe('ward')
+  })
+
+  it('reports a city that names its REGION at region level', () => {
+    // London's Google footprint is 34.5km — under LAD_EXTENT_KM — and no district is
+    // called London, so the district test alone dropped it to the centroid's ward and
+    // reported St James's: 6 neighbourhoods, for a city of nine million.
+    expect(level(['locality', 'political'], 34.51, 'Westminster', 'London', 'London')).toBe(
+      'region',
+    )
+    // Checked before the district for a reason: ONS calls the Square Mile "City of
+    // London", which normalises to "london" and would otherwise win.
+    expect(level(['locality', 'political'], 34.51, 'City of London', 'London', 'London')).toBe(
+      'region',
+    )
+    // A city whose name is its district is unaffected — its region is nothing like it.
+    expect(level(['locality', 'political'], 16.06, 'Manchester', 'Manchester', 'North West')).toBe(
+      'lad',
+    )
   })
 })
 

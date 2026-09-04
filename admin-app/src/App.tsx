@@ -5,6 +5,7 @@ import { Mappings } from './Mappings'
 import { Clients } from './Clients'
 import { Overview } from './Overview'
 import { TestSubmissions } from './TestSubmissions'
+import { LocationProbe } from './LocationProbe'
 import { API_BASE } from './api'
 import { attentionCount, useQueues } from './queues'
 
@@ -23,6 +24,7 @@ export type View =
   | 'foundations'
   | 'mappings'
   | 'testing'
+  | 'location'
 
 /** A deep link from the Overview into a queue, pre-filtered to the bucket clicked. */
 export type QueueFocus =
@@ -136,7 +138,14 @@ export default function App() {
     },
     {
       label: 'Testing',
-      items: [{ key: 'testing', label: 'Send test data', hint: 'Exercise the live endpoints' }],
+      items: [
+        { key: 'testing', label: 'Send test data', hint: 'Exercise the live endpoints' },
+        {
+          key: 'location',
+          label: 'Location probe',
+          hint: 'Resolve a delivery area and see every step',
+        },
+      ],
     },
   ]
 
@@ -199,6 +208,7 @@ export default function App() {
         {view === 'foundations' && <Clients />}
         {view === 'mappings' && <Mappings />}
         {view === 'testing' && <TestSubmissions />}
+        {view === 'location' && <LocationProbe />}
       </main>
     </div>
   )

@@ -17,10 +17,8 @@ import { config } from 'dotenv'
 config()
 
 import { readFile } from 'node:fs/promises'
-import { geocodePlace, reportingLevel } from '../src/server/deprivation/googleGeocode'
-import { reverseGeocode } from '../src/server/deprivation/postcodesIo'
-import { resolveDeprivation } from '../src/server/deprivation/run'
-import { formatDecileRange, LAD_EXTENT_KM } from '../src/lib/deprivation/types'
+import { resolveDeprivation, type ResolveTrace } from '../src/server/deprivation/run'
+import { formatDecileRange } from '../src/lib/deprivation/types'
 
 /** Second column of a CSV whose header row is found, not assumed — see
  *  set-arete-delivery-area.ts for why the export has a title row above it. */
@@ -65,30 +63,36 @@ async function main() {
   for (const input of locations) {
     console.log(`\n${'─'.repeat(70)}\n${input}`)
 
-    const outcome = await geocodePlace(input)
-    if (outcome.kind !== 'match') {
+    // One pass of the real resolver, reporting its own intermediate steps — rather
+    // than re-running the pieces here, which would double the Google calls and could
+    // explain an answer different from the one printed.
+    const trace: ResolveTrace = {}
+    const r = await resolveDeprivation(input, trace)
+
+    const g = trace.google
+    if (g == null) {
+      console.log('  google      not called (postcode branch)')
+    } else if (g.kind === 'match') {
+      const p = g.place
+      console.log(`  google      "${p.name}"  [${p.types.join(', ') || 'no types'}]`)
       console.log(
-        `  google      ${outcome.kind}${outcome.kind === 'unavailable' ? ` (${outcome.reason})` : ''}`,
+        `  footprint   ${p.extentKm.toFixed(2)} km` +
+          `   location_type=${p.locationType ?? '—'}` +
+          `   partial_match=${p.partialMatch}`,
       )
-      const r = await resolveDeprivation(input)
-      console.log(`  RESULT      ${r.status}`)
-      continue
+    } else {
+      console.log(`  google      ${g.kind}${g.kind === 'unavailable' ? ` (${g.reason})` : ''}`)
     }
 
-    const p = outcome.place
-    console.log(`  google      "${p.name}"  [${p.types.join(', ') || 'no types'}]`)
-    console.log(
-      `  footprint   ${p.extentKm.toFixed(2)} km` +
-        `   location_type=${p.locationType ?? '—'}` +
-        `   partial_match=${p.partialMatch}`,
-    )
-    const rev = await reverseGeocode(p.longitude, p.latitude)
-    console.log(
-      `  postcodes.io ward=${rev?.wardName ?? '—'}  lad=${rev?.ladName ?? '—'}  region=${rev?.region ?? '—'}  (${rev?.country ?? '—'})`,
-    )
-    console.log(`  level       ${reportingLevel(p, rev?.ladName ?? null, LAD_EXTENT_KM)}`)
+    const a = trace.area
+    if (a) {
+      console.log(
+        `  postcodes.io ward=${a.wardName ?? '—'}  lad=${a.ladName ?? '—'}` +
+          `  pfa=${a.pfa ?? '—'}  region=${a.region ?? '—'}  (${a.country ?? '—'})`,
+      )
+    }
+    if (trace.level) console.log(`  level       ${trace.level}`)
 
-    const r = await resolveDeprivation(input)
     if (r.status === 'resolved') {
       console.log(
         `  RESULT      ${formatDecileRange(r)} (typically ${r.median})` +

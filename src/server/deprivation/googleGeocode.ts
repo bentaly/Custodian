@@ -151,7 +151,7 @@ export function sameAreaName(placeName: string, areaName: string | null): boolea
  *                                a county, so only its footprint catches it. "London"
  *                                takes the same route and finds no matching PFA
  *                                ("Metropolitan Police"), so it lands on its region.
- *   town / city       → does the NAME match the district it sits in?
+ *   town / city       → does the NAME match the region, or the district, it sits in?
  *
  * That last rule replaced a size threshold, which was wrong in both directions and
  * on real Arete data: "Stockport" (8.8km) reported the centroid's ward — Brinnington
@@ -188,7 +188,7 @@ const NEIGHBOURHOOD_TYPES = [
 
 export function reportingLevel(
   place: Pick<GeocodedPlace, 'types' | 'extentKm' | 'name'>,
-  ladName: string | null,
+  area: { region: string | null; ladName: string | null },
   ladExtentKm: number,
 ): ReportingLevel {
   const has = (list: string[]) => place.types.some((t) => list.includes(t))
@@ -206,7 +206,17 @@ export function reportingLevel(
   // a county, and only its 128km footprint says it is too big to be Westmorland.
   if (place.extentKm > ladExtentKm) return 'pfa'
 
-  return sameAreaName(place.name, ladName) ? 'lad' : 'ward'
+  // The region is checked BEFORE the district, and "London" is why. Its Google
+  // footprint is 34.5km — UNDER the threshold above — and no district is called
+  // London (the centroid lands in Westminster), so on the district test alone it fell
+  // through to ward and reported St James's: six neighbourhoods, for a city of nine
+  // million. It does name a region, though, which is the honest answer and the one
+  // this module always intended for it.
+  //
+  // Order also settles a real collision: ONS calls the Square Mile "City of London",
+  // which normalises to "london" and would otherwise match the district instead.
+  if (sameAreaName(place.name, area.region)) return 'region'
+  return sameAreaName(place.name, area.ladName) ? 'lad' : 'ward'
 }
 
 /**

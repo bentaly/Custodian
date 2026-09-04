@@ -337,16 +337,31 @@ function ReportCard({
 
   return (
     <Card>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left"
+      {/* A div, not a button — see the matching header in ReviewQueue: a <button>
+          suppresses text selection, and the organisation name and the foundation's own
+          reference are exactly what you want to copy out of a row. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => {
+          if (window.getSelection()?.toString()) return
+          setOpen((o) => !o)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setOpen((o) => !o)
+          }
+        }}
+        className="flex w-full cursor-pointer items-start justify-between gap-3 px-4 py-3.5 text-left"
       >
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-900">
+          <p className="truncate select-text text-sm font-medium text-slate-900">
             {organisation ?? '(organisation not mapped)'}
             <span className="ml-2 font-normal text-slate-400">{row.client.name}</span>
           </p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 select-text text-xs text-slate-400">
             {resolvedValue(row, 'externalApplicationId') ?? 'no reference'} ·{' '}
             {timeAgo(row.createdAt)} · {payloadKeys.length} fields
           </p>
@@ -364,7 +379,7 @@ function ReportCard({
           <StatusPill status={row.status} stalled={stalled} />
           <span className="text-xs text-slate-300">{open ? '▾' : '▸'}</span>
         </div>
-      </button>
+      </div>
 
       {open && (
         <div className="space-y-5 border-t border-slate-100 px-4 py-4">

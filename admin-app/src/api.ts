@@ -394,3 +394,60 @@ export interface GrantOption {
   openMilestones: number
   totalMilestones: number
 }
+
+// ─── Location probe ──────────────────────────────────────────────────────────
+//
+// Mirrors the shape of /api/admin/deprivation-probe. The main app owns the types
+// (src/lib/deprivation, src/server/deprivation) and this app cannot import them —
+// same constraint as the canonical field registry and the blocker codes — so this
+// is a deliberate hand-kept copy. Keep it in step with the endpoint's response.
+
+export type ProbeLevel = 'ward' | 'lad' | 'pfa' | 'region' | 'too_broad'
+
+export interface ProbeResponse {
+  input: string
+  /** Null on the postcode branch, which never calls Google at all. */
+  google:
+    | {
+        kind: 'match'
+        name: string
+        types: string[]
+        extentKm: number
+        partialMatch: boolean
+        locationType: string | null
+      }
+    | { kind: 'no_match' }
+    | { kind: 'unavailable'; reason: string }
+    | null
+  area: {
+    wardName: string | null
+    ladName: string | null
+    region: string | null
+    pfa: string | null
+    country: string | null
+  } | null
+  level: ProbeLevel | null
+  result:
+    | { status: 'pending' }
+    | {
+        status: 'resolved'
+        input: string
+        areaName: string
+        areaType: 'lsoa' | 'ward' | 'lad' | 'pfa' | 'region'
+        nation: string
+        vintage: string
+        count: number
+        min: number
+        max: number
+        median: number
+        histogram: number[]
+        regionName: string | null
+        ladName: string | null
+      }
+    | { status: 'too_broad'; input: string; matchedName: string; extentKm: number }
+    | { status: 'unresolvable'; input: string }
+}
+
+export function probeDeprivation(location: string): Promise<ProbeResponse> {
+  return adminPost<ProbeResponse>('/api/admin/deprivation-probe', { location })
+}
