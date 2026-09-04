@@ -540,6 +540,13 @@
       "when": 1788393726599,
       "tag": "0076_sour_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1788523956687,
+      "tag": "0077_keen_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

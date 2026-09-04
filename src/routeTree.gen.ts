@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as NoAccessRouteImport } from './routes/no-access'
+import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as AuthenticatedApplicationsRouteImport } from './routes/_authenticated/applications'
@@ -56,6 +57,7 @@ import { Route as AuthenticatedShortlistSetUpAwardsRouteImport } from './routes/
 import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
 import { Route as ApiAdminCanonicalFieldsRouteImport } from './routes/api/admin.canonical-fields'
 import { Route as ApiAdminClientsRouteImport } from './routes/api/admin.clients'
+import { Route as ApiAdminDeprivationProbeRouteImport } from './routes/api/admin.deprivation-probe'
 import { Route as ApiAdminIngestsRouteImport } from './routes/api/admin.ingests'
 import { Route as ApiAdminMappingsRouteImport } from './routes/api/admin.mappings'
 import { Route as ApiAdminReportCanonicalFieldsRouteImport } from './routes/api/admin.report-canonical-fields'
@@ -90,6 +92,11 @@ const AboutRoute = AboutRouteImport.update({
 const NoAccessRoute = NoAccessRouteImport.update({
   id: '/no-access',
   path: '/no-access',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformRoute = PlatformRouteImport.update({
+  id: '/platform',
+  path: '/platform',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -330,6 +337,12 @@ const ApiAdminClientsRoute = ApiAdminClientsRouteImport.update({
   path: '/api/admin/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminDeprivationProbeRoute =
+  ApiAdminDeprivationProbeRouteImport.update({
+    id: '/api/admin/deprivation-probe',
+    path: '/api/admin/deprivation-probe',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAdminIngestsRoute = ApiAdminIngestsRouteImport.update({
   id: '/api/admin/ingests',
   path: '/api/admin/ingests',
@@ -420,6 +433,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/no-access': typeof NoAccessRoute
+  '/platform': typeof PlatformRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/applications': typeof AuthenticatedApplicationsRouteWithChildren
@@ -455,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
+  '/api/admin/deprivation-probe': typeof ApiAdminDeprivationProbeRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
@@ -484,6 +499,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/no-access': typeof NoAccessRoute
+  '/platform': typeof PlatformRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -511,6 +527,7 @@ export interface FileRoutesByTo {
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
+  '/api/admin/deprivation-probe': typeof ApiAdminDeprivationProbeRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
@@ -542,6 +559,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/about': typeof AboutRoute
   '/no-access': typeof NoAccessRoute
+  '/platform': typeof PlatformRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/_authenticated/applications': typeof AuthenticatedApplicationsRouteWithChildren
@@ -577,6 +595,7 @@ export interface FileRoutesById {
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
   '/api/admin/clients': typeof ApiAdminClientsRoute
+  '/api/admin/deprivation-probe': typeof ApiAdminDeprivationProbeRoute
   '/api/admin/ingests': typeof ApiAdminIngestsRouteWithChildren
   '/api/admin/mappings': typeof ApiAdminMappingsRouteWithChildren
   '/api/admin/report-canonical-fields': typeof ApiAdminReportCanonicalFieldsRoute
@@ -608,6 +627,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/no-access'
+    | '/platform'
     | '/sign-in'
     | '/sign-up'
     | '/applications'
@@ -643,6 +663,7 @@ export interface FileRouteTypes {
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
+    | '/api/admin/deprivation-probe'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/admin/report-canonical-fields'
@@ -672,6 +693,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/no-access'
+    | '/platform'
     | '/sign-in'
     | '/sign-up'
     | '/dashboard'
@@ -699,6 +721,7 @@ export interface FileRouteTypes {
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
+    | '/api/admin/deprivation-probe'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/admin/report-canonical-fields'
@@ -729,6 +752,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/about'
     | '/no-access'
+    | '/platform'
     | '/sign-in'
     | '/sign-up'
     | '/_authenticated/applications'
@@ -764,6 +788,7 @@ export interface FileRouteTypes {
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
     | '/api/admin/clients'
+    | '/api/admin/deprivation-probe'
     | '/api/admin/ingests'
     | '/api/admin/mappings'
     | '/api/admin/report-canonical-fields'
@@ -795,6 +820,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AboutRoute: typeof AboutRoute
   NoAccessRoute: typeof NoAccessRoute
+  PlatformRoute: typeof PlatformRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
@@ -804,6 +830,7 @@ export interface RootRouteChildren {
   ApiAdminAwardsRoute: typeof ApiAdminAwardsRoute
   ApiAdminCanonicalFieldsRoute: typeof ApiAdminCanonicalFieldsRoute
   ApiAdminClientsRoute: typeof ApiAdminClientsRoute
+  ApiAdminDeprivationProbeRoute: typeof ApiAdminDeprivationProbeRoute
   ApiAdminIngestsRoute: typeof ApiAdminIngestsRouteWithChildren
   ApiAdminMappingsRoute: typeof ApiAdminMappingsRouteWithChildren
   ApiAdminReportCanonicalFieldsRoute: typeof ApiAdminReportCanonicalFieldsRoute
@@ -844,6 +871,13 @@ declare module '@tanstack/react-router' {
       path: '/no-access'
       fullPath: '/no-access'
       preLoaderRoute: typeof NoAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform': {
+      id: '/platform'
+      path: '/platform'
+      fullPath: '/platform'
+      preLoaderRoute: typeof PlatformRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -1145,6 +1179,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/clients'
       fullPath: '/api/admin/clients'
       preLoaderRoute: typeof ApiAdminClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/deprivation-probe': {
+      id: '/api/admin/deprivation-probe'
+      path: '/api/admin/deprivation-probe'
+      fullPath: '/api/admin/deprivation-probe'
+      preLoaderRoute: typeof ApiAdminDeprivationProbeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/ingests': {
@@ -1494,6 +1535,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AboutRoute: AboutRoute,
   NoAccessRoute: NoAccessRoute,
+  PlatformRoute: PlatformRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
@@ -1503,6 +1545,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminAwardsRoute: ApiAdminAwardsRoute,
   ApiAdminCanonicalFieldsRoute: ApiAdminCanonicalFieldsRoute,
   ApiAdminClientsRoute: ApiAdminClientsRoute,
+  ApiAdminDeprivationProbeRoute: ApiAdminDeprivationProbeRoute,
   ApiAdminIngestsRoute: ApiAdminIngestsRouteWithChildren,
   ApiAdminMappingsRoute: ApiAdminMappingsRouteWithChildren,
   ApiAdminReportCanonicalFieldsRoute: ApiAdminReportCanonicalFieldsRoute,

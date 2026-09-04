@@ -92,6 +92,19 @@ export type AuditAction =
   // Somebody was granted access to the tenant at a role. Roles are set at invitation
   // and never edited afterwards, so this IS the access-control event.
   | 'invitation_sent'
+  // A platform superadmin began acting as one of this foundation's members.
+  //
+  // The only row in the table whose actor is not one of the foundation's own people,
+  // and the reason it has to exist: everything done during an impersonation session is
+  // written by the impersonated user, because that is genuinely whose session it is.
+  // Without this row there is nothing anywhere distinguishing what a member did from
+  // what was done wearing their account — the same gap `application_vote_recorded_by_admin`
+  // closes one rung down.
+  //
+  // It matters more now than it used to. Impersonation is the ONLY route from the
+  // platform into a foundation's data (superadmins hold no cross-tenant scope of their
+  // own), so this is the single door, and a single door is worth writing down.
+  | 'impersonation_started'
 
 /**
  * The subset the dashboard's "Lately" panel shows.
@@ -168,6 +181,7 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   api_key_created: 'access',
   api_key_revoked: 'access',
   invitation_sent: 'access',
+  impersonation_started: 'access',
 }
 
 /** Every action in a category — the Activity filter turns one into a SQL `IN` list. */
@@ -207,6 +221,7 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   api_key_created: 'created an API key',
   api_key_revoked: 'revoked an API key',
   invitation_sent: 'invited',
+  impersonation_started: 'signed in as',
 }
 
 /** Short noun label — the CSV's Action column, where a verb phrase would read oddly. */
@@ -232,6 +247,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   api_key_created: 'API key created',
   api_key_revoked: 'API key revoked',
   invitation_sent: 'Invitation sent',
+  impersonation_started: 'Platform sign-in as member',
 }
 
 type Meta = Record<string, unknown> | null | undefined
@@ -260,6 +276,10 @@ export function auditSubject(action: AuditAction, metadata: Meta): string | null
   switch (action) {
     case 'invitation_sent':
       return str(metadata, 'email')
+    // Who was worn, not who did the wearing — the actor column already carries the
+    // superadmin, and the question this row answers is whose account was entered.
+    case 'impersonation_started':
+      return str(metadata, 'targetName') ?? str(metadata, 'targetEmail')
     case 'api_key_created':
     case 'api_key_revoked': {
       const name = str(metadata, 'name')

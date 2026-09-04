@@ -17,10 +17,20 @@ export const Route = createFileRoute('/_authenticated')({
       const from = safeReturnPath(location.href)
       throw redirect({ to: '/sign-in', search: from ? { redirect: from } : {} })
     }
-    // Invite-only: a signed-in user with no tenant (and not a platform superadmin)
-    // has no foundation to see. getMe already tried to auto-claim a pending invite
-    // by email, so reaching here means there genuinely isn't one.
-    if (!user.clientId && user.role !== 'superadmin') throw redirect({ to: '/no-access' })
+    // Nobody reaches a foundation's shell without a foundation, and the two ways of
+    // having none are answered differently.
+    //
+    // A platform superadmin has none legitimately, and their screen is `/platform` —
+    // this shell would hand them a sidebar, a client pill and a round selector that
+    // belong to no tenant. Letting them in anyway is what produced the 3 Sep 2026
+    // report: one foundation's application rendered under another's name. See the
+    // header comment on `routes/platform.tsx`.
+    //
+    // Anyone else with no tenant is an invite that never landed. getMe already tried to
+    // auto-claim a pending invite by email, so reaching here means there isn't one.
+    if (!user.clientId) {
+      throw redirect({ to: user.role === 'superadmin' ? '/platform' : '/no-access' })
+    }
     return { user }
   },
   // Round names + dates for the header status line; cached so per-page
@@ -76,7 +86,9 @@ function ImpersonationBanner() {
   async function handleStop() {
     await authClient.admin.stopImpersonating()
     invalidateCurrentUser()
-    window.location.href = '/profile'
+    // Back to the console, not to `/profile` — a superadmin with no tenant of their own
+    // would be bounced straight out of this shell by the guard above.
+    window.location.href = '/platform'
   }
 
   return (

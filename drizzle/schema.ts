@@ -1348,6 +1348,7 @@ export const auditActionEnum = pgEnum('audit_action', [
   'invitation_sent',
   'annual_budget_set',
   'bank_balance_recorded',
+  'impersonation_started',
 ])
 
 export const auditLog = pgTable(

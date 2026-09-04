@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
-import { listClients } from '../../server/fns/platform'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
 import { getMyEmailPreferences, setWeeklyFinanceDigest } from '../../server/fns/users'
 import {
@@ -20,18 +19,14 @@ import {
   Label,
   Panel,
   PanelTitle,
+  TextLink,
   Toggle,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { longerTimeout } from '../../lib/requestTimeout'
 
 export const Route = createFileRoute('/_authenticated/profile')({
-  // Impersonation targets are only needed for platform superadmins; everyone
-  // else skips the (superadmin-gated) query entirely.
-  loader: async ({ context }) => ({
-    clients: context.user.role === 'superadmin' ? await listClients() : [],
-    emailPrefs: await getMyEmailPreferences(),
-  }),
+  loader: async () => ({ emailPrefs: await getMyEmailPreferences() }),
   component: Profile,
 })
 
@@ -47,13 +42,12 @@ const ROLE_LABELS: Record<string, string> = {
 
 function Profile() {
   const { user } = Route.useRouteContext()
-  const { clients, emailPrefs } = Route.useLoaderData()
+  const { emailPrefs } = Route.useLoaderData()
   const router = useRouter()
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [impersonateError, setImpersonateError] = useState('')
 
   // ── Email preferences ────────────────────────────────────────────────────────
   // Flipped optimistically and reverted on failure — the switch tracks the intent, not
@@ -74,21 +68,6 @@ function Profile() {
     } finally {
       setDigestBusy(false)
     }
-  }
-
-  const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
-  async function handleImpersonate(userId: string) {
-    setImpersonatingId(userId)
-    const { error: impError } = await authClient.admin.impersonateUser({ userId })
-    if (impError) {
-      setImpersonatingId(null)
-      setImpersonateError(impError.message ?? 'Could not start impersonation')
-      return
-    }
-    // Full reload so server-side session/context is re-read as the impersonated user.
-    // Deliberately no reset of the busy state — the button stays disabled until the
-    // navigation lands.
-    window.location.href = '/dashboard'
   }
 
   // ── Profile photo ────────────────────────────────────────────────────────────
@@ -312,57 +291,12 @@ function Profile() {
       )}
 
       {user.role === 'superadmin' && (
-        <Panel label="Impersonation">
-          <PanelTitle>Log in as a foundation</PanelTitle>
-          <p className="-mt-2 mb-3 font-display text-body" style={{ color: C.sub }}>
-            See a foundation's data as one of its members. Create foundations from the admin app.
+        <Panel label="Platform">
+          <PanelTitle>Platform console</PanelTitle>
+          <p className="-mt-2 font-display text-body" style={{ color: C.sub }}>
+            Signing in as a foundation's member moved to its own screen, off the foundation shell
+            this page sits in. <TextLink to="/platform">Open the platform console</TextLink>.
           </p>
-          <ErrorNote error={impersonateError} className="mb-3" />
-          {clients.length === 0 && (
-            <p className="font-display text-body" style={{ color: C.sub }}>
-              No foundations yet.
-            </p>
-          )}
-          <div className="flex flex-col gap-3">
-            {clients.map((client) => (
-              <div
-                key={client.id}
-                className="rounded-control border p-3"
-                style={{ borderColor: C.line }}
-              >
-                <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-                  {client.name}
-                </p>
-                <ul className="mt-2 flex flex-col">
-                  {client.users.length === 0 && (
-                    <li className="font-display text-label" style={{ color: C.faint }}>
-                      No members yet — admin invite pending.
-                    </li>
-                  )}
-                  {client.users.map((u) => (
-                    <li
-                      key={u.id}
-                      className="flex items-center justify-between gap-3 border-t py-2 first:border-t-0"
-                      style={{ borderColor: C.wash }}
-                    >
-                      <span className="min-w-0 truncate font-display text-body">
-                        <span style={{ color: C.body }}>{u.name}</span>{' '}
-                        <span style={{ color: C.faint }}>· {u.email}</span>
-                      </span>
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => handleImpersonate(u.id)}
-                        disabled={impersonatingId !== null}
-                      >
-                        {impersonatingId === u.id ? 'Signing in…' : 'Log in as'}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
         </Panel>
       )}
     </div>

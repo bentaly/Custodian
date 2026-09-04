@@ -1,0 +1,1 @@
+ALTER TYPE "public"."audit_action" ADD VALUE 'impersonation_started';

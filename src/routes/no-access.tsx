@@ -9,8 +9,10 @@ export const Route = createFileRoute('/no-access')({
     const user = await currentUser()
     // Not signed in → nothing to deny; send to sign-in.
     if (!user) throw redirect({ to: '/sign-in' })
-    // Already has a tenant (or is a superadmin) → they do have access; send them in.
-    if (user.clientId || user.role === 'superadmin') throw redirect({ to: '/dashboard' })
+    // They do have access after all — send them wherever theirs is. A superadmin's is
+    // the platform console; they have no foundation dashboard to land on.
+    if (user.role === 'superadmin') throw redirect({ to: '/platform' })
+    if (user.clientId) throw redirect({ to: '/dashboard' })
   },
   component: NoAccessPage,
 })
