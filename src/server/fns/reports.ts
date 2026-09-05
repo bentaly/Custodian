@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, eq, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db'
+import { searchAny } from '../searchTerm'
 import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
@@ -75,6 +76,17 @@ export const listReports = createServerFn({ method: 'GET' })
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional(),
+        /**
+         * The search box: organisation name or the foundation's own reference. Unlike
+         * the three structural filters it is transient, so it narrows the LISTS and the
+         * tab counts and leaves the "reports due" panel alone — the same line the
+         * received-date window is on, and the same reason: the panel above a control is
+         * not what that control is about.
+         *
+         * It does narrow the awaited list, though, which the date window cannot: an
+         * awaited report has no received date, but it certainly has an organisation.
+         */
+        q: z.string().min(1).max(200).optional(),
         /** Column sort. `received` belongs to the document tabs, `due` to the awaited one. */
         sortBy: z
           .enum(['organisation', 'programme', 'round', 'report', 'received', 'due'])
@@ -104,6 +116,7 @@ export type ReportsListInput = {
   tag?: string
   from?: string
   to?: string
+  q?: string
   sortBy?: ReportSortKey
   sortDir?: 'asc' | 'desc'
   page?: number
@@ -138,9 +151,19 @@ export async function reportsList(
     structuralWhere(arrived, data),
     data.from ? sql`${arrived.submittedDay} >= ${data.from}` : undefined,
     data.to ? sql`${arrived.submittedDay} <= ${data.to}` : undefined,
+    searchAny(data.q, arrived.organisationName, arrived.externalApplicationId),
   )
   const onTab = (status: ReceivedStatus) => and(arrivedWhere, eq(arrived.status, status))
-  const outstandingWhere = structuralWhere(outstanding, data)
+  // Two clauses over the awaited list, not one. `panelWhere` is the structural filters
+  // alone and is what the "reports due" panel is counted through — it sits ABOVE the
+  // filter row, so a transient filter must not touch it. `outstandingWhere` adds the
+  // search, and is what the Awaiting TAB's rows and count use, because those are below
+  // the row and searching a list that ignores you is worse than no search at all.
+  const panelWhere = structuralWhere(outstanding, data)
+  const outstandingWhere = and(
+    panelWhere,
+    searchAny(data.q, outstanding.organisationName, outstanding.externalApplicationId),
+  )
   const tab: ReportsTab = data.tab ?? 'to_review'
 
   const countArrived = (where: SQL | undefined) =>
@@ -207,8 +230,8 @@ export async function reportsList(
       .select({ n: sql<number>`(count(*))::int` })
       .from(outstanding)
       .where(outstandingWhere),
-    horizonCounts(db, outstanding, outstandingWhere),
-    horizonSample(db, outstanding, outstandingWhere),
+    horizonCounts(db, outstanding, panelWhere),
+    horizonSample(db, outstanding, panelWhere),
     facetOn(arrived, arrived.programmeId, arrived.programmeName),
     facetOn(outstanding, outstanding.programmeId, outstanding.programmeName),
     themeFacet(arrived),

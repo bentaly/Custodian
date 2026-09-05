@@ -12,6 +12,8 @@ import {
   DateRangePicker,
   EmptyState,
   FilterPill,
+  FilterRow,
+  SearchInput,
   Horizon,
   initials,
   Pagination,
@@ -53,6 +55,7 @@ export const Route = createFileRoute('/_authenticated/reports/')({
     programmeId: search.programmeId,
     roundId: search.roundId,
     tag: search.tag,
+    q: search.q,
     from: search.from,
     to: search.to,
     sortBy: search.sortBy,
@@ -66,6 +69,7 @@ export const Route = createFileRoute('/_authenticated/reports/')({
         programmeId: deps.programmeId,
         roundId: deps.roundId,
         tag: deps.tag,
+        q: deps.q,
         from: deps.from,
         to: deps.to,
         sortBy: deps.sortBy,
@@ -371,6 +375,7 @@ function ReportsPage() {
     programmeId,
     roundId,
     tag,
+    q,
     from,
     to,
     sortBy,
@@ -485,9 +490,19 @@ function ReportsPage() {
             absent because the tabs already are it. Round, Programme and Theme narrow the
             panel above too — `listReports`' deliberate choice, since "reports for this
             programme" is a question about the table, the counts and the chase-list alike.
-            The date range is the exception: it runs against the RECEIVED date, which a
-            report still awaited does not have, so it narrows the table alone. */}
-        <div className="flex flex-wrap items-center gap-3">
+            The date range and the search box are the exceptions: the window runs against
+            the RECEIVED date, which a report still awaited does not have, and search is
+            transient. Both narrow what is below the row and leave the panel alone. */}
+        <FilterRow
+          search={
+            <SearchInput
+              value={q}
+              onChange={(next) => setFilter({ q: next })}
+              placeholder="Search organisation or reference…"
+              ariaLabel="Search reports"
+            />
+          }
+        >
           <FilterPill
             label="Round"
             plural="rounds"
@@ -521,7 +536,7 @@ function ReportsPage() {
               allLabel="Any received date"
             />
           )}
-        </div>
+        </FilterRow>
 
         {/* Two column sets over one table: an arrived report is a document with a date
             it came in on, an awaited one is a date with nobody's document against it.

@@ -118,7 +118,7 @@ export function RelatedLink({
   return (
     <Link
       className={cn(
-        'flex items-center gap-1.5 font-display text-label whitespace-nowrap text-grey-700 transition-colors hover:text-grey-900',
+        'flex items-center gap-1.5 font-display text-label font-medium whitespace-nowrap text-brand hover:underline',
         className,
       )}
       {...props}

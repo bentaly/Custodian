@@ -5,6 +5,7 @@ import { FilterPill } from './FilterPill'
 import { SelectPill } from './SelectPill'
 import { DateRangePicker, type DateRange } from './DateRangePicker'
 import { SearchInput } from './SearchInput'
+import { FilterRow } from './FilterRow'
 import { APPLICATION_STATUS_OPTIONS } from '../../lib/validators/application'
 
 // The filter row, which is where "everything should look the same" is most visible: on
@@ -28,8 +29,9 @@ const ROUNDS = [
   { value: 'r2', label: 'Autumn 2026' },
 ]
 
-/** The row as a list screen renders it: round pill, filters, date, search. */
-export const FilterRow: Story = {
+/** The row as a list screen renders it: the pills in the shared order, date last, and
+ *  the search box hard right — one line, because filters and search do one job. */
+export const ListScreenRow: Story = {
   render: function Render() {
     const [round, setRound] = useState<string | undefined>('r1')
     const [status, setStatus] = useState<string | undefined>()
@@ -38,19 +40,20 @@ export const FilterRow: Story = {
     const [q, setQ] = useState<string | undefined>()
     return (
       <div className="flex w-[900px] flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <SelectPill
-            ariaLabel="Select round"
-            icon={Calendar03Icon}
-            options={ROUNDS}
-            value={round}
-            suffix="Current round"
-            clearLabel="All rounds"
-            onChange={setRound}
-          />
-          <SearchInput value={q} onChange={setQ} placeholder="Search organisation or ID…" />
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <SelectPill
+          ariaLabel="Select round"
+          icon={Calendar03Icon}
+          options={ROUNDS}
+          value={round}
+          suffix="Current round"
+          clearLabel="All rounds"
+          onChange={setRound}
+        />
+        <FilterRow
+          search={
+            <SearchInput value={q} onChange={setQ} placeholder="Search organisation or ID…" />
+          }
+        >
           <FilterPill
             label="Status"
             plural="statuses"
@@ -69,7 +72,7 @@ export const FilterRow: Story = {
             onChange={setTheme}
           />
           <DateRangePicker value={range} onChange={setRange} allLabel="Any date" />
-        </div>
+        </FilterRow>
       </div>
     )
   },

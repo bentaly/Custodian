@@ -27,6 +27,7 @@ import {
   DataTable,
   EmptyState,
   FilterPill,
+  FilterRow,
   Pagination,
   StatusPill,
   TruncatedList,
@@ -485,7 +486,7 @@ function SetUpAwards() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <FilterRow>
           <FilterPill
             label="Programme"
             plural="programmes"
@@ -507,7 +508,7 @@ function SetUpAwards() {
             options={SCORE_BANDS.map((b) => ({ value: b.value, label: b.label }))}
             onChange={(v) => setFilter({ scoreBand: v })}
           />
-        </div>
+        </FilterRow>
 
         <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
           <DataTable
@@ -612,7 +613,7 @@ function SetUpAwards() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <FilterRow>
             <FilterPill
               label="Programme"
               plural="programmes"
@@ -620,7 +621,7 @@ function SetUpAwards() {
               options={awardedProgrammeOptions}
               onChange={(v) => navigate({ search: (prev) => ({ ...prev, awardedProgramme: v }) })}
             />
-          </div>
+          </FilterRow>
 
           <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
             <DataTable

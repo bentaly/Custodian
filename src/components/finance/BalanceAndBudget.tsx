@@ -8,6 +8,7 @@ import type { BalanceAndBudget as Data } from '../../server/finance/budget'
 import { headroom } from '../../lib/annualBudget'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { fmtDate, fmtMoney } from '../../lib/format'
+import { ProgressBar } from '../ProgressBar'
 import { C } from '../ui/tokens'
 import { EmptyState, KPI_TINTS, MiniKpi, Panel, PanelTitle, TextLink } from '../ui'
 
@@ -45,41 +46,39 @@ const trackFor = (colour: string) => `color-mix(in srgb, ${colour} 16%, #fff)`
 const midFor = (colour: string) => `color-mix(in srgb, ${colour} 45%, #fff)`
 
 /**
- * The segmented meter from the comp — paid, then committed-not-yet-paid, then the rest.
+ * The budget meter — paid, then committed-not-yet-paid, then the rest.
  *
- * The comp draws 110 separate 3px spans per bar. This is the same picture as one element:
- * three hard-stop background segments masked by a repeating stripe. Five programmes cost
- * five nodes rather than five hundred and fifty, and the mask is purely decorative, so a
- * browser that drops it degrades to a plain solid meter rather than to nothing.
+ * The same bar the dashboard draws for a round's programmes: one rounded track in the
+ * programme's own hue, filled left to right. It carries a second band the dashboard's
+ * does not, because here what has actually LEFT the account is a different fact from
+ * what the year has committed.
  */
 function Meter({
   paid,
   used,
   total,
   colour,
+  delay,
 }: {
   paid: number
   used: number
   total: number
   colour: string
+  delay: number
 }) {
   // An overspent line fills the bar completely — the overspend is stated in words beneath
   // it, and a bar drawn past its own end just looks like a rendering fault.
   const span = Math.max(total, used) || 1
-  const paidPct = Math.min(100, (paid / span) * 100)
-  const usedPct = Math.min(100, (Math.max(paid, used) / span) * 100)
 
   return (
-    <div
-      className="h-[22px] w-full rounded-[2px]"
-      style={{
-        background: `linear-gradient(to right,
-          ${colour} 0 ${paidPct}%,
-          ${midFor(colour)} ${paidPct}% ${usedPct}%,
-          ${trackFor(colour)} ${usedPct}% 100%)`,
-        maskImage: 'repeating-linear-gradient(to right, #000 0 3px, transparent 3px 4px)',
-        WebkitMaskImage: 'repeating-linear-gradient(to right, #000 0 3px, transparent 3px 4px)',
-      }}
+    <ProgressBar
+      className="my-1"
+      track={trackFor(colour)}
+      segments={[
+        { value: paid / span, colour },
+        { value: Math.max(0, used - paid) / span, colour: midFor(colour) },
+      ]}
+      delay={delay}
     />
   )
 }
@@ -259,7 +258,13 @@ function BudgetPanel({
                   <span style={{ color: C.faint }}>/{fmtMoney(line.budget)}</span>
                 </span>
               </div>
-              <Meter paid={line.paid} used={line.used} total={line.budget} colour={colour} />
+              <Meter
+                paid={line.paid}
+                used={line.used}
+                total={line.budget}
+                colour={colour}
+                delay={i * 90}
+              />
               <div
                 className="flex items-baseline justify-between gap-3 font-display text-label"
                 style={{ color: C.faint }}

@@ -38,6 +38,7 @@ import {
   FilterPill,
   Listbox,
   Pagination,
+  FilterRow,
   SearchInput,
   StatusPill,
   RoundSelect,
@@ -842,30 +843,21 @@ function ApplicationsList() {
         <h1 className="font-display text-heading font-medium" style={{ color: C.ink }}>
           Applications
         </h1>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            {visibleRounds.length > 0 && (
-              <RoundSelect
-                rounds={visibleRounds}
-                value={roundId}
-                statusLabel={statusLabel}
-                onChange={handleRoundChange}
-              />
-            )}
-            <span
-              className="whitespace-nowrap font-display text-label font-medium"
-              style={{ color: C.sub }}
-            >
-              {metaLine}
-            </span>
-          </div>
-          <SearchInput
-            value={q}
-            onChange={(next) =>
-              navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
-            }
-            placeholder="Search organisation or ID…"
-          />
+        <div className="flex flex-wrap items-center gap-4">
+          {visibleRounds.length > 0 && (
+            <RoundSelect
+              rounds={visibleRounds}
+              value={roundId}
+              statusLabel={statusLabel}
+              onChange={handleRoundChange}
+            />
+          )}
+          <span
+            className="whitespace-nowrap font-display text-label font-medium"
+            style={{ color: C.sub }}
+          >
+            {metaLine}
+          </span>
         </div>
       </div>
 
@@ -896,11 +888,21 @@ function ApplicationsList() {
         {/* Budget for the selected programme */}
         {scopedBudget.length > 0 && <BudgetCard rows={scopedBudget} title={budgetTitle} />}
 
-        {/* Filters — the shared row, in the shared order (see `ui/FilterPill`). Programme
-            is the exception that sits above rather than in it: on this screen it is the
-            browsing axis the budget card and the export are scoped to, not one narrowing
-            among several. */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Filters — the shared row, in the shared order, with search on its right
+            (see `ui/FilterRow`). Programme is the exception that sits above rather than
+            in it: on this screen it is the browsing axis the budget card and the export
+            are scoped to, not one narrowing among several. */}
+        <FilterRow
+          search={
+            <SearchInput
+              value={q}
+              onChange={(next) =>
+                navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
+              }
+              placeholder="Search organisation or ID…"
+            />
+          }
+        >
           <FilterPill
             label="Status"
             plural="statuses"
@@ -925,7 +927,7 @@ function ApplicationsList() {
             }
             allLabel="Any date"
           />
-        </div>
+        </FilterRow>
 
         <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
           <DataTable

@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 5174,
+      // Fail loudly rather than drift. Vite's default is to walk up to the next free
+      // port, which is silent and breaks two things that name 5174 explicitly:
+      // `BETTER_AUTH_URL` (sign-in then dies on `Invalid origin`) and the Google
+      // console's registered redirect URI. "Port 5174 is already in use" names the
+      // real problem — an old dev server still running — in one line.
+      strictPort: true,
       open: true,
     },
     build: {

@@ -134,5 +134,15 @@ export interface OrganisationProfile {
    * wires the form field has one obvious place to write it.
    */
   unrestrictedReserves: number | null
+  /**
+   * The Commission's OWN id for the organisation (`organisation_number`), which is
+   * not the charity number and is the only key the public register's URLs accept:
+   * `/charity-search/-/charity-details/<organisationNumber>`. Held so the screen can
+   * link back to the entry these facts were read from.
+   *
+   * Null on profiles written before this was captured — those name the register
+   * without linking to it, and the next screening fills it in.
+   */
+  organisationNumber: number | null
   fetchedAt: string
 }

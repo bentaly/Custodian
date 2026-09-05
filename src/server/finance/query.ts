@@ -8,6 +8,7 @@ import {
   roundProgrammes,
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
+import { searchAny } from '../searchTerm'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
 
 /**
@@ -297,6 +298,7 @@ export function filterWhere(
     bank?: string
     from?: string
     to?: string
+    q?: string
   },
 ): SQL | undefined {
   const day = tab === 'paid' ? g.lastPaidDate : g.chaseDate
@@ -313,5 +315,8 @@ export function filterWhere(
     // one, and showing it anyway would make the filter mean "or unknown".
     f.from ? sql`${day} >= ${f.from}` : undefined,
     f.to ? sql`${day} <= ${f.to}` : undefined,
+    // Organisation or the foundation's own reference — the two ways a finance officer
+    // holding a bank statement or an invoice identifies a grant.
+    searchAny(f.q, g.organisationName, g.externalApplicationId),
   )
 }

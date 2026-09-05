@@ -111,6 +111,14 @@ describe('charityChecks', () => {
     expect(outcome(records, 'cc_grant_vs_income')).toBe('unverified')
   })
 
+  // A partnership screened before anyone has named a figure. Zero is missing data, not
+  // a tiny grant — reporting it as a pass would put a tick against a check that never
+  // ran, which is the one thing this module says it must never do.
+  it('marks proportionality unverified when no amount has been named', () => {
+    const records = charityChecks(healthyCharity, ctx(0))
+    expect(outcome(records, 'cc_grant_vs_income')).toBe('unverified')
+  })
+
   it('warns when accounts are more than 18 months overdue', () => {
     const records = charityChecks({ ...healthyCharity, financialPeriodEnd: '2024-01-01' }, ctx())
     expect(outcome(records, 'cc_accounts_overdue')).toBe('fail')

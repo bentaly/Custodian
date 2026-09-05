@@ -182,6 +182,7 @@ export type ReportsSearch = {
   programmeId?: string
   roundId?: string
   tag?: string
+  q?: string
   from?: string
   to?: string
   sortBy?: ReportsSortKey
@@ -198,9 +199,64 @@ export function parseReportsSearch(search: Record<string, unknown>): ReportsSear
     programmeId: text(search.programmeId),
     roundId: text(search.roundId),
     tag: text(search.tag),
+    q: text(search.q),
     from: isoDay(search.from),
     to: isoDay(search.to),
     sortBy: oneOf(REPORTS_SORT_KEYS, search.sortBy),
+    sortDir: sortDir(search.sortDir),
+    page: pageNo(search.page),
+  }
+}
+
+// ─── Partnerships ────────────────────────────────────────────────────────────────
+
+export type PartnershipsTab = 'to_action' | 'awaiting' | 'closed'
+
+export type PartnershipsSortKey =
+  | 'organisation'
+  | 'programme'
+  | 'source'
+  | 'status'
+  | 'dueDiligence'
+  | 'logged'
+
+export const PARTNERSHIPS_SORT_KEYS: PartnershipsSortKey[] = [
+  'organisation',
+  'programme',
+  'source',
+  'status',
+  'dueDiligence',
+  'logged',
+]
+
+export type PartnershipsSearch = {
+  tab?: PartnershipsTab
+  programmeId?: string
+  source?: string
+  tag?: string
+  q?: string
+  /** The archive, which is a destination rather than a tab — see the screen. */
+  archived?: true
+  sortBy?: PartnershipsSortKey
+  sortDir?: SortDir
+  page?: number
+}
+
+export function parsePartnershipsSearch(search: Record<string, unknown>): PartnershipsSearch {
+  return {
+    // `to_action` is the default and carries no value in the URL, as every other list's
+    // first tab does. It is also the only tab that is WORK, so landing anywhere else
+    // would be answering a question nobody asked.
+    tab: oneOf(['awaiting', 'closed'] as const, search.tab),
+    programmeId: text(search.programmeId),
+    source: text(search.source),
+    tag: text(search.tag),
+    q: text(search.q),
+    // Present-or-absent rather than true/false: `archived=false` in a URL is the same
+    // state as no archive at all, and two spellings of one state is how a back arrow
+    // ends up somewhere the reader has never been.
+    archived: search.archived === true || search.archived === 'true' ? true : undefined,
+    sortBy: oneOf(PARTNERSHIPS_SORT_KEYS, search.sortBy),
     sortDir: sortDir(search.sortDir),
     page: pageNo(search.page),
   }

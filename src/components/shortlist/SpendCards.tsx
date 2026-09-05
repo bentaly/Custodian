@@ -4,7 +4,7 @@ import { useId } from 'react'
 import { fmtMoney } from '../../lib/format'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { useRemembered } from '../../lib/useRemembered'
-import { BarMeter } from '../BarMeter'
+import { ProgressBar } from '../ProgressBar'
 import { C } from '../ui/tokens'
 
 // The card the shortlist opens with (Figma 765:3331). It was two — a list of what is
@@ -134,31 +134,24 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
                 </span>
 
                 {budget !== null && (
-                  /* Three bands on one meter: what this shortlist would add, then what the
-                   round has already committed, then what would be left. Without the
-                   second the bar would say a programme is 8% spent when most of its
-                   budget is already gone.
+                  /* Two bands on one bar: what this shortlist would add, then what the
+                   round has already committed, against the programme's own budget as the
+                   track. Without the second the bar would say a programme is 8% spent
+                   when most of its budget is already gone.
                    The solid band goes FIRST, anchored at zero as the comp draws it — led
                    by the pale one it floats in the middle of the track, and a pale
                    left-hand chunk reads as budget left rather than budget spent. So the
                    bar runs dark to light, and so does the line beneath it.
-                   Over budget the unallocated band is empty and the meter divides between
-                   the two spend bands — a full meter is what the dominos always draw, and
-                   the overspend is said in words beneath rather than by a bar that grows
-                   past its own end. */
-                  <BarMeter
-                    bars={140}
-                    height={24}
-                    barWidth={3}
-                    className="w-full"
+                   Over budget the bar simply fills: the overspend is said in words
+                   beneath rather than by a bar that grows past its own end. */
+                  <ProgressBar
+                    className="my-1"
+                    track={tint(colour, 16)}
                     segments={[
-                      { value: r.proposed, colour },
-                      { value: r.committed, colour: tint(colour, 45) },
-                      {
-                        value: Math.max(0, budget - r.proposed - r.committed),
-                        colour: tint(colour, 16),
-                      },
+                      { value: r.proposed / budget, colour },
+                      { value: r.committed / budget, colour: tint(colour, 45) },
                     ]}
+                    delay={i * 90}
                   />
                 )}
 

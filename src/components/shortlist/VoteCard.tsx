@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -58,13 +58,22 @@ export type VoteCardApplication = {
 }
 
 /**
+ * The card's own count of where the vote stands.
+ *
+ * Derived here rather than read off the row, because `app.yesVotes` and
+ * `app.hasMajority` were computed by the server for the votes it knew about — and for
+ * a moment after you vote, this card knows about one more. See `Tally` below.
+ */
+type Tally = { trusteeCount: number; voted: number; yesVotes: number; hasMajority: boolean }
+
+/**
  * Yes-votes still needed to carry it. The board's question is never "how many have
  * voted" but "how far off is this" — and one away is a different sentence from three
  * away, which is why the pill says the number rather than "awaiting votes".
  */
-function votesStillNeeded(app: VoteCardApplication): number {
-  if (app.trusteeCount === 0) return 0
-  return Math.max(0, Math.floor(app.trusteeCount / 2) + 1 - app.yesVotes)
+function votesStillNeeded(tally: Tally): number {
+  if (tally.trusteeCount === 0) return 0
+  return Math.max(0, Math.floor(tally.trusteeCount / 2) + 1 - tally.yesVotes)
 }
 
 function Pill({
@@ -92,10 +101,10 @@ function Pill({
   )
 }
 
-function DecisionPill({ app }: { app: VoteCardApplication }) {
-  if (app.hasMajority) return <Pill tone="brand">Board approved</Pill>
-  const needed = votesStillNeeded(app)
-  if (app.trusteeCount === 0) return <Pill tone="amber">No trustees to vote</Pill>
+function DecisionPill({ tally }: { tally: Tally }) {
+  if (tally.hasMajority) return <Pill tone="brand">Board approved</Pill>
+  const needed = votesStillNeeded(tally)
+  if (tally.trusteeCount === 0) return <Pill tone="amber">No trustees to vote</Pill>
   if (needed === 1) return <Pill tone="amber">Last vote needed</Pill>
   return <Pill tone="grey">{needed} votes needed</Pill>
 }
@@ -357,6 +366,24 @@ export function VoteCard({
   const [error, setError] = useState<string | null>(null)
   const [showComments, setShowComments] = useState(false)
   const [changing, setChanging] = useState(false)
+  const [justCast, setJustCast] = useState<
+    Record<string, { vote: 'yes' | 'no'; proxied: boolean }>
+  >({})
+
+  // Let go of a held vote the moment the loader agrees with it, so that from then on the
+  // row is the only source. Without this, a later correction made elsewhere — an admin
+  // fixing a vote read out wrong at the meeting — would arrive and be painted over by
+  // what this card happened to submit earlier.
+  useEffect(() => {
+    setJustCast((held) => {
+      const server = new Map(app.votes.map((v) => [v.userId, v.vote]))
+      const settled = Object.keys(held).filter((id) => server.get(id) === held[id]!.vote)
+      if (settled.length === 0) return held
+      const next = { ...held }
+      for (const id of settled) delete next[id]
+      return next
+    })
+  }, [app.votes])
 
   const isTrustee = userRole === 'trustee'
   const isAdmin = userRole === 'admin' || userRole === 'superadmin'
@@ -367,11 +394,33 @@ export function VoteCard({
   const canVoteAsSelf = isTrustee
   const canVoteForTrustees = isAdmin && allowAdminVoting
 
+  // Votes cast from this card that the server has ACCEPTED but the loader has not
+  // brought back yet. `castVote` resolving is the vote being true; `router.invalidate()`
+  // is a second round trip on top of that, and on staging it lands 100ms–2.5s later.
+  // Until this existed the card spent that gap stating the OLD vote as settled fact —
+  // `setChanging(false)` had already closed the Approve / Decline pair, so a trustee who
+  // had just pressed Decline was told "You approved this application" with an Approved
+  // pill beside their name. Not optimism: the server has already said yes.
   const voteMap = new Map(app.votes.map((v) => [v.userId, v.vote]))
   // Whose vote was entered by somebody else. Recording the proxy is only half the fix —
   // if the roster draws it identically to a vote the trustee cast, the board reading
   // the roster still cannot tell the two apart, which was the whole problem.
   const proxiedFor = new Set(app.votes.filter((v) => v.recordedByUserId).map((v) => v.userId))
+  for (const [id, cast] of Object.entries(justCast)) {
+    voteMap.set(id, cast.vote)
+    // An admin recording for a trustee is a proxy; a trustee voting for themselves
+    // CLEARS one, exactly as `castVote` does to the row.
+    if (cast.proxied) proxiedFor.add(id)
+    else proxiedFor.delete(id)
+  }
+
+  const yesVotes = [...voteMap.values()].filter((v) => v === 'yes').length
+  const tally: Tally = {
+    trusteeCount: app.trusteeCount,
+    voted: voteMap.size,
+    yesVotes,
+    hasMajority: app.trusteeCount > 0 && yesVotes * 2 > app.trusteeCount,
+  }
   const myVote = voteMap.get(userId)
   const detail = app.custodianScoreDetail
   const scored = app.custodianScoreStatus === 'scored' && app.custodianScore !== null
@@ -427,6 +476,10 @@ export function VoteCard({
     setError(null)
     try {
       await castVote({ data: { applicationId: app.id, vote, onBehalfOf } })
+      setJustCast((held) => ({
+        ...held,
+        [onBehalfOf ?? userId]: { vote, proxied: onBehalfOf !== undefined },
+      }))
       setChanging(false)
       await router.invalidate()
     } catch (err) {
@@ -466,7 +519,7 @@ export function VoteCard({
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 {programme?.name && <Pill tone="grey">{programme.name}</Pill>}
-                <DecisionPill app={app} />
+                <DecisionPill tally={tally} />
               </div>
             </div>
             <div className="shrink-0 text-right">
@@ -584,7 +637,7 @@ export function VoteCard({
               Board votes
             </span>
             <span className="font-display text-label" style={{ color: C.sub }}>
-              {app.votes.length} of {app.trusteeCount} voted
+              {tally.voted} of {tally.trusteeCount} voted
             </span>
           </div>
 
@@ -727,6 +780,8 @@ export function VoteCard({
         <CommentsDialog
           applicationId={app.id}
           organisationName={app.organisationName}
+          userId={userId}
+          userRole={userRole}
           onClose={() => setShowComments(false)}
           onChanged={() => router.invalidate()}
         />

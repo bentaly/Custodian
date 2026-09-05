@@ -8,6 +8,7 @@ import {
   roundProgrammes,
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
+import { searchAny } from '../searchTerm'
 
 /**
  * The Awards register, expressed as SQL — the same shape as `server/finance/query.ts`,
@@ -145,10 +146,8 @@ export function filterWhere(
     f.status ? eq(g.status, f.status) : undefined,
     f.from ? sql`${g.decisionDay} >= ${f.from}` : undefined,
     f.to ? sql`${g.decisionDay} <= ${f.to}` : undefined,
-    // Same "contains, case-insensitively" the in-memory version did. `%` and `_` in the
-    // needle are escaped so a search for "50%" cannot become a wildcard.
-    f.q
-      ? sql`${g.organisationName} ilike ${'%' + f.q.replace(/[\\%_]/g, '\\$&') + '%'}`
-      : undefined,
+    // Organisation and the foundation's own reference, which is the row's subtext here
+    // and the thing a finance officer has in front of them (`searchAny` escapes it).
+    searchAny(f.q, g.organisationName, g.externalApplicationId),
   )
 }

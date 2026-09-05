@@ -151,6 +151,11 @@ export async function runDueDiligence(
             registeredSince: charity.dateOfRegistration,
             charityType: typeof raw?.['charity_type'] === 'string' ? raw['charity_type'] : null,
             unrestrictedReserves: null,
+            // Read off the raw response rather than through `NormalizedCharity`: it is
+            // a link target, and nothing screens on it (same reasoning as charityType).
+            organisationNumber: Number.isFinite(Number(raw?.['organisation_number']))
+              ? Number(raw?.['organisation_number'])
+              : null,
             fetchedAt: checkedAt,
           }
         }

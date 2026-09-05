@@ -250,7 +250,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             short one. It therefore scales fluidly & tops out at the comp's 40px,
             which no fixed ramp step could do. */}
         <h2
-          className="font-display mb-4 max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-5 compact:mb-3 compact:mt-2 compact:text-[clamp(26px,2.3vw,34px)]"
+          className="font-display mb-8 max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-5 compact:mb-6 compact:mt-2 compact:text-[clamp(26px,2.3vw,34px)]"
           style={{ letterSpacing: '-0.02em', textWrap: 'pretty' }}
         >
           The entire grant lifecycle for the whole foundation team.
@@ -273,10 +273,10 @@ export function AuthShell({ children }: { children: ReactNode }) {
             is left rather than hugging the heading with all the empty space beneath
             it. Auto margins collapse to nothing once the panel overflows, so the
             compact case just stacks — which is why the FLOOR on that gap is a fixed
-            margin on the heading & on the cards below, not more padding here: this
-            block's height is what sets the ring's diameter (see `OrbitRing`), so
-            padding it would inflate the circle at exactly the sizes where there is
-            already no room. Margins sit outside it & leave the geometry alone.
+            margin on the heading & on the cards below, not more padding here. Tune
+            those two margins to change how much air the ring has; on a `compact`
+            viewport they are the ONLY thing holding it off the heading & the cards,
+            because the auto margins have already collapsed to nothing.
 
             `items-center` because a grid row stretches by default, & the two chips
             facing each other across the ring never carry the same number of lines —
@@ -314,7 +314,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-3 compact:gap-3">
+        <div className="mt-10 grid gap-4 sm:grid-cols-3 compact:mt-7 compact:gap-3">
           {NOTES.map((note) => (
             <div
               key={note.title}

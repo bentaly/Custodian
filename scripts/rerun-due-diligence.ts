@@ -7,6 +7,7 @@
  *   pnpm tsx scripts/rerun-due-diligence.ts --pending  # only un-screened rows
  *   pnpm tsx scripts/rerun-due-diligence.ts <appId>    # a single application
  *   pnpm tsx scripts/rerun-due-diligence.ts --missing-profile   # rows with no profile
+ *   pnpm tsx scripts/rerun-due-diligence.ts --missing-org-number # rows that can't link out
  *
  * `--missing-profile` is the backfill for rows screened BEFORE
  * `applications.organisation_profile` existed (migration 0070, 30 Aug 2026).
@@ -14,6 +15,13 @@
  * read yet — re-run the register checks below to fetch it" and a human has to
  * press the button. The profile comes from the same register calls as the
  * checks, so this re-screens and writes both; statuses can legitimately move.
+ *
+ * `--missing-org-number` is the same shape of backfill one field down: profiles
+ * written before `OrganisationProfile.organisationNumber` was captured have no
+ * way to address the register entry they were read from (the public register's
+ * URLs take the Commission's organisation number, not the charity number), so
+ * the application's "Charity Commission" credit names the source without linking
+ * to it. Re-screening rewrites the profile with the number in it.
  *
  * Requires the same env as the app (DATABASE_URL + the register API keys).
  */
@@ -32,6 +40,7 @@ async function main() {
   const arg = process.argv[2]
   const pendingOnly = arg === '--pending'
   const missingProfileOnly = arg === '--missing-profile'
+  const missingOrgNumberOnly = arg === '--missing-org-number'
   const singleId = arg && !arg.startsWith('--') ? arg : undefined
 
   const rows = await db.query.applications.findMany({
@@ -53,7 +62,15 @@ async function main() {
       ? // Only rows there is a register to read: a company-only applicant has no
         // profile to fetch, and one with no number at all has nothing to screen.
         rows.filter((r) => r.organisationProfile == null && r.charityNumber)
-      : rows
+      : missingOrgNumberOnly
+        ? rows.filter(
+            (r) =>
+              !!r.charityNumber &&
+              r.organisationProfile != null &&
+              (r.organisationProfile as { organisationNumber?: number | null })
+                .organisationNumber == null,
+          )
+        : rows
   console.log(`Re-running due diligence over ${targets.length} application(s)...\n`)
 
   for (const app of targets) {

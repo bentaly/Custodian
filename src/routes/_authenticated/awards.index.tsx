@@ -8,6 +8,7 @@ import {
   EmptyState,
   FilterPill,
   Pagination,
+  FilterRow,
   SearchInput,
   StatusPill,
   TruncatedList,
@@ -426,30 +427,22 @@ function AwardsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header — <h1>, then what you are looking at and how to search it. Round is NOT
-          up here: on the round-scoped screens the pill is the axis the whole screen is
-          organised around, but a grants portfolio is the whole book of business rather
-          than one sitting's decisions, which makes round one narrowing among several. It
-          sits in the filter row with the others (see `ui/FilterPill` on the shared order). */}
+      {/* Header — <h1>, then what you are looking at. Round is NOT up here: on the
+          round-scoped screens the pill is the axis the whole screen is organised around,
+          but a grants portfolio is the whole book of business rather than one sitting's
+          decisions, which makes round one narrowing among several. It sits in the filter
+          row with the others (see `ui/FilterPill` on the shared order), and so does the
+          search box (`ui/FilterRow`). */}
       <div className="flex flex-col gap-4">
         <h1 className="font-display text-heading font-medium text-grey-900">Awards</h1>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <span className="whitespace-nowrap font-display text-label font-medium text-grey-500">
-            {metaLine.map((part, i) => (
-              <Fragment key={i}>
-                {i > 0 && ' · '}
-                {part}
-              </Fragment>
-            ))}
-          </span>
-          <SearchInput
-            value={q}
-            onChange={(next) =>
-              navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
-            }
-            placeholder="Search organisation…"
-          />
-        </div>
+        <span className="whitespace-nowrap font-display text-label font-medium text-grey-500">
+          {metaLine.map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && ' · '}
+              {part}
+            </Fragment>
+          ))}
+        </span>
       </div>
 
       {/* Everything below the header is one card, as on Applications and Finance: what
@@ -462,10 +455,21 @@ function AwardsPage() {
       >
         {totals.count > 0 && <PortfolioCard totals={totals} />}
 
-        {/* Filters — the same row every list screen wears, in the shared order. Each pill
-            offers only what the awards in view actually contain, with counts, and stays in
-            place when that is one value or none (see `ui/FilterPill`). */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Filters — the same row every list screen wears, in the shared order, search
+            on its right (`ui/FilterRow`). Each pill offers only what the awards in view
+            actually contain, with counts, and stays in place when that is one value or
+            none (see `ui/FilterPill`). */}
+        <FilterRow
+          search={
+            <SearchInput
+              value={q}
+              onChange={(next) =>
+                navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
+              }
+              placeholder="Search organisation…"
+            />
+          }
+        >
           <FilterPill
             label="Status"
             plural="statuses"
@@ -503,7 +507,7 @@ function AwardsPage() {
             }
             allLabel="Any award date"
           />
-        </div>
+        </FilterRow>
 
         {items.length === 0 ? (
           <EmptyState>

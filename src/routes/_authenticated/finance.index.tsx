@@ -20,6 +20,8 @@ import {
   EmptyState,
   ExportButton,
   FilterPill,
+  FilterRow,
+  SearchInput,
   Horizon,
   Pagination,
   StatusPill,
@@ -60,6 +62,7 @@ type FinanceSearch = {
   bank?: BankStatus
   from?: string
   to?: string
+  q?: string
   sortBy?: SortKey
   sortDir?: SortDir
   page?: number
@@ -98,6 +101,7 @@ export const Route = createFileRoute('/_authenticated/finance/')({
       : undefined,
     from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
     to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
+    q: typeof search.q === 'string' && search.q ? search.q : undefined,
     sortBy: SORT_KEYS.includes(search.sortBy as SortKey) ? (search.sortBy as SortKey) : undefined,
     sortDir:
       search.sortDir === 'asc' || search.sortDir === 'desc'
@@ -124,6 +128,7 @@ export const Route = createFileRoute('/_authenticated/finance/')({
           bank: deps.bank,
           from: deps.from,
           to: deps.to,
+          q: deps.q,
           sortBy: deps.sortBy,
           sortDir: deps.sortDir,
           page: deps.page,
@@ -389,6 +394,7 @@ function FinancePage() {
     bank,
     from,
     to,
+    q,
     sortBy,
     sortDir,
     page,
@@ -490,6 +496,7 @@ function FinancePage() {
           bank,
           from,
           to,
+          q,
           sortBy,
           sortDir,
           page: 1,
@@ -538,8 +545,19 @@ function FinancePage() {
         </div>
 
         {/* Each pill offers only what this TAB actually contains, with counts — the tab
-            is the context these facets are counted over, so switching it re-cuts them. */}
-        <div className="flex flex-wrap items-center gap-3">
+            is the context these facets are counted over, so switching it re-cuts them.
+            Search is the shared row's last item (`ui/FilterRow`) and narrows the table
+            and both tab counts, never the KPI strip or the Attention banner above it. */}
+        <FilterRow
+          search={
+            <SearchInput
+              value={q}
+              onChange={(next) => setFilter({ q: next })}
+              placeholder="Search organisation or reference…"
+              ariaLabel="Search grants"
+            />
+          }
+        >
           <FilterPill
             label="Status"
             plural="statuses"
@@ -582,7 +600,7 @@ function FinancePage() {
             onChange={(next) => setFilter({ from: next.from, to: next.to })}
             allLabel={tab === 'paid' ? 'Any payment date' : 'Any due date'}
           />
-        </div>
+        </FilterRow>
 
         {rows.length === 0 ? (
           <EmptyState>

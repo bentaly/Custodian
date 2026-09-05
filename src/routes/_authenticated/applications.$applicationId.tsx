@@ -24,7 +24,6 @@ import {
 } from '../../server/fns/applications'
 import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmissionDialog'
 import { CommentsSection } from '../../components/CommentsSection'
-import { VotingSection } from '../../components/VotingSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 // DetailHeader / Panel / PanelTitle are the shared detail-screen furniture (`ui/Detail`),
@@ -53,7 +52,11 @@ import {
 } from '../../lib/custodianScore'
 import { applicationStatusLabel } from '../../lib/validators/application'
 import { impactUnitLabel, impactUnitSingular } from '../../lib/impactUnits'
-import { CHECK_DEFINITIONS, type DueDiligenceCheckRecord } from '../../lib/dueDiligence'
+import {
+  CHECK_DEFINITIONS,
+  charityRegisterUrl,
+  type DueDiligenceCheckRecord,
+} from '../../lib/dueDiligence'
 import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
 import { useRemembered } from '../../lib/useRemembered'
 import type { DeprivationContext } from '../../lib/deprivation/types'
@@ -137,6 +140,30 @@ function Disclosure({
 }
 
 /**
+ * The register's credit line, as a link to the entry itself where we can address one.
+ *
+ * The facts under it are a dated snapshot of a public record, so the officer reading
+ * them should be one click from the record. `url` is null for a charity screened
+ * before the organisation number was captured (the register's URLs take that, not the
+ * charity number) — then this states the source and links nowhere, which is the honest
+ * answer rather than a guessed URL that 404s in front of a foundation.
+ */
+function RegisterCredit({ url, children }: { url: string | null; children: React.ReactNode }) {
+  if (!url) return <>{children}</>
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline underline-offset-2"
+      title="Open this entry on the Charity Commission register"
+    >
+      {children}
+    </a>
+  )
+}
+
+/**
  * One cell of the organisation panel's fact grid: a label, a figure, and optionally the
  * period or ratio that figure only means something with.
  *
@@ -187,8 +214,8 @@ function Fact({
 
 /**
  * The way out of the one dead end due diligence has: an application with no
- * registration number can never be screened, and pressing Re-run reads the same empty
- * columns and returns "not screened" forever.
+ * registration number can never be screened: the checks read the same empty columns
+ * and return "not screened" however often they run.
  *
  * This is now the ordinary case rather than an exotic one. A submission arriving with
  * neither number is created rather than held (the pair is `expected`, not `one_of`),
@@ -226,7 +253,7 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
     <div>
       <p className="font-display text-body" style={{ color: C.sub }}>
         Not screened — this application has no charity number or company number, so there is no
-        register to check it against. Re-running will not change that.
+        register to check it against.
       </p>
       {canEdit && !open && (
         <button
@@ -376,7 +403,6 @@ function ApplicationDetail() {
      it. `{}` when the reader arrived from anywhere else. */
   const listSearch = Route.useSearch()
   const router = useRouter()
-  const [rerunningDD, setRerunningDD] = useState(false)
   // Remembered across reloads: a reviewer who works with the passed checks open should
   // not re-open them every morning. Keyed on the PANEL, never on the application —
   // per-row keys would accumulate one per application ever opened and never be cleared.
@@ -482,6 +508,9 @@ function ApplicationDetail() {
   // applicant. That distinction is stated rather than left as an em dash, because a
   // blank figure and an unasked question must never look the same.
   const orgProfile = (application.organisationProfile as OrganisationProfile | null) ?? null
+  // Null until this application has been screened since the organisation number
+  // started being captured — the credit line then names the register without linking.
+  const registerUrl = charityRegisterUrl(orgProfile?.organisationNumber)
   // Who they are, in the applicant's own words, where the foundation's form asked. It
   // DISPLACES the register's activity summary rather than sitting beside it: both
   // answer the same question, and printing two descriptions of one charity leaves a
@@ -552,7 +581,7 @@ function ApplicationDetail() {
   const orgAbsence = noRegistrationNumber
     ? 'No charity or company number was captured, so there is no register entry to read.'
     : application.charityNumber
-      ? 'Not read yet — re-run the register checks below to fetch it.'
+      ? 'Not read yet — the register checks have not run for this application.'
       : 'Companies House publishes no income or activity summary, so there is nothing to show for a company-only applicant.'
 
   async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
@@ -580,8 +609,6 @@ function ApplicationDetail() {
         data: { id: application.id, status: isDeclined ? 'for_review' : 'declined' },
       }),
     )
-  const handleRerunDD = () =>
-    act(setRerunningDD, () => rerunDueDiligence({ data: { id: application.id } }))
 
   // Colour is this screen's; the wording comes from the status registry, so the header
   // pill says exactly what the list and its filter say.
@@ -699,6 +726,13 @@ function ApplicationDetail() {
                     {declining ? '…' : isDeclined ? 'Reinstate to review' : 'Decline'}
                   </HeaderButton>
                 )}
+                {/* And no Shortlist once an application is DECLINED — the mirror of the
+                    rule above, for the same reason. Declining is a recorded decision;
+                    shortlisting straight out of it would reverse that decision and
+                    commit the ask to the round's pipeline in one click, from a button
+                    sitting beside the one that reverses it properly. Reinstate to
+                    review, then Shortlist: two steps, each saying what it does. Also not
+                    a permission — the server still accepts declined → shortlisted. */}
                 {/* The reason a button is DISABLED is the one explanation a `title`
                     can never deliver: a disabled button takes no focus, so a keyboard
                     user has no way to reach it, and several browsers decline to draw
@@ -706,30 +740,31 @@ function ApplicationDetail() {
                     the tooltip's own focusable trigger — which is a tab stop precisely
                     because the button it wraps is not. When the button is live it
                     wears nothing, and stays the single tab stop it should be. */}
-                {(() => {
-                  const shortlistButton = (
-                    <HeaderButton
-                      tone={isShortlisted ? 'plain' : 'primary'}
-                      onClick={handleShortlist}
-                      disabled={shortlisting || isBudgetFull}
-                    >
-                      {shortlisting
-                        ? '…'
-                        : isShortlisted
-                          ? 'Remove from shortlist'
-                          : isBudgetFull
-                            ? 'Budget full'
-                            : 'Shortlist'}
-                    </HeaderButton>
-                  )
-                  return isBudgetFull ? (
-                    <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
-                      Budget committed — no funds remaining in this programme.
-                    </Tooltip>
-                  ) : (
-                    shortlistButton
-                  )
-                })()}
+                {!isDeclined &&
+                  (() => {
+                    const shortlistButton = (
+                      <HeaderButton
+                        tone={isShortlisted ? 'plain' : 'primary'}
+                        onClick={handleShortlist}
+                        disabled={shortlisting || isBudgetFull}
+                      >
+                        {shortlisting
+                          ? '…'
+                          : isShortlisted
+                            ? 'Remove from shortlist'
+                            : isBudgetFull
+                              ? 'Budget full'
+                              : 'Shortlist'}
+                      </HeaderButton>
+                    )
+                    return isBudgetFull ? (
+                      <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
+                        Budget committed — no funds remaining in this programme.
+                      </Tooltip>
+                    ) : (
+                      shortlistButton
+                    )
+                  })()}
               </>
             )}
           </>
@@ -875,9 +910,14 @@ function ApplicationDetail() {
                       className="ml-auto font-display text-micro uppercase"
                       style={{ color: C.faint }}
                     >
-                      {orgSummary
-                        ? 'From the application'
-                        : `Charity Commission · read ${fmtDate(orgProfile!.fetchedAt)}`}
+                      {orgSummary ? (
+                        'From the application'
+                      ) : (
+                        <>
+                          <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> ·
+                          read {fmtDate(orgProfile!.fetchedAt)}
+                        </>
+                      )}
                     </p>
                   )}
                 </div>
@@ -955,7 +995,9 @@ function ApplicationDetail() {
                     twice, which is why this is conditional rather than always on. */}
                 {orgSummary && orgProfile && (
                   <p className="mt-3 font-display text-micro uppercase" style={{ color: C.faint }}>
-                    Facts from the Charity Commission · read {fmtDate(orgProfile.fetchedAt)}
+                    Facts from the{' '}
+                    <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> · read{' '}
+                    {fmtDate(orgProfile.fetchedAt)}
                   </p>
                 )}
               </div>
@@ -1225,19 +1267,9 @@ function ApplicationDetail() {
         <Panel>
           <PanelTitle
             right={
-              <div className="flex items-center gap-3">
-                <span className="hidden font-display text-label md:inline" style={{ color: C.sub }}>
-                  These checks feed the due diligence marks shown in the applications list.
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleRerunDD}
-                  disabled={rerunningDD}
-                >
-                  {rerunningDD ? 'Re-running…' : 'Re-run'}
-                </Button>
-              </div>
+              <span className="hidden font-display text-label md:inline" style={{ color: C.sub }}>
+                These checks feed the due diligence marks shown in the applications list.
+              </span>
             }
           >
             Due diligence checks
@@ -1252,25 +1284,48 @@ function ApplicationDetail() {
                 return (
                   <div
                     key={i}
-                    className="flex items-center justify-between gap-3 rounded-chip p-3"
+                    className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-chip p-3"
                     style={{ backgroundColor: C.wash }}
                   >
                     <span
-                      className="font-display text-label font-medium"
+                      className="shrink-0 font-display text-label font-medium"
                       style={{ color: failed ? C.danger : C.ink700 }}
                     >
                       {def?.label ?? r.key}
                     </span>
+                    {/* The outcome side wraps; it does not shrink the label. A 360Giving
+                        prior-funding line names three grants and runs to hundreds of
+                        characters, and `shrink-0` here squeezed "Prior funding history"
+                        into three lines while the detail still ran off the card. */}
                     <span
-                      className="flex shrink-0 items-center gap-1 font-display text-label font-medium"
+                      className="flex min-w-[12rem] flex-1 items-start justify-end gap-1.5 font-display text-label font-medium"
                       style={{ color: colour }}
                     >
-                      <HugeiconsIcon
-                        icon={failed ? Alert02Icon : Tick01Icon}
-                        size={16}
-                        color={colour}
-                      />
-                      {r.detail ?? (ok ? 'Clear' : failed ? 'Flagged' : 'Unverified')}
+                      {/* A warning leads with its icon — it is the thing to notice, and
+                          the eye should meet it before the sentence. A tick is only the
+                          confirmation of what the line already says, so it follows. */}
+                      {failed && (
+                        <HugeiconsIcon
+                          icon={Alert02Icon}
+                          size={16}
+                          color={colour}
+                          className="mt-px shrink-0"
+                        />
+                      )}
+                      {/* A pass with no detail used to read "Clear", which says only that
+                          the check ran. The definition says what it confirmed. */}
+                      <span className="min-w-0 break-words text-right">
+                        {r.detail ??
+                          (ok ? (def?.passSummary ?? 'Clear') : failed ? 'Flagged' : 'Unverified')}
+                      </span>
+                      {!failed && (
+                        <HugeiconsIcon
+                          icon={Tick01Icon}
+                          size={16}
+                          color={colour}
+                          className="mt-px shrink-0"
+                        />
+                      )}
                     </span>
                   </div>
                 )
@@ -1288,8 +1343,8 @@ function ApplicationDetail() {
             </div>
           ) : noRegistrationNumber ? (
             // "Not screened yet" reads as pending. When there is no registration
-            // number it isn't pending — there is nothing to screen against, and
-            // re-running will never change that. Say which, and offer the only thing
+            // number it isn't pending — there is nothing to screen against, and no
+            // amount of re-checking changes that. Say which, and offer the only thing
             // that does: supplying the number here, which screens on the spot.
             <ScreenWithNumber
               applicationId={application.id}
@@ -1301,13 +1356,6 @@ function ApplicationDetail() {
             </p>
           )}
         </Panel>
-
-        {/* Trustee vote — only once shortlisted (a vote precedes an award). */}
-        {isShortlisted && (
-          <Panel>
-            <VotingSection applicationId={application.id} userId={user.id} userRole={user.role} />
-          </Panel>
-        )}
 
         {/* Not captured — the one place a silently-lost field becomes visible. */}
         {gaps.any && (

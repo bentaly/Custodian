@@ -123,10 +123,37 @@ export async function callAuth<T>(
   }
 }
 
+/**
+ * Every origin BetterAuth will accept a signed-in POST from.
+ *
+ * The default list is `[baseURL]` and nothing else, which is exactly right in
+ * production and a trap in development: `vite dev` asks for 5174, and if anything
+ * already holds that port it moves to 5175 WITHOUT saying so. `BETTER_AUTH_URL` in
+ * `.env` still names 5174, so every sign-in on the drifted port dies on `Invalid
+ * origin` — an error about CSRF for what is actually a busy port. That happened on
+ * 5 Sep 2026 with a day-old dev server still holding 5174.
+ *
+ * So a LOCAL baseURL — and only a local one — also trusts localhost on any port. A
+ * deployed `BETTER_AUTH_URL` (`https://custodian.fund`) adds nothing: the wildcard
+ * must never be reachable from a host a stranger can point at us.
+ *
+ * `vite.config.ts` sets `strictPort` so the drift stops happening at all; this is the
+ * belt to that's braces, and it also covers `--port` and `pnpm preview`.
+ */
+function trustedOriginsFor(baseURL: string): string[] {
+  const origins = [baseURL]
+  const host = URL.canParse(baseURL) ? new URL(baseURL).hostname : ''
+  if (host === 'localhost' || host === '127.0.0.1')
+    origins.push('http://localhost:*', 'http://127.0.0.1:*')
+  return origins
+}
+
 function createAuth() {
+  const baseURL = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000'
   return betterAuth({
     secret: process.env['BETTER_AUTH_SECRET']!,
-    baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
+    baseURL,
+    trustedOrigins: trustedOriginsFor(baseURL),
     onAPIError: {
       errorURL: '/sign-in',
     },

@@ -225,6 +225,12 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional(),
         /**
+         * The search box: organisation name or the foundation's own reference. A
+         * transient filter like the pills — it narrows the table and both tab counts,
+         * and deliberately not the KPI strip or the Attention banner above the row.
+         */
+        q: z.string().min(1).max(200).optional(),
+        /**
          * Column sort, applied in SQL over the whole filtered tab — see `orderFor`.
          * `next` and `lastPaid` each only exist on one tab's columns; sorting by the
          * other tab's date is harmless (every row's value is null, and nulls sort last
@@ -279,6 +285,7 @@ export type FinanceListInput = {
   bank?: BankStatus
   from?: string
   to?: string
+  q?: string
   sortBy?: SortKey
   sortDir?: 'asc' | 'desc'
   page?: number

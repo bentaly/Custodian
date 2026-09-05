@@ -39,14 +39,18 @@ import { Listbox } from './Listbox'
 //     only ever offers values the rows in view actually hold — "Youth work (24)". Fixed
 //     vocabularies (status enums, score bands) are the exception: those name every value
 //     whether or not it is present, because their absence is itself the answer.
-//  3. **The row is the same row whatever the data.** A pill is rendered even with one
+//  3. **Search sits at the END of the row, hard right** — `ui/FilterRow` is what lays
+//     that out, and every list screen goes through it. Filters and search do the same
+//     job, so they share a line; the pills keep starting at the same x on every screen
+//     whether or not that screen can be searched.
+//  4. **The row is the same row whatever the data.** A pill is rendered even with one
 //     option, and with none it stays in place reading "No programmes", greyed and inert.
 //     The thin-data version of a screen should differ from the full one by what the
 //     controls SAY, not by which controls exist: a filter that vanishes reads as a
 //     feature the app hasn't got, and a row that changes width as data arrives makes
 //     every screen look slightly different from every other.
 //
-// Rule 3 costs something and it is worth naming: with a single option, choosing it and
+// Rule 4 costs something and it is worth naming: with a single option, choosing it and
 // clearing it return the same rows, so that pill genuinely does nothing. We show it
 // anyway, because "this filter is pointless right now" is a smaller confusion than
 // "this screen doesn't have that filter".

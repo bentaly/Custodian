@@ -26,6 +26,7 @@
     "demo:apply": "tsx scripts/demo/apply.ts",
     "demo:decide": "tsx scripts/demo/decide.ts",
     "demo:report": "tsx scripts/demo/report.ts",
+    "demo:partners": "tsx scripts/demo/partners.ts",
     "demo:snapshot": "tsx scripts/demo/snapshot.ts",
     "demo:teardown": "tsx scripts/demo/teardown.ts",
     "demo:all": "pnpm demo:seed && pnpm demo:apply && pnpm demo:decide && pnpm demo:report",

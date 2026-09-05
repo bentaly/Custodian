@@ -21,7 +21,11 @@ import type {
 } from './types'
 
 export interface CheckContext {
-  /** Grant amount requested, in pounds. Used for proportionality checks. */
+  /**
+   * Grant amount requested, in pounds. Used for proportionality checks. Zero means
+   * nobody has named a figure — which a partnership in the pipeline usually has not —
+   * and the proportionality check reports `unverified` rather than a vacuous pass.
+   */
   amountRequested: number
   /**
    * The organisation name as the APPLICANT gave it, checked against the name on the
@@ -214,6 +218,12 @@ function grantVsIncome(
   ctx: CheckContext,
 ): DueDiligenceCheckRecord {
   if (income == null || income <= 0) return rec(key, 'unverified')
+  // No amount to weigh against the income is missing data, not a small grant. Screening
+  // a PARTNERSHIP is where this shows up — an organisation in the pipeline often has not
+  // named a figure yet — and without the guard the check reported "Grant is 0% of annual
+  // income · Pass", which is the rule this module states in its own types being broken
+  // in the plainest way: a check that never ran reading as one the organisation cleared.
+  if (!ctx.amountRequested || ctx.amountRequested <= 0) return rec(key, 'unverified')
   const ratio = ctx.amountRequested / income
   return ratio > GRANT_INCOME_RATIO
     ? rec(key, 'fail', `Grant is ${Math.round(ratio * 100)}% of annual income`)

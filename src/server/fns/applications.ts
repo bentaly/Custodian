@@ -8,7 +8,6 @@ import {
   inArray,
   sql,
   ne,
-  ilike,
   gte,
   lt,
   lte,
@@ -29,6 +28,7 @@ import {
   reportSchedule,
   reports,
 } from '../../../drizzle/schema'
+import { searchAny } from '../searchTerm'
 import { requireAuthUser, requireRole } from '../session'
 import { canSeePayments } from '../../lib/roles'
 import { recordAudit } from '../audit'
@@ -117,7 +117,11 @@ export const listApplications = createServerFn({ method: 'GET' })
     // of that day rather than to midnight at its start.
     const baseWhere = and(
       roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
-      filters.q ? ilike(applications.organisationName, `%${filters.q}%`) : undefined,
+      // Organisation OR the foundation's own reference — which is what the box has
+      // always said ("Search organisation or ID…") and, until `searchAny`, not what it
+      // did: only the name was matched, so no reference a reviewer typed ever found its
+      // row.
+      searchAny(filters.q, applications.organisationName, applications.externalApplicationId),
       filters.submittedFrom
         ? gte(applications.submittedAt, new Date(`${filters.submittedFrom}T00:00:00.000Z`))
         : undefined,

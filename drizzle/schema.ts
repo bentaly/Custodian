@@ -160,6 +160,54 @@ export const deprivationNationEnum = pgEnum('deprivation_nation', [
   'northern_ireland',
 ])
 
+/**
+ * Where an organisation has got to in the pipeline that runs BEFORE an application.
+ *
+ * The list stops at `invited` on purpose. A partnership is a relationship with an
+ * organisation that has not applied yet; the moment they do, the record that matters is
+ * the application, which has its own status, its own score and its own votes. Carrying
+ * `shortlisted` and `awarded` here as the prototype did would give the same grant two
+ * statuses on two screens, and nothing to say which of them was right. So the pipeline
+ * hands over: `partnerships.application_id` points at what the invitation produced, and
+ * the partnership stops moving.
+ *
+ * `eoi_issued` and `eoi_received` are two states rather than one because they are
+ * two different people's move — the first is waiting on the organisation, the second is
+ * waiting on the foundation, and the whole value of the EOI screen is telling those
+ * apart.
+ */
+export const partnershipStatusEnum = pgEnum('partnership_status', [
+  'prospective',
+  'eoi_issued',
+  'eoi_received',
+  'invited',
+  'declined',
+])
+
+/**
+ * What happened to a partnership, one row per event — the "relationship history" the
+ * screen renders as a timeline.
+ *
+ * Deliberately NOT `audit_log`. That table records actions on an APPLICATION (its
+ * `application_id` is the only entity it links, and the dashboard feed reads it that
+ * way), and it exists to answer "who did this to a grant". This answers a different
+ * question — "how do we know these people" — which starts before the foundation has
+ * done anything at all: `logged` is usually a fact about a trustee's dinner party, not
+ * an action in the app. A note is a first-class event here for the same reason.
+ */
+export const partnershipEventKindEnum = pgEnum('partnership_event_kind', [
+  'logged',
+  'note',
+  'eoi_issued',
+  'eoi_received',
+  'invited',
+  'declined',
+  'reopened',
+  'due_diligence_run',
+  'archived',
+  'unarchived',
+])
+
 // ─── Business tables ──────────────────────────────────────────────────────────
 
 export const clients = pgTable('clients', {
@@ -1430,6 +1478,145 @@ export const financeDigestSends = pgTable(
   ],
 )
 
+// ─── Partnerships ─────────────────────────────────────────────────────────────
+
+/**
+ * An organisation the foundation is talking to, before there is an application.
+ *
+ * Every other record in this app hangs off a round-programme, because every other
+ * record is a thing that happened inside a funding round. A partnership is what happens
+ * BEFORE one: a trustee makes an introduction, somebody is met at a conference, an
+ * expression of interest arrives out of the blue. There is no round yet — often no
+ * programme either — so this hangs off the CLIENT directly, and `programme_id` is
+ * nullable because "we don't know where they'd fit yet" is the ordinary state of a
+ * prospect rather than missing data.
+ *
+ * That also makes it the one list in the app that `visibleRoundProgrammeIds` cannot
+ * scope. Tenancy here is `client_id` on the row, filtered directly — see
+ * `listPartnerships`, which says so where it is enforced.
+ *
+ * The record ENDS at `application_id`. Once an invited organisation applies, the
+ * application is the record of the ask and this becomes the record of how they came to
+ * be asked; nothing here is updated from that point on. Keeping the link means the
+ * question a foundation actually asks of this screen — "did any of this turn into
+ * anything?" — can be answered without a name match.
+ */
+export const partnerships = pgTable(
+  'partnerships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    organisationName: text('organisation_name').notNull(),
+    // The foundation's OWN reference for this relationship, if they keep one (the
+    // prototype's "PTR-001"). Theirs to set and theirs to shape — we never mint one,
+    // for the same reason `applications.external_application_id` is never minted: a
+    // reference we invented would look like theirs and match nothing in their systems.
+    reference: text('reference'),
+    // "Registered charity", "CIC", "Community group". Free text rather than an enum:
+    // the interesting values are the ones outside any list we would write, and nothing
+    // branches on it.
+    organisationType: text('organisation_type'),
+    // Where the organisation is, as a person would say it — "Leeds", "North Yorkshire".
+    // NOT a delivery area: there is no funded project yet, so there is nothing to
+    // resolve a deprivation decile against. Deliberately not wired to `lib/deprivation`.
+    location: text('location'),
+    // Registration numbers, which is what makes due diligence possible this early. Both
+    // nullable, and both meaning the same thing as on an application: a CIO has only a
+    // charity number, a CIC only a company number, some have both.
+    charityNumber: text('charity_number'),
+    companyNumber: text('company_number'),
+    // Where the relationship came from — "Trustee referral", "Advisor introduction",
+    // "Conference". A foundation's answer to "is our pipeline coming from anywhere but
+    // the board's address book?", which is the reason this column exists at all.
+    source: text('source'),
+    programmeId: uuid('programme_id').references(() => programmes.id, {
+      onDelete: 'set null',
+    }),
+    tags: jsonb('tags').$type<string[]>(),
+    contactName: text('contact_name'),
+    contactEmail: text('contact_email'),
+    status: partnershipStatusEnum('status').notNull().default('prospective'),
+    // What they have said they are after, if they have said. Nullable and NOT a
+    // commitment of any kind — it feeds the "grant as a share of income" due diligence
+    // check and nothing else. No budget, meter or total in the app reads it: an
+    // aspiration in a conversation is not money committed, and the money rule
+    // (see CLAUDE.md) would be broken the moment one did.
+    amountSought: numeric('amount_sought'),
+    // What the organisation said when asked. Held as the same `{label, value}` shape
+    // `applications.responses` uses, so the EOI answers render through the same
+    // component as an application's — a foundation reading both should not have to
+    // learn two layouts for the same thing.
+    eoiResponses: jsonb('eoi_responses').$type<Array<{ label: string; value: string }>>(),
+    eoiReceivedAt: timestamp('eoi_received_at'),
+    // Due diligence, in the same four columns and with the same meanings as on an
+    // application (`runDueDiligence` writes both). Screening a prospect before anyone
+    // spends an afternoon on them is most of the point of logging one, and the answer
+    // must not have to be found twice: when an invitation turns into an application,
+    // that application screens itself again from its own numbers, because by then the
+    // register may say something different.
+    dueDiligenceStatus: dueDiligenceStatusEnum('due_diligence_status').notNull().default('pending'),
+    dueDiligenceChecks: jsonb('due_diligence_checks').$type<DueDiligenceCheckRecord[]>(),
+    dueDiligenceCheckedAt: timestamp('due_diligence_checked_at'),
+    organisationProfile: jsonb('organisation_profile').$type<OrganisationProfile>(),
+    // What the invitation produced. `set null` rather than `cascade`: deleting an
+    // application must not erase the record of how its applicant was found.
+    applicationId: uuid('application_id').references(() => applications.id, {
+      onDelete: 'set null',
+    }),
+    // Archived, never deleted — the same rule rounds and programmes follow. "We are not
+    // pursuing this" is a decision a foundation revisits, and the introduction that
+    // produced it was somebody's favour.
+    archivedAt: timestamp('archived_at'),
+    archiveNote: text('archive_note'),
+    createdByUserId: text('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // The tenancy filter on every read of this table, with `status` alongside it to
+    // serve the tab counts from the same index (as `applications_scope_status_idx`
+    // does). Postgres indexes neither foreign key on its own.
+    index('partnerships_client_status_idx').on(t.clientId, t.status),
+    index('partnerships_programme_idx').on(t.programmeId),
+  ],
+)
+
+/**
+ * One thing that happened, on one partnership. Append-only: an event is a statement
+ * about a moment, and editing it would make the timeline a worse record than a
+ * notebook.
+ *
+ * `body` is written at the time and stored verbatim rather than re-rendered from
+ * `kind` + `metadata` on read. That is the same reasoning award letters are snapshots:
+ * "Invited to apply to Community & Place" must keep saying that after the programme is
+ * renamed, because it is what happened.
+ */
+export const partnershipEvents = pgTable(
+  'partnership_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    partnershipId: uuid('partnership_id')
+      .notNull()
+      .references(() => partnerships.id, { onDelete: 'cascade' }),
+    kind: partnershipEventKindEnum('kind').notNull(),
+    body: text('body').notNull(),
+    // Null for an event nobody in the app performed — an EOI arriving through the
+    // public form, and any event whose actor has since been deleted (`set null`, as
+    // `audit_log` treats a departed actor).
+    actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+    // When it HAPPENED, which is not always when it was typed: "introduced by James at
+    // the May board dinner" is logged weeks later. Defaults to now, and the log form
+    // lets an admin say otherwise.
+    occurredAt: timestamp('occurred_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('partnership_events_partnership_idx').on(t.partnershipId, t.occurredAt)],
+)
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -1441,6 +1628,7 @@ export const clientsRelations = relations(clients, ({ many, one }) => ({
   applicationIngests: many(applicationIngests),
   apiKeys: many(apiKeys),
   awards: many(awards),
+  partnerships: many(partnerships),
   profile: one(clientProfiles, { fields: [clients.id], references: [clientProfiles.clientId] }),
 }))
 
@@ -1620,4 +1808,23 @@ export const auditLogRelations = relations(auditLog, ({ one }) => ({
     fields: [auditLog.applicationId],
     references: [applications.id],
   }),
+}))
+
+export const partnershipsRelations = relations(partnerships, ({ one, many }) => ({
+  client: one(clients, { fields: [partnerships.clientId], references: [clients.id] }),
+  programme: one(programmes, { fields: [partnerships.programmeId], references: [programmes.id] }),
+  application: one(applications, {
+    fields: [partnerships.applicationId],
+    references: [applications.id],
+  }),
+  createdBy: one(users, { fields: [partnerships.createdByUserId], references: [users.id] }),
+  events: many(partnershipEvents),
+}))
+
+export const partnershipEventsRelations = relations(partnershipEvents, ({ one }) => ({
+  partnership: one(partnerships, {
+    fields: [partnershipEvents.partnershipId],
+    references: [partnerships.id],
+  }),
+  actor: one(users, { fields: [partnershipEvents.actorUserId], references: [users.id] }),
 }))

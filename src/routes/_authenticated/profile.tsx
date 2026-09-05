@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
+import { invalidateCurrentUser } from '../../lib/currentUser'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
 import { getMyEmailPreferences, setWeeklyFinanceDigest } from '../../server/fns/users'
 import {
@@ -29,6 +30,23 @@ export const Route = createFileRoute('/_authenticated/profile')({
   loader: async () => ({ emailPrefs: await getMyEmailPreferences() }),
   component: Profile,
 })
+
+/**
+ * Make the shell catch up with a change to your own row.
+ *
+ * The header's avatar and name come from `_authenticated`'s route CONTEXT, which
+ * `beforeLoad` builds from `currentUser()` — and that is a five-minute client-side
+ * cache in front of `getMe` (see `lib/currentUser.ts`, which exists because the router
+ * re-runs `beforeLoad` on every link hover). `router.invalidate()` re-runs `beforeLoad`
+ * faithfully; it just gets the same cached answer back, so a new photo did not appear
+ * in the top right until a full page reload threw the cache away with the tab.
+ *
+ * So the cache has to be dropped FIRST, and then the router asked to reload.
+ */
+async function refreshIdentity(router: ReturnType<typeof useRouter>) {
+  invalidateCurrentUser()
+  await router.invalidate()
+}
 
 /** The setting's own copy, announced with the switch rather than left beside it. */
 const DIGEST_COPY_ID = 'weekly-digest-explainer'
@@ -117,8 +135,7 @@ function Profile() {
       })
       setPhoto(image)
       closeCropper()
-      // The header reads `user.image` from route context, which the router must refetch.
-      await router.invalidate()
+      await refreshIdentity(router)
     } catch (err) {
       setPhotoError(err instanceof AvatarError ? err.message : 'Could not upload that photo.')
     } finally {
@@ -132,7 +149,7 @@ function Profile() {
     try {
       await removeProfilePhoto()
       setPhoto(null)
-      await router.invalidate()
+      await refreshIdentity(router)
     } catch {
       setPhotoError('Could not remove that photo.')
     } finally {
@@ -154,6 +171,8 @@ function Profile() {
     } else {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      // The header carries the name too — and, with no photo, its initials.
+      await refreshIdentity(router)
     }
   }
 
