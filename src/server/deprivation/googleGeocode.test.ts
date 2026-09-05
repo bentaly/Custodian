@@ -142,8 +142,24 @@ describe('reportingLevel', () => {
     // Broadhurst Park is ~0.3km of stadium. The question a trustee is asking is
     // "how deprived is Moston", not "how deprived is this car park".
     expect(level(['establishment', 'point_of_interest', 'stadium'], 0.31)).toBe('ward')
-    expect(level(['premise'], 0.05)).toBe('ward')
-    expect(level(['street_address'], 0.02)).toBe('ward')
+    // A road can run through several LSOAs, so it stays a ward question.
+    expect(level(['route'], 0.4)).toBe('ward')
+  })
+
+  it('pins a street address to its single neighbourhood', () => {
+    // "22 the greenway, en6 2nd" reported Bentley Heath & The Royds — three LSOAs,
+    // deciles 3, 9 and 10 — when the house's own LSOA (Hertsmere 001A, decile 9) was
+    // already in hand from the reverse geocode. A bare "EN6 2ND" pins to that one
+    // LSOA, and the same house typed two ways must not give two answers.
+    expect(level(['street_address'], 0.02)).toBe('lsoa')
+    expect(level(['premise'], 0.05)).toBe('lsoa')
+    expect(level(['subpremise'], 0.01)).toBe('lsoa')
+  })
+
+  it('keeps the venue reading for a named building, which carries both', () => {
+    // A community centre comes back as `establishment` AND `premise`. It is named as
+    // a delivery AREA, so the ward it serves is the answer, not its own footprint.
+    expect(level(['establishment', 'point_of_interest', 'premise'], 0.08)).toBe('ward')
   })
 
   it('reports a neighbourhood at ward level', () => {

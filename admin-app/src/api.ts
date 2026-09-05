@@ -402,7 +402,7 @@ export interface GrantOption {
 // same constraint as the canonical field registry and the blocker codes — so this
 // is a deliberate hand-kept copy. Keep it in step with the endpoint's response.
 
-export type ProbeLevel = 'ward' | 'lad' | 'pfa' | 'region' | 'too_broad'
+export type ProbeLevel = 'lsoa' | 'ward' | 'lad' | 'pfa' | 'region' | 'too_broad'
 
 export interface ProbeResponse {
   input: string

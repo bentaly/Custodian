@@ -137,9 +137,14 @@ export function sameAreaName(placeName: string, areaName: string | null): boolea
  * us nothing else to go on. Google says what it matched, so the CLASS of thing is
  * now a fact rather than an inference from its footprint.
  *
- *   venue / address   → ward    a stadium or a street sits IN a neighbourhood, and
- *                               the ward containing it is the delivery area. Its
- *                               own footprint (~0.3km) is meaningless.
+ *   address           → lsoa    a house number, a building: ONE point, and the
+ *                               neighbourhood it sits in is a fact, not an estimate.
+ *                               `reverseGeocode` already hands back the LSOA code,
+ *                               so this is the same answer a bare postcode gets.
+ *   venue             → ward    a stadium named as a delivery AREA is not a claim
+ *                               about the building — the charity serves Moston, not
+ *                               the car park, so the ward containing it is the read.
+ *                               Its own footprint (~0.3km) is meaningless.
  *   neighbourhood     → ward    already ward-sized by definition.
  *   county            → pfa     see `looksLikeCounty` — five LADs, not one, so it is
  *                                answered by police force area (the only maintained
@@ -166,18 +171,16 @@ export function sameAreaName(placeName: string, areaName: string | null): boolea
  * district of Preston, so the applicant means all of it. "Birkenhead" is a town in
  * Wirral, so they mean Birkenhead, and the centroid's ward is the right read.
  */
-export type ReportingLevel = 'ward' | 'lad' | 'pfa' | 'region' | 'too_broad'
+export type ReportingLevel = 'lsoa' | 'ward' | 'lad' | 'pfa' | 'region' | 'too_broad'
 
-const VENUE_TYPES = [
-  'establishment',
-  'point_of_interest',
-  'premise',
-  'subpremise',
-  'street_address',
-  'route',
-  'intersection',
-  'park',
-]
+/** A point precise enough to BE one neighbourhood: a house, a building. Split out
+ *  of `VENUE_TYPES` because the venue rule was reasoning about catchment — right for
+ *  a stadium, wrong for "22 The Greenway, EN6 2ND", which reported its ward's three
+ *  LSOAs (deciles 3, 9, 10) when the address's own was already in hand. `route` and
+ *  `intersection` stay venue-side: a road can run through several LSOAs. */
+const ADDRESS_TYPES = ['street_address', 'premise', 'subpremise']
+
+const VENUE_TYPES = ['establishment', 'point_of_interest', 'route', 'intersection', 'park']
 
 const NEIGHBOURHOOD_TYPES = [
   'neighborhood',
@@ -195,8 +198,10 @@ export function reportingLevel(
 
   // A venue is checked before anything else: "Broadhurst Park, Manchester" carries
   // `establishment` AND the city in its address components, and it is the venue
-  // that says where the work happens.
+  // that says where the work happens. It is checked before the ADDRESS types too,
+  // because a named building carries both and the venue reading is the right one.
   if (has(VENUE_TYPES) || has(NEIGHBOURHOOD_TYPES)) return 'ward'
+  if (has(ADDRESS_TYPES)) return 'lsoa'
   if (place.types.includes('country')) return 'too_broad'
   if (looksLikeCounty(place.types)) return 'pfa'
   if (place.types.includes('administrative_area_level_1')) return 'region'

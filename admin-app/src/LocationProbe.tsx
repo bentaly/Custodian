@@ -54,6 +54,7 @@ const EXAMPLES: Array<{ label: string; value: string; why: string }> = [
 ]
 
 const LEVEL_MEANING: Record<string, string> = {
+  lsoa: 'one neighbourhood — an address pins to a single LSOA',
   ward: 'a ward — a neighbourhood-sized area',
   lad: 'a local authority district',
   pfa: 'a police force area, standing in for a county',
