@@ -167,6 +167,61 @@ describe('reportingLevel', () => {
     expect(level(['neighborhood'], 2)).toBe('ward')
   })
 
+  it('reports a unitary authority as the district it IS, not as a county', () => {
+    // Google types these `administrative_area_level_2` with no `locality` — the exact
+    // county signature — so `looksLikeCounty` claimed them and each stepped out to
+    // something far too wide. Cornwall answered as the South West: 3,407
+    // neighbourhoods for one council. The district name is the disambiguator: a
+    // county is several councils, and these are one.
+    expect(level(['administrative_area_level_2', 'political'], 78, 'Cornwall', 'Cornwall')).toBe(
+      'lad',
+    )
+    expect(level(['administrative_area_level_2', 'political'], 20, 'Medway', 'Medway')).toBe('lad')
+    expect(level(['administrative_area_level_2', 'political'], 21, 'Torbay', 'Torbay')).toBe('lad')
+    // Scotland and Wales have no region to fall out to and one national force each,
+    // so before this these answered `too_broad` — nothing at all.
+    expect(level(['administrative_area_level_2', 'political'], 73, 'Fife', 'Fife')).toBe('lad')
+    expect(
+      level(
+        ['administrative_area_level_2', 'political'],
+        31,
+        'Neath Port Talbot',
+        'Neath Port Talbot',
+      ),
+    ).toBe('lad')
+    // ONS spells exactly one of them with a qualifier; `normaliseSettlement` eats it.
+    expect(
+      level(
+        ['administrative_area_level_2', 'political'],
+        45,
+        'Herefordshire, County of',
+        'Herefordshire',
+      ),
+    ).toBe('lad')
+  })
+
+  it('still reports a real county at its police force area', () => {
+    // The guard against over-reach: Merseyside IS five councils and its centroid
+    // picks one arbitrarily, so it must not be read as whichever district it landed
+    // in. It is not named after that district, so the rule above never fires.
+    expect(
+      level(['administrative_area_level_2', 'political'], 44.64, 'Liverpool', 'Merseyside'),
+    ).toBe('pfa')
+    expect(
+      level(['administrative_area_level_2', 'political'], 54.2, 'Manchester', 'Greater Manchester'),
+    ).toBe('pfa')
+  })
+
+  it('reports an island named after its district at district level', () => {
+    // Google calls the Isle of Wight an `establishment` and a `natural_feature`, so
+    // the venue rule reported the ward around its centroid — Mountjoy & Shide, three
+    // neighbourhoods, for the whole island. The district test now runs first, and a
+    // venue is never named after its district (Broadhurst Park is not "Manchester").
+    expect(level(['establishment', 'natural_feature'], 35, 'Isle of Wight', 'Isle of Wight')).toBe(
+      'lad',
+    )
+  })
+
   it('answers a county at its police force area, whatever its footprint says', () => {
     // Merseyside's box is 44.6km — but Greater Manchester's is 54.2km and both must
     // land the same way, so the type is what decides, not the size. A PFA that turns
@@ -240,6 +295,17 @@ describe('sameAreaName', () => {
     expect(sameAreaName('Bristol', 'Bristol, City of')).toBe(true)
     expect(sameAreaName('Kingston upon Hull', 'Kingston upon Hull, City of')).toBe(true)
     expect(sameAreaName('St Helens', 'St. Helens')).toBe(true)
+    expect(sameAreaName('Herefordshire', 'Herefordshire, County of')).toBe(true)
+    // And through Google's dressing, which trails from the other end. Both of these
+    // lost their district entirely: Kirklees to the ward around its centroid, Highland
+    // — 244km across, with no region behind it in Scotland — to nothing at all.
+    expect(sameAreaName('Metropolitan Borough of Kirklees', 'Kirklees')).toBe(true)
+    expect(sameAreaName('London Borough of Hackney', 'Hackney')).toBe(true)
+    expect(sameAreaName('Highland Council', 'Highland')).toBe(true)
+    // It must still refuse two genuinely different areas — this is what keeps
+    // Merseyside off the district its centroid happens to land in.
+    expect(sameAreaName('Merseyside', 'Liverpool')).toBe(false)
+    expect(sameAreaName('Greater Manchester', 'Manchester')).toBe(false)
     expect(sameAreaName('Edinburgh', 'City of Edinburgh')).toBe(true)
     expect(sameAreaName('Newcastle upon Tyne', 'Newcastle upon Tyne')).toBe(true)
   })

@@ -104,10 +104,18 @@ export function looksLikeCounty(types: string[] | undefined): boolean {
 
 /**
  * Normalise a settlement name for comparison against the ONS local-authority
- * register, which spells things its own way: "Bristol, City of", "Kingston upon
- * Hull, City of", "St. Helens". Google says "Bristol", "Kingston upon Hull",
- * "St Helens". Codes would be exact, but Google never returns one, so this is the
- * join — and it has to survive the register's qualifiers.
+ * register AND against Google, which dress the same district differently and from
+ * opposite ends:
+ *
+ *   ONS     "Bristol, City of"  "Herefordshire, County of"  "St. Helens"
+ *   Google  "Metropolitan Borough of Kirklees"  "Highland Council"  "Bristol"
+ *
+ * Codes would be exact, but Google never returns one, so this comparison IS the join,
+ * and every one of those spellings has to survive it. Each pattern here is a real
+ * failure: Herefordshire fell out to the West Midlands (3,574 neighbourhoods for a
+ * county of 190,000), Kirklees to the ward around its centroid, and Highland — 244km
+ * across, with nothing wider than a district to fall back on in Scotland — to nothing
+ * at all.
  */
 function normaliseSettlement(name: string): string {
   const base = name
@@ -115,10 +123,16 @@ function normaliseSettlement(name: string): string {
     .replace(/[.'’]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
-  return base
-    .replace(/^city of /, '')
-    .replace(/ city of$/, '')
-    .trim()
+  return (
+    base
+      // Google's administrative dressing: "Metropolitan Borough of Kirklees",
+      // "London Borough of Hackney", "Highland Council".
+      .replace(/^(the )?(royal |metropolitan |london )?(borough|city|county|district) of /, '')
+      .replace(/ (city|county|borough|district)? ?council$/, '')
+      // ONS's, which trails instead: "Bristol, City of", "Herefordshire, County of".
+      .replace(/ (city|county|borough|district) of$/, '')
+      .trim()
+  )
 }
 
 /** Do these two name the same area? The join between what Google matched and what
@@ -146,10 +160,16 @@ export function sameAreaName(placeName: string, areaName: string | null): boolea
  *                               the car park, so the ward containing it is the read.
  *                               Its own footprint (~0.3km) is meaningless.
  *   neighbourhood     → ward    already ward-sized by definition.
+ *   names its district → lad    asked FIRST, ahead of every rule below. A unitary
+ *                                authority (Cornwall, Medway, Fife, Torbay) looks
+ *                                exactly like a county to Google, and the county rule
+ *                                stepped it out to a region it dwarfs — or, in
+ *                                Scotland and Wales, to nothing at all.
  *   county            → pfa     see `looksLikeCounty` — five LADs, not one, so it is
  *                                answered by police force area (the only maintained
  *                                stand-in for a ceremonial county) when the names
- *                                agree, and by the region when they do not.
+ *                                agree, and by the region when they do not. Reached
+ *                                only by a county NOT named after one district.
  *   region / nation   → region  "North West", "Scotland".
  *   country           → too_broad
  *   bigger than a LAD → pfa     "Cumbria" (128km) arrives as a `colloquial_area`, not
@@ -196,32 +216,53 @@ export function reportingLevel(
 ): ReportingLevel {
   const has = (list: string[]) => place.types.some((t) => list.includes(t))
 
-  // A venue is checked before anything else: "Broadhurst Park, Manchester" carries
-  // `establishment` AND the city in its address components, and it is the venue
-  // that says where the work happens. It is checked before the ADDRESS types too,
-  // because a named building carries both and the venue reading is the right one.
+  if (place.types.includes('country')) return 'too_broad'
+  if (place.types.includes('administrative_area_level_1')) return 'region'
+
+  // ── Does this name the area it landed in? ───────────────────────────────────
+  //
+  // Asked FIRST, and that ordering is the fix for unitary authorities. Google types
+  // Cornwall, Medway, Fife, Torbay and Northumberland `administrative_area_level_2`
+  // with no `locality`, which is exactly the county signature — so `looksLikeCounty`
+  // claimed them, and each stepped out to a police force area or a region it dwarfs.
+  // Cornwall answered as the South West: 3,407 neighbourhoods for one council. In
+  // Scotland and Wales there is nothing wider to step out to (one national force, no
+  // statistical region), so Fife, North Lanarkshire, Blaenau Gwent and Neath Port
+  // Talbot answered `too_broad` — nothing at all.
+  //
+  // The county rule exists because "Merseyside" is FIVE councils and the centroid
+  // picks one of them arbitrarily. But that is a fact about Merseyside, not about
+  // `administrative_area_level_2`: when the matched name IS the district's, there is
+  // no ambiguity left to protect against — one council, and we already know which.
+  // Merseyside and Greater Manchester still reach `looksLikeCounty` below, because
+  // neither is named after the district its centroid lands in.
+  //
+  // The region is checked before the district, and "London" is why. Its footprint is
+  // 34.5km and no district is called London (the centroid lands in Westminster), so
+  // on the district test alone it fell through to ward and reported St James's: six
+  // neighbourhoods, for a city of nine million. Order also settles a real collision:
+  // ONS calls the Square Mile "City of London", which normalises to "london" and
+  // would otherwise match the district instead.
+  //
+  // This runs ahead of the venue test too, which is what rescues the Isle of Wight —
+  // Google calls it an `establishment` and a `natural_feature`, so the venue rule
+  // reported the ward around its centroid, three neighbourhoods for the whole island.
+  // A venue is not named after its district (Broadhurst Park is not called
+  // Manchester), so nothing that should be read as a venue is caught here.
+  if (sameAreaName(place.name, area.region)) return 'region'
+  if (sameAreaName(place.name, area.ladName)) return 'lad'
+
+  // A venue is checked before the ADDRESS types, because a named building carries
+  // both and it is the venue that says where the work happens.
   if (has(VENUE_TYPES) || has(NEIGHBOURHOOD_TYPES)) return 'ward'
   if (has(ADDRESS_TYPES)) return 'lsoa'
-  if (place.types.includes('country')) return 'too_broad'
   if (looksLikeCounty(place.types)) return 'pfa'
-  if (place.types.includes('administrative_area_level_1')) return 'region'
 
   // Still a size question, and the only one left: anything wider than a district
   // cannot be reported as one. "Cumbria" arrives as a `colloquial_area` rather than
   // a county, and only its 128km footprint says it is too big to be Westmorland.
   if (place.extentKm > ladExtentKm) return 'pfa'
-
-  // The region is checked BEFORE the district, and "London" is why. Its Google
-  // footprint is 34.5km — UNDER the threshold above — and no district is called
-  // London (the centroid lands in Westminster), so on the district test alone it fell
-  // through to ward and reported St James's: six neighbourhoods, for a city of nine
-  // million. It does name a region, though, which is the honest answer and the one
-  // this module always intended for it.
-  //
-  // Order also settles a real collision: ONS calls the Square Mile "City of London",
-  // which normalises to "london" and would otherwise match the district instead.
-  if (sameAreaName(place.name, area.region)) return 'region'
-  return sameAreaName(place.name, area.ladName) ? 'lad' : 'ward'
+  return 'ward'
 }
 
 /**
