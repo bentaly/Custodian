@@ -368,7 +368,8 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
 ]
 
 function ReportsPage() {
-  const { items, awaiting, total, pageSize, tabCounts, horizons, facets } = Route.useLoaderData()
+  const { items, awaiting, total, pageSize, tabCounts, portfolio, horizons, facets } =
+    Route.useLoaderData()
   const navigate = Route.useNavigate()
   const {
     tab: tabParam,
@@ -432,11 +433,17 @@ function ReportsPage() {
   // "Outstanding" reads as "late" to most people, and these are mostly reports that
   // simply are not due yet — so the whole screen says "awaited", and overdue is called
   // out separately wherever it applies.
-  const received = tabCounts.to_review + tabCounts.reviewed
+  //
+  // All three figures are the WHOLE portfolio, never the filtered view: this line sits
+  // above every control on the screen, and a control narrows only what is below it. It
+  // used to read the tab counts, which are filtered, so filtering by theme rewrote the
+  // page's own subtitle — and mixed a filtered "received" with an unfiltered "overdue"
+  // in one sentence.
+  const received = portfolio.received
   const overdue = horizons.overdue.count
   const metaLine = [
     `${received} report${received === 1 ? '' : 's'} received`,
-    tabCounts.awaiting > 0 ? `${tabCounts.awaiting} awaited` : 'none awaited',
+    portfolio.awaiting > 0 ? `${portfolio.awaiting} awaited` : 'none awaited',
     overdue > 0 ? `${overdue} overdue` : null,
   ]
     .filter(Boolean)
@@ -460,7 +467,8 @@ function ReportsPage() {
           it. It sits outside so that the tabs and the filter row are adjacent: those two
           both narrow the table and reading them as one control block is the whole point
           of the row order. The panel is about reports that have NOT arrived, so it is a
-          different question from the table rather than a header for it. */}
+          different question from the table rather than a header for it — and, being
+          above the card, no control in the card narrows it. */}
       <ReportsDue
         horizons={horizons}
         onOpen={(key) => navigate({ to: '/reports/$reportKey', params: { reportKey: key } })}
@@ -487,12 +495,13 @@ function ReportsPage() {
         </div>
 
         {/* The shared filter row (see `ui/FilterPill`), in the shared order. Status is
-            absent because the tabs already are it. Round, Programme and Theme narrow the
-            panel above too — `listReports`' deliberate choice, since "reports for this
-            programme" is a question about the table, the counts and the chase-list alike.
-            The date range and the search box are the exceptions: the window runs against
-            the RECEIVED date, which a report still awaited does not have, and search is
-            transient. Both narrow what is below the row and leave the panel alone. */}
+            absent because the tabs already are it.
+
+            Everything here narrows the two lists and the tab counts — this card — and
+            NOTHING above it: not the "Reports due" panel, not the header line. See the
+            note on the where-clauses in `listReports`. The date range is the one control
+            that does less than the others: it runs against the RECEIVED date, which a
+            report still awaited has not got, so it narrows the document tabs alone. */}
         <FilterRow
           search={
             <SearchInput

@@ -145,8 +145,25 @@ export async function reportsList(
   const outstanding = outstandingQuery(db, clientId)
   const page = data.page && data.page > 0 ? data.page : 1
 
-  // The structural filters narrow both lists. The received-date window narrows the
-  // arrived one only — see `structuralWhere` on why the drawer is left out of it.
+  // ── What each control is allowed to narrow ──────────────────────────────────────
+  //
+  // A control narrows what is BELOW it and nothing else. On this screen that means the
+  // filter row narrows the two lists and the three tab counts sitting with them in the
+  // card, and touches neither the "Reports due" panel above the card nor the header
+  // line above that.
+  //
+  // Round, Programme and Theme used to narrow the panel too, on the reasoning that
+  // "reports for this programme" is a question about the chase-list as much as the
+  // table. It reads as a fault: the panel is the screen's standing answer to "what is
+  // owed", it is drawn a card away from the control, and a foundation that filtered by
+  // theme and watched four overdue reports become one had no way to tell whether three
+  // reports had arrived or three were merely out of scope. So the panel — and the
+  // header line, which quotes it — is the whole portfolio, always.
+  //
+  // The tab counts are the deliberate exception, and they are not really one: the tabs
+  // are the list's own control block, immediately above the row and about the very rows
+  // it filters. Counting them portfolio-wide would put "Awaiting 12" on a tab that
+  // opens onto one row.
   const arrivedWhere = and(
     structuralWhere(arrived, data),
     data.from ? sql`${arrived.submittedDay} >= ${data.from}` : undefined,
@@ -154,14 +171,8 @@ export async function reportsList(
     searchAny(data.q, arrived.organisationName, arrived.externalApplicationId),
   )
   const onTab = (status: ReceivedStatus) => and(arrivedWhere, eq(arrived.status, status))
-  // Two clauses over the awaited list, not one. `panelWhere` is the structural filters
-  // alone and is what the "reports due" panel is counted through — it sits ABOVE the
-  // filter row, so a transient filter must not touch it. `outstandingWhere` adds the
-  // search, and is what the Awaiting TAB's rows and count use, because those are below
-  // the row and searching a list that ignores you is worse than no search at all.
-  const panelWhere = structuralWhere(outstanding, data)
   const outstandingWhere = and(
-    panelWhere,
+    structuralWhere(outstanding, data),
     searchAny(data.q, outstanding.organisationName, outstanding.externalApplicationId),
   )
   const tab: ReportsTab = data.tab ?? 'to_review'
@@ -203,6 +214,8 @@ export async function reportsList(
     tabAwaiting,
     horizonTotals,
     horizonItems,
+    allArrived,
+    allOutstanding,
     progA,
     progO,
     themeA,
@@ -230,8 +243,13 @@ export async function reportsList(
       .select({ n: sql<number>`(count(*))::int` })
       .from(outstanding)
       .where(outstandingWhere),
-    horizonCounts(db, outstanding, panelWhere),
-    horizonSample(db, outstanding, panelWhere),
+    // No filter at all: the panel is above the card, so nothing in the card reaches it.
+    horizonCounts(db, outstanding, undefined),
+    horizonSample(db, outstanding, undefined),
+    // The header line, which is above the panel and so is portfolio-wide for the same
+    // reason. Counted here rather than derived from the tab counts, which are filtered.
+    countArrived(undefined),
+    db.select({ n: sql<number>`(count(*))::int` }).from(outstanding),
     facetOn(arrived, arrived.programmeId, arrived.programmeName),
     facetOn(outstanding, outstanding.programmeId, outstanding.programmeName),
     themeFacet(arrived),
@@ -256,9 +274,15 @@ export async function reportsList(
     page,
     pageSize: PAGE_SIZE,
     tabCounts,
-    // The panel above the tabs: portfolio-wide by the app's rule that a control narrows
-    // only what is below it — except for the structural filters, which are this screen's
-    // context and narrow everything.
+    /**
+     * The header line's figures. Portfolio-wide, because that line sits above every
+     * control on the screen — see the note on the where-clauses above.
+     */
+    portfolio: {
+      received: allArrived[0]?.n ?? 0,
+      awaiting: allOutstanding[0]?.n ?? 0,
+    },
+    // The panel above the card, portfolio-wide for the same reason.
     horizons: toHorizons(horizonTotals, horizonItems),
     facets: {
       programmes: mergeFacets(progA, progO, 'Untitled programme'),
@@ -393,6 +417,7 @@ export function emptyReportsList(): Awaited<ReturnType<typeof reportsList>> {
     page: 1,
     pageSize: PAGE_SIZE,
     tabCounts: { to_review: 0, reviewed: 0, awaiting: 0 },
+    portfolio: { received: 0, awaiting: 0 },
     horizons: { overdue: none, thisMonth: none, next3Months: none },
     facets: { programmes: [], themes: [], rounds: [] },
   }
