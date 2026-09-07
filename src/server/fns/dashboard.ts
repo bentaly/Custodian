@@ -98,7 +98,6 @@ export async function dashboardData(
   const lastYearStart = new Date(Date.UTC(y - 1, 0, 1))
   const lastYearToDate = new Date(Date.UTC(y - 1, now.getUTCMonth(), now.getUTCDate(), 23, 59, 59))
   const quarterStart = new Date(Date.UTC(y, Math.floor(now.getUTCMonth() / 3) * 3, 1))
-  const monthStartIso = isoDate(new Date(Date.UTC(y, now.getUTCMonth(), 1)))
   const monthEndIso = isoDate(new Date(Date.UTC(y, now.getUTCMonth() + 1, 1)))
 
   const clientId = user.clientId
@@ -141,7 +140,6 @@ export async function dashboardData(
     trusteeCountRows,
     givingBucketRows,
     givingEventsRows,
-    paymentsThisMonthRows,
     reportsToReviewRows,
     bankFieldRows,
     latelyRows,
@@ -159,10 +157,14 @@ export async function dashboardData(
       .from(applications)
       .where(and(inScope, isNotNull(applications.custodianScore))),
 
-    // Submission timestamps within the trend window, bucketed in JS.
+    // Submission timestamps within the trend window, bucketed in JS. Each carries its
+    // round: the trend panel plots them all (a panel is portfolio-wide), while the
+    // Applications KPI counts only the focus round's, which is the round its own footer
+    // names. The join is on a NOT NULL FK, so nothing is dropped from the trend.
     db
-      .select({ submittedAt: applications.submittedAt })
+      .select({ submittedAt: applications.submittedAt, roundId: roundProgrammes.roundId })
       .from(applications)
+      .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
       .where(and(inScope, sql`${applications.submittedAt} >= ${trendStart}`)),
 
     // Rounds for this client, with their application counts.
@@ -379,23 +381,6 @@ export async function dashboardData(
       .from(awards)
       .where(liveAwardScope),
 
-    // Unpaid instalments falling due this calendar month (Finance KPI).
-    db
-      .select({
-        amount: sql<string>`COALESCE(SUM(${awardInstalments.amount}), '0')`,
-        cnt: sql<number>`COUNT(*)`,
-      })
-      .from(awardInstalments)
-      .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
-      .where(
-        and(
-          liveAwardScope,
-          sql`${awardInstalments.paidDate} IS NULL`,
-          sql`${awardInstalments.dueDate} >= ${monthStartIso}`,
-          sql`${awardInstalments.dueDate} < ${monthEndIso}`,
-        ),
-      ),
-
     // Reports received but not yet signed off (Reports KPI: "to review").
     clientId
       ? db
@@ -526,13 +511,16 @@ export async function dashboardData(
         .leftJoin(awards, eq(awards.applicationId, applications.id))
         .where(inArray(roundProgrammes.roundId, roundIds))
         .groupBy(roundProgrammes.roundId),
-      // Status counts for the focus round only — the basis of the funnel.
+      // Status counts for the focus round only — the basis of the funnel, and of the
+      // Applications KPI. `inScope` as well as the round: a trustee restricted to some
+      // of the round's programmes must not be shown counts that include the others,
+      // least of all on a card that opens onto the list those counts came from.
       focusRound
         ? db
             .select({ status: applications.status, count: count() })
             .from(applications)
             .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
-            .where(eq(roundProgrammes.roundId, focusRound.id))
+            .where(and(eq(roundProgrammes.roundId, focusRound.id), inScope))
             .groupBy(applications.status)
         : Promise.resolve([] as Array<{ status: string; count: number }>),
       // Per-programme budget + committed for the focus round (the round rail donut/bars).
@@ -589,6 +577,18 @@ export async function dashboardData(
         declined: fc.declined ?? 0,
       }
 
+      // The same four counts `pipeline` holds tenant-wide, for this round alone — the
+      // shape is mirrored deliberately, so a card can be moved between the two scopes
+      // by changing which object it reads and nothing else. Raw statuses, NOT the
+      // funnel's cumulative ones: `shortlisted` here excludes the awarded.
+      const focusPipeline = {
+        for_review: fc.for_review ?? 0,
+        shortlisted: fc.shortlisted ?? 0,
+        awarded,
+        declined: fc.declined ?? 0,
+        total: funnel.submitted,
+      }
+
       const programmesOut = focusProgrammeRows
         .map((r) => ({
           name: r.programmeName,
@@ -601,6 +601,7 @@ export async function dashboardData(
         roundId: focusRound.id,
         roundName: focusRound.name,
         closedAt: focusRound.closedAt,
+        pipeline: focusPipeline,
         budget: programmesOut.reduce((s, p) => s + p.budget, 0),
         committed: programmesOut.reduce((s, p) => s + p.committed, 0),
         programmes: programmesOut,
@@ -632,6 +633,22 @@ export async function dashboardData(
   const reportsDueSoon = reportRows.filter((r) => r.dueDate! >= todayIso && r.dueDate! <= soonIso)
   const paymentsOverdue = paymentRows.filter((p) => p.dueDate! < todayIso)
   const paymentsDueSoon = paymentRows.filter((p) => p.dueDate! >= todayIso && p.dueDate! <= soonIso)
+  // Instalments still to pay in what is LEFT of this month. Deliberately starts at
+  // today rather than the 1st: an instalment dated the 3rd, unpaid on the 15th, is
+  // overdue, and counting it in both buckets would have the Finance KPI's meter add up
+  // to more than the money owed. This replaced a SQL aggregate over the whole calendar
+  // month — one fewer of the dashboard's ~20 subrequests, and `paymentRows` is already
+  // fetched in full for the two buckets above.
+  const paymentsThisMonthRows = paymentRows.filter(
+    (p) => p.dueDate! >= todayIso && p.dueDate! < monthEndIso,
+  )
+  // Each horizon in POUNDS, not just rows — the Finance KPI splits its meter on them.
+  // Every bucket is a subset of `money.outstanding` by construction (all of them count
+  // unpaid instalments on a live award), so the card can take the far end of the bar as
+  // the remainder and the segments still sum to its headline exactly.
+  const sumAmount = (rows: Array<{ amount: string }>) =>
+    rows.reduce((s, p) => s + parseFloat(p.amount), 0)
+  const paymentsOverdueAmount = sumAmount(paymentsOverdue)
 
   // Pipeline health: applications stuck pending automated checks.
   const scoringPending = reviewRows.filter((r) => r.scoreStatus === 'pending').length
@@ -676,13 +693,19 @@ export async function dashboardData(
     .slice(0, 8)
 
   // ── KPI extras ───────────────────────────────────────────────────────────
+  // Scoped to the focus round, because it sits under a headline and a footer that are
+  // both about that round — "+3 this week" counting a round the card never mentions is
+  // the same mismatch the headline had.
   const submittedThisWeek = submissionRows.filter(
-    (r) => r.submittedAt && new Date(r.submittedAt) >= weekAgo,
+    (r) =>
+      r.submittedAt &&
+      new Date(r.submittedAt) >= weekAgo &&
+      (!focusRound || r.roundId === focusRound.id),
   ).length
   const awaitingVotes = shortlist.filter((s) => !s.hasMajority).length
   const paymentsThisMonth = {
-    count: Number(paymentsThisMonthRows[0]?.cnt ?? 0),
-    amount: parseFloat(paymentsThisMonthRows[0]?.amount ?? '0'),
+    count: paymentsThisMonthRows.length,
+    amount: sumAmount(paymentsThisMonthRows),
   }
   const reportsToReview = reportsToReviewRows[0]?.count ?? 0
   // Active grants whose held bank details are missing or fail the modulus check —
@@ -773,7 +796,11 @@ export async function dashboardData(
       shortlist: { count: shortlist.length, proposed: shortlistProposed },
       reportsOverdue: { count: reportsOverdue.length, items: reportsOverdue.slice(0, 5) },
       reportsDueSoon: { count: reportsDueSoon.length },
-      paymentsOverdue: { count: paymentsOverdue.length, items: paymentsOverdue.slice(0, 5) },
+      paymentsOverdue: {
+        count: paymentsOverdue.length,
+        amount: paymentsOverdueAmount,
+        items: paymentsOverdue.slice(0, 5),
+      },
       paymentsDueSoon: { count: paymentsDueSoon.length },
       scoringPending,
       dueDiligenceFlags,
@@ -804,6 +831,13 @@ type DashboardRoundBreakdown = {
   roundId: string
   roundName: string
   closedAt: Date | null
+  pipeline: {
+    for_review: number
+    shortlisted: number
+    awarded: number
+    declined: number
+    total: number
+  }
   budget: number
   committed: number
   programmes: Array<{ name: string; colour: string | null; budget: number; committed: number }>
@@ -860,7 +894,7 @@ function emptyDashboard(name: string) {
       shortlist: { count: 0, proposed: 0 },
       reportsOverdue: { count: 0, items: [] as never[] },
       reportsDueSoon: { count: 0 },
-      paymentsOverdue: { count: 0, items: [] as never[] },
+      paymentsOverdue: { count: 0, amount: 0, items: [] as never[] },
       paymentsDueSoon: { count: 0 },
       scoringPending: 0,
       dueDiligenceFlags: 0,

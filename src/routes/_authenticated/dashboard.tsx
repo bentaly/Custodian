@@ -142,11 +142,25 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
   )
 }
 
-type Chip = { label: string; count: number; colour: string }
+type Chip = {
+  label: string
+  /** What decides whether the chip is shown, and (in the meters) how wide its segment
+   *  is. On the money cards this is pounds, which is why `display` exists. */
+  count: number
+  colour: string
+  /** Overrides the leading figure — `£8k` for a chip counting money rather than rows. */
+  display?: React.ReactNode
+}
 
 function Chips({ chips }: { chips: Chip[] }) {
   // Only categories that actually have something in them — "0 declined" is noise,
   // and it has to match the bar-meter, which drops empty segments too.
+  //
+  // A chip is USUALLY a segment of the meter above it, but not always: Finance appends
+  // its bank-detail issues here, which are a count of grants and not a slice of the
+  // outstanding pounds the bar is drawn from. It sits in the legend rather than on a
+  // line of its own because a line only present when something is wrong pushes the whole
+  // card taller on exactly the day it is worst read.
   const shown = chips.filter((c) => c.count > 0)
   if (!shown.length) return null
   return (
@@ -157,7 +171,7 @@ function Chips({ chips }: { chips: Chip[] }) {
       {shown.map((c) => (
         <span key={c.label} className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.colour }} />
-          {c.count} {c.label}
+          {c.display ?? c.count} {c.label}
         </span>
       ))}
     </div>
@@ -453,9 +467,15 @@ function Dashboard() {
   // yet to be looked at, and what is dead. Everything in between (shortlisted, and the
   // awarded that grew out of it) belongs to the Shortlist card, so the two cards read
   // as one pipeline rather than counting the same application twice.
+  // The FOCUS ROUND's applications, not the tenant's — this is the one card that names
+  // a round in its footer, and a headline counting every round ever run under a footer
+  // reading "Summer 2026" is two different questions in one card. Falls back to the
+  // tenant-wide counts only when there is no round at all, where the two are the same
+  // thing anyway (an application cannot exist without a round-programme).
+  const appsPipeline = round?.pipeline ?? d.pipeline
   const appsCats: Chip[] = [
-    { label: 'to review', count: d.pipeline.for_review, colour: KPI.apps.accent },
-    { label: 'declined', count: d.pipeline.declined, colour: C.danger },
+    { label: 'to review', count: appsPipeline.for_review, colour: KPI.apps.accent },
+    { label: 'declined', count: appsPipeline.declined, colour: C.danger },
   ]
   // Approved is "the vote went its way", which stays true after the grant is minted —
   // so an awarded application is still an approved one, just further along.
@@ -476,8 +496,68 @@ function Dashboard() {
   ]
   const toSegments = (cats: Chip[]): BarSegment[] =>
     cats.map((c) => ({ value: c.count, colour: c.colour }))
-  const financeDenom = d.money.paidToDate + d.money.outstanding
-  const financeProgress = financeDenom > 0 ? d.money.paidToDate / financeDenom : 0
+  // Finance's strip is the OUTSTANDING book — the money promised and not yet gone —
+  // split into the three horizons a payment run is planned over, which are the same
+  // three the Finance screen itself prints (`HORIZONS`, finance.index.tsx). It replaced
+  // `paidToDate / (paidToDate + outstanding)`, a lifetime ratio that moved a percent or
+  // two a year and carried no legend, so the one card in the row whose bar you could
+  // not read was also the one whose bar never moved.
+  //
+  // THREE segments rather than the obvious two (overdue / everything else), because
+  // "nothing overdue" is the normal state and has to look like something. Split in two,
+  // a healthy book draws one flat block with a single chip under it — and a foundation
+  // paying quarterly is in that state most weeks of the year. Split by horizon, the bar
+  // still has a near end and a far end when nothing is wrong, and it visibly moves as
+  // instalments cross into the month and get paid.
+  //
+  // The three are subsets of `money.outstanding` and cannot overlap (an instalment
+  // dated earlier this month and unpaid is overdue, not "this month" — see the server
+  // fn), so `later` is the remainder: everything beyond this month, plus the undated
+  // "TBC" instalments, which is where they belong — still owed, just not yet dated.
+  // All of it obeys the money rule, since `money.outstanding` excludes cancelled grants.
+  //
+  // Left to right it goes red, solid, pale — the eye lands on the urgent end. Overdue
+  // takes the semantic hue while the card's own amber says "routine" (see the KPI tints
+  // above), exactly as Reports does with its overdue chip. `later` is deliberately
+  // lighter-but-substantial rather than Shortlist's 30% tint: there the pale segment is
+  // a minority state, here it is often the WHOLE bar, and a bar made entirely of a
+  // track colour reads as an empty meter rather than a full book.
+  const financeOverdue = a.paymentsOverdue.amount
+  const financeThisMonth = d.paymentsThisMonth.amount
+  const financeLater = Math.max(0, d.money.outstanding - financeOverdue - financeThisMonth)
+  const financeCats: Chip[] = [
+    {
+      label: 'overdue',
+      count: financeOverdue,
+      colour: C.danger,
+      display: fmtCompact(financeOverdue),
+    },
+    {
+      label: 'this month',
+      count: financeThisMonth,
+      colour: KPI.finance.accent,
+      display: fmtCompact(financeThisMonth),
+    },
+    {
+      label: 'later',
+      count: financeLater,
+      colour: withAlpha(KPI.finance.accent, 0.4),
+      display: fmtCompact(financeLater),
+    },
+  ]
+  // Legend only — bank issues are grants, not pounds, so they never reach `toSegments`.
+  const financeChips: Chip[] = [
+    ...financeCats,
+    ...(d.bankIssues > 0
+      ? [
+          {
+            label: `bank-detail issue${plural(d.bankIssues)}`,
+            count: d.bankIssues,
+            colour: C.danger,
+          },
+        ]
+      : []),
+  ]
 
   return (
     <div className="space-y-4">
@@ -491,14 +571,23 @@ function Dashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           tint={KPI.apps}
-          value={String(d.pipeline.total)}
+          // The two chips, not the whole pipeline — same bargain the other three cards
+          // make. `total` counted the shortlisted and awarded ones too, which this card
+          // deliberately does not show (they belong to Shortlist, see `appsCats`), so
+          // the strip beneath drew 6 + 16 as a FULL bar under a headline of 40 and
+          // claimed the two chips were all of it.
+          value={String(appsPipeline.for_review + appsPipeline.declined)}
           sub={`+${d.submittedThisWeek} this week`}
           subColour={C.success}
           icon={AREA_ICON['/applications']!}
           label="Applications"
           meta={round?.roundName}
           to="/applications"
-          search={{ roundId: undefined }}
+          // The round the card counted, not whichever one the list would pick for
+          // itself: /applications defaults to the most recent NON-UPCOMING round, the
+          // dashboard focuses the open one, and the two disagree the moment a round is
+          // scheduled ahead. A card that says 22 must open onto those 22.
+          search={{ roundId: round?.roundId }}
           meter={<BarMeter segments={toSegments(appsCats)} colour={KPI.apps.accent} />}
         >
           <Chips chips={appsCats} />
@@ -526,22 +615,33 @@ function Dashboard() {
         {canSeePayments(user.role) && (
           <KpiCard
             tint={KPI.finance}
-            value={fmtCompact(d.paymentsThisMonth.amount)}
-            title={exactOr(d.paymentsThisMonth.amount, 'due this month')}
-            sub={`${d.paymentsThisMonth.count} payment${plural(d.paymentsThisMonth.count)}`}
+            // The headline is the sum of the two money chips, the same bargain the
+            // other three cards make — the strip beneath is the whole of this number
+            // and not a fraction of it. It is also the figure Finance prints as
+            // "Outstanding", so the two screens reconcile (the 2026-08-27 money audit).
+            value={fmtCompact(d.money.outstanding)}
+            // Both figures on the card can round, and a Link may hold only one title —
+            // so it carries whichever of them actually lost something.
+            title={
+              [
+                exactOr(d.money.outstanding, 'outstanding'),
+                exactOr(d.money.paidToDate, 'paid to date'),
+              ]
+                .filter(Boolean)
+                .join(' · ') || undefined
+            }
+            // The other half of the book, and the one figure the dashboard shows
+            // nowhere else: "Giving so far" below counts what was AWARDED, which is a
+            // commitment, not money that moved. It is also the number the old progress
+            // bar was reaching for, now said in words instead of an unlabelled ratio.
+            // Per the money rule, paid-to-date deliberately includes cancelled grants.
+            sub={`${fmtCompact(d.money.paidToDate)} paid to date`}
             icon={AREA_ICON['/finance']!}
             label="Finance"
             to="/finance"
-            meter={<BarMeter progress={financeProgress} colour={KPI.finance.accent} />}
+            meter={<BarMeter segments={toSegments(financeCats)} colour={KPI.finance.accent} />}
           >
-            {/* Rendered only when there IS an issue: an empty <p> still carried its
-                `mt-3`, which is why this card sat 12px taller than Shortlist & Reports
-                while showing exactly the same amount of content. */}
-            {d.bankIssues > 0 && (
-              <p className="mt-3 text-label" style={{ color: C.danger }}>
-                {d.bankIssues} bank-detail issue{plural(d.bankIssues)}
-              </p>
-            )}
+            <Chips chips={financeChips} />
           </KpiCard>
         )}
 
