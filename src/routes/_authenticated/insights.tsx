@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Coins01Icon,
-  GlobalIcon,
+  EarthIcon,
   Location01Icon,
   ChartAverageIcon,
   ArrowRight01Icon,
@@ -1239,7 +1239,7 @@ function InsightsPage() {
               // A globe, not the people glyph this card was born with: the unit is
               // whatever the programme measures — meals, hectares, hours — so an icon
               // that says "people" is the same mistake the old label made.
-              icon={GlobalIcon}
+              icon={EarthIcon}
               label="Impact"
               value={impactEff.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
               sub={
