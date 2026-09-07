@@ -724,6 +724,15 @@ function impactByUnit(grants: InsightsGrant[]): UnitTotal[] {
   return [...byUnit.values()].sort((a, b) => b.value - a.value)
 }
 
+/**
+ * `a, b and c` — the shape `describeOneOfGroup` uses, spelled out and with no serial
+ * comma. For a list inside a sentence somebody reads; a table cell stays a `, ` join.
+ */
+function andList(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? ''
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+}
+
 /** `1,200 people`, `31,000 items delivered (incl. proposed)`. */
 function unitPhrase(t: UnitTotal): string {
   return `${impactPhrase(t.value, t.label)}${t.hasProposed ? ' (incl. proposed)' : ''}`
@@ -856,11 +865,10 @@ function InsightsPage() {
   // is what the number is in — a footer reading "Items delivered" made a card about the
   // foundation's impact look like a card about one programme's counting method.
   //
-  // Provenance and the units left out moved behind the sub's tooltip, with ONE
-  // exception kept on the face of the card: "(incl. proposed)". Everything else here
-  // is detail a reader can go and look for; a total holding applicants' estimates
-  // being read as impact achieved is a wrong answer, and a wrong answer must not be
-  // one hover away from being right.
+  // "(incl. proposed)" stays on the FACE of the card rather than moving into the
+  // tooltip with everything else: a total holding applicants' estimates being read as
+  // impact achieved is a wrong answer, and a wrong answer must not be one hover away
+  // from being right.
   const impactLabel = headlineUnit?.label ?? 'Impact'
   const impactSub =
     impactLabel.toLowerCase() +
@@ -868,26 +876,16 @@ function InsightsPage() {
     (impactOtherUnits > 0
       ? ` + ${impactOtherUnits} more unit${impactOtherUnits === 1 ? '' : 's'}`
       : '')
-  // Two things the sub can only gesture at. The count of grants behind the figure is
-  // NOT one of them: this is a summary card, and how many rows a total came from is a
-  // question the panels below answer properly.
-  const impactDetail = [
-    impactProposedCount > 0
-      ? `Includes ${impactProposedCount} figure${impactProposedCount === 1 ? '' : 's'} taken from the application, not yet confirmed by a report.`
-      : null,
-    // The other units, NAMED and totalled. "3 more units" tells a reader something is
-    // missing without telling them what, which is the half of the answer that annoys.
-    // Each is its own total because they measure different things — 8,400 meals and
-    // 1,200 people is not 9,600 of anything, so there is no combined figure to show.
-    impactUnits.length > 1
-      ? `Measured separately: ${impactUnits
-          .slice(1)
-          .map((u) => unitPhrase(u))
-          .join(', ')}.`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' ')
+  // The tooltip is the "+ N more units" half of the sub, spelled out: the units the
+  // headline total leaves out, NAMED and totalled. "3 more units" tells a reader
+  // something is missing without telling them what, which is the half of the answer
+  // that annoys. Each is its own total because they measure different things — 8,400
+  // meals and 1,200 people is not 9,600 of anything.
+  //
+  // Nothing else goes in here. Provenance is already on the face of the card, and how
+  // many grants a total came from is a question the panels below answer properly — so
+  // a card with no other units has no bubble rather than an under-filled one.
+  const impactOtherUnitList = andList(impactUnits.slice(1).map((u) => unitPhrase(u)))
 
   const located = fil.filter((g) => g.deprivation)
   const locatedAmt = located.reduce((s, g) => s + g.amountAwarded, 0)
@@ -1244,7 +1242,7 @@ function InsightsPage() {
               sub={
                 impactEff.length === 0 ? (
                   'no impact figures yet'
-                ) : impactDetail === '' ? (
+                ) : impactOtherUnits === 0 ? (
                   impactSub
                 ) : (
                   // The sub line IS the trigger: it is the thing being explained, and a
@@ -1257,7 +1255,7 @@ function InsightsPage() {
                     triggerClassName="block min-w-0 truncate rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
                     trigger={impactSub}
                   >
-                    {impactDetail}
+                    {impactOtherUnitList}
                   </Tooltip>
                 )
               }

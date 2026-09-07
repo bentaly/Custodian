@@ -192,8 +192,11 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     label: 'Beneficiary count',
     required: false,
     description:
-      'A directly-stated NUMBER of people/beneficiaries helped — e.g. "Number of beneficiaries", ' +
-      '"How many young people benefited?". Map only fields whose value is a count, not a narrative.',
+      'A directly-stated NUMBER of people/beneficiaries helped, read as the TOTAL SO FAR — the ' +
+      'running count for the whole grant to date, not the figure for this reporting period alone. ' +
+      "A grant's reports replace each other rather than adding up, so the latest report's count " +
+      'is the one that stands. e.g. "Number of beneficiaries", "How many people have you supported ' +
+      'to date?". Map only fields whose value is a count, not a narrative.',
     coerce: coerceCount,
   },
   {
