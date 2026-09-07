@@ -528,11 +528,14 @@ export const listAwards = createServerFn({ method: 'GET' })
       contextIds = rows.map((r) => r.id)
     }
 
-    const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), contextIds)
+    const visible = await visibleRoundProgrammeIds(user)
+    const roundProgrammeIds = intersectScope(visible, contextIds)
     // An empty scope is a caller who can see nothing; `inArray(x, [])` is a SQL error,
     // so it never reaches the query.
     if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) return emptyAwardsList()
-    return awardsList(getDb(), roundProgrammeIds, data)
+    // The tenant's whole register, round pill and all filters aside — what the KPI line
+    // and the portfolio bar above the filter row are counted over. See `awardsList`.
+    return awardsList(getDb(), roundProgrammeIds, visible ?? undefined, data)
   })
 
 /**
@@ -579,9 +582,23 @@ type AwardSortKey =
 export async function awardsList(
   db: ReturnType<typeof getDb>,
   scope: string[] | undefined,
+  portfolioScope: string[] | undefined,
   data: AwardsListInput,
 ) {
   const g = awardGrantsQuery(db, scope)
+  // The same register with NOTHING applied to it — not the filters, not the round.
+  //
+  // The KPI line under the <h1> and the "Portfolio by programme" bar both sit above the
+  // filter row, and a control narrows only what is below it. Counted through `where`,
+  // as they were, a foundation filtering to one programme watched "£469k awarded"
+  // become "£71k" and the bar collapse to a single band still captioned "by programme"
+  // — the portfolio redrawn as the thing that was meant to be measured against it.
+  //
+  // The ROUND pill is included in that: on this screen the round is one narrowing among
+  // several (see `AwardsSearch`), and it lives in the filter row with the others, so it
+  // must not move these either. That is why this is a second query rather than reusing
+  // `g`, whose scope the round is folded into.
+  const portfolio = awardGrantsQuery(db, portfolioScope)
   const pageSize = data.pageSize ?? PAGE_SIZE
   const page = data.page && data.page > 0 ? data.page : 1
   const where = awardFilterWhere(g, data)
@@ -619,26 +636,24 @@ export async function awardsList(
       .where(where),
     db
       .select({
-        totalAwarded: sql<number>`coalesce(sum(${g.amountAwarded}), 0)::float8`,
+        totalAwarded: sql<number>`coalesce(sum(${portfolio.amountAwarded}), 0)::float8`,
         count: sql<number>`(count(*))::int`,
-        multiYearCount: sql<number>`(count(*) filter (where ${g.durationYears} > 1))::int`,
-        paidToDate: sql<number>`coalesce(sum(${g.paidToDate}), 0)::float8`,
-        outstanding: sql<number>`coalesce(sum(${g.outstanding}), 0)::float8`,
+        multiYearCount: sql<number>`(count(*) filter (where ${portfolio.durationYears} > 1))::int`,
+        paidToDate: sql<number>`coalesce(sum(${portfolio.paidToDate}), 0)::float8`,
+        outstanding: sql<number>`coalesce(sum(${portfolio.outstanding}), 0)::float8`,
       })
-      .from(g)
-      .where(where),
+      .from(portfolio),
     // The portfolio split, grouped by programme NAME: a grant whose programme was
     // deleted still spent money, and it is read under one heading rather than
     // disappearing from the bar. Each keeps its own colour, so the bar speaks the
     // same vocabulary as the programme cards.
     db
       .select({
-        name: sql<string>`coalesce(${g.programmeName}, 'Unattributed')`,
-        colour: sql<string | null>`max(${g.programmeColour})`,
-        amount: sql<number>`coalesce(sum(${g.amountAwarded}), 0)::float8`,
+        name: sql<string>`coalesce(${portfolio.programmeName}, 'Unattributed')`,
+        colour: sql<string | null>`max(${portfolio.programmeColour})`,
+        amount: sql<number>`coalesce(sum(${portfolio.amountAwarded}), 0)::float8`,
       })
-      .from(g)
-      .where(where)
+      .from(portfolio)
       .groupBy(sql`1`)
       .orderBy(sql`3 desc`),
     // Facets describe the round you are in — the scope above — before the transient

@@ -204,7 +204,11 @@ const LISTS: ListUnderTest[] = [
   {
     name: 'awards',
     // `awardsList` spells "unrestricted" as `undefined` where Finance spells it `null`.
-    run: (c) => awardsList(getDb(), c.scope ?? undefined, {}),
+    // Two scopes: the filtered register, and the unfiltered portfolio the KPI line and
+    // the "by programme" bar are counted over. The second is the one worth asserting —
+    // it is the query with no user filter on it, so the tenant scope is all that stands
+    // between it and another foundation's programme names.
+    run: (c) => awardsList(getDb(), c.scope ?? undefined, c.scope ?? undefined, {}),
     unrestricted: true,
   },
   {
@@ -275,7 +279,9 @@ afterAll(async () => {
   for (const t of [A, B]) {
     if (!t) continue
     await teardownDemo(t.clientId)
-    await getDb().delete(users).where(eq(users.id, `user-${t.marker}`))
+    await getDb()
+      .delete(users)
+      .where(eq(users.id, `user-${t.marker}`))
   }
 })
 

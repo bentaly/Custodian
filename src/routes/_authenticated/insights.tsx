@@ -849,11 +849,45 @@ function InsightsPage() {
     .map(effImpact)
     .filter((e): e is { value: number; source: ImpactSource } => e !== null)
   const impactTotal = headlineUnit?.value ?? 0
-  const impactReportedCount = impactEff.filter((e) => e.source === 'reported').length
   const impactProposedCount = impactEff.filter((e) => e.source === 'proposed').length
   // Grants measuring in something else — counted in the sub, never silently folded in.
   const impactOtherUnits = Math.max(0, impactUnits.length - 1)
+  // The card is labelled "Impact" and the UNIT sits with the number, because the unit
+  // is what the number is in — a footer reading "Items delivered" made a card about the
+  // foundation's impact look like a card about one programme's counting method.
+  //
+  // Provenance and the units left out moved behind the sub's tooltip, with ONE
+  // exception kept on the face of the card: "(incl. proposed)". Everything else here
+  // is detail a reader can go and look for; a total holding applicants' estimates
+  // being read as impact achieved is a wrong answer, and a wrong answer must not be
+  // one hover away from being right.
   const impactLabel = headlineUnit?.label ?? 'Impact'
+  const impactSub =
+    impactLabel.toLowerCase() +
+    (impactProposedCount > 0 ? ' (incl. proposed)' : '') +
+    (impactOtherUnits > 0
+      ? ` + ${impactOtherUnits} more unit${impactOtherUnits === 1 ? '' : 's'}`
+      : '')
+  // Two things the sub can only gesture at. The count of grants behind the figure is
+  // NOT one of them: this is a summary card, and how many rows a total came from is a
+  // question the panels below answer properly.
+  const impactDetail = [
+    impactProposedCount > 0
+      ? `Includes ${impactProposedCount} figure${impactProposedCount === 1 ? '' : 's'} taken from the application, not yet confirmed by a report.`
+      : null,
+    // The other units, NAMED and totalled. "3 more units" tells a reader something is
+    // missing without telling them what, which is the half of the answer that annoys.
+    // Each is its own total because they measure different things — 8,400 meals and
+    // 1,200 people is not 9,600 of anything, so there is no combined figure to show.
+    impactUnits.length > 1
+      ? `Measured separately: ${impactUnits
+          .slice(1)
+          .map((u) => unitPhrase(u))
+          .join(', ')}.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const located = fil.filter((g) => g.deprivation)
   const locatedAmt = located.reduce((s, g) => s + g.amountAwarded, 0)
@@ -1205,18 +1239,27 @@ function InsightsPage() {
               size="lg"
               tint={KPI.people}
               icon={UserGroupIcon}
-              label={impactLabel}
+              label="Impact"
               value={impactEff.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
               sub={
-                impactEff.length === 0
-                  ? 'no impact figures yet'
-                  : `${impactReportedCount} reported${
-                      impactProposedCount > 0 ? ` · ${impactProposedCount} proposed` : ''
-                    }${
-                      impactOtherUnits > 0
-                        ? ` · ${impactOtherUnits} other unit${impactOtherUnits === 1 ? '' : 's'}`
-                        : ''
-                    }`
+                impactEff.length === 0 ? (
+                  'no impact figures yet'
+                ) : impactDetail === '' ? (
+                  impactSub
+                ) : (
+                  // The sub line IS the trigger: it is the thing being explained, and a
+                  // second ⓘ beside it would be a mark to explain the mark. `trigger`
+                  // gives it the focus, Escape and `aria-describedby` wiring, so the
+                  // detail is reachable by keyboard rather than hover-only.
+                  <Tooltip
+                    label={`About this ${impactLabel.toLowerCase()} figure`}
+                    className="flex min-w-0"
+                    triggerClassName="block min-w-0 truncate rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+                    trigger={impactSub}
+                  >
+                    {impactDetail}
+                  </Tooltip>
+                )
               }
             />
             <MiniKpi

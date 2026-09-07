@@ -355,7 +355,11 @@ function SetUpAwards() {
 
   const selectedRows = rows.filter((c) => selected.has(c.id))
   const combinedAsk = selectedRows.reduce((s, c) => s + c.amountRequested, 0)
-  const totalAsk = rows.reduce((s, c) => s + c.amountRequested, 0)
+  // Every candidate in the round, not the filtered page: this caption sits ABOVE the
+  // filter row, and a control narrows only what is below it. Paired with "left in
+  // round", which was never filtered — so while this one followed the pills the two
+  // halves of one sentence answered different questions.
+  const totalAsk = candidates.items.reduce((s, c) => s + c.amountRequested, 0)
 
   // What is left of the round to commit: its budgets, less what it has already awarded.
   const budgetTotal = budget.reduce((s, b) => s + (b.budget ?? 0), 0)
@@ -379,9 +383,13 @@ function SetUpAwards() {
   const awardedRows = awardedProgramme
     ? awarded.items.filter((a) => a.programmeName === awardedProgramme)
     : awarded.items
-  // Totalled from the rows on screen, so the line above the table always describes
-  // the table beneath it.
-  const awardedTotalShown = awardedRows.reduce((s, a) => s + a.amountAwarded, 0)
+  // The whole round, like the caption above — its own pill is below it. It used to be
+  // totalled from the rows on screen, on the reasoning that a line above a table should
+  // describe that table; the rule that won is positional and applies app-wide, because
+  // "in this round" is what the sentence actually claims and a caption that quietly
+  // meant "in this round, in this programme" is the claim being wrong.
+  const awardedTotalShown = awarded.items.reduce((s, a) => s + a.amountAwarded, 0)
+  const awardedCountShown = awarded.items.length
 
   function toggleOne(id: string) {
     setSelected((prev) => {
@@ -608,8 +616,8 @@ function SetUpAwards() {
               Grants awarded
             </p>
             <p className="font-display text-label" style={{ color: C.sub }}>
-              {fmtMoney(awardedTotalShown)} committed across {awardedRows.length} grant
-              {awardedRows.length === 1 ? '' : 's'} in this round
+              {fmtMoney(awardedTotalShown)} committed across {awardedCountShown} grant
+              {awardedCountShown === 1 ? '' : 's'} in this round
             </p>
           </div>
 

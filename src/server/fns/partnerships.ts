@@ -112,6 +112,7 @@ export const listPartnerships = createServerFn({ method: 'GET' })
       page: 1,
       pageSize: PAGE_SIZE,
       tabCounts: { to_action: 0, awaiting: 0, closed: 0 },
+      portfolio: { live: 0, toAction: 0 },
       archivedCount: 0,
       facets: {
         programmes: [] as FacetOption[],
@@ -136,6 +137,11 @@ export const listPartnerships = createServerFn({ method: 'GET' })
     )
 
     // Everything except the tab, so the tab counts reflect the other filters.
+    //
+    // The tab counts are as far as the filters reach upward. The header line above them
+    // ("6 live · 2 waiting on you") is counted over `scope` alone — see `portfolio`
+    // below — because it sits above every control on the screen, and a control narrows
+    // only what is below it.
     const baseWhere = and(
       scope,
       filters.programmeId ? eq(partnerships.programmeId, filters.programmeId) : undefined,
@@ -194,13 +200,20 @@ export const listPartnerships = createServerFn({ method: 'GET' })
 
     const page = clampPage(filters.page, Number.MAX_SAFE_INTEGER)
 
-    const [rows, totals, statusRows, facetRows, archivedRows] = await Promise.all([
+    const [rows, totals, statusRows, portfolioRows, facetRows, archivedRows] = await Promise.all([
       listRows(where, orderBy, (page - 1) * PAGE_SIZE),
       db.select({ total: count() }).from(partnerships).where(where),
       db
         .select({ status: partnerships.status, count: count() })
         .from(partnerships)
         .where(baseWhere)
+        .groupBy(partnerships.status),
+      // The same tally over the tenant's pipeline with no filters on it at all, for the
+      // header line. Same shape as the row above so one helper reads both.
+      db
+        .select({ status: partnerships.status, count: count() })
+        .from(partnerships)
+        .where(scope)
         .groupBy(partnerships.status),
       // Facets come off the whole tenant's live pipeline, not off `baseWhere` — see
       // the module comment in `lib/facets`: options are computed before the transient
@@ -223,12 +236,14 @@ export const listPartnerships = createServerFn({ method: 'GET' })
         ),
     ])
 
-    const counted = Object.fromEntries(statusRows.map((r) => [r.status, r.count])) as Record<
-      PartnershipStatus,
-      number | undefined
-    >
-    const countFor = (t: PartnershipTab) =>
-      statusesForTab(t).reduce((sum, s) => sum + (counted[s] ?? 0), 0)
+    type Tally = Record<PartnershipStatus, number | undefined>
+    const tally = (rows: Array<{ status: PartnershipStatus; count: number }>) =>
+      Object.fromEntries(rows.map((r) => [r.status, r.count])) as Tally
+    const counted = tally(statusRows)
+    const wholePipeline = tally(portfolioRows)
+    const countIn = (t: Tally, tab: PartnershipTab) =>
+      statusesForTab(tab).reduce((sum, s) => sum + (t[s] ?? 0), 0)
+    const countFor = (t: PartnershipTab) => countIn(counted, t)
 
     const items = rows
     // The one sort SQL could not do (see above).
@@ -248,6 +263,15 @@ export const listPartnerships = createServerFn({ method: 'GET' })
         to_action: countFor('to_action'),
         awaiting: countFor('awaiting'),
         closed: countFor('closed'),
+      },
+      /**
+       * The header line's figures, over the whole pipeline — the filter row is below it
+       * and must not move it. Kept separate from `tabCounts`, which are filtered on
+       * purpose: a tab labelled with a number it does not open onto is worse.
+       */
+      portfolio: {
+        live: countIn(wholePipeline, 'to_action') + countIn(wholePipeline, 'awaiting'),
+        toAction: countIn(wholePipeline, 'to_action'),
       },
       archivedCount: archivedRows[0]?.total ?? 0,
       facets: {

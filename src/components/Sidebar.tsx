@@ -33,10 +33,18 @@ const itemClass =
 // `AREA_ICON` below.
 export const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardSquare01Icon },
-  // Upstream of Applications, because that is where it sits in the work: a partnership
-  // is a conversation with an organisation that has not applied yet, and the pipeline
-  // hands over the moment one does. The rail therefore reads in lifecycle order.
-  { to: '/partnerships', label: 'Partnerships', icon: HandshakeIcon },
+  // PARTNERSHIPS IS PARKED, not dropped — the feature is built but not ready to be
+  // used, so it is out of the rail and out of the route tree. Its route files are
+  // `src/routes/_authenticated/-partnerships*.tsx`: the leading `-` is TanStack's
+  // `routeFileIgnorePrefix`, so the generator skips them and `/partnerships` 404s,
+  // while everything under `src/lib/partnerships`, `src/components/partnerships` and
+  // `src/server/fns/partnerships.ts` stays compiled and tested. To bring it back, drop
+  // the three `-` prefixes and uncomment the line below.
+  //
+  // It belongs upstream of Applications, because that is where it sits in the work: a
+  // partnership is a conversation with an organisation that has not applied yet, and
+  // the pipeline hands over the moment one does. The rail reads in lifecycle order.
+  // { to: '/partnerships', label: 'Partnerships', icon: HandshakeIcon },
   { to: '/applications', label: 'Applications', icon: NoteIcon, search: { roundId: undefined } },
   { to: '/shortlist', label: 'Shortlist', icon: CheckListIcon, search: { roundId: undefined } },
   { to: '/finance', label: 'Finance', icon: Wallet03Icon },

@@ -249,8 +249,17 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
 function PartnershipsPage() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
-  const { items, total, pageSize, tabCounts, archivedCount, facets, programmes, clientTags } =
-    Route.useLoaderData()
+  const {
+    items,
+    total,
+    pageSize,
+    tabCounts,
+    portfolio,
+    archivedCount,
+    facets,
+    programmes,
+    clientTags,
+  } = Route.useLoaderData()
   const navigate = Route.useNavigate()
   const {
     tab: tabParam,
@@ -303,11 +312,15 @@ function PartnershipsPage() {
     navigate({ search: (prev) => ({ ...prev, sortBy: key, sortDir: nextDir, page: undefined }) })
   }
 
-  const waiting = tabCounts.to_action
+  // The whole pipeline, never the filtered view: this line sits above the tabs and the
+  // filter row, and a control narrows only what is below it. It used to read the tab
+  // counts, so filtering by programme rewrote the page's own subtitle to "0 live" while
+  // the foundation plainly had six.
+  const waiting = portfolio.toAction
   const metaLine = archived
     ? `${archivedCount} archived`
     : [
-        `${tabCounts.to_action + tabCounts.awaiting} live`,
+        `${portfolio.live} live`,
         waiting > 0 ? `${waiting} waiting on you` : 'nothing waiting on you',
       ].join(' · ')
 

@@ -17,5 +17,13 @@
       "~/*": ["./src/*"]
     }
   },
-  "include": ["src", "drizzle", "scripts", "vite.config.ts", "drizzle.config.ts"]
+  "include": ["src", "drizzle", "scripts", "vite.config.ts", "drizzle.config.ts"],
+  // Parked routes. A leading `-` is TanStack's `routeFileIgnorePrefix`, so the generator
+  // skips these files and they are absent from `routeTree.gen.ts` — which is exactly why
+  // tsc must skip them too: `createFileRoute('/_authenticated/partnerships')` is typed
+  // against the generated tree, so a route that is not in it cannot compile. Everything
+  // those files IMPORT (lib/, components/, server/fns/) stays in the build and keeps
+  // being checked and tested; only the three route shells are set aside. Partnerships is
+  // the current occupant — see the note in `components/Sidebar.tsx`.
+  "exclude": ["src/routes/**/-*"]
 }
