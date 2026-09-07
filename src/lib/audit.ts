@@ -105,6 +105,14 @@ export type AuditAction =
   // platform into a foundation's data (superadmins hold no cross-tenant scope of their
   // own), so this is the single door, and a single door is worth writing down.
   | 'impersonation_started'
+  // A batch of decline letters went out to the unsuccessful applicants in a round.
+  //
+  // ONE row per batch, not one per applicant. The per-applicant record already exists
+  // and is better — `decline_letters` holds the bytes each organisation received and
+  // whether it arrived — so forty rows here would bury the Activity screen to say
+  // something the letters already say. What this row adds is the thing no letter
+  // carries: who decided that the round was finished and pressed the button.
+  | 'decline_letters_sent'
 
 /**
  * The subset the dashboard's "Lately" panel shows.
@@ -182,6 +190,7 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   api_key_revoked: 'access',
   invitation_sent: 'access',
   impersonation_started: 'access',
+  decline_letters_sent: 'decisions',
 }
 
 /** Every action in a category — the Activity filter turns one into a SQL `IN` list. */
@@ -222,6 +231,7 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   api_key_revoked: 'revoked an API key',
   invitation_sent: 'invited',
   impersonation_started: 'signed in as',
+  decline_letters_sent: 'sent decline letters for',
 }
 
 /** Short noun label — the CSV's Action column, where a verb phrase would read oddly. */
@@ -248,6 +258,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   api_key_revoked: 'API key revoked',
   invitation_sent: 'Invitation sent',
   impersonation_started: 'Platform sign-in as member',
+  decline_letters_sent: 'Decline letters sent',
 }
 
 type Meta = Record<string, unknown> | null | undefined
@@ -280,6 +291,9 @@ export function auditSubject(action: AuditAction, metadata: Meta): string | null
     // superadmin, and the question this row answers is whose account was entered.
     case 'impersonation_started':
       return str(metadata, 'targetName') ?? str(metadata, 'targetEmail')
+    // Client-scoped: the row is about a round, not about one of its applications.
+    case 'decline_letters_sent':
+      return str(metadata, 'roundName')
     case 'api_key_created':
     case 'api_key_revoked': {
       const name = str(metadata, 'name')
@@ -426,6 +440,18 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
     case 'award_letter_resent':
       parts.push(str(metadata, 'recipientEmail'))
       break
+
+    case 'decline_letters_sent': {
+      const sent = str(metadata, 'count')
+      const unsendable = str(metadata, 'noEmail')
+      parts.push(
+        sent ? `${sent} ${sent === '1' ? 'letter' : 'letters'}` : null,
+        // Called out rather than folded into the count: these applicants were declined
+        // and NOT told, which is a loose end somebody has to pick up by hand.
+        unsendable && unsendable !== '0' ? `${unsendable} with no email address` : null,
+      )
+      break
+    }
 
     case 'invitation_sent':
       parts.push(str(metadata, 'role'))

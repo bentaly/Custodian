@@ -15,6 +15,7 @@ import { bearerAuthorised, unauthorised } from '../../server/internalAuth'
 import { processIngest } from '../../server/fieldMapping/ingest'
 import { processReportIngest } from '../../server/reportMapping/ingest'
 import { scoreApplication } from '../../server/applications/score'
+import { sendStoredDeclineLetter } from '../../server/declineLetter'
 import type { PipelineMessage } from '../../server/pipelineQueue'
 
 function json(data: unknown, status: number): Response {
@@ -61,6 +62,15 @@ export const Route = createFileRoute('/api/internal/pipeline')({
             }
             case 'score': {
               const result = await scoreApplication(message.applicationId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'decline_letter': {
+              // A letter already sent answers 200 without sending again — a duplicate
+              // delivery of this message must not tell a charity twice that it was
+              // unsuccessful. A mail failure lands on the row as `failed` rather than
+              // throwing: Resend rejecting an address will reject it three more times,
+              // and the dialog shows a failed letter for a human to deal with.
+              const result = await sendStoredDeclineLetter(message.letterId)
               return json({ ok: true, result }, 200)
             }
             default:

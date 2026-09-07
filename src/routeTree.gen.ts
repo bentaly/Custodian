@@ -21,7 +21,6 @@ import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
-import { Route as AuthenticatedPartnershipsRouteImport } from './routes/_authenticated/partnerships'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -39,8 +38,6 @@ import { Route as AuthenticatedAwardsIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAwardsAwardIdRouteImport } from './routes/_authenticated/awards.$awardId'
 import { Route as AuthenticatedFinanceIndexRouteImport } from './routes/_authenticated/finance.index'
 import { Route as AuthenticatedFinanceBalanceRouteImport } from './routes/_authenticated/finance.balance'
-import { Route as AuthenticatedPartnershipsIndexRouteImport } from './routes/_authenticated/partnerships.index'
-import { Route as AuthenticatedPartnershipsPartnershipIdRouteImport } from './routes/_authenticated/partnerships.$partnershipId'
 import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
@@ -52,6 +49,7 @@ import { Route as AuthenticatedSettingsAwardLetterRouteImport } from './routes/_
 import { Route as AuthenticatedSettingsBudgetRouteImport } from './routes/_authenticated/settings.budget'
 import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
+import { Route as AuthenticatedSettingsLettersRouteImport } from './routes/_authenticated/settings.letters'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsVotingRouteImport } from './routes/_authenticated/settings.voting'
@@ -138,12 +136,6 @@ const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
   path: '/insights',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedPartnershipsRoute =
-  AuthenticatedPartnershipsRouteImport.update({
-    id: '/partnerships',
-    path: '/partnerships',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -235,18 +227,6 @@ const AuthenticatedFinanceBalanceRoute =
     path: '/balance',
     getParentRoute: () => AuthenticatedFinanceRoute,
   } as any)
-const AuthenticatedPartnershipsIndexRoute =
-  AuthenticatedPartnershipsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedPartnershipsRoute,
-  } as any)
-const AuthenticatedPartnershipsPartnershipIdRoute =
-  AuthenticatedPartnershipsPartnershipIdRouteImport.update({
-    id: '/$partnershipId',
-    path: '/$partnershipId',
-    getParentRoute: () => AuthenticatedPartnershipsRoute,
-  } as any)
 const AuthenticatedProgrammesIndexRoute =
   AuthenticatedProgrammesIndexRouteImport.update({
     id: '/',
@@ -311,6 +291,12 @@ const AuthenticatedSettingsGivingStrategyRoute =
   AuthenticatedSettingsGivingStrategyRouteImport.update({
     id: '/giving-strategy',
     path: '/giving-strategy',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsLettersRoute =
+  AuthenticatedSettingsLettersRouteImport.update({
+    id: '/letters',
+    path: '/letters',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsSubmissionsRoute =
@@ -462,7 +448,6 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/insights': typeof AuthenticatedInsightsRoute
-  '/partnerships': typeof AuthenticatedPartnershipsRouteWithChildren
   '/profile': typeof AuthenticatedProfileRoute
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -477,7 +462,6 @@ export interface FileRoutesByFullPath {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/finance/balance': typeof AuthenticatedFinanceBalanceRoute
-  '/partnerships/$partnershipId': typeof AuthenticatedPartnershipsPartnershipIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -485,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/settings/budget': typeof AuthenticatedSettingsBudgetRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
+  '/settings/letters': typeof AuthenticatedSettingsLettersRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/voting': typeof AuthenticatedSettingsVotingRoute
@@ -505,7 +490,6 @@ export interface FileRoutesByFullPath {
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/awards/': typeof AuthenticatedAwardsIndexRoute
   '/finance/': typeof AuthenticatedFinanceIndexRoute
-  '/partnerships/': typeof AuthenticatedPartnershipsIndexRoute
   '/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
@@ -537,7 +521,6 @@ export interface FileRoutesByTo {
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/finance/balance': typeof AuthenticatedFinanceBalanceRoute
-  '/partnerships/$partnershipId': typeof AuthenticatedPartnershipsPartnershipIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -545,6 +528,7 @@ export interface FileRoutesByTo {
   '/settings/budget': typeof AuthenticatedSettingsBudgetRoute
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
+  '/settings/letters': typeof AuthenticatedSettingsLettersRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/voting': typeof AuthenticatedSettingsVotingRoute
@@ -565,7 +549,6 @@ export interface FileRoutesByTo {
   '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/awards': typeof AuthenticatedAwardsIndexRoute
   '/finance': typeof AuthenticatedFinanceIndexRoute
-  '/partnerships': typeof AuthenticatedPartnershipsIndexRoute
   '/programmes': typeof AuthenticatedProgrammesIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
@@ -593,7 +576,6 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
-  '/_authenticated/partnerships': typeof AuthenticatedPartnershipsRouteWithChildren
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -608,7 +590,6 @@ export interface FileRoutesById {
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/_authenticated/finance/balance': typeof AuthenticatedFinanceBalanceRoute
-  '/_authenticated/partnerships/$partnershipId': typeof AuthenticatedPartnershipsPartnershipIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -616,6 +597,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/budget': typeof AuthenticatedSettingsBudgetRoute
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
+  '/_authenticated/settings/letters': typeof AuthenticatedSettingsLettersRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/settings/voting': typeof AuthenticatedSettingsVotingRoute
@@ -636,7 +618,6 @@ export interface FileRoutesById {
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/awards/': typeof AuthenticatedAwardsIndexRoute
   '/_authenticated/finance/': typeof AuthenticatedFinanceIndexRoute
-  '/_authenticated/partnerships/': typeof AuthenticatedPartnershipsIndexRoute
   '/_authenticated/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
@@ -664,7 +645,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/finance'
     | '/insights'
-    | '/partnerships'
     | '/profile'
     | '/programmes'
     | '/reports'
@@ -679,7 +659,6 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/finance/balance'
-    | '/partnerships/$partnershipId'
     | '/reports/$reportKey'
     | '/settings/activity'
     | '/settings/api-keys'
@@ -687,6 +666,7 @@ export interface FileRouteTypes {
     | '/settings/budget'
     | '/settings/data-import'
     | '/settings/giving-strategy'
+    | '/settings/letters'
     | '/settings/submissions'
     | '/settings/team'
     | '/settings/voting'
@@ -707,7 +687,6 @@ export interface FileRouteTypes {
     | '/applications/'
     | '/awards/'
     | '/finance/'
-    | '/partnerships/'
     | '/programmes/'
     | '/reports/'
     | '/rounds/'
@@ -739,7 +718,6 @@ export interface FileRouteTypes {
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/finance/balance'
-    | '/partnerships/$partnershipId'
     | '/reports/$reportKey'
     | '/settings/activity'
     | '/settings/api-keys'
@@ -747,6 +725,7 @@ export interface FileRouteTypes {
     | '/settings/budget'
     | '/settings/data-import'
     | '/settings/giving-strategy'
+    | '/settings/letters'
     | '/settings/submissions'
     | '/settings/team'
     | '/settings/voting'
@@ -767,7 +746,6 @@ export interface FileRouteTypes {
     | '/applications'
     | '/awards'
     | '/finance'
-    | '/partnerships'
     | '/programmes'
     | '/reports'
     | '/rounds'
@@ -794,7 +772,6 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/finance'
     | '/_authenticated/insights'
-    | '/_authenticated/partnerships'
     | '/_authenticated/profile'
     | '/_authenticated/programmes'
     | '/_authenticated/reports'
@@ -809,7 +786,6 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/awards/$awardId'
     | '/_authenticated/finance/balance'
-    | '/_authenticated/partnerships/$partnershipId'
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/settings/activity'
     | '/_authenticated/settings/api-keys'
@@ -817,6 +793,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/budget'
     | '/_authenticated/settings/data-import'
     | '/_authenticated/settings/giving-strategy'
+    | '/_authenticated/settings/letters'
     | '/_authenticated/settings/submissions'
     | '/_authenticated/settings/team'
     | '/_authenticated/settings/voting'
@@ -837,7 +814,6 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/'
     | '/_authenticated/awards/'
     | '/_authenticated/finance/'
-    | '/_authenticated/partnerships/'
     | '/_authenticated/programmes/'
     | '/_authenticated/reports/'
     | '/_authenticated/rounds/'
@@ -966,13 +942,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInsightsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/partnerships': {
-      id: '/_authenticated/partnerships'
-      path: '/partnerships'
-      fullPath: '/partnerships'
-      preLoaderRoute: typeof AuthenticatedPartnershipsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -1092,20 +1061,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinanceBalanceRouteImport
       parentRoute: typeof AuthenticatedFinanceRoute
     }
-    '/_authenticated/partnerships/': {
-      id: '/_authenticated/partnerships/'
-      path: '/'
-      fullPath: '/partnerships/'
-      preLoaderRoute: typeof AuthenticatedPartnershipsIndexRouteImport
-      parentRoute: typeof AuthenticatedPartnershipsRoute
-    }
-    '/_authenticated/partnerships/$partnershipId': {
-      id: '/_authenticated/partnerships/$partnershipId'
-      path: '/$partnershipId'
-      fullPath: '/partnerships/$partnershipId'
-      preLoaderRoute: typeof AuthenticatedPartnershipsPartnershipIdRouteImport
-      parentRoute: typeof AuthenticatedPartnershipsRoute
-    }
     '/_authenticated/programmes/': {
       id: '/_authenticated/programmes/'
       path: '/'
@@ -1181,6 +1136,13 @@ declare module '@tanstack/react-router' {
       path: '/giving-strategy'
       fullPath: '/settings/giving-strategy'
       preLoaderRoute: typeof AuthenticatedSettingsGivingStrategyRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/letters': {
+      id: '/_authenticated/settings/letters'
+      path: '/letters'
+      fullPath: '/settings/letters'
+      preLoaderRoute: typeof AuthenticatedSettingsLettersRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/submissions': {
@@ -1404,23 +1366,6 @@ const AuthenticatedFinanceRouteChildren: AuthenticatedFinanceRouteChildren = {
 const AuthenticatedFinanceRouteWithChildren =
   AuthenticatedFinanceRoute._addFileChildren(AuthenticatedFinanceRouteChildren)
 
-interface AuthenticatedPartnershipsRouteChildren {
-  AuthenticatedPartnershipsPartnershipIdRoute: typeof AuthenticatedPartnershipsPartnershipIdRoute
-  AuthenticatedPartnershipsIndexRoute: typeof AuthenticatedPartnershipsIndexRoute
-}
-
-const AuthenticatedPartnershipsRouteChildren: AuthenticatedPartnershipsRouteChildren =
-  {
-    AuthenticatedPartnershipsPartnershipIdRoute:
-      AuthenticatedPartnershipsPartnershipIdRoute,
-    AuthenticatedPartnershipsIndexRoute: AuthenticatedPartnershipsIndexRoute,
-  }
-
-const AuthenticatedPartnershipsRouteWithChildren =
-  AuthenticatedPartnershipsRoute._addFileChildren(
-    AuthenticatedPartnershipsRouteChildren,
-  )
-
 interface AuthenticatedProgrammesRouteChildren {
   AuthenticatedProgrammesIndexRoute: typeof AuthenticatedProgrammesIndexRoute
 }
@@ -1466,6 +1411,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsBudgetRoute: typeof AuthenticatedSettingsBudgetRoute
   AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
+  AuthenticatedSettingsLettersRoute: typeof AuthenticatedSettingsLettersRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
   AuthenticatedSettingsVotingRoute: typeof AuthenticatedSettingsVotingRoute
@@ -1480,6 +1426,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsDataImportRoute: AuthenticatedSettingsDataImportRoute,
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,
+  AuthenticatedSettingsLettersRoute: AuthenticatedSettingsLettersRoute,
   AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
   AuthenticatedSettingsVotingRoute: AuthenticatedSettingsVotingRoute,
@@ -1514,7 +1461,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRouteWithChildren
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
-  AuthenticatedPartnershipsRoute: typeof AuthenticatedPartnershipsRouteWithChildren
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
@@ -1530,7 +1476,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinanceRoute: AuthenticatedFinanceRouteWithChildren,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
-  AuthenticatedPartnershipsRoute: AuthenticatedPartnershipsRouteWithChildren,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,

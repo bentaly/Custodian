@@ -3,9 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
-  ArrowLeft01Icon,
   ArrowLeft02Icon,
-  ArrowRight01Icon,
   ArrowRight02Icon,
   ArrowUp01Icon,
   Cancel01Icon,
@@ -17,7 +15,7 @@ import {
   getAwardLetterSettings,
   type AwardCandidate,
 } from '../../server/fns/awardSetup'
-import { AwardLetterPreview } from '../AwardLetterPreview'
+import { LetterCarousel } from '../LetterCarousel'
 import { Button, DateField, Dialog, ErrorNote, Input, Textarea } from '../ui'
 import { C } from '../ui/tokens'
 import {
@@ -717,7 +715,8 @@ export function AwardWizard({
                     ))}
                   </ol>
                   <Link
-                    to="/settings/award-letter"
+                    to="/settings/letters"
+                      search={{ tab: 'award' as const }}
                     className="mt-2.5 inline-block font-display text-label font-medium hover:underline"
                     style={{ color: C.brand }}
                   >
@@ -943,9 +942,10 @@ export function AwardWizard({
 
                 {letterOpen && (
                   <LetterCarousel
-                    candidates={candidates}
+                    items={candidates}
                     index={Math.min(letterIndex, candidates.length - 1)}
                     onIndex={setLetterIndex}
+                    labelFor={(c) => c.organisationName}
                     letterFor={letterFor}
                   />
                 )}
@@ -966,7 +966,8 @@ export function AwardWizard({
                   <>
                     . No reply-to address is set, so replies come back to Custodian —{' '}
                     <Link
-                      to="/settings/award-letter"
+                      to="/settings/letters"
+                      search={{ tab: 'award' as const }}
                       className="font-medium hover:underline"
                       style={{ color: C.brand }}
                     >
@@ -1172,75 +1173,6 @@ function CustomSchedules({
           </div>
         )
       })}
-    </div>
-  )
-}
-
-// ─── Step 3 sub-view ────────────────────────────────────────────────────────────
-
-/**
- * One letter at a time, paged with ‹ ›.
- *
- * Stacked, a batch of eight letters is several thousand words of near-identical text in
- * one scroll — which is not a preview anybody reads. Paging keeps each letter whole and
- * makes it obvious how many there are.
- */
-function LetterCarousel({
-  candidates,
-  index,
-  onIndex,
-  letterFor,
-}: {
-  candidates: AwardCandidate[]
-  index: number
-  onIndex: (i: number) => void
-  letterFor: (c: AwardCandidate) => { subject: string; bodyText: string }
-}) {
-  const c = candidates[index]!
-  const letter = letterFor(c)
-
-  return (
-    <div className="border-t" style={{ borderColor: C.line }}>
-      <div
-        className="flex items-center justify-between gap-3 px-4 py-2.5"
-        style={{ backgroundColor: C.wash }}
-      >
-        {/* No state pill here: every field a letter can be missing is now gated on the
-            step that owns it, so a letter you can look at is a letter that is ready, and
-            a pill that can only ever read "Ready" is noise. */}
-        <span className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-          {c.organisationName}
-        </span>
-        {candidates.length > 1 && (
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant="secondary"
-              size="xs"
-              icon={ArrowLeft01Icon}
-              aria-label="Previous letter"
-              onClick={() => onIndex(index - 1)}
-              disabled={index === 0}
-            />
-            <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
-              {index + 1} of {candidates.length}
-            </span>
-            <Button
-              variant="secondary"
-              size="xs"
-              icon={ArrowRight01Icon}
-              aria-label="Next letter"
-              onClick={() => onIndex(index + 1)}
-              disabled={index === candidates.length - 1}
-            />
-          </div>
-        )}
-      </div>
-      <div className="px-4 py-4">
-        <div className="mb-2 font-display text-label" style={{ color: C.faint }}>
-          Subject: <span style={{ color: C.body }}>{letter.subject}</span>
-        </div>
-        <AwardLetterPreview bodyText={letter.bodyText} />
-      </div>
     </div>
   )
 }

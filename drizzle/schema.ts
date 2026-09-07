@@ -11,7 +11,7 @@ import {
   unique,
   index,
 } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import type { DueDiligenceCheckRecord, OrganisationProfile } from '../src/lib/dueDiligence/types'
 import type { CustodianScoreDetail } from '../src/lib/custodianScore/types'
 import type { DeprivationResult } from '../src/lib/deprivation/types'
@@ -652,6 +652,21 @@ export const clientProfiles = pgTable('client_profiles', {
   // a DNS-verified sending domain, but Reply-To needs no proof of ownership, so a
   // grantee hitting reply lands in the foundation's inbox, not ours.
   awardLetterReplyTo: text('award_letter_reply_to'),
+  // ─── Decline letter ───
+  // The foundation's override of the built-in decline letter (see
+  // src/lib/declineLetter). Same NULL convention as the award letter above: NULL means
+  // "use the built-in", so a foundation that has never touched it keeps picking up
+  // improvements, and resetting the editor writes NULL rather than freezing today's
+  // wording into the row. There is no conditions column — there is no grant.
+  declineLetterTemplate: text('decline_letter_template'),
+  // Who the decline letter is signed off by. NULL falls back to
+  // `awardLetterSignatory` rather than to nothing (see `resolveDeclineSettings`): it is
+  // the same person signing for the same trustees, and a second blank field is how the
+  // two come to disagree in a way applicants can see.
+  declineLetterSignatory: text('decline_letter_signatory'),
+  // Sender name and reply-to are NOT duplicated here. They are facts about how the
+  // foundation appears in email, not about one letter, so both letters use the
+  // `award_letter_*` pair and the Letters screen edits them once.
   // ─── Financial year ───
   // The MONTH the foundation's financial year ends in (1–12), which is how a
   // grant-maker states it — "our year end is 31 March" is on the front of their signed
@@ -1159,6 +1174,56 @@ export const awardLetters = pgTable('award_letters', {
     .$defaultFn(() => new Date()),
 })
 
+// A decline letter, as sent (or as it failed to send). The award letter's twin, and
+// deliberately the same shape: the letter is a SNAPSHOT, stored verbatim at the moment
+// the batch was sent. Nothing re-renders a stored letter — editing the template later
+// must not rewrite what an applicant was already told.
+//
+// Unique on `application_id`, which is the whole idempotency story. Notifying a closed
+// round is a bulk, irreversible, outward-facing act that a Cron-Trigger-grade "at least
+// once" mindset has to survive: a second press of the button, a double-click, a retried
+// queue message. The row is the receipt, and its presence is what takes an applicant
+// out of the next batch.
+export const declineLetters = pgTable(
+  'decline_letters',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    applicationId: uuid('application_id')
+      .notNull()
+      .unique()
+      .references(() => applications.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    subject: text('subject').notNull(),
+    // Plain text is the source of truth; the HTML is what went down the wire. Both are
+    // stored so a screen can show exactly what was sent without re-running the renderer.
+    bodyText: text('body_text').notNull(),
+    bodyHtml: text('body_html').notNull(),
+    // The same three states as an award letter, on the same enum. One vocabulary for
+    // "did this letter reach anybody", because both are read the same way and a second
+    // enum with identical values would only be a second thing to keep in step.
+    status: awardLetterStatusEnum('status').notNull().default('draft'),
+    recipientEmail: text('recipient_email'),
+    replyTo: text('reply_to'),
+    senderName: text('sender_name'),
+    // Why a send failed. Surfaced in the dialog, because a decline that silently never
+    // arrived leaves an applicant waiting on an answer the foundation believes it gave.
+    failureReason: text('failure_reason'),
+    sentAt: timestamp('sent_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [
+    // "Has this foundation ever written to this address?" — asked once per batch, for
+    // every address in it, and it is the check that stops anybody being told twice.
+    // Case-insensitively, because that is how the addresses are compared.
+    index('decline_letters_client_email_idx').on(t.clientId, sql`lower(${t.recipientEmail})`),
+  ],
+)
+
 // ─── Grant report submissions (report ingest) ───────────────────────────────────
 
 // An incoming grant-report payload from a charity, held while its fields are mapped
@@ -1397,6 +1462,7 @@ export const auditActionEnum = pgEnum('audit_action', [
   'annual_budget_set',
   'bank_balance_recorded',
   'impersonation_started',
+  'decline_letters_sent',
 ])
 
 export const auditLog = pgTable(
@@ -1636,6 +1702,14 @@ export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
   client: one(clients, { fields: [apiKeys.clientId], references: [clients.id] }),
 }))
 
+export const declineLettersRelations = relations(declineLetters, ({ one }) => ({
+  application: one(applications, {
+    fields: [declineLetters.applicationId],
+    references: [applications.id],
+  }),
+  client: one(clients, { fields: [declineLetters.clientId], references: [clients.id] }),
+}))
+
 export const clientProfilesRelations = relations(clientProfiles, ({ one }) => ({
   client: one(clients, { fields: [clientProfiles.clientId], references: [clients.id] }),
 }))
@@ -1707,6 +1781,11 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
   votes: many(applicationVotes),
   // 1:1 in practice (one award per application), modelled as a to-one relation.
   award: one(awards, { fields: [applications.id], references: [awards.applicationId] }),
+  // 1:1 (unique applicationId) — present only once the applicant has been told no.
+  declineLetter: one(declineLetters, {
+    fields: [applications.id],
+    references: [declineLetters.applicationId],
+  }),
 }))
 
 export const awardsRelations = relations(awards, ({ one, many }) => ({

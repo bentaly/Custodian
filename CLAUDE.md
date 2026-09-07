@@ -174,6 +174,8 @@ Traps:
   pairing); applications hang off a round-programme
 - **applications** — one row per submission; responses/budget lines in jsonb, plus AI columns
 - **application_comments** / **application_votes** — discussion + trustee voting (majority gates awards)
+- **decline_letters** — one row per applicant told they were unsuccessful; unique on
+  `application_id`, so nobody is ever told twice
 - **awards** → **award_instalments** + **report_schedule** — a grant minted from an awarded application
 - **reports** — received grant reports (from `/api/submit-report`); **report_ingests** is its holding table
 - **application_ingests** + **field_mappings** — `/api/apply` holding table and learned mappings
@@ -273,7 +275,9 @@ design rationale; this list is a map, not a summary.
 - **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance
 - **awardLetter** — `src/lib/awardLetter` renders (text-only `{{token}}` template, no markup
   passthrough — a foundation's template is emailed to third parties); `src/server/awardLetter.ts`
-  stores + sends
+  stores + sends. `src/lib/letterHtml.ts` is the shared text→email-HTML step, used by both letters
+- **declineLetter** — the award letter's twin, sent to the unsuccessful applicants in a closed
+  round. Same rules, minus conditions (there is no grant). See "Decline letters" below
 - **dataImport** — `/settings/data-import`, onboarding a foundation's existing grants
 - **financeDigest** — the Monday payments email
 - **annualBudget** — `src/lib/annualBudget.ts` (the reconciliation rules) + `src/server/finance/
@@ -444,8 +448,61 @@ others — the response reports per-grant outcomes.
   domain, so it would fail auth and land in spam. Per-client Resend domain verification is not
   built; the settings/schema are shaped so it can drop in.
 - Template + standard conditions default to `src/lib/awardLetter/template.ts`; a foundation
-  overrides at `/settings/award-letter`. **NULL means "use the built-in"**, so resetting the editor
+  overrides at `/settings/letters`. **NULL means "use the built-in"**, so resetting the editor
   to the default writes NULL, not the current text.
+
+## Decline letters: telling the unsuccessful
+
+`sendDeclineLetters` (`src/server/fns/declineLetters.ts`) is the **only** path that emails an
+applicant to say no. Reached from **Applications → Send decline letters**, a button that exists
+only on a **closed** round and only for admins; the closed check is re-made on the server, because
+that is the boundary.
+
+- **It sits on the ROUND's row**, beside the round pill, not in the card below. Its scope is the
+  round — it writes to the round's unsuccessful applicants whatever programme is selected — and
+  beside the programme pill it read as "email this programme's applicants". The **export** is the
+  opposite and stays in the card: it follows the programme selection (the whole round on "All"),
+  which is exactly why the two are on different rows.
+
+- **It never changes a status.** The batch is the applications already at `declined` — declining
+  stays where it is (`updateApplicationStatus`, audited, reversible) so an irreversible email to a
+  third party is never the same click as a bulk status change. Applications still `for_review` are
+  **reported in the dialog, not converted**: a round closed with three undecided applications has
+  three charities waiting on a letter this button will never send them.
+- **`decline_letters` is unique on `application_id`**, so one application can never produce two
+  letters. A letter on file takes an applicant out of the next batch — including a letter that
+  FAILED to send, which is retried from the row rather than re-rendered into a second document.
+- **No ADDRESS is ever written to twice**, which the unique index alone does not give you: the same
+  mailbox is reachable through a second application in the same round, or through next year's.
+  `planDeclineBatch` (`src/lib/declineLetter/batch.ts`) is the single statement of that rule and is
+  used by BOTH the dialog and the server fn, so the count on the button is the count that goes out.
+  Addresses compare trimmed and lower-cased, nothing more — dot- and `+tag`-stripping would silently
+  withhold a decision from a charity that really does have a separate mailbox.
+  **Note the consequence**: an organisation declined last year is NOT written to again this year.
+  The dialog names each one and the round it was told with, so it is visible rather than silent.
+  Only `sent` and `draft` letters bar an address — a `failed` one told nobody, and letting it bar
+  the address forever would turn one bad afternoon at Resend into a charity that never hears back.
+- **Render synchronously, send on the queue.** The fn renders every letter and commits them all in
+  ONE `db.batch` (all the same act — the opposite of `createAwards`, where each grant is written
+  independently because each is a separate commitment), then queues one `decline_letter` message
+  per row. `enqueueMany` uses `sendBatch` so a 40-applicant round costs one subrequest, not 40 —
+  the 50-per-invocation cap would otherwise leave half a round told and half not.
+- Letters are **snapshots**, like award letters: the queue re-sends stored bytes, never re-renders.
+- An applicant with no contact email gets a stored letter at `draft` and no queue message, and the
+  count comes back so the dialog can name them.
+- **The audit row is one per BATCH** (`decline_letters_sent`), not one per applicant: the letters
+  table already records who received what; what no letter carries is who decided the round was
+  finished.
+- Settings live on **`/settings/letters`**, tab `decline`. **Sender name and reply-to sit ABOVE the
+  tabs** (`LetterSendingForm`), because they govern both letters — what is shared goes above, what
+  differs per letter goes below, and each half has its own Save. The decline signatory falls back to
+  `awardLetterSignatory` when unset, so a foundation cannot end up with signed award letters and
+  unsigned decline letters.
+- The sticky Settings save bar is **`SettingsSaveBar`**, and it is shared for two reasons that bit:
+  it must be OPAQUE (a bar you can see the form through reads as broken, not pinned), and it must
+  clear `<main>`'s own `p-4` — a sticky `bottom-0` sticks to the scrollport's CONTENT box, so 16px
+  of page kept scrolling past underneath it. `-bottom-4` plus the padding back on fixes it, and the
+  coupling to `<main>` lives in that one file.
 
 ## Auth
 
@@ -519,8 +576,29 @@ layer that sees **every** response — SSR pages, server functions, public API r
   **Cross-tenant by design and therefore `x-admin-token` gated**, not public, despite the names.
   Columns are named explicitly so widening the schema cannot silently widen the response.
 - `src/server/fns/` — server functions
+- **A leading `-` parks a route.** `routeFileIgnorePrefix` defaults to `-`, so the generator
+  skips the file and the URL 404s; `tsconfig.json` excludes `src/routes/**/-*` to match, because
+  `createFileRoute` is typed against the generated tree and cannot compile without it. Only the
+  route shell is set aside — everything it imports stays built, checked and tested. **Partnerships
+  is parked this way** (`-partnerships*.tsx`, plus a commented-out `NAV` entry in `Sidebar.tsx`):
+  the feature is finished but not ready to be used. Unpark it by dropping the three prefixes and
+  uncommenting the nav line.
 
 Structural decisions worth knowing before adding a screen:
+
+- **A control narrows what is BELOW it, and nothing above it.** The filter row (`ui/FilterRow`:
+  pills, then search hard right) narrows the table and the tab counts sitting with it in the card
+  — and never the header line, a summary panel or a KPI strip further up. Those are the whole
+  portfolio, which is what makes them worth reading: Reports' "reports due" panel, Finance's
+  upcoming payments, Awards' "Portfolio by programme" bar, and every screen's `<h1>` subtitle are
+  all counted with no user filter on them at all. Awards needs a SECOND query for this
+  (`awardsList`'s `portfolioScope`), because on that screen the round is a pill in the row rather
+  than the context, and it is folded into the scope of the filtered one.
+  **Tab counts are the one exception and are deliberate**: they are the list's own control block,
+  immediately above the rows they filter, and a tab labelled "Awaiting 7" that opens onto 2 rows
+  is worse than one that moves. Where a caption pairs a filtered figure with an unfiltered one in
+  a single sentence ("Ask £172k · £520k left in round"), both go portfolio-wide — half a sentence
+  answering a different question is the bug this rule keeps catching.
 
 - **Finance is two routes wearing one header** (`components/finance/FinanceHeader`) — Payments /
   Balance & budget. Same reasoning as Shortlist below: those header tabs are NAVIGATION, while the
@@ -559,6 +637,7 @@ Structural decisions worth knowing before adding a screen:
   means a migration too — the colour is stored on the row, and one off the current ten reads as
   "Custom" and can be handed out twice (see `0074_programme_colour_ramp_reweight`).
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
-  `team`, `giving-strategy`, `voting`, `award-letter`, `api-keys`, `submissions`, `data-import`, `budget`.
+  `team`, `giving-strategy`, `voting`, `letters`, `api-keys`, `submissions`, `data-import`, `budget`.
+  `/settings/award-letter` is now a redirect to `/settings/letters?tab=award`.
   It links out to `/rounds` and `/programmes`, which is why those left the sidebar. Cards are
   filtered by role. `/users` is now a redirect to `/settings/team`.

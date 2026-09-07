@@ -6,7 +6,7 @@
 // literally what the renderer will store.
 
 import { fmtDate, fmtMoney } from '../format'
-import { escapeHtml } from '../html'
+import { letterHtml } from '../letterHtml'
 import {
   DEFAULT_AWARD_LETTER_SUBJECT,
   DEFAULT_AWARD_LETTER_TEMPLATE,
@@ -150,7 +150,7 @@ export function renderAwardLetter({
   return {
     subject: renderTemplate(subjectTemplate, vars),
     bodyText,
-    bodyHtml: awardLetterHtml(bodyText),
+    bodyHtml: letterHtml(bodyText),
     conditions,
   }
 }
@@ -158,42 +158,8 @@ export function renderAwardLetter({
 /**
  * Wrap the rendered plain text as the HTML actually emailed.
  *
- * Everything is escaped and the markup is generated here — a foundation's template is
- * treated as text, never as HTML. Letting an admin paste markup into the template would
- * mean the app emails attacker-shaped HTML to third-party charities on the foundation's
- * behalf, which is a much worse failure than a letter that cannot be styled.
- *
- * Inline styles and a table-free layout, because email clients are email clients.
+ * The rule and the markup are shared with every other letter Custodian sends — see
+ * `src/lib/letterHtml.ts`. Kept exported under this name because it is the award
+ * letter's HTML at every call site that already uses it.
  */
-export function awardLetterHtml(bodyText: string): string {
-  const blocks = bodyText.split(/\n{2,}/).map((block) => {
-    const lines = block.split('\n').filter((l) => l.trim())
-    // A run of "1. …" lines is the numbered block a template dropped in (conditions or
-    // the payment schedule); render it as a real ordered list rather than paragraphs.
-    const numbered = lines.length > 1 && lines.every((l) => /^\d+\.\s/.test(l.trim()))
-    if (numbered) {
-      const items = lines
-        .map(
-          (l) =>
-            `<li style="margin:0 0 8px;line-height:1.55;">${escapeHtml(l.trim().replace(/^\d+\.\s*/, ''))}</li>`,
-        )
-        .join('')
-      // Literal hex, not tokens: this HTML is emailed (see lib/email.ts).
-      return `<ol style="margin:0 0 16px;padding-left:20px;color:#344051;font-size:14px;">${items}</ol>`
-    }
-    if (lines.length > 1) {
-      return `<p style="margin:0 0 16px;line-height:1.6;color:#344051;font-size:14px;">${lines
-        .map((l) => escapeHtml(l.trim()))
-        .join('<br />')}</p>`
-    }
-    return `<p style="margin:0 0 16px;line-height:1.6;color:#344051;font-size:14px;">${escapeHtml(
-      (lines[0] ?? '').trim(),
-    )}</p>`
-  })
-
-  return [
-    '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:640px;margin:0 auto;padding:32px 24px;color:#344051;">',
-    blocks.join(''),
-    '</div>',
-  ].join('')
-}
+export const awardLetterHtml = letterHtml

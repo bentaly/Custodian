@@ -26,9 +26,15 @@ export type PipelineMessage =
   | { kind: 'ingest'; ingestId: string }
   | { kind: 'report_ingest'; ingestId: string }
   | { kind: 'score'; applicationId: string }
+  // One stored decline letter, to be emailed. The letter is already rendered and
+  // committed before this message exists, so a retry re-sends the same bytes rather
+  // than re-deriving them from a template that may have moved on.
+  | { kind: 'decline_letter'; letterId: string }
 
 interface QueueBinding {
   send(body: unknown): Promise<void>
+  /** Cloudflare Queues' batch send. Optional so a stub binding still satisfies this. */
+  sendBatch?(messages: Array<{ body: unknown }>): Promise<void>
 }
 
 function getQueue(): QueueBinding | null {
@@ -67,6 +73,52 @@ export async function enqueue(
     // inline instead" would reproduce the exact failure this replaced — only now
     // with a log line claiming the queue was used.
     reportFault('queue', err, { message })
+    return 'failed'
+  }
+}
+
+/**
+ * Hand a whole batch of work over at once.
+ *
+ * `sendBatch` rather than a loop of `send`, because the loop is the bug: notifying a
+ * closed round is one press of a button that produces one message per unsuccessful
+ * applicant, and on the Workers Free plan an invocation gets **50 subrequests total**
+ * (a Neon query is one, a queue send is one). Forty declines sent one at a time would
+ * exhaust the budget mid-batch and leave half a round told and half not — the exact
+ * shape of failure this feature cannot have.
+ *
+ * Falls back the same way `enqueue` does, and for the same reasons: a binding without
+ * `sendBatch` gets the loop (correct, just not free), and no binding at all runs the
+ * fallback in the background, which is local dev.
+ */
+export async function enqueueMany(
+  messages: PipelineMessage[],
+  fallback: (message: PipelineMessage) => Promise<unknown>,
+): Promise<'queued' | 'background' | 'failed'> {
+  if (messages.length === 0) return 'queued'
+
+  const queue = getQueue()
+  if (!queue) {
+    for (const message of messages) {
+      runInBackground(`${message.kind} (no queue binding)`, () => fallback(message))
+    }
+    return 'background'
+  }
+
+  try {
+    if (typeof queue.sendBatch === 'function') {
+      // 100 messages is Cloudflare's per-batch ceiling.
+      for (let i = 0; i < messages.length; i += 100) {
+        await queue.sendBatch(messages.slice(i, i + 100).map((body) => ({ body })))
+      }
+    } else {
+      for (const message of messages) await queue.send(message)
+    }
+    return 'queued'
+  } catch (err) {
+    // Same rule as `enqueue`: never fall back to running it inline. The work is on a
+    // queue precisely because it does not fit in the budget the inline path has.
+    reportFault('queue', err, { count: messages.length, kind: messages[0]?.kind })
     return 'failed'
   }
 }

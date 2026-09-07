@@ -1,0 +1,1 @@
+CREATE INDEX "decline_letters_client_email_idx" ON "decline_letters" USING btree ("client_id",lower("recipient_email"));

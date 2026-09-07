@@ -554,6 +554,20 @@
       "when": 1788534795506,
       "tag": "0078_young_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1788729767574,
+      "tag": "0079_unusual_ricochet",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1788811794728,
+      "tag": "0080_strange_psylocke",
+      "breakpoints": true
     }
   ]
 }

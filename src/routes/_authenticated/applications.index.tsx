@@ -8,6 +8,7 @@ import {
   CancelCircleIcon,
   MinusSignCircleIcon,
   Alert02Icon,
+  MailSend01Icon,
 } from '@hugeicons/core-free-icons'
 import {
   listApplications,
@@ -30,10 +31,12 @@ import {
   type SortDir,
 } from '../../lib/listSearch'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
+import { DeclineLettersDialog } from '../../components/applications/DeclineLettersDialog'
 import {
   DataTable,
   DateRangePicker,
   EmptyState,
+  Button,
   ExportButton,
   FilterPill,
   Listbox,
@@ -700,9 +703,22 @@ function ApplicationsList() {
     : null
   const budgetTitle = selectedProgrammeName ? `${selectedProgrammeName} budget` : 'Programme budget'
 
-  // Round-close meta line.
+  // Round-close meta line: how big this ROUND is, and when it shut.
+  //
+  // Both halves are facts about the round, because that is what the line sits beside —
+  // the round pill, above everything else on the screen. So nothing below it moves it:
+  // not the filter row, and not the programme selector at the top of the card either.
+  // It summed the SELECTED programme before, which put "2 applications" next to a round
+  // of nine and read as the round being nearly empty.
+  //
+  // `budgetSummary` is every round-programme in the round with a total over every
+  // status, so the round's own count is already here and costs nothing. It falls back
+  // to the filtered count only when there is no round to summarise, where both are 0.
+  const roundCount = budgetSummary.length
+    ? budgetSummary.reduce((sum, r) => sum + r.total, 0)
+    : total
   const metaLine = (() => {
-    const parts = [`${total} application${total !== 1 ? 's' : ''}`]
+    const parts = [`${roundCount} application${roundCount !== 1 ? 's' : ''}`]
     if (selectedRound?.closedAt) {
       const days = Math.ceil((new Date(selectedRound.closedAt).getTime() - Date.now()) / 86_400_000)
       if (roundStatus === 'closed' || days < 0) {
@@ -817,6 +833,13 @@ function ApplicationsList() {
   // full set, not just the loaded page. Transient filters (status/theme/score/search)
   // are deliberately ignored so the export is the complete programme list.
   const [exporting, setExporting] = useState(false)
+  // Telling the unsuccessful applicants — the last act of a round, so the button only
+  // exists once the round is closed. It is NOT a filter over this list and does not act
+  // on the selection: it emails the round's declined applications, which is a fact about
+  // the round rather than about whatever is on screen. See `DeclineLettersDialog`.
+  const [decliningOpen, setDecliningOpen] = useState(false)
+  const canSendDeclines = canSetStatus && roundStatus === 'closed' && !!roundId
+
   async function handleExport() {
     setExporting(true)
     try {
@@ -858,6 +881,23 @@ function ApplicationsList() {
           >
             {metaLine}
           </span>
+
+          {/* On the ROUND's row, not in the card below, because that is its scope: it
+              writes to the round's unsuccessful applicants whatever programme is
+              selected. Beside the programme pill it read as "email this programme's
+              applicants", which is the one thing it must not be mistaken for.
+              Primary, because on a closed round it is the screen's whole purpose. */}
+          {canSendDeclines && (
+            <div className="ml-auto">
+              <Button
+                icon={MailSend01Icon}
+                iconPosition="right"
+                onClick={() => setDecliningOpen(true)}
+              >
+                Send decline letters
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -880,6 +920,10 @@ function ApplicationsList() {
               onChange={(v) => setProgramme(v || undefined)}
             />
           )}
+          {/* The export follows the programme pill it sits beside: a programme's
+              applications, or the whole round on "All". That is why it is in the card
+              and the decline button is not — one is scoped to what you are looking at,
+              the other to the round. */}
           <div className="ml-auto">
             <ExportButton onClick={handleExport} busy={exporting} />
           </div>
@@ -1005,6 +1049,18 @@ function ApplicationsList() {
           />
         )}
       </div>
+
+      {roundId && (
+        <DeclineLettersDialog
+          open={decliningOpen}
+          roundId={roundId}
+          onClose={() => setDecliningOpen(false)}
+          // The list itself doesn't change (nobody's status moved), but the dialog's
+          // own "already told" counts come from the server, so the next open must be a
+          // fresh read rather than whatever this one left behind.
+          onSent={() => router.invalidate()}
+        />
+      )}
     </div>
   )
 }

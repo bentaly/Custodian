@@ -98,10 +98,10 @@ const GROUPS: Group[] = [
         adminOnly: true,
       },
       {
-        title: 'Award letter',
+        title: 'Letters',
         description:
-          'The letter emailed to a charity when you award a grant, your standard conditions of grant, and who replies come back to.',
-        to: '/settings/award-letter',
+          'What you email an applicant when you decide: the award letter and your conditions of grant, the letter that goes to everybody else, and who replies come back to.',
+        to: '/settings/letters',
         icon: Mail01Icon,
         adminOnly: true,
       },
