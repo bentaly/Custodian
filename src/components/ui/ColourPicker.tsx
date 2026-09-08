@@ -1,31 +1,27 @@
-import { useId, useRef } from 'react'
-import { PROGRAMME_PALETTE, colourName, normaliseColour } from '../../lib/programmeColours'
+import { useRef } from 'react'
+import { colourName, normaliseColour } from '../../lib/programmeColours'
+import { Button } from './Button'
 import { C } from './tokens'
 
-// The colour a programme is recognised by: ten presets and a custom pick (Figma
-// 769:15935). Selection is the dark hairline round the swatch, as the comp draws it.
+// The colour a programme is recognised by: the swatch it currently has, and a button
+// that opens the OS colour picker.
 //
-// A radio GROUP, not a row of buttons. Ten independent buttons would each be a tab stop
-// and would announce nothing about being one choice among ten; a radiogroup is one stop,
-// arrow keys move within it, and a screen reader says "Sky, 1 of 11". The custom swatch
-// is a real `<input type="color">` behind a conic-gradient tile, so the OS picker does
-// the work.
+// It USED to offer the ten-colour palette (Figma 769:15935) as a row of swatches, and
+// that row was answering a question nobody asks. A programme's colour is assigned on
+// create by `nextProgrammeColour`, which picks the hue furthest from the ones already
+// in use — so the colour a foundation is handed is already the non-clashing one, and
+// presenting ten alternatives turned a settled field into a decision, in the middle of
+// a form about themes and impact units. What is left is the exception path: somebody who
+// wants a particular colour, who gets the whole wheel rather than ten of it.
 //
-// `taken` DISCOURAGES rather than forbids: used colours dim and say who has them, but
-// stay selectable. With ten presets, a foundation with eleven programmes — or archived
-// ones still holding colours — must not reach a picker where nothing can be chosen.
-
-/**
- * The "custom" tile's rainbow, built from every other preset so it is literally the ramp
- * this picker offers. It was six hard-coded hexes, which went stale the moment the ramp
- * was re-tuned and left the tile advertising colours the palette no longer contained.
- */
-const RAINBOW = `conic-gradient(${[
-  ...PROGRAMME_PALETTE.filter((_, i) => i % 2 === 0),
-  PROGRAMME_PALETTE[0]!,
-]
-  .map((c) => c.hex)
-  .join(', ')})`
+// So there is no palette here and no preset names on screen. The presets still exist and
+// still do the work they were built for — the ramp behind `nextProgrammeColour` and
+// `colourSeries` — they are simply not a thing to choose from any more.
+//
+// The input is a real `<input type="color">`, kept off-screen with the button driving it,
+// so the OS picker does the work and the trigger can be the app's own button rather than
+// the browser's swatch control (which cannot be sized or styled, and looks like a form
+// field from another site).
 
 export function ColourPicker({
   value,
@@ -35,82 +31,55 @@ export function ColourPicker({
 }: {
   value: string
   onChange: (hex: string) => void
-  /** hex → what already uses it, e.g. `{'#37d1f7': 'Community & Place'}`. */
+  /** hex → what already uses it, e.g. `{'#37d1f7': 'Community & Place'}`. The picker
+   *  cannot stop a clash now that any colour can be chosen, so it says so instead —
+   *  and stays silent unless there is one. */
   taken?: Record<string, string>
   label?: string
 }) {
-  const name = useId()
-  const custom = useRef<HTMLInputElement>(null)
+  const input = useRef<HTMLInputElement>(null)
   const selected = normaliseColour(value)
-  const isPreset = PROGRAMME_PALETTE.some((c) => c.hex === selected)
+  const owner = selected ? taken[selected] : undefined
 
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-3">
-      {PROGRAMME_PALETTE.map((colour) => {
-        const owner = taken[colour.hex]
-        const checked = selected === colour.hex
-        return (
-          <label
-            key={colour.hex}
-            className="relative flex cursor-pointer"
-            title={owner ? `${colour.name} — already used by ${owner}` : colour.name}
-          >
-            <input
-              type="radio"
-              name={name}
-              value={colour.hex}
-              checked={checked}
-              onChange={() => onChange(colour.hex)}
-              className="peer sr-only"
-            />
-            <span
-              aria-hidden="true"
-              className={`size-4 rounded-swatch border transition-opacity peer-focus-visible:ring-2 peer-focus-visible:ring-brand/20 ${
-                owner && !checked ? 'opacity-30' : ''
-              }`}
-              style={{
-                backgroundColor: colour.hex,
-                borderColor: checked ? C.ink : 'transparent',
-              }}
-            />
-            {/* The name and the "in use" reason, for anyone not reading the `title`. */}
-            <span className="sr-only">
-              {colour.name}
-              {owner ? `, already used by ${owner}` : ''}
-            </span>
-          </label>
-        )
-      })}
-
-      <label
-        className="relative flex cursor-pointer"
-        title={isPreset ? 'Choose a custom colour' : `Custom — ${selected}`}
-      >
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        {/* `aria-hidden`: the swatch is what the button below acts on, and the button
+            says so in words. */}
+        <span
+          aria-hidden="true"
+          className="size-4 shrink-0 rounded-swatch border"
+          style={{ backgroundColor: selected ?? undefined, borderColor: C.line }}
+        />
         <input
-          ref={custom}
+          ref={input}
           type="color"
           value={selected ?? '#000000'}
           onChange={(e) => onChange(e.target.value.toLowerCase())}
-          className="peer sr-only"
-        />
-        <span
+          className="sr-only"
+          tabIndex={-1}
           aria-hidden="true"
-          className="size-4 rounded-swatch border peer-focus-visible:ring-2 peer-focus-visible:ring-brand/20"
-          style={{
-            // The custom tile shows the chosen colour once it is off-palette, so the
-            // selection is visible without hunting; otherwise it is the rainbow.
-            background: isPreset ? RAINBOW : (selected ?? undefined),
-            borderColor: !isPreset && selected ? C.ink : 'transparent',
-          }}
         />
-        <span className="sr-only">
-          Custom colour{!isPreset && selected ? `, currently ${selected}` : ''}
-        </span>
-      </label>
-
-      <span className="font-display text-label text-grey-500">
-        {colourName(selected) ?? 'None'}
-      </span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="xs"
+          aria-label={`Change ${label.toLowerCase()}${
+            colourName(selected) ? ` — currently ${colourName(selected)}` : ''
+          }`}
+          onClick={() => {
+            // `showPicker` opens it without a synthetic click on a hidden control, which
+            // some browsers ignore; `click` is the fallback for those that lack it.
+            const el = input.current
+            if (!el) return
+            if (typeof el.showPicker === 'function') el.showPicker()
+            else el.click()
+          }}
+        >
+          Change
+        </Button>
+      </div>
+      {owner && <p className="font-display text-label text-grey-500">Already used by {owner}.</p>}
     </div>
   )
 }

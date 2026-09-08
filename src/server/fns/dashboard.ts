@@ -19,6 +19,7 @@ import { FEED_ACTIONS } from '../../lib/audit'
 import { visibleRoundProgrammeIds } from '../scope'
 import { bucketSeries } from '../../lib/timeSeries'
 import { checkBankAccount } from '../../lib/bankVerification'
+import { pickFocusRound } from '../../lib/roundStatus'
 
 // ISO yyyy-mm-dd in UTC for a given Date — grant payment/report due dates are stored
 // as plain date strings, so we compare against the same representation.
@@ -482,11 +483,14 @@ export async function dashboardData(
   }
 
   // ── Rounds with deadlines, application counts and budget utilisation ─────────
-  // Focus round for the conversion funnel: the open round, else the most recent.
-  const isRoundOpen = (r: { openedAt: Date | null; closedAt: Date | null }) =>
-    (r.openedAt ? new Date(r.openedAt) <= now : false) &&
-    !(r.closedAt ? new Date(r.closedAt) <= now : false)
-  const focusRound = roundRows.find(isRoundOpen) ?? roundRows[0] ?? null
+  /**
+   * The round the dashboard is ABOUT: the open one, else the one that closed most
+   * recently. It names the Applications card, decides which round's applications that
+   * card counts, and is the round the card opens onto — so it has to be the round a
+   * foundation is actually working on, never one that has not started. The rule and
+   * the traps in it are in `pickFocusRound`, with the tests.
+   */
+  const focusRound = pickFocusRound(roundRows)
 
   let roundsOut: DashboardRound[] = []
   let funnel: DashboardFunnel | null = null

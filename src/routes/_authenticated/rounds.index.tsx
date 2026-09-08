@@ -244,10 +244,27 @@ function RoundRowCard({
     <div className="flex flex-col gap-4 rounded-card border border-grey-200 p-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
+          {/* The name opens the round, the same as a programme's does. There is no
+              detail route — the dialog IS the round — so the obvious gesture has to be
+              the one that works. Disabled while the round's programme rows are being
+              fetched, since the dialog cannot open without them; the menu's "Opening…"
+              is where that is said in words. */}
           <h3
             className={`font-display text-title font-semibold ${archived ? 'text-grey-400' : 'text-grey-900'}`}
           >
-            {round.name}
+            {canManage ? (
+              <button
+                type="button"
+                onClick={onEdit}
+                disabled={opening}
+                aria-busy={opening}
+                className="rounded-chip text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 disabled:cursor-wait"
+              >
+                {round.name}
+              </button>
+            ) : (
+              round.name
+            )}
           </h3>
           {/* Archived replaces the status badge rather than joining it: the status is
               read off the dates, so an archived round whose close date hasn't passed

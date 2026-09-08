@@ -193,10 +193,25 @@ function ProgrammeCard({
               className={`size-3 shrink-0 rounded-swatch ${archived ? 'opacity-40' : ''}`}
               style={{ backgroundColor: colour }}
             />
+            {/* The name is the way into the programme. There is no detail route — the
+                dialog IS the programme — so a title that did nothing when clicked was
+                the one place on the screen where the obvious gesture failed, and the
+                Edit action stayed hidden behind the ⋯ menu. Only for those who can
+                manage: for a trustee it is a heading and nothing more. */}
             <h2
               className={`font-display text-title font-semibold ${archived ? 'text-grey-400' : 'text-grey-900'}`}
             >
-              {programme.name}
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="rounded-chip text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
+                >
+                  {programme.name}
+                </button>
+              ) : (
+                programme.name
+              )}
             </h2>
             {/* An archived programme is in no round by definition of being retired, so
                 the round badge would only ever say "No round" in warning orange —
