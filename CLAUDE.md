@@ -388,9 +388,12 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
 - **Three things an import must never do**, all easy to add by reflex: send award letters (127
   charities emailed about grants from 2019), write `audit_log` rows (the feed would show 127
   awards "made today"), or go through `createAwards` (which enforces a trustee majority — right
-  for a decision, meaningless for a fact). Due diligence and the Custodian score are not
-  auto-run either — a stale registry answer and a 2019 application scored against 2026 goals
-  are both worse than a blank.
+  for a decision, meaningless for a fact). The Custodian score is not auto-run either —
+  scoring a 2019 application against goals written in 2026 is a confident, meaningless
+  number. **Due diligence is not auto-run, and that is an open question rather than a
+  decision**: every imported grant lands at `pending` with a charity number sitting on it,
+  and the check is a CURRENT-state one, so nothing about it would be stale. The admin app's
+  `rerunDueDiligence` is the only way to get an answer today.
 - **Deprivation IS auto-run**, on the queue (`kind: 'deprivation'` →
   `src/server/applications/deprivation.ts`), one message per imported application. Different
   in kind from the two above: a delivery area does not go stale and the decile comes from our
