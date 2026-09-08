@@ -22,36 +22,52 @@ import {
   financeDates,
   filterWhere,
   grantsQuery,
+  paymentsQuery,
   tabWhere,
   grantsCol,
   bankVerdict,
   type FinanceDates,
-  type GrantRow,
   type GrantsQuery,
+  type PaymentRow,
+  type PaymentsQuery,
 } from '../finance/query'
 
-/** The sortable columns — every one of them an expression the database can order by. */
+/**
+ * The sortable columns — every one of them an expression the database can order by.
+ *
+ * `amount` is THIS payment and `grant` is the award it belongs to: on a list of
+ * payments those are two different questions, and one column called "committed"
+ * answering both is how a reader ends up adding £19,460 to itself.
+ */
 type SortKey =
   | 'organisation'
   | 'programme'
   | 'round'
-  | 'committed'
+  | 'amount'
+  | 'grant'
+  | 'due'
   | 'paid'
-  | 'next'
-  | 'lastPaid'
   | 'bank'
   | 'status'
 
 // Finance reads the same grants as Awards, but through the payments lens: one row per
-// grant, keyed on where its money is up to rather than on the decision that made it.
+// payment, keyed on where its money is up to rather than on the decision that made it.
 // The payment actions (`setInstalmentPaid`, `updateInstalment`) live in
 // `fns/applications.ts` and are reused as-is; the one write that is the payments lens's
 // own is `updateGrantBankDetails` at the foot of this file.
 
 /**
- * Where a grant's money is up to. Ordered by urgency: `overdue` first through to
- * settled. `unscheduled` is a committed grant with no instalments recorded at all —
- * money promised with no payment plan, which is a finance problem of its own.
+ * Where a PAYMENT is up to. Ordered by urgency: `overdue` first through to settled.
+ *
+ * The same six words the grant-level status used, and deliberately so — the pill, the
+ * filter and the facet counts did not have to learn a new vocabulary when the table's
+ * row became a payment rather than a grant. Only what they are counted over changed.
+ *
+ * `unscheduled` is the one that is still about the GRANT: a committed grant with no
+ * instalments recorded at all, money promised with no payment plan, which is a finance
+ * problem of its own. It is the row `paymentsQuery`'s LEFT JOIN keeps — see there.
+ * `cancelled` is an unpaid instalment of a withdrawn grant; its PAID instalments stay
+ * `paid`, because that money genuinely left the building.
  */
 export type FinanceStatus =
   | 'overdue'
@@ -232,19 +248,19 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
         q: z.string().min(1).max(200).optional(),
         /**
          * Column sort, applied in SQL over the whole filtered tab — see `orderFor`.
-         * `next` and `lastPaid` each only exist on one tab's columns; sorting by the
-         * other tab's date is harmless (every row's value is null, and nulls sort last
-         * whichever way the arrow points, so the order is unchanged).
+         * `due` and `paid` each only exist as a column on one tab; sorting by the
+         * other tab's date is harmless (on To pay every `paidDate` is null, and nulls
+         * sort last whichever way the arrow points, so the order is unchanged).
          */
         sortBy: z
           .enum([
             'organisation',
             'programme',
             'round',
-            'committed',
+            'amount',
+            'grant',
+            'due',
             'paid',
-            'next',
-            'lastPaid',
             'bank',
             'status',
           ])
@@ -307,17 +323,31 @@ export async function financeList(
   data: FinanceListInput,
 ) {
   const dates = financeDates()
+  // Two scopes, and which one a figure is counted over is the whole discipline of this
+  // screen. `g` is one row per GRANT and is what every sum of money, every KPI, the
+  // Attention banner and the horizons are still computed over — money summed over
+  // payment rows would multiply a grant by its instalment count. `p` is one row per
+  // PAYMENT and is what the table, its tabs and its facets are counted over, because a
+  // control counts what it narrows.
   const g = grantsQuery(db, scope, dates)
+  const p = paymentsQuery(db, g, dates)
   const tab = data.tab ?? 'to_pay'
   const pageSize = data.pageSize ?? PAGE_SIZE
   const page = data.page && data.page > 0 ? data.page : 1
 
-  const filters = filterWhere(g, tab, data)
-  const onTab = (t: 'to_pay' | 'paid') => and(tabWhere(g, t), filters)
+  const filters = filterWhere(p, tab, data)
+  const onTab = (t: 'to_pay' | 'paid') => and(tabWhere(p, t), filters)
 
   // Both tabs are counted through the filters, so a tab label never promises rows the
   // filters would remove the moment you switched to it.
   const countOn = (where: SQL | undefined) =>
+    db
+      .select({ n: sql<number>`(count(*))::int` })
+      .from(p)
+      .where(where)
+
+  /** A count over GRANTS — the Attention banner's two figures, which are about grants. */
+  const countGrants = (where: SQL | undefined) =>
     db
       .select({ n: sql<number>`(count(*))::int` })
       .from(g)
@@ -325,7 +355,7 @@ export async function financeList(
 
   // Facets describe the TAB — this screen's context — before the transient filters,
   // so using a pill can never prune the options of the pill beside it.
-  const context = tabWhere(g, tab)
+  const context = tabWhere(p, tab)
   const facetOn = (value: SQLWrapper, label: SQLWrapper) =>
     db
       .select({
@@ -333,7 +363,7 @@ export async function financeList(
         label: label as SQL<string | null>,
         count: sql<number>`(count(*))::int`,
       })
-      .from(g)
+      .from(p)
       .where(context)
       .groupBy(value as SQL, label as SQL)
 
@@ -354,9 +384,9 @@ export async function financeList(
   ] = await db.batch([
     db
       .select()
-      .from(g)
+      .from(p)
       .where(onTab(tab))
-      .orderBy(...orderFor(g, data.sortBy, data.sortDir))
+      .orderBy(...orderFor(p, data.sortBy, data.sortDir))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     countOn(onTab(tab)),
@@ -384,11 +414,14 @@ export async function financeList(
         dueSoonCount: sql<number>`coalesce(sum(${g.dueSoonCount}) filter (where ${payable(g)}), 0)::int`,
       })
       .from(g),
-    countOn(sql`${g.status} = 'unscheduled'`),
+    // Grant-level, both of them: "3 grants have no payment schedule" is a sentence
+    // about grants, and counting the payment rows would say the same thing in a number
+    // that happens to match only because an unscheduled grant has exactly one row.
+    countGrants(sql`${g.status} = 'unscheduled'`),
     // Grants still owing money whose details are missing or fail the check — every one
     // of them is a payment that cannot go out cleanly. A row never checked (NULL) is
     // not counted as a problem: we do not know that it is one.
-    countOn(
+    countGrants(
       sql`${payable(g)} and ${g.status} <> 'paid' and ${g.bankStatus} in ('missing', 'invalid')`,
     ),
     upcomingTotals(db, g, dates),
@@ -409,7 +442,7 @@ export async function financeList(
     facetOn(g.roundId, g.roundName),
   ])
 
-  const items = rows.map((r) => toFinanceRow(r, data.includeBankDetails ?? false))
+  const items = rows.map((r) => toPaymentRow(r, data.includeBankDetails ?? false))
   const totalsBase = totalsRow[0]!
   const totals = {
     ...totalsBase,
@@ -460,7 +493,7 @@ export async function financeList(
  */
 export function emptyFinanceList(): Awaited<ReturnType<typeof financeList>> {
   return {
-    items: [] as ReturnType<typeof toFinanceRow>[],
+    items: [] as ReturnType<typeof toPaymentRow>[],
     total: 0,
     page: 1,
     pageSize: PAGE_SIZE,
@@ -497,11 +530,26 @@ function sortFacet(options: FacetOption[]): FacetOption[] {
 }
 
 /**
- * The row the table renders. The money arrives as `float8` (JS numbers) rather than
- * numeric strings, because every consumer parsed them anyway.
+ * The row the table renders: ONE PAYMENT, with the grant it belongs to alongside it.
+ *
+ * The money arrives as `float8` (JS numbers) rather than numeric strings, because every
+ * consumer parsed them anyway.
+ *
+ * `instalmentId` is null on exactly one kind of row — the grant with no schedule at all
+ * — and that is how the screen knows to draw "No payment planned" rather than a date.
+ * `instalmentNo` of `n` of `instalmentCount` is what stops two rows for the same charity
+ * reading as a duplicate: the identity column says which payment this is.
  */
-function toFinanceRow(r: GrantRow, includeBankDetails: boolean) {
+function toPaymentRow(r: PaymentRow, includeBankDetails: boolean) {
   return {
+    key: r.key,
+    instalmentId: r.instalmentId,
+    instalmentNo: r.instalmentNo,
+    amount: r.amount,
+    dueDate: r.dueDate,
+    paidDate: r.paidDate,
+    status: r.status as FinanceStatus,
+
     awardId: r.awardId,
     applicationId: r.applicationId,
     organisationName: r.organisationName,
@@ -513,22 +561,13 @@ function toFinanceRow(r: GrantRow, includeBankDetails: boolean) {
     tags: (r.tags as string[] | null) ?? [],
     awardStatus: r.awardStatus,
     imported: r.imported,
+    // The grant's own position, repeated on each of its payments: the total awarded,
+    // what has gone out against it, and how many instalments of how many are settled.
     committed: r.committed,
     outstanding: r.outstanding,
-    status: r.status as FinanceStatus,
     paidToDate: r.paidTotal,
     paidCount: r.paidCount,
     instalmentCount: r.instalmentCount,
-    scheduledTotal: r.scheduledTotal,
-    lastPaidDate: r.lastPaidDate,
-    nextPayment:
-      r.nextId && r.nextAmount !== null
-        ? { id: r.nextId, amount: r.nextAmount, dueDate: r.nextDueDate }
-        : null,
-    overdueAmount: r.overdueAmount,
-    overdueCount: r.overdueCount,
-    dueSoonAmount: r.dueSoonAmount,
-    dueSoonCount: r.dueSoonCount,
     // The stored verdict, not a fresh check: the list must show what it sorted, filtered
     // and counted by. `unchecked` is the honest answer for a row that predates the column.
     bank: bankCell(r, includeBankDetails),
@@ -550,7 +589,7 @@ type BankCell = {
   accountNumber?: string | null
 }
 
-function bankCell(r: GrantRow, includeBankDetails: boolean): BankCell {
+function bankCell(r: PaymentRow, includeBankDetails: boolean): BankCell {
   const cell: BankCell = { status: (r.bankStatus ?? 'unchecked') as BankStatus }
   // Only for the export: the screen shows the verdict alone, so a payable pair is not
   // sitting in the page payload of every finance officer's browser.
@@ -568,41 +607,49 @@ function bankCell(r: GrantRow, includeBankDetails: boolean): BankCell {
  * simply unranked. With no explicit sort the payment order stands: the money you owe
  * soonest, first, then settled grants by most recently paid.
  */
-function orderFor(g: GrantsQuery, by: SortKey | undefined, dir: 'asc' | 'desc' | undefined): SQL[] {
+function orderFor(
+  p: PaymentsQuery,
+  by: SortKey | undefined,
+  dir: 'asc' | 'desc' | undefined,
+): SQL[] {
   const d = sql.raw(dir === 'asc' ? 'asc' : 'desc')
   const text = (col: SQLWrapper) => sql`lower(${col}) ${d} nulls last`
+  // Every sort ends up here, so a grant's own payments stay in schedule order under all
+  // of them: without it two £9,730 instalments sorted by amount come back in whatever
+  // order the planner felt like, and the "Payment 1 of 2" labels shuffle between loads.
+  const withinGrant = sql`${p.dueDate} asc nulls last, ${p.instalmentNo} asc nulls last`
   switch (by) {
     case 'organisation':
-      return [text(g.organisationName)]
+      return [text(p.organisationName), withinGrant]
     case 'programme':
-      return [text(g.programmeName)]
+      return [text(p.programmeName), withinGrant]
     case 'round':
-      return [text(g.roundName)]
-    case 'committed':
-      return [sql`${g.committed} ${d}`]
+      return [text(p.roundName), withinGrant]
+    case 'amount':
+      return [sql`${p.amount} ${d}`, withinGrant]
+    case 'grant':
+      return [sql`${p.committed} ${d}`, withinGrant]
+    case 'due':
+      return [sql`${p.dueDate} ${d} nulls last`, sql`${p.instalmentNo} asc nulls last`]
     case 'paid':
-      return [sql`${g.paidTotal} ${d}`]
-    case 'next':
-      return [sql`${g.chaseDate} ${d} nulls last`]
-    case 'lastPaid':
-      return [sql`${g.lastPaidDate} ${d} nulls last`]
+      return [sql`${p.paidDate} ${d} nulls last`, withinGrant]
     case 'bank':
-      return [sql`${bankRank(g)} ${d}`]
+      return [sql`${bankRank(p)} ${d}`, withinGrant]
     case 'status':
-      return [sql`${statusRank(g)} ${d}`]
+      return [sql`${statusRank(p)} ${d}`, withinGrant]
     default:
       // The declared default plus a tiebreak, rather than a second spelling of it: the
       // screen draws its arrow on `FINANCE_DEFAULT_SORT`, so the first key here has to
       // BE that sort and not merely look like it.
       return [
-        ...orderFor(g, FINANCE_DEFAULT_SORT.by, FINANCE_DEFAULT_SORT.dir),
-        sql`${g.lastPaidDate} desc nulls last`,
+        ...orderFor(p, FINANCE_DEFAULT_SORT.by, FINANCE_DEFAULT_SORT.dir),
+        sql`${p.paidDate} desc nulls last`,
       ]
   }
 }
 
 /** The order with nothing clicked — and the arrow the header shows on landing. */
-export const FINANCE_DEFAULT_SORT = { by: 'next', dir: 'asc' } as const satisfies {
+export const FINANCE_DEFAULT_SORT = { by: 'due', dir: 'asc' } as const satisfies {
   by: SortKey
   dir: 'asc' | 'desc'
 }
@@ -611,8 +658,8 @@ export const FINANCE_DEFAULT_SORT = { by: 'next', dir: 'asc' } as const satisfie
  * Bank details that would stop a payment going out, first. A row never checked sorts
  * with the clean ones rather than the broken ones: an unknown is not a problem.
  */
-function bankRank(g: GrantsQuery): SQL {
-  return sql`case ${g.bankStatus}
+function bankRank(p: PaymentsQuery): SQL {
+  return sql`case ${p.bankStatus}
     when 'missing' then 0 when 'invalid' then 1 when 'unchecked' then 2 else 3 end`
 }
 
@@ -620,8 +667,8 @@ function bankRank(g: GrantsQuery): SQL {
  * Most urgent first, so the default (descending) click puts the rows that need doing
  * something at the top — alphabetical order over this vocabulary would say nothing.
  */
-function statusRank(g: GrantsQuery): SQL {
-  return sql`case ${g.status}
+function statusRank(p: PaymentsQuery): SQL {
+  return sql`case ${p.status}
     when 'overdue' then 0 when 'due_soon' then 1 when 'unscheduled' then 2
     when 'scheduled' then 3 when 'paid' then 4 else 5 end`
 }
@@ -728,7 +775,7 @@ function toUpcoming(
   return out
 }
 
-/** One vocabulary for a grant's payment position, shared by the facets and the table. */
+/** One vocabulary for a payment's position, shared by the facets and the table. */
 export const FINANCE_STATUS_LABELS: Record<FinanceStatus, string> = {
   overdue: 'Overdue',
   due_soon: 'Due soon',

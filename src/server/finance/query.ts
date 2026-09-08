@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm'
+import { and, eq, inArray, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import {
   applications,
   awardInstalments,
@@ -246,6 +246,108 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
 export type GrantsQuery = ReturnType<typeof grantsQuery>
 
 /**
+ * One row per PAYMENT — the Finance table itself.
+ *
+ * Finance is a payment-run screen, and for a long time its row was a grant: Inspire
+ * Youth Zone appeared once, owing £19,460, when what it actually has is two instalments
+ * of £9,730 twelve months apart. The second payment was only visible by opening the row.
+ * The Upcoming payments panel above the table had already conceded the point — it lists
+ * instalments — so the table was the odd one out.
+ *
+ * It is built ON TOP of `grants` rather than replacing it, which is the whole trick.
+ * `grants` stays exactly what it was: one row per award, and the scope every total, KPI,
+ * facet-of-money, Attention count and horizon is still computed over. Nothing that sums
+ * money moved, so nothing can double-count a grant by its instalment count — the failure
+ * this rewrite would otherwise invite, and the one that would be quietest.
+ *
+ * **The join is LEFT, and that is load-bearing.** An award with no instalments at all is
+ * `unscheduled` — money promised with no plan to pay it, which is a finance problem in
+ * its own right rather than a quiet zero. Under an INNER join it would have no payment
+ * row and would vanish from the one screen whose job is to say so. LEFT gives it exactly
+ * one row, and the row reads better than the grant's did: it says "no payment planned"
+ * in the very place a date and an amount would otherwise be, and its amount is what is
+ * still owed.
+ *
+ * A cancelled grant's PAID instalments still say `paid` — that money left the building
+ * and the history has to reconcile — while its unpaid ones say `cancelled`, because
+ * there is nothing left to pay. One that never paid a penny is not on this screen at
+ * all; see the WHERE in `grantsQuery`.
+ */
+export function paymentsQuery(db: Db, g: GrantsQuery, { today, soonCutoff }: FinanceDates) {
+  const i = awardInstalments
+  // The per-payment ladder, in the same vocabulary (`FinanceStatus`) the grant-level one
+  // used, so the pill, the filter, the facet counts and the tab split are unchanged in
+  // meaning — only in what they are counted over.
+  const status = sql<string>`case
+    when ${i.id} is null then 'unscheduled'
+    when ${i.paidDate} is not null then 'paid'
+    when ${grantsCol('award_status')} = 'cancelled' then 'cancelled'
+    when ${i.dueDate} < ${today} then 'overdue'
+    when ${i.dueDate} >= ${today} and ${i.dueDate} <= ${soonCutoff} then 'due_soon'
+    else 'scheduled'
+  end`
+
+  return db
+    .select({
+      // The row's identity: the instalment, or the award standing in for the payment
+      // nobody has scheduled. Both are uuids, cast so the coalesce has one type.
+      key: sql<string>`coalesce(${i.id}::text, ${grantsCol('award_id')}::text)`.as('key'),
+      instalmentId: sql<string | null>`${i.id}`.as('instalment_id'),
+      instalmentNo: sql<number | null>`${i.instalmentNo}`.as('instalment_no'),
+      // This payment's money. For the unscheduled row it is what the grant still owes,
+      // which is the figure that row exists to put in front of somebody.
+      amount: sql<number>`coalesce(${i.amount}::float8, ${grantsCol('outstanding')})`.as('amount'),
+      dueDate: sql<string | null>`${i.dueDate}`.as('due_date'),
+      paidDate: sql<string | null>`${i.paidDate}`.as('paid_date'),
+      status: status.as('status'),
+
+      // ── The grant this payment belongs to ──
+      // Repeated on every one of its payments, which is what makes the row readable
+      // without a grouped table: the organisation, its reference, and where the payment
+      // sits in the schedule are all on the row.
+      awardId: sql<string>`${grantsCol('award_id')}`.as('award_id'),
+      applicationId: g.applicationId,
+      organisationName: g.organisationName,
+      externalApplicationId: g.externalApplicationId,
+      programmeId: g.programmeId,
+      programmeName: g.programmeName,
+      roundId: g.roundId,
+      roundName: g.roundName,
+      tags: g.tags,
+      awardStatus: g.awardStatus,
+      imported: g.imported,
+      bankAccountNumber: g.bankAccountNumber,
+      bankAccountName: g.bankAccountName,
+      bankSortCode: g.bankSortCode,
+      bankStatus: g.bankStatus,
+      committed: g.committed,
+      paidTotal: g.paidTotal,
+      outstanding: g.outstanding,
+      instalmentCount: g.instalmentCount,
+      paidCount: g.paidCount,
+    })
+    .from(g)
+    .leftJoin(i, sql`${i.awardId} = ${grantsCol('award_id')}`)
+    .as('payments')
+}
+
+export type PaymentsQuery = ReturnType<typeof paymentsQuery>
+
+/**
+ * A column of the `payments` subquery, qualified by hand — `grantsCol`'s twin, for the
+ * same reason and with the same trap behind it.
+ */
+export function paymentsCol(name: string): SQL {
+  return sql.raw(`"payments"."${name}"`)
+}
+
+/** A page of payments. Exported as a type so the mapper to the screen's row can be typed. */
+export function paymentRows(db: Db, p: PaymentsQuery) {
+  return db.select().from(p)
+}
+export type PaymentRow = Awaited<ReturnType<typeof paymentRows>>[number]
+
+/**
  * A column of the `grants` subquery, qualified by hand.
  *
  * Drizzle emits a reference to an ALIASED subquery field bare — `"award_id"`, not
@@ -273,13 +375,21 @@ export type GrantRow = Awaited<ReturnType<typeof grantRows>>[number]
  * same coalesce in SQL, so the facet count, the filter and the pill on the row are one
  * definition rather than three.
  */
-export function bankVerdict(g: GrantsQuery): SQL<string> {
-  return sql<string>`coalesce(${g.bankStatus}, 'unchecked')`
+export function bankVerdict(q: { bankStatus: SQLWrapper }): SQL<string> {
+  return sql<string>`coalesce(${q.bankStatus}, 'unchecked')`
 }
 
-/** Which tab a grant belongs to. Every grant is on exactly one, so the two are exhaustive. */
-export function tabWhere(g: GrantsQuery, tab: 'to_pay' | 'paid'): SQL {
-  const settled = sql`${g.status} in ('paid', 'cancelled')`
+/**
+ * Which tab a row belongs to. Every row is on exactly one, so the two are exhaustive.
+ *
+ * Deliberately generic over `status`, because the rule is the same sentence at both
+ * levels and must stay one: a PAYMENT is settled when it has gone out or been called
+ * off, and a GRANT is settled when it has nothing left owing. The list counts payments;
+ * the "live commitments" figure in the header counts grants, through this same helper
+ * against `grants`. Two spellings of "settled" is exactly how those two disagree.
+ */
+export function tabWhere(q: { status: SQLWrapper }, tab: 'to_pay' | 'paid'): SQL {
+  const settled = sql`${q.status} in ('paid', 'cancelled')`
   return tab === 'paid' ? settled : sql`not (${settled})`
 }
 
@@ -292,7 +402,7 @@ export function tabWhere(g: GrantsQuery, tab: 'to_pay' | 'paid'): SQL {
  * rather than passed in.
  */
 export function filterWhere(
-  g: GrantsQuery,
+  p: PaymentsQuery,
   tab: 'to_pay' | 'paid',
   f: {
     roundId?: string
@@ -305,22 +415,26 @@ export function filterWhere(
     q?: string
   },
 ): SQL | undefined {
-  const day = tab === 'paid' ? g.lastPaidDate : g.chaseDate
+  // The payment's OWN date now, not the grant's rolled-up next/last: on a list of
+  // payments "between these dates" can finally mean the obvious thing.
+  const day = tab === 'paid' ? p.paidDate : p.dueDate
   return and(
-    f.roundId ? eq(g.roundId, f.roundId) : undefined,
-    f.programmeId ? eq(g.programmeId, f.programmeId) : undefined,
-    f.tag ? sql`${g.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
-    f.status ? eq(g.status, f.status) : undefined,
+    f.roundId ? eq(p.roundId, f.roundId) : undefined,
+    f.programmeId ? eq(p.programmeId, f.programmeId) : undefined,
+    f.tag ? sql`${p.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
+    f.status ? eq(p.status, f.status) : undefined,
     // Through `bankVerdict`, so the filter matches what the column DRAWS: a row written
     // before the status column existed reads as `unchecked` on screen, and picking
     // "Not checked" has to return it.
-    f.bank ? sql`${bankVerdict(g)} = ${f.bank}` : undefined,
+    f.bank ? sql`${bankVerdict(p)} = ${f.bank}` : undefined,
     // A row with no date at all is outside any window — it cannot be shown to be inside
-    // one, and showing it anyway would make the filter mean "or unknown".
+    // one, and showing it anyway would make the filter mean "or unknown". That now
+    // includes the unscheduled row and a "TBC" instalment, which is the honest answer:
+    // neither can be placed in a week.
     f.from ? sql`${day} >= ${f.from}` : undefined,
     f.to ? sql`${day} <= ${f.to}` : undefined,
     // Organisation or the foundation's own reference — the two ways a finance officer
     // holding a bank statement or an invoice identifies a grant.
-    searchAny(f.q, g.organisationName, g.externalApplicationId),
+    searchAny(f.q, p.organisationName, p.externalApplicationId),
   )
 }

@@ -47,10 +47,10 @@ type SortKey =
   | 'organisation'
   | 'programme'
   | 'round'
-  | 'committed'
+  | 'amount'
+  | 'grant'
+  | 'due'
   | 'paid'
-  | 'next'
-  | 'lastPaid'
   | 'bank'
   | 'status'
 type SortDir = 'asc' | 'desc'
@@ -77,15 +77,21 @@ const SORT_KEYS: SortKey[] = [
   'organisation',
   'programme',
   'round',
-  'committed',
+  'amount',
+  'grant',
+  'due',
   'paid',
-  'next',
-  'lastPaid',
   'bank',
   'status',
 ]
-/** Text reads best A–Z; money, dates and the two urgency ranks read best worst-first. */
-const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round']
+/**
+ * Text reads best A–Z; money and the two urgency ranks read best worst-first.
+ *
+ * `due` joins the A–Z half, which the old `next` did not have to think about: on a list
+ * of payments the first click on the Due column has to mean "soonest first". Descending
+ * would open the payment run on the money furthest away.
+ */
+const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round', 'due']
 
 export const Route = createFileRoute('/_authenticated/finance/')({
   // Tab, filters and page in the URL: a view you cannot link to is a view you lose
@@ -200,27 +206,45 @@ const txtSub = 'font-display text-body text-grey-500'
 
 // ─── Columns ─────────────────────────────────────────────────────────────────
 
-// Two lines: the grantee, then the foundation's OWN reference for the grant beneath it.
-// Finance is the screen where a row is matched against something outside Custodian — a
-// ledger, a payment run, an invoice — and the ref is what it is matched ON, so a
-// reconciler had to open every grant to read it.
+/**
+ * Two lines: the grantee, then WHICH PAYMENT this is and the foundation's own reference.
+ *
+ * Finance is the screen where a row is matched against something outside Custodian — a
+ * ledger, a payment run, an invoice — and the ref is what it is matched ON, so a
+ * reconciler had to open every grant to read it.
+ *
+ * "Payment 2 of 2" is what stops a charity's two rows reading as a duplicated row.
+ * `DataTable` has no row grouping and this deliberately does not add any: repeating the
+ * organisation on every one of its payments is right for a list you scan for a name,
+ * and the subline is where the row says which of them it is. A grant with a single
+ * instalment says nothing — "Payment 1 of 1" is noise on the common case.
+ */
+function paymentLabel(g: FinanceRow): string | null {
+  if (g.instalmentId === null) return 'No payment planned'
+  if (g.instalmentCount <= 1 || g.instalmentNo === null) return null
+  return `Payment ${g.instalmentNo} of ${g.instalmentCount}`
+}
+
 const ORGANISATION: TableColumn<FinanceRow> = {
   id: 'organisation',
   sortable: true,
   header: 'Organisation',
-  cell: (g) => (
-    <div className="min-w-0">
-      <div className="flex min-w-0 items-center gap-1.5">
-        <p className="truncate font-display text-body font-medium text-grey-900">
-          {g.organisationName}
+  cell: (g) => {
+    const subline = [paymentLabel(g), fmtRef(g.externalApplicationId)].filter(Boolean).join(' · ')
+    return (
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="truncate font-display text-body font-medium text-grey-900">
+            {g.organisationName}
+          </p>
+          {g.imported && <ImportedPill />}
+        </div>
+        <p className="truncate font-display text-label" style={{ color: C.sub }}>
+          {subline || '—'}
         </p>
-        {g.imported && <ImportedPill />}
       </div>
-      <p className="truncate font-display text-label" style={{ color: C.sub }}>
-        {fmtRef(g.externalApplicationId) ?? '—'}
-      </p>
-    </div>
-  ),
+    )
+  },
 }
 
 const PROGRAMME: TableColumn<FinanceRow> = {
@@ -272,43 +296,54 @@ const THEME: TableColumn<FinanceRow> = {
 }
 
 /**
- * The grant's own total. It is `awards.amountAwarded` — the same figure the Awards
- * register calls **Amount** and an award's own screen calls **Awarded** — so it is
- * labelled the way the rest of the app labels it, on the row.
+ * THIS payment's money, and the row's headline figure — because on a payment run the
+ * question is what leaves the account, not what the grant was worth.
  *
- * "Committed" is the word for the ROLLUP (the budget panel's bar, the wizard's total,
- * the header's "live commitments"): money the foundation owes, summed, and read against
- * what it has. On a single row that distinction has nothing to do — one grant's
- * committed money IS what was awarded — and the two names side by side made it look
- * like two different figures. The sort key stays `committed`; it is the server's name
- * for the column, not the reader's.
+ * On the unscheduled row it is what the grant still owes. That row has no instalment
+ * to state, and the amount is the whole point of showing it: money promised with no
+ * plan to pay it.
  */
-const COMMITTED: TableColumn<FinanceRow> = {
-  id: 'committed',
+const AMOUNT: TableColumn<FinanceRow> = {
+  id: 'amount',
   sortable: true,
-  header: 'Awarded',
+  header: 'Amount',
   width: 'sm:w-[9%]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
-      {fmtMoney(g.committed)}
+      {fmtMoney(g.amount)}
     </span>
   ),
 }
 
-const PAID: TableColumn<FinanceRow> = {
-  id: 'paid',
+/**
+ * The grant this payment belongs to: its total, and how far through the schedule it is.
+ *
+ * Context, not the headline — which is exactly the change this screen needed. Two rows
+ * of £9,730 both showing £19,460 in the money column read as £38,920 at a glance; here
+ * the figure is subdued, labelled Grant, and paired with "1/2 paid" so it answers the
+ * question the payment row raises ("what else is owed on this?") rather than competing
+ * with it.
+ *
+ * `Awarded` is the word the rest of the app uses for one grant's money (the Awards
+ * register's Amount column, an award screen's Awarded fact); "Committed" is the word for
+ * the ROLLUP — the budget panel's bar, the wizard's total, the header's "live
+ * commitments". The header here says **Grant** because on this screen the contrast that
+ * matters is not awarded-versus-committed, it is this payment versus the whole grant.
+ */
+const GRANT: TableColumn<FinanceRow> = {
+  id: 'grant',
   sortable: true,
   hideBelow: 'lg',
-  header: 'Paid',
+  header: 'Grant',
   width: 'sm:w-[10%]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <div className="whitespace-nowrap">
-      <span className={txtSub}>{g.paidToDate > 0 ? fmtMoney(g.paidToDate) : '—'}</span>
+      <span className={txtSub}>{fmtMoney(g.committed)}</span>
       {g.instalmentCount > 0 && (
         <span className="ml-1 font-display text-label text-grey-400">
-          {g.paidCount}/{g.instalmentCount}
+          {g.paidCount}/{g.instalmentCount} paid
         </span>
       )}
     </div>
@@ -340,42 +375,50 @@ const STATUS: TableColumn<FinanceRow> = {
   cell: (g) => <StatusPill label={FINANCE_STATUS_LABELS[g.status]} colour={STATUS_HEX[g.status]} />,
 }
 
+/**
+ * When this payment is due, and how far off that is.
+ *
+ * Three states, all of them a real answer rather than a blank: a date, "Date TBC" for an
+ * instalment nobody dated, and "No schedule" for the grant that has no instalments at
+ * all. The last is the row the LEFT JOIN exists for — see `paymentsQuery`.
+ */
+const DUE: TableColumn<FinanceRow> = {
+  id: 'due',
+  sortable: true,
+  hideBelow: 'sm',
+  header: 'Due',
+  width: 'sm:w-[12%]',
+  cellClassName: 'tabular-nums',
+  cell: (g) => {
+    if (g.instalmentId === null) {
+      return <span className="font-display text-body text-grey-400">No schedule</span>
+    }
+    if (!g.dueDate) return <span className="font-display text-body text-grey-400">Date TBC</span>
+    const rel = relativeDays(g.dueDate)
+    return (
+      <div className="whitespace-nowrap">
+        <div className="font-display text-body text-grey-900">{fmtDate(g.dueDate)}</div>
+        {rel?.text && (
+          <div
+            className="font-display text-label"
+            style={{ color: rel.overdue ? 'var(--color-danger)' : 'var(--color-grey-400)' }}
+          >
+            {rel.text}
+          </div>
+        )}
+      </div>
+    )
+  },
+}
+
 const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
   ORGANISATION,
   ROUND,
   PROGRAMME,
   THEME,
-  COMMITTED,
-  PAID,
-  {
-    id: 'next',
-    sortable: true,
-    hideBelow: 'sm',
-    header: 'Next payment',
-    width: 'sm:w-[13%]',
-    cellClassName: 'tabular-nums',
-    cell: (g) => {
-      if (!g.nextPayment) {
-        return <span className="font-display text-body text-grey-400">No schedule</span>
-      }
-      const rel = relativeDays(g.nextPayment.dueDate)
-      return (
-        <div className="whitespace-nowrap">
-          <div className="font-display text-body font-medium text-grey-900">
-            {fmtMoney(g.nextPayment.amount)}
-          </div>
-          <div
-            className="font-display text-label"
-            style={{ color: rel?.overdue ? 'var(--color-danger)' : 'var(--color-grey-400)' }}
-          >
-            {g.nextPayment.dueDate
-              ? [fmtDate(g.nextPayment.dueDate), rel?.text].filter(Boolean).join(' · ')
-              : 'Date TBC'}
-          </div>
-        </div>
-      )
-    },
-  },
+  AMOUNT,
+  DUE,
+  GRANT,
   VALID,
   STATUS,
 ]
@@ -385,16 +428,25 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
   ROUND,
   PROGRAMME,
   THEME,
-  COMMITTED,
-  PAID,
+  AMOUNT,
   {
-    id: 'lastPaid',
+    id: 'paid',
     sortable: true,
     hideBelow: 'sm',
-    header: 'Last payment',
-    width: 'sm:w-[13%]',
-    cell: (g) => <span className={`whitespace-nowrap ${txtSub}`}>{fmtDate(g.lastPaidDate)}</span>,
+    header: 'Paid on',
+    width: 'sm:w-[12%]',
+    cellClassName: 'tabular-nums',
+    // A cancelled grant's unpaid instalments sit on this tab too — nothing left to pay —
+    // and they have no date, which is the honest answer rather than a borrowed one.
+    cell: (g) => (
+      <span
+        className={`whitespace-nowrap ${g.paidDate ? txtSub : 'font-display text-body text-grey-400'}`}
+      >
+        {g.paidDate ? fmtDate(g.paidDate) : '—'}
+      </span>
+    ),
   },
+  GRANT,
   VALID,
   STATUS,
 ]
@@ -481,7 +533,7 @@ function FinancePage() {
         status: undefined,
         // Likewise the two date columns: each exists on one tab only, so carrying that
         // sort over would leave the list ordered by a column that isn't on screen.
-        ...(prev.sortBy === 'next' || prev.sortBy === 'lastPaid'
+        ...(prev.sortBy === 'due' || prev.sortBy === 'paid'
           ? { sortBy: undefined, sortDir: undefined }
           : {}),
         page: undefined,
@@ -638,14 +690,14 @@ function FinancePage() {
           <EmptyState>
             <p className="text-body text-grey-500">
               {status || bank || programmeId || tag || roundId || from || to
-                ? 'No grants match these filters.'
+                ? 'No payments match these filters.'
                 : tab === 'to_pay'
                   ? 'Nothing outstanding — every grant is paid up.'
                   : 'No payments made yet.'}
             </p>
             <p className="mt-1 text-label text-grey-400">
-              Grants appear here as soon as an award is generated, with the instalment schedule set
-              on the award.
+              Payments appear here as soon as an award is generated, one row per instalment of the
+              schedule set on the award.
             </p>
           </EmptyState>
         ) : (
@@ -654,7 +706,9 @@ function FinancePage() {
               <DataTable
                 columns={tab === 'to_pay' ? TO_PAY_COLUMNS : PAID_COLUMNS}
                 rows={rows}
-                rowKey={(g) => g.awardId}
+                // The payment, not the grant — a grant now has as many rows as it has
+                // instalments, and keying on the award would collide them.
+                rowKey={(g) => g.key}
                 rowClassName={(g) => (opening === g.awardId ? 'opacity-60' : '')}
                 onRowClick={(g) => openGrant(g.awardId)}
                 // The default order is a real order (soonest owed first), so its
@@ -668,7 +722,7 @@ function FinancePage() {
               pageCount={pageCount}
               shown={rows.length}
               total={total}
-              noun="grants"
+              noun="payments"
               onChange={(p) =>
                 navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
               }
@@ -804,14 +858,19 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     'Programme',
     'Round',
     'Theme',
-    'Awarded',
+    // The payment itself, which is now what a row IS — so the file is a payment file
+    // rather than a grant summary with a next-payment column bolted to the side. One
+    // line per payment is also the shape a bank's own upload templates take.
+    'Payment',
+    'Payment amount',
+    'Due date',
+    'Paid date',
+    'Status',
+    // The grant behind it, so a row still reconciles against a ledger kept per grant.
+    'Grant total',
     'Paid to date',
     'Outstanding',
     'Instalments paid',
-    'Next payment',
-    'Next payment due',
-    'Last paid',
-    'Status',
     'Account name',
     'Sort code',
     'Account number',
@@ -823,14 +882,19 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     g.programmeName ?? '',
     g.roundName ?? '',
     g.tags.join('; '),
+    g.instalmentId === null
+      ? 'No schedule'
+      : g.instalmentNo !== null
+        ? `${g.instalmentNo} of ${g.instalmentCount}`
+        : '',
+    g.amount,
+    g.dueDate ?? '',
+    g.paidDate ?? '',
+    FINANCE_STATUS_LABELS[g.status],
     g.committed,
     g.paidToDate,
     g.outstanding,
     `${g.paidCount}/${g.instalmentCount}`,
-    g.nextPayment?.amount ?? '',
-    g.nextPayment?.dueDate ?? '',
-    g.lastPaidDate ?? '',
-    FINANCE_STATUS_LABELS[g.status],
     g.bank.accountName ?? '',
     dashedSortCode(g.bank.sortCode),
     g.bank.accountNumber ?? '',
