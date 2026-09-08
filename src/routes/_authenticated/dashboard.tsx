@@ -479,7 +479,14 @@ function Dashboard() {
   ]
   // Approved is "the vote went its way", which stays true after the grant is minted —
   // so an awarded application is still an approved one, just further along.
-  const approved = a.readyToAward.count + d.pipeline.awarded
+  //
+  // `awardedByDecision`, NOT `awarded`: a grant carried in by the onboarding data
+  // import is at `awarded` without ever having been submitted, shortlisted or voted on,
+  // and this card is about the shortlist. A foundation that onboarded eight historic
+  // grants was shown "8 · £0 proposed · 8 approved" on a card that opens onto a
+  // shortlist with nothing on it — the same reason the import is barred from going
+  // through `createAwards`: it is recording a fact, not making a decision.
+  const approved = a.readyToAward.count + d.pipeline.awardedByDecision
   // Solid green first, its own 30% tint second — the strip darkens toward the decided
   // end, so the eye reads progress left to right.
   const reviewCats: Chip[] = [

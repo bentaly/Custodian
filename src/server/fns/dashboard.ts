@@ -146,9 +146,18 @@ export async function dashboardData(
     bankFieldRows,
     latelyRows,
   ] = await Promise.all([
-    // Pipeline counts by status.
+    // Pipeline counts by status, each with the share of them that Custodian actually
+    // DECIDED. An onboarding import writes its back catalogue straight in at `awarded`
+    // — no application form, no shortlist, no vote — so a count of awarded rows and a
+    // count of awards this foundation made through Custodian are two different numbers
+    // the moment anyone onboards. `count` is every row (which is what a status count
+    // should be); `decided` is the pipeline's own, and the Shortlist card reads that.
     db
-      .select({ status: applications.status, count: count() })
+      .select({
+        status: applications.status,
+        count: count(),
+        decided: sql<number>`(count(*) FILTER (WHERE ${applications.importBatchId} IS NULL))::int`,
+      })
       .from(applications)
       .where(inScope)
       .groupBy(applications.status),
@@ -457,6 +466,10 @@ export async function dashboardData(
     awarded: statusCounts.awarded ?? 0,
     declined: statusCounts.declined ?? 0,
     total: statusRows.reduce((s, r) => s + r.count, 0),
+    // Awarded through Custodian — see the query. Only the Shortlist card reads this:
+    // its "approved" chip means "the vote went its way", and a grant imported from a
+    // back catalogue never had a vote to go its way.
+    awardedByDecision: statusRows.find((r) => r.status === 'awarded')?.decided ?? 0,
   }
 
   // ── Score distribution ──────────────────────────────────────────────────────
@@ -534,12 +547,16 @@ export async function dashboardData(
       // least of all on a card that opens onto the list those counts came from.
       focusRound
         ? db
-            .select({ status: applications.status, count: count() })
+            .select({
+              status: applications.status,
+              count: count(),
+              decided: sql<number>`(count(*) FILTER (WHERE ${applications.importBatchId} IS NULL))::int`,
+            })
             .from(applications)
             .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
             .where(and(eq(roundProgrammes.roundId, focusRound.id), inScope))
             .groupBy(applications.status)
-        : Promise.resolve([] as Array<{ status: string; count: number }>),
+        : Promise.resolve([] as Array<{ status: string; count: number; decided: number }>),
       // Per-programme budget + committed for the focus round (the round rail donut/bars).
       focusRound
         ? db
@@ -604,6 +621,7 @@ export async function dashboardData(
         awarded,
         declined: fc.declined ?? 0,
         total: funnel.submitted,
+        awardedByDecision: funnelRows.find((r) => r.status === 'awarded')?.decided ?? 0,
       }
 
       const programmesOut = focusProgrammeRows
@@ -854,6 +872,8 @@ type DashboardRoundBreakdown = {
     awarded: number
     declined: number
     total: number
+    /** Awarded through Custodian rather than carried in by the onboarding import. */
+    awardedByDecision: number
   }
   budget: number
   committed: number
@@ -865,7 +885,14 @@ function emptyDashboard(name: string) {
     name,
     role: 'trustee' as string,
     openRoundName: null as string | null,
-    pipeline: { for_review: 0, shortlisted: 0, awarded: 0, declined: 0, total: 0 },
+    pipeline: {
+      for_review: 0,
+      shortlisted: 0,
+      awarded: 0,
+      declined: 0,
+      total: 0,
+      awardedByDecision: 0,
+    },
     money: {
       totalAwarded: 0,
       outstanding: 0,
