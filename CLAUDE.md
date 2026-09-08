@@ -388,7 +388,21 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
 - **Three things an import must never do**, all easy to add by reflex: send award letters (127
   charities emailed about grants from 2019), write `audit_log` rows (the feed would show 127
   awards "made today"), or go through `createAwards` (which enforces a trustee majority — right
-  for a decision, meaningless for a fact). Due diligence and deprivation are not auto-run either.
+  for a decision, meaningless for a fact). Due diligence and the Custodian score are not
+  auto-run either — a stale registry answer and a 2019 application scored against 2026 goals
+  are both worse than a blank.
+- **Deprivation IS auto-run**, on the queue (`kind: 'deprivation'` →
+  `src/server/applications/deprivation.ts`), one message per imported application. Different
+  in kind from the two above: a delivery area does not go stale and the decile comes from our
+  own IMD table, and "Where the impact happens" is a REQUIRED template column precisely
+  because it drives the whole deprivation and regional picture. It cannot run inline — a
+  hundred areas is a hundred geocodes, past both the 30s post-response ceiling and the
+  50-subrequest cap.
+- **An imported impact figure is a `reports` row but NOT a received report.** Insights reads
+  impact from reports and nowhere else, so the figure lives there; `isArrivedReport`
+  (`src/server/reports/query.ts`) keeps it out of the Reports library, its tab counts, the
+  dashboard's "to review" KPI and feed, and global search. A received milestone gets a real
+  report row dated when it arrived. Names come from `src/lib/reportLabel.ts`.
 - **`import_batches` makes it reversible.** Every created row carries `importBatchId`;
   `rollbackImport` removes them unless a comment, vote, award letter or non-import report exists.
   Re-uploading the same reference REPLACES rather than duplicating — that is the phasing mechanism.
