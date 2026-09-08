@@ -7,6 +7,7 @@ import {
   DateText,
   EmptyState,
   FilterPill,
+  ImportedPill,
   Pagination,
   FilterRow,
   SearchInput,
@@ -108,19 +109,22 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
             </span>
           </div>
           <div className="min-w-0">
-            <Link
-              to="/awards/$awardId"
-              params={{ awardId: g.awardId }}
-              /* As the row click: same URL either way, filters included. Parsed rather
-                 than spread because these columns are module-level, so `prev` is typed
-                 as every route's search at once. */
-              search={(prev) => parseAwardsSearch(prev)}
-              onClick={(e) => e.stopPropagation()}
-              className="block truncate font-display text-body font-medium hover:underline"
-              style={{ color: C.ink }}
-            >
-              {g.organisationName}
-            </Link>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Link
+                to="/awards/$awardId"
+                params={{ awardId: g.awardId }}
+                /* As the row click: same URL either way, filters included. Parsed rather
+                   than spread because these columns are module-level, so `prev` is typed
+                   as every route's search at once. */
+                search={(prev) => parseAwardsSearch(prev)}
+                onClick={(e) => e.stopPropagation()}
+                className="block truncate font-display text-body font-medium hover:underline"
+                style={{ color: C.ink }}
+              >
+                {g.organisationName}
+              </Link>
+              {g.imported && <ImportedPill />}
+            </div>
             <p className="truncate font-display text-label" style={{ color: C.sub }}>
               {subline}
             </p>
@@ -225,24 +229,28 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
       }
       return (
         <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="whitespace-nowrap font-display text-body tabular-nums text-grey-700">
-              <span className="font-medium text-grey-900">
-                <CompactMoney amount={g.paidToDate} label="Exact paid to date" />
-              </span>{' '}
-              of <CompactMoney amount={g.amountAwarded} label="Exact amount awarded" />
-            </span>
-            {pill}
-          </div>
+          {/* Exact, not `fmtCompact`: this is a figure a foundation reconciles against its
+              own ledger, it sits directly beside the exact Amount column, and "£5k of
+              £10k" against a schedule of two £5,000 instalments made the row read as a
+              summary of itself rather than as the money. Exact figures are wide, which is
+              why the pill moved down to the instalment line — it is still a statement
+              about the bar, now sitting under it rather than over it. */}
+          <span className="whitespace-nowrap font-display text-body tabular-nums text-grey-700">
+            <span className="font-medium text-grey-900">{fmtMoney(g.paidToDate)}</span> of{' '}
+            {fmtMoney(g.amountAwarded)}
+          </span>
           <ProgressBar
             value={g.amountAwarded > 0 ? g.paidToDate / g.amountAwarded : 0}
             colour={g.status === 'cancelled' ? C.muted : C.success}
             height={4}
             animate={false}
           />
-          <span className="whitespace-nowrap font-display text-label text-grey-500">
-            {g.paidCount} of {g.instalmentCount} instalment{g.instalmentCount === 1 ? '' : 's'}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="whitespace-nowrap font-display text-label text-grey-500">
+              {g.paidCount} of {g.instalmentCount} instalment{g.instalmentCount === 1 ? '' : 's'}
+            </span>
+            {pill}
+          </div>
         </div>
       )
     },

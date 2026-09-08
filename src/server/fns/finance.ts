@@ -512,6 +512,7 @@ function toFinanceRow(r: GrantRow, includeBankDetails: boolean) {
     roundName: r.roundName,
     tags: (r.tags as string[] | null) ?? [],
     awardStatus: r.awardStatus,
+    imported: r.imported,
     committed: r.committed,
     outstanding: r.outstanding,
     status: r.status as FinanceStatus,

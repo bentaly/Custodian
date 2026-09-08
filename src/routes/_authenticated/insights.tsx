@@ -682,9 +682,13 @@ function decileShare(g: InsightsGrant, maxDecile: number): number {
 
 type ImpactSource = 'reported' | 'proposed'
 /**
- * A grant's impact figure, provenance-tagged: the ACTUAL from an analysed report
- * where one exists, otherwise the applicant's PROPOSED figure as a fallback. Callers
- * decide how to present each source — proposed figures are estimates, never actuals.
+ * A grant's impact figure, provenance-tagged: the ACTUAL from the most recent report
+ * carrying one, otherwise the applicant's PROPOSED figure as a fallback. Callers decide
+ * how to present each source — proposed figures are estimates, never actuals.
+ *
+ * "Carrying one" rather than "analysed", because a figure is a figure however it was
+ * arrived at: the AI extracts most of them, and the onboarding import carries a
+ * foundation's historic figures across with deliberately no analysis behind them.
  */
 function effImpact(g: InsightsGrant): { value: number; source: ImpactSource } | null {
   if (g.impactQuantity !== null) return { value: g.impactQuantity, source: 'reported' }

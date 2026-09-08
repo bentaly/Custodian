@@ -30,6 +30,10 @@ export type PipelineMessage =
   // committed before this message exists, so a retry re-sends the same bytes rather
   // than re-deriving them from a template that may have moved on.
   | { kind: 'decline_letter'; letterId: string }
+  // One imported application's delivery area, to be resolved into a deprivation
+  // reading. The onboarding import writes the whole back catalogue in one request and
+  // cannot geocode a hundred areas inside it — see `applications/deprivation.ts`.
+  | { kind: 'deprivation'; applicationId: string }
 
 interface QueueBinding {
   send(body: unknown): Promise<void>

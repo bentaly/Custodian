@@ -10,6 +10,8 @@
 // 20% for a border (nodes 222:1026, 217:664) — expressed with `color-mix` so they
 // derive from the token rather than being separate frozen values.
 
+import { scoreBandKey } from '../../lib/scoreBands'
+
 /** A token at a percentage of itself — the tint ladder, as ALPHA rather than a
  *  composite over white, which is what the comps use (`rgba(31,122,92,0.1)`). The
  *  difference shows the moment a tinted thing sits on anything but a white surface. */
@@ -82,7 +84,9 @@ export const SCORE_BAND = {
 
 /**
  * Which band a score falls in — **one rule, expressed as a proportion of the scale**:
- * 70% and up is good, 40% and up is fair, below that is poor.
+ * 70% and up is good, 40% and up is fair, below that is poor. The rule itself lives in
+ * `lib/scoreBands`, because the AI-score FILTER offers those same three bands and the
+ * two must not drift; this function is only the colour half of it.
  *
  * `outOf` is the scale the figure is quoted on & is used only to NORMALISE it. The two
  * scales are deliberate — the composite is out of 100, a single criterion out of 10, and
@@ -95,8 +99,7 @@ export const SCORE_BAND = {
  * at 70 rather than 80, and amber at 40 rather than 60.
  */
 export function bandForScore(score: number, outOf: 100 | 10 = 100) {
-  const pct = (score / outOf) * 100
-  return SCORE_BAND[pct >= 70 ? 'good' : pct >= 40 ? 'fair' : 'poor']
+  return SCORE_BAND[scoreBandKey(score, outOf)]
 }
 
 /**

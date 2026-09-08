@@ -39,6 +39,7 @@ import {
   Button,
   ExportButton,
   FilterPill,
+  ImportedPill,
   Listbox,
   Pagination,
   FilterRow,
@@ -53,6 +54,7 @@ import {
 } from '../../components/ui'
 import { fmtAmount, fmtCompact, fmtDate, fmtRef } from '../../lib/format'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
+import { SCORE_BAND_OPTIONS } from '../../lib/scoreBands'
 import { longerTimeout } from '../../lib/requestTimeout'
 
 const PAGE_SIZE = 25
@@ -135,13 +137,6 @@ function initials(name: string) {
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
 }
-
-const SCORE_BAND_OPTIONS: Array<{ value: ScoreBand; label: string }> = [
-  { value: '90plus', label: '90+' },
-  { value: '80to89', label: '80–89' },
-  { value: '70to79', label: '70–79' },
-  { value: 'below70', label: 'Below 70' },
-]
 
 // Application status → pill colour. Colours follow the Figma table (amber in review,
 // green shortlisted, brand-green awarded, red declined). The *label* is not repeated
@@ -455,20 +450,23 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
             </span>
           </div>
           <div className="min-w-0">
-            <Link
-              to="/applications/$applicationId"
-              params={{ applicationId: app.id }}
-              /* The list's filters ride along to the detail screen, whose back arrow
-                 hands them straight back — see `parseApplicationsSearch`. Parsed rather
-                 than spread because these columns are module-level and so `prev` is
-                 typed as every route's search at once. */
-              search={(prev) => parseApplicationsSearch(prev)}
-              onClick={(e) => e.stopPropagation()}
-              className="block truncate font-display text-body font-medium hover:underline"
-              style={{ color: C.ink }}
-            >
-              {app.organisationName}
-            </Link>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Link
+                to="/applications/$applicationId"
+                params={{ applicationId: app.id }}
+                /* The list's filters ride along to the detail screen, whose back arrow
+                   hands them straight back — see `parseApplicationsSearch`. Parsed rather
+                   than spread because these columns are module-level and so `prev` is
+                   typed as every route's search at once. */
+                search={(prev) => parseApplicationsSearch(prev)}
+                onClick={(e) => e.stopPropagation()}
+                className="block truncate font-display text-body font-medium hover:underline"
+                style={{ color: C.ink }}
+              >
+                {app.organisationName}
+              </Link>
+              {app.importBatchId !== null && <ImportedPill />}
+            </div>
             <p className="truncate font-display text-label" style={{ color: C.sub }}>
               {subline}
             </p>

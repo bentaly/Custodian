@@ -23,6 +23,9 @@ import { resolveColumn, type Candidate } from '../../lib/dataImport/match'
 import { validateImport, type ExistingReference } from '../../lib/dataImport/validate'
 import { CommitImportSchema, ImportPayloadSchema } from '../../lib/validators/dataImport'
 import type { GrantRow } from '../../lib/dataImport/parse'
+import { impactUnitLabel } from '../../lib/impactUnits'
+import { enqueueMany } from '../pipelineQueue'
+import { resolveApplicationDeprivation } from '../applications/deprivation'
 
 // ─── Historical data import ─────────────────────────────────────────────────
 //
@@ -174,7 +177,12 @@ export const commitImport = createServerFn({ method: 'POST' })
     // Every mapped id is checked against this client's own programmes: the mapping
     // arrives from the browser, so an id from another tenant must not be honoured.
     const ownProgrammes = await db
-      .select({ id: programmes.id, name: programmes.name, impactUnit: programmes.impactUnit })
+      .select({
+        id: programmes.id,
+        name: programmes.name,
+        impactUnit: programmes.impactUnit,
+        impactUnitLabel: programmes.impactUnitLabel,
+      })
       .from(programmes)
       .where(eq(programmes.clientId, clientId))
     const programmeById = new Map(ownProgrammes.map((p) => [p.id, p]))
@@ -269,6 +277,8 @@ export const commitImport = createServerFn({ method: 'POST' })
     // ── Build the rows ──
 
     const batchId = crypto.randomUUID()
+    // One clock for the whole import, so every row it stamps agrees with every other.
+    const importedAt = new Date()
     const usedReferences = new Set(
       existing
         .filter((e) => !incomingRefs.has(e.reference.toLowerCase()))
@@ -406,43 +416,95 @@ export const commitImport = createServerFn({ method: 'POST' })
 
       const milestones = reportsByRef.get(grant.reference) ?? []
       const scheduleIds = milestones.map(() => crypto.randomUUID())
+      // `submittedDate` is what makes a milestone met, so a report answered "Yes" with
+      // no date falls back to the due date rather than staying null — same rule as a
+      // payment marked paid with no date, and for the same reason: the fact is worth
+      // more than the precision. The client was warned.
+      const receivedOn = milestones.map((m) => (m.received ? (m.receivedDate ?? m.dueDate) : null))
       milestones.forEach((m, i) => {
         scheduleRows.push({
           id: scheduleIds[i]!,
           awardId,
           label: m.label,
           dueDate: m.dueDate,
-          // `submittedDate` is what makes a milestone met, so a report answered "Yes"
-          // with no date falls back to the due date rather than staying null — same
-          // rule as a payment marked paid with no date, and for the same reason: the
-          // fact is worth more than the precision. The client was warned.
-          submittedDate: m.received ? (m.receivedDate ?? m.dueDate) : null,
+          submittedDate: receivedOn[i]!,
         })
       })
 
-      // A historic impact figure, recorded as a report so Insights — which already
-      // reads impact from reports — needs no special case for imported history.
-      // No AI analysis: there is no narrative to analyse, just a number.
-      if (grant.impactQuantity != null) {
-        const satisfied = milestones.findIndex((m) => m.received)
+      // A milestone answered "Yes" needs a `reports` row of its own, not just a date on
+      // the schedule. The Reports screen is two lists and a row belongs to exactly one:
+      // `arrivedQuery` reads `reports`, `outstandingQuery` reads schedule rows with
+      // nothing submitted against them. A milestone with a `submittedDate` and no report
+      // is in NEITHER — the foundation ticked "received" and watched the milestone
+      // disappear off both halves of the screen.
+      //
+      // The row carries no narrative because none was imported (the template asks for
+      // milestones and dates, not documents), and no AI analysis for the same reason.
+      // It is dated the day the report actually arrived — NOT, as it was, the day the
+      // grant was awarded, which put every imported report on the decision date and
+      // labelled the ones that answered nothing "Unscheduled report".
+      const received = receivedOn
+        .map((on, i) => ({ i, on }))
+        .filter((r): r is { i: number; on: string } => r.on !== null)
+      // The impact figure is "so far", so it belongs on the LAST report received — that
+      // is the one Insights reads (`latestWithQuantity`) and the one a reader would look
+      // to for the current total. Dates are `yyyy-mm-dd`, so they compare as strings.
+      const carriesImpact =
+        grant.impactQuantity == null
+          ? null
+          : received.reduce<{ i: number; on: string } | null>(
+              (latest, r) => (latest === null || r.on >= latest.on ? r : latest),
+              null,
+            )
+      const unitLabel = impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
+
+      /** The impact half of a report row — only ever on one row per grant. */
+      const impactFields = () => ({
+        impactQuantity: String(grant.impactQuantity),
+        impactQuantitySource: 'reported',
+        impactUnitLabel: unitLabel,
+      })
+      /** Everything a report row copies off the grant it belongs to. */
+      const reportBase = () => ({
+        id: crypto.randomUUID(),
+        clientId,
+        awardId,
+        matchMethod: 'import' as const,
+        externalApplicationId: reference,
+        organisationName: grant.organisationName,
+        charityNumber: grant.charityNumber,
+        companyNumber: grant.companyNumber,
+        analysisStatus: 'pending' as const,
+        importBatchId: batchId,
+      })
+
+      for (const r of received) {
+        const carries = carriesImpact !== null && carriesImpact.i === r.i
         reportRows.push({
-          id: crypto.randomUUID(),
-          clientId,
-          awardId,
-          scheduleId: satisfied >= 0 ? scheduleIds[satisfied]! : null,
-          matchMethod: 'import',
-          externalApplicationId: reference,
-          organisationName: grant.organisationName,
-          charityNumber: grant.charityNumber,
-          companyNumber: grant.companyNumber,
+          ...reportBase(),
+          scheduleId: scheduleIds[r.i]!,
+          impactSummary: carries
+            ? 'Impact figure supplied by the foundation when its historic grants were imported. The report itself was not imported.'
+            : 'Recorded as received when this grant was imported. The report itself was not imported.',
+          ...(carries ? impactFields() : {}),
+          submittedAt: new Date(`${r.on}T00:00:00Z`),
+        })
+      }
+
+      // A figure with no report to ride on: the foundation knows what the grant has
+      // achieved so far without having received anything on paper, which the template
+      // invites ("Any impact recorded for this grant so far"). It is still worth having
+      // — Insights is the reason this row exists at all — but it is NOT a report that
+      // arrived, so it says what it is and is dated the import rather than borrowing a
+      // milestone's date or the award's. `arrivedQuery` labels it from `importBatchId`.
+      if (grant.impactQuantity != null && carriesImpact === null) {
+        reportRows.push({
+          ...reportBase(),
+          scheduleId: null,
           impactSummary:
-            'Figure supplied by the foundation when its historic grants were imported.',
-          impactQuantity: String(grant.impactQuantity),
-          impactQuantitySource: 'reported',
-          impactUnitLabel: programme.impactUnit,
-          analysisStatus: 'pending',
-          submittedAt: decisionAt,
-          importBatchId: batchId,
+            'Impact figure supplied by the foundation when its historic grants were imported. No report has been received for this grant.',
+          ...impactFields(),
+          submittedAt: importedAt,
         })
       }
     }
@@ -512,6 +574,29 @@ export const commitImport = createServerFn({ method: 'POST' })
     // writing one entry per grant would show 127 awards "made today"; and an import that
     // emailed award letters would notify 127 charities about grants they received years
     // ago. Both are stated here because both are catastrophic and easy to add by reflex.
+
+    // Deprivation IS run, on the queue, once the rows are committed.
+    //
+    // "Where the impact happens" is a REQUIRED column on the template, and the one cell
+    // that drives the whole deprivation and regional picture — so leaving it unresolved
+    // made Insights blank for a foundation that had just handed us its portfolio. It
+    // cannot run inline: a hundred delivery areas is a hundred geocodes, far past both
+    // the 30-second post-response ceiling and the 50-subrequest budget (see
+    // `applications/deprivation.ts`). One message each, sent with `sendBatch` so the
+    // whole catalogue costs a couple of subrequests rather than one per grant.
+    //
+    // Still NOT run: due diligence (a stale registry answer is worse than none, and the
+    // admin app's rerun is the deliberate way to get one) and the Custodian score
+    // (scoring a 2019 application against goals written in 2026 is a confident,
+    // meaningless number). Deprivation is different in kind from both — the delivery
+    // area does not go stale, and the reading is derived from our own IMD table.
+    await enqueueMany(
+      applicationRows.map((a) => ({ kind: 'deprivation' as const, applicationId: a.id! })),
+      (message) =>
+        message.kind === 'deprivation'
+          ? resolveApplicationDeprivation(message.applicationId)
+          : Promise.resolve(),
+    )
 
     return {
       batchId,

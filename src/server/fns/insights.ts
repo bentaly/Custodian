@@ -116,12 +116,11 @@ export async function insightsData(
       award: {
         with: {
           // A report row averages ~4KB — mostly the grantee's narrative and the AI's
-          // analysis of it. Insights reads five fields of it, so it asks for five.
+          // analysis of it. Insights reads four fields of it, so it asks for four.
           reports: {
             columns: {
               id: true,
               submittedAt: true,
-              analysisStatus: true,
               impactQuantity: true,
               impactQuantityQuote: true,
             },
@@ -145,10 +144,17 @@ export async function insightsData(
       const programme = a.roundProgramme?.programme ?? null
       const round = a.roundProgramme?.round ?? null
 
-      const analysed = award.reports
-        .filter((s) => s.analysisStatus === 'analysed')
-        .sort((x, y) => x.submittedAt.getTime() - y.submittedAt.getTime())
-      const latestWithQuantity = [...analysed].reverse().find((s) => s.impactQuantity !== null)
+      // Ordered oldest-first, then read backwards: the impact figure this screen quotes
+      // is the most recent one there is. The predicate is the QUANTITY, not the analysis
+      // status — a report with a figure has one however it got there, and gating on
+      // `analysed` silently dropped the imported ones, which carry a figure the
+      // foundation typed and deliberately no AI analysis (there is no narrative to
+      // analyse). That made the onboarding import's whole impact column invisible here,
+      // which is the one place it was collected for.
+      const dated = [...award.reports].sort(
+        (x, y) => x.submittedAt.getTime() - y.submittedAt.getTime(),
+      )
+      const latestWithQuantity = [...dated].reverse().find((s) => s.impactQuantity !== null)
 
       const dep = a.deprivationContext as DeprivationResult | null
       const deprivation: InsightsDeprivation | null =

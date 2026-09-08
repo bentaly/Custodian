@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SCORE_BAND_VALUES } from '../scoreBands'
 
 export const ApplicationStatus = z.enum(['for_review', 'shortlisted', 'awarded', 'declined'])
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>
@@ -131,7 +132,9 @@ export const UpdateApplicationStatusSchema = z.object({
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
 
-export const ScoreBand = z.enum(['90plus', '80to89', '70to79', 'below70'])
+// The three RAG bands the score is coloured in — see `lib/scoreBands`, which is the
+// single statement of where the lines are.
+export const ScoreBand = z.enum(SCORE_BAND_VALUES)
 export type ScoreBand = z.infer<typeof ScoreBand>
 
 export const ApplicationFiltersSchema = z.object({

@@ -161,6 +161,10 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
       roundName: sql<string | null>`${rounds.name}`.as('round_name'),
       tags: sql<unknown>`${programmes.tags}`.as('tags'),
       awardStatus: sql<string>`${awards.status}`.as('award_status'),
+      // Provenance, not status: a grant carried in by the onboarding import keeps its
+      // batch id for good, and the row says so — see `ui/ImportedPill` for why the
+      // blanks on an imported grant have to read as history rather than as loss.
+      imported: sql<boolean>`${awards.importBatchId} is not null`.as('imported'),
       // The verdict here is the STORED one (`lib/bankVerification`'s `bankStatus`,
       // written by `bankFields()` on every path that sets the numbers) — which is what
       // makes the Valid column sortable and filterable, and `bankIssueCount` countable,

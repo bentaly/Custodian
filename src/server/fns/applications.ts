@@ -9,7 +9,6 @@ import {
   sql,
   ne,
   gte,
-  lt,
   lte,
   isNotNull,
   desc,
@@ -44,8 +43,10 @@ import {
 } from '../../lib/validators/application'
 import { runDueDiligence } from '../dueDiligence/run'
 import { dueStatus, type ScheduleStatus } from '../../lib/schedule'
+import { reportLabel } from '../../lib/reportLabel'
 import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
+import { scoreBandFor } from '../../lib/scoreBands'
 import { sortRows } from '../../lib/sortRows'
 import {
   filterWhere as awardFilterWhere,
@@ -96,20 +97,17 @@ export const listApplications = createServerFn({ method: 'GET' })
       return { items: [], total: 0, page, pageSize, statusCounts: {}, allCount: 0 }
     }
 
-    const scoreBandFilter = (() => {
-      switch (filters.scoreBand) {
-        case '90plus':
-          return gte(applications.custodianScore, 90)
-        case '80to89':
-          return and(gte(applications.custodianScore, 80), lt(applications.custodianScore, 90))
-        case '70to79':
-          return and(gte(applications.custodianScore, 70), lt(applications.custodianScore, 80))
-        case 'below70':
-          return and(isNotNull(applications.custodianScore), lt(applications.custodianScore, 70))
-        default:
-          return undefined
-      }
-    })()
+    // The band's bounds come from `lib/scoreBands`, so the rows this returns are exactly
+    // the rows wearing that colour. `min`/`max` are inclusive; the `isNotNull` matters
+    // only for the bottom band, where an unscored row would otherwise fall through.
+    const band = scoreBandFor(filters.scoreBand)
+    const scoreBandFilter = band
+      ? and(
+          isNotNull(applications.custodianScore),
+          gte(applications.custodianScore, band.min),
+          lte(applications.custodianScore, band.max),
+        )
+      : undefined
 
     // Everything except the status filter — used both for the status-tab counts
     // (so each tab reflects the other active filters) and as the base of `where`.
@@ -723,6 +721,7 @@ function toAwardRow(r: AwardGrantRow) {
     tags: (r.tags as string[] | null) ?? [],
     durationYears: r.durationYears,
     deliveryArea: r.deliveryArea,
+    imported: r.imported,
     status: r.status,
     decisionAt: r.decisionAt,
     amountAwarded: r.amountAwarded,
@@ -888,8 +887,10 @@ export const getAward = createServerFn({ method: 'GET' })
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())
       .map((r) => ({
         id: r.id,
-        label:
-          (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
+        label: reportLabel(
+          r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null,
+          r.importBatchId !== null,
+        ),
         submittedAt: r.submittedAt.toISOString(),
         status: (r.reviewedAt ? 'reviewed' : 'received') as 'received' | 'reviewed',
         impactSummary: r.impactSummary,

@@ -11,7 +11,7 @@ describe('list search parsers', () => {
       roundId: 'r1',
       programmeId: 'p1',
       status: 'shortlisted',
-      scoreBand: '80to89',
+      scoreBand: 'fair',
       tag: 'youth',
       q: 'trust',
       from: '2026-01-01',

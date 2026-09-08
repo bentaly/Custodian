@@ -88,6 +88,10 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
         string | null
       >`coalesce(${applications.deliveryRegion}, ${applications.deliveryArea})`.as('delivery_area'),
       status: sql<string>`${awards.status}`.as('status'),
+      // Provenance, not status — see `ui/ImportedPill`. A grant from the onboarding
+      // import has no application form, score or votes behind it, and the row says so
+      // rather than leaving those blanks to read as data we lost.
+      imported: sql<boolean>`${awards.importBatchId} is not null`.as('imported'),
       decisionAt: sql<string>`to_char(${awards.decisionAt}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`.as(
         'decision_at',
       ),

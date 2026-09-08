@@ -32,9 +32,10 @@ export function ProgressBar({
   className?: string
 }) {
   const bands = (segments ?? [{ value: value ?? 0, colour }]).filter((s) => s.value > 0)
+  const total = bands.reduce((s, b) => s + b.value, 0)
   // Clamped as a whole, not band by band: two bands of 0.7 and 0.5 must divide the bar
   // between them, not each claim most of it and overflow.
-  const filled = Math.min(1, Math.max(0, bands.reduce((s, b) => s + b.value, 0)))
+  const filled = Math.min(1, Math.max(0, total))
 
   return (
     <div
@@ -53,8 +54,12 @@ export function ProgressBar({
             key={i}
             className="h-full"
             // Proportions inside the fill, so rounding can never leave a hairline gap at
-            // the right-hand end of a bar that is meant to be full.
-            style={{ flex: `${b.value} 1 0`, backgroundColor: b.colour }}
+            // the right-hand end of a bar that is meant to be full. The grow factors are
+            // shares of the fill (`b.value / total`) and so sum to 1 — a raw `b.value`
+            // summing to LESS than 1 leaves that much of the free space undistributed, so
+            // a single 0.5 band inside a fill already sized to 50% drew 25%: the fraction
+            // came out squared, and every part-paid bar understated itself.
+            style={{ flex: `${b.value / total} 1 0`, backgroundColor: b.colour }}
           />
         ))}
       </div>

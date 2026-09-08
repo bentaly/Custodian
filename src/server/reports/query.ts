@@ -10,6 +10,7 @@ import {
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
+import { IMPORTED_FIGURE_LABEL, UNSCHEDULED_REPORT_LABEL } from '../../lib/reportLabel'
 
 /**
  * The Reports screen, expressed as SQL — the third screen on the pattern set by
@@ -62,7 +63,14 @@ export function arrivedQuery(db: Db, clientId: string) {
     .select({
       ...grantColumns(),
       key: sql<string>`${reports.id}`.as('key'),
-      label: sql<string>`coalesce(${reportSchedule.label}, 'Unscheduled report')`.as('label'),
+      // `lib/reportLabel`'s rule, in SQL — the strings come from it so the list and the
+      // detail screen it opens cannot drift. A row answering no milestone is
+      // "Unscheduled" unless the import wrote it, in which case it was never a report at
+      // all: see that module for why the distinction is worth a CASE.
+      label: sql<string>`coalesce(${reportSchedule.label}, case
+        when ${reports.importBatchId} is not null then ${IMPORTED_FIGURE_LABEL}
+        else ${UNSCHEDULED_REPORT_LABEL}
+      end)`.as('label'),
       dueDate: sql<string | null>`${reportSchedule.dueDate}`.as('due_date'),
       submittedAt: sql<string>`to_char(${reports.submittedAt}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`.as(
         'submitted_at',

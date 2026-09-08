@@ -39,6 +39,7 @@ import {
 import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
 import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
+import { SCORE_BAND_OPTIONS, SCORE_BANDS, scoreBandFor } from '../../lib/scoreBands'
 
 const PAGE_SIZE = 25
 
@@ -47,13 +48,6 @@ const C = {
   bar: 'var(--color-grey-900)', // the dark selection bar
   mint: 'var(--color-brand-light)', // its meta text
 }
-
-const SCORE_BANDS = [
-  { value: '90plus', label: '90+', min: 90, max: 100 },
-  { value: '80to89', label: '80–89', min: 80, max: 89 },
-  { value: '70to79', label: '70–79', min: 70, max: 79 },
-  { value: 'below70', label: 'Below 70', min: 0, max: 69 },
-] as const
 
 type SetUpAwardsSearch = {
   roundId?: string
@@ -337,7 +331,7 @@ function SetUpAwards() {
   const visibleRounds = selectableRounds(rounds)
 
   const rows = useMemo(() => {
-    const band = SCORE_BANDS.find((b) => b.value === scoreBand)
+    const band = scoreBandFor(scoreBand)
     return candidates.items.filter((c) => {
       if (programmeId && c.programmeId !== programmeId) return false
       if (tag && !c.tags.includes(tag)) return false
@@ -513,7 +507,7 @@ function SetUpAwards() {
             label="AI score"
             plural="scores"
             value={scoreBand}
-            options={SCORE_BANDS.map((b) => ({ value: b.value, label: b.label }))}
+            options={SCORE_BAND_OPTIONS}
             onChange={(v) => setFilter({ scoreBand: v })}
           />
         </FilterRow>

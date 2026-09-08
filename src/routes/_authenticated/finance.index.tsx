@@ -21,6 +21,7 @@ import {
   ExportButton,
   FilterPill,
   FilterRow,
+  ImportedPill,
   SearchInput,
   Horizon,
   Pagination,
@@ -34,6 +35,7 @@ import { C } from '../../components/ui/tokens'
 import { facetLabel } from '../../lib/facets'
 import { messageFor } from '../../lib/errors'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { DUE_SOON_DAYS } from '../../lib/schedule'
 
 // Derived from the server fn rather than the route loader: `Route.useLoaderData` is
 // circular here (the route's component uses these types), which resolves to `any`.
@@ -143,8 +145,22 @@ export const Route = createFileRoute('/_authenticated/finance/')({
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-/** "in 4 days" / "12 days ago" — the thing a finance officer actually reads off a due date. */
-function relativeDays(iso: string | null): { text: string; overdue: boolean } | null {
+/**
+ * "in 4 days" / "12 days ago" — the thing a finance officer actually reads off a due
+ * date, and `null` where the date says it better on its own.
+ *
+ * A countdown is only worth reading while it is actionable. Beyond a month out nobody
+ * pays anything off "in 128 days" — the date is the fact, the countdown is noise
+ * dressed as precision, and it pushed a second line of grey under every scheduled row
+ * that no payment run would touch this quarter. The horizon is `DUE_SOON_DAYS` itself,
+ * imported rather than a 30 of its own: inside it a payment is one this screen already
+ * calls due soon, outside it it is a date in the diary.
+ *
+ * The past is NOT capped. An overdue payment is a payment somebody has to chase, and
+ * how long it has been overdue is the whole point of saying it — a year late is more
+ * urgent than a week late, not less.
+ */
+function relativeDays(iso: string | null): { text: string | null; overdue: boolean } | null {
   if (!iso) return null
   const today = new Date().toISOString().slice(0, 10)
   const days = Math.round(
@@ -153,6 +169,7 @@ function relativeDays(iso: string | null): { text: string; overdue: boolean } | 
   )
   if (days === 0) return { text: 'today', overdue: false }
   if (days < 0) return { text: `${-days} day${days === -1 ? '' : 's'} ago`, overdue: true }
+  if (days > DUE_SOON_DAYS) return { text: null, overdue: false }
   return { text: `in ${days} day${days === 1 ? '' : 's'}`, overdue: false }
 }
 
@@ -193,9 +210,12 @@ const ORGANISATION: TableColumn<FinanceRow> = {
   header: 'Organisation',
   cell: (g) => (
     <div className="min-w-0">
-      <p className="truncate font-display text-body font-medium text-grey-900">
-        {g.organisationName}
-      </p>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <p className="truncate font-display text-body font-medium text-grey-900">
+          {g.organisationName}
+        </p>
+        {g.imported && <ImportedPill />}
+      </div>
       <p className="truncate font-display text-label" style={{ color: C.sub }}>
         {fmtRef(g.externalApplicationId) ?? '—'}
       </p>
@@ -251,10 +271,22 @@ const THEME: TableColumn<FinanceRow> = {
   ),
 }
 
+/**
+ * The grant's own total. It is `awards.amountAwarded` — the same figure the Awards
+ * register calls **Amount** and an award's own screen calls **Awarded** — so it is
+ * labelled the way the rest of the app labels it, on the row.
+ *
+ * "Committed" is the word for the ROLLUP (the budget panel's bar, the wizard's total,
+ * the header's "live commitments"): money the foundation owes, summed, and read against
+ * what it has. On a single row that distinction has nothing to do — one grant's
+ * committed money IS what was awarded — and the two names side by side made it look
+ * like two different figures. The sort key stays `committed`; it is the server's name
+ * for the column, not the reader's.
+ */
 const COMMITTED: TableColumn<FinanceRow> = {
   id: 'committed',
   sortable: true,
-  header: 'Committed',
+  header: 'Awarded',
   width: 'sm:w-[9%]',
   cellClassName: 'tabular-nums',
   cell: (g) => (
@@ -337,7 +369,7 @@ const TO_PAY_COLUMNS: TableColumn<FinanceRow>[] = [
             style={{ color: rel?.overdue ? 'var(--color-danger)' : 'var(--color-grey-400)' }}
           >
             {g.nextPayment.dueDate
-              ? `${fmtDate(g.nextPayment.dueDate)} · ${rel!.text}`
+              ? [fmtDate(g.nextPayment.dueDate), rel?.text].filter(Boolean).join(' · ')
               : 'Date TBC'}
           </div>
         </div>
@@ -772,7 +804,7 @@ function exportCsv(rows: FinanceRow[], tab: Tab) {
     'Programme',
     'Round',
     'Theme',
-    'Committed',
+    'Awarded',
     'Paid to date',
     'Outstanding',
     'Instalments paid',

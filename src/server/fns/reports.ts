@@ -27,6 +27,7 @@ import {
   type OutstandingRow,
 } from '../reports/query'
 
+import { reportLabel } from '../../lib/reportLabel'
 export type { DueStatus } from '../../lib/schedule'
 
 // The Reports screen's data. Two distinct things, deliberately kept apart:
@@ -641,7 +642,16 @@ export const getReport = createServerFn({ method: 'GET' })
         // offer the siblings: a report is rarely read in isolation — you want the
         // one before it, and what is still outstanding on the same award.
         schedule: true,
-        reports: { columns: { id: true, scheduleId: true, submittedAt: true, reviewedAt: true } },
+        reports: {
+          columns: {
+            id: true,
+            scheduleId: true,
+            submittedAt: true,
+            reviewedAt: true,
+            // Only to name a row that answers no milestone — see `reportLabel`.
+            importBatchId: true,
+          },
+        },
       },
     })
     if (!award) throw notFoundError()
@@ -654,8 +664,10 @@ export const getReport = createServerFn({ method: 'GET' })
       .filter((r) => r.id !== submissionRow?.id)
       .map((r) => ({
         key: r.id,
-        label:
-          (r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null) ?? 'Unscheduled report',
+        label: reportLabel(
+          r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null,
+          r.importBatchId !== null,
+        ),
         submittedAt: r.submittedAt.toISOString(),
         status: (r.reviewedAt ? 'reviewed' : 'received') as ReceivedStatus,
       }))
@@ -669,7 +681,7 @@ export const getReport = createServerFn({ method: 'GET' })
 
     const s = submissionRow
     return {
-      label: milestone?.label ?? 'Unscheduled report',
+      label: reportLabel(milestone?.label, (s?.importBatchId ?? null) !== null),
       dueDate: milestone?.dueDate ?? null,
       status: (s?.reviewedAt
         ? 'reviewed'
