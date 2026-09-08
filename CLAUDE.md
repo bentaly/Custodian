@@ -390,17 +390,17 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   awards "made today"), or go through `createAwards` (which enforces a trustee majority — right
   for a decision, meaningless for a fact). The Custodian score is not auto-run either —
   scoring a 2019 application against goals written in 2026 is a confident, meaningless
-  number. **Due diligence is not auto-run, and that is an open question rather than a
-  decision**: every imported grant lands at `pending` with a charity number sitting on it,
-  and the check is a CURRENT-state one, so nothing about it would be stale. The admin app's
-  `rerunDueDiligence` is the only way to get an answer today.
-- **Deprivation IS auto-run**, on the queue (`kind: 'deprivation'` →
-  `src/server/applications/deprivation.ts`), one message per imported application. Different
-  in kind from the two above: a delivery area does not go stale and the decile comes from our
-  own IMD table, and "Where the impact happens" is a REQUIRED template column precisely
-  because it drives the whole deprivation and regional picture. It cannot run inline — a
-  hundred areas is a hundred geocodes, past both the 30s post-response ceiling and the
-  50-subrequest cap.
+  number, so an imported grant has no score for good.
+- **Deprivation and due diligence ARE auto-run**, on the queue — `kind: 'deprivation'` and
+  `kind: 'due_diligence'`, two messages per imported application, sent with `sendBatch`
+  (`src/server/applications/deprivation.ts` / `dueDiligence.ts`, both guarded on `pending`
+  so a redelivery is free). Separate kinds on purpose: a Companies House outage must not
+  re-geocode anything. **The line is a check of the world as it is today versus a judgement
+  of a decision already made.** A delivery area does not go stale and a charity removed from
+  the register was removed whether or not the grant was made in 2019; a score of an
+  application is a judgement, and that is the one thing not re-derived. Neither can run
+  inline — a hundred grants is a hundred geocodes plus several hundred registry calls, past
+  both the 30s post-response ceiling and the 50-subrequest cap.
 - **An imported impact figure is a `reports` row but NOT a received report.** Insights reads
   impact from reports and nowhere else, so the figure lives there; `isArrivedReport`
   (`src/server/reports/query.ts`) keeps it out of the Reports library, its tab counts, the

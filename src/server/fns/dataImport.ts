@@ -26,6 +26,7 @@ import type { GrantRow } from '../../lib/dataImport/parse'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { enqueueMany } from '../pipelineQueue'
 import { resolveApplicationDeprivation } from '../applications/deprivation'
+import { screenApplication } from '../applications/dueDiligence'
 
 // ─── Historical data import ─────────────────────────────────────────────────
 //
@@ -576,27 +577,39 @@ export const commitImport = createServerFn({ method: 'POST' })
     // emailed award letters would notify 127 charities about grants they received years
     // ago. Both are stated here because both are catastrophic and easy to add by reflex.
 
-    // Deprivation IS run, on the queue, once the rows are committed.
+    // Deprivation and due diligence ARE run, on the queue, once the rows are committed.
     //
-    // "Where the impact happens" is a REQUIRED column on the template, and the one cell
-    // that drives the whole deprivation and regional picture — so leaving it unresolved
-    // made Insights blank for a foundation that had just handed us its portfolio. It
-    // cannot run inline: a hundred delivery areas is a hundred geocodes, far past both
-    // the 30-second post-response ceiling and the 50-subrequest budget (see
-    // `applications/deprivation.ts`). One message each, sent with `sendBatch` so the
-    // whole catalogue costs a couple of subrequests rather than one per grant.
+    // Both are derivations from what the workbook just gave us, and both are wrong to
+    // leave undone. "Where the impact happens" is a REQUIRED template column and the one
+    // cell that drives the whole deprivation and regional picture, so an unresolved
+    // import left Insights blank for a foundation that had just handed us its portfolio.
+    // The registration numbers are the same: a charity removed from the register was
+    // removed whether or not the grant was made in 2019, and the foundation still paying
+    // its instalments is the one that wants to know.
     //
-    // Still NOT run: due diligence (a stale registry answer is worse than none, and the
-    // admin app's rerun is the deliberate way to get one) and the Custodian score
-    // (scoring a 2019 application against goals written in 2026 is a confident,
-    // meaningless number). Deprivation is different in kind from both — the delivery
-    // area does not go stale, and the reading is derived from our own IMD table.
+    // Neither can run inline. A hundred grants is a hundred geocodes plus several
+    // hundred registry calls, far past both the 30-second post-response ceiling and the
+    // 50-subrequest budget. Two messages per grant, sent with `sendBatch`, so the whole
+    // catalogue costs a handful of subrequests rather than one per call — and separate
+    // kinds rather than one "finish this import" verb, so a Companies House outage
+    // retries the screening without re-geocoding anything.
+    //
+    // Still NOT run: the Custodian score. It judges an application against a programme's
+    // goals, and a 2019 application against goals written in 2026 is a confident,
+    // meaningless number. That is the line — a check of the world as it is today is
+    // worth running late; a judgement of a decision already made is not.
     await enqueueMany(
-      applicationRows.map((a) => ({ kind: 'deprivation' as const, applicationId: a.id! })),
-      (message) =>
-        message.kind === 'deprivation'
-          ? resolveApplicationDeprivation(message.applicationId)
-          : Promise.resolve(),
+      applicationRows.flatMap((a) => [
+        { kind: 'deprivation' as const, applicationId: a.id! },
+        { kind: 'due_diligence' as const, applicationId: a.id! },
+      ]),
+      (message) => {
+        if (message.kind === 'deprivation') {
+          return resolveApplicationDeprivation(message.applicationId)
+        }
+        if (message.kind === 'due_diligence') return screenApplication(message.applicationId)
+        return Promise.resolve()
+      },
     )
 
     return {

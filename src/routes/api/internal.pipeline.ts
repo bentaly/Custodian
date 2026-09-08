@@ -17,6 +17,7 @@ import { processReportIngest } from '../../server/reportMapping/ingest'
 import { scoreApplication } from '../../server/applications/score'
 import { sendStoredDeclineLetter } from '../../server/declineLetter'
 import { resolveApplicationDeprivation } from '../../server/applications/deprivation'
+import { screenApplication } from '../../server/applications/dueDiligence'
 import type { PipelineMessage } from '../../server/pipelineQueue'
 
 function json(data: unknown, status: number): Response {
@@ -79,6 +80,13 @@ export const Route = createFileRoute('/api/internal/pipeline')({
               // a redelivered message must not spend a second Google call to arrive at
               // the reading already on the row.
               const result = await resolveApplicationDeprivation(message.applicationId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'due_diligence': {
+              // An application already screened answers 200 without screening again —
+              // and `no_registration` counts as screened: it is a verdict about there
+              // being no number, not a run that has yet to happen.
+              const result = await screenApplication(message.applicationId)
               return json({ ok: true, result }, 200)
             }
             default:

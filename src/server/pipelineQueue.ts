@@ -34,6 +34,10 @@ export type PipelineMessage =
   // reading. The onboarding import writes the whole back catalogue in one request and
   // cannot geocode a hundred areas inside it — see `applications/deprivation.ts`.
   | { kind: 'deprivation'; applicationId: string }
+  // One imported application, to be screened against the registers. Separate from the
+  // message above rather than one "finish this import" verb, so each retries on its
+  // own: a Companies House outage must not send a hundred areas back to Google.
+  | { kind: 'due_diligence'; applicationId: string }
 
 interface QueueBinding {
   send(body: unknown): Promise<void>
