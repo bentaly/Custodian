@@ -35,14 +35,6 @@ function weekStart(d: Date): string {
   return isoDate(monday)
 }
 
-const SCORE_BANDS = [
-  { key: '90plus', label: '90+', min: 90, max: 101 },
-  { key: '80to89', label: '80–89', min: 80, max: 90 },
-  { key: '70to79', label: '70–79', min: 70, max: 80 },
-  { key: '60to69', label: '60–69', min: 60, max: 70 },
-  { key: 'below60', label: '<60', min: 0, max: 60 },
-] as const
-
 /**
  * Everything the dashboard renders, in one client-scoped round trip. Aggregations are
  * pushed to the database where cheap; small lists (attention queue, recent activity)
@@ -125,7 +117,6 @@ export async function dashboardData(
 
   const [
     statusRows,
-    scoreRows,
     submissionRows,
     roundRows,
     grantTotalsRows,
@@ -161,12 +152,6 @@ export async function dashboardData(
       .from(applications)
       .where(inScope)
       .groupBy(applications.status),
-
-    // Custodian scores (scored only) for the distribution histogram.
-    db
-      .select({ score: applications.custodianScore })
-      .from(applications)
-      .where(and(inScope, isNotNull(applications.custodianScore))),
 
     // Submission timestamps within the trend window, bucketed in JS. Each carries its
     // round: the trend panel plots them all (a panel is portfolio-wide), while the
@@ -471,13 +456,6 @@ export async function dashboardData(
     // back catalogue never had a vote to go its way.
     awardedByDecision: statusRows.find((r) => r.status === 'awarded')?.decided ?? 0,
   }
-
-  // ── Score distribution ──────────────────────────────────────────────────────
-  const scoreDistribution = SCORE_BANDS.map((b) => ({
-    key: b.key,
-    label: b.label,
-    count: scoreRows.filter((r) => r.score != null && r.score >= b.min && r.score < b.max).length,
-  }))
 
   // ── Submissions trend (last 12 weeks, including empty weeks) ─────────────────
   const weekCounts = new Map<string, number>()
@@ -812,7 +790,6 @@ export async function dashboardData(
     openRoundName: openRound?.name ?? null,
     pipeline,
     money,
-    scoreDistribution,
     submissionsTrend,
     rounds: roundsOut,
     funnel,
@@ -900,7 +877,6 @@ function emptyDashboard(name: string) {
       activeGrants: 0,
       byProgramme: [] as Array<{ name: string; amount: number }>,
     },
-    scoreDistribution: SCORE_BANDS.map((b) => ({ key: b.key, label: b.label, count: 0 })),
     submissionsTrend: [] as Array<{ weekStart: string; count: number }>,
     rounds: [] as DashboardRound[],
     funnel: null as DashboardFunnel | null,
