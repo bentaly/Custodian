@@ -60,6 +60,7 @@ import {
 import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
 import { useRemembered } from '../../lib/useRemembered'
 import type { DeprivationContext } from '../../lib/deprivation/types'
+import { deliveryAreaLabel } from '../../lib/deprivation/types'
 import type { OrganisationProfile } from '../../lib/dueDiligence'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
@@ -458,7 +459,7 @@ function ApplicationDetail() {
 
   const deprivation = application.deprivationContext as DeprivationContext | null
   const depResolved = application.deprivationStatus === 'resolved' && deprivation != null
-  const region = application.deliveryRegion ?? application.deliveryArea ?? null
+  const region = deliveryAreaLabel(application)
 
   const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
   const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || amountRequested

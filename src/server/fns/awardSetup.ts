@@ -26,6 +26,7 @@ import {
   CreateAwardsSchema,
   type AwardTerms,
 } from '../../lib/validators/awardSetup'
+import { deliveryAreaLabel } from '../../lib/deprivation/types'
 
 // ─── The award-setup queue ──────────────────────────────────────────────────────
 
@@ -119,7 +120,7 @@ export async function awardCandidatesData(
         applicantEmail: a.applicantEmail,
         amountRequested: parseFloat(a.amountRequested),
         externalApplicationId: a.externalApplicationId,
-        deliveryArea: a.deliveryRegion ?? a.deliveryArea,
+        deliveryArea: deliveryAreaLabel(a),
         charityNumber: a.charityNumber,
         companyNumber: a.companyNumber,
         custodianScore: a.custodianScore,

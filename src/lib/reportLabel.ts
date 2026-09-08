@@ -11,9 +11,11 @@
  *     figure). Where the workbook says no report has been received, this row answers
  *     nothing — and calling it an unscheduled report claimed a grantee had submitted one.
  *
- * Four places render this label — the Reports list (in SQL, `server/reports/query.ts`),
- * the report detail, its siblings, and the award screen — so the two strings live here
- * rather than being retyped, and the SQL `CASE` is the one transcription of them.
+ * Where each is reachable: the imported figure is kept OUT of the Reports library, its
+ * counts and global search (`isArrivedReport`, `server/reports/query.ts`) — it is not a
+ * report, so it is not in a list of them. It still shows on the grant it belongs to,
+ * which is the one place a foundation should be able to see where its impact figure
+ * came from, and that is what this label names.
  */
 export const UNSCHEDULED_REPORT_LABEL = 'Unscheduled report'
 export const IMPORTED_FIGURE_LABEL = 'Imported impact figure'

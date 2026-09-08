@@ -53,6 +53,7 @@ import {
   type TableColumn,
 } from '../../components/ui'
 import { fmtAmount, fmtCompact, fmtDate, fmtRef } from '../../lib/format'
+import { deliveryAreaLabel } from '../../lib/deprivation/types'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import { SCORE_BAND_OPTIONS } from '../../lib/scoreBands'
 import { longerTimeout } from '../../lib/requestTimeout'
@@ -433,7 +434,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     sortable: true,
     cell: (app) => {
       const type = app.charityNumber ? 'Reg. charity' : app.companyNumber ? 'Company' : null
-      const area = app.deliveryRegion ?? app.deliveryArea ?? null
+      const area = deliveryAreaLabel(app)
       // The ref is LABELLED (`Ref A-1234`) rather than bare: read after a charity type
       // and a region, an unlabelled code is taken for one more of them. Same wording as
       // search, and as the sublines this fact now carries on Awards, Finance and Reports.

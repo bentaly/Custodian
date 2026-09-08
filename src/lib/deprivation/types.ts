@@ -162,3 +162,25 @@ export function decileStats(deciles: number[]): DecileStats {
 export function formatDecileRange(stats: Pick<DecileStats, 'min' | 'max'>): string {
   return stats.min === stats.max ? `Decile ${stats.min}` : `Decile ${stats.min}–${stats.max}`
 }
+
+/**
+ * The location to PRINT on a row, a card or a header.
+ *
+ * Every screen used to show `deliveryRegion ?? deliveryArea`, which for a foundation
+ * funding one part of the country makes every applicant read "North West" — the one
+ * fact they already knew. The resolver has always stored something sharper: Preston's
+ * district, Birkenhead's ward's district, Merseyside's police force area. So prefer
+ * the district, then the matched area's own name (which is what carries a county-level
+ * match, where a district would be meaningless), then the region, then the applicant's
+ * own words for a location that never resolved.
+ */
+export function deliveryAreaLabel(app: {
+  deliveryLadName?: string | null
+  deprivationContext?: DeprivationResult | null
+  deliveryRegion?: string | null
+  deliveryArea?: string | null
+}): string | null {
+  const context = app.deprivationContext
+  const areaName = context?.status === 'resolved' ? context.areaName : null
+  return app.deliveryLadName ?? areaName ?? app.deliveryRegion ?? app.deliveryArea ?? null
+}

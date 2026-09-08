@@ -20,6 +20,7 @@ import { visibleRoundProgrammeIds } from '../scope'
 import { bucketSeries } from '../../lib/timeSeries'
 import { checkBankAccount } from '../../lib/bankVerification'
 import { pickFocusRound } from '../../lib/roundStatus'
+import { isArrivedReport } from '../reports/query'
 
 // ISO yyyy-mm-dd in UTC for a given Date — grant payment/report due dates are stored
 // as plain date strings, so we compare against the same representation.
@@ -273,7 +274,10 @@ export async function dashboardData(
       .from(reports)
       .innerJoin(awards, eq(reports.awardId, awards.id))
       .leftJoin(applications, eq(awards.applicationId, applications.id))
-      .where(awardScope)
+      // An imported impact figure is not a report that arrived — see `isArrivedReport`.
+      // Left in, it posted "report received" to the feed for every historic grant a
+      // foundation imported, all on the day of the import.
+      .where(and(awardScope, isArrivedReport()))
       .orderBy(desc(reports.submittedAt))
       .limit(8),
 
@@ -290,7 +294,7 @@ export async function dashboardData(
       .from(reports)
       .innerJoin(awards, eq(reports.awardId, awards.id))
       .leftJoin(applications, eq(awards.applicationId, applications.id))
-      .where(and(awardScope, isNotNull(reports.reviewedAt)))
+      .where(and(awardScope, isNotNull(reports.reviewedAt), isArrivedReport()))
       .orderBy(desc(reports.reviewedAt))
       .limit(8),
 
@@ -387,7 +391,16 @@ export async function dashboardData(
       ? db
           .select({ count: count() })
           .from(reports)
-          .where(and(eq(reports.clientId, clientId), sql`${reports.reviewedAt} IS NULL`))
+          .where(
+            and(
+              eq(reports.clientId, clientId),
+              sql`${reports.reviewedAt} IS NULL`,
+              // Must agree with the Reports screen's own "To review" tab, which is
+              // counted off `arrivedQuery` — a KPI promising eight and opening onto
+              // three is worse than either number on its own.
+              isArrivedReport(),
+            ),
+          )
       : Promise.resolve([{ count: 0 }]),
 
     // Bank details for grants whose money is still moving (Finance KPI: the level-1

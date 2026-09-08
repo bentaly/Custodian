@@ -496,7 +496,8 @@ export const commitImport = createServerFn({ method: 'POST' })
       // invites ("Any impact recorded for this grant so far"). It is still worth having
       // — Insights is the reason this row exists at all — but it is NOT a report that
       // arrived, so it says what it is and is dated the import rather than borrowing a
-      // milestone's date or the award's. `arrivedQuery` labels it from `importBatchId`.
+      // milestone's date or the award's. `isArrivedReport` keeps it out of the Reports
+      // library and its counts; it is visible on the grant it belongs to.
       if (grant.impactQuantity != null && carriesImpact === null) {
         reportRows.push({
           ...reportBase(),

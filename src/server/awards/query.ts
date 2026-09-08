@@ -82,11 +82,16 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
       roundName: sql<string | null>`${rounds.name}`.as('round_name'),
       tags: sql<unknown>`${programmes.tags}`.as('tags'),
       durationYears: sql<number | null>`${roundProgrammes.grantDurationYears}`.as('duration_years'),
-      // The region if we resolved one, else whatever the applicant wrote — the same
-      // fallback the row's subline has always shown.
-      deliveryArea: sql<
-        string | null
-      >`coalesce(${applications.deliveryRegion}, ${applications.deliveryArea})`.as('delivery_area'),
+      // The sharpest location we resolved — district, else the matched area's own name
+      // (which is what a county-level match carries), else the region, else whatever the
+      // applicant wrote. `lib/deprivation/types`' `deliveryAreaLabel` in SQL: the rows
+      // here are assembled by the database, not read off the application.
+      deliveryArea: sql<string | null>`coalesce(
+        ${applications.deliveryLadName},
+        ${applications.deprivationContext}->>'areaName',
+        ${applications.deliveryRegion},
+        ${applications.deliveryArea}
+      )`.as('delivery_area'),
       status: sql<string>`${awards.status}`.as('status'),
       // Provenance, not status — see `ui/ImportedPill`. A grant from the onboarding
       // import has no application form, score or votes behind it, and the row says so

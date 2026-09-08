@@ -54,6 +54,7 @@ import {
   type GrantRow as AwardGrantRow,
   type GrantsQuery as AwardGrantsQuery,
 } from '../awards/query'
+import { deliveryAreaLabel } from '../../lib/deprivation/types'
 
 /**
  * The order the list arrives in when nothing has been clicked — and therefore the sort
@@ -942,7 +943,7 @@ export const getAward = createServerFn({ method: 'GET' })
       organisationName: app.organisationName,
       programmeName: programme?.name ?? null,
       roundName: app.roundProgramme?.round?.name ?? null,
-      deliveryArea: app.deliveryRegion ?? app.deliveryArea ?? null,
+      deliveryArea: deliveryAreaLabel(app),
       impactUnitLabel: programme?.impactUnitLabel ?? null,
       instalments,
       paidToDate,

@@ -6,7 +6,12 @@
 // Bars rise on load, staggered left-to-right, via the shared `.tick` animation
 // (respects prefers-reduced-motion).
 
+import { useEffect, useRef, useState } from 'react'
+
 export type BarSegment = { value: number; colour: string }
+
+/** Fixed-pitch mode's gap. Figma's repeated bar tile is a 3px bar on a 6.68px pitch. */
+const FILL_GAP = 3.68
 
 /** Any CSS colour → the same colour at the given alpha.
  *
@@ -49,9 +54,26 @@ export function BarMeter({
   animate?: boolean
   className?: string
 }) {
-  // Fill mode draws past the right edge and clips, so it needs more bars than the
-  // widest plausible container.
-  if (fill) bars = 160
+  // Fill mode covers the container whatever its width, so the count is MEASURED
+  // rather than guessed. A fixed count (it was 160, ~1065px at the default pitch)
+  // is a strip that stops short on any panel wider than that — a full-width
+  // "100%" meter that visibly ends two-thirds of the way across — and one that
+  // renders hundreds of clipped bars, each carrying its own stagger delay, on any
+  // panel narrower. `bars` is the pre-measure fallback for SSR and first paint.
+  const stripRef = useRef<HTMLDivElement>(null)
+  const [fillBars, setFillBars] = useState<number | null>(null)
+  useEffect(() => {
+    const el = stripRef.current
+    if (!fill || !el) return
+    const measure = () =>
+      setFillBars(Math.max(1, Math.ceil((el.clientWidth + FILL_GAP) / (barWidth + FILL_GAP))))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [fill, barWidth])
+
+  if (fill) bars = fillBars ?? 160
   const colours: string[] = []
   if (segments && segments.length) {
     // Empty categories are dropped first: the last segment soaks up the rounding
@@ -80,8 +102,9 @@ export function BarMeter({
 
   return (
     <div
-      className={`flex items-end ${fill ? 'gap-[3.68px] overflow-hidden' : 'justify-between'} ${className}`}
-      style={{ height }}
+      ref={stripRef}
+      className={`flex items-end ${fill ? 'overflow-hidden' : 'justify-between'} ${className}`}
+      style={{ height, gap: fill ? FILL_GAP : undefined }}
     >
       {colours.slice(0, bars).map((c, i) => (
         <span

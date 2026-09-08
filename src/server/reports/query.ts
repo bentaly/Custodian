@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql, type SQL } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
 import {
   applications,
   awards,
@@ -10,7 +10,7 @@ import {
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
-import { IMPORTED_FIGURE_LABEL, UNSCHEDULED_REPORT_LABEL } from '../../lib/reportLabel'
+import { UNSCHEDULED_REPORT_LABEL } from '../../lib/reportLabel'
 
 /**
  * The Reports screen, expressed as SQL — the third screen on the pattern set by
@@ -32,6 +32,27 @@ import { IMPORTED_FIGURE_LABEL, UNSCHEDULED_REPORT_LABEL } from '../../lib/repor
  */
 
 type Db = ReturnType<typeof getDb>
+
+/**
+ * Which `reports` rows are actually REPORTS.
+ *
+ * All but one kind are. The exception is the row the onboarding import writes to carry a
+ * historic impact figure a foundation already held: where the workbook says no report has
+ * been received, that row answers no milestone and no grantee ever sent anything. It lives
+ * in `reports` for one reason — Insights reads impact from reports and nowhere else — and
+ * calling it a received report put five figures into a foundation's review queue as work
+ * to do, dated the day of the import, on grants whose own workbook says nothing has come in.
+ *
+ * An imported row WITH a `scheduleId` is a real report: the workbook said that milestone
+ * was received, so it belongs in the library like any other.
+ *
+ * Stated once here because three places count received reports — this list, the dashboard's
+ * "to review" KPI, and the dashboard's activity feed — and a rule enforced in two of three
+ * is the one that gets found by a foundation rather than by us.
+ */
+export function isArrivedReport(): SQL {
+  return or(isNull(reports.importBatchId), isNotNull(reports.scheduleId))!
+}
 
 /** The programme/round/theme columns every row carries, aliased so nothing is ambiguous. */
 function grantColumns() {
@@ -63,14 +84,13 @@ export function arrivedQuery(db: Db, clientId: string) {
     .select({
       ...grantColumns(),
       key: sql<string>`${reports.id}`.as('key'),
-      // `lib/reportLabel`'s rule, in SQL — the strings come from it so the list and the
-      // detail screen it opens cannot drift. A row answering no milestone is
-      // "Unscheduled" unless the import wrote it, in which case it was never a report at
-      // all: see that module for why the distinction is worth a CASE.
-      label: sql<string>`coalesce(${reportSchedule.label}, case
-        when ${reports.importBatchId} is not null then ${IMPORTED_FIGURE_LABEL}
-        else ${UNSCHEDULED_REPORT_LABEL}
-      end)`.as('label'),
+      // No CASE on `importBatchId` here, unlike `lib/reportLabel`'s other three call
+      // sites: the one row that would take the other branch is the imported impact
+      // figure, and `isArrivedReport` has already kept it out of this list entirely.
+      // The string still comes from that module so the two cannot drift.
+      label: sql<string>`coalesce(${reportSchedule.label}, ${UNSCHEDULED_REPORT_LABEL})`.as(
+        'label',
+      ),
       dueDate: sql<string | null>`${reportSchedule.dueDate}`.as('due_date'),
       submittedAt: sql<string>`to_char(${reports.submittedAt}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`.as(
         'submitted_at',
@@ -118,7 +138,7 @@ export function arrivedQuery(db: Db, clientId: string) {
     .leftJoin(roundProgrammes, eq(roundProgrammes.id, applications.roundProgrammeId))
     .leftJoin(programmes, eq(programmes.id, roundProgrammes.programmeId))
     .leftJoin(rounds, eq(rounds.id, roundProgrammes.roundId))
-    .where(eq(awards.clientId, clientId))
+    .where(and(eq(awards.clientId, clientId), isArrivedReport()))
     .as('arrived')
 }
 

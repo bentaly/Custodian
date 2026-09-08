@@ -5,6 +5,7 @@ import { getDb } from '../db'
 import { applications, awards, reports, programmes, rounds } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
+import { isArrivedReport } from '../reports/query'
 import { applicationStatusLabel } from '../../lib/validators/application'
 
 const PER_GROUP = 5
@@ -106,6 +107,10 @@ export async function searchData(
         where: and(
           clientId ? eq(reports.clientId, clientId) : undefined,
           or(ilike(reports.organisationName, like), ilike(reports.externalApplicationId, like)),
+          // Search offers what the Reports screen holds. An imported impact figure is not
+          // a report (`isArrivedReport`), and a search result that opens onto a row the
+          // list does not contain is a dead end.
+          isArrivedReport(),
         ),
         columns: { id: true, organisationName: true, programmeName: true },
         orderBy: (r, { desc }) => [desc(r.submittedAt)],

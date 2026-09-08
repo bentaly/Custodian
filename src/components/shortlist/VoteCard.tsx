@@ -12,6 +12,7 @@ import {
 import { castVote } from '../../server/fns/comments'
 import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/custodianScore'
 import type { DeprivationResult } from '../../lib/deprivation/types'
+import { deliveryAreaLabel } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { Avatar, ErrorNote, TextLink, initials } from '../ui'
@@ -36,6 +37,7 @@ export type VoteCardApplication = {
   companyNumber: string | null
   deliveryArea: string | null
   deliveryRegion: string | null
+  deliveryLadName: string | null
   custodianScore: number | null
   custodianScoreDetail: CustodianScoreDetail | null
   custodianScoreStatus: string
@@ -435,7 +437,7 @@ export function VoteCard({
   // Narrow on the payload's own discriminant rather than the denormalised status
   // column, so the fields we read are guaranteed present by the type.
   const deprivation = app.deprivationContext?.status === 'resolved' ? app.deprivationContext : null
-  const subline = [app.deliveryRegion ?? app.deliveryArea, fmtRef(app.externalApplicationId)]
+  const subline = [deliveryAreaLabel(app), fmtRef(app.externalApplicationId)]
     .filter(Boolean)
     .join(' · ')
 

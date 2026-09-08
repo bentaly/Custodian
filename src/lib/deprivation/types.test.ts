@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { decileStats, formatDecileRange, looksLikePostcode, nationFromGssCode } from './types'
+import {
+  decileStats,
+  deliveryAreaLabel,
+  formatDecileRange,
+  looksLikePostcode,
+  nationFromGssCode,
+} from './types'
+import type { DeprivationResult } from './types'
 
 describe('looksLikePostcode', () => {
   it('accepts full postcodes with and without a space', () => {
@@ -50,5 +57,45 @@ describe('formatDecileRange', () => {
   })
   it('shows a range otherwise', () => {
     expect(formatDecileRange({ min: 2, max: 6 })).toBe('Decile 2–6')
+  })
+})
+
+describe('deliveryAreaLabel', () => {
+  // Every one of a North West foundation's applicants has 'North West' in the region
+  // column, so a label that reaches for it first tells the reader nothing.
+  const resolved = (areaName: string, ladName: string | null): DeprivationResult =>
+    ({ status: 'resolved', areaName, ladName }) as DeprivationResult
+
+  it('prefers the district over the region', () => {
+    expect(
+      deliveryAreaLabel({
+        deliveryLadName: 'Preston',
+        deprivationContext: resolved('Preston', 'Preston'),
+        deliveryRegion: 'North West',
+        deliveryArea: 'Preston',
+      }),
+    ).toBe('Preston')
+  })
+
+  it('names a county-level match, which has no district', () => {
+    expect(
+      deliveryAreaLabel({
+        deliveryLadName: null,
+        deprivationContext: resolved('Merseyside', null),
+        deliveryRegion: 'North West',
+        deliveryArea: 'Merseyside',
+      }),
+    ).toBe('Merseyside')
+  })
+
+  it("falls back to the applicant's own words when nothing resolved", () => {
+    expect(
+      deliveryAreaLabel({
+        deliveryLadName: null,
+        deprivationContext: { status: 'pending' },
+        deliveryRegion: null,
+        deliveryArea: 'Moss Side, Manchester',
+      }),
+    ).toBe('Moss Side, Manchester')
   })
 })
