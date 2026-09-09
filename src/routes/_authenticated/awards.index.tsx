@@ -59,20 +59,13 @@ export const Route = createFileRoute('/_authenticated/awards/')({
     // so. That is also why there is no separate `listMyRounds` call: it existed to fill
     // the round pill in the header, and a facet of the rounds actually represented here
     // is strictly better — it cannot offer a round with no awards in it.
-    listAwards({
-      data: {
-        roundId: deps.roundId,
-        programmeId: deps.programmeId,
-        tag: deps.tag,
-        status: deps.status,
-        q: deps.q,
-        from: deps.from,
-        to: deps.to,
-        sortBy: deps.sortBy,
-        sortDir: deps.sortDir,
-        page: deps.page,
-      },
-    }),
+    //
+    // `deps` is passed WHOLE, not field by field. It used to be re-listed here, and
+    // because every key on the validator is `.optional()`, a filter added to the deps
+    // above and forgotten here typechecked perfectly and then silently filtered nothing
+    // — the pill highlighted, the count was right, the rows never moved. That is exactly
+    // how Location shipped broken. `loaderDeps` already IS the argument.
+    listAwards({ data: deps }),
   component: AwardsPage,
 })
 
