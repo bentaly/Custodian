@@ -8,6 +8,7 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { getDb } from '../db'
 import { reportSchedule, awards, reports } from '../../../drizzle/schema'
+import { recomputeAwardStatus } from '../awards/status'
 import { runReportAnalysis } from '../reportAnalysis/run'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import type { CreateReportSubmissionInput } from '../../lib/validators/report'
@@ -160,6 +161,11 @@ export async function createReportSubmissionFromCanonical(
       .set({ submittedDate: new Date().toISOString().slice(0, 10) })
       .where(eq(reportSchedule.id, milestone.id))
   }
+
+  // Both directions are live here. A report answering the last open milestone can be
+  // what completes the grant; one landing on an already-complete grant reopens it,
+  // because it arrives unreviewed and nobody has read it yet.
+  await recomputeAwardStatus(grant.id)
 
   const submission = await getDb().query.reports.findFirst({
     where: (s, { eq: eqOp }) => eqOp(s.id, id),

@@ -7,6 +7,7 @@ import { searchAny } from '../searchTerm'
 import { reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
+import { recomputeAwardStatus } from '../awards/status'
 import { assertClientAccess } from '../scope'
 import {
   addMonthsIso,
@@ -575,6 +576,10 @@ export const markReportReviewed = createServerFn({ method: 'POST' })
           : { reviewedAt: null, reviewedBy: null },
       )
       .where(eq(reports.id, data.id))
+
+    // Sign-off is the last task a grant is waiting on, so it is the tick that can
+    // finish one — and taking it back reopens it. See `src/lib/awardCompletion.ts`.
+    if (submission.awardId) await recomputeAwardStatus(submission.awardId)
 
     // A report can arrive before it has been matched to a grant, so there may be no
     // application to hang this on — the client is always known, and is enough.

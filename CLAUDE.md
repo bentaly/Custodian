@@ -459,6 +459,26 @@ terms shared by the batch plus a per-grant amount / purpose / special condition 
 grant is written in **its own** `db.batch`, so one failing its majority check doesn't roll back the
 others — the response reports per-grant outcomes.
 
+- **A grant is COMPLETE when nobody has anything left to do with it**: every instalment paid,
+  every reporting milestone received, and every report that arrived signed off. The rule is
+  `src/lib/awardCompletion.ts`; `recomputeAwardStatus` (`src/server/awards/status.ts`) is the only
+  thing that writes `awards.status`, and six handlers call it — paying/unpaying an instalment,
+  adding/removing a milestone, a report arriving, and Reviewed being ticked or unticked. It moves
+  BOTH ways: withdraw a report or reopen a milestone and the grant goes back to `active`.
+  `cancelled` is a decision, never a derivation, and is never entered or left this way.
+  It used to mean "all instalments paid", which completed a grant the day the last payment cleared
+  — often a year before the final report was due — while the dashboard went on listing that
+  report as overdue, because the outstanding-report queries key on the milestone and never look at
+  the award. Two screens, both right, contradicting each other.
+  Two edges are load-bearing: **no instalments is not complete** (an empty schedule is not "all
+  paid", or every grant would complete at birth), while **no milestones IS** (a foundation sets
+  that deliberately, and the award screen says "nothing is expected back"). And condition four is
+  "of the reports we hold, none is unread" — NOT "every milestone has a reviewed report", because a
+  milestone can be ticked with no document behind it and a report can answer no milestone. Read the
+  other way it would strand every imported portfolio at `active` forever.
+  **The one exception is the onboarding import**, which takes the workbook's status verbatim and
+  warns rather than corrects (`completed_nothing_paid` in `dataImport/validate.ts`) — the same
+  choice it makes everywhere: it records what a foundation states about its own history.
 - UI is **`AwardWizard`** (`src/components/shortlist/`), a modal over the Set up awards queue
   (Terms → Grant details → Award letters). Validation **gates rather than reports**: an
   unreconciled split disables Continue on the step that owns the field. Each step is gated only by

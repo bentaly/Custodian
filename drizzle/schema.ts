@@ -39,9 +39,14 @@ export const applicationStatusEnum = pgEnum('application_status', [
 // Lifecycle of a grant (the live funding relationship that begins once an award is
 // generated). Distinct from the application's status: an application is terminal at
 // the decision, whereas a grant runs on — money is paid out over time.
-//   active     — award generated; instalments outstanding or in progress
-//   completed  — all instalments paid / the grant has run its course
-//   cancelled  — the award was withdrawn after being generated
+//   active     — the grant still owes somebody something
+//   completed  — nothing is left to do: every instalment paid, every reporting
+//                milestone received, and every report that arrived signed off. Derived,
+//                never set by hand — `src/lib/awardCompletion.ts` states the rule and
+//                `src/server/awards/status.ts` is the only thing that writes it (the
+//                onboarding import aside, which takes a status from the workbook).
+//   cancelled  — the award was withdrawn after being generated. A decision, not a
+//                derivation: the re-derivation above never enters or leaves it.
 export const awardStatusEnum = pgEnum('award_status', ['active', 'completed', 'cancelled'])
 
 // How a key is presented to the sender, and therefore where it may be used. A

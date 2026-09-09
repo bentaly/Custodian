@@ -568,6 +568,13 @@
       "when": 1788811794728,
       "tag": "0080_strange_psylocke",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1788898194728,
+      "tag": "0081_award_completion_rule",
+      "breakpoints": true
     }
   ]
 }
