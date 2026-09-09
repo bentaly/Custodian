@@ -52,9 +52,20 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
       : SquareIcon
 
   return (
+    // `relative` is load-bearing, not decoration. `sr-only` positions the real input
+    // ABSOLUTELY, so without a positioned ancestor its containing block is the initial
+    // containing block — i.e. the page — rather than anything inside the app shell. An
+    // absolutely-positioned box is not clipped by an ancestor's `overflow` unless that
+    // ancestor is in its containing-block chain, so every hidden input in a long table
+    // escaped `_authenticated`'s scrolling <main>, kept its static position (row 20's
+    // input sits 1,400px down), and extended the DOCUMENT's scrollable area to reach it.
+    // The result: the whole app shell — sidebar, header and all — scrolled away under
+    // hundreds of pixels of blank page on the applications list, the one screen that
+    // renders a checkbox per row. Invisible in devtools, because the culprit is a 1px
+    // clipped input. Scoping the containing block here is the whole fix.
     <label
       className={cn(
-        'inline-flex items-center gap-2',
+        'relative inline-flex items-center gap-2',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
         className,
       )}

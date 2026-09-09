@@ -43,7 +43,10 @@ export function ColourPicker({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
+      {/* `relative` for the `sr-only` colour input below — see the note on `Checkbox`:
+          an unscoped one is positioned against the page and pushes the document's
+          scroll height past the shell. */}
+      <div className="relative flex items-center gap-2">
         {/* `aria-hidden`: the swatch is what the button below acts on, and the button
             says so in words. */}
         <span
