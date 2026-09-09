@@ -34,7 +34,7 @@ import {
 type AwardItem = ReturnType<typeof Route.useLoaderData>['items'][number]
 
 /** Text reads best A–Z; money, dates and counts read best biggest/newest first. */
-const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round']
+const ASC_FIRST: SortKey[] = ['organisation', 'programme', 'round', 'geography']
 
 export const Route = createFileRoute('/_authenticated/awards/')({
   // Shared with the grant screen, which carries this search through so its back arrow
@@ -45,6 +45,7 @@ export const Route = createFileRoute('/_authenticated/awards/')({
     programmeId: search.programmeId,
     tag: search.tag,
     status: search.status,
+    region: search.region,
     q: search.q,
     from: search.from,
     to: search.to,
@@ -88,16 +89,18 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     id: 'organisation',
     sortable: true,
     header: 'Organisation',
-    // Monogram + two-line identity, as on Applications. The subline is where the grantee
-    // works and the foundation's own reference for them — the two identifying facts with
-    // no column of their own, both reachable through search rather than a pill.
+    // Monogram + two-line identity, as on Applications. The subline is the foundation's
+    // own reference for the grantee — an identifying fact with no column of its own,
+    // reachable through search rather than a pill.
     //
-    // Round LEFT the subline when it gained a column. The rule the register follows now:
-    // anything you can FILTER by has somewhere on the row to be read, or the filter is a
-    // control whose effect you cannot see — pick a round and every row looks the same.
+    // Round left this subline when it gained a column, and LOCATION has now followed it
+    // for the same reason. The rule the register follows: anything you can FILTER by has
+    // somewhere on the row to be read, or the filter is a control whose effect you cannot
+    // see — pick a region and every row looks the same. The converse is what moved it
+    // OUT: once location is filterable it needs a header to sort by and a place a reader
+    // can scan down, and a subline shared with a reference number is neither.
     cell: (g) => {
-      const subline =
-        [g.deliveryArea, fmtRef(g.externalApplicationId)].filter(Boolean).join(' · ') || '—'
+      const subline = fmtRef(g.externalApplicationId) || '—'
       return (
         <div className="flex items-center gap-2">
           <div
@@ -138,7 +141,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Round',
-    width: 'sm:w-[11%]',
+    width: 'sm:w-[10%]',
     cell: (g) => (
       <TruncatedText
         text={g.roundName ?? '—'}
@@ -152,7 +155,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'lg',
     header: 'Programme',
-    width: 'sm:w-[14%]',
+    width: 'sm:w-[12%]',
     cell: (g) => (
       <TruncatedText
         text={g.programmeName ?? '—'}
@@ -167,7 +170,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     id: 'theme',
     hideBelow: 'xl',
     header: 'Theme',
-    width: 'sm:w-[12%]',
+    width: 'sm:w-[10%]',
     cell: (g) => (
       <TruncatedList
         items={g.tags}
@@ -177,18 +180,60 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     ),
   },
   {
+    // Two lines, and they are two different questions. The top is the SHARPEST thing the
+    // resolver got — a district, else the matched area's own name (what a county-level
+    // match carries), else the applicant's own words for a location that never resolved.
+    // The bottom is the region, which is the only one of the two you can filter by.
+    //
+    // Printing just the region made every grantee of a regional funder read "North West",
+    // the one fact the reader already knew. Printing just the district left the Location
+    // pill selecting on a value that appeared nowhere on the row. Both, and each explains
+    // the other.
+    //
+    // Sorted on the top line (`geography` → `lower(deliveryArea)`), because that is the
+    // column a reader is scanning; NULLs last whichever way the arrow points.
+    id: 'geography',
+    sortable: true,
+    hideBelow: 'lg',
+    header: 'Location',
+    width: 'sm:w-[12%]',
+    cell: (g) => {
+      // A region-level match resolves to no district, so the coalesce falls through to
+      // the region itself and both lines would say "North West". One line, then.
+      const place = g.deliveryArea
+      const region = g.deliveryRegion && g.deliveryRegion !== place ? g.deliveryRegion : null
+      if (!place) return <span className="font-display text-body text-grey-400">—</span>
+      return (
+        <div className="min-w-0">
+          <TruncatedText
+            text={place}
+            label="Where this grant is delivered"
+            className="font-display text-body text-grey-700"
+          />
+          {region && (
+            <TruncatedText
+              text={region}
+              label="Region"
+              className="font-display text-label text-grey-500"
+            />
+          )}
+        </div>
+      )
+    },
+  },
+  {
     id: 'awarded',
     sortable: true,
     hideBelow: 'lg',
     header: 'Awarded',
-    width: 'sm:w-[10%]',
+    width: 'sm:w-[9%]',
     cell: (g) => <DateText value={g.decisionAt} className={`whitespace-nowrap ${txtSub}`} />,
   },
   {
     id: 'amount',
     sortable: true,
     header: 'Amount',
-    width: 'sm:w-[10%]',
+    width: 'sm:w-[9%]',
     cellClassName: 'tabular-nums',
     cell: (g) => (
       <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
@@ -201,7 +246,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'md',
     header: 'Paid',
-    width: 'sm:w-[15%]',
+    width: 'sm:w-[14%]',
     // This used to read "£22k / 3" — paid money over an instalment COUNT, two different
     // units either side of a slash, which is why it read as nonsense. It now answers the
     // question the column is actually for: how far through paying this grant are we.
@@ -260,7 +305,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Duration',
-    width: 'sm:w-[8%]',
+    width: 'sm:w-[7%]',
     cell: (g) => (
       <span className={`whitespace-nowrap ${txtSub}`}>
         {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '—'}
@@ -365,7 +410,7 @@ function ShareLegend({ colour, amount, label }: { colour: string; amount: number
 function AwardsPage() {
   const navigate = Route.useNavigate()
   const search = Route.useSearch()
-  const { roundId, programmeId, tag, status, q, from, to, sortBy, sortDir, page } = search
+  const { roundId, programmeId, tag, status, region, q, from, to, sortBy, sortDir, page } = search
   const { items, total, pageSize, totals, facets } = Route.useLoaderData()
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
@@ -402,6 +447,10 @@ function AwardsPage() {
 
   function setTag(value: string | undefined) {
     navigate({ search: (prev) => ({ ...prev, tag: value, page: undefined }) })
+  }
+
+  function setRegion(value: string | undefined) {
+    navigate({ search: (prev) => ({ ...prev, region: value, page: undefined }) })
   }
 
   function setStatus(value: string | undefined) {
@@ -505,6 +554,17 @@ function AwardsPage() {
             value={tag}
             options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
             onChange={setTag}
+          />
+          {/* Region, not the place name printed on the row: a district is very nearly a
+              primary key (ten grants, ten districts), so a pill of them would be one
+              option per award. The Location column shows both, which is what keeps this
+              pill legible — you can see on every row why it matched. */}
+          <FilterPill
+            label="Location"
+            plural="locations"
+            value={region}
+            options={facets.regions.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            onChange={setRegion}
           />
           <DateRangePicker
             value={{ from, to }}

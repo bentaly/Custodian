@@ -7,6 +7,7 @@ import {
   rounds,
   roundProgrammes,
 } from '../../../drizzle/schema'
+import { NO_REGION } from '../../lib/deprivation/types'
 import type { getDb } from '../db'
 import { searchAny } from '../searchTerm'
 
@@ -92,6 +93,18 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
         ${applications.deliveryRegion},
         ${applications.deliveryArea}
       )`.as('delivery_area'),
+      // The coarse twin of the label above, and the value the Location pill filters on:
+      // England's regions / "Wales", or the nation for Scotland & NI, which have no
+      // sub-national region in our data. This IS `lib/deprivation/types`'
+      // `deliveryRegionLabel` in SQL — Insights groups on that function and links here,
+      // so the two must produce the same strings or the link lands on nothing.
+      deliveryRegion: sql<string | null>`coalesce(
+        ${applications.deliveryRegion},
+        case ${applications.deliveryNation}
+          when 'scotland' then 'Scotland'
+          when 'northern_ireland' then 'Northern Ireland'
+        end
+      )`.as('delivery_region'),
       status: sql<string>`${awards.status}`.as('status'),
       // Provenance, not status — see `ui/ImportedPill`. A grant from the onboarding
       // import has no application form, score or votes behind it, and the row says so
@@ -144,6 +157,7 @@ export function filterWhere(
     programmeId?: string
     tag?: string
     status?: string
+    region?: string
     from?: string
     to?: string
     q?: string
@@ -153,6 +167,14 @@ export function filterWhere(
     f.programmeId ? eq(g.programmeId, f.programmeId) : undefined,
     f.tag ? sql`${g.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
     f.status ? eq(g.status, f.status) : undefined,
+    // `NO_REGION` is a real option, not the absence of one: a grant whose delivery area
+    // never resolved is the row a grants officer most wants to find, so it gets a pill
+    // of its own rather than being reachable only by scrolling.
+    f.region === NO_REGION
+      ? sql`${g.deliveryRegion} is null`
+      : f.region
+        ? eq(g.deliveryRegion, f.region)
+        : undefined,
     f.from ? sql`${g.decisionDay} >= ${f.from}` : undefined,
     f.to ? sql`${g.decisionDay} <= ${f.to}` : undefined,
     // Organisation and the foundation's own reference, which is the row's subtext here

@@ -5,7 +5,7 @@ import { applications } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import type { DeprivationResult } from '../../lib/deprivation/types'
+import { deliveryRegionLabel, type DeprivationResult } from '../../lib/deprivation/types'
 
 // The Insights screen's data: one row per awarded grant carrying everything the
 // portfolio analysis needs — amount, programme + impact unit, round, delivery
@@ -61,11 +61,6 @@ export type InsightsGrant = {
   // Insights falls back to this when no analysed report has stated an actual figure.
   proposedImpactQuantity: number | null
   impactQuote: string | null
-}
-
-const NATION_LABELS: Record<string, string> = {
-  scotland: 'Scotland',
-  northern_ireland: 'Northern Ireland',
 }
 
 export const getInsights = createServerFn({ method: 'GET' }).handler(async () => {
@@ -185,8 +180,9 @@ export async function insightsData(
         decisionAt: award.decisionAt.toISOString(),
         status: award.status,
         amountAwarded: parseFloat(award.amountAwarded),
-        region:
-          a.deliveryRegion ?? (a.deliveryNation ? (NATION_LABELS[a.deliveryNation] ?? null) : null),
+        // Shared with the Awards register (`deliveryRegionLabel`), because the two
+        // screens link to each other on this exact string.
+        region: deliveryRegionLabel(a),
         ladCode: a.deliveryLadCode,
         ladName: a.deliveryLadName,
         deprivation,

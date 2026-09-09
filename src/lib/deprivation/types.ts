@@ -184,3 +184,43 @@ export function deliveryAreaLabel(app: {
   const areaName = context?.status === 'resolved' ? context.areaName : null
   return app.deliveryLadName ?? areaName ?? app.deliveryRegion ?? app.deliveryArea ?? null
 }
+
+// Scotland and NI have no sub-national region in our data (their indices are national
+// and `regionName` is deliberately null there), so they are grouped under the nation.
+// England's regions and "Wales" already name themselves.
+const NATION_LABELS: Partial<Record<DeprivationNation, string>> = {
+  scotland: 'Scotland',
+  northern_ireland: 'Northern Ireland',
+}
+
+/**
+ * The filter value meaning "no location recorded" — a grant whose delivery area never
+ * resolved. A sentinel rather than an empty string because it travels in a URL, where
+ * absent and "explicitly the unlocated ones" are different requests. Shared so a link
+ * from Insights to the Awards register carries a value the register recognises.
+ */
+export const NO_REGION = 'none'
+
+/**
+ * The location to GROUP a portfolio by — the coarse twin of `deliveryAreaLabel`.
+ *
+ * England's nine regions, "Wales", and the nation for Scotland/NI: a bounded dozen
+ * values, which is what makes it a filter you can offer as pills. `deliveryAreaLabel`
+ * is the opposite and deliberately so — it resolves to a district, and a district is
+ * very nearly a primary key (ten grants, ten districts), so faceting on it would put
+ * one pill on screen per grant and, for anything unresolved, the applicant's own
+ * free text alongside them.
+ *
+ * Insights and the Awards register both group on this, and the strings must be
+ * IDENTICAL or a link from one to the other silently lands on an empty list. That is
+ * the whole reason this is a function rather than a coalesce written twice — the SQL
+ * in `server/awards/query.ts` mirrors it and says so.
+ */
+export function deliveryRegionLabel(app: {
+  deliveryRegion?: string | null
+  deliveryNation?: DeprivationNation | null
+}): string | null {
+  return (
+    app.deliveryRegion ?? (app.deliveryNation ? (NATION_LABELS[app.deliveryNation] ?? null) : null)
+  )
+}

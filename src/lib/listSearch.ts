@@ -113,12 +113,16 @@ const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled']
 // No 'status' key: the lifecycle pill moved into the Paid column, and sorting by a
 // column that no longer has a header is unreachable. Status is still a FILTER — the
 // server keeps accepting the old key, so a stale bookmarked URL degrades to the
-// default order rather than erroring. 'geography' likewise: it is the row's subline,
-// and reachable through search.
+// default order rather than erroring.
+//
+// 'geography' came BACK when the location gained a column of its own. It had been
+// dropped for the same reason status was — it was only the Organisation subline, so
+// there was no header to put an arrow on.
 export type AwardsSortKey =
   | 'organisation'
   | 'programme'
   | 'round'
+  | 'geography'
   | 'awarded'
   | 'amount'
   | 'paid'
@@ -128,6 +132,7 @@ export const AWARDS_SORT_KEYS: AwardsSortKey[] = [
   'organisation',
   'programme',
   'round',
+  'geography',
   'awarded',
   'amount',
   'paid',
@@ -139,6 +144,13 @@ export type AwardsSearch = {
   programmeId?: string
   tag?: string
   status?: AwardStatus
+  /**
+   * Delivery region, or `NO_REGION`. Not validated against a list: the options are ONS
+   * region names read off the data, so the parser has none to check against — and an
+   * unrecognised one filters to an empty register, which is the honest answer to a
+   * bookmarked link for a region this foundation no longer funds.
+   */
+  region?: string
   q?: string
   from?: string
   to?: string
@@ -153,6 +165,7 @@ export function parseAwardsSearch(search: Record<string, unknown>): AwardsSearch
     programmeId: text(search.programmeId),
     tag: text(search.tag),
     status: oneOf(AWARD_STATUSES, search.status),
+    region: text(search.region),
     q: text(search.q),
     from: isoDay(search.from),
     to: isoDay(search.to),

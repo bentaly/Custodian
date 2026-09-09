@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   decileStats,
   deliveryAreaLabel,
+  deliveryRegionLabel,
   formatDecileRange,
   looksLikePostcode,
   nationFromGssCode,
@@ -97,5 +98,43 @@ describe('deliveryAreaLabel', () => {
         deliveryArea: 'Moss Side, Manchester',
       }),
     ).toBe('Moss Side, Manchester')
+  })
+})
+
+describe('deliveryRegionLabel', () => {
+  it("uses England's region as it stands", () => {
+    expect(deliveryRegionLabel({ deliveryRegion: 'North West', deliveryNation: 'england' })).toBe(
+      'North West',
+    )
+  })
+
+  it('names Wales through its region, which is already the nation', () => {
+    expect(deliveryRegionLabel({ deliveryRegion: 'Wales', deliveryNation: 'wales' })).toBe('Wales')
+  })
+
+  // Scotland and NI carry no sub-national region, so the nation is the grouping —
+  // and the label has to be the display form, because it goes in a filter pill.
+  it('falls back to the nation for Scotland and Northern Ireland', () => {
+    expect(deliveryRegionLabel({ deliveryRegion: null, deliveryNation: 'scotland' })).toBe(
+      'Scotland',
+    )
+    expect(deliveryRegionLabel({ deliveryRegion: null, deliveryNation: 'northern_ireland' })).toBe(
+      'Northern Ireland',
+    )
+  })
+
+  it('is null for a location that never resolved', () => {
+    expect(deliveryRegionLabel({ deliveryRegion: null, deliveryNation: null })).toBeNull()
+  })
+
+  /**
+   * The register's SQL mirrors this function rather than calling it (it groups in the
+   * database), and Insights links INTO the register on the string it produces. If the
+   * two ever disagree the link lands on an empty list with no error anywhere, so the
+   * exact set of labels the SQL hard-codes is pinned here.
+   */
+  it('produces only labels the awards query CASE also produces', () => {
+    expect(deliveryRegionLabel({ deliveryRegion: null, deliveryNation: 'england' })).toBeNull()
+    expect(deliveryRegionLabel({ deliveryRegion: null, deliveryNation: 'wales' })).toBeNull()
   })
 })

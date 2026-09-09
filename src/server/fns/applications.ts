@@ -54,7 +54,8 @@ import {
   type GrantRow as AwardGrantRow,
   type GrantsQuery as AwardGrantsQuery,
 } from '../awards/query'
-import { deliveryAreaLabel } from '../../lib/deprivation/types'
+import { recomputeAwardStatus } from '../awards/status'
+import { deliveryAreaLabel, NO_REGION } from '../../lib/deprivation/types'
 
 /**
  * The order the list arrives in when nothing has been clicked — and therefore the sort
@@ -482,6 +483,13 @@ export const listAwards = createServerFn({ method: 'GET' })
       q: z.string().trim().min(1).max(255).optional(),
       /** Award lifecycle, not application status — every row here is already awarded. */
       status: z.enum(['active', 'completed', 'cancelled']).optional(),
+      /**
+       * Delivery region, or `NO_REGION` for the grants whose location never resolved.
+       * Free-form rather than an enum: the values are ONS region names carried on the
+       * application, so an enum here would be a second list to keep in step with the
+       * geography data — and an unknown value simply matches nothing.
+       */
+      region: z.string().min(1).max(100).optional(),
       /** Inclusive award-date window (`yyyy-mm-dd`), against the decision date. */
       from: z
         .string()
@@ -550,6 +558,7 @@ export type AwardsListInput = {
   tag?: string
   q?: string
   status?: 'active' | 'completed' | 'cancelled'
+  region?: string
   from?: string
   to?: string
   sortBy?: AwardSortKey
@@ -574,7 +583,7 @@ type AwardSortKey =
  * the same seam Finance has, so everything below the auth check can be run without a
  * session, by a script against staging or by a test.
  *
- * Rows, the count, the KPI totals, the portfolio split and all four facets go out as
+ * Rows, the count, the KPI totals, the portfolio split and all five facets go out as
  * ONE `db.batch()`: one round trip, one snapshot, so a KPI cannot disagree with the
  * table beneath it.
  */
@@ -621,6 +630,7 @@ export async function awardsList(
     themeFacet,
     statusFacet,
     roundFacet,
+    regionFacet,
   ] = await db.batch([
     db
       .select()
@@ -669,6 +679,10 @@ export async function awardsList(
       .groupBy(sql`theme.value`),
     facetOn(g.status, g.status),
     facetOn(g.roundId, g.roundName),
+    // Counted with a NULL group, unlike the four above: `namedFacet` drops NULLs
+    // because "no programme" is a gap, whereas "no location recorded" is the pill a
+    // grants officer is looking for. It becomes the `NO_REGION` option below.
+    facetOn(g.deliveryRegion, g.deliveryRegion),
   ])
 
   return {
@@ -688,8 +702,28 @@ export async function awardsList(
         })),
       ),
       rounds: sortFacet(namedFacet(roundFacet, 'Untitled round')),
+      regions: regionFacet_(regionFacet),
     },
   }
+}
+
+/**
+ * Locations, alphabetical, with "No location recorded" pinned LAST rather than sorted
+ * into the N's. It is not a place; it is the residue, and it belongs at the end of the
+ * list for the same reason "Unattributed" does on the portfolio bar.
+ */
+function regionFacet_(
+  rows: Array<{ value: string | null; label: string | null; count: number }>,
+): FacetOption[] {
+  const named = sortFacet(
+    rows
+      .filter((r): r is { value: string; label: string | null; count: number } => r.value !== null)
+      .map((r) => ({ value: r.value, label: r.value, count: r.count })),
+  )
+  const unlocated = rows.find((r) => r.value === null)
+  return unlocated
+    ? [...named, { value: NO_REGION, label: 'No location recorded', count: unlocated.count }]
+    : named
 }
 
 /**
@@ -722,6 +756,7 @@ function toAwardRow(r: AwardGrantRow) {
     tags: (r.tags as string[] | null) ?? [],
     durationYears: r.durationYears,
     deliveryArea: r.deliveryArea,
+    deliveryRegion: r.deliveryRegion,
     imported: r.imported,
     status: r.status,
     decisionAt: r.decisionAt,
@@ -811,6 +846,7 @@ function emptyFacets() {
     themes: [] as FacetOption[],
     statuses: [] as FacetOption[],
     rounds: [] as FacetOption[],
+    regions: [] as FacetOption[],
   }
 }
 
@@ -1004,6 +1040,9 @@ export const addReportMilestone = createServerFn({ method: 'POST' })
       .insert(reportSchedule)
       .values({ awardId: data.awardId, label: data.label, dueDate: data.dueDate })
 
+    // A date nobody has answered yet reopens a grant that had been marked complete.
+    await recomputeAwardStatus(award.id)
+
     await recordAudit({
       actorUserId: user.id,
       action: 'grant_report_milestone_added',
@@ -1049,6 +1088,10 @@ export const deleteReportMilestone = createServerFn({ method: 'POST' })
       throw conflict('This report has already been received and cannot be removed')
     }
     await getDb().delete(reportSchedule).where(eq(reportSchedule.id, data.id))
+
+    // Dropping the last thing still expected can be what finishes the grant. (Only an
+    // unanswered date reaches here — the guard above refuses a received one.)
+    await recomputeAwardStatus(row.award.id)
 
     await recordAudit({
       actorUserId: user.id,
@@ -1150,17 +1193,7 @@ export const setInstalmentPaid = createServerFn({ method: 'POST' })
       },
     })
 
-    // Re-derive the award's lifecycle from its instalments. Only 'active' ⇄
-    // 'completed' is automated here; 'cancelled' is a deliberate manual state.
-    if (row.award.status !== 'cancelled') {
-      const siblings = await getDb()
-        .select({ paidDate: awardInstalments.paidDate })
-        .from(awardInstalments)
-        .where(eq(awardInstalments.awardId, row.award.id))
-      const allPaid = siblings.length > 0 && siblings.every((s) => s.paidDate)
-      const nextStatus = allPaid ? 'completed' : 'active'
-      if (nextStatus !== row.award.status) {
-        await getDb().update(awards).set({ status: nextStatus }).where(eq(awards.id, row.award.id))
-      }
-    }
+    // Paying the last instalment does not by itself finish a grant — the reporting has
+    // to be back and read too. See `src/lib/awardCompletion.ts`.
+    await recomputeAwardStatus(row.award.id)
   })
