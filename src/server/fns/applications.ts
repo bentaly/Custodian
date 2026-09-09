@@ -483,9 +483,10 @@ export const listAwards = createServerFn({ method: 'GET' })
       q: z.string().trim().min(1).max(255).optional(),
       /**
        * Award lifecycle, not application status — every row here is already awarded.
-       * `live` is the synthetic fourth: active OR completed, i.e. not cancelled.
+       * `not_cancelled` is the synthetic fourth: a scope over the other three rather
+       * than a state of its own — active OR completed.
        */
-      status: z.enum(['active', 'completed', 'cancelled', 'live']).optional(),
+      status: z.enum(['active', 'completed', 'cancelled', 'not_cancelled']).optional(),
       /**
        * Delivery region, or `NO_REGION` for the grants whose location never resolved.
        * Free-form rather than an enum: the values are ONS region names carried on the
@@ -560,7 +561,7 @@ export type AwardsListInput = {
   programmeId?: string
   tag?: string
   q?: string
-  status?: 'active' | 'completed' | 'cancelled' | 'live'
+  status?: 'active' | 'completed' | 'cancelled' | 'not_cancelled'
   region?: string
   from?: string
   to?: string
@@ -697,7 +698,7 @@ export async function awardsList(
     facets: {
       programmes: sortFacet(namedFacet(programmeFacet, 'Untitled programme')),
       themes: sortFacet(themeFacet),
-      statuses: statusFacetWithLive(statusFacet),
+      statuses: statusFacetWithScope(statusFacet),
       rounds: sortFacet(namedFacet(roundFacet, 'Untitled round')),
       regions: regionFacet_(regionFacet),
     },
@@ -766,11 +767,11 @@ function toAwardRow(r: AwardGrantRow) {
 }
 
 /**
- * The lifecycle options, plus `live` — "not cancelled" — pinned FIRST.
+ * The lifecycle options, plus the `not_cancelled` SCOPE, pinned FIRST.
  *
  * Offered whenever the register has rows, INCLUDING when there is nothing cancelled to
  * exclude. Suppressing it then looks tidier and is a bug: `FilterPill` draws a value it
- * cannot find among its options as unselected, so a link arriving with `status=live`
+ * cannot find among its options as unselected, so a link arriving with `status=not_cancelled`
  * would narrow the list while the pill sat there reading "Status", which is precisely
  * the invisible-filter failure the register's own column rule exists to prevent.
  *
@@ -778,7 +779,7 @@ function toAwardRow(r: AwardGrantRow) {
  * from Insights, Finance or the dashboard arrives carrying: those screens all exclude
  * cancelled money, so a count clicked there means this set.
  */
-function statusFacetWithLive(
+function statusFacetWithScope(
   rows: Array<{ value: string | null; label: string | null; count: number }>,
 ): FacetOption[] {
   if (rows.length === 0) return []
@@ -789,8 +790,8 @@ function statusFacetWithLive(
       count: f.count,
     })),
   )
-  const live = rows.reduce((n, f) => (f.value === 'cancelled' ? n : n + f.count), 0)
-  return [{ value: 'live', label: GRANT_STATUS_LABELS.live!, count: live }, ...real]
+  const n = rows.reduce((acc, f) => (f.value === 'cancelled' ? acc : acc + f.count), 0)
+  return [{ value: 'not_cancelled', label: GRANT_STATUS_LABELS.not_cancelled!, count: n }, ...real]
 }
 
 /** A facet row whose value is NULL (a grant with no programme) is not a facet. */
@@ -863,9 +864,12 @@ export const GRANT_STATUS_LABELS: Record<string, string> = {
   active: 'Active',
   completed: 'Complete',
   cancelled: 'Cancelled',
-  // Not a value `awards.status` ever holds — a filter meaning "not cancelled", which is
-  // the set every money-facing screen counts. See `statusFacetWithLive`.
-  live: 'Live (not cancelled)',
+  // Not a value `awards.status` ever holds, and named so it cannot be mistaken for one.
+  // "Live" was tried first and was worse: beside Active / Complete / Cancelled it read as
+  // a fourth lifecycle state, and with nothing yet completed it carried the identical
+  // count to Active, so the pill offered what looked like the same option twice. This
+  // names the OPERATION instead — the set every money-facing screen counts.
+  not_cancelled: 'Excluding cancelled',
 }
 
 function emptyFacets() {

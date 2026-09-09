@@ -173,15 +173,24 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
  * window, programme, theme and region pills — plus whatever this particular count
  * narrowed further.
  *
- * **`status: 'live'` is not decoration.** Insights excludes cancelled grants from every
+ * **`status: 'not_cancelled'` is not decoration.** Insights excludes cancelled grants from every
  * figure it prints (the money rule), and the register is the whole book of business and
  * rightly shows them. Without it, "1 grant" in East of England opened a register listing
  * two, which is the exact class of disagreement the money rule was written after.
  *
- * Only rendered where the count is not already inside a click target: a programme card
- * is a Link that re-filters this screen, and a map row is a drill control, so on those
- * the count stays text and the panel offers its own way out.
+ * Brand-coloured rather than inheriting the line it sits in. These counts live inside
+ * dense grey sublines beside money and impact figures, and an underline-on-hover alone
+ * gave no sign the text was reachable until the pointer was already on it.
+ *
+ * The one place it is NOT used is a count already wrapped in a link of its own — the
+ * round-programme card, which is a Link that re-filters this screen. Everywhere else the
+ * count is the link, including inside truncating sublines (pulled out of the string, see
+ * `themeRest`) and inside the map's drill rows (a sibling of the drill button, not a
+ * child of it — see `AreaList`).
  */
+/** The extra narrowing a particular count carries, on top of the slice being read. */
+type GrantNarrow = { roundId?: string; programmeId?: string; tag?: string; region?: string }
+
 function GrantCount({
   n,
   slice,
@@ -189,7 +198,7 @@ function GrantCount({
 }: {
   n: number
   slice: InsightsSearch
-  narrow?: { roundId?: string; programmeId?: string; tag?: string }
+  narrow?: GrantNarrow
 }) {
   return (
     <Link
@@ -200,10 +209,11 @@ function GrantCount({
         programmeId: slice.programmeId,
         tag: slice.tag,
         region: slice.region,
-        status: 'live',
+        status: 'not_cancelled',
         ...narrow,
       }}
-      className="underline decoration-transparent underline-offset-2 transition-colors hover:decoration-inherit"
+      className="font-medium underline decoration-transparent underline-offset-2 transition-colors hover:decoration-inherit"
+      style={{ color: C.brand }}
     >
       {n} grant{n !== 1 ? 's' : ''}
     </Link>
@@ -215,17 +225,56 @@ function GrantCount({
  * one total per unit, because a theme spans programmes and programmes measure in
  * different things.
  */
-function themeLine(t: { count: number; amount: number; impact: UnitTotal[] }): string {
-  return [
-    `${t.count} grant${t.count !== 1 ? 's' : ''}`,
-    fmtCompact(t.amount),
-    ...t.impact.map(unitPhrase),
-  ].join(' · ')
+function themeRest(t: { amount: number; impact: UnitTotal[] }): string {
+  return [fmtCompact(t.amount), ...t.impact.map(unitPhrase)].join(' · ')
 }
 
-/** A programme column's second line: how many grants, and what they add up to. */
-function subline(p: { grants: number; impact: UnitTotal[] }): string {
-  return [`${p.grants} grant${p.grants !== 1 ? 's' : ''}`, ...p.impact.map(unitPhrase)].join(' · ')
+/** A programme column's second line, minus its count. */
+function programmeRest(p: { impact: UnitTotal[] }): string {
+  return p.impact.map(unitPhrase).join(' · ')
+}
+
+/**
+ * A count, then the rest of the line — the shape both sublines now take.
+ *
+ * The count used to be the head of one joined string inside a `TruncatedText`, which
+ * could not be a link: that component measures its own span against its box to decide
+ * whether to show a tooltip, and a child element inside the measured text breaks the
+ * comparison. So the count is lifted OUT and the remainder keeps the truncation it was
+ * given — the count is `shrink-0` because it is the one part of the line that must never
+ * be the thing that clips, and the remainder takes what is left.
+ */
+function CountLine({
+  count,
+  rest,
+  slice,
+  narrow,
+  className,
+}: {
+  count: number
+  rest: string
+  slice: InsightsSearch
+  narrow?: GrantNarrow
+  className?: string
+}) {
+  return (
+    // The container carries the subline's grey; `GrantCount` sets its own brand colour
+    // over it, so the link stands out of the line rather than recolouring the whole of it.
+    <div
+      className={`flex min-w-0 items-baseline gap-1 ${className ?? ''}`}
+      style={{ color: C.sub }}
+    >
+      <span className="shrink-0">
+        <GrantCount n={count} slice={slice} narrow={narrow} />
+      </span>
+      {rest && (
+        <>
+          <span className="shrink-0">·</span>
+          <TruncatedText text={rest} label="Grants and impact" className="min-w-0 flex-1" />
+        </>
+      )}
+    </div>
+  )
 }
 
 /** The three bands the chart's legend names, each by a decile inside it. */
@@ -599,6 +648,8 @@ function AreaList({
   onPick,
   highlight,
   onHighlight,
+  slice,
+  narrowOf,
 }: {
   areas: Array<{ code: string; name: string; amount: number; count: number; colour: string }>
   total: number
@@ -614,6 +665,19 @@ function AreaList({
   /** Area held at full strength while the rest recede. */
   highlight: string | null
   onHighlight: (code: string | null) => void
+  /** The slice being read, carried into whatever register a count opens. */
+  slice: InsightsSearch
+  /**
+   * How the register should be narrowed to this row's area, or null if it cannot be.
+   *
+   * Per row, like `drillOf`, and for the same reason. At the UK tier a row IS a region,
+   * which is exactly what the register groups on. One tier down a row is a DISTRICT, and
+   * the register has no district filter — a link there would have to widen silently to
+   * the parent region and hand back a longer list than the count it was attached to. So
+   * those counts stay text, and the panel's own link beneath the list is the way out at
+   * the granularity the register can actually honour.
+   */
+  narrowOf: (code: string, name: string) => GrantNarrow | null
 }) {
   return (
     <ul className="flex flex-col gap-0.5" onMouseLeave={() => onHighlight(null)}>
@@ -622,23 +686,35 @@ function AreaList({
         const pct = total > 0 ? Math.round((a.amount / total) * 100) : 0
         const dim = highlight !== null && highlight !== a.code
         const to = drillOf(a.code, a.name, a.amount > 0)
+        const countNarrow = narrowOf(a.code, a.name)
         return (
-          <li key={a.code}>
+          // The row holds TWO targets, so the styling that used to sit on the button
+          // moves out here and the button goes transparent: the drill (swatch, name,
+          // chevron) and the count, which links to those grants in the register. A link
+          // nested inside the button would be invalid and would fight it for the click.
+          //
+          // Hover and selection are driven from the `li` for the same reason — entering
+          // either half should light the whole row, as it did when the row was one
+          // control.
+          <li
+            key={a.code}
+            onMouseEnter={() => onHighlight(a.code)}
+            className="flex items-center gap-2.5 rounded-chip border px-2.5 py-1.5"
+            style={{
+              borderColor: on ? C.brand : 'transparent',
+              backgroundColor: on ? '#fff' : highlight === a.code ? C.wash : undefined,
+              opacity: dim ? 0.6 : 1,
+              transition: 'opacity 200ms ease, background-color 150ms ease',
+            }}
+          >
             <button
               type="button"
               onClick={() => onPick(a.code, a.name, to)}
-              onMouseEnter={() => onHighlight(a.code)}
               onFocus={() => onHighlight(a.code)}
               onBlur={() => onHighlight(null)}
               aria-current={on || undefined}
-              title={`${a.name} · ${fmtMoney(a.amount)} · ${a.count} grant${a.count !== 1 ? 's' : ''} · ${pct}%`}
-              className="flex w-full items-center gap-2.5 rounded-chip border px-2.5 py-1.5 text-left"
-              style={{
-                borderColor: on ? C.brand : 'transparent',
-                backgroundColor: on ? '#fff' : highlight === a.code ? C.wash : undefined,
-                opacity: dim ? 0.6 : 1,
-                transition: 'opacity 200ms ease, background-color 150ms ease',
-              }}
+              title={`${a.name} · ${fmtMoney(a.amount)} · ${pct}%`}
+              className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
             >
               <span
                 className="size-2.5 shrink-0 rounded-swatch"
@@ -650,27 +726,36 @@ function AreaList({
               >
                 {a.name}
               </span>
-              <span
-                className="shrink-0 font-display text-label tabular-nums"
-                style={{ color: C.sub }}
-              >
-                {/* Count first, and with its noun. This read "£45k · 1", where the 1
-                    was the only figure on the panel whose unit lived in a tooltip —
-                    beside a money figure it scanned as a second, smaller amount. The
-                    row is a drill control, so the count is NOT a link here the way it
-                    is elsewhere on this screen; the panel's way into the register is
-                    the link beneath the list, where it cannot collide with the drill. */}
-                {a.count} grant{a.count !== 1 ? 's' : ''} · {fmtCompact(a.amount)}
-              </span>
-              {to && (
-                <HugeiconsIcon
-                  icon={ArrowRight01Icon}
-                  size={14}
-                  color={on ? C.brand : C.faint}
-                  className="shrink-0"
-                />
-              )}
             </button>
+
+            {/* Count first and with its noun, then the money. This read "£45k · 1",
+                where the 1 was the only figure on the panel whose unit lived in a
+                tooltip — beside a money figure it scanned as a second, smaller
+                amount. */}
+            <span
+              className="shrink-0 font-display text-label tabular-nums"
+              style={{ color: C.sub }}
+            >
+              {countNarrow ? (
+                <GrantCount n={a.count} slice={slice} narrow={countNarrow} />
+              ) : (
+                <>
+                  {a.count} grant{a.count !== 1 ? 's' : ''}
+                </>
+              )}{' '}
+              · {fmtCompact(a.amount)}
+            </span>
+
+            {to && (
+              <button
+                type="button"
+                onClick={() => onPick(a.code, a.name, to)}
+                aria-label={`Open ${a.name}`}
+                className="shrink-0"
+              >
+                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color={on ? C.brand : C.faint} />
+              </button>
+            )}
           </li>
         )
       })}
@@ -1411,9 +1496,13 @@ function InsightsPage() {
                             programme's is narrow enough to clip "31,000 items
                             delivered" to "31,000 ite…", and a bare CSS truncate leaves
                             the number with no way to be read. */}
-                        <div className="font-display text-label" style={{ color: C.sub }}>
-                          <TruncatedText text={subline(p)} label="Grants and impact" />
-                        </div>
+                        <CountLine
+                          count={p.grants}
+                          rest={programmeRest(p)}
+                          slice={search}
+                          narrow={p.id ? { programmeId: p.id } : undefined}
+                          className="font-display text-label"
+                        />
                       </div>
                     </Fragment>
                   )
@@ -1515,9 +1604,13 @@ function InsightsPage() {
                                 spanning three units has a long line, and a clipped
                                 figure with no way to read it is worse than no
                                 figure. */}
-                            <div className="mt-1 font-display text-label" style={{ color: C.sub }}>
-                              <TruncatedText text={themeLine(t)} label="Grants and impact" />
-                            </div>
+                            <CountLine
+                              count={t.count}
+                              rest={themeRest(t)}
+                              slice={search}
+                              narrow={{ tag: t.tag }}
+                              className="mt-1 font-display text-label"
+                            />
                           </div>
                           <span
                             className="shrink-0 font-display text-heading font-medium leading-none"
@@ -1643,6 +1736,13 @@ function InsightsPage() {
                     // rule, from the same function, so the two halves of the
                     // panel can never disagree about what a click means.
                     drillOf={(code, name, funded) => drillTarget(mapView, code, name, funded)}
+                    slice={search}
+                    // Only the UK tier's rows are regions, which is the one geography
+                    // the register filters on. Countries above and districts below have
+                    // no equivalent there, so their counts stay text — see `narrowOf`.
+                    // The code is what the values were grouped BY (`g.region`), so it is
+                    // the string handed over, never the display name beside it.
+                    narrowOf={(code) => (mapView.kind === 'uk' ? { region: code } : null)}
                     onPick={(code, name, to) => {
                       setSelArea(code)
                       if (to) setMapView(to)
@@ -1670,7 +1770,7 @@ function InsightsPage() {
                       (`deliveryRegionLabel`, shared); a link built from a display label
                       would land on an empty list and say nothing about why.
 
-                      It carries the whole slice and `status: 'live'` exactly as
+                      It carries the whole slice and the not-cancelled scope exactly as
                       `GrantCount` does, so the two cannot open different registers from
                       the same panel. */}
                   {linkedRegion && (
@@ -1682,7 +1782,7 @@ function InsightsPage() {
                         programmeId: search.programmeId,
                         tag: search.tag,
                         region: linkedRegion,
-                        status: 'live',
+                        status: 'not_cancelled',
                       }}
                       className="self-start font-display text-label font-medium underline underline-offset-2"
                       style={{ color: C.sub }}
