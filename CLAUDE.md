@@ -199,15 +199,18 @@ Stated on `listFinanceGrants`, enforced in `grantsQuery`:
 - **paid** — INCLUDES cancelled. The money left the building; paid history must reconcile against
   the foundation's own ledger.
 - **committed / awarded / giving** — EXCLUDES cancelled. A withdrawn grant is not money committed.
-  **Insights is the deliberate exception** (2026-09-09): a cancelled grant counts there for what
-  it SPENT, so a grant cancelled after one instalment contributes that instalment and one never
-  paid contributes nothing and drops out. Same `max(committed, paid)` as the budget panel below,
-  applied once on `InsightsGrant.amountAwarded` so every figure downstream inherits it. The reason
-  is that Insights has NO paid figure of its own, so wholesale exclusion made real spending
-  invisible — £20,500 reached Great Yarmouth and the map drew nothing there. The consequence to
-  keep in mind: **Insights' total is legitimately HIGHER than the Awards register's "awarded"**
-  (£376,000 vs £355,500 on staging's Wrenfield), and that is not the bug fixed the same day —
-  they are answering different questions and the labels have to keep saying so.
+  **In a ROLLUP that word means `max(committed, paid)` per grant** — Insights' "Total committed"
+  and the annual budget panel's `used`, which are the same rule and agree to the penny. A grant
+  cancelled after one instalment therefore counts for that instalment, and one cancelled having
+  paid nothing counts for nothing and drops out entirely. The reason is that neither screen has a
+  paid figure of its own for the money to land in instead, so wholesale exclusion made real
+  spending invisible — £20,500 reached Great Yarmouth and the Insights map drew nothing there.
+  Applied ONCE, on `InsightsGrant.amountAwarded`, so committed, average grant, by programme, by
+  theme, by region and the deprivation weighting all inherit it (2026-09-09).
+  **The consequence, which is not a bug**: Insights reads HIGHER than the Awards register
+  (£376,000 vs £355,500 on staging's Wrenfield). The register's word is **awarded** and it means
+  the value of live awards; the rollup word is **committed** and it means what the money no longer
+  has, whichever way it left. Do not "reconcile" them — check the words first.
 - **outstanding / overdue / due soon** — EXCLUDES cancelled. There is nothing left to pay.
 
 Finance, Rounds and Shortlist applied it; the dashboard and Insights did not, and were caught by
