@@ -107,12 +107,8 @@ export function parseApplicationsSearch(search: Record<string, unknown>): Applic
 
 // ─── Awards ──────────────────────────────────────────────────────────────────────
 
-// `not_cancelled` is not an `awards.status` value — it is a scope over the other three,
-// the set every money-facing screen (Insights, Finance, the dashboard) counts. It exists
-// so a link arriving from one of those can name the set its count described. Named for
-// the operation, never as a fourth state; see `GRANT_STATUS_LABELS`.
-export type AwardStatus = 'active' | 'completed' | 'cancelled' | 'not_cancelled'
-const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled', 'not_cancelled']
+export type AwardStatus = 'active' | 'completed' | 'cancelled'
+const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled']
 
 // No 'status' key: the lifecycle pill moved into the Paid column, and sorting by a
 // column that no longer has a header is unreachable. Status is still a FILTER — the

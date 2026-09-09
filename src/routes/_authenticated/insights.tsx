@@ -173,10 +173,11 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
  * window, programme, theme and region pills — plus whatever this particular count
  * narrowed further.
  *
- * **`status: 'not_cancelled'` is not decoration.** Insights excludes cancelled grants from every
- * figure it prints (the money rule), and the register is the whole book of business and
- * rightly shows them. Without it, "1 grant" in East of England opened a register listing
- * two, which is the exact class of disagreement the money rule was written after.
+ * It carries NO status. Insights excludes cancelled grants from every figure it prints
+ * (the money rule) and the register lists them, because there the cancellation is part of
+ * the record — so a region holding a cancelled grant opens one row longer than the count
+ * clicked. That row is greyed and pilled "Cancelled", which is a better explanation than
+ * a filter silently hiding it, and it is why this does not reach for one.
  *
  * Brand-coloured rather than inheriting the line it sits in. These counts live inside
  * dense grey sublines beside money and impact figures, and an underline-on-hover alone
@@ -209,7 +210,6 @@ function GrantCount({
         programmeId: slice.programmeId,
         tag: slice.tag,
         region: slice.region,
-        status: 'not_cancelled',
         ...narrow,
       }}
       className="font-medium underline decoration-transparent underline-offset-2 transition-colors hover:decoration-inherit"
@@ -1770,9 +1770,8 @@ function InsightsPage() {
                       (`deliveryRegionLabel`, shared); a link built from a display label
                       would land on an empty list and say nothing about why.
 
-                      It carries the whole slice and the not-cancelled scope exactly as
-                      `GrantCount` does, so the two cannot open different registers from
-                      the same panel. */}
+                      It carries the whole slice exactly as `GrantCount` does, so the two
+                      cannot open different registers from the same panel. */}
                   {linkedRegion && (
                     <Link
                       to="/awards"
@@ -1782,7 +1781,6 @@ function InsightsPage() {
                         programmeId: search.programmeId,
                         tag: search.tag,
                         region: linkedRegion,
-                        status: 'not_cancelled',
                       }}
                       className="self-start font-display text-label font-medium underline underline-offset-2"
                       style={{ color: C.sub }}

@@ -166,25 +166,7 @@ export function filterWhere(
   return and(
     f.programmeId ? eq(g.programmeId, f.programmeId) : undefined,
     f.tag ? sql`${g.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
-    // `not_cancelled` is not a lifecycle value and is deliberately not named like one —
-    // it is a SCOPE over the other three, the set Insights, Finance and the dashboard all
-    // mean by committed money (see the money rule). The register itself is the whole book
-    // and rightly shows cancelled grants, so a link arriving FROM one of those screens has
-    // to be able to say which set it meant, or it lands on a list one row longer than the
-    // count that was clicked.
-    f.status === 'not_cancelled'
-      ? sql`${g.status} <> 'cancelled'`
-      : f.status
-        ? eq(g.status, f.status)
-        : undefined,
-    // `NO_REGION` is a real option, not the absence of one: a grant whose delivery area
-    // never resolved is the row a grants officer most wants to find, so it gets a pill
-    // of its own rather than being reachable only by scrolling.
-    f.region === NO_REGION
-      ? sql`${g.deliveryRegion} is null`
-      : f.region
-        ? eq(g.deliveryRegion, f.region)
-        : undefined,
+    f.status ? eq(g.status, f.status) : undefined,
     f.from ? sql`${g.decisionDay} >= ${f.from}` : undefined,
     f.to ? sql`${g.decisionDay} <= ${f.to}` : undefined,
     // Organisation and the foundation's own reference, which is the row's subtext here
