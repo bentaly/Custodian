@@ -166,6 +166,51 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
 }
 
 /**
+ * A grant count, as a way into the Awards register showing exactly those grants.
+ *
+ * A count of grants is already a pointer to them, so it is the link rather than some
+ * separate "view all" bolted beside it. It carries the slice being read — the date
+ * window, programme, theme and region pills — plus whatever this particular count
+ * narrowed further.
+ *
+ * **`status: 'live'` is not decoration.** Insights excludes cancelled grants from every
+ * figure it prints (the money rule), and the register is the whole book of business and
+ * rightly shows them. Without it, "1 grant" in East of England opened a register listing
+ * two, which is the exact class of disagreement the money rule was written after.
+ *
+ * Only rendered where the count is not already inside a click target: a programme card
+ * is a Link that re-filters this screen, and a map row is a drill control, so on those
+ * the count stays text and the panel offers its own way out.
+ */
+function GrantCount({
+  n,
+  slice,
+  narrow,
+}: {
+  n: number
+  slice: InsightsSearch
+  narrow?: { roundId?: string; programmeId?: string; tag?: string }
+}) {
+  return (
+    <Link
+      to="/awards"
+      search={{
+        from: slice.from,
+        to: slice.to,
+        programmeId: slice.programmeId,
+        tag: slice.tag,
+        region: slice.region,
+        status: 'live',
+        ...narrow,
+      }}
+      className="underline decoration-transparent underline-offset-2 transition-colors hover:decoration-inherit"
+    >
+      {n} grant{n !== 1 ? 's' : ''}
+    </Link>
+  )
+}
+
+/**
  * A theme tile's second line: how many grants, what they came to, and the impact —
  * one total per unit, because a theme spans programmes and programmes measure in
  * different things.
@@ -609,7 +654,13 @@ function AreaList({
                 className="shrink-0 font-display text-label tabular-nums"
                 style={{ color: C.sub }}
               >
-                {fmtCompact(a.amount)} · {a.count}
+                {/* Count first, and with its noun. This read "£45k · 1", where the 1
+                    was the only figure on the panel whose unit lived in a tooltip —
+                    beside a money figure it scanned as a second, smaller amount. The
+                    row is a drill control, so the count is NOT a link here the way it
+                    is elsewhere on this screen; the panel's way into the register is
+                    the link beneath the list, where it cannot collide with the drill. */}
+                {a.count} grant{a.count !== 1 ? 's' : ''} · {fmtCompact(a.amount)}
               </span>
               {to && (
                 <HugeiconsIcon
@@ -808,7 +859,8 @@ function fundingByDecile(grants: InsightsGrant[]): number[] {
 
 function InsightsPage() {
   const navigate = useNavigate({ from: '/insights' })
-  const { from, to, programmeId, tag, region } = Route.useSearch()
+  const search = Route.useSearch()
+  const { from, to, programmeId, tag, region } = search
   const { items } = Route.useLoaderData()
 
   // ── Filter options, derived from the data itself ──
@@ -1242,7 +1294,13 @@ function InsightsPage() {
               icon={Coins01Icon}
               label="Total committed"
               value={<CompactMoney amount={committedUp} label="Exact total committed" />}
-              sub={`across ${fil.length} grant${fil.length !== 1 ? 's' : ''}`}
+              // The broadest way in: this count IS the slice every other figure on the
+              // screen is computed from, so the register it opens is that slice exactly.
+              sub={
+                <>
+                  across <GrantCount n={fil.length} slice={search} />
+                </>
+              }
             />
             <MiniKpi
               size="lg"
@@ -1600,21 +1658,32 @@ function InsightsPage() {
                     </p>
                   )}
 
-                  {/* The way OUT of this panel. Everything above answers "how much, and
-                      where"; the question it leaves a grants officer with is "which
-                      grants", and that is the Awards register, not a drill-down this
-                      screen could grow.
+                  {/* The way OUT of this panel, and the map's stand-in for the linked
+                      count every other panel now carries: a row here is a drill control,
+                      so its count cannot also be a link (see `GrantCount`) and the panel
+                      offers one link of its own instead.
 
                       It appears only with ONE region in view — drilled on the map, or
                       picked in the filter above — because the register takes a single
                       region and there is no honest link for "all of them". The value
                       handed over is `g.region`, the same string the register groups on
                       (`deliveryRegionLabel`, shared); a link built from a display label
-                      would land on an empty list and say nothing about why. */}
+                      would land on an empty list and say nothing about why.
+
+                      It carries the whole slice and `status: 'live'` exactly as
+                      `GrantCount` does, so the two cannot open different registers from
+                      the same panel. */}
                   {linkedRegion && (
                     <Link
                       to="/awards"
-                      search={{ region: linkedRegion }}
+                      search={{
+                        from: search.from,
+                        to: search.to,
+                        programmeId: search.programmeId,
+                        tag: search.tag,
+                        region: linkedRegion,
+                        status: 'live',
+                      }}
                       className="self-start font-display text-label font-medium underline underline-offset-2"
                       style={{ color: C.sub }}
                     >
@@ -1680,8 +1749,12 @@ function InsightsPage() {
                         </span>
                         <span className="font-display text-label" style={{ color: C.sub }}>
                           {r.programmes.length} programme{r.programmes.length !== 1 ? 's' : ''} ·{' '}
-                          {r.grants.length} grant{r.grants.length !== 1 ? 's' : ''} ·{' '}
-                          <CompactMoney amount={r.total} label="Exact total for this region" />
+                          <GrantCount
+                            n={r.grants.length}
+                            slice={search}
+                            narrow={{ roundId: r.id }}
+                          />{' '}
+                          · <CompactMoney amount={r.total} label="Exact total for this round" />
                         </span>
                         <span className="h-px flex-1" style={{ backgroundColor: C.line }} />
                       </div>

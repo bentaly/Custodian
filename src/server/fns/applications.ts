@@ -768,15 +768,20 @@ function toAwardRow(r: AwardGrantRow) {
 /**
  * The lifecycle options, plus `live` — "not cancelled" — pinned FIRST.
  *
- * It is offered only when a cancelled grant exists to exclude. With none it would select
- * the whole register under a name claiming to have narrowed it, which is worse than not
- * offering it. First rather than alphabetical because it is the widest of the four and
- * the one a link from Insights, Finance or the dashboard arrives carrying: those screens
- * all exclude cancelled money, so a count clicked there means this set.
+ * Offered whenever the register has rows, INCLUDING when there is nothing cancelled to
+ * exclude. Suppressing it then looks tidier and is a bug: `FilterPill` draws a value it
+ * cannot find among its options as unselected, so a link arriving with `status=live`
+ * would narrow the list while the pill sat there reading "Status", which is precisely
+ * the invisible-filter failure the register's own column rule exists to prevent.
+ *
+ * First rather than alphabetical because it is the widest of the four and the one a link
+ * from Insights, Finance or the dashboard arrives carrying: those screens all exclude
+ * cancelled money, so a count clicked there means this set.
  */
 function statusFacetWithLive(
   rows: Array<{ value: string | null; label: string | null; count: number }>,
 ): FacetOption[] {
+  if (rows.length === 0) return []
   const real = sortFacet(
     rows.map((f) => ({
       value: f.value!,
@@ -784,8 +789,6 @@ function statusFacetWithLive(
       count: f.count,
     })),
   )
-  const cancelled = rows.find((f) => f.value === 'cancelled')?.count ?? 0
-  if (cancelled === 0) return real
   const live = rows.reduce((n, f) => (f.value === 'cancelled' ? n : n + f.count), 0)
   return [{ value: 'live', label: GRANT_STATUS_LABELS.live!, count: live }, ...real]
 }
@@ -860,9 +863,8 @@ export const GRANT_STATUS_LABELS: Record<string, string> = {
   active: 'Active',
   completed: 'Complete',
   cancelled: 'Cancelled',
-  // Not a value `awards.status` ever holds — a filter meaning "not cancelled". It is
-  // offered as an option only when there IS a cancelled grant to exclude; with none, it
-  // would select the whole register under a name implying it had narrowed something.
+  // Not a value `awards.status` ever holds — a filter meaning "not cancelled", which is
+  // the set every money-facing screen counts. See `statusFacetWithLive`.
   live: 'Live (not cancelled)',
 }
 
