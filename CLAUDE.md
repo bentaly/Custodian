@@ -207,6 +207,17 @@ reported £165,666.66, the unpaid half of a cancelled grant. `getDashboard` now 
 `liveAwardScope` once (with `paidToDate` deliberately on the wider scope); `getInsights` filters
 cancelled out of `items` rather than at a dozen `reduce` call sites.
 
+**The Awards register was the one that audit missed**, and broke the rule the same way until
+2026-09-09: `awardsList`'s headline summed the whole book, so a cancelled grant counted as money
+committed and its unpaid half as money owed — £424,514 awarded and £149,176.66 outstanding where
+Finance, one screen away, said £383,514 and £128,676.66. Now `notCancelled` gates `totalAwarded`,
+`outstanding` and the "Portfolio by programme" bar (which must sum to the awarded figure printed
+above it), while `paidToDate` stays on the whole book. **The row COUNT deliberately stays on the
+whole book too** — it counts DECISIONS, not money, and the cancelled grant is listed in the rows
+below wearing a "Cancelled" pill, so a header reading 11 over a list of 12 would read as a bug in
+the list. That is the one place on this screen where a count and the money beside it describe
+different sets, and it is intentional.
+
 `buildSchedule` folds the rounding remainder into the final instalment so a split sums to the
 award exactly, and `createAwards` re-checks that server-side (0.005 tolerance).
 

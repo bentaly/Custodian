@@ -578,6 +578,11 @@ type AwardSortKey =
   | 'geography'
   | 'status'
 
+/** A grant that still represents a promise — the money rule's scope for committed. */
+function notCancelled(g: AwardGrantsQuery): SQL {
+  return sql`${g.status} <> 'cancelled'`
+}
+
 /**
  * The Awards register, as a plain function of (connection, tenant scope, filters) —
  * the same seam Finance has, so everything below the auth check can be run without a
@@ -643,13 +648,29 @@ export async function awardsList(
       .select({ n: sql<number>`(count(*))::int` })
       .from(g)
       .where(where),
+    // The money rule, on the register's own headline (see CLAUDE.md). It was missing
+    // here: every figure summed the whole book, so a cancelled grant was still counted
+    // as money committed and its unpaid half as money owed. Finance sits one screen away
+    // and has always applied the rule, so the two disagreed by the value of every
+    // cancelled grant — exactly the failure the 2026-08-27 audit was written after, on
+    // the one register that audit did not reach.
+    //
+    //   awarded / outstanding — EXCLUDE cancelled. There is no promise left to keep and
+    //                           nothing left to pay.
+    //   paid                  — INCLUDES cancelled. The money left the building, and
+    //                           paid history has to reconcile against the foundation's
+    //                           own ledger.
+    //   count                 — ALL of them. It counts DECISIONS, not money, and the
+    //                           cancelled grant is listed in the rows below it wearing a
+    //                           "Cancelled" pill. A header saying 11 over a list of 12
+    //                           would read as a bug in the list.
     db
       .select({
-        totalAwarded: sql<number>`coalesce(sum(${portfolio.amountAwarded}), 0)::float8`,
+        totalAwarded: sql<number>`coalesce(sum(${portfolio.amountAwarded}) filter (where ${notCancelled(portfolio)}), 0)::float8`,
         count: sql<number>`(count(*))::int`,
         multiYearCount: sql<number>`(count(*) filter (where ${portfolio.durationYears} > 1))::int`,
         paidToDate: sql<number>`coalesce(sum(${portfolio.paidToDate}), 0)::float8`,
-        outstanding: sql<number>`coalesce(sum(${portfolio.outstanding}), 0)::float8`,
+        outstanding: sql<number>`coalesce(sum(${portfolio.outstanding}) filter (where ${notCancelled(portfolio)}), 0)::float8`,
       })
       .from(portfolio),
     // The portfolio split, grouped by programme NAME: a grant whose programme was
@@ -660,9 +681,12 @@ export async function awardsList(
       .select({
         name: sql<string>`coalesce(${portfolio.programmeName}, 'Unattributed')`,
         colour: sql<string | null>`max(${portfolio.programmeColour})`,
-        amount: sql<number>`coalesce(sum(${portfolio.amountAwarded}), 0)::float8`,
+        // Committed money, so cancelled is out — the bar has to add up to the "awarded"
+        // figure printed directly above it.
+        amount: sql<number>`coalesce(sum(${portfolio.amountAwarded}) filter (where ${notCancelled(portfolio)}), 0)::float8`,
       })
       .from(portfolio)
+      .where(notCancelled(portfolio))
       .groupBy(sql`1`)
       .orderBy(sql`3 desc`),
     // Facets describe the round you are in — the scope above — before the transient
