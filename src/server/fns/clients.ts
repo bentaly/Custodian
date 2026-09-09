@@ -19,6 +19,7 @@ export const upsertClientProfile = createServerFn({ method: 'POST' })
     z.object({
       missionStatement: z.string().optional(),
       allowAdminVoting: z.boolean().optional(),
+      enforceRoundBudget: z.boolean().optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -29,6 +30,7 @@ export const upsertClientProfile = createServerFn({ method: 'POST' })
     const fields: Partial<typeof clientProfiles.$inferInsert> = {}
     if (data.missionStatement !== undefined) fields.missionStatement = data.missionStatement
     if (data.allowAdminVoting !== undefined) fields.allowAdminVoting = data.allowAdminVoting
+    if (data.enforceRoundBudget !== undefined) fields.enforceRoundBudget = data.enforceRoundBudget
     const [profile] = await getDb()
       .insert(clientProfiles)
       .values({ clientId: user.clientId, ...fields })

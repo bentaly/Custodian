@@ -695,6 +695,14 @@ Structural decisions worth knowing before adding a screen:
   programme allocations). Both are **archive only** — `deleteRound` / `deleteProgramme` were
   removed, because a round's applications and awards are the record of a decision. Which rounds a
   programme is funded in is set in the ROUND dialog, next to the budget that decision is about.
+  **A round-programme budget is a target, not a ceiling** — unless the foundation says otherwise
+  at `/settings/round-budgets` (`client_profiles.enforce_round_budget`, default FALSE). Most
+  foundations shortlist more than they can fund and then choose between them, so the hard stop
+  this shipped with ("Budget full", the Shortlist button disabled) is now opt-in. Enforced in
+  `updateApplicationStatus`, which is the boundary; the disabled button on the application screen
+  reads the same flag off `getApplication` and is a courtesy, not a gate. With it off the
+  shortlist's proposed-spend row states the overspend instead — in WORDS plus a
+  `committed + proposed / budget` pair, never by repainting the meter.
 - **`RoundSelect`** — the round pill Applications and Shortlist share. There is deliberately **no
   "all rounds"** option: totals summed across rounds are meaningless. Screen headers put the `<h1>`
   first and the round pill on the row beneath.
@@ -708,7 +716,8 @@ Structural decisions worth knowing before adding a screen:
   means a migration too — the colour is stored on the row, and one off the current ten reads as
   "Custom" and can be handed out twice (see `0074_programme_colour_ramp_reweight`).
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
-  `team`, `giving-strategy`, `voting`, `letters`, `api-keys`, `submissions`, `data-import`, `budget`.
+  `team`, `giving-strategy`, `voting`, `letters`, `api-keys`, `submissions`, `data-import`,
+  `budget`, `round-budgets`.
   `/settings/award-letter` is now a redirect to `/settings/letters?tab=award`.
   It links out to `/rounds` and `/programmes`, which is why those left the sidebar. Cards are
   filtered by role. `/users` is now a redirect to `/settings/team`.

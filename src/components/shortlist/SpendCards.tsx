@@ -198,11 +198,27 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
                       )}
                     </span>
                   )}
+                  {/* The pair is `proposed/budget` — this shortlist against the money
+                    the programme has — EXCEPT when the round has gone over, where it
+                    becomes `committed + proposed` against the budget. Over budget the
+                    question stops being "how much are we proposing" and becomes "how
+                    much would this round have spent", and the two figures either side
+                    of the slash have to be the two the bar is drawing, or a full bar
+                    sits above a numerator smaller than its own denominator. The
+                    breakdown is not lost: the legend to the left still names what is
+                    already committed and what share of the budget is being proposed.
+                    Now the budget may be exceeded — see `enforce_round_budget` — this
+                    is a figure a foundation reads every week, not a broken state. */}
                   <span
                     className="shrink-0 font-display text-body font-medium tabular-nums"
-                    style={{ color: C.ink }}
+                    style={{ color: over ? C.danger : C.ink }}
+                    title={
+                      over
+                        ? `${fmtMoney(r.proposed)} proposed on top of ${fmtMoney(r.committed)} already committed`
+                        : undefined
+                    }
                   >
-                    {fmtMoney(r.proposed)}
+                    {fmtMoney(over ? r.committed + r.proposed : r.proposed)}
                     {budget !== null && <span style={{ color: C.faint }}>/{fmtMoney(budget)}</span>}
                   </span>
                 </div>

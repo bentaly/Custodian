@@ -26,6 +26,7 @@ import {
   awardInstalments,
   reportSchedule,
   reports,
+  clientProfiles,
 } from '../../../drizzle/schema'
 import { searchAny } from '../searchTerm'
 import { requireAuthUser, requireRole } from '../session'
@@ -205,20 +206,29 @@ export const getApplication = createServerFn({ method: 'GET' })
     assertClientAccess(user, application.roundProgramme.programme.clientId)
 
     // Committed = awarded awards at their grant amount + shortlisted at requested.
-    const committedRows = await getDb()
-      .select({
-        committed: sql<
-          string | null
-        >`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
-      })
-      .from(applications)
-      .leftJoin(awards, eq(awards.applicationId, applications.id))
-      .where(
-        and(
-          eq(applications.roundProgrammeId, application.roundProgrammeId),
-          inArray(applications.status, ['shortlisted', 'awarded']),
+    // Alongside it, whether this foundation treats the round-programme budget as a
+    // ceiling — the screen needs both to know whether Shortlist is available, and one
+    // without the other tells it nothing.
+    const [committedRows, profile] = await Promise.all([
+      getDb()
+        .select({
+          committed: sql<
+            string | null
+          >`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
+        })
+        .from(applications)
+        .leftJoin(awards, eq(awards.applicationId, applications.id))
+        .where(
+          and(
+            eq(applications.roundProgrammeId, application.roundProgrammeId),
+            inArray(applications.status, ['shortlisted', 'awarded']),
+          ),
         ),
-      )
+      getDb().query.clientProfiles.findFirst({
+        where: (p, { eq }) => eq(p.clientId, application.roundProgramme.programme.clientId),
+        columns: { enforceRoundBudget: true },
+      }),
+    ])
     const committed = committedRows[0]?.committed
 
     return {
@@ -237,6 +247,9 @@ export const getApplication = createServerFn({ method: 'GET' })
             bankSortCode: null,
           }),
       roundProgrammeCommitted: committed ? parseFloat(committed) : 0,
+      // A foundation with no profile row has never opened the setting, so it gets the
+      // default: the budget is a target, not a gate.
+      enforceRoundBudget: profile?.enforceRoundBudget ?? false,
     }
   })
 
@@ -408,15 +421,31 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       throw conflict('An awarded application cannot change status; cancel the award instead')
     }
 
+    // The budget ceiling is OPT-IN (`client_profiles.enforce_round_budget`, default
+    // off). Most foundations shortlist more than they can fund on purpose and choose
+    // between the applications afterwards; the ones that treat the round-programme
+    // budget as a hard limit turn it on in Settings. This is the boundary — the
+    // application screen's "Budget full" button reads the same flag, but a disabled
+    // button is a courtesy, not a gate.
     if (status === 'shortlisted') {
       const app = await getDb().query.applications.findFirst({
         where: (a, { eq }) => eq(a.id, id),
-        with: { roundProgramme: true },
+        with: { roundProgramme: { with: { programme: { columns: { clientId: true } } } } },
       })
       if (!app) throw notFoundError()
 
       const budget = app.roundProgramme.budget ? parseFloat(app.roundProgramme.budget) : null
-      if (budget !== null) {
+      // The flag is read BEFORE the rollup, not beside it: with the ceiling off — the
+      // default — there is nothing to compare the sum against, and the query costs a
+      // subrequest on every shortlisting for an answer nobody looks at.
+      const profile =
+        budget === null
+          ? null
+          : await getDb().query.clientProfiles.findFirst({
+              where: (p, { eq }) => eq(p.clientId, app.roundProgramme.programme.clientId),
+              columns: { enforceRoundBudget: true },
+            })
+      if (budget !== null && profile?.enforceRoundBudget) {
         const currentRows = await getDb()
           .select({
             current: sql<

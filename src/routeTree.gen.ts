@@ -50,6 +50,7 @@ import { Route as AuthenticatedSettingsBudgetRouteImport } from './routes/_authe
 import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
 import { Route as AuthenticatedSettingsLettersRouteImport } from './routes/_authenticated/settings.letters'
+import { Route as AuthenticatedSettingsRoundBudgetsRouteImport } from './routes/_authenticated/settings.round-budgets'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsVotingRouteImport } from './routes/_authenticated/settings.voting'
@@ -299,6 +300,12 @@ const AuthenticatedSettingsLettersRoute =
     path: '/letters',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsRoundBudgetsRoute =
+  AuthenticatedSettingsRoundBudgetsRouteImport.update({
+    id: '/round-budgets',
+    path: '/round-budgets',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsSubmissionsRoute =
   AuthenticatedSettingsSubmissionsRouteImport.update({
     id: '/submissions',
@@ -470,6 +477,7 @@ export interface FileRoutesByFullPath {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
+  '/settings/round-budgets': typeof AuthenticatedSettingsRoundBudgetsRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/voting': typeof AuthenticatedSettingsVotingRoute
@@ -529,6 +537,7 @@ export interface FileRoutesByTo {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
+  '/settings/round-budgets': typeof AuthenticatedSettingsRoundBudgetsRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/voting': typeof AuthenticatedSettingsVotingRoute
@@ -598,6 +607,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/_authenticated/settings/letters': typeof AuthenticatedSettingsLettersRoute
+  '/_authenticated/settings/round-budgets': typeof AuthenticatedSettingsRoundBudgetsRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/settings/voting': typeof AuthenticatedSettingsVotingRoute
@@ -667,6 +677,7 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
+    | '/settings/round-budgets'
     | '/settings/submissions'
     | '/settings/team'
     | '/settings/voting'
@@ -726,6 +737,7 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
+    | '/settings/round-budgets'
     | '/settings/submissions'
     | '/settings/team'
     | '/settings/voting'
@@ -794,6 +806,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/data-import'
     | '/_authenticated/settings/giving-strategy'
     | '/_authenticated/settings/letters'
+    | '/_authenticated/settings/round-budgets'
     | '/_authenticated/settings/submissions'
     | '/_authenticated/settings/team'
     | '/_authenticated/settings/voting'
@@ -1145,6 +1158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsLettersRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/round-budgets': {
+      id: '/_authenticated/settings/round-budgets'
+      path: '/round-budgets'
+      fullPath: '/settings/round-budgets'
+      preLoaderRoute: typeof AuthenticatedSettingsRoundBudgetsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/submissions': {
       id: '/_authenticated/settings/submissions'
       path: '/submissions'
@@ -1412,6 +1432,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
   AuthenticatedSettingsLettersRoute: typeof AuthenticatedSettingsLettersRoute
+  AuthenticatedSettingsRoundBudgetsRoute: typeof AuthenticatedSettingsRoundBudgetsRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
   AuthenticatedSettingsVotingRoute: typeof AuthenticatedSettingsVotingRoute
@@ -1427,6 +1448,8 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,
   AuthenticatedSettingsLettersRoute: AuthenticatedSettingsLettersRoute,
+  AuthenticatedSettingsRoundBudgetsRoute:
+    AuthenticatedSettingsRoundBudgetsRoute,
   AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
   AuthenticatedSettingsVotingRoute: AuthenticatedSettingsVotingRoute,

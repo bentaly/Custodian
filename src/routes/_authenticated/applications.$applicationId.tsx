@@ -432,7 +432,15 @@ function ApplicationDetail() {
   const budget = rp.budget ? parseFloat(rp.budget) : null
   const committed = application.roundProgrammeCommitted
   const amountRequested = parseFloat(application.amountRequested)
-  const isBudgetFull = !isShortlisted && budget !== null && committed + amountRequested > budget
+  // "Budget full" only exists for a foundation that has asked for it
+  // (`client_profiles.enforce_round_budget`, default off). With the ceiling off the
+  // round-programme budget is a target: shortlisting past it is allowed, and the
+  // shortlist's proposed-spend bar is what says how far over the round has gone.
+  const isBudgetFull =
+    application.enforceRoundBudget &&
+    !isShortlisted &&
+    budget !== null &&
+    committed + amountRequested > budget
 
   const scoreStatus = application.custodianScoreStatus ?? 'pending'
   const score = application.custodianScore

@@ -1,0 +1,1 @@
+ALTER TABLE "client_profiles" ADD COLUMN "enforce_round_budget" boolean DEFAULT false NOT NULL;

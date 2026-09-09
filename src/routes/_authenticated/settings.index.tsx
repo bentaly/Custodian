@@ -5,6 +5,7 @@ import {
   Calendar03Icon,
   CoinsPoundIcon,
   DatabaseImportIcon,
+  GaugeIcon,
   Idea01Icon,
   Key01Icon,
   Mail01Icon,
@@ -67,6 +68,14 @@ const GROUPS: Group[] = [
         to: '/settings/budget',
         icon: CoinsPoundIcon,
         moneyOnly: true,
+      },
+      {
+        title: 'Round budgets',
+        description:
+          'Whether the budget on a round’s programmes is a limit or a target — that is, whether you may shortlist more than it covers.',
+        to: '/settings/round-budgets',
+        icon: GaugeIcon,
+        adminOnly: true,
       },
       {
         title: 'Giving strategy',

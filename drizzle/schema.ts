@@ -693,6 +693,20 @@ export const clientProfiles = pgTable('client_profiles', {
   // Default TRUE: the tab is one word, and it is the only route to a foundation's first
   // bank-balance reading, so hiding it by default would hide the way in.
   showBalanceAndBudget: boolean('show_balance_and_budget').notNull().default(true),
+  // ─── Shortlisting ───
+  // Does a round-programme's budget CAP what may be shortlisted against it?
+  //
+  // When true, `updateApplicationStatus` refuses a shortlisting that would take the
+  // pairing past its budget and the application screen's button reads "Budget full".
+  // When false the budget is a target, not a gate: a foundation may shortlist past it
+  // and the shortlist's proposed-spend bar says how far over the round is.
+  //
+  // Default FALSE, which is the opposite of how this shipped. A budget is a plan a
+  // board sets months before it reads the applications, and most foundations
+  // deliberately shortlist more than they can fund and then choose between them — a
+  // hard stop turned that ordinary week into a support request. A foundation that
+  // really does treat the figure as a ceiling turns it on.
+  enforceRoundBudget: boolean('enforce_round_budget').notNull().default(false),
   updatedAt: timestamp('updated_at')
     .notNull()
     .$defaultFn(() => new Date()),
