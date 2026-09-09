@@ -107,8 +107,11 @@ export function parseApplicationsSearch(search: Record<string, unknown>): Applic
 
 // ─── Awards ──────────────────────────────────────────────────────────────────────
 
-export type AwardStatus = 'active' | 'completed' | 'cancelled'
-const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled']
+// `live` is not an `awards.status` value: it means "not cancelled", the set every
+// money-facing screen (Insights, Finance, the dashboard) counts. It exists so a link
+// arriving from one of those can name the set its count described — see the money rule.
+export type AwardStatus = 'active' | 'completed' | 'cancelled' | 'live'
+const AWARD_STATUSES: AwardStatus[] = ['active', 'completed', 'cancelled', 'live']
 
 // No 'status' key: the lifecycle pill moved into the Paid column, and sorting by a
 // column that no longer has a header is unreachable. Status is still a FILTER — the

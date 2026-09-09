@@ -25,16 +25,26 @@ import { Tooltip } from '../ui/Tooltip'
 
 // ─── Sequential ramp ────────────────────────────────────────────────────────────
 // Magnitude, so: one hue, five steps, light→dark, stepped in OKLab off the brand
-// green. Validated as an ordinal ramp (monotone lightness, adjacent ΔL ≥ 0.06,
-// light end ≥ 2:1 on white, single hue — spread is 1°). Do not hand-tweak a step
-// without re-running that check; the light end in particular sits deliberately
-// close to its 2:1 floor and a "nicer" paler green would disappear on the panel.
+// green — and DERIVED from the brand token rather than written out as five hexes,
+// so the ramp cannot drift from the green the rest of the app uses. Steps 1–3 are
+// the brand lightened toward white, step 4 IS the brand, step 5 is it darkened.
+//
+// Validated as an ordinal ramp: monotone lightness, adjacent ΔL 0.067–0.078 (floor
+// 0.06), a single hue (mixing in oklab holds all five at 166.2°), and a light end at
+// 2.29:1 on white. Do not hand-tweak a step without re-running that check; the light
+// end in particular sits deliberately close to its 2:1 floor and a "nicer" paler
+// green would disappear on the panel.
+//
+// It collapsed to grey-400 + four identical `--color-brand` once already, when the
+// literal hexes were swapped for tokens and the token set had only one green: every
+// area above the first quintile drew the same colour, and the legend printed four
+// duplicate swatches. A ramp restated in tokens has to stay five distinct steps.
 const RAMP = [
-  'var(--color-grey-400)',
+  'color-mix(in oklab, var(--color-brand) 55%, white)',
+  'color-mix(in oklab, var(--color-brand) 70%, white)',
+  'color-mix(in oklab, var(--color-brand) 86%, white)',
   'var(--color-brand)',
-  'var(--color-brand)',
-  'var(--color-brand)',
-  'var(--color-brand)',
+  'color-mix(in oklab, var(--color-brand) 85%, black)',
 ] as const
 
 // Areas with no grants. Distinct from — and lighter than — every ramp step, so
@@ -639,10 +649,11 @@ export function Choropleth({
               <path
                 key={l.id}
                 d={circlesPath(l.dots, l.r)}
-                fill={l.fill}
                 fillOpacity={l.opacity}
                 pointerEvents="none"
-                style={{ transition: `fill-opacity ${DIM_MS}ms ease` }}
+                // `fill` goes through style, not the presentation attribute: the ramp
+                // is `color-mix()` and only the CSS box parses that reliably.
+                style={{ fill: l.fill, transition: `fill-opacity ${DIM_MS}ms ease` }}
               />
             ))}
           </g>
@@ -838,9 +849,8 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
           Less
         </span>
         <span className="flex">
-          {/* Keyed by POSITION, not colour: the ramp's top four steps are all
-              `--color-brand` (the lightness comes from the dot density, not the hue),
-              so a colour key is four duplicates. A band's identity is where it sits. */}
+          {/* Keyed by POSITION, not colour: a band's identity is where it sits in the
+              ramp, and the ramp is free to be restated in any colour space. */}
           {RAMP.map((c, i) => {
             const swatch = (
               <span

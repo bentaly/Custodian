@@ -481,8 +481,11 @@ export const listAwards = createServerFn({ method: 'GET' })
       programmeId: z.uuid().optional(),
       tag: z.string().min(1).max(100).optional(),
       q: z.string().trim().min(1).max(255).optional(),
-      /** Award lifecycle, not application status — every row here is already awarded. */
-      status: z.enum(['active', 'completed', 'cancelled']).optional(),
+      /**
+       * Award lifecycle, not application status — every row here is already awarded.
+       * `live` is the synthetic fourth: active OR completed, i.e. not cancelled.
+       */
+      status: z.enum(['active', 'completed', 'cancelled', 'live']).optional(),
       /**
        * Delivery region, or `NO_REGION` for the grants whose location never resolved.
        * Free-form rather than an enum: the values are ONS region names carried on the
@@ -557,7 +560,7 @@ export type AwardsListInput = {
   programmeId?: string
   tag?: string
   q?: string
-  status?: 'active' | 'completed' | 'cancelled'
+  status?: 'active' | 'completed' | 'cancelled' | 'live'
   region?: string
   from?: string
   to?: string
@@ -694,13 +697,7 @@ export async function awardsList(
     facets: {
       programmes: sortFacet(namedFacet(programmeFacet, 'Untitled programme')),
       themes: sortFacet(themeFacet),
-      statuses: sortFacet(
-        statusFacet.map((f) => ({
-          value: f.value!,
-          label: GRANT_STATUS_LABELS[f.value!] ?? f.value!,
-          count: f.count,
-        })),
-      ),
+      statuses: statusFacetWithLive(statusFacet),
       rounds: sortFacet(namedFacet(roundFacet, 'Untitled round')),
       regions: regionFacet_(regionFacet),
     },
@@ -766,6 +763,31 @@ function toAwardRow(r: AwardGrantRow) {
     paidToDate: r.paidToDate,
     outstanding: r.outstanding,
   }
+}
+
+/**
+ * The lifecycle options, plus `live` — "not cancelled" — pinned FIRST.
+ *
+ * It is offered only when a cancelled grant exists to exclude. With none it would select
+ * the whole register under a name claiming to have narrowed it, which is worse than not
+ * offering it. First rather than alphabetical because it is the widest of the four and
+ * the one a link from Insights, Finance or the dashboard arrives carrying: those screens
+ * all exclude cancelled money, so a count clicked there means this set.
+ */
+function statusFacetWithLive(
+  rows: Array<{ value: string | null; label: string | null; count: number }>,
+): FacetOption[] {
+  const real = sortFacet(
+    rows.map((f) => ({
+      value: f.value!,
+      label: GRANT_STATUS_LABELS[f.value!] ?? f.value!,
+      count: f.count,
+    })),
+  )
+  const cancelled = rows.find((f) => f.value === 'cancelled')?.count ?? 0
+  if (cancelled === 0) return real
+  const live = rows.reduce((n, f) => (f.value === 'cancelled' ? n : n + f.count), 0)
+  return [{ value: 'live', label: GRANT_STATUS_LABELS.live!, count: live }, ...real]
 }
 
 /** A facet row whose value is NULL (a grant with no programme) is not a facet. */
@@ -838,6 +860,10 @@ export const GRANT_STATUS_LABELS: Record<string, string> = {
   active: 'Active',
   completed: 'Complete',
   cancelled: 'Cancelled',
+  // Not a value `awards.status` ever holds — a filter meaning "not cancelled". It is
+  // offered as an option only when there IS a cancelled grant to exclude; with none, it
+  // would select the whole register under a name implying it had narrowed something.
+  live: 'Live (not cancelled)',
 }
 
 function emptyFacets() {
