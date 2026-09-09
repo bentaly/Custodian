@@ -80,6 +80,16 @@ export const getInsights = createServerFn({ method: 'GET' }).handler(async () =>
  * (`src/server/tenancy.itest.ts`). `scope` is `null` for a superadmin, unrestricted;
  * an empty array is the caller's short-circuit above and must not reach here.
  */
+/**
+ * What has actually been paid against an award — instalments carrying a paid date.
+ * `paidDate` is a DATE column, so it arrives as a string; only its presence matters here.
+ */
+function paidOn(award: {
+  instalments: Array<{ amount: string; paidDate: string | null }>
+}): number {
+  return award.instalments.reduce((n, i) => (i.paidDate ? n + parseFloat(i.amount) : n), 0)
+}
+
 export async function insightsData(
   db: ReturnType<typeof getDb>,
   scope: string[] | null,
@@ -110,6 +120,9 @@ export async function insightsData(
       roundProgramme: { with: { programme: true, round: true } },
       award: {
         with: {
+          // Two columns only. This is the whole tenant's schedule, and the sole thing
+          // read off it is how much has actually been paid.
+          instalments: { columns: { amount: true, paidDate: true } },
           // A report row averages ~4KB — mostly the grantee's narrative and the AI's
           // analysis of it. Insights reads four fields of it, so it asks for four.
           reports: {
@@ -127,13 +140,22 @@ export async function insightsData(
   })
 
   const items: InsightsGrant[] = apps
-    // Cancelled grants are excluded, the same rule Finance, Rounds, Shortlist and the
-    // dashboard apply: a withdrawn grant is not committed money. Every figure on this
-    // screen is a sum of `amountAwarded` — committed, by programme, by theme, by
-    // region, the deprivation weighting — so leaving them in overstated all of them at
-    // once. Filtered here rather than at the dozen `reduce` call sites, because a rule
-    // enforced in twelve places is a rule that will be missed in the thirteenth.
-    .filter((a) => a.award && a.award.status !== 'cancelled')
+    // A cancelled grant counts for what it SPENT, not for what it promised — and drops
+    // out entirely only if it never paid anything.
+    //
+    // This is `max(committed, paid)`, the rule the annual budget panel already settled on
+    // (`src/lib/annualBudget.ts`): what the money no longer has, whichever way it left. A
+    // withdrawn grant is not committed money, so its unpaid half is gone from every figure
+    // here — but an instalment that really was paid left the bank, bought whatever it
+    // bought, and reached the place it reached. Excluding those grants wholesale, as this
+    // did, made real spending invisible: £20,500 went to Great Yarmouth and the map drew
+    // nothing there at all.
+    //
+    // Applied ONCE, on `amountAwarded` below, rather than at the dozen `reduce` call sites
+    // downstream — committed, by programme, by theme, by region, the deprivation weighting
+    // and the average all read that one field, and a rule enforced in twelve places is a
+    // rule that will be missed in the thirteenth.
+    .filter((a) => a.award && (a.award.status !== 'cancelled' || paidOn(a.award) > 0))
     .map((a) => {
       const award = a.award!
       const programme = a.roundProgramme?.programme ?? null
@@ -179,7 +201,11 @@ export async function insightsData(
         roundOpenedAt: round?.openedAt ? round.openedAt.toISOString() : null,
         decisionAt: award.decisionAt.toISOString(),
         status: award.status,
-        amountAwarded: parseFloat(award.amountAwarded),
+        // What this grant has actually cost the foundation. For a live grant that is the
+        // full award — paid can never exceed it — and for a cancelled one it is only what
+        // went out before it was withdrawn.
+        amountAwarded:
+          award.status === 'cancelled' ? paidOn(award) : parseFloat(award.amountAwarded),
         // Shared with the Awards register (`deliveryRegionLabel`), because the two
         // screens link to each other on this exact string.
         region: deliveryRegionLabel(a),

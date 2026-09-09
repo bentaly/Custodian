@@ -199,6 +199,15 @@ Stated on `listFinanceGrants`, enforced in `grantsQuery`:
 - **paid** — INCLUDES cancelled. The money left the building; paid history must reconcile against
   the foundation's own ledger.
 - **committed / awarded / giving** — EXCLUDES cancelled. A withdrawn grant is not money committed.
+  **Insights is the deliberate exception** (2026-09-09): a cancelled grant counts there for what
+  it SPENT, so a grant cancelled after one instalment contributes that instalment and one never
+  paid contributes nothing and drops out. Same `max(committed, paid)` as the budget panel below,
+  applied once on `InsightsGrant.amountAwarded` so every figure downstream inherits it. The reason
+  is that Insights has NO paid figure of its own, so wholesale exclusion made real spending
+  invisible — £20,500 reached Great Yarmouth and the map drew nothing there. The consequence to
+  keep in mind: **Insights' total is legitimately HIGHER than the Awards register's "awarded"**
+  (£376,000 vs £355,500 on staging's Wrenfield), and that is not the bug fixed the same day —
+  they are answering different questions and the labels have to keep saying so.
 - **outstanding / overdue / due soon** — EXCLUDES cancelled. There is nothing left to pay.
 
 Finance, Rounds and Shortlist applied it; the dashboard and Insights did not, and were caught by
