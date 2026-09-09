@@ -18,6 +18,15 @@ import { C } from './tokens'
 // still do the work they were built for — the ramp behind `nextProgrammeColour` and
 // `colourSeries` — they are simply not a thing to choose from any more.
 //
+// `Reset to default` is the way back: a custom pick is a decision, and undoing one by
+// hand means finding a hex nobody wrote down. It resets to what the colour would have
+// been ASSIGNED — the free hue `nextProgrammeColour` picks — not to what was last saved,
+// so it means the same thing on a programme created before the picker existed as on one
+// somebody recoloured five minutes ago. It is ABSENT rather than disabled while the colour
+// already is the default: a permanently greyed-out button is a control the form is offering
+// and refusing in the same breath, and on the common path — every programme that never had
+// its colour touched — that is the only state it would ever be seen in.
+//
 // The input is a real `<input type="color">`, kept off-screen with the button driving it,
 // so the OS picker does the work and the trigger can be the app's own button rather than
 // the browser's swatch control (which cannot be sized or styled, and looks like a form
@@ -27,6 +36,7 @@ export function ColourPicker({
   value,
   onChange,
   taken = {},
+  defaultValue,
   label = 'Colour',
 }: {
   value: string
@@ -35,11 +45,18 @@ export function ColourPicker({
    *  cannot stop a clash now that any colour can be chosen, so it says so instead —
    *  and stays silent unless there is one. */
   taken?: Record<string, string>
+  /** The colour this thing would have been ASSIGNED — `nextProgrammeColour` over the
+   *  colours in use, not the one it was last saved with. Given one, a Reset offers the
+   *  way back out of a custom pick, and appears only while the colour is something else.
+   *  Omitted, there is no Reset at all — a picker with no assignment behind it has no
+   *  default to go back to. */
+  defaultValue?: string
   label?: string
 }) {
   const input = useRef<HTMLInputElement>(null)
   const selected = normaliseColour(value)
   const owner = selected ? taken[selected] : undefined
+  const fallback = normaliseColour(defaultValue)
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -81,6 +98,17 @@ export function ColourPicker({
         >
           Change
         </Button>
+        {fallback && selected !== fallback && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            aria-label={`Reset ${label.toLowerCase()} to default`}
+            onClick={() => onChange(fallback)}
+          >
+            Reset to default
+          </Button>
+        )}
       </div>
       {owner && <p className="font-display text-label text-grey-500">Already used by {owner}.</p>}
     </div>

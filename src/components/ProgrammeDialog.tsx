@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { saveProgramme } from '../server/fns/programmes'
 import { messageFor } from '../lib/errors'
 import { DEFAULT_IMPACT_UNIT, IMPACT_UNITS, IMPACT_UNIT_BY_KEY } from '../lib/impactUnits'
@@ -99,6 +99,15 @@ function ProgrammeDialogForm({
   const [pendingTag, setPendingTag] = useState('')
   const [blockedByTag, setBlockedByTag] = useState(false)
 
+  // The colour this programme would be handed if it were being created now: the free hue
+  // furthest from the ones its siblings use. `takenColours` is already keyed on the OTHER
+  // programmes' colours — the one being edited is excluded — so a programme sitting on
+  // its assigned colour computes back to exactly that colour and Reset stays disabled.
+  const defaultColour = useMemo(
+    () => nextProgrammeColour(Object.keys(takenColours)),
+    [takenColours],
+  )
+
   // Would saving change anything? Compared against `draft` — the form is keyed on the
   // programme, so `draft` is a stable baseline for as long as this form is mounted.
   // Values are compared as they would be SUBMITTED (trimmed), so adding and removing a
@@ -185,7 +194,12 @@ function ProgrammeDialogForm({
 
         <div>
           <Label>Colour</Label>
-          <ColourPicker value={colour} onChange={setColour} taken={takenColours} />
+          <ColourPicker
+            value={colour}
+            onChange={setColour}
+            taken={takenColours}
+            defaultValue={defaultColour}
+          />
         </div>
 
         <div>
