@@ -18,7 +18,7 @@ describe('renderDeclineLetter', () => {
     const letter = renderDeclineLetter({ input: INPUT, settings: null })
     expect(letter.subject).toBe('Your application to The Fairfax Foundation')
     expect(letter.bodyText).toContain('Dear Pennine Youth Alliance,')
-    expect(letter.bodyText).toContain('not able to fund your application')
+    expect(letter.bodyText).toContain('cannot fund your application on this occasion')
     expect(letter.bodyText.endsWith('The Fairfax Foundation')).toBe(true)
   })
 
