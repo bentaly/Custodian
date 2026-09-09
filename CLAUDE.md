@@ -270,6 +270,17 @@ design rationale; this list is a map, not a summary.
   exactly as before. Never a wrong answer, sometimes no better one. Scotland and NI are null (one
   national force each). Only town-vs-city still turns on footprint, because Google types Potters
   Bar and Leeds alike.
+  **A location is PRINTED and GROUPED on two different scales, and both helpers live in
+  `src/lib/deprivation/types.ts`.** `deliveryAreaLabel` is the sharp one (district → matched area
+  → region → the applicant's own words) and is what a row shows; `deliveryRegionLabel` is the
+  coarse one (England's 9 regions / "Wales" / the nation for Scotland & NI) and is the only one
+  you can FILTER by — a district is very nearly a primary key, so a facet of districts is one
+  pill per grant, and for anything unresolved it would offer free text as an option. The Awards
+  register's Location column prints both, one per line, and Insights links into it on the region.
+  `server/awards/query.ts` mirrors `deliveryRegionLabel` in SQL because it groups in the
+  database: **the two must emit identical strings or the Insights link lands on an empty list**
+  with nothing on screen to say why. `NO_REGION` ('none') is the shared sentinel for the
+  unlocated, and is a real filter option, not the absence of one.
 - **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
 - **reportAnalysis** — AI analysis of received reports
 - **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance

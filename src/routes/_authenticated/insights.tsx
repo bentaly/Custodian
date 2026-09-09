@@ -1,5 +1,8 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+// Shared with the Awards register: this screen links INTO it on the region, and a
+// sentinel spelled differently at the two ends is a link that silently filters nothing.
+import { NO_REGION } from '../../lib/deprivation/types'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Coins01Icon,
@@ -47,8 +50,6 @@ import { C, bandForDecile } from '../../components/ui/tokens'
 // No screen-time AI: where a number's coverage is partial the denominator is stated.
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
-/** Location-filter sentinel for grants with no resolvable delivery area. */
-const NO_REGION = 'none'
 
 type InsightsSearch = {
   /** Inclusive decision-date window (`yyyy-mm-dd`); absent = all time. */
@@ -1036,6 +1037,12 @@ function InsightsPage() {
   const [hoverArea, setHoverArea] = useState<string | null>(null)
   const unlocatedCount = fil.filter((g) => !g.region).length
 
+  // One region in view, or none. The map's drill wins over the filter pill: if you have
+  // opened the North West on the map, that is the region you are reading, whatever the
+  // filter above still says.
+  const linkedRegion =
+    mapView.kind === 'region' ? mapView.region : region === NO_REGION ? NO_REGION : (region ?? null)
+
   // Roll grants up to whichever key the current view paints.
   const mapValues = (() => {
     const acc = new Map<string, { amount: number; count: number }>()
@@ -1591,6 +1598,30 @@ function InsightsPage() {
                       {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
                       location.
                     </p>
+                  )}
+
+                  {/* The way OUT of this panel. Everything above answers "how much, and
+                      where"; the question it leaves a grants officer with is "which
+                      grants", and that is the Awards register, not a drill-down this
+                      screen could grow.
+
+                      It appears only with ONE region in view — drilled on the map, or
+                      picked in the filter above — because the register takes a single
+                      region and there is no honest link for "all of them". The value
+                      handed over is `g.region`, the same string the register groups on
+                      (`deliveryRegionLabel`, shared); a link built from a display label
+                      would land on an empty list and say nothing about why. */}
+                  {linkedRegion && (
+                    <Link
+                      to="/awards"
+                      search={{ region: linkedRegion }}
+                      className="self-start font-display text-label font-medium underline underline-offset-2"
+                      style={{ color: C.sub }}
+                    >
+                      {linkedRegion === NO_REGION
+                        ? 'View the grants with no location recorded'
+                        : `View grants in ${linkedRegion}`}
+                    </Link>
                   )}
                 </div>
               </div>
