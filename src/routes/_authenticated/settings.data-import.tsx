@@ -399,8 +399,7 @@ function DataImport() {
       </h1>
       <p className="mt-1 max-w-2xl font-display text-body leading-relaxed" style={{ color: C.sub }}>
         Bring the grants you have already made into Custodian, so your payments, reports and totals
-        are right from the day you start. Begin with the grants that still owe you money or a report
-        — you can come back and add the rest later.
+        are right from the day you start.
       </p>
 
       <div className="mt-7">

@@ -58,9 +58,9 @@ export const DECLINE_LETTER_TOKENS: DeclineLetterToken[] = [
  */
 export const DEFAULT_DECLINE_LETTER_TEMPLATE = `Dear {{organisationName}},
 
-Thank you for your application to {{foundationName}}, and for the time you put into it.
+Thank you for your application to {{foundationName}}.
 
-I am sorry to say that we are not able to fund your application on this occasion. We received far more applications than we have funds available, and we have had to make difficult choices between a great many worthwhile proposals. A decision not to fund is not a judgement on the value of your work.
+On behalf of the trustee board, I am sorry to say that we cannot fund your application on this occasion.
 
 We wish you every success with the project, and with the work you do.
 
