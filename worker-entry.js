@@ -293,10 +293,21 @@ const worker = {
     }
 
     const origin = (env.BETTER_AUTH_URL || 'https://custodian.fund').replace(/\/+$/, '')
+
+    // Two triggers, two jobs. `event.cron` is the ONLY thing that tells them apart —
+    // without this switch, adding the 3-hourly dispatcher would have sent the Monday
+    // payments digest eight times a day.
+    //
+    // An unrecognised expression runs the digest, which is the conservative default:
+    // this handler predates the second trigger, and a cron that fires an unknown
+    // schedule is more likely to be a mis-edited digest entry than a lost dispatcher.
+    const path =
+      event.cron === '0 */3 * * *' ? '/api/cron/portfolio-analysis' : '/api/cron/finance-digest'
+
     const started = Date.now()
     try {
       const response = await handler.fetch(
-        new Request(`${origin}/api/cron/finance-digest`, {
+        new Request(`${origin}${path}`, {
           method: 'POST',
           headers: { authorization: `Bearer ${env.CRON_SECRET}` },
         }),
@@ -305,7 +316,7 @@ const worker = {
       )
       const body = await response.text()
       console.log(
-        `[cron] ${event.cron} → ${response.status} in ${Date.now() - started}ms: ${body.slice(0, 2000)}`,
+        `[cron] ${event.cron} ${path} → ${response.status} in ${Date.now() - started}ms: ${body.slice(0, 2000)}`,
       )
     } catch (err) {
       console.error(`[cron] ${event.cron} threw after ${Date.now() - started}ms:`, err)

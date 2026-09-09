@@ -67,6 +67,7 @@ import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.re
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiAvatarUserIdRouteImport } from './routes/api/avatar.$userId'
 import { Route as ApiCronFinanceDigestRouteImport } from './routes/api/cron.finance-digest'
+import { Route as ApiCronPortfolioAnalysisRouteImport } from './routes/api/cron.portfolio-analysis'
 import { Route as ApiInternalPipelineRouteImport } from './routes/api/internal.pipeline'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
@@ -393,6 +394,12 @@ const ApiCronFinanceDigestRoute = ApiCronFinanceDigestRouteImport.update({
   path: '/api/cron/finance-digest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronPortfolioAnalysisRoute =
+  ApiCronPortfolioAnalysisRouteImport.update({
+    id: '/api/cron/portfolio-analysis',
+    path: '/api/cron/portfolio-analysis',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiInternalPipelineRoute = ApiInternalPipelineRouteImport.update({
   id: '/api/internal/pipeline',
   path: '/api/internal/pipeline',
@@ -493,6 +500,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
+  '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/internal/pipeline': typeof ApiInternalPipelineRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
@@ -553,6 +561,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
+  '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/internal/pipeline': typeof ApiInternalPipelineRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications': typeof AuthenticatedApplicationsIndexRoute
@@ -623,6 +632,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
+  '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/internal/pipeline': typeof ApiInternalPipelineRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
@@ -693,6 +703,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatar/$userId'
     | '/api/cron/finance-digest'
+    | '/api/cron/portfolio-analysis'
     | '/api/internal/pipeline'
     | '/api/round/$roundId'
     | '/applications/'
@@ -753,6 +764,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatar/$userId'
     | '/api/cron/finance-digest'
+    | '/api/cron/portfolio-analysis'
     | '/api/internal/pipeline'
     | '/api/round/$roundId'
     | '/applications'
@@ -822,6 +834,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatar/$userId'
     | '/api/cron/finance-digest'
+    | '/api/cron/portfolio-analysis'
     | '/api/internal/pipeline'
     | '/api/round/$roundId'
     | '/_authenticated/applications/'
@@ -864,6 +877,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAvatarUserIdRoute: typeof ApiAvatarUserIdRoute
   ApiCronFinanceDigestRoute: typeof ApiCronFinanceDigestRoute
+  ApiCronPortfolioAnalysisRoute: typeof ApiCronPortfolioAnalysisRoute
   ApiInternalPipelineRoute: typeof ApiInternalPipelineRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
   ApiWebhooksTypeformTokenRoute: typeof ApiWebhooksTypeformTokenRoute
@@ -1277,6 +1291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronFinanceDigestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/portfolio-analysis': {
+      id: '/api/cron/portfolio-analysis'
+      path: '/api/cron/portfolio-analysis'
+      fullPath: '/api/cron/portfolio-analysis'
+      preLoaderRoute: typeof ApiCronPortfolioAnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/internal/pipeline': {
       id: '/api/internal/pipeline'
       path: '/api/internal/pipeline'
@@ -1598,6 +1619,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAvatarUserIdRoute: ApiAvatarUserIdRoute,
   ApiCronFinanceDigestRoute: ApiCronFinanceDigestRoute,
+  ApiCronPortfolioAnalysisRoute: ApiCronPortfolioAnalysisRoute,
   ApiInternalPipelineRoute: ApiInternalPipelineRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
   ApiWebhooksTypeformTokenRoute: ApiWebhooksTypeformTokenRoute,

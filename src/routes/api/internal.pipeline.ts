@@ -18,6 +18,7 @@ import { scoreApplication } from '../../server/applications/score'
 import { sendStoredDeclineLetter } from '../../server/declineLetter'
 import { resolveApplicationDeprivation } from '../../server/applications/deprivation'
 import { screenApplication } from '../../server/applications/dueDiligence'
+import { generatePortfolioAnalysis } from '../../server/portfolioAnalysis/generate'
 import type { PipelineMessage } from '../../server/pipelineQueue'
 
 function json(data: unknown, status: number): Response {
@@ -87,6 +88,13 @@ export const Route = createFileRoute('/api/internal/pipeline')({
               // and `no_registration` counts as screened: it is a verdict about there
               // being no number, not a run that has yet to happen.
               const result = await screenApplication(message.applicationId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'portfolio_analysis': {
+              // `unchanged` is the ordinary answer to a redelivered message: the
+              // census on the row already matches, so there is nothing to spend a
+              // model call on. 200, not a retry.
+              const result = await generatePortfolioAnalysis(message.clientId)
               return json({ ok: true, result }, 200)
             }
             default:

@@ -1702,6 +1702,60 @@ export const partnershipEvents = pgTable(
   (t) => [index('partnership_events_partnership_idx').on(t.partnershipId, t.occurredAt)],
 )
 
+// ─── Insight analyses ────────────────────────────────────────────────────────
+//
+// The AI portfolio summary at the top of Insights: one paragraph assessing a
+// foundation's awarded grants against the giving strategy those grants were meant
+// to deliver. Generated off-screen by the 3-hourly dispatcher, never on page load —
+// the screen reads the newest row for the client and renders it, so nothing on
+// Insights ever waits on a model call.
+//
+// One row PER GENERATION rather than one per client, updated in place. Keeping the
+// history costs nothing (a foundation generates a few dozen a year) and buys two
+// things: a record of how the portfolio's fit with its own strategy moved over
+// time, and the ability to see what a paragraph said before the last award landed.
+//
+// `brief` is the exact figures the model was given. It is stored because the
+// paragraph is board-facing and exports to PDF: a claim on that screen must be
+// checkable against its inputs a year later, not just at the moment it was made.
+export const insightAnalysisStatusEnum = pgEnum('insight_analysis_status', [
+  // No API key configured — nothing is coming until one is. Distinct from `error`
+  // the same way the Custodian score's `pending` is: one is "not run", the other is
+  // "ran and failed", and only the second is worth showing anybody.
+  'pending',
+  'analysed',
+  'error',
+])
+
+export const insightAnalyses = pgTable(
+  'insight_analyses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    status: insightAnalysisStatusEnum('status').notNull(),
+    // The paragraph itself. Null unless `status` is 'analysed'.
+    summary: text('summary'),
+    // The brief keys the model says it drew each figure from, which is what
+    // `verifySummary` checks the prose against before the row is ever written.
+    figuresCited: jsonb('figures_cited').$type<string[]>(),
+    // Everything the model was told, verbatim (see the note above).
+    brief: jsonb('brief'),
+    // What the inputs looked like when this ran — award/report/cancellation counts
+    // and a hash of the giving strategy. The dispatcher re-derives it every 3 hours
+    // and only spends a model call when it has moved. See src/server/portfolioAnalysis.
+    inputFingerprint: text('input_fingerprint').notNull(),
+    // Model id, token usage, and the error or verification failure when there is one.
+    detail: jsonb('detail').$type<Record<string, unknown>>(),
+    generatedAt: timestamp('generated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // The only read this table has: the newest row for one client.
+    index('insight_analyses_client_generated_idx').on(t.clientId, t.generatedAt),
+  ],
+)
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const clientsRelations = relations(clients, ({ many, one }) => ({
@@ -1727,6 +1781,10 @@ export const declineLettersRelations = relations(declineLetters, ({ one }) => ({
     references: [applications.id],
   }),
   client: one(clients, { fields: [declineLetters.clientId], references: [clients.id] }),
+}))
+
+export const insightAnalysesRelations = relations(insightAnalyses, ({ one }) => ({
+  client: one(clients, { fields: [insightAnalyses.clientId], references: [clients.id] }),
 }))
 
 export const clientProfilesRelations = relations(clientProfiles, ({ one }) => ({

@@ -11,6 +11,7 @@ import {
   ChartAverageIcon,
   ArrowRight01Icon,
   InformationCircleIcon,
+  SparklesIcon,
 } from '@hugeicons/core-free-icons'
 import {
   CompactMoney,
@@ -37,9 +38,17 @@ import {
 } from '../../components/charts/Choropleth'
 import { DotGrid } from '../../components/charts/DotGrid'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { getInsights, type InsightsGrant } from '../../server/fns/insights'
+import { getInsights, getPortfolioSummary, type InsightsGrant } from '../../server/fns/insights'
+import {
+  decileShare,
+  effImpact,
+  fundingByDecile,
+  impactByUnit,
+  type ImpactSource,
+  type UnitTotal,
+} from '../../lib/insights/aggregate'
 import { exportInsightsPdf } from '../../lib/exportInsightsPdf'
-import { fmtCompact, fmtMoney } from '../../lib/format'
+import { fmtCompact, fmtDateTime, fmtMoney } from '../../lib/format'
 import { impactPhrase } from '../../lib/impactUnits'
 import { colourSeries, resolveProgrammeColour } from '../../lib/programmeColours'
 import { C, bandForDecile } from '../../components/ui/tokens'
@@ -68,7 +77,12 @@ export const Route = createFileRoute('/_authenticated/insights')({
     tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
     region: typeof search.region === 'string' && search.region ? search.region : undefined,
   }),
-  loader: async () => getInsights(),
+  loader: async () => {
+    // Two independent reads, in parallel. The summary is one row written hours ago by
+    // the dispatcher, so it can never be the thing that makes this screen slow.
+    const [insights, portfolio] = await Promise.all([getInsights(), getPortfolioSummary()])
+    return { ...insights, portfolio }
+  },
   component: InsightsPage,
 })
 
@@ -809,61 +823,10 @@ function ImdNote({ pct }: { pct: number }) {
   )
 }
 
-function decileShare(g: InsightsGrant, maxDecile: number): number {
-  if (!g.deprivation) return 0
-  const total = g.deprivation.histogram.reduce((s, n) => s + n, 0)
-  if (total === 0) return 0
-  const inBand = g.deprivation.histogram.slice(0, maxDecile).reduce((s, n) => s + n, 0)
-  return inBand / total
-}
-
-type ImpactSource = 'reported' | 'proposed'
-/**
- * A grant's impact figure, provenance-tagged: the ACTUAL from the most recent report
- * carrying one, otherwise the applicant's PROPOSED figure as a fallback. Callers decide
- * how to present each source — proposed figures are estimates, never actuals.
- *
- * "Carrying one" rather than "analysed", because a figure is a figure however it was
- * arrived at: the AI extracts most of them, and the onboarding import carries a
- * foundation's historic figures across with deliberately no analysis behind them.
- */
-function effImpact(g: InsightsGrant): { value: number; source: ImpactSource } | null {
-  if (g.impactQuantity !== null) return { value: g.impactQuantity, source: 'reported' }
-  if (g.proposedImpactQuantity !== null)
-    return { value: g.proposedImpactQuantity, source: 'proposed' }
-  return null
-}
-/** One unit's worth of impact: the total, and whether an estimate is inside it. */
-type UnitTotal = { key: string; label: string; value: number; hasProposed: boolean }
-
-/**
- * Impact totalled WITHIN each unit the given grants measure in, never across them —
- * the one rule this screen has about impact, and the reason there is no single
- * "total impact" number anywhere on it. Ordered by size, so a mixed set leads with
- * the unit carrying most of it.
- *
- * A set spanning "people" and "meals" has no combined total: 1,200 + 31,000 is not
- * 32,200 of anything. It has two totals, and the honest thing is to say both.
- */
-function impactByUnit(grants: InsightsGrant[]): UnitTotal[] {
-  const byUnit = new Map<string, UnitTotal>()
-  for (const g of grants) {
-    const eff = effImpact(g)
-    if (!eff) continue
-    const t = byUnit.get(g.unitKey) ?? {
-      key: g.unitKey,
-      label: g.unitLabel,
-      value: 0,
-      hasProposed: false,
-    }
-    t.value += eff.value
-    // Same honesty as everywhere else impact is quoted: a sum containing an
-    // applicant's proposal is not a sum of what was achieved.
-    t.hasProposed = t.hasProposed || eff.source === 'proposed'
-    byUnit.set(g.unitKey, t)
-  }
-  return [...byUnit.values()].sort((a, b) => b.value - a.value)
-}
+// `decileShare`, `effImpact`, `impactByUnit` and `fundingByDecile` moved to
+// src/lib/insights/aggregate.ts — the AI portfolio summary printed at the top of
+// this screen quotes the same figures the charts below it draw, and two copies of
+// that arithmetic is a banner that eventually contradicts its own page.
 
 /**
  * `a, b and c` — the shape `describeOneOfGroup` uses, spelled out and with no serial
@@ -928,25 +891,89 @@ function programmeNames(names: string[]): string[] {
   return [...new Set(names)]
 }
 
-/** Funding spread across deciles 1–10, weighting each grant's amount by its histogram. */
-function fundingByDecile(grants: InsightsGrant[]): number[] {
-  const out = Array<number>(10).fill(0)
-  for (const g of grants) {
-    if (!g.deprivation) continue
-    const total = g.deprivation.histogram.reduce((s, n) => s + n, 0)
-    if (total === 0) continue
-    g.deprivation.histogram.forEach((n, i) => {
-      out[i] = (out[i] ?? 0) + g.amountAwarded * (n / total)
-    })
-  }
-  return out
+
+// ─── The AI portfolio summary ────────────────────────────────────────────────
+//
+// One paragraph measuring the portfolio against the foundation's own giving
+// strategy, generated off-screen every three hours (`src/server/portfolioAnalysis`).
+// Nothing here waits on anything: it is a row that already exists, or it is absent.
+//
+// It sits BELOW the filter row, which is the one deliberate exception to this app's
+// rule that a control narrows what is under it and nothing over it. The summary
+// always describes the whole portfolio, so the caption says so — that label is the
+// price of putting it here, and without it a reader with a programme selected would
+// take the paragraph to be about that programme.
+//
+// Dark, because the design makes it the one inverted surface on a pale screen: it is
+// prose among charts and has to read as a different KIND of thing, not as another
+// panel. Both colours are mixed from the brand token rather than picked, so a change
+// to the palette carries.
+function PortfolioSummary({
+  summary,
+  hasStrategy,
+  hasGrants,
+  filtered,
+}: {
+  summary: { summary: string; generatedAt: string } | null
+  hasStrategy: boolean
+  hasGrants: boolean
+  filtered: boolean
+}) {
+  // The two reasons there is no paragraph are not the same reason, and the reader can
+  // only act on one of them. Without a strategy there is no yardstick to measure
+  // against, so that is said first even on a portfolio with no grants yet.
+  const waiting = !hasStrategy ? (
+    <>
+      Set your{' '}
+      <Link to="/settings/giving-strategy" style={{ color: 'inherit', textDecoration: 'underline' }}>
+        giving strategy
+      </Link>{' '}
+      and this becomes a read on how your grants measure against it.
+    </>
+  ) : !hasGrants ? (
+    'Your portfolio summary appears here once you have made your first awards.'
+  ) : (
+    'Your portfolio summary is being prepared and will appear here shortly.'
+  )
+
+  return (
+    <div
+      data-export-block
+      className="flex gap-3 rounded-card p-4"
+      style={{ backgroundColor: 'color-mix(in srgb, var(--color-brand) 12%, var(--color-grey-900))' }}
+    >
+      <HugeiconsIcon
+        icon={SparklesIcon}
+        size={18}
+        color="color-mix(in srgb, var(--color-brand) 55%, white)"
+        className="mt-0.5 shrink-0"
+      />
+      <div className="min-w-0">
+        <p
+          className="font-display text-label font-medium"
+          style={{ color: 'color-mix(in srgb, var(--color-brand) 55%, white)' }}
+        >
+          Portfolio summary
+          {summary && filtered && <span style={{ color: C.faint }}> · across all grants</span>}
+        </p>
+        <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.muted }}>
+          {summary ? summary.summary : waiting}
+        </p>
+        {summary && (
+          <p className="mt-2 font-display text-label" style={{ color: C.sub }}>
+            Measured against your giving strategy · {fmtDateTime(summary.generatedAt)}
+          </p>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function InsightsPage() {
   const navigate = useNavigate({ from: '/insights' })
   const search = Route.useSearch()
   const { from, to, programmeId, tag, region } = search
-  const { items } = Route.useLoaderData()
+  const { items, portfolio } = Route.useLoaderData()
 
   // ── Filter options, derived from the data itself ──
   const programmes = [
@@ -1354,6 +1381,13 @@ function InsightsPage() {
           onChange={(next) => setSearch({ from: next.from, to: next.to })}
         />
       </div>
+
+      <PortfolioSummary
+        summary={portfolio.summary}
+        hasStrategy={portfolio.hasStrategy}
+        hasGrants={items.length > 0}
+        filtered={Boolean(programmeId || tag || region || from || to)}
+      />
 
       {fil.length === 0 ? (
         <EmptyState>

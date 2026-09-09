@@ -582,6 +582,13 @@
       "when": 1788989007284,
       "tag": "0082_dapper_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1788992999153,
+      "tag": "0083_living_sprite",
+      "breakpoints": true
     }
   ]
 }

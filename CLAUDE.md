@@ -306,6 +306,8 @@ design rationale; this list is a map, not a summary.
   unlocated, and is a real filter option, not the absence of one.
 - **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
 - **reportAnalysis** — AI analysis of received reports
+- **portfolioAnalysis** — the AI paragraph at the top of Insights, measuring the portfolio
+  against the foundation's giving strategy. See "Insights portfolio summary" below
 - **bankVerification** — level-1 UK modulus check (offline), surfaced in Finance
 - **awardLetter** — `src/lib/awardLetter` renders (text-only `{{token}}` template, no markup
   passthrough — a foundation's template is emailed to third parties); `src/server/awardLetter.ts`
@@ -445,6 +447,61 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   Re-uploading the same reference REPLACES rather than duplicating — that is the phasing mechanism.
 - Imported rows are **marked permanently**, because their blank score/DD/votes read as lost data
   otherwise. ExcelJS is **browser-side** via dynamic import; the server re-validates everything.
+
+## Insights portfolio summary (AI)
+
+The paragraph at the top of Insights: how a foundation's awarded grants measure against
+the **giving strategy** (`client_profiles.mission_statement`) those grants were meant to
+deliver — the same text `custodianScore` judges incoming applications by, so the strategy
+is the yardstick at both ends of the pipeline. `src/lib/portfolioAnalysis` pure,
+`src/server/portfolioAnalysis` IO, one row per generation in `insight_analyses`.
+
+- **The model is never given grants.** It gets a **brief** — figures already computed, each
+  carrying the exact `display` string to quote — and does NO arithmetic, not even a
+  percentage. The brief is bounded by CATEGORIES (programmes, rounds, areas, themes, units),
+  so a foundation with 900 grants produces barely more prompt than one with nine, and it
+  carries the tail the screen truncates (every theme, every area). Built from
+  `src/lib/insights/aggregate.ts` — the same functions the charts use, because a banner that
+  disagrees with the panel beneath it is worse than no banner.
+- **A summary quoting a figure that is not in its brief is DISCARDED** (`verify.ts`): every
+  numeral in the prose must appear in the brief, so a derived difference fails as surely as
+  an invention. The row is written as `error` and the previous paragraph stays on screen —
+  a stale correct paragraph beats a fresh wrong one on something that exports to PDF. This
+  is also why the prompt requires numerals, never words: "fourteen" walks past the check.
+- **Nothing on the screen waits on a model.** The loader reads the newest `analysed` row.
+  `pending` (no API key) and `error` both read as "no summary".
+- **It sits BELOW the filter row** — the one deliberate exception to "a control narrows what
+  is under it". It always describes the whole portfolio, so it is captioned "across all
+  grants" whenever a filter is set. Two empty states, because the causes differ: no grants is
+  waiting, no giving strategy is a thing to go and do.
+
+### The 3-hourly dispatcher
+
+`[triggers] crons` has a second entry, `0 */3 * * *`; `worker-entry.js`'s `scheduled`
+switches on `event.cron` (without that switch the Monday digest would send eight times a
+day). Staging is already covered by the existing `[env.staging.triggers] crons = []`.
+
+- **It dispatches, it does not analyse.** One client's work is a whole-portfolio read plus
+  30–60s of model time, so the cron takes a census, then `enqueueMany`s ONE message per
+  client (`kind: 'portfolio_analysis'`) and each runs in its own invocation. The weekly
+  digest can loop every tenant inline because its per-client work is two queries and an
+  email; this cannot — a loop would pass both the 50-subrequest cap and the 30s
+  post-response ceiling, and a cancelled `waitUntil` is abandoned silently.
+- **A census, not a watermark.** "Has anything changed" must catch a new award, a report
+  arriving with an impact figure, a grant being CANCELLED, and the strategy being rewritten.
+  Only the first is a row appearing, and `awards` has no `updated_at`. So `takeCensus`
+  fingerprints counts + sums + a hash of the strategy, grouped, in three queries for every
+  tenant at once, and compares against the fingerprint on the last row. Nothing else spends
+  a model call — an unchanged portfolio costs four queries a run.
+- **The fingerprint is written on `error` too**, or a failing client would be re-analysed
+  eight times a day for as long as the failure lasted.
+- Drivable by hand exactly like the digest: `POST /api/cron/portfolio-analysis` with
+  `?clientId=` / `?force=1` (ignore the census — how a prompt edit is tested) / `?dryRun=1`
+  (one client, inline, returns the brief and the paragraph, writes nothing).
+- **`max_tokens` is 16000 and `effort` is `medium`.** Thinking counts against `max_tokens`,
+  and at 4000 the model spent the whole budget reasoning and returned `stop_reason:
+  max_tokens` with nothing parsed — a ceiling that looks like a model error. Effort is the
+  cost lever here: thinking is most of the spend for a 60-word output.
 
 ## Weekly payments digest
 

@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications } from '../../../drizzle/schema'
+import { applications, clientProfiles, insightAnalyses } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { visibleRoundProgrammeIds } from '../scope'
 import { impactUnitLabel } from '../../lib/impactUnits'
@@ -221,3 +221,65 @@ export async function insightsData(
 
   return { items }
 }
+
+
+// ─── The AI portfolio summary ────────────────────────────────────────────────
+//
+// A read of one row. The paragraph is generated off-screen by the 3-hourly
+// dispatcher (`src/server/portfolioAnalysis`), so this never calls a model, never
+// blocks the loader, and has no loading state on the screen — the worst case is a
+// summary up to three hours behind the charts beside it, which for a portfolio view
+// is nothing.
+//
+// Only `analysed` rows are returned. `pending` (no API key) and `error` (a model
+// failure, or a paragraph that quoted a figure its brief did not contain) both read
+// as "no summary", because there is no version of either that is worth putting in
+// front of a trustee.
+
+export type PortfolioSummary = {
+  summary: string
+  generatedAt: string
+}
+
+/**
+ * `hasStrategy` travels with the summary because the screen's empty state depends on
+ * WHY there is no paragraph, and the two reasons need opposite things from the reader.
+ * No grants is a matter of waiting. No giving strategy is a thing to go and do — and
+ * it is the input the whole summary is written against, so a foundation without one
+ * would otherwise wait forever for a paragraph that was never going to be worth much.
+ */
+export const getPortfolioSummary = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<{ summary: PortfolioSummary | null; hasStrategy: boolean }> => {
+    const user = await requireAuthUser()
+    // A superadmin has no client, and the summary is a statement about one
+    // foundation's portfolio — there is no cross-tenant version of it.
+    if (!user.clientId) return { summary: null, hasStrategy: false }
+    const clientId = user.clientId
+
+    const db = getDb()
+    const [rows, profile] = await Promise.all([
+      db
+        .select({
+          summary: insightAnalyses.summary,
+          generatedAt: insightAnalyses.generatedAt,
+        })
+        .from(insightAnalyses)
+        .where(and(eq(insightAnalyses.clientId, clientId), eq(insightAnalyses.status, 'analysed')))
+        .orderBy(desc(insightAnalyses.generatedAt))
+        .limit(1),
+      db
+        .select({ missionStatement: clientProfiles.missionStatement })
+        .from(clientProfiles)
+        .where(eq(clientProfiles.clientId, clientId))
+        .limit(1),
+    ])
+
+    const hasStrategy = Boolean(profile[0]?.missionStatement?.trim())
+    const row = rows[0]
+    if (!row?.summary) return { summary: null, hasStrategy }
+    return {
+      summary: { summary: row.summary, generatedAt: row.generatedAt.toISOString() },
+      hasStrategy,
+    }
+  },
+)

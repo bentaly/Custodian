@@ -30,6 +30,11 @@ export type PipelineMessage =
   // committed before this message exists, so a retry re-sends the same bytes rather
   // than re-deriving them from a template that may have moved on.
   | { kind: 'decline_letter'; letterId: string }
+  // One foundation's Insights summary, regenerated because its portfolio moved.
+  // Sent by the 3-hourly dispatcher, one message per client — never a batch job over
+  // every tenant, because a single client's analysis is a whole-portfolio read plus
+  // 30-60s of model time and would not fit an invocation shared with anyone else.
+  | { kind: 'portfolio_analysis'; clientId: string }
   // One imported application's delivery area, to be resolved into a deprivation
   // reading. The onboarding import writes the whole back catalogue in one request and
   // cannot geocode a hundred areas inside it — see `applications/deprivation.ts`.
