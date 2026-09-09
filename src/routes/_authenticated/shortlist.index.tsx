@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { listShortlist } from '../../server/fns/shortlist'
 import { listMyRounds } from '../../server/fns/rounds'
@@ -7,7 +7,7 @@ import { VoteCard } from '../../components/shortlist/VoteCard'
 import { ShortlistHeader } from '../../components/shortlist/ShortlistHeader'
 import { ProposedSpend } from '../../components/shortlist/SpendCards'
 import { getRoundStatus } from '../../lib/roundStatus'
-import { EmptyState, ExportButton, Pagination } from '../../components/ui'
+import { EmptyState, ExportButton, Pagination, TextLink } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 
 const PAGE_SIZE = 10
@@ -115,16 +115,11 @@ function ShortlistPage() {
             Nothing shortlisted in this round
           </p>
           <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-            Open an application and add it to the shortlist to bring it to the board.
+            Open an application and add it to the shortlist to bring it to the board.{' '}
+            <TextLink to="/applications" search={{ roundId }}>
+              Go to Applications
+            </TextLink>
           </p>
-          <Link
-            to="/applications"
-            search={{ roundId }}
-            className="mt-4 inline-block rounded-control border px-4 py-2 font-display text-body hover:bg-grey-50"
-            style={{ borderColor: C.line, color: C.body }}
-          >
-            Go to Applications →
-          </Link>
         </EmptyState>
       ) : (
         <>

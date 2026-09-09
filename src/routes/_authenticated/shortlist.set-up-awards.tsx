@@ -541,7 +541,7 @@ function SetUpAwards() {
                   </p>
                   {candidates.items.length === 0 && (
                     <p
-                      className="mx-auto mt-1 max-w-md font-display text-label leading-relaxed"
+                      className="mt-1 font-display text-label leading-relaxed"
                       style={{ color: C.faint }}
                     >
                       An application appears here once a majority of trustees have voted in favour
