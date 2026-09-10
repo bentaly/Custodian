@@ -434,6 +434,8 @@ export function VoteCard({
   // Resolved server-side (stated, else the ask divided by the duration) so the card and
   // the budget meter above it cannot apply different rules to the same grant.
   const firstYear = app.firstYearAmount
+  // Only a grant whose cash and commitment differ has two figures worth printing.
+  const multiYear = Math.abs(firstYear - amount) >= 0.005
 
   const unitLabel = impactUnitLabel(programme?.impactUnit, programme?.impactUnitLabel)
   const impact = app.proposedImpactQuantity ? Number(app.proposedImpactQuantity) : null
@@ -530,18 +532,24 @@ export function VoteCard({
               </div>
             </div>
             <div className="shrink-0 text-right">
+              {/* THIS YEAR leads, the whole commitment sits under it. Every other figure
+                  on this screen is now cash — the budget meter above the cards, the round's
+                  remaining balance — so a headline stating the full multi-year ask was the
+                  one number that did not move with them, and a card reading £40,000 over a
+                  meter that shifted by £20,000 invites the reader to reconcile two figures
+                  that were never the same thing.
+                  The total is not demoted to a footnote: it is what a trustee is voting to
+                  give, so it is named in full, with its term, directly beneath. Where the
+                  grant is single-year the two are equal, there is nothing to flip, and the
+                  per-year line stays the more useful thing to say. */}
               <div className="font-display text-heading font-medium" style={{ color: C.ink }}>
-                {fmtMoney(amount)}
+                {fmtMoney(multiYear ? firstYear : amount)}
               </div>
-              {/* What this ask DRAWS from the round this year, under the full figure it
-                  commits to. The headline stays the whole ask — that is what a trustee is
-                  voting to give — while the budget meter above the cards counts cash, so
-                  the card has to name the figure that meter moved by. Where the grant is
-                  single-year the two are the same and the old per-year line is still the
-                  more useful thing to say. */}
               <div className="font-display text-label" style={{ color: C.faint }}>
-                {Math.abs(firstYear - amount) >= 0.005
-                  ? `${fmtMoney(firstYear)} this year`
+                {multiYear
+                  ? `this year · ${fmtMoney(amount)} ${
+                      years && years > 1 ? `over ${years} years` : 'total commitment'
+                    }`
                   : (fmtPerYear(amount, years) ?? 'requested')}
               </div>
             </div>
