@@ -470,10 +470,14 @@ is the yardstick at both ends of the pipeline. `src/lib/portfolioAnalysis` pure,
   is also why the prompt requires numerals, never words: "fourteen" walks past the check.
 - **Nothing on the screen waits on a model.** The loader reads the newest `analysed` row.
   `pending` (no API key) and `error` both read as "no summary".
-- **It sits BELOW the filter row** — the one deliberate exception to "a control narrows what
-  is under it". It always describes the whole portfolio, so it is captioned "across all
-  grants" whenever a filter is set. Two empty states, because the causes differ: no grants is
-  waiting, no giving strategy is a thing to go and do.
+- **It sits UNDER the deprivation-decile chart**, near the foot of the stack — a reader
+  comes to Insights for the figures, and prose above the KPI cards pushed them below the
+  fold. It is inside the export capture root there, so it also lands in the PDF. Still
+  below the filter row while describing the WHOLE portfolio, which is the one deliberate
+  exception to "a control narrows what is under it", so it is captioned "across all
+  grants" whenever a filter is set. Rendered in the empty-slice branch too. Two empty
+  states, because the causes differ: no grants is waiting, no giving strategy is a thing
+  to go and do.
 
 ### The 3-hourly dispatcher
 

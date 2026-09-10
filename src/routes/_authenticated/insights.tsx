@@ -898,11 +898,17 @@ function programmeNames(names: string[]): string[] {
 // strategy, generated off-screen every three hours (`src/server/portfolioAnalysis`).
 // Nothing here waits on anything: it is a row that already exists, or it is absent.
 //
-// It sits BELOW the filter row, which is the one deliberate exception to this app's
-// rule that a control narrows what is under it and nothing over it. The summary
-// always describes the whole portfolio, so the caption says so — that label is the
-// price of putting it here, and without it a reader with a programme selected would
-// take the paragraph to be about that programme.
+// It sits UNDER the deprivation-decile chart, near the foot of the stack: a reader
+// arrives at Insights for the figures, and a paragraph of prose above the KPI cards
+// pushed them below the fold on every visit. Read last it is a closing note on the
+// charts above it rather than a preamble to them — and it is inside the capture root,
+// so it now goes into the exported PDF, which is where the prose is most use.
+//
+// It is still BELOW the filter row while describing the WHOLE portfolio, which is the
+// one deliberate exception to this app's rule that a control narrows what is under it
+// and nothing over it — so the caption says "across all grants" whenever a filter is
+// set. Without that label a reader with a programme selected would take the paragraph
+// to be about that programme.
 //
 // Dark, because the design makes it the one inverted surface on a pale screen: it is
 // prose among charts and has to read as a different KIND of thing, not as another
@@ -1324,6 +1330,17 @@ function InsightsPage() {
     }
   }
 
+  // Rendered in both branches below — the empty slice and the full stack — because it
+  // describes the portfolio rather than the slice.
+  const summaryPanel = (
+    <PortfolioSummary
+      summary={portfolio.summary}
+      hasStrategy={portfolio.hasStrategy}
+      hasGrants={items.length > 0}
+      filtered={Boolean(programmeId || tag || region || from || to)}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header — the title and the export of exactly what's on screen */}
@@ -1382,22 +1399,21 @@ function InsightsPage() {
         />
       </div>
 
-      <PortfolioSummary
-        summary={portfolio.summary}
-        hasStrategy={portfolio.hasStrategy}
-        hasGrants={items.length > 0}
-        filtered={Boolean(programmeId || tag || region || from || to)}
-      />
-
       {fil.length === 0 ? (
-        <EmptyState>
-          <p className="font-display text-body" style={{ color: C.sub }}>
-            No awards match these filters.
-          </p>
-          <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-            Insights build up as awards are made and grant reports are analysed.
-          </p>
-        </EmptyState>
+        <>
+          <EmptyState>
+            <p className="font-display text-body" style={{ color: C.sub }}>
+              No awards match these filters.
+            </p>
+            <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+              Insights build up as awards are made and grant reports are analysed.
+            </p>
+          </EmptyState>
+          {/* The summary reads the whole portfolio, not the slice, so it is still
+              worth printing when the slice is empty — here it is the only thing on the
+              screen with anything to say. */}
+          {summaryPanel}
+        </>
       ) : (
         <div ref={exportRef} className={`flex flex-col gap-4 ${exporting ? 'reveal-all' : ''}`}>
           {/* KPI cards */}
@@ -1857,6 +1873,8 @@ function InsightsPage() {
               </>
             )}
           </Panel>
+
+          {summaryPanel}
 
           {/* Impact by round */}
           {timelineRounds.length > 0 && (
