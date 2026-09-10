@@ -19,10 +19,14 @@ export type SpendRow = {
   programmeColour: string | null
   /** `null` when the round-programme has no budget set — no bar can be drawn for it. */
   budget: number | null
-  /** Already awarded in this round-programme. */
+  /** Already awarded here, as THIS YEAR'S CASH — the basis the budget counts in. */
   committed: number
-  /** What this shortlist would add on top. */
+  /** What this shortlist would add on top, this year. */
   proposed: number
+  /** The full multi-year value of what is already awarded. Stated, never metered. */
+  committedFull: number
+  /** The full multi-year value of what this shortlist would commit. Stated, never metered. */
+  proposedFull: number
 }
 
 /**
@@ -39,8 +43,20 @@ function tint(colour: string, pct: number): string {
   return `color-mix(in srgb, ${colour} ${pct}%, #fff)`
 }
 
-export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
+export function ProposedSpend({
+  rows,
+  financialYearLabel,
+}: {
+  rows: SpendRow[]
+  /** The year the budgets are drawn from, or null when there is nothing to draw. */
+  financialYearLabel?: string | null
+}) {
   const total = rows.reduce((s, r) => s + r.proposed, 0)
+  const totalFull = rows.reduce((s, r) => s + r.proposedFull, 0)
+  // Whether any row's commitment runs past this year. With no multi-year grant in the
+  // shortlist the two bases are identical and saying so twice would be noise, so the
+  // whole second column appears only when there is something for it to say.
+  const multiYear = Math.abs(totalFull - total) >= 0.005
   // Collapsed the card is still allowed to state the total: this is the one figure a
   // board says out loud, and a summary you have to re-open to read is not a summary.
   // The rows are HIDDEN rather than unmounted so Download PDF (window.print) still puts
@@ -75,7 +91,10 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
           className="min-w-0 truncate font-display text-title font-medium"
           style={{ color: C.ink }}
         >
-          Proposed spend <span style={{ color: C.faint }}>· Round budget</span>
+          Proposed spend{' '}
+          <span style={{ color: C.faint }}>
+            · Round budget{financialYearLabel ? ` · ${financialYearLabel}` : ''}
+          </span>
         </span>
         <span className="flex shrink-0 items-center gap-2 print:hidden">
           {!open && (
@@ -179,6 +198,17 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
                         />
                         {Math.round((r.proposed / budget) * 100)}% proposed
                       </span>
+                      {/* What the round would COMMIT, where that is more than what it
+                        pays this year. The bar measures cash, because that is what the
+                        budget is; a board agreeing to a three-year grant still has to see
+                        the whole size of what it is agreeing to, and neither figure
+                        substitutes for the other. Stated in words rather than drawn as a
+                        third band — it is not competing for the same budget. */}
+                      {Math.abs(r.proposedFull - r.proposed) >= 0.005 && (
+                        <span style={{ color: C.sub }}>
+                          {fmtMoney(r.proposedFull)} committed over the full term
+                        </span>
+                      )}
                       {r.committed > 0 && (
                         <span className="flex items-center gap-1.5">
                           <span
@@ -235,12 +265,26 @@ export function ProposedSpend({ rows }: { rows: SpendRow[] }) {
         >
           <span className="font-display text-body" style={{ color: C.sub }}>
             Total proposed
+            {multiYear && financialYearLabel && (
+              <span style={{ color: C.faint }}> · {financialYearLabel}</span>
+            )}
           </span>
-          <span
-            className="font-display text-body font-medium tabular-nums"
-            style={{ color: C.brand }}
-          >
-            {fmtMoney(total)}
+          {/* Two figures, labelled, where a multi-year grant makes them differ: the cash
+              this year — which is what the budgets above are measured against — and the
+              total commitment, which is what the accounts will record and what the
+              grantees have been promised. One number here would be read as both. */}
+          <span className="flex items-baseline gap-2">
+            <span
+              className="font-display text-body font-medium tabular-nums"
+              style={{ color: C.brand }}
+            >
+              {fmtMoney(total)}
+            </span>
+            {multiYear && (
+              <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
+                {fmtMoney(totalFull)} committed
+              </span>
+            )}
           </span>
         </div>
       </div>

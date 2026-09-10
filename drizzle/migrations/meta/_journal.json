@@ -589,6 +589,13 @@
       "when": 1788992999153,
       "tag": "0083_living_sprite",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1789079739479,
+      "tag": "0084_multi_year_cash_basis",
+      "breakpoints": true
     }
   ]
 }

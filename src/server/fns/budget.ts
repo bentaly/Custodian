@@ -1,11 +1,14 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, ne, sql } from 'drizzle-orm'
 import { forbidden, badRequest } from '../../lib/errors'
 import { getDb } from '../db'
 import {
   annualBudgetLines,
   annualBudgets,
+  applications,
+  awardInstalments,
+  awards,
   bankBalanceReadings,
   clientProfiles,
   programmes,
@@ -156,7 +159,7 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
     const offset = data?.yearOffset ?? 0
     const fy = offset === 0 ? financialYear(endMonth) : shiftFinancialYear(endMonth, offset)
 
-    const [budgetRows, programmeRows, allocationRows] = await db.batch([
+    const [budgetRows, programmeRows, allocationRows, promisedRows] = await db.batch([
       db
         .select({
           id: annualBudgets.id,
@@ -165,6 +168,7 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           programmeId: annualBudgetLines.programmeId,
           lineLabel: annualBudgetLines.label,
           amount: annualBudgetLines.amount,
+          carriedCommitment: annualBudgetLines.carriedCommitment,
         })
         .from(annualBudgets)
         .leftJoin(annualBudgetLines, eq(annualBudgetLines.budgetId, annualBudgets.id))
@@ -201,6 +205,41 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           ),
         )
         .groupBy(roundProgrammes.programmeId),
+
+      // Cash this year owes against grants decided BEFORE this year's rounds — the
+      // "already promised" half of the pair. Derived from instalment dates Custodian
+      // already holds, which is why nothing has to be typed for it to be right.
+      //
+      // Bounded only at the top (`<= fy.end`), deliberately: an instalment that fell due
+      // last March and has not been paid is still money leaving the account this year,
+      // and a lower bound would understate exactly the figure this exists to state. The
+      // Finance panel's `dueByYearEnd` bucket is bounded the same way and the two have to
+      // agree — this is that figure, grouped by programme. Undated instalments count in
+      // for the same reason (see `carriedCommitmentForYear`).
+      //
+      // Scoped on `awards.client_id` directly, like every other money query here.
+      db
+        .select({
+          programmeId: roundProgrammes.programmeId,
+          promised: sql<string>`coalesce(sum(${awardInstalments.amount}), 0)`,
+        })
+        .from(awardInstalments)
+        .innerJoin(awards, eq(awards.id, awardInstalments.awardId))
+        .innerJoin(applications, eq(applications.id, awards.applicationId))
+        .innerJoin(roundProgrammes, eq(roundProgrammes.id, applications.roundProgrammeId))
+        .where(
+          and(
+            eq(awards.clientId, clientId),
+            ne(awards.status, 'cancelled'),
+            isNull(awardInstalments.paidDate),
+            sql`(${awardInstalments.dueDate} is null or ${awardInstalments.dueDate} <= ${fy.end})`,
+            // Grants decided in an EARLIER year. What this year's own rounds have
+            // committed is the `allocated` figure above and the shortlist's own meters;
+            // counting it here as well would charge the same grant twice on one screen.
+            sql`${awards.decisionAt} < ${fy.start}::date`,
+          ),
+        )
+        .groupBy(roundProgrammes.programmeId),
     ])
 
     const existing = budgetRows[0]
@@ -217,11 +256,21 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           programmeId: r.programmeId,
           label: r.lineLabel,
           amount: parseFloat(r.amount ?? '0'),
+          // NULL = the finance lead accepted the derived figure. Kept distinct from a
+          // stored number equal to it: "I agreed with you" is not the same fact as "I
+          // decided this", and only the second should keep its value when the grants
+          // behind the derived one change.
+          carriedCommitment: r.carriedCommitment === null ? null : parseFloat(r.carriedCommitment),
         })),
       programmes: programmeRows,
       roundAllocations: allocationRows.map((r) => ({
         programmeId: r.programmeId,
         allocated: parseFloat(r.allocated),
+      })),
+      /** Cash owed this year from grants decided in earlier years, per programme. */
+      promisedFromEarlierYears: promisedRows.map((r) => ({
+        programmeId: r.programmeId,
+        promised: parseFloat(r.promised),
       })),
     }
   })
@@ -252,6 +301,10 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
             programmeId: z.uuid().nullable(),
             label: z.string().max(80).nullable(),
             amount: MONEY,
+            // What this programme already owes this year from grants decided earlier.
+            // NULL (or omitted) means "the derived figure is right", which is the normal
+            // case and stores nothing; a number is an override a finance lead typed.
+            carriedCommitment: MONEY.nullable().optional(),
           }),
         )
         .max(100),
@@ -357,6 +410,12 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
       programmeId: l.programmeId,
       label: l.programmeId ? null : l.label?.trim() || 'Core costs',
       amount: l.amount.toFixed(2),
+      // Only a programme line can carry one: a core-costs line has no grants behind it,
+      // so there is nothing to derive and nothing to override. Dropped rather than
+      // refused — the screen never offers the field there, so a value arriving on one is
+      // a stale payload, not something worth failing a whole budget save over.
+      carriedCommitment:
+        l.programmeId && l.carriedCommitment != null ? l.carriedCommitment.toFixed(2) : null,
     }))
 
     // Both writes in ONE batch, so a foundation's budget is never momentarily empty:

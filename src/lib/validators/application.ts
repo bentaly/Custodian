@@ -129,6 +129,17 @@ export type CreateApplicationInput = z.infer<typeof CreateApplicationSchema>
 export const UpdateApplicationStatusSchema = z.object({
   id: z.uuid(),
   status: z.enum(['for_review', 'shortlisted', 'declined']),
+  // How much of the ask falls in the financial year the round is funded from — what
+  // draws down the round's budget (`src/lib/multiYear.ts`). Only meaningful when
+  // shortlisting: it is the figure the shortlist dialog offers, prefilled with the ask
+  // divided by the round-programme's grant duration, and a person can correct it
+  // because a schedule paid every four months over sixteen has a first year the
+  // division cannot reach.
+  //
+  // Omitted means "accept the suggestion" and stores NULL, so the bulk-shortlist path
+  // needs no figure at all and an ordinary annual grant is never asked about. `null`
+  // explicitly CLEARS a stored override back to the suggestion.
+  firstYearAmount: z.number().min(0).max(1_000_000_000).nullable().optional(),
 })
 export type UpdateApplicationStatusInput = z.infer<typeof UpdateApplicationStatusSchema>
 

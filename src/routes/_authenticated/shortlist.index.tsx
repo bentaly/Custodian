@@ -60,7 +60,7 @@ function ShortlistPage() {
   const { roundId, page } = Route.useSearch()
   const { shortlist, rounds } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
-  const { items, trustees, allowAdminVoting, budgets } = shortlist
+  const { items, trustees, allowAdminVoting, budgets, financialYear } = shortlist
 
   // While the print dialogue is open every card is rendered, not just this page: a board
   // pack that silently stopped at the tenth application would be worse than no pack.
@@ -123,7 +123,7 @@ function ShortlistPage() {
         </EmptyState>
       ) : (
         <>
-          <ProposedSpend rows={budgets} />
+          <ProposedSpend rows={budgets} financialYearLabel={financialYear?.label ?? null} />
 
           <div
             className="flex flex-col gap-4 rounded-card border bg-white p-4"

@@ -86,8 +86,8 @@ describe('budgetPanelQueries', () => {
   const queries = budgetPanelQueries(offlineDb(), CLIENT, FY)
   const rendered = queries.map((q) => q.toSQL())
 
-  it('builds the five statements the panel is assembled from', () => {
-    expect(rendered).toHaveLength(5)
+  it('builds the six statements the panel is assembled from', () => {
+    expect(rendered).toHaveLength(6)
   })
 
   it.each([
@@ -95,7 +95,8 @@ describe('budgetPanelQueries', () => {
     ['annual budget', 1, 'annual_budgets'],
     ['awards this year', 2, 'awards'],
     ['outstanding total', 3, 'awards'],
-    ['outstanding buckets', 4, 'award_instalments'],
+    ['cash by programme', 4, 'award_instalments'],
+    ['outstanding buckets', 5, 'award_instalments'],
   ])('scopes the %s query to one client', (_name, index, table) => {
     const { sql, params } = rendered[index]!
     expect(sql).toContain(table)
@@ -104,7 +105,10 @@ describe('budgetPanelQueries', () => {
     expect(params).toContain(CLIENT)
   })
 
-  it.each([0, 1, 2, 3, 4])('keeps statement %i a conjunction with no top-level or', (index) => {
+  // The cash query (4) carries `(due_date is null or due_date <= end)` in its WHERE. That
+  // is a BRACKETED or and is exactly the safe form — what this asserts is that no naked
+  // one re-associates the conjunction and drops the client scope off a branch.
+  it.each([0, 1, 2, 3, 4, 5])('keeps statement %i a conjunction with no top-level or', (index) => {
     expect(hasTopLevelOr(outerWhere(rendered[index]!.sql))).toBe(false)
   })
 

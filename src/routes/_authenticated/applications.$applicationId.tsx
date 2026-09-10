@@ -20,9 +20,11 @@ import {
 import {
   getApplication,
   rerunDueDiligence,
+  setFirstYearAmount,
   updateApplicationStatus,
 } from '../../server/fns/applications'
 import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmissionDialog'
+import { FirstYearDialog } from '../../components/FirstYearDialog'
 import { CommentsSection } from '../../components/CommentsSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
@@ -413,6 +415,8 @@ function ApplicationDetail() {
   const [declining, setDeclining] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submissionOpen, setSubmissionOpen] = useState(false)
+  const [firstYearOpen, setFirstYearOpen] = useState(false)
+  const [firstYearMode, setFirstYearMode] = useState<'shortlist' | 'edit'>('shortlist')
 
   const isShortlisted = application.status === 'shortlisted'
   const isDeclined = application.status === 'declined'
@@ -430,8 +434,15 @@ function ApplicationDetail() {
   const clientName = programme.client?.name ?? null
   const roundName = rp.round?.name ?? null
   const budget = rp.budget ? parseFloat(rp.budget) : null
-  const committed = application.roundProgrammeCommitted
+  // This year's cash already drawn from the round, EXCLUDING this application — the same
+  // basis the shortlist meter and the server's ceiling use (`roundProgrammeSpend`). A
+  // round budget counts what has to be paid this year, not the whole commitment, so what
+  // this application adds is its first year's share and not its full ask.
+  const committedThisYear = application.roundProgrammeCommittedThisYear
   const amountRequested = parseFloat(application.amountRequested)
+  const firstYear = application.firstYearAmount
+  const fyLabel = application.roundFinancialYear.label
+  const budgetRemaining = budget === null ? null : budget - committedThisYear
   // "Budget full" only exists for a foundation that has asked for it
   // (`client_profiles.enforce_round_budget`, default off). With the ceiling off the
   // round-programme budget is a target: shortlisting past it is allowed, and the
@@ -440,7 +451,7 @@ function ApplicationDetail() {
     application.enforceRoundBudget &&
     !isShortlisted &&
     budget !== null &&
-    committed + amountRequested > budget
+    committedThisYear + firstYear > budget
 
   const scoreStatus = application.custodianScoreStatus ?? 'pending'
   const score = application.custodianScore
@@ -606,12 +617,26 @@ function ApplicationDetail() {
     }
   }
 
-  const handleShortlist = () =>
+  // Shortlisting ASKS how much falls in this financial year; un-shortlisting just acts.
+  // The question only has an answer going in — on the way out the figure is cleared, and
+  // a dialog confirming a removal nobody needs confirmed would be friction on the undo.
+  const handleShortlist = () => {
+    if (isShortlisted) {
+      return act(setShortlisting, () =>
+        updateApplicationStatus({ data: { id: application.id, status: 'for_review' } }),
+      )
+    }
+    setFirstYearMode('shortlist')
+    setFirstYearOpen(true)
+  }
+  const confirmShortlist = (firstYearAmount: number | null) =>
     act(setShortlisting, () =>
       updateApplicationStatus({
-        data: { id: application.id, status: isShortlisted ? 'for_review' : 'shortlisted' },
+        data: { id: application.id, status: 'shortlisted', firstYearAmount },
       }),
     )
+  const saveFirstYear = (amount: number | null) =>
+    act(setShortlisting, () => setFirstYearAmount({ data: { id: application.id, amount } }))
   const handleDecline = () =>
     act(setDeclining, () =>
       updateApplicationStatus({
@@ -1106,10 +1131,37 @@ function ApplicationDetail() {
             /* The annual figure, not just the length: "£35k / 3 years" left it open
                whether the ask was £35k a year. Falls back to the plain duration for a
                single-year grant, where there is nothing to mistake it for. */
+            /* Once it is SHORTLISTED the subline changes job. Up to then the question is
+               "how big is this ask", and the annual figure answers it. From then on the
+               ask is drawing on a round budget that counts this year's cash, so the
+               subline states what it draws and offers the correction — the figure in the
+               meter has to be editable from the screen the meter is about, and this is
+               the only place on it that already talks about this money. */
             sub={
-              fmtPerYear(amountRequested, rp.grantDurationYears) ??
-              fmtDuration(rp.grantDurationYears) ??
-              'Duration not set'
+              isShortlisted ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span>
+                    {fmtMoney(firstYear)} in {fyLabel}
+                  </span>
+                  {canSetStatus && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFirstYearMode('edit')
+                        setFirstYearOpen(true)
+                      }}
+                      className="underline"
+                      style={{ color: C.brand }}
+                    >
+                      {application.firstYearIsSuggested ? 'estimated' : 'edit'}
+                    </button>
+                  )}
+                </span>
+              ) : (
+                (fmtPerYear(amountRequested, rp.grantDurationYears) ??
+                fmtDuration(rp.grantDurationYears) ??
+                'Duration not set')
+              )
             }
           />
           {/* Beneficiaries and cost-per-beneficiary are one card, not two: the second
@@ -1417,6 +1469,21 @@ function ApplicationDetail() {
           <CommentsSection applicationId={application.id} userId={user.id} userRole={user.role} />
         </Panel>
       </div>
+
+      <FirstYearDialog
+        open={firstYearOpen}
+        onClose={() => setFirstYearOpen(false)}
+        onConfirm={firstYearMode === 'shortlist' ? confirmShortlist : saveFirstYear}
+        mode={firstYearMode}
+        organisationName={application.organisationName}
+        amountRequested={amountRequested}
+        suggested={application.firstYearSuggested}
+        current={firstYear}
+        durationYears={rp.grantDurationYears}
+        financialYearLabel={fyLabel}
+        budgetRemaining={budgetRemaining}
+        enforced={application.enforceRoundBudget}
+      />
 
       <ApplicationSubmissionDialog
         application={application}

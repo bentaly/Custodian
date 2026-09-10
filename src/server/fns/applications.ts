@@ -29,6 +29,9 @@ import {
   clientProfiles,
 } from '../../../drizzle/schema'
 import { searchAny } from '../searchTerm'
+import { roundProgrammeSpend, spentThisYear } from '../applications/roundSpend'
+import { DEFAULT_FY_END_MONTH, financialYear } from '../../lib/financialYear'
+import { resolveFirstYearAmount, suggestFirstYearAmount } from '../../lib/multiYear'
 import { requireAuthUser, requireRole } from '../session'
 import { canSeePayments } from '../../lib/roles'
 import { recordAudit } from '../audit'
@@ -205,31 +208,26 @@ export const getApplication = createServerFn({ method: 'GET' })
     if (!application) throw notFoundError()
     assertClientAccess(user, application.roundProgramme.programme.clientId)
 
-    // Committed = awarded awards at their grant amount + shortlisted at requested.
-    // Alongside it, whether this foundation treats the round-programme budget as a
-    // ceiling — the screen needs both to know whether Shortlist is available, and one
-    // without the other tells it nothing.
-    const [committedRows, profile] = await Promise.all([
-      getDb()
-        .select({
-          committed: sql<
-            string | null
-          >`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
-        })
-        .from(applications)
-        .leftJoin(awards, eq(awards.applicationId, applications.id))
-        .where(
-          and(
-            eq(applications.roundProgrammeId, application.roundProgrammeId),
-            inArray(applications.status, ['shortlisted', 'awarded']),
-          ),
-        ),
-      getDb().query.clientProfiles.findFirst({
-        where: (p, { eq }) => eq(p.clientId, application.roundProgramme.programme.clientId),
-        columns: { enforceRoundBudget: true },
-      }),
-    ])
-    const committed = committedRows[0]?.committed
+    // Whether this foundation treats the round-programme budget as a ceiling, and the
+    // financial year that budget is drawn from — the screen needs the flag to know
+    // whether Shortlist is available, and the year to work out what is left.
+    const profile = await getDb().query.clientProfiles.findFirst({
+      where: (p, { eq }) => eq(p.clientId, application.roundProgramme.programme.clientId),
+      columns: { enforceRoundBudget: true, financialYearEndMonth: true },
+    })
+    const fy = financialYear(profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH)
+
+    // What the round has already spent of this year's budget, on the SAME basis as the
+    // shortlist meter and the ceiling in `updateApplicationStatus` — this screen's
+    // "Budget full" button is a courtesy, and a courtesy that disagrees with the gate it
+    // is predicting is worse than no button at all.
+    //
+    // This application is excluded so the figure means "already spent, apart from this
+    // one" whether or not it is itself shortlisted. The screen adds its own drawdown.
+    const spend = await roundProgrammeSpend(getDb(), [application.roundProgrammeId], fy, {
+      excludeApplicationId: application.id,
+    })
+    const committedThisYear = spentThisYear(spend.get(application.roundProgrammeId))
 
     return {
       ...application,
@@ -246,7 +244,26 @@ export const getApplication = createServerFn({ method: 'GET' })
             bankAccountNumber: null,
             bankSortCode: null,
           }),
-      roundProgrammeCommitted: committed ? parseFloat(committed) : 0,
+      // This year's cash already drawn from the round-programme's budget, excluding this
+      // application. Named for the basis rather than inheriting the old name, so nothing
+      // can read it as a commitment total by accident.
+      roundProgrammeCommittedThisYear: committedThisYear,
+      /** The financial year that budget belongs to, for the screen's wording. */
+      roundFinancialYear: fy,
+      /** What this ask draws from the round this year: stated if anyone said, else suggested. */
+      firstYearAmount: resolveFirstYearAmount({
+        amountRequested: parseFloat(application.amountRequested),
+        firstYearAmount:
+          application.firstYearAmount === null ? null : parseFloat(application.firstYearAmount),
+        grantDurationYears: application.roundProgramme.grantDurationYears,
+      }),
+      /** The suggestion, always — so the dialog can offer "reset to suggested". */
+      firstYearSuggested: suggestFirstYearAmount(
+        parseFloat(application.amountRequested),
+        application.roundProgramme.grantDurationYears,
+      ),
+      /** True while nobody has overridden the suggestion. */
+      firstYearIsSuggested: application.firstYearAmount === null,
       // A foundation with no profile row has never opened the setting, so it gets the
       // default: the budget is a target, not a gate.
       enforceRoundBudget: profile?.enforceRoundBudget ?? false,
@@ -421,12 +438,12 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       throw conflict('An awarded application cannot change status; cancel the award instead')
     }
 
-    // The budget ceiling is OPT-IN (`client_profiles.enforce_round_budget`, default
-    // off). Most foundations shortlist more than they can fund on purpose and choose
-    // between the applications afterwards; the ones that treat the round-programme
-    // budget as a hard limit turn it on in Settings. This is the boundary — the
-    // application screen's "Budget full" button reads the same flag, but a disabled
-    // button is a courtesy, not a gate.
+    // What this ask draws from the round's budget THIS YEAR. The budget counts this
+    // year's cash, not the whole commitment (`src/lib/multiYear.ts`), so a multi-year
+    // grant draws its first year's share — stated by whoever is shortlisting it, or the
+    // suggestion when they accepted it. Resolved here rather than in the gate below
+    // because it is also what gets STORED, and the two must be the same number.
+    let firstYear: number | null = null
     if (status === 'shortlisted') {
       const app = await getDb().query.applications.findFirst({
         where: (a, { eq }) => eq(a.id, id),
@@ -434,6 +451,22 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       })
       if (!app) throw notFoundError()
 
+      // `undefined` is "accept the suggestion" and stores NULL; an explicit number is an
+      // override. Either way the figure the gate checks is the one the meter will show,
+      // because both run it through `resolveFirstYearAmount`.
+      firstYear = data.firstYearAmount ?? null
+      const drawdown = resolveFirstYearAmount({
+        amountRequested: parseFloat(app.amountRequested),
+        firstYearAmount: firstYear,
+        grantDurationYears: app.roundProgramme.grantDurationYears,
+      })
+
+      // The budget ceiling is OPT-IN (`client_profiles.enforce_round_budget`, default
+      // off). Most foundations shortlist more than they can fund on purpose and choose
+      // between the applications afterwards; the ones that treat the round-programme
+      // budget as a hard limit turn it on in Settings. This is the boundary — the
+      // application screen's "Budget full" button reads the same flag, but a disabled
+      // button is a courtesy, not a gate.
       const budget = app.roundProgramme.budget ? parseFloat(app.roundProgramme.budget) : null
       // The flag is read BEFORE the rollup, not beside it: with the ceiling off — the
       // default — there is nothing to compare the sum against, and the query costs a
@@ -443,32 +476,25 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
           ? null
           : await getDb().query.clientProfiles.findFirst({
               where: (p, { eq }) => eq(p.clientId, app.roundProgramme.programme.clientId),
-              columns: { enforceRoundBudget: true },
+              columns: { enforceRoundBudget: true, financialYearEndMonth: true },
             })
       if (budget !== null && profile?.enforceRoundBudget) {
-        const currentRows = await getDb()
-          .select({
-            current: sql<
-              string | null
-            >`SUM(COALESCE(${awards.amountAwarded}, ${applications.amountRequested}))`,
-          })
-          .from(applications)
-          .leftJoin(awards, eq(awards.applicationId, applications.id))
-          .where(
-            and(
-              eq(applications.roundProgrammeId, app.roundProgrammeId),
-              inArray(applications.status, ['shortlisted', 'awarded']),
-              ne(applications.id, id),
-            ),
-          )
+        // The SAME function the shortlist meter reads. It used to be a sum written here
+        // over `COALESCE(amount_awarded, amount_requested)`, which was safe while both
+        // screens counted the whole ask and is not safe now they count a year of it: the
+        // meter would have said there was room and this would have refused, both
+        // behaving as designed. See `roundProgrammeSpend`.
+        const fy = financialYear(profile.financialYearEndMonth ?? DEFAULT_FY_END_MONTH)
+        const spend = await roundProgrammeSpend(getDb(), [app.roundProgrammeId], fy, {
+          excludeApplicationId: id,
+        })
+        const committed = spentThisYear(spend.get(app.roundProgrammeId))
 
-        const committed = currentRows[0]?.current ? parseFloat(currentRows[0].current) : 0
-        const requested = parseFloat(app.amountRequested)
-        if (committed + requested > budget) {
+        if (committed + drawdown > budget) {
           const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
           const remaining = budget - committed
           throw conflict(
-            `Budget limit reached — ${fmt(remaining > 0 ? remaining : 0)} remaining, this application requests ${fmt(requested)}`,
+            `Budget limit reached — ${fmt(remaining > 0 ? remaining : 0)} remaining in ${fy.label}, this application draws ${fmt(drawdown)}`,
           )
         }
       }
@@ -481,6 +507,12 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
         // Declining stamps the decision; moving back out of declined clears it, so
         // the activity feed doesn't keep reporting a decision that was undone.
         decisionAt: status === 'declined' ? new Date() : null,
+        // Written only on the shortlist path, and cleared on the way back out: a figure
+        // left behind by a shortlisting that was undone would silently become the
+        // drawdown if the application were shortlisted again later, under a round budget
+        // nobody had re-checked it against.
+        firstYearAmount:
+          status === 'shortlisted' ? (firstYear === null ? null : String(firstYear)) : null,
       })
       .where(eq(applications.id, id))
       .returning()
@@ -497,6 +529,72 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       await recordAudit({ actorUserId: user.id, action: auditAction, applicationId: id })
     }
     return application!
+  })
+
+/**
+ * Correct how much of a shortlisted ask falls in this financial year.
+ *
+ * The same figure `updateApplicationStatus` captures when shortlisting, editable
+ * afterwards — because the schedule is often discussed after the board has agreed in
+ * principle, and re-shortlisting an application just to fix a number would write an audit
+ * row saying a decision was made again.
+ *
+ * Deliberately NOT gated on the round budget. This is a correction to what a grant was
+ * always going to cost this year, not a new call on the budget, and refusing it would
+ * leave the meter knowingly wrong with no way to fix it. Going over shows as an overspend
+ * on the shortlist card, which is what that card is for.
+ *
+ * **Refused once an award exists**, like rewriting an ingest's mapping: from then on the
+ * award's real instalments are this year's share (`roundProgrammeSpend`) and this column
+ * is no longer read, so accepting a write would store a figure that changes nothing and
+ * silently disagrees with the schedule.
+ */
+export const setFirstYearAmount = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      id: z.uuid(),
+      /** `null` resets to the suggestion. */
+      amount: z.number().min(0).max(1_000_000_000).nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    await assertApplicationAccess(user, data.id)
+
+    const app = await getDb().query.applications.findFirst({
+      where: (a, { eq }) => eq(a.id, data.id),
+      columns: { status: true, amountRequested: true },
+      with: { roundProgramme: { columns: { grantDurationYears: true } } },
+    })
+    if (!app) throw notFoundError()
+    if (app.status === 'awarded') {
+      throw conflict(
+        'This grant has been awarded — its payment schedule now says what falls in each year.',
+      )
+    }
+    if (app.status !== 'shortlisted') {
+      throw conflict('Only a shortlisted application draws on a round budget.')
+    }
+    const requested = parseFloat(app.amountRequested)
+    if (data.amount !== null && data.amount > requested) {
+      throw conflict('That is more than the application is asking for.')
+    }
+
+    const [updated] = await getDb()
+      .update(applications)
+      .set({ firstYearAmount: data.amount === null ? null : String(data.amount) })
+      .where(eq(applications.id, data.id))
+      .returning({ id: applications.id, firstYearAmount: applications.firstYearAmount })
+
+    return {
+      id: updated!.id,
+      firstYearAmount: resolveFirstYearAmount({
+        amountRequested: requested,
+        firstYearAmount: data.amount,
+        grantDurationYears: app.roundProgramme.grantDurationYears,
+      }),
+      firstYearIsSuggested: data.amount === null,
+    }
   })
 
 // Awards screen: the register of every grant ever awarded for the caller's client —

@@ -72,12 +72,24 @@ type Row = {
   label: string
   colour: string | null
   amount: string
+  /**
+   * What this programme already owes this year from grants decided in earlier years.
+   *
+   * Empty string means "the derived figure is right" and stores NULL — which is the
+   * normal case, because the figure is computed from instalment dates Custodian already
+   * holds. A typed value is an override: a foundation holding a contingency back, or
+   * treating one grant's future instalments differently. Always shown beside the derived
+   * figure rather than replacing it, so an override reads as a deliberate choice against
+   * a number still on screen.
+   */
+  promised: string
 }
 
 let coreKey = 0
 const newCoreRow = (label = 'Core costs'): Row => ({
   key: `core-${coreKey++}`,
   programmeId: null,
+  promised: '',
   label,
   colour: null,
   amount: '',
@@ -91,15 +103,17 @@ function AnnualBudget() {
   // screen is "what is this year's money", and a programme missing from the form reads
   // as a programme that no longer exists rather than one funded nothing.
   const initialRows = useMemo<Row[]>(() => {
-    const saved = new Map(
-      data.lines.filter((l) => l.programmeId).map((l) => [l.programmeId!, l.amount]),
-    )
+    const saved = new Map(data.lines.filter((l) => l.programmeId).map((l) => [l.programmeId!, l]))
     const programmeRows: Row[] = data.programmes.map((p) => ({
       key: p.id,
       programmeId: p.id,
       label: p.name,
       colour: p.colour,
-      amount: saved.has(p.id) ? String(saved.get(p.id)) : '',
+      amount: saved.has(p.id) ? String(saved.get(p.id)!.amount) : '',
+      promised:
+        saved.get(p.id)?.carriedCommitment != null
+          ? String(saved.get(p.id)!.carriedCommitment)
+          : '',
     }))
     const coreRows: Row[] = data.lines
       .filter((l) => !l.programmeId)
@@ -118,11 +132,28 @@ function AnnualBudget() {
     () => new Map(data.roundAllocations.map((a) => [a.programmeId, a.allocated])),
     [data.roundAllocations],
   )
+  // Cash already owed this year against grants decided in earlier years, per programme.
+  // Derived server-side from instalment dates, so it needs no input to be right.
+  const promisedByProgramme = useMemo(
+    () => new Map(data.promisedFromEarlierYears.map((p) => [p.programmeId, p.promised])),
+    [data.promisedFromEarlierYears],
+  )
 
   const amount = (r: Row) => {
     const n = parseFloat(r.amount)
     return Number.isFinite(n) && n > 0 ? n : 0
   }
+  /** The typed override, or null when the derived figure was accepted. */
+  const promisedOverride = (r: Row): number | null => {
+    if (!r.programmeId || r.promised.trim() === '') return null
+    const n = parseFloat(r.promised)
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
+  /** The figure in use for a row: the override if there is one, else the derived one. */
+  const promisedOf = (r: Row): number =>
+    promisedOverride(r) ?? (r.programmeId ? (promisedByProgramme.get(r.programmeId) ?? 0) : 0)
+  /** What is left to give across this year's rounds once earlier years are paid. */
+  const freeOf = (r: Row): number => Math.max(0, amount(r) - promisedOf(r))
   /**
    * What a row set would actually SAVE, as a comparable string.
    *
@@ -141,6 +172,10 @@ function AnnualBudget() {
           r.programmeId,
           r.programmeId ? null : r.label.trim() || 'Core costs',
           amount(r),
+          // The override is part of what a save writes, so editing it alone has to enable
+          // Save. Compared as the payload value (null for "derived figure is right"), not
+          // as the raw field, so typing the derived figure back in still reads as clean.
+          promisedOverride(r),
         ]),
     )
   // After a save, `router.invalidate()` reloads the budget and `initialRows` recomputes to
@@ -224,6 +259,7 @@ function AnnualBudget() {
               programmeId: r.programmeId,
               label: r.programmeId ? null : r.label.trim() || 'Core costs',
               amount: amount(r),
+              carriedCommitment: promisedOverride(r),
             })),
         },
       })
@@ -314,13 +350,31 @@ function AnnualBudget() {
             >
               Budget for {data.financialYear.label}
             </PanelTitle>
+            {/* Two money fields on a row need naming, and the names belong over the
+                columns rather than inside each field: repeated per row they would be
+                twenty labels saying the same two things. Hidden below `sm`, where the
+                fields stack and each one's own accessible label is what reads. */}
+            <div className="hidden items-end gap-3 sm:flex">
+              <div className="min-w-0 flex-1" />
+              <span className="w-36 shrink-0 font-display text-label" style={{ color: C.faint }}>
+                Budget
+              </span>
+              <span className="w-36 shrink-0 font-display text-label" style={{ color: C.faint }}>
+                Already promised
+              </span>
+              <span className="w-9 shrink-0" />
+            </div>
             <div className="flex flex-col gap-3">
               {rows.map((row, i) => {
                 const allocated = row.programmeId
                   ? allocatedByProgramme.get(row.programmeId)
                   : undefined
+                const derived = row.programmeId
+                  ? (promisedByProgramme.get(row.programmeId) ?? 0)
+                  : 0
+                const overridden = promisedOverride(row) !== null
                 return (
-                  <div key={row.key} className="flex items-end gap-3">
+                  <div key={row.key} className="flex flex-wrap items-end gap-3 sm:flex-nowrap">
                     <div className="min-w-0 flex-1">
                       {row.programmeId ? (
                         <div className="flex items-center gap-2">
@@ -342,7 +396,22 @@ function AnnualBudget() {
                           onChange={(e) => patch(row.key, { label: e.target.value })}
                         />
                       )}
-                      {allocated !== undefined && (
+                      {/* The pair this screen exists to state: what is genuinely free to
+                          give this year, and how much of that the rounds have taken. The
+                          derived figure stays visible next to an override rather than
+                          being replaced by it, so a buffer reads as a deliberate choice.
+                          Only for programme rows — core costs have no grants behind them,
+                          so nothing carries forward and no round allocates to them. */}
+                      {row.programmeId && amount(row) > 0 && (
+                        <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+                          <span style={{ color: C.sub }}>{fmtMoney(freeOf(row))} free to give</span>
+                          {allocated !== undefined && allocated > 0 && (
+                            <> · {fmtMoney(allocated)} allocated to rounds</>
+                          )}
+                          {overridden && <> · derived figure {fmtMoney(derived)}</>}
+                        </p>
+                      )}
+                      {!row.programmeId && allocated !== undefined && (
                         <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
                           {fmtMoney(allocated)} allocated across this year&rsquo;s rounds
                         </p>
@@ -350,7 +419,7 @@ function AnnualBudget() {
                     </div>
 
                     <MoneyInput
-                      className="w-40 shrink-0"
+                      className="w-36 shrink-0"
                       value={row.amount}
                       label={`Budget for ${row.label || 'this line'}`}
                       placeholder="Not budgeted"
@@ -359,6 +428,25 @@ function AnnualBudget() {
                         setSaved(false)
                       }}
                     />
+
+                    {/* Empty is not zero: it means "your figure is right", and the derived
+                        one shows as the placeholder so the field reads as pre-answered
+                        rather than as one more thing to fill in. A core-costs line gets a
+                        spacer instead, keeping the Budget column aligned down the list. */}
+                    {row.programmeId ? (
+                      <MoneyInput
+                        className="w-36 shrink-0"
+                        value={row.promised}
+                        label={`Already promised this year for ${row.label || 'this programme'}`}
+                        placeholder={derived > 0 ? String(derived) : '0'}
+                        onChange={(v) => {
+                          patch(row.key, { promised: v })
+                          setSaved(false)
+                        }}
+                      />
+                    ) : (
+                      <span className="hidden w-36 shrink-0 sm:block" />
+                    )}
 
                     {/* Only the non-grant lines can be removed. A programme row is not the
                     foundation's to delete here — it is deleted by archiving the

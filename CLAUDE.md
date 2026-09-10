@@ -248,6 +248,37 @@ owed. The two meters look almost identical on screen; a bar that moved when some
 an application would tell a trustee they had spent money they had not committed. Do not blur the
 labels, and do not reuse one rollup for the other.
 
+## Multi-year grants: commitment vs this year's cash
+
+A **commitment** is the whole value of a grant, counted the day it is decided — SORP's treatment,
+and what the accounts, the Awards register, Insights and `rollUpBudget` all report. **This year's
+cash** is the part falling due before the year end. `src/lib/multiYear.ts` is the statement of the
+rule; every figure in the round chain is cash, and the accounts total is the one exception.
+
+- **`round_programmes.budget` is cash.** A round is an allocation out of one year's capacity.
+- **`annual_budget_lines.carried_commitment`** is the "already promised" override. NULL means use
+  the figure DERIVED from instalment dates — the normal case, and the whole point. A budget is a
+  decision and is stated; money already promised under signed agreements is a fact and is derived.
+- **`applications.first_year_amount`** is the one new stored number, and it is stated because
+  **at shortlist there is no schedule to divide**: start date, instalment count and cadence are all
+  set later in award set-up. Dividing the ask by `grant_duration_years` is the SUGGESTION and is
+  right for an annual grant; £48,000 paid every four months over sixteen draws £36,000 in year one
+  against a suggested £24,000. NULL = the suggestion was accepted. **Cleared when an application
+  leaves `shortlisted`**, or a stale figure would silently become the drawdown next time.
+  `grant_duration_years` is a display hint, NOT an input to `buildSchedule` — do not treat it as one.
+- **Once an award exists none of that is read.** `roundProgrammeSpend`
+  (`src/server/applications/roundSpend.ts`) reads the award's real instalments, and it is the
+  **single** source for both the shortlist meter and the `enforce_round_budget` ceiling. They used
+  to be two sums that happened to agree because both counted the whole ask; on a cash basis two
+  sums can disagree, and the failure is a meter saying there is room over a server that refuses.
+  Both halves of the meter moved — already-awarded AND shortlisted — and so did the "Budget full"
+  courtesy on the application screen.
+- **Bounded at BOTH ends for a round, at the top only for Finance.** A round's allocation is drawn
+  on by instalments falling INSIDE its year. The Finance panel's `dueByYearEnd` and the annual
+  "already promised" figure have no lower bound, because arrears from last March are still cash
+  leaving the account this year. Same rows, two questions; a lower bound on the round's side is
+  what stops an old round's meter creeping past its budget as time passes.
+
 ## Conventions and naming traps
 
 - **British English** in all copy and identifiers ("Organisation", not "Organization").
@@ -273,6 +304,29 @@ design rationale; this list is a map, not a summary.
   immediately and `src/server/applications/score.ts` fills it in from its own queue message. The
   reviewer's Confirm path scores **inline**, because someone is watching. **`queued` is distinct
   from `pending`**: `pending` means no score is coming (no API key).
+  **The score READS the other two derived features**, so it can never share their
+  `Promise.all`: `create.ts` resolves due diligence + deprivation first, then scores. Run
+  alongside them it saw neither, and on the Confirm path — the one where those inputs change —
+  it would have scored against the area the reviewer had just corrected. On the queued path
+  both are already committed on the row, which is why that path reads them off it.
+  What reaches the prompt beyond the application text: the **measured decile**, the
+  **charity register's filed figures** (`organisationProfile` — labelled register-verified
+  against `unrestrictedReserves`, which is labelled a claim), the **proposed impact** +
+  programme unit, and the **grant duration**.
+  **`organisationProfile` is two kinds of thing and the prompt must keep them apart**: the
+  figures were filed with a regulator, but the prose `activities` field was written BY the
+  charity, for that regulator, often years ago and very often as boilerplate from the
+  governing document. It carries its own hedge, because the failure runs both ways — broad
+  charitable objects are drafted to fit any funder, so they must not read as alignment
+  (`strategic_alignment` is the heaviest weight in the composite), and a thin or dated entry
+  must not count against the applicant. Where it conflicts with the applicant's own summary,
+  the application is the current statement. Deliberately NOT passed: the round-programme budget and `maxGrantAmount`
+  (affordability is none of the six criteria and is the foundation's call), and the due
+  diligence **verdict** — it is already its own indicator, and feeding it here too would let
+  one fact move two indicators with nothing saying they are the same fact.
+  **An absent decile must never read as an affluent area** — `pending`/null renders NOTHING
+  rather than a sentence the model might weigh, and the system prompt says absence is not
+  evidence. Same distinction as `GOOGLE_MAPS_API_KEY` above.
 - **dueDiligence** — registry checks against Charity Commission + Companies House. Returns
   **`no_registration`** (its own status, not `review`, so it stays out of the dashboard flag count)
   when there is no number to screen.
@@ -767,6 +821,11 @@ Structural decisions worth knowing before adding a screen:
   reads the same flag off `getApplication` and is a courtesy, not a gate. With it off the
   shortlist's proposed-spend row states the overspend instead — in WORDS plus a
   `committed + proposed / budget` pair, never by repainting the meter.
+  **A round-programme budget counts THIS YEAR'S CASH, not the whole commitment** — see
+  "Multi-year grants" below. It is an allocation out of one financial year's giving capacity,
+  so a £60,000 three-year grant draws its first year's share; counting the whole thing would
+  make a round of multi-year grants unable to spend what it was given, and counting nothing
+  would let it commit three times over.
 - **`RoundSelect`** — the round pill Applications and Shortlist share. There is deliberately **no
   "all rounds"** option: totals summed across rounds are meaningless. Screen headers put the `<h1>`
   first and the round pill on the row beneath.

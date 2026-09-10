@@ -1,17 +1,18 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import {
   applicationComments,
-  applications,
   applicationVotes,
-  awards,
   roundProgrammes,
   users,
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { intersectScope, visibleRoundProgrammeIds } from '../scope'
+import { roundProgrammeSpend } from '../applications/roundSpend'
+import { DEFAULT_FY_END_MONTH, financialYear } from '../../lib/financialYear'
+import { isSuggestedFirstYear, resolveFirstYearAmount } from '../../lib/multiYear'
 
 /**
  * Everything the Shortlist screen renders, in one call: the applications awaiting a
@@ -68,6 +69,10 @@ export async function shortlistData(
       trustees: [],
       allowAdminVoting: false,
       budgets: [],
+      // Null rather than a default-derived year: there is no budget card to caption when
+      // nothing is shortlisted, and inventing a year from the default end month would be
+      // stating something about a foundation whose profile was never read.
+      financialYear: null as ReturnType<typeof financialYear> | null,
     }
     // An empty (non-null) scope is a caller who can see nothing. The guard lives HERE
     // rather than in the handler, unlike the older extractions, because `inArray(x, [])`
@@ -93,7 +98,21 @@ export async function shortlistData(
     // take the first (for a single-client caller it is the only one).
     const clientId = callerClientId ?? clientIds[0]!
 
-    const [voteRows, trustees, profile, committedRows, commentRows] = await Promise.all([
+    // The financial year the round's budget is being drawn from. Read before the rest
+    // because every cash figure below needs its bounds as parameters — the same reason
+    // `balanceAndBudget` reads the profile first.
+    const fyProfile = await db.query.clientProfiles.findFirst({
+      where: (p, { eq }) => eq(p.clientId, clientId),
+      columns: { financialYearEndMonth: true },
+    })
+    const fy = financialYear(fyProfile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH)
+    const spend = await roundProgrammeSpend(
+      db,
+      [...new Set(items.map((a) => a.roundProgrammeId))],
+      fy,
+    )
+
+    const [voteRows, trustees, profile, commentRows] = await Promise.all([
       db
         .select({
           applicationId: applicationVotes.applicationId,
@@ -111,27 +130,6 @@ export async function shortlistData(
         .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId)))
         .orderBy(users.name),
       db.query.clientProfiles.findFirst({ where: (p, { eq }) => eq(p.clientId, clientId) }),
-      // What this round-programme has ALREADY committed. Headroom is meaningless
-      // without it: a shortlist that fits the budget on its own may not fit what is
-      // left of the budget, and that is precisely the question at a board meeting.
-      db
-        .select({
-          roundProgrammeId: applications.roundProgrammeId,
-          committed: sql<string>`coalesce(sum(${awards.amountAwarded}), 0)`,
-        })
-        .from(awards)
-        .innerJoin(applications, eq(awards.applicationId, applications.id))
-        .where(
-          and(
-            roundProgrammeIds
-              ? inArray(applications.roundProgrammeId, roundProgrammeIds)
-              : undefined,
-            // A cancelled award is not money out of the door, so it must not eat
-            // headroom the board could still spend.
-            sql`${awards.status} <> 'cancelled'`,
-          ),
-        )
-        .groupBy(applications.roundProgrammeId),
       // Just the count. The discussion itself is fetched when a card's comment button
       // is pressed — a board of ten applications would otherwise pull every thread on
       // every render to render a number.
@@ -155,9 +153,6 @@ export async function shortlistData(
       list.push({ userId: v.userId, vote: v.vote, recordedByUserId: v.recordedByUserId })
       votesByApp.set(v.applicationId, list)
     }
-    const committedByRp = new Map(
-      committedRows.map((r) => [r.roundProgrammeId, parseFloat(r.committed)]),
-    )
     const commentsByApp = new Map(commentRows.map((r) => [r.applicationId, r.comments]))
 
     const trusteeCount = trustees.length
@@ -171,6 +166,16 @@ export async function shortlistData(
         yesVotes,
         noVotes,
         commentCount: commentsByApp.get(a.id) ?? 0,
+        // What this ask draws from the round this year, and whether anyone has said so.
+        // On the card beside the full ask: a trustee agreeing to a three-year grant must
+        // see its whole size, and the board reading the budget meter must see what it
+        // costs this year, and neither figure substitutes for the other.
+        firstYearAmount: resolveFirstYearAmount({
+          amountRequested: parseFloat(a.amountRequested),
+          firstYearAmount: a.firstYearAmount === null ? null : parseFloat(a.firstYearAmount),
+          grantDurationYears: a.roundProgramme.grantDurationYears,
+        }),
+        firstYearIsSuggested: isSuggestedFirstYear(a.firstYearAmount),
         trusteeCount,
         hasMajority: trusteeCount > 0 && yesVotes * 2 > trusteeCount,
         // Whether one more yes would carry it — the "last vote needed" nudge.
@@ -181,35 +186,47 @@ export async function shortlistData(
 
     // Budget per round-programme that the shortlist actually touches. Programmes with
     // no shortlisted application aren't part of this decision, so they'd be noise.
+    //
+    // `committed` and `proposed` are THIS YEAR'S CASH, because that is what
+    // `round_programmes.budget` counts — see `src/lib/multiYear.ts`. Both come from
+    // `roundProgrammeSpend`, which is also what the budget ceiling in
+    // `updateApplicationStatus` reads, so the meter and the gate cannot disagree about
+    // whether there is room. The full committed values ride alongside for the card to
+    // state beside them, never metered.
     const budgets = [
       ...new Map(
-        items.map((a) => [
-          a.roundProgrammeId,
-          {
-            roundProgrammeId: a.roundProgrammeId,
-            programmeName: a.roundProgramme.programme.name,
-            // The programme's own colour, so its swatch here is the one it wears on the
-            // Programmes screen. Nullable for rows predating the column — the client
-            // falls back through `resolveProgrammeColour`.
-            programmeColour: a.roundProgramme.programme.colour,
-            roundName: a.roundProgramme.round.name,
-            budget: a.roundProgramme.budget ? parseFloat(a.roundProgramme.budget) : null,
-            committed: committedByRp.get(a.roundProgrammeId) ?? 0,
-            proposed: 0,
-          },
-        ]),
+        items.map((a) => {
+          const s = spend.get(a.roundProgrammeId)
+          return [
+            a.roundProgrammeId,
+            {
+              roundProgrammeId: a.roundProgrammeId,
+              programmeName: a.roundProgramme.programme.name,
+              // The programme's own colour, so its swatch here is the one it wears on the
+              // Programmes screen. Nullable for rows predating the column — the client
+              // falls back through `resolveProgrammeColour`.
+              programmeColour: a.roundProgramme.programme.colour,
+              roundName: a.roundProgramme.round.name,
+              budget: a.roundProgramme.budget ? parseFloat(a.roundProgramme.budget) : null,
+              committed: s?.awardedThisYear ?? 0,
+              proposed: s?.proposedThisYear ?? 0,
+              /** The whole value of what is already awarded here, for context. */
+              committedFull: s?.awardedFull ?? 0,
+              /** The whole value of what this shortlist would commit, for context. */
+              proposedFull: s?.proposedFull ?? 0,
+            },
+          ]
+        }),
       ).values(),
     ]
-    for (const a of items) {
-      const row = budgets.find((b) => b.roundProgrammeId === a.roundProgrammeId)!
-      row.proposed += parseFloat(a.amountRequested)
-    }
 
     return {
       items: decorated,
       trustees,
       allowAdminVoting: profile?.allowAdminVoting ?? false,
       budgets,
+      /** The year the round budgets above are being drawn from, for the card's caption. */
+      financialYear: fy,
     }
   }
 }

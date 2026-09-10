@@ -18,6 +18,7 @@ import {
   type BudgetRollup,
   type OutstandingSplit,
 } from '../../lib/annualBudget'
+import { rollUpCash } from '../../lib/multiYear'
 import { todayIso } from '../../lib/schedule'
 
 /**
@@ -98,6 +99,8 @@ export type BalanceAndBudget = {
   balance: BankBalance | null
   /** NULL when this foundation has set no budget for the year — the panel then shows only cash. */
   budget: (BudgetRollup & { label: string }) | null
+  /** The same year counted in this year's cash rather than in commitments. NULL with no budget. */
+  cash: ReturnType<typeof rollUpCash> | null
   outstanding: OutstandingSplit
   /** True when there is nothing to show at all, so the caller can render no panel. */
   empty: boolean
@@ -120,7 +123,7 @@ const num = (v: string | number | null | undefined): number =>
  *
  * Two round trips, not one. The financial year is derived from
  * `client_profiles.financial_year_end_month`, and every money query needs its bounds as
- * parameters — so the profile is read first and the five money queries then go in one
+ * parameters — so the profile is read first and the six money queries then go in one
  * `db.batch()`. The snapshot property that matters is preserved: all the FIGURES come
  * from one batch, so no payment can land between the meter and the total beneath it.
  * Only the year-end month, which changes approximately never, is read separately.
@@ -136,14 +139,13 @@ export async function balanceAndBudget(
   })
   const fy = financialYear(profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH, now)
 
-  const [balanceRows, budgetRows, actualRows, outstandingRows, bucketRows] = await db.batch(
-    budgetPanelQueries(db, clientId, fy),
-  )
-  return assemble(fy, balanceRows, budgetRows, actualRows, outstandingRows, bucketRows)
+  const [balanceRows, budgetRows, actualRows, outstandingRows, cashRows, bucketRows] =
+    await db.batch(budgetPanelQueries(db, clientId, fy))
+  return assemble(fy, balanceRows, budgetRows, actualRows, outstandingRows, cashRows, bucketRows)
 }
 
 /**
- * The five money queries, as builders.
+ * The six money queries, as builders.
  *
  * Exported so their SQL can be rendered and asserted without a database — every one of
  * them must filter on `client_id`, and the WHERE must be a plain conjunction. A raw `or`
@@ -204,6 +206,7 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
         programmeId: annualBudgetLines.programmeId,
         label: annualBudgetLines.label,
         amount: annualBudgetLines.amount,
+        carriedCommitment: annualBudgetLines.carriedCommitment,
         programmeName: programmes.name,
         programmeColour: programmes.colour,
       })
@@ -248,6 +251,43 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
       .from(awards)
       .leftJoin(paidPerAward, eq(paidPerAward.awardId, awards.id))
       .where(and(eq(awards.clientId, clientId), ne(awards.status, 'cancelled'))),
+
+    // ── The cash view: what this year must actually PAY, per programme ───────
+    //
+    // Two filtered sums over one scan, because they are the same money split by when the
+    // decision was taken: `promised` is cash owed this year against grants decided in
+    // EARLIER years (the figure a foundation cannot otherwise see when it sets a new
+    // round's budget), and `drawnThisYear` is cash owed this year against grants decided
+    // in THIS one. Together they are this year's grant cash; `committed` in the rollup
+    // above is the same decisions counted at their full multi-year value, which is the
+    // accounts figure. The screen prints both and says where they differ.
+    //
+    // Bounded exactly like the `dueByYearEnd` bucket below — no lower bound, undated
+    // included — because they are the same money seen two ways, and a reader adding the
+    // per-programme lines up has to arrive at the total.
+    db
+      .select({
+        programmeId: roundProgrammes.programmeId,
+        promised: sql<string>`coalesce(sum(${awardInstalments.amount}) filter (
+          where ${awards.decisionAt} < ${fy.start}::date
+        ), 0)`,
+        drawnThisYear: sql<string>`coalesce(sum(${awardInstalments.amount}) filter (
+          where ${awards.decisionAt} >= ${fy.start}::date
+        ), 0)`,
+      })
+      .from(awardInstalments)
+      .innerJoin(awards, eq(awards.id, awardInstalments.awardId))
+      .innerJoin(applications, eq(applications.id, awards.applicationId))
+      .innerJoin(roundProgrammes, eq(roundProgrammes.id, applications.roundProgrammeId))
+      .where(
+        and(
+          eq(awards.clientId, clientId),
+          ne(awards.status, 'cancelled'),
+          sql`${awardInstalments.paidDate} is null`,
+          sql`(${awardInstalments.dueDate} is null or ${awardInstalments.dueDate} <= ${fy.end})`,
+        ),
+      )
+      .groupBy(roundProgrammes.programmeId),
 
     // ── …and when it falls due ───────────────────────────────────────────────
     // The whole reason the panel does not set a bank balance against total outstanding:
@@ -302,6 +342,7 @@ function assemble(
     programmeId: string | null
     label: string | null
     amount: string | null
+    carriedCommitment: string | null
     programmeName: string | null
     programmeColour: string | null
   }[],
@@ -313,6 +354,7 @@ function assemble(
     paid: string
   }[],
   outstandingRows: { total: string }[],
+  cashRows: { programmeId: string; promised: string; drawnThisYear: string }[],
   bucketRows: { dueByYearEnd: string; dueLater: string; undated: string }[],
 ): BalanceAndBudget {
   const today = todayIso()
@@ -367,10 +409,45 @@ function assemble(
     ),
   )
 
+  // ── The cash view, beside the commitment one ───────────────────────────────
+  //
+  // `rollUpBudget` above answers "are we spending the year the way we planned", counted
+  // in DECISIONS at their full multi-year value, which is the accounts basis and is
+  // unchanged. This answers "what does this year actually have to pay, and what is left
+  // free to give" — the question a foundation cannot otherwise ask, and the basis a round
+  // budget is set in. Printing both is the point: where they differ, the difference is a
+  // real fact about multi-year giving rather than a discrepancy to reconcile away.
+  const cash = hasBudget
+    ? rollUpCash(
+        budgetRows
+          .filter((r) => r.lineId)
+          .map((r) => ({
+            programmeId: r.programmeId,
+            amount: num(r.amount),
+            carriedCommitment: r.carriedCommitment === null ? null : num(r.carriedCommitment),
+          })),
+        new Map(
+          budgetRows
+            .filter((r) => r.programmeId && r.programmeName)
+            .map((r) => [r.programmeId!, { name: r.programmeName!, colour: r.programmeColour }]),
+        ),
+        new Map(cashRows.map((r) => [r.programmeId, num(r.promised)])),
+        // Allocation to rounds is NOT shown here. It is a planning figure and it belongs
+        // on the screen where the budget is set; this screen is about money owed, and the
+        // figure it wants beside "free to give" is what has actually been drawn.
+        new Map(cashRows.map((r) => [r.programmeId, num(r.drawnThisYear)])),
+      )
+    : null
+
   return {
     financialYear: fy,
     balance,
     budget: hasBudget ? { ...rollup, label: budgetRows[0]?.budgetLabel ?? fy.label } : null,
+    /**
+     * The same year on a cash basis. `allocated` on each line is what grants decided THIS
+     * year owe this year — the drawdown, not a round allocation.
+     */
+    cash,
     outstanding,
     empty: !balance && !hasBudget,
   }

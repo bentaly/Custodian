@@ -432,6 +432,24 @@ export const applications = pgTable(
     // other. NULL means never computed — a row that predates the column.
     bankCheckStatus: text('bank_check_status'),
     amountRequested: numeric('amount_requested').notNull(),
+    // How much of `amountRequested` falls in the financial year the round is funded
+    // from — the figure that draws down `round_programmes.budget`, which counts THIS
+    // YEAR'S CASH rather than the whole commitment (see `src/lib/multiYear.ts`).
+    //
+    // NULL means "use the suggestion" (the ask divided by the round-programme's
+    // `grantDurationYears`), the same convention as `client_profiles
+    // .award_letter_template` and `annual_budget_lines.carried_commitment`: a stored
+    // value is a decision somebody made and always wins, and nothing has to be
+    // backfilled for the suggestion to be right about the ordinary annual case.
+    //
+    // It is STATED rather than derived because at shortlist there is no schedule to
+    // derive it from — the start date, the instalment count and the cadence are all
+    // set later, in award set-up. A £48,000 grant paid every four months over sixteen
+    // months draws £36,000 in its first year and the suggestion says £24,000; only the
+    // person shortlisting it knows that, which is why they can say so. Once the award
+    // exists this column stops being read: the award's real instalments are the answer
+    // (`roundProgrammeSpend`).
+    firstYearAmount: numeric('first_year_amount'),
     // Unrestricted reserves as STATED BY THE APPLICANT, in pounds. The Charity
     // Commission publishes no reserves figure at all (verified against the live API —
     // see `OrganisationProfile.unrestrictedReserves`, which shares the name and is
@@ -1108,6 +1126,19 @@ export const annualBudgetLines = pgTable(
     /** Only read for non-grant lines; a programme line is named by the programme. */
     label: text('label'),
     amount: numeric('amount').notNull(),
+    // Cash this programme already owes in this financial year against grants decided
+    // BEFORE it — the "already promised" half of the pair the screen shows beside
+    // "free to give" (`amount - carriedCommitment`).
+    //
+    // NULL means "use the derived figure", which is computed from the instalment dates
+    // Custodian already holds for every live grant (`carriedCommitmentForYear`). A
+    // stored value is an override a finance lead typed because they know better — they
+    // are holding a contingency back, or treating one grant's future instalments
+    // differently — and that policy call is theirs, not ours to compute away.
+    //
+    // Only meaningful on a programme line. A core-costs line (NULL `programme_id`) has
+    // no grants behind it, so nothing would derive and the read side ignores it.
+    carriedCommitment: numeric('carried_commitment'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [
