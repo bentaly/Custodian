@@ -64,6 +64,12 @@ export async function scoreApplication(
   if (!roundProgramme) return { ok: false, reason: 'round_programme_missing' }
   const programme = roundProgramme.programme
 
+  // Both derived features the prompt now reads — the register profile and the measured
+  // decile — are already committed on this row by the time a score is asked for: the
+  // create path resolves them inline and only then queues this. Reading them off the row
+  // rather than re-running them is deliberate, and it is also why this path needs no
+  // sequencing of its own.
+  //
   // Never throws — a model failure comes back as `error`, which is re-runnable and
   // visible, rather than as an exception that would send a queue into retry over
   // something retrying will not fix.
@@ -72,6 +78,7 @@ export async function scoreApplication(
     programmeName: programme.name,
     programmeGoal: programme.goal,
     programmeDescription: programme.description,
+    grantDurationYears: roundProgramme.grantDurationYears,
     organisationName: application.organisationName,
     organisationSummary: application.organisationSummary,
     amountRequested: Number(application.amountRequested),
@@ -80,8 +87,16 @@ export async function scoreApplication(
     budgetBreakdown: application.budgetBreakdown,
     budgetBreakdownLink: application.budgetBreakdownLink,
     deliveryArea: application.deliveryArea,
+    deprivation: application.deprivationContext,
+    proposedImpactQuantity:
+      application.proposedImpactQuantity != null
+        ? Number(application.proposedImpactQuantity)
+        : null,
+    impactUnit: programme.impactUnit,
+    impactUnitLabel: programme.impactUnitLabel,
     charityNumber: application.charityNumber,
     companyNumber: application.companyNumber,
+    organisationProfile: application.organisationProfile,
     responses: application.responses,
   })
 

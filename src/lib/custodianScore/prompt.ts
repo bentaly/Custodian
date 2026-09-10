@@ -13,6 +13,9 @@
 import { CRITERION_DEFINITIONS, CRITERION_ORDER } from './definitions'
 import type { CustodianScoreInput } from './types'
 import { budgetTotal, formatPounds } from '../budget'
+import { impactUnitLabel } from '../impactUnits'
+import type { DeprivationNation, DeprivationResult } from '../deprivation/types'
+import type { OrganisationProfile } from '../dueDiligence/types'
 
 /**
  * The scoring rubric and instructions. Stable across all applications — change
@@ -41,6 +44,7 @@ Separately, state the grant purpose: one or two sentences saying what the money 
 - Do NOT restate the amount requested or name the funder or programme. It is read directly beneath the amount, so repeating it there is redundant.
 - Use plain factual language. No evaluation, praise, hedging or scoring words ("strong", "well-evidenced", "promising"), and no reference to the assessment or this scoring exercise.
 - If the application says too little to describe the work, say so plainly in one sentence rather than inventing detail.
+- Use ONLY what the application itself states. Deprivation deciles and charity-register figures are assessment context: they must never appear in the purpose, which describes the funded work and nothing else.
 
 Scoring guidance — read carefully, as consistency matters more than generosity:
 - Anchor every score to the mission and programme goal. Strong work that does not advance the funder's mission is a weak application here, and must score low on strategic alignment.
@@ -48,7 +52,107 @@ Scoring guidance — read carefully, as consistency matters more than generosity
 - Judge only on the evidence provided. Where the application is silent or vague on a criterion, that is itself a weakness — score it lower and say so in the rationale, rather than giving the benefit of the doubt.
 - Be specific and consistent: two applications of equal merit should receive equal scores. Do not inflate scores to be encouraging.
 
+Reading the evidence — some of what you are given is verified and some is the applicant's own claim, and the difference matters:
+- Where a "What the charity register records" section is present, those figures are VERIFIED — filed by the applicant with their regulator, not written for this application. Weigh them accordingly, and weigh the ask against the organisation's scale: an amount that would multiply a charity's annual income is a delivery risk however good the plan, and should be said plainly in the rationale. Note the accounting period given: those figures are routinely 12-18 months old, so describe them as the latest FILED position, never as the organisation's position today.
+- The register's **description of activities is not evidence about this proposal**, and is the one part of that section written by the charity itself. It is filed for a regulator, updated rarely, and very often boilerplate copied from the governing document ("to advance education for the public benefit"). Two errors follow, and both are easy to make: do NOT read broad charitable-objects language as alignment with this funder's mission — it is drafted to be broad, and would superficially fit almost any funder — and do NOT treat a vague, thin or dated entry as a mark against the applicant or their track record. Where it conflicts with the applicant's own account of themselves, the application is the current statement and the register is the older one; say so rather than assuming either is wrong.
+- Anything labelled as stated by the applicant is unverified. Do not treat it as established fact, and do not treat the absence of a register section as a mark against the applicant — many legitimate organisations are unregistered, newly registered, or have not yet filed.
+- A deprivation decile is a measured fact about the AREA, not about the applicant: decile 1 is the most deprived tenth of areas in that nation, decile 10 the least. It is evidence for community need where the programme's goal is about reaching deprived communities, and largely irrelevant where it is not — do not import a geographic priority the funder has not stated.
+- **Where no deprivation measure is given, say nothing about deprivation.** Its absence means the lookup did not run or could not match the words the applicant wrote. It is NOT evidence that an area is affluent or that need is unproven, and must never lower community need.
+- Where a proposed impact figure is given, read it against the amount requested when judging whether the ask is proportionate. State the comparison in words if it is telling; do not calculate and quote a cost-per-unit figure.
+
 Return your assessment in the exact structured format requested.`
+}
+
+/**
+ * The nation as it is written in prose. Deliberately NOT `NATION_LABELS` from
+ * `lib/deprivation/types`, which is partial by design — it names only Scotland and NI,
+ * because England's regions and "Wales" already name themselves in the grouping it
+ * serves. Here every nation has to render, so the map is complete.
+ */
+const NATION_IN_PROSE: Record<DeprivationNation, string> = {
+  england: 'England',
+  wales: 'Wales',
+  scotland: 'Scotland',
+  northern_ireland: 'Northern Ireland',
+}
+
+/**
+ * How the deprivation lookup's verdict reads in the prompt, or null to say nothing.
+ *
+ * The four outcomes are rendered differently on purpose. `resolved` is a measured fact
+ * and states its nation and index vintage, because a decile is only meaningful within
+ * one nation's index. `too_broad` and `unresolvable` are verdicts on the applicant's
+ * text, so they are stated as such — the model is told the measure is unavailable and
+ * why, which is different from being told nothing. `pending` and null return null and
+ * the section vanishes: the system prompt's rule is that silence about deprivation must
+ * never be read as evidence, and the surest way to keep that rule is to write nothing at
+ * all rather than a sentence the model might weigh.
+ */
+function deprivationLine(result: DeprivationResult | null | undefined): string | null {
+  if (!result || result.status === 'pending') return null
+  if (result.status === 'unresolvable') {
+    return `Deprivation measure: unavailable — "${result.input}" could not be matched to a place, so no decile has been measured. This says nothing about the area itself.`
+  }
+  if (result.status === 'too_broad') {
+    return `Deprivation measure: unavailable — the area given (${result.matchedName}) is too wide to carry a single deprivation measure. This says nothing about the area itself.`
+  }
+  const scale =
+    `1 = most deprived tenth of areas in ${NATION_IN_PROSE[result.nation]}, ` +
+    `10 = least; ${result.vintage}`
+  // A postcode collapses to one small area, so a range and a median would be three
+  // ways of printing the same number.
+  if (result.count === 1) {
+    return `Deprivation measure: decile ${result.median} of 10 for ${result.areaName} (${scale})`
+  }
+  return `Deprivation measure: deciles ${result.min}-${result.max} across the ${result.count} small areas of ${result.areaName}, median ${result.median} (${scale})`
+}
+
+/**
+ * The register's record of the applicant, as its own section.
+ *
+ * Its own heading and an explicit provenance line, rather than more entries in the
+ * field list, because the whole value of these figures is that the applicant did not
+ * write them for this application — a reader (and the model) has to be able to tell them
+ * apart from the applicant's claims at a glance. Every line is omitted when null: the
+ * register answers unevenly, and an empty label reads as a nil return.
+ */
+function registerSection(profile: OrganisationProfile | null | undefined): string {
+  if (!profile) return ''
+  const money = (n: number | null) => (n != null ? formatPounds(n) : null)
+  const period = profile.financialPeriodEnd
+    ? ` (accounting period ending ${profile.financialPeriodEnd})`
+    : ''
+  const lines = [
+    ['Charity type', profile.charityType],
+    ['Registered since', profile.registeredSince],
+    [`Total income, latest filed accounts${period}`, money(profile.latestIncome)],
+    ['Total expenditure, same period', money(profile.latestExpenditure)],
+    ['Employees', profile.employees?.toLocaleString('en-GB')],
+    ['Volunteers', profile.volunteers?.toLocaleString('en-GB')],
+    ['Trustees', profile.trusteeCount?.toLocaleString('en-GB')],
+  ]
+    .filter(([, v]) => typeof v === 'string' && v.trim())
+    .map(([label, v]) => `${label}: ${v}`)
+  // Dated to the same annual return as the figures, and hedged twice — see the rules in
+  // the system prompt. This text is the charity's OWN prose, so it does not get the
+  // "nobody wrote this to win the grant" framing the filed data above it earns.
+  const filed = profile.financialPeriodEnd
+    ? ` (filed for the period ending ${profile.financialPeriodEnd})`
+    : ''
+  const activities = profile.activities?.trim()
+    ? `\n\n### The charity's own description of its activities, from its annual return${filed}\n` +
+      `Written by the charity for its REGULATOR, not for this application, and often years old: ` +
+      `many entries are boilerplate lifted from the governing document. Treat it as background on ` +
+      `who the applicant is. It is not evidence about this proposal, and its vagueness is not a ` +
+      `weakness of the application.\n${profile.activities.trim()}`
+    : ''
+  if (!lines.length && !activities) return ''
+  return (
+    `\n\n## What the charity register records\n` +
+    `Read from the public register, not from this application. The figures below were FILED with the ` +
+    `regulator rather than written to win this grant, and are typically 12-18 months old — the latest ` +
+    `filed position, not the position today.\n${lines.join('\n')}${activities}`
+  )
 }
 
 /** The funder context and the specific application. Changes per application. */
@@ -64,8 +168,18 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
 
   // Structured application fields, each shown only when present. Bank details are
   // deliberately excluded — they carry no scoring signal and are sensitive.
+  const unit = impactUnitLabel(input.impactUnit, input.impactUnitLabel)
   const fields = [
     ['Project delivery area', input.deliveryArea],
+    // Stated as a whole line, not a `label: value` pair — the lookup's verdict needs a
+    // sentence when it has no measure to give.
+    [null, deprivationLine(input.deprivation)],
+    [
+      `Impact the applicant proposes to achieve, in this programme's unit`,
+      input.proposedImpactQuantity != null
+        ? `${input.proposedImpactQuantity.toLocaleString('en-GB')} ${unit.charAt(0).toLowerCase()}${unit.slice(1)}`
+        : null,
+    ],
     ['Registered charity number', input.charityNumber],
     ['Companies House number', input.companyNumber],
     // Named as the applicant's own figure. No register publishes reserves, so unlike
@@ -77,7 +191,7 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
     ],
   ]
     .filter(([, v]) => typeof v === 'string' && v.trim())
-    .map(([label, v]) => `${label}: ${(v as string).trim()}`)
+    .map(([label, v]) => (label ? `${label}: ${(v as string).trim()}` : (v as string).trim()))
     .join('\n')
 
   // The project budget, when captured. The total is stated alongside the ask
@@ -125,15 +239,25 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
     ? `\n\n## About the organisation (in the applicant's own words)\n${input.organisationSummary.trim()}`
     : ''
 
+  // Immediately after the applicant's own account of themselves, so the two are read
+  // against each other — which is the whole point of holding both.
+  const register = registerSection(input.organisationProfile)
+
   return `# Funder mission
 ${mission}
 
 # Programme: ${input.programmeName}
-Goal: ${goal}${description ? `\nDescription: ${description}` : ''}
+Goal: ${goal}${description ? `\nDescription: ${description}` : ''}${
+    input.grantDurationYears
+      ? `\nGrants from this programme typically run for ${input.grantDurationYears} year${
+          input.grantDurationYears === 1 ? '' : 's'
+        }.`
+      : ''
+  }
 
 # Application
 Organisation: ${input.organisationName}
-Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}${about}${budget}
+Amount requested: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}${about}${register}${budget}
 
 ## Application responses
 ${responses || '(no responses provided)'}`

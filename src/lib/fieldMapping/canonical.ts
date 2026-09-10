@@ -247,7 +247,8 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     tier: 'expected',
     degrades:
       'Without it we cannot look up the deprivation of the area this grant would serve, so the ' +
-      'application carries no deprivation context.',
+      'application carries no deprivation context and the Custodian score assesses community ' +
+      "need from the applicant's words alone.",
     description:
       'WHERE THE FUNDED PROJECT IS DELIVERED — the place or community that will benefit from the work. ' +
       'Prefer the most specific delivery location available: a delivery/project postcode if asked, ' +
@@ -294,7 +295,9 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Proposed impact (quantity)',
     tier: 'expected',
     degrades:
-      "Without it this application is missing from the programme's proposed-reach totals on Insights.",
+      "Without it this application is missing from the programme's proposed-reach totals on " +
+      'Insights, and the Custodian score judges whether the amount asked for is proportionate ' +
+      'without knowing how many the project would reach.',
     description:
       'THE NUMBER OF BENEFICIARIES / IMPACT UNITS THE APPLICANT PROPOSES TO REACH — a single count, ' +
       'in whatever unit the programme measures (people helped, trees planted, hectares restored, etc.). ' +

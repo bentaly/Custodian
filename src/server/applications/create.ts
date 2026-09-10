@@ -111,22 +111,33 @@ export async function createApplicationFromCanonical(
   const programme = roundProgramme.programme
   const scoreMode = opts.score ?? 'inline'
 
-  // Due diligence (external registers) and AI scoring are independent — run them
-  // concurrently. Both never throw; a failure surfaces as a status, never a
-  // blocked submission.
-  const [dueDiligence, custodian, deprivation] = await Promise.all([
+  // Due diligence (external registers) and the deprivation lookup are independent of
+  // each other, so they still run concurrently. Neither ever throws; a failure surfaces
+  // as a status, never a blocked submission.
+  //
+  // The SCORE is no longer a third member of this Promise.all. It reads what both of
+  // them produce — the register's filed figures and the measured decile — so run beside
+  // them it would see neither, and would score every application on the applicant's
+  // prose alone while the evidence resolved alongside it. Sequenced after them it costs
+  // the inline path a few seconds on top of 30-58s of model time.
+  const [dueDiligence, deprivation] = await Promise.all([
     runDueDiligence({
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
       organisationName: input.organisationName,
       amountRequested: input.amountRequested,
     }),
+    resolveDeprivation(input.deliveryArea),
+  ])
+
+  const custodian =
     scoreMode === 'inline'
-      ? runCustodianScore({
+      ? await runCustodianScore({
           missionStatement: programme.client.profile?.missionStatement,
           programmeName: programme.name,
           programmeGoal: programme.goal,
           programmeDescription: programme.description,
+          grantDurationYears: roundProgramme.grantDurationYears,
           organisationName: input.organisationName,
           organisationSummary: input.organisationSummary,
           amountRequested: input.amountRequested,
@@ -134,13 +145,16 @@ export async function createApplicationFromCanonical(
           budgetBreakdown: input.budgetBreakdown,
           budgetBreakdownLink: input.budgetBreakdownLink,
           deliveryArea: input.deliveryArea,
+          deprivation,
+          proposedImpactQuantity: input.proposedImpactQuantity,
+          impactUnit: programme.impactUnit,
+          impactUnitLabel: programme.impactUnitLabel,
           charityNumber: input.charityNumber,
           companyNumber: input.companyNumber,
+          organisationProfile: dueDiligence.profile,
           responses: input.responses,
         })
-      : null,
-    resolveDeprivation(input.deliveryArea),
-  ])
+      : null
   const deprivationAttempted = deprivation.status !== 'pending'
   const deprivationGeo = deliveryGeoFromResult(deprivation)
 
@@ -258,11 +272,14 @@ export async function updateApplicationFromCanonical(
     !same(existing.organisationSummary, input.organisationSummary) ||
     !sameNumber(existing.unrestrictedReserves, input.unrestrictedReserves) ||
     !same(existing.budgetBreakdownLink, input.budgetBreakdownLink) ||
+    // Reaches the prompt as the outcomes the ask is judged proportionate to, so a
+    // reviewer correcting it has to move the score.
+    !sameNumber(existing.proposedImpactQuantity, input.proposedImpactQuantity) ||
     JSON.stringify(existing.budgetBreakdown ?? null) !==
       JSON.stringify(input.budgetBreakdown ?? null) ||
     JSON.stringify(existing.responses ?? []) !== JSON.stringify(input.responses)
 
-  const [dueDiligence, custodian, deprivation] = await Promise.all([
+  const [dueDiligence, deprivation] = await Promise.all([
     dueDiligenceInputsChanged
       ? runDueDiligence({
           charityNumber: input.charityNumber,
@@ -271,26 +288,43 @@ export async function updateApplicationFromCanonical(
           amountRequested: input.amountRequested,
         })
       : null,
-    scoreInputsChanged
-      ? runCustodianScore({
-          missionStatement: programme.client.profile?.missionStatement,
-          programmeName: programme.name,
-          programmeGoal: programme.goal,
-          programmeDescription: programme.description,
-          organisationName: input.organisationName,
-          organisationSummary: input.organisationSummary,
-          amountRequested: input.amountRequested,
-          unrestrictedReserves: input.unrestrictedReserves,
-          budgetBreakdown: input.budgetBreakdown,
-          budgetBreakdownLink: input.budgetBreakdownLink,
-          deliveryArea: input.deliveryArea,
-          charityNumber: input.charityNumber,
-          companyNumber: input.companyNumber,
-          responses: input.responses,
-        })
-      : null,
     deprivationInputsChanged ? resolveDeprivation(input.deliveryArea) : null,
   ])
+
+  // Sequenced after the two above, for the same reason as the create path — and with a
+  // second reason that bites only here: this is the path where those inputs CHANGE. Run
+  // in parallel, a confirm that corrected the delivery area would re-score the
+  // application against the decile of the area the reviewer had just fixed.
+  //
+  // Where a feature did not re-run, the score reads what is STORED rather than nothing,
+  // or every confirm that touched only the responses would score the application as
+  // though it had never been screened. The register profile is read off the fresh RESULT
+  // when due diligence re-ran — including when that result carries no profile, which is
+  // an answer ("nothing to screen against"), not a reason to fall back to a stale one.
+  const custodian = scoreInputsChanged
+    ? await runCustodianScore({
+        missionStatement: programme.client.profile?.missionStatement,
+        programmeName: programme.name,
+        programmeGoal: programme.goal,
+        programmeDescription: programme.description,
+        grantDurationYears: roundProgramme.grantDurationYears,
+        organisationName: input.organisationName,
+        organisationSummary: input.organisationSummary,
+        amountRequested: input.amountRequested,
+        unrestrictedReserves: input.unrestrictedReserves,
+        budgetBreakdown: input.budgetBreakdown,
+        budgetBreakdownLink: input.budgetBreakdownLink,
+        deliveryArea: input.deliveryArea,
+        deprivation: deprivation ?? existing.deprivationContext,
+        proposedImpactQuantity: input.proposedImpactQuantity,
+        impactUnit: programme.impactUnit,
+        impactUnitLabel: programme.impactUnitLabel,
+        charityNumber: input.charityNumber,
+        companyNumber: input.companyNumber,
+        organisationProfile: dueDiligence ? dueDiligence.profile : existing.organisationProfile,
+        responses: input.responses,
+      })
+    : null
 
   const deprivationGeo = deprivation ? deliveryGeoFromResult(deprivation) : null
   const deprivationAttempted = deprivation ? deprivation.status !== 'pending' : false

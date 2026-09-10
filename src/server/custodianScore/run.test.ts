@@ -18,8 +18,14 @@ const INPUT: CustodianScoreInput = {
   budgetBreakdown: null,
   budgetBreakdownLink: null,
   deliveryArea: 'Yorkshire',
+  deprivation: null,
+  proposedImpactQuantity: null,
+  impactUnit: 'people',
+  impactUnitLabel: null,
   charityNumber: '1234567',
   companyNumber: null,
+  organisationProfile: null,
+  grantDurationYears: null,
   responses: [{ label: 'What will you do?', value: 'Run outdoor ecology sessions in 12 schools.' }],
 }
 

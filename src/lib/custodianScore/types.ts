@@ -6,6 +6,8 @@
 // between the scoring logic, the database schema, and the UI.
 
 import type { BudgetLine } from '../budget/types'
+import type { DeprivationResult } from '../deprivation/types'
+import type { OrganisationProfile } from '../dueDiligence/types'
 
 /**
  * The criteria the model scores each application against. Adding a criterion
@@ -115,12 +117,70 @@ export interface CustodianScoreInput {
   /** Area where the project is delivered (community served) — relevant when a
    *  programme has a geographic eligibility/priority. */
   deliveryArea: string | null | undefined
+  /**
+   * The deprivation lookup's OWN verdict on `deliveryArea` — the decile spread and the
+   * area it actually matched, not the applicant's words. Passed as the whole result
+   * rather than a bare decile so the prompt can distinguish the four outcomes, which
+   * mean different things and must never collapse into one: `resolved` is a measured
+   * fact, `too_broad` and `unresolvable` are verdicts on the applicant's text, and
+   * `pending`/null is "we have not looked yet". A missing decile is NOT evidence of an
+   * affluent area, and the prompt says so — otherwise a geocoder outage reads to the
+   * model as a community that does not need the money.
+   */
+  deprivation: DeprivationResult | null | undefined
   /** Registered charity number, if any — an indicator of registration status.
    *  Bank details are intentionally NOT part of this input: they carry no scoring
    *  signal and are sensitive, so they are never sent to the model. */
   charityNumber: string | null | undefined
   /** Companies House number, if any. */
   companyNumber: string | null | undefined
+  /**
+   * What the CHARITY REGISTER says the applicant is — filed income, headcounts, and the
+   * charity's own account of its activities, captured by due diligence.
+   *
+   * The FIGURES are the one evidence here that nobody wrote to win the grant. The prose
+   * `activities` field is not — the charity wrote that itself, for its regulator, often
+   * years ago and very often as boilerplate from its governing document. So the two
+   * halves are framed differently in the prompt and the prose carries its own hedge:
+   * broad charitable objects must not read as alignment with this funder (they are
+   * drafted to fit any funder), and a thin entry must not count against the applicant.
+   *
+   * Without the figures `track_record` and `delivery_risk` are scored entirely on the applicant's own prose,
+   * and the model cannot see that a £250k ask is going to an organisation with £80k of
+   * filed income. Labelled in the prompt as register-verified, in deliberate contrast to
+   * `unrestrictedReserves` — and its `financialPeriodEnd` is stated alongside, because
+   * these figures are routinely 12–18 months old and must not read as current.
+   *
+   * The due diligence VERDICT is deliberately not passed: it is already its own
+   * indicator on the screen, and feeding it here too would let one fact move two
+   * indicators with nothing saying they are the same fact. These are neutral figures.
+   */
+  organisationProfile: OrganisationProfile | null | undefined
+  /**
+   * The impact the applicant PROPOSES, counted in the programme's unit. `budget_quality`
+   * is defined as whether the ask is "proportionate to the outcomes sought", and until
+   * this was passed the outcomes sought sat in a column the prompt never read.
+   *
+   * The quantity and the unit are passed; the cost per unit is NOT computed for the
+   * model. It has the ask and the quantity and can weigh them — handing it a derived
+   * rate invites it to quote a figure as though it were the foundation's own.
+   */
+  proposedImpactQuantity: number | null | undefined
+  /** The programme's impact unit key and its free-text label for 'other' — resolved
+   *  through `impactUnitLabel` so the prompt names the unit the foundation chose. */
+  impactUnit: string | null | undefined
+  impactUnitLabel: string | null | undefined
+  /**
+   * How many years awards from this round-programme typically run. Delivery risk over
+   * three years is a different judgement from the same plan over one.
+   *
+   * The round-programme BUDGET and `maxGrantAmount` are deliberately not passed. Telling
+   * the model there is £200k in the programme against a £150k ask invites it to mark the
+   * application down on affordability — which is none of the six criteria, and is the
+   * foundation's decision, explicitly so since a round budget became a target rather
+   * than a ceiling.
+   */
+  grantDurationYears: number | null | undefined
   /** The applicant's answers to the dynamic form questions. */
   responses: Array<{ label: string; value: string }> | null | undefined
 }
