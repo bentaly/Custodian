@@ -92,6 +92,13 @@ export function arrivedQuery(db: Db, clientId: string) {
         'label',
       ),
       dueDate: sql<string | null>`${reportSchedule.dueDate}`.as('due_date'),
+      // Provenance, not status — see `ui/ImportedPill`. A report the onboarding import
+      // recorded as received has no narrative and no AI analysis behind it, because
+      // nothing was ever sent to us: the workbook said the milestone came in, and that
+      // is all we know. Unmarked, those blanks read as an analysis that failed. It is
+      // the REPORT's own batch id, not its grant's — a report submitted through
+      // `/api/submit-report` against an imported grant is a real document.
+      imported: sql<boolean>`${reports.importBatchId} is not null`.as('imported'),
       submittedAt: sql<string>`to_char(${reports.submittedAt}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`.as(
         'submitted_at',
       ),

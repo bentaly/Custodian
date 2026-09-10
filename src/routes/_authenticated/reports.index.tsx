@@ -15,6 +15,7 @@ import {
   FilterRow,
   SearchInput,
   Horizon,
+  ImportedPill,
   initials,
   Pagination,
   StatusPill,
@@ -129,19 +130,25 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
             </span>
           </div>
           <div className="min-w-0">
-            <Link
-              to="/reports/$reportKey"
-              params={{ reportKey: item.key }}
-              /* As the row click: same URL either way, tab and filters included. Parsed
-                 rather than spread because these columns are module-level, so `prev` is
-                 typed as every route's search at once. */
-              search={(prev) => parseReportsSearch(prev)}
-              onClick={(e) => e.stopPropagation()}
-              className="block truncate font-display text-body font-medium hover:underline"
-              style={{ color: C.ink }}
-            >
-              {item.organisationName}
-            </Link>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Link
+                to="/reports/$reportKey"
+                params={{ reportKey: item.key }}
+                /* As the row click: same URL either way, tab and filters included. Parsed
+                   rather than spread because these columns are module-level, so `prev` is
+                   typed as every route's search at once. */
+                search={(prev) => parseReportsSearch(prev)}
+                onClick={(e) => e.stopPropagation()}
+                className="block truncate font-display text-body font-medium hover:underline"
+                style={{ color: C.ink }}
+              >
+                {item.organisationName}
+              </Link>
+              {/* The report was recorded as received by the onboarding import: no
+                  narrative, no analysis, because nothing was ever sent to us. Same mark
+                  and same reason as the Awards register — see `ui/ImportedPill`. */}
+              {item.imported && <ImportedPill />}
+            </div>
             <p className="truncate font-display text-label" style={{ color: C.sub }}>
               {subline}
             </p>

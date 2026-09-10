@@ -445,8 +445,11 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
 - **`import_batches` makes it reversible.** Every created row carries `importBatchId`;
   `rollbackImport` removes them unless a comment, vote, award letter or non-import report exists.
   Re-uploading the same reference REPLACES rather than duplicating — that is the phasing mechanism.
-- Imported rows are **marked permanently**, because their blank score/DD/votes read as lost data
-  otherwise. ExcelJS is **browser-side** via dynamic import; the server re-validates everything.
+- Imported rows are **marked permanently** (`ui/ImportedPill`), because their blank score/DD/votes
+  read as lost data otherwise. The Reports library wears it too, on the report's OWN
+  `import_batch_id` rather than its grant's: a milestone the workbook recorded as received has no
+  narrative and no analysis, while a report posted to `/api/submit-report` against an imported
+  grant is a real document. ExcelJS is **browser-side** via dynamic import; the server re-validates everything.
 
 ## Insights portfolio summary (AI)
 

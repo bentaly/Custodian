@@ -461,6 +461,7 @@ function toReportRow(r: ArrivedRow) {
     dueDate: r.dueDate,
     submittedAt: r.submittedAt,
     status: r.status as ReceivedStatus,
+    imported: r.imported,
     submission: {
       id: r.key,
       submittedAt: r.submittedAt,

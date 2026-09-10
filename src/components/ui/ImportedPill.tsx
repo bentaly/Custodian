@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from '@hugeicons/react'
-import { DatabaseImportIcon } from '@hugeicons/core-free-icons'
+import { Upload01Icon } from '@hugeicons/core-free-icons'
 import { Badge } from './Badge'
 import { C } from './tokens'
 import { cn } from './cn'
@@ -16,7 +16,9 @@ import { cn } from './cn'
  *
  * It is provenance, not status, so it wears `info` — a hue no status pill in the app
  * uses — and the `sm` size: it annotates the name it sits beside rather than competing
- * with it (see `Badge`). The glyph is the one Settings uses for the import itself.
+ * with it (see `Badge`). The glyph is a plain upload arrow rather than Settings' own
+ * database-import mark: at 11px the database drum closes up into a smudge, and what the
+ * row is saying is "this came from you", not which screen it came through.
  */
 export function ImportedPill({ className }: { className?: string }) {
   return (
@@ -26,7 +28,7 @@ export function ImportedPill({ className }: { className?: string }) {
       style={{ backgroundColor: C.infoWash, color: C.info }}
       title="Imported from your existing records — it has no application form, score or votes."
     >
-      <HugeiconsIcon icon={DatabaseImportIcon} size={11} color="currentColor" />
+      <HugeiconsIcon icon={Upload01Icon} size={11} color="currentColor" />
       Imported
     </Badge>
   )
