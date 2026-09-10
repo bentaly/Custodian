@@ -167,6 +167,14 @@ export function filterWhere(
     f.programmeId ? eq(g.programmeId, f.programmeId) : undefined,
     f.tag ? sql`${g.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
     f.status ? eq(g.status, f.status) : undefined,
+    // `NO_REGION` is a real filter option, not the absence of one: it asks for the
+    // grants whose delivery area never resolved, which is a NULL region rather than a
+    // value to compare against. The facet counts those under the same sentinel.
+    f.region
+      ? f.region === NO_REGION
+        ? sql`${g.deliveryRegion} is null`
+        : eq(g.deliveryRegion, f.region)
+      : undefined,
     f.from ? sql`${g.decisionDay} >= ${f.from}` : undefined,
     f.to ? sql`${g.decisionDay} <= ${f.to}` : undefined,
     // Organisation and the foundation's own reference, which is the row's subtext here
