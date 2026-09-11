@@ -813,8 +813,8 @@ Structural decisions worth knowing before adding a screen:
   the grants table ~900px down. **Both tabs are always offered.** There was a visibility switch
   (`client_profiles.show_balance_and_budget`), removed 2026-09-11 along with `getFinanceNav` and
   `setBalanceAndBudgetVisible`: absence is the setting, since a foundation that records no balance
-  and sets no budget already sees an empty state. The COLUMN survives, unread, until a later push
-  drops it — CLAUDE.md's expand/contract rule.
+  and sets no budget already sees an empty state. Unwired in one push and the column dropped in
+  the next (`0086`), which is the expand/contract rule for a drop.
 - **Balance & budget lists each programme ONCE**, with the commitment figures and the cash figures
   on the same row. They were two panels and a reader had to scroll between two lists to put one
   programme's year together — and at a glance they read as two different sets of programmes.
@@ -859,6 +859,15 @@ Structural decisions worth knowing before adding a screen:
   the tightest one on the wheel can reach and turns the warm half to mustard. Regenerating the ten
   means a migration too — the colour is stored on the row, and one off the current ten reads as
   "Custom" and can be handed out twice (see `0074_programme_colour_ramp_reweight`).
+- **`/settings/budget` steps between financial years** on a `?year=` offset (−5 to +1), so a
+  particular year is a link and the back button walks them. **Past years are EDITABLE, not
+  read-only**: a budget is a plan somebody typed, not an accounting record, and a foundation that
+  mistyped last year's has nowhere else to correct it while Finance reports that year against it
+  forever. `annual_budget_set` audits every change, and the screen says plainly when the year is
+  not the current one. Stepping away with unsaved edits is BLOCKED rather than confirmed — the
+  edits belong to a year, and offering to discard them is worse than "save first" with the Save
+  button lit a few inches away. The form is **keyed on the year**, or stepping back would leave
+  this year's figures in the fields ready to be saved into the wrong one.
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
   `team`, `giving-strategy`, `voting`, `letters`, `api-keys`, `submissions`, `data-import`,
   `budget`, `round-budgets`.

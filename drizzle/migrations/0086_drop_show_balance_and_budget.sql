@@ -1,0 +1,1 @@
+ALTER TABLE "client_profiles" DROP COLUMN "show_balance_and_budget";

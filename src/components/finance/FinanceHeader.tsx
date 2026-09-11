@@ -16,9 +16,9 @@ import { C } from '../ui/tokens'
  * the sake of two figures that change quarterly. A foundation asks "can we cover what we
  * have promised?" before a board meeting, not every time it opens Finance.
  *
- * The tab pair is hidden entirely when the foundation has switched the second screen off
- * (`client_profiles.show_balance_and_budget`): one screen needs no tabs, and a tab that
- * leads somewhere the foundation has said it does not want is worse than no tab.
+ * Both tabs are always offered. There was a switch hiding the second screen; it went on
+ * 2026-09-11, because a foundation that records no balance and sets no budget already sees
+ * an empty state, and a flag is one more thing to fall out of step with the data.
  */
 export type FinanceTab = 'payments' | 'balance'
 

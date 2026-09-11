@@ -41,8 +41,9 @@ import { todayIso } from '../../lib/schedule'
  *
  * ## Neither is required, and each works without the other
  *
- * There is no enable/disable switch, and the `show_balance_and_budget` column that once
- * held one is no longer read. Not every foundation wants this: a family office may draw
+ * There is no enable/disable switch. There was one (`client_profiles
+ * .show_balance_and_budget`), unwired on 2026-09-11 and its column dropped the push after.
+ * Not every foundation wants this: a family office may draw
  * grant money from the principal's balance sheet on demand and have no standing balance
  * to record, and an endowed foundation's meaningful number is a portfolio held elsewhere.
  * For all of them the answer is the same: record nothing and the panel does not appear.

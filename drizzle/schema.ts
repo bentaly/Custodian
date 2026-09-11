@@ -724,7 +724,6 @@ export const clientProfiles = pgTable('client_profiles', {
   //
   // Default TRUE: the tab is one word, and it is the only route to a foundation's first
   // bank-balance reading, so hiding it by default would hide the way in.
-  showBalanceAndBudget: boolean('show_balance_and_budget').notNull().default(true),
   // ─── Shortlisting ───
   // Does a round-programme's budget CAP what may be shortlisted against it?
   //

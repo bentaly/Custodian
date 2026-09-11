@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
+import {
+  Add01Icon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons'
 import {
   getAnnualBudgetSettings,
   saveAnnualBudget,
@@ -60,7 +65,20 @@ export const Route = createFileRoute('/_authenticated/settings/budget')({
   beforeLoad: ({ context }) => {
     if (!canSeePayments(context.user.role)) throw redirect({ to: '/settings' })
   },
-  loader: async () => ({ data: await getAnnualBudgetSettings({ data: {} }) }),
+  // The year is a search param, so a particular year is a link somebody can send, the
+  // back button steps through years, and a reload stays where they were.
+  validateSearch: (search: Record<string, unknown>) => ({
+    // Offsets from the current financial year: five back, one forward. Bounded here as
+    // well as on the server so a hand-typed URL cannot wander off into empty years.
+    year:
+      Number.isInteger(Number(search.year)) && Number(search.year) >= -5 && Number(search.year) <= 1
+        ? Number(search.year)
+        : undefined,
+  }),
+  loaderDeps: ({ search }) => ({ year: search.year }),
+  loader: async ({ deps }) => ({
+    data: await getAnnualBudgetSettings({ data: { yearOffset: deps.year ?? 0 } }),
+  }),
   component: AnnualBudget,
 })
 
@@ -103,9 +121,23 @@ const newCoreRow = (label = 'Core costs'): Row => ({
   amount: '',
 })
 
+/**
+ * Keyed on the year, so stepping to another one rebuilds the form from scratch.
+ *
+ * The row state is seeded from the loaded budget ONCE, which is right within a year — a
+ * save reloads the data and the edits stay put rather than being yanked out from under
+ * whoever is looking at them. Across years it is wrong: without the key, stepping to
+ * 2025/26 would leave this year's figures sitting in the fields, ready to be saved into
+ * the wrong year.
+ */
 function AnnualBudget() {
   const { data } = Route.useLoaderData()
+  return <AnnualBudgetYear key={data.financialYear.start} data={data} />
+}
+
+function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualBudgetSettings>> }) {
   const router = useRouter()
+  const offset = data.yearOffset
 
   // Every active programme gets a row whether or not it is in the saved budget: the
   // screen is "what is this year's money", and a programme missing from the form reads
@@ -316,15 +348,29 @@ function AnnualBudget() {
       <Panel label={`Budget for ${data.financialYear.label}`}>
         <PanelTitle
           right={
-            allocatedInRounds > 0 && (
-              <Button variant="text" size="sm" onClick={useRoundAllocations}>
-                Use round allocations
-              </Button>
-            )
+            <div className="flex flex-wrap items-center gap-3">
+              {allocatedInRounds > 0 && (
+                <Button variant="text" size="sm" onClick={useRoundAllocations}>
+                  Use round allocations
+                </Button>
+              )}
+              <YearStepper offset={offset} dirty={dirty} />
+            </div>
           }
         >
           Budget for {data.financialYear.label}
         </PanelTitle>
+        {/* Which year you are editing, said in words as well as in the stepper. The panel
+            heading carries the label, but a foundation that has stepped back a year is
+            about to type figures into a year that is not the current one, and "2025/26"
+            alone does not say that loudly enough. */}
+        {offset !== 0 && (
+          <p className="-mt-1 font-display text-label" style={{ color: C.amber }}>
+            {offset < 0
+              ? `You are editing a past year. Finance reports ${data.financialYear.label} against these figures, so correcting them here corrects the record.`
+              : `You are setting next year's budget before it starts. Nothing reports against it until ${data.financialYear.label} begins.`}
+          </p>
+        )}
         {/* Two money fields on a row need naming, and the names belong over the columns
             rather than inside each field: repeated per row they would be twenty labels
             saying the same two things. Hidden below `sm`, where the fields stack and each
@@ -525,6 +571,52 @@ function AnnualBudget() {
         </Button>
       </Panel>
     </SettingsPage>
+  )
+}
+
+/**
+ * Step between financial years.
+ *
+ * **Past years are editable, not read-only.** A budget is a plan somebody typed, not an
+ * accounting record: a foundation that mistyped last year's figure, or set it late, has
+ * nowhere else to correct it, and Finance goes on reporting that year against it forever.
+ * The risk of somebody revising history is smaller than the certainty of a wrong number
+ * nobody can reach — and `annual_budget_set` audits every change either way. What the
+ * screen owes them instead is an unmistakable note that the year is not the current one.
+ *
+ * Stepping away with unsaved edits is BLOCKED rather than confirmed: the edits belong to a
+ * year, and a dialog offering to discard them is a worse answer than a control that says
+ * "save first" while the Save button is a few inches away and already lit.
+ */
+function YearStepper({ offset, dirty }: { offset: number; dirty: boolean }) {
+  const navigate = Route.useNavigate()
+  const step = (to: number) => navigate({ search: { year: to === 0 ? undefined : to } })
+  return (
+    <span className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="xs"
+        icon={ArrowLeft01Icon}
+        aria-label="Previous financial year"
+        title={dirty ? 'Save your changes first' : 'Previous financial year'}
+        disabled={dirty || offset <= -5}
+        onClick={() => step(offset - 1)}
+      />
+      {offset !== 0 && (
+        <Button variant="text" size="xs" disabled={dirty} onClick={() => step(0)}>
+          This year
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="xs"
+        icon={ArrowRight01Icon}
+        aria-label="Next financial year"
+        title={dirty ? 'Save your changes first' : 'Next financial year'}
+        disabled={dirty || offset >= 1}
+        onClick={() => step(offset + 1)}
+      />
+    </span>
   )
 }
 
