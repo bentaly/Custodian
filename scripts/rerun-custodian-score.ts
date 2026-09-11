@@ -6,6 +6,7 @@
  *   pnpm tsx scripts/rerun-custodian-score.ts --client=Arete --dry-run
  *   pnpm tsx scripts/rerun-custodian-score.ts --client=Arete
  *   pnpm tsx scripts/rerun-custodian-score.ts --client=Arete --pending
+ *   pnpm tsx scripts/rerun-custodian-score.ts --client=Arete --include-imported
  *   pnpm tsx scripts/rerun-custodian-score.ts <appId>
  *   pnpm tsx scripts/rerun-custodian-score.ts --all        # EVERY tenant
  *
@@ -18,6 +19,22 @@
  * every foundation's book to see one foundation's change. Same reasoning as
  * `digestWindow` requiring a clientId — there should be no all-tenants variant
  * you can reach for by accident.
+ *
+ * **IMPORTED applications are skipped, and `--pending` is a trap without that.**
+ * An imported grant has no score for good (CLAUDE.md, "Onboarding data import"):
+ * scoring a 2019 application against goals written in 2026 is a confident,
+ * meaningless number. Imported rows carry no responses at all, so the model has
+ * nothing to assess and returns a uniformly low score — 25-36 out of 100 across
+ * Arete's eight, which on screen reads as eight charities who wrote terrible
+ * applications rather than eight rows that predate us. Worse, a re-score
+ * OVERWRITES `grant_purpose`, replacing the purpose the onboarding workbook
+ * supplied with the model's account of an application nobody ever submitted.
+ *
+ * The trap: imported rows sit at `pending` precisely BECAUSE they are never
+ * scored, so `--pending` on a client with history selects the imported rows and
+ * almost nothing else — the one flag that sounds like a safe backfill is the one
+ * that does the most damage. `--include-imported` exists for a deliberate
+ * exception; there is no reason to reach for it.
  *
  * Three levels of commitment, and on PRODUCTION data you want them in this order:
  *
@@ -132,13 +149,26 @@ async function main() {
       responses: true,
       custodianScoreStatus: true,
       custodianScore: true,
+      importBatchId: true,
     },
     with: {
       roundProgramme: { with: { programme: { with: { client: { with: { profile: true } } } } } },
     },
   })
 
-  const targets = pendingOnly ? rows.filter((r) => r.custodianScoreStatus === 'pending') : rows
+  // Imported rows are excluded BEFORE `--pending` is applied, because that flag
+  // would otherwise select them almost exclusively. See the header.
+  const scorable = has('include-imported') ? rows : rows.filter((r) => !r.importBatchId)
+  const skipped = rows.length - scorable.length
+  if (skipped) {
+    console.log(
+      `Skipping ${skipped} imported application(s) — an imported grant has no score ` +
+        `for good, and re-scoring one would overwrite the purpose the workbook supplied.\n`,
+    )
+  }
+  const targets = pendingOnly
+    ? scorable.filter((r) => r.custodianScoreStatus === 'pending')
+    : scorable
   const was = (a: (typeof targets)[number]) =>
     a.custodianScore != null ? `${a.custodianScore}/100` : a.custodianScoreStatus
 
@@ -174,7 +204,24 @@ async function main() {
   )
   const moves: Array<{ name: string; from: number; to: number }> = []
 
+  const failures: Array<{ id: string; name: string; reason: string }> = []
+
   for (const app of targets) {
+    try {
+      await scoreOne(app)
+    } catch (e) {
+      // One flaky call must not cost the other twenty. `runCustodianScore` never
+      // throws, but the Neon write after it can (a dropped fetch on a long run), and
+      // an uncaught one used to abandon the rest of the book mid-way — leaving a
+      // foundation's scores half from one prompt and half from another, with the
+      // script's own output the only record of where it stopped.
+      const reason = e instanceof Error ? e.message : String(e)
+      failures.push({ id: app.id, name: app.organisationName, reason })
+      console.log(`  ${app.organisationName.slice(0, 38).padEnd(40)} FAILED — ${reason}`)
+    }
+  }
+
+  async function scoreOne(app: (typeof targets)[number]) {
     const programme = app.roundProgramme.programme
     const result = await runCustodianScore({
       missionStatement: programme.client.profile?.missionStatement,
@@ -237,6 +284,13 @@ async function main() {
       `\n${moves.length} scored both times. Mean change ${mean >= 0 ? '+' : ''}${mean.toFixed(1)}, ` +
         `range ${Math.min(...deltas)} to ${Math.max(...deltas)}. ` +
         `Biggest mover: ${biggest.name} ${biggest.from} → ${biggest.to}.`,
+    )
+  }
+
+  if (failures.length) {
+    console.log(
+      `\n${failures.length} FAILED and kept their previous score. Re-run for just these:\n` +
+        failures.map((f) => `  npx tsx ${process.argv[1]} ${f.id}   # ${f.name}`).join('\n'),
     )
   }
 
