@@ -40,7 +40,8 @@ const MARKER_ICON: Record<TimelineMarker, string> = {
   future: futureIcon,
 }
 
-function Marker({ kind }: { kind: TimelineMarker }) {
+/** The dot a step wears — exported so the award screen's schedule marks its rows the same way. */
+export function StepMarker({ kind }: { kind: TimelineMarker }) {
   return <img src={MARKER_ICON[kind]} alt="" className="size-4 shrink-0" />
 }
 
@@ -76,7 +77,7 @@ export function Timeline({
                 style={{ backgroundColor: C.line }}
               />
             )}
-            <Marker kind={step.marker} />
+            <StepMarker kind={step.marker} />
             <div className="flex min-w-0 flex-col gap-1 font-display text-body leading-tight">
               {step.link ? (
                 <Link

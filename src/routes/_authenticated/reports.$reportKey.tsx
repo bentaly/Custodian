@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { parseReportsSearch } from '../../lib/listSearch'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
 import { ReportFields } from '../../components/ReportFields'
 import { File01Icon, Mail01Icon } from '@hugeicons/core-free-icons'
@@ -17,12 +17,16 @@ import {
   AnchorButton,
   BreadcrumbBar,
   Button,
+  CardTitle,
   ClampToggle,
   DetailHeader,
+  DetailRow,
   Dialog,
+  Dot,
   EmptyState,
   Panel,
   RelatedLink,
+  ThemePills,
   Timeline,
   Tooltip,
   useClamp,
@@ -305,24 +309,6 @@ function ReportDetail() {
 
 // ─── Side column ─────────────────────────────────────────────────────────────
 
-function CardTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
-        {children}
-      </h2>
-      {right && (
-        <span
-          className="shrink-0 whitespace-nowrap font-display text-body"
-          style={{ color: C.sub }}
-        >
-          {right}
-        </span>
-      )}
-    </div>
-  )
-}
-
 /**
  * What the money is for — the thing this report is read against. The AWARD's purpose,
  * titled "Awarded for" as on the award screen, because it is the foundation's sentence
@@ -356,31 +342,9 @@ function PurposeCard({ grant }: { grant: ReportData['grant'] }) {
   )
 }
 
-/** One fact about the grant: a quiet label, and the value set right. The value wraps
- *  rather than truncating — a programme name is read, not scanned. */
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <dt className="shrink-0 whitespace-nowrap font-display text-body" style={{ color: C.sub }}>
-        {label}
-      </dt>
-      <dd
-        className="min-w-0 break-words text-right font-display text-body font-medium"
-        style={{ color: C.ink }}
-      >
-        {children}
-      </dd>
-    </div>
-  )
-}
-
-/** How many theme pills show before the rest fold into a "+n". */
-const THEMES_SHOWN = 2
-
 function GrantDetailsCard({ report }: { report: ReportData }) {
   const { grant, themes } = report
   const years = grant.durationYears
-  const extraThemes = themes.slice(THEMES_SHOWN)
   const dash = <span style={{ color: C.faint }}>—</span>
 
   return (
@@ -391,11 +355,7 @@ function GrantDetailsCard({ report }: { report: ReportData }) {
           {fmtMoney(Number(grant.amountAwarded))}
           {years != null && years > 0 && (
             <span className="whitespace-nowrap font-normal" style={{ color: C.sub }}>
-              <span
-                aria-hidden
-                className="mx-2 inline-block size-[3px] rounded-full align-middle"
-                style={{ backgroundColor: C.faint }}
-              />
+              <Dot />
               {years === 1 ? 'single year' : `over ${years} years`}
             </span>
           )}
@@ -403,23 +363,7 @@ function GrantDetailsCard({ report }: { report: ReportData }) {
         <DetailRow label="Round">{report.roundName ?? dash}</DetailRow>
         <DetailRow label="Programme">{report.programmeName ?? dash}</DetailRow>
         <DetailRow label="Themes">
-          {themes.length === 0 ? (
-            dash
-          ) : (
-            <span className="flex flex-wrap justify-end gap-1">
-              {themes.slice(0, THEMES_SHOWN).map((t) => (
-                <ThemePill key={t}>{t}</ThemePill>
-              ))}
-              {extraThemes.length > 0 && (
-                <Tooltip
-                  label={`${extraThemes.length} more themes`}
-                  trigger={<ThemePill>+{extraThemes.length}</ThemePill>}
-                >
-                  {extraThemes.join(', ')}
-                </Tooltip>
-              )}
-            </span>
-          )}
+          {themes.length === 0 ? dash : <ThemePills themes={themes} />}
         </DetailRow>
         <DetailRow label="Impact measured in">{report.impactUnitLabel ?? dash}</DetailRow>
         <DetailRow label="Community context">
@@ -427,17 +371,6 @@ function GrantDetailsCard({ report }: { report: ReportData }) {
         </DetailRow>
       </dl>
     </Panel>
-  )
-}
-
-function ThemePill({ children }: { children: ReactNode }) {
-  return (
-    <span
-      className="inline-flex max-w-full items-center truncate rounded-pill px-2 py-0.5 font-display text-label font-medium"
-      style={{ backgroundColor: C.wash, color: C.sub }}
-    >
-      {children}
-    </span>
   )
 }
 

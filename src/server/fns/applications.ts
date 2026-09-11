@@ -49,6 +49,8 @@ import {
 import { runDueDiligence } from '../dueDiligence/run'
 import { dueStatus, type ScheduleStatus } from '../../lib/schedule'
 import { reportLabel } from '../../lib/reportLabel'
+import { reportingTimeline } from '../../lib/reportTimeline'
+import { impactUnitLabel } from '../../lib/impactUnits'
 import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
 import { scoreBandFor } from '../../lib/scoreBands'
@@ -1082,6 +1084,9 @@ export const getAward = createServerFn({ method: 'GET' })
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())
       .map((r) => ({
         id: r.id,
+        // So the schedule can find the report behind a reporting date — the timeline's
+        // key is the milestone id for a scheduled report, the report's own for the rest.
+        scheduleId: r.scheduleId,
         label: reportLabel(
           r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null,
           r.importBatchId !== null,
@@ -1099,13 +1104,42 @@ export const getAward = createServerFn({ method: 'GET' })
     // Aggregate impact across this award's reports, in the programme's unit. Only
     // reports that actually evidenced a quantity contribute (never coerced to zero).
     const quantified = reportViews.filter((r) => r.impactQuantity != null)
+    // The programme's unit as every other screen names it — `impactUnitLabel` resolves a
+    // curated unit to its label, where the raw column is only set for a custom one.
+    const unitLabel = programme
+      ? impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
+      : null
     const impact = {
       total: quantified.length
         ? quantified.reduce((s, r) => s + Number(r.impactQuantity), 0)
         : null,
-      unitLabel: programme?.impactUnitLabel ?? quantified[0]?.impactUnitLabel ?? null,
+      unitLabel: unitLabel ?? quantified[0]?.impactUnitLabel ?? null,
       reportCount: quantified.length,
     }
+
+    // Every reporting date and every report, merged the way the report screen's
+    // timeline merges them — the award screen's schedule is the same line, with the
+    // controls on it. No report is "current" here; that marker is the report screen's.
+    const reporting = reportingTimeline(
+      // In date order: the relation comes back in whatever order Postgres found the rows,
+      // and the Linked reports card lists these as they come.
+      [...award.schedule].sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
+      award.reports.map((r) => ({
+        id: r.id,
+        scheduleId: r.scheduleId,
+        submittedAt: r.submittedAt.toISOString(),
+        importBatchId: r.importBatchId,
+        impactQuantity: r.impactQuantity != null ? Number(r.impactQuantity) : null,
+        impactUnitLabel: r.impactUnitLabel,
+      })),
+      { milestoneId: null, reportId: null },
+    )
+
+    const dep = app.deprivationContext
+    const deprivation =
+      app.deprivationStatus === 'resolved' && dep?.status === 'resolved'
+        ? { min: dep.min, max: dep.max }
+        : null
 
     // Two flags, because `finance` sits between the two: it may edit the payment
     // schedule but not the reporting milestones (whose fns are admin-only).
@@ -1138,7 +1172,13 @@ export const getAward = createServerFn({ method: 'GET' })
       programmeName: programme?.name ?? null,
       roundName: app.roundProgramme?.round?.name ?? null,
       deliveryArea: deliveryAreaLabel(app),
-      impactUnitLabel: programme?.impactUnitLabel ?? null,
+      impactUnitLabel: unitLabel,
+      themes: (programme?.tags as string[] | null) ?? [],
+      // What the grant set out to reach, for the whole grant — the award's impact total
+      // is read against it.
+      proposedImpact:
+        app.proposedImpactQuantity != null ? Number(app.proposedImpactQuantity) : null,
+      deprivation,
       instalments,
       paidToDate,
       outstanding: amountAwarded - paidToDate,
@@ -1146,13 +1186,18 @@ export const getAward = createServerFn({ method: 'GET' })
       instalmentCount: instalments.length,
       paidCount: instalments.filter((p) => p.paidDate).length,
       reportingMilestones,
+      reporting,
       reports: reportViews,
       impact,
       application: {
         id: app.id,
         amountRequested: parseFloat(app.amountRequested),
+        // The applicant's own sentence, shown only where the award recorded none
+        // (awards minted before `awards.purpose` existed) — as the report screen does.
+        grantPurpose: app.grantPurpose,
         custodianScore: app.custodianScore,
         custodianScoreStatus: app.custodianScoreStatus,
+        custodianScoreSummary: app.custodianScoreDetail?.summary ?? null,
         charityNumber: app.charityNumber,
         companyNumber: app.companyNumber,
         externalApplicationId: app.externalApplicationId,

@@ -10,6 +10,7 @@ export {
   type ButtonSize,
 } from './Button'
 export { Panel, PanelTitle, KeyFact, HeaderPill, DetailHeader } from './Detail'
+export { CardTitle, DetailRow, Dot, ThemePill, ThemePills } from './DetailCard'
 export { Input, Textarea, Select, Label, FIELD_SURFACE } from './fields'
 export { MoneyInput } from './MoneyInput'
 export { CompactMoney } from './CompactMoney'
@@ -41,8 +42,9 @@ export {
 } from './DataTable'
 export { MiniKpi, KPI_TINTS, type KpiTint } from './MiniKpi'
 export { Horizon, type HorizonItem } from './Horizon'
-export { Timeline, type TimelineStep, type TimelineMarker } from './Timeline'
+export { Timeline, StepMarker, type TimelineStep, type TimelineMarker } from './Timeline'
 export { Tabs, type TabItem } from './Tabs'
+export { PillTabs, type PillTabItem } from './PillTabs'
 export { ExportButton } from './ExportButton'
 export { LogoMark } from './LogoMark'
 export { ErrorState, type ErrorStateProps } from './ErrorState'

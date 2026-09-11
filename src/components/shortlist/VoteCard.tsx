@@ -16,7 +16,7 @@ import { deliveryAreaLabel } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { Avatar, ErrorNote, TextLink, initials } from '../ui'
-import { useAnchoredPopover, useDismiss } from '../ui/popover'
+import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
 import { withAlpha } from '../BarMeter'
 import { CommentsDialog } from './CommentsDialog'
@@ -193,6 +193,7 @@ function OnBehalfControl({
         createPortal(
           <div
             ref={panelRef}
+            {...POPOVER_LAYER}
             role="dialog"
             aria-label={`${trustee.name}’s vote`}
             className="fixed z-[60] w-[268px] rounded-card border bg-white p-3 shadow-[0px_11px_24px_rgba(0,0,0,0.1),0px_43px_43px_rgba(0,0,0,0.09)]"

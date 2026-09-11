@@ -15,6 +15,12 @@ export function useAnchoredPopover(
   panelRef: RefObject<HTMLElement | null>,
   /** Match the panel's width to the trigger's — right for a select, wrong for a calendar. */
   matchWidth = false,
+  /**
+   * Which edge of the trigger the panel lines up with. `end` hangs it back from the
+   * trigger's RIGHT edge — for a control at the right of a row (the award schedule's
+   * Edit), where a panel opening rightwards would run off the card it belongs to.
+   */
+  align: 'start' | 'end' = 'start',
 ): PopoverPos | null {
   const [pos, setPos] = useState<PopoverPos | null>(null)
 
@@ -31,7 +37,8 @@ export function useAnchoredPopover(
       // Flip above the trigger when there isn't room below it.
       const below = anchor.bottom + 6
       const top = below + h > window.innerHeight - 8 ? Math.max(8, anchor.top - 6 - h) : below
-      const left = Math.min(Math.max(8, anchor.left), Math.max(8, window.innerWidth - w - 8))
+      const want = align === 'end' ? anchor.right - w : anchor.left
+      const left = Math.min(Math.max(8, want), Math.max(8, window.innerWidth - w - 8))
       setPos({ top, left, width: anchor.width })
     }
     place()
@@ -42,9 +49,28 @@ export function useAnchoredPopover(
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
     }
-  }, [open, matchWidth, anchorRef, panelRef])
+  }, [open, matchWidth, align, anchorRef, panelRef])
 
   return pos
+}
+
+/**
+ * Marks a portalled panel as a popover LAYER, so the layers beneath it can tell a click
+ * or an Escape meant for it from one meant for them. Every panel opened through this
+ * file should carry it.
+ */
+export const POPOVER_LAYER = { 'data-popover-layer': '' } as const
+
+/**
+ * Whether a popover layer other than this one is stacked ABOVE it. Panels portal to the
+ * end of `document.body` in the order they open, so a layer later in the document was
+ * opened later, from inside one of the earlier ones — a calendar opened from a field in
+ * the award screen's edit popover is the case this exists for. Without it, picking a day
+ * was a mousedown outside the edit popover, which closed it along with the half-made edit.
+ */
+function layerAbove(own: HTMLElement[], el: Element | null): boolean {
+  if (!el || own.some((o) => o === el || o.contains(el))) return false
+  return own.every((o) => o.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)
 }
 
 /** Close on a click outside either element, and on Escape. */
@@ -55,14 +81,23 @@ export function useDismiss(
 ) {
   useEffect(() => {
     if (!open) return
+    const own = () => refs.map((r) => r.current).filter((el): el is HTMLElement => el != null)
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node
-      if (!refs.some((r) => r.current?.contains(t))) onClose()
+      if (own().some((el) => el.contains(t))) return
+      // A click inside a layer opened on top of this one belongs to that layer.
+      if (t instanceof Element && layerAbove(own(), t.closest('[data-popover-layer]'))) return
+      onClose()
     }
     const onKey = (e: KeyboardEvent) => {
       // Stopped, so a popover open over a dialog is what Escape closes first — without
       // this the dialog behind it takes the key and the whole form disappears.
       if (e.key === 'Escape') {
+        // Only the topmost layer answers. Every open layer listens on `document`, and
+        // they fire in the order they OPENED, so without this the one underneath would
+        // close first and take the one on top with it.
+        const layers = Array.from(document.querySelectorAll('[data-popover-layer]'))
+        if (layers.some((l) => layerAbove(own(), l))) return
         e.stopPropagation()
         onClose()
       }

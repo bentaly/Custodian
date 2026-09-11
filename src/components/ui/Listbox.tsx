@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } fr
 import { createPortal } from 'react-dom'
 import { cn } from './cn'
 import { C } from './tokens'
-import { useAnchoredPopover, useDismiss } from './popover'
+import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from './popover'
 
 // The app's dropdown panel (Figma 769:16020) — an INVERTED list: the panel is Gray/100
 // and the active option is a white pill on top of it, rather than the usual white panel
@@ -61,6 +61,7 @@ export function ListboxPanel({
   return createPortal(
     <div
       ref={panelRef}
+      {...POPOVER_LAYER}
       id={id}
       role="listbox"
       aria-labelledby={labelledBy}

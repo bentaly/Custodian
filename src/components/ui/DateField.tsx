@@ -5,7 +5,7 @@ import { Calendar03Icon } from '@hugeicons/core-free-icons'
 import { cn } from './cn'
 import { C } from './tokens'
 import { CalendarPanel, fmtDay, iso, parseIso, startOfMonth } from './calendar'
-import { useAnchoredPopover, useDismiss } from './popover'
+import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from './popover'
 
 // A single date, in the app's field vocabulary — the `Opens` / `Closes` boxes on the
 // round dialog, the award wizard's start and instalment dates.
@@ -122,6 +122,7 @@ export function DateField({
         createPortal(
           <div
             ref={popRef}
+            {...POPOVER_LAYER}
             role="dialog"
             aria-label={ariaLabel ?? 'Select a date'}
             className="fixed z-[60] flex flex-col items-center gap-3 rounded-card border bg-white p-3 shadow-[0px_11px_24px_rgba(0,0,0,0.1),0px_43px_43px_rgba(0,0,0,0.09)]"

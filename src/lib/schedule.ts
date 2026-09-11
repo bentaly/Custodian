@@ -40,6 +40,11 @@ export function startOfWeekIso(iso: string): string {
   return addDaysIso(iso, -back)
 }
 
+/** Whole days from `from` to `to` (both `yyyy-mm-dd`) — negative when `to` is earlier. */
+export function daysBetweenIso(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
+}
+
 /** `2026-08-11` → `2026-08-31`. Day 0 of the next month is the last of this one. */
 export function endOfMonthIso(iso: string): string {
   const [y, m] = iso.split('-').map(Number)
