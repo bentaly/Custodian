@@ -866,8 +866,11 @@ Structural decisions worth knowing before adding a screen:
   forever. `annual_budget_set` audits every change, and the screen says plainly when the year is
   not the current one. Stepping away with unsaved edits is BLOCKED rather than confirmed — the
   edits belong to a year, and offering to discard them is worse than "save first" with the Save
-  button lit a few inches away. The form is **keyed on the year**, or stepping back would leave
-  this year's figures in the fields ready to be saved into the wrong one.
+  button lit a few inches away. **Leaving the SCREEN** with unsaved figures is caught by a
+  `useBlocker` confirm instead — there is no single control to disable when navigation arrives
+  from the sidebar, a breadcrumb and the browser's back button alike. The form is **keyed on the
+  year**, or stepping back would leave this year's figures in the fields ready to be saved into
+  the wrong one.
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
   `team`, `giving-strategy`, `voting`, `letters`, `api-keys`, `submissions`, `data-import`,
   `budget`, `round-budgets`.

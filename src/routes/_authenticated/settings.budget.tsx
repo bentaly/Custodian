@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, redirect, useBlocker, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
@@ -14,6 +14,7 @@ import {
 } from '../../server/fns/budget'
 import {
   Button,
+  ConfirmDialog,
   ErrorNote,
   Input,
   Label,
@@ -25,7 +26,7 @@ import {
 } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
 import { canSeePayments } from '../../lib/roles'
-import { MONTH_NAMES, financialYearRange } from '../../lib/financialYear'
+import { MONTH_NAMES, financialYear, financialYearRange } from '../../lib/financialYear'
 import { rollUpBudget } from '../../lib/annualBudget'
 import { fmtMoney } from '../../lib/format'
 import { messageFor } from '../../lib/errors'
@@ -137,7 +138,19 @@ function AnnualBudget() {
 
 function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualBudgetSettings>> }) {
   const router = useRouter()
+  const navigate = Route.useNavigate()
   const offset = data.yearOffset
+  const currentYearLabel = financialYear(data.financialYearEndMonth).label
+
+  /**
+   * Step or jump to another financial year.
+   *
+   * The year is a search param, so a particular year is a link somebody can send and the
+   * back button walks them. Guarded on `dirty` at the control rather than here, because a
+   * disabled arrow with "Save your changes first" on it says more than a dialog fired
+   * after the click.
+   */
+  const goToYear = (to: number) => navigate({ search: { year: to === 0 ? undefined : to } })
 
   // Every active programme gets a row whether or not it is in the saved budget: the
   // screen is "what is this year's money", and a programme missing from the form reads
@@ -233,6 +246,23 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   // Prior commitments across every programme line — the stated figure where there is one,
   // else the one derived from the instalment dates.
   const promisedTotal = rows.filter((r) => r.programmeId).reduce((s, r) => s + promisedOf(r), 0)
+
+  /**
+   * Leaving the screen with unsaved figures.
+   *
+   * The year arrows disable while dirty, which covers stepping between years and nothing
+   * else — the sidebar, a breadcrumb and the browser's own back button all still walked
+   * away and dropped an afternoon's typing without a word. This is the rest of that guard.
+   *
+   * A dialog rather than a disabled control, because unlike the arrows there is no single
+   * thing to disable: navigation arrives from everywhere. It fires only while `dirty`, so
+   * a screen nobody has touched never interrupts anyone.
+   */
+  const blocker = useBlocker({
+    shouldBlockFn: () => dirty,
+    withResolver: true,
+    enableBeforeUnload: () => dirty,
+  })
 
   const patch = (key: string, next: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...next } : r)))
@@ -348,17 +378,53 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
       <Panel label={`Budget for ${data.financialYear.label}`}>
         <PanelTitle
           right={
-            <div className="flex flex-wrap items-center gap-3">
-              {allocatedInRounds > 0 && (
-                <Button variant="text" size="sm" onClick={useRoundAllocations}>
-                  Use round allocations
-                </Button>
-              )}
-              <YearStepper offset={offset} dirty={dirty} />
-            </div>
+            allocatedInRounds > 0 && (
+              <Button variant="text" size="sm" onClick={useRoundAllocations}>
+                Use round allocations
+              </Button>
+            )
           }
         >
-          Budget for {data.financialYear.label}
+          {/* The arrows straddle the YEAR, not the panel: a stepper sitting across the
+              thing it changes needs no label to say what it steps. "Budget for" stays
+              outside them — it is not part of what moves. */}
+          <span className="inline-flex items-center gap-1">
+            Budget for
+            <Button
+              variant="ghost"
+              size="xs"
+              icon={ArrowLeft01Icon}
+              aria-label="Previous financial year"
+              title={dirty ? 'Save your changes first' : 'Previous financial year'}
+              disabled={dirty || offset <= -5}
+              onClick={() => goToYear(offset - 1)}
+            />
+            <span className="tabular-nums">{data.financialYear.label}</span>
+            <Button
+              variant="ghost"
+              size="xs"
+              icon={ArrowRight01Icon}
+              aria-label="Next financial year"
+              title={dirty ? 'Save your changes first' : 'Next financial year'}
+              disabled={dirty || offset >= 1}
+              onClick={() => goToYear(offset + 1)}
+            />
+            {/* Named, not "This year": a button reading "This year" beside a heading
+                reading "Budget for 2025/26" makes two claims about which year you are on.
+                Beside the arrows rather than across the panel, because it belongs to the
+                same control — but outside them, because it JUMPS rather than steps. */}
+            {offset !== 0 && (
+              <Button
+                variant="text"
+                size="xs"
+                className="ml-1"
+                disabled={dirty}
+                onClick={() => goToYear(0)}
+              >
+                Back to {currentYearLabel}
+              </Button>
+            )}
+          </span>
         </PanelTitle>
         {/* Which year you are editing, said in words as well as in the stepper. The panel
             heading carries the label, but a foundation that has stepped back a year is
@@ -367,7 +433,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         {offset !== 0 && (
           <p className="-mt-1 font-display text-label" style={{ color: C.amber }}>
             {offset < 0
-              ? `You are editing a past year. Finance reports ${data.financialYear.label} against these figures, so correcting them here corrects the record.`
+              ? `You are editing a past year. Finance reports ${data.financialYear.label} against these figures, so changing them here changes the record.`
               : `You are setting next year's budget before it starts. Nothing reports against it until ${data.financialYear.label} begins.`}
           </p>
         )}
@@ -570,53 +636,20 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                 : 'Save budget'}
         </Button>
       </Panel>
+      {/* Only ever on screen while there are unsaved figures, and it names what is at
+          stake — "leave" and "stay" without the year in them is a dialog anybody clicks
+          through without reading. */}
+      <ConfirmDialog
+        open={blocker.status === 'blocked'}
+        title="Leave without saving?"
+        confirmLabel="Leave without saving"
+        onCancel={() => blocker.reset?.()}
+        onConfirm={() => blocker.proceed?.()}
+      >
+        Your changes to the {data.financialYear.label} budget have not been saved. Leaving now
+        discards them.
+      </ConfirmDialog>
     </SettingsPage>
-  )
-}
-
-/**
- * Step between financial years.
- *
- * **Past years are editable, not read-only.** A budget is a plan somebody typed, not an
- * accounting record: a foundation that mistyped last year's figure, or set it late, has
- * nowhere else to correct it, and Finance goes on reporting that year against it forever.
- * The risk of somebody revising history is smaller than the certainty of a wrong number
- * nobody can reach — and `annual_budget_set` audits every change either way. What the
- * screen owes them instead is an unmistakable note that the year is not the current one.
- *
- * Stepping away with unsaved edits is BLOCKED rather than confirmed: the edits belong to a
- * year, and a dialog offering to discard them is a worse answer than a control that says
- * "save first" while the Save button is a few inches away and already lit.
- */
-function YearStepper({ offset, dirty }: { offset: number; dirty: boolean }) {
-  const navigate = Route.useNavigate()
-  const step = (to: number) => navigate({ search: { year: to === 0 ? undefined : to } })
-  return (
-    <span className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="xs"
-        icon={ArrowLeft01Icon}
-        aria-label="Previous financial year"
-        title={dirty ? 'Save your changes first' : 'Previous financial year'}
-        disabled={dirty || offset <= -5}
-        onClick={() => step(offset - 1)}
-      />
-      {offset !== 0 && (
-        <Button variant="text" size="xs" disabled={dirty} onClick={() => step(0)}>
-          This year
-        </Button>
-      )}
-      <Button
-        variant="ghost"
-        size="xs"
-        icon={ArrowRight01Icon}
-        aria-label="Next financial year"
-        title={dirty ? 'Save your changes first' : 'Next financial year'}
-        disabled={dirty || offset >= 1}
-        onClick={() => step(offset + 1)}
-      />
-    </span>
   )
 }
 
