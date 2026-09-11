@@ -54,9 +54,9 @@ Produce six things:
 
 3. **Programme alignment** — how well does the reported work advance the programme's goal? Score 1-10.
 
-4. **Challenges summary** — 1-3 sentences on what challenges the grantee faced and whether/how they were overcome. Draw from anywhere in the report, not just a dedicated "challenges" field — these often hide in general narrative or follow-up answers. Null only if the report genuinely mentions none.
+4. **Challenges summary** — ONE very brief line (at most ~20 words, no more than a single sentence) naming the main challenge the grantee faced. Look anywhere in the report, not just a dedicated "challenges" field. Return null unless it is useful: if the report mentions none, or the only challenge is already in your summary, return null rather than repeat it.
 
-5. **Lessons summary** — 1-3 sentences on what the grantee learned from delivering the grant. Same rules: look everywhere, null only if genuinely absent. Funders read these two summaries closely, so be concrete — name the actual challenge and the actual lesson, not "they faced some difficulties".
+5. **Lessons summary** — ONE very brief line (at most ~20 words, no more than a single sentence) naming the main lesson the grantee learned. Same rules: look everywhere, and return null unless it adds something. Brevity matters more than coverage here — be concrete ("fixed weekly visit times doubled attendance"), never generic ("they learned a lot").
 
 6. **Impact quantity** — the report's evidence will be measured in a specific unit, stated in the user message (e.g. "people", "hectares of peatland restored"). Find how many of that unit this report evidences as achieved WITH THIS GRANT. Rules:
    - Only count what the report states or clearly supports; quote the exact snippet.

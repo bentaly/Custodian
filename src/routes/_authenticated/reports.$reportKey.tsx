@@ -1,36 +1,39 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { parseReportsSearch } from '../../lib/listSearch'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
 import { ReportFields } from '../../components/ReportFields'
-import { ReportAnalysisPanel, type ReportAnalysisStatus } from '../../components/reportAnalysis'
+import { File01Icon, Mail01Icon } from '@hugeicons/core-free-icons'
 import {
-  Calendar03Icon,
-  Coins01Icon,
-  DocumentAttachmentIcon,
-  File01Icon,
-  Mail01Icon,
-  UserGroupIcon,
-} from '@hugeicons/core-free-icons'
+  AlignmentCards,
+  AlignmentSummary,
+  FlagsCard,
+  PromisesCard,
+  ReportAnalysisCard,
+  type ReportAnalysisStatus,
+} from '../../components/reportAnalysis'
 import {
   AnchorButton,
-  Badge,
   BreadcrumbBar,
   Button,
+  ClampToggle,
   DetailHeader,
   Dialog,
   EmptyState,
-  KPI_TINTS,
-  MiniKpi,
   Panel,
-  PanelTitle,
   RelatedLink,
+  Timeline,
   Tooltip,
+  useClamp,
+  type TimelineStep,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { AREA_ICON } from '../../components/Sidebar'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { formatDecileRange } from '../../lib/deprivation/types'
+import { impactPhrase } from '../../lib/impactUnits'
+import { againstProposal, grantTimeline, impactToDate } from '../../lib/reportTimeline'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
   // Not this screen's state — the LIST's, carried in by the row that was clicked so the
@@ -60,26 +63,6 @@ const STATUS_HEX: Record<ReportRowStatus, string> = {
   reviewed: C.success,
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-/**
- * How the arrival compares with the date it was asked for. A received date on its own
- * says nothing a reader can act on; "11 days late" is the fact that belongs in a grantee
- * conversation, and it is arithmetic nobody should be doing in their head off two dates
- * printed in different places on the screen.
- */
-function timeliness(submittedAt: string, dueDate: string | null): string {
-  if (!dueDate) return 'no date was set'
-  const days = Math.round(
-    (new Date(submittedAt).setHours(0, 0, 0, 0) - new Date(dueDate).setHours(0, 0, 0, 0)) / DAY_MS,
-  )
-  if (days > 1) return `${days} days late`
-  if (days === 1) return '1 day late'
-  if (days === 0) return 'on the day it was due'
-  if (days === -1) return '1 day early'
-  return `${-days} days early`
-}
-
 function ReportDetail() {
   const report = Route.useLoaderData()
   const { user } = Route.useRouteContext()
@@ -93,24 +76,6 @@ function ReportDetail() {
   const [reviewing, setReviewing] = useState(false)
   const canReview = user.role === 'admin' || user.role === 'superadmin'
   const isReviewed = Boolean(s?.reviewedAt)
-
-  // Where this report sits in the grant's whole reporting story: the siblings already in,
-  // plus this one, over everything the schedule asks for. A report is read as one of a
-  // series far more often than on its own.
-  //
-  // `siblings` and `outstanding` both EXCLUDE the milestone on screen, so the one being
-  // read has to be added back on whichever side it belongs to — otherwise a grant with
-  // four reporting dates says "1 of 3" while you are looking at the fourth.
-  const receivedCount = report.siblings.length + (s ? 1 : 0)
-  const stillDue = report.outstanding.length + (s ? 0 : 1)
-  const totalMilestones = receivedCount + stillDue
-  const nextOutstandingDate = report.outstanding[0]?.dueDate ?? null
-  const nextDue =
-    !s && report.dueDate
-      ? nextOutstandingDate && nextOutstandingDate < report.dueDate
-        ? nextOutstandingDate
-        : report.dueDate
-      : nextOutstandingDate
 
   const grantAmount = Number(report.grant.amountAwarded)
 
@@ -135,14 +100,38 @@ function ReportDetail() {
     .filter(Boolean)
     .join(' · ')
 
+  const analysis = s
+    ? {
+        aiSummary: s.aiSummary,
+        aiChallenges: s.aiChallenges,
+        aiLessons: s.aiLessons,
+        applicationAlignment: s.applicationAlignment,
+        programmeAlignment: s.programmeAlignment,
+        impactQuantity: s.impactQuantity,
+        impactQuantitySource: s.impactQuantitySource,
+        impactQuantityQuote: s.impactQuantityQuote,
+        flags: s.flags,
+      }
+    : null
+  const analysed = s?.analysisStatus === 'analysed' && analysis != null
+
+  // The report's figure, set against what the application proposed for the WHOLE grant
+  // — so it is measured with every report up to this one added in, or an interim report
+  // reads as a shortfall. See `impactToDate`.
+  const impactQuantity = s?.impactQuantity != null ? Number(s.impactQuantity) : null
+  const comparison =
+    s && impactQuantity != null
+      ? againstProposal(impactToDate(report.reporting, s.submittedAt), report.proposedImpact, {
+          reported: s.impactUnitLabel,
+          proposed: report.impactUnitLabel,
+        })
+      : null
+
   return (
     <div className="flex flex-col gap-4">
       {/* The two records this report hangs off are onward NAVIGATION, so they ride the
           breadcrumb row rather than the header's action cluster — see `RelatedLink`.
-          They are links rather than a panel of restated facts: the grant's amount,
-          programme and round are already in the subline and the stat row, and a card
-          repeating them would be the third telling of the same four strings on one
-          screen. Each wears its DESTINATION's area glyph, from `AREA_ICON`. */}
+          Each wears its DESTINATION's area glyph, from `AREA_ICON`. */}
       <BreadcrumbBar
         items={[
           // The crumb is the same gesture as the back arrow below it, so it carries the
@@ -180,41 +169,39 @@ function ReportDetail() {
         name={report.organisationName}
         subline={subline}
         status={{ label: STATUS_LABELS[report.status], colour: STATUS_HEX[report.status] }}
-        // Only what acts on THIS report — the two records it hangs off moved to the
+        // Only what acts on THIS report — the two records it hangs off are on the
         // breadcrumb row above, where onward navigation belongs.
         actions={
           <>
-            {/* Chasing a late report is the same gesture as chasing an applicant, so it
-                is the same control: a plain mailto into the grants team's own client.
-                Offered only while the report is actually outstanding — once it has
-                arrived, "Email applicant" is an action in search of a reason. */}
-            {!s &&
-              report.status === 'overdue' &&
-              report.applicantEmail && (
-                // `control`: the address describes a link that already names itself —
-                // no extra tab stop, and the description lands on the anchor where a
-                // screen reader will actually read it.
-                <Tooltip
-                  control
-                  label="Applicant email address"
-                  trigger={
-                    <AnchorButton
-                      icon={Mail01Icon}
-                      href={`mailto:${encodeURIComponent(report.applicantEmail)}?subject=${encodeURIComponent(
-                        `${report.label} for your grant${
-                          report.reference ? ` (${report.reference})` : ''
-                        }`,
-                      )}`}
-                    >
-                      Email applicant
-                    </AnchorButton>
-                  }
-                >
-                  {report.applicantEmail}
-                </Tooltip>
-              )}
+            {/* A plain mailto into the grants team's own client — to chase a report
+                that is late, or to answer one that raised a question. */}
+            {report.applicantEmail && (
+              // `control`: the address describes a link that already names itself —
+              // no extra tab stop, and the description lands on the anchor where a
+              // screen reader will actually read it.
+              <Tooltip
+                control
+                label="Grantee email address"
+                trigger={
+                  <AnchorButton
+                    icon={Mail01Icon}
+                    href={`mailto:${encodeURIComponent(report.applicantEmail)}?subject=${encodeURIComponent(
+                      `${report.label} for your grant${
+                        report.reference ? ` (${report.reference})` : ''
+                      }`,
+                    )}`}
+                  >
+                    Email grantee
+                  </AnchorButton>
+                }
+              >
+                {report.applicantEmail}
+              </Tooltip>
+            )}
             {/* "View Report" is what the application screen calls the same gesture —
-                open the thing exactly as it was sent, before anything we made of it. */}
+                open the thing exactly as it was sent, before anything we made of it — and
+                both header buttons wear that screen's styles (Email plain, View tinted,
+                each with its icon), so the two records read as one app. */}
             {s && (
               <Button variant="tinted" icon={File01Icon} onClick={() => setSubmissionOpen(true)}>
                 View Report
@@ -247,215 +234,288 @@ function ReportDetail() {
         }
       />
 
-      {/* The stat row is the same four tiles whether or not the report has arrived — a
-          report still awaited is a thing this screen has plenty to say about, and hiding
-          the row would make "nothing reported yet" something you infer from an absence
-          rather than something the screen states. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MiniKpi
-          tint={KPI_TINTS.pink}
-          icon={UserGroupIcon}
-          label="Impact reported"
-          value={s?.impactQuantity != null ? Number(s.impactQuantity).toLocaleString('en-GB') : '—'}
-          // The unit belongs in the supporting line, not the label: a footer reading
-          // "young people" while its neighbours read "Grant awarded" is a row of tiles
-          // where one is labelled by its data and the rest by their meaning.
-          sub={
-            s?.impactQuantity != null
-              ? [
-                  s.impactUnitLabel,
-                  s.impactQuantitySource === 'reported'
-                    ? 'stated by the charity'
-                    : 'read from the narrative',
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
-              : s
-                ? 'no quantity evidenced'
-                : 'not reported yet'
-          }
-        />
-        <MiniKpi
-          tint={KPI_TINTS.violet}
-          icon={Coins01Icon}
-          label="Grant awarded"
-          value={fmtMoney(grantAmount)}
-          sub={`awarded ${fmtDate(report.grant.decisionAt)}`}
-        />
-        <MiniKpi
-          tint={KPI_TINTS.amber}
-          icon={Calendar03Icon}
-          label={s ? 'Received' : 'Due'}
-          value={s ? fmtDate(s.submittedAt) : fmtDate(report.dueDate)}
-          sub={
-            s
-              ? timeliness(s.submittedAt, report.dueDate)
-              : report.status === 'overdue'
-                ? 'still outstanding'
-                : 'not yet received'
-          }
-          valueColour={!s && report.status === 'overdue' ? C.danger : undefined}
-        />
-        <MiniKpi
-          tint={KPI_TINTS.green}
-          icon={DocumentAttachmentIcon}
-          label="Reporting on this grant"
-          // No meter: "3 of 5" already IS the fraction, stated exactly, and the bar
-          // under it only redrew the same ratio while making this tile taller than the
-          // three beside it. Same call as the grant screen's "Paid to date".
-          value={`${receivedCount} of ${totalMilestones}`}
-          sub={nextDue ? `next due ${fmtDate(nextDue)}` : 'schedule complete'}
-        />
+      {/* Two columns from `xl`: below that the side column would squeeze the report to
+          a strip, so it drops beneath instead. `minmax(0, …)` so a long word in the
+          report cannot push the grid wider than the screen. */}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          {!s ? (
+            // Nothing has arrived, so there is no analysis to draw and nothing to review.
+            // The dashed empty state stands on its own rather than inside a panel: a
+            // panel would be a titled section whose entire content is "there isn't one".
+            <EmptyState>
+              <p className="font-display text-body font-medium" style={{ color: C.ink }}>
+                {report.status === 'overdue'
+                  ? `${report.label} was due ${fmtDate(report.dueDate)} and has not arrived.`
+                  : `${report.label} has not been received yet.`}
+              </p>
+              <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
+                Reports submitted through the grantee form are matched to this grant automatically
+                and appear here.
+              </p>
+            </EmptyState>
+          ) : (
+            <>
+              <ReportAnalysisCard
+                status={s.analysisStatus as ReportAnalysisStatus}
+                analysis={analysis}
+                analysedAt={s.analysedAt}
+                impact={{
+                  title: [report.label, report.programmeName, report.roundName]
+                    .filter(Boolean)
+                    .join(' · '),
+                  quantity: impactQuantity,
+                  unit: s.impactUnitLabel ?? report.impactUnitLabel,
+                  comparison,
+                }}
+              />
+              {analysed && (
+                <>
+                  <AlignmentCards analysis={analysis} />
+                  <PromisesCard analysis={analysis} />
+                  <FlagsCard flags={analysis.flags} />
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <PurposeCard grant={report.grant} />
+          <GrantDetailsCard report={report} />
+          {analysed && <AlignmentSummary analysis={analysis} />}
+          <TimelineCard report={report} />
+        </div>
       </div>
 
-      {!s ? (
-        // Nothing has arrived, so there is no analysis to draw and nothing to review.
-        // The dashed empty state stands on its own rather than inside a panel: a panel
-        // would be a titled section whose entire content is "there isn't one".
-        <EmptyState>
-          <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-            {report.status === 'overdue'
-              ? `${report.label} was due ${fmtDate(report.dueDate)} and has not arrived.`
-              : `${report.label} has not been received yet.`}
-          </p>
-          <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
-            Reports submitted through the grantee form are matched to this grant automatically and
-            appear here.
-          </p>
-        </EmptyState>
-      ) : (
-        <>
-          <ReportAnalysisPanel
-            status={s.analysisStatus as ReportAnalysisStatus}
-            analysedAt={s.submittedAt}
-            action={
-              <Button variant="text" size="xs" onClick={() => setSubmissionOpen(true)}>
-                Read what they sent →
-              </Button>
-            }
-            analysis={{
-              aiSummary: s.aiSummary,
-              aiChallenges: s.aiChallenges,
-              aiLessons: s.aiLessons,
-              applicationAlignment: s.applicationAlignment,
-              programmeAlignment: s.programmeAlignment,
-              impactQuantity: s.impactQuantity,
-              impactQuantitySource: s.impactQuantitySource,
-              impactQuantityQuote: s.impactQuantityQuote,
-              impactUnitLabel: s.impactUnitLabel,
-              flags: s.flags,
-            }}
-          />
-
-          <Dialog
-            open={submissionOpen}
-            onClose={() => setSubmissionOpen(false)}
-            title="Grant report"
-            description={`${report.organisationName} · ${report.label}`}
-            size="lg"
-          >
-            <ReportFields report={s} />
-          </Dialog>
-        </>
+      {s && (
+        <Dialog
+          open={submissionOpen}
+          onClose={() => setSubmissionOpen(false)}
+          title="Grant report"
+          description={`${report.organisationName} · ${report.label}`}
+          size="lg"
+        >
+          <ReportFields report={s} />
+        </Dialog>
       )}
+    </div>
+  )
+}
 
-      <OtherReports siblings={report.siblings} outstanding={report.outstanding} />
+// ─── Side column ─────────────────────────────────────────────────────────────
+
+function CardTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
+        {children}
+      </h2>
+      {right && (
+        <span
+          className="shrink-0 whitespace-nowrap font-display text-body"
+          style={{ color: C.sub }}
+        >
+          {right}
+        </span>
+      )}
     </div>
   )
 }
 
 /**
- * The rest of the reporting picture for this grant. A report is rarely read on its
- * own — you want the one before it, and what is still to come from the same grantee.
+ * What the money is for — the thing this report is read against. The AWARD's purpose,
+ * titled "Awarded for" as on the award screen, because it is the foundation's sentence
+ * (printed on the award letter) and not the applicant's. An award minted before the
+ * column existed falls back to the application's sentence, and says so by wearing the
+ * application screen's title for it. Clamped: a purpose is usually a sentence, but it is
+ * free text, and a side-column card has no business being a page tall.
  */
-function OtherReports({
-  siblings,
-  outstanding,
-}: {
-  siblings: ReportData['siblings']
-  outstanding: ReportData['outstanding']
-}) {
-  if (siblings.length === 0 && outstanding.length === 0) return null
+function PurposeCard({ grant }: { grant: ReportData['grant'] }) {
+  const clamp = useClamp(grant.purpose, 4)
+  if (!grant.purpose) return null
+  return (
+    <Panel label="Purpose" className="flex flex-col gap-4">
+      <CardTitle
+        right={
+          clamp.clipped || clamp.open ? (
+            <ClampToggle open={clamp.open} onToggle={clamp.toggle} label="Read the full purpose" />
+          ) : undefined
+        }
+      >
+        {grant.purposeFromApplication ? 'Grant purpose' : 'Awarded for'}
+      </CardTitle>
+      <p
+        ref={clamp.ref}
+        className={`font-display text-body leading-normal ${clamp.className ?? ''}`}
+        style={{ color: C.body }}
+      >
+        {grant.purpose}
+      </p>
+    </Panel>
+  )
+}
+
+/** One fact about the grant: a quiet label, and the value set right. The value wraps
+ *  rather than truncating — a programme name is read, not scanned. */
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <dt className="shrink-0 whitespace-nowrap font-display text-body" style={{ color: C.sub }}>
+        {label}
+      </dt>
+      <dd
+        className="min-w-0 break-words text-right font-display text-body font-medium"
+        style={{ color: C.ink }}
+      >
+        {children}
+      </dd>
+    </div>
+  )
+}
+
+/** How many theme pills show before the rest fold into a "+n". */
+const THEMES_SHOWN = 2
+
+function GrantDetailsCard({ report }: { report: ReportData }) {
+  const { grant, themes } = report
+  const years = grant.durationYears
+  const extraThemes = themes.slice(THEMES_SHOWN)
+  const dash = <span style={{ color: C.faint }}>—</span>
 
   return (
-    <Panel label="Other reports">
-      <PanelTitle>Other reports on this grant</PanelTitle>
-
-      {siblings.length > 0 && (
-        <ul className="flex flex-col">
-          {siblings.map((r) => (
-            <li key={r.key} className="border-t first:border-t-0" style={{ borderColor: C.wash }}>
-              <Link
-                to="/reports/$reportKey"
-                params={{ reportKey: r.key }}
-                className="group flex items-center justify-between gap-3 py-2.5"
-              >
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span
-                    className="truncate font-display text-body font-medium group-hover:underline"
-                    style={{ color: C.ink }}
-                  >
-                    {r.label}
-                  </span>
-                  <Badge
-                    size="sm"
-                    className={
-                      r.status === 'reviewed'
-                        ? 'bg-success/10 text-success'
-                        : 'bg-info/10 text-info'
-                    }
-                  >
-                    {r.status === 'reviewed' ? 'Reviewed' : 'Received'}
-                  </Badge>
-                </span>
-                <span
-                  className="shrink-0 whitespace-nowrap font-display text-label"
-                  style={{ color: C.sub }}
+    <Panel label="Grant details" className="flex flex-col gap-4">
+      <CardTitle>Grant details</CardTitle>
+      <dl className="flex flex-col gap-4">
+        <DetailRow label="Award">
+          {fmtMoney(Number(grant.amountAwarded))}
+          {years != null && years > 0 && (
+            <span className="whitespace-nowrap font-normal" style={{ color: C.sub }}>
+              <span
+                aria-hidden
+                className="mx-2 inline-block size-[3px] rounded-full align-middle"
+                style={{ backgroundColor: C.faint }}
+              />
+              {years === 1 ? 'single year' : `over ${years} years`}
+            </span>
+          )}
+        </DetailRow>
+        <DetailRow label="Round">{report.roundName ?? dash}</DetailRow>
+        <DetailRow label="Programme">{report.programmeName ?? dash}</DetailRow>
+        <DetailRow label="Themes">
+          {themes.length === 0 ? (
+            dash
+          ) : (
+            <span className="flex flex-wrap justify-end gap-1">
+              {themes.slice(0, THEMES_SHOWN).map((t) => (
+                <ThemePill key={t}>{t}</ThemePill>
+              ))}
+              {extraThemes.length > 0 && (
+                <Tooltip
+                  label={`${extraThemes.length} more themes`}
+                  trigger={<ThemePill>+{extraThemes.length}</ThemePill>}
                 >
-                  Received {fmtDate(r.submittedAt)}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+                  {extraThemes.join(', ')}
+                </Tooltip>
+              )}
+            </span>
+          )}
+        </DetailRow>
+        <DetailRow label="Impact measured in">{report.impactUnitLabel ?? dash}</DetailRow>
+        <DetailRow label="Community context">
+          {report.deprivation ? formatDecileRange(report.deprivation) : dash}
+        </DetailRow>
+      </dl>
+    </Panel>
+  )
+}
 
-      {outstanding.length > 0 && (
-        <>
-          <p
-            className={`font-display text-label uppercase tracking-wide ${siblings.length > 0 ? 'mt-4' : ''}`}
-            style={{ color: C.faint }}
-          >
-            Still to come
-          </p>
-          <ul className="mt-1 flex flex-col">
-            {outstanding.map((m) => (
-              <li key={m.key} className="border-t first:border-t-0" style={{ borderColor: C.wash }}>
-                <Link
-                  to="/reports/$reportKey"
-                  params={{ reportKey: m.key }}
-                  className="group flex items-center justify-between gap-3 py-2.5"
-                >
-                  <span
-                    className="truncate font-display text-body group-hover:underline"
-                    style={{ color: C.body }}
-                  >
-                    {m.label}
-                  </span>
-                  <span
-                    className="shrink-0 whitespace-nowrap font-display text-label"
-                    style={{
-                      color: m.status === 'overdue' ? C.danger : C.sub,
-                      fontWeight: m.status === 'overdue' ? 500 : undefined,
-                    }}
-                  >
-                    Due {fmtDate(m.dueDate)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
+function ThemePill({ children }: { children: ReactNode }) {
+  return (
+    <span
+      className="inline-flex max-w-full items-center truncate rounded-pill px-2 py-0.5 font-display text-label font-medium"
+      style={{ backgroundColor: C.wash, color: C.sub }}
+    >
+      {children}
+    </span>
+  )
+}
+
+/**
+ * The grant as one line — the award, every payment and every reporting date, in the order
+ * they happened or fall due, with this report marked in place. The design drew reporting
+ * and payments as two cards, with "Grant awarded" heading the reporting one only, so a
+ * grant with one report had a two-step line whose first step was not a report. Money out
+ * and reports in are one sequence; the order is what a reader wants from it. The rules
+ * are `grantTimeline`'s.
+ */
+function TimelineCard({ report }: { report: ReportData }) {
+  const entries = grantTimeline({
+    decisionAt: report.grant.decisionAt,
+    amountAwarded: Number(report.grant.amountAwarded),
+    instalments: report.grant.instalments,
+    reporting: report.reporting,
+  })
+  // The one thing the grant is waiting on next wears the "current" marker, whether it is
+  // money or a report — the earliest entry not yet done.
+  const nextIdx = entries.findIndex((e) => !e.done)
+
+  const steps = entries.map((e, i): TimelineStep => {
+    const marker = e.done ? 'done' : i === nextIdx ? 'current' : 'future'
+    if (e.kind === 'awarded') {
+      return {
+        key: e.key,
+        title: 'Grant awarded',
+        sub: `${fmtDate(e.date)} · ${fmtMoney(e.amount)}`,
+        marker,
+      }
+    }
+    if (e.kind === 'instalment') {
+      const overdue = e.dueStatus === 'overdue'
+      const amount = fmtMoney(e.amount)
+      return {
+        key: e.key,
+        title: `Instalment ${e.n} of ${e.of}`,
+        sub: e.done
+          ? `Paid ${fmtDate(e.date)} · ${amount}`
+          : e.date
+            ? `Due ${fmtDate(e.date)} · ${amount}${overdue ? ' · overdue' : ''}`
+            : `Date to be confirmed · ${amount}`,
+        urgent: overdue,
+        marker,
+      }
+    }
+    const unit = e.impactUnitLabel ?? report.impactUnitLabel
+    const overdue = e.dueStatus === 'overdue'
+    return {
+      key: e.key,
+      title: e.here ? `${e.label} — you are here` : e.label,
+      sub: e.received
+        ? [
+            `Received ${fmtDate(e.date)}`,
+            e.impactQuantity != null && unit ? impactPhrase(e.impactQuantity, unit) : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : `Due ${fmtDate(e.date)}${overdue ? ' · overdue' : ''}`,
+      urgent: overdue,
+      marker,
+      link: e.openable ? { to: '/reports/$reportKey', params: { reportKey: e.key } } : undefined,
+    }
+  })
+
+  // The report being read is always on the line, so the one absence it cannot show by
+  // itself is a grant set up with no payments — which would just read as a short line.
+  const here = entries.findIndex((e) => e.kind === 'report' && e.here)
+
+  return (
+    <Panel label="Timeline" className="flex flex-col gap-4">
+      <CardTitle>Timeline</CardTitle>
+      <Timeline steps={steps} anchor={Math.max(here, 0)} />
+      {report.grant.instalments.length === 0 && (
+        <p className="font-display text-label" style={{ color: C.sub }}>
+          No instalment schedule is recorded for this grant.
+        </p>
       )}
     </Panel>
   )

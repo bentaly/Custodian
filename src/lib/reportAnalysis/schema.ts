@@ -42,17 +42,20 @@ export const ReportAnalysisOutputSchema = z.object({
       .describe("1-10: how well the reported work advances the programme's goal."),
     narrative: z.string().describe("2-3 sentences on fit with the programme's goal."),
   }),
+  // One short line each, or nothing. These print as the last lines of the report screen's
+  // analysis card, under a summary that is already the main read — a paragraph apiece
+  // turned two footnotes into most of the card.
   challengesSummary: z
     .string()
     .nullable()
     .describe(
-      'A 1-3 sentence summary of the challenges the grantee faced and how they were (or were not) overcome, drawn from ANYWHERE in the report. Null if the report genuinely mentions no challenges.',
+      'ONE very brief line (at most ~20 words) naming the main challenge the grantee faced, drawn from anywhere in the report. Null unless it tells a grant officer something the summary does not.',
     ),
   lessonsSummary: z
     .string()
     .nullable()
     .describe(
-      'A 1-3 sentence summary of the lessons the grantee learned from delivery, drawn from ANYWHERE in the report. Null if the report genuinely mentions no learnings.',
+      'ONE very brief line (at most ~20 words) naming the main lesson the grantee learned, drawn from anywhere in the report. Null unless it tells a grant officer something the summary does not.',
     ),
   impactQuantity: z.object({
     found: z.boolean().describe('Whether the report evidences a quantity in the requested unit.'),

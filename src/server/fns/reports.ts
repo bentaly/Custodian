@@ -16,6 +16,8 @@ import {
   todayIso,
   type DueStatus,
 } from '../../lib/schedule'
+import { reportingTimeline } from '../../lib/reportTimeline'
+import { impactUnitLabel } from '../../lib/impactUnits'
 import { type FacetOption } from '../../lib/facets'
 import { PAGE_SIZE } from '../../lib/pagination'
 import {
@@ -633,59 +635,72 @@ export const getReport = createServerFn({ method: 'GET' })
             // reference for the grant to put in the subject line.
             applicantEmail: true,
             externalApplicationId: true,
+            // What a report's impact figure is measured against — the whole grant's.
+            proposedImpactQuantity: true,
+            // The purpose the applicant asked for, shown only when the award itself
+            // recorded none (awards minted before `awards.purpose` existed).
+            grantPurpose: true,
+            deprivationStatus: true,
+            deprivationContext: true,
           },
           with: {
             roundProgramme: {
-              columns: { id: true },
+              columns: { id: true, grantDurationYears: true },
               with: {
-                programme: { columns: { name: true, impactUnit: true, impactUnitLabel: true } },
+                programme: {
+                  columns: { name: true, impactUnit: true, impactUnitLabel: true, tags: true },
+                },
                 round: { columns: { name: true } },
               },
             },
           },
         },
-        // Every report on this award, plus the schedule, so the detail screen can
-        // offer the siblings: a report is rarely read in isolation — you want the
-        // one before it, and what is still outstanding on the same award.
+        // The whole reporting schedule and every report on this award, so the screen
+        // can draw the grant's reporting as one timeline: a report is rarely read in
+        // isolation — you want the one before it, and what is still outstanding.
         schedule: true,
         reports: {
           columns: {
             id: true,
             scheduleId: true,
             submittedAt: true,
-            reviewedAt: true,
             // Only to name a row that answers no milestone — see `reportLabel`.
             importBatchId: true,
+            impactQuantity: true,
+            impactUnitLabel: true,
           },
+        },
+        instalments: {
+          columns: { id: true, instalmentNo: true, amount: true, dueDate: true, paidDate: true },
         },
       },
     })
     if (!award) throw notFoundError()
     assertClientAccess(user, award.clientId)
 
-    const scheduleById = new Map(award.schedule.map((m) => [m.id, m]))
-
-    // Other reports on this award, newest first, excluding the one being viewed.
-    const siblings = award.reports
-      .filter((r) => r.id !== submissionRow?.id)
-      .map((r) => ({
-        key: r.id,
-        label: reportLabel(
-          r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null,
-          r.importBatchId !== null,
-        ),
-        submittedAt: r.submittedAt.toISOString(),
-        status: (r.reviewedAt ? 'reviewed' : 'received') as ReceivedStatus,
-      }))
-      .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
-
-    // Dates still outstanding on this award, most urgent first.
-    const outstanding = award.schedule
-      .filter((m) => !m.submittedDate && m.id !== milestone?.id)
-      .map((m) => ({ key: m.id, label: m.label, dueDate: m.dueDate, status: dueStatus(m.dueDate) }))
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-
     const s = submissionRow
+    const app = award.application
+    const programme = app.roundProgramme?.programme ?? null
+
+    const reporting = reportingTimeline(
+      award.schedule,
+      award.reports.map((r) => ({
+        id: r.id,
+        scheduleId: r.scheduleId,
+        submittedAt: r.submittedAt.toISOString(),
+        importBatchId: r.importBatchId,
+        impactQuantity: r.impactQuantity != null ? Number(r.impactQuantity) : null,
+        impactUnitLabel: r.impactUnitLabel,
+      })),
+      { milestoneId: milestone?.id ?? null, reportId: s?.id ?? null },
+    )
+
+    const dep = app.deprivationContext
+    const deprivation =
+      app.deprivationStatus === 'resolved' && dep?.status === 'resolved'
+        ? { min: dep.min, max: dep.max }
+        : null
+
     return {
       label: reportLabel(milestone?.label, (s?.importBatchId ?? null) !== null),
       dueDate: milestone?.dueDate ?? null,
@@ -694,20 +709,40 @@ export const getReport = createServerFn({ method: 'GET' })
         : s || milestone?.submittedDate
           ? 'received'
           : dueStatus(milestone!.dueDate)) as ReportRowStatus,
-      siblings,
-      outstanding,
+      reporting,
       grant: {
         id: award.id,
         amountAwarded: award.amountAwarded,
         decisionAt: award.decisionAt.toISOString(),
         status: award.status,
+        // What the foundation agreed to fund (the award letter's "towards …"). The
+        // application's sentence is the fallback, flagged so the screen can title it
+        // for what it is — see the award screen's `PurposePanel` on why the two differ.
+        purpose: award.purpose ?? app.grantPurpose ?? null,
+        purposeFromApplication: !award.purpose && Boolean(app.grantPurpose),
+        durationYears: app.roundProgramme?.grantDurationYears ?? null,
+        instalments: [...award.instalments]
+          .sort((a, b) => a.instalmentNo - b.instalmentNo)
+          .map((p) => ({
+            id: p.id,
+            amount: Number(p.amount),
+            dueDate: p.dueDate,
+            paidDate: p.paidDate,
+          })),
       },
-      applicationId: award.application.id,
-      applicantEmail: award.application.applicantEmail,
-      reference: award.application.externalApplicationId,
-      organisationName: award.application.organisationName,
-      programmeName: award.application.roundProgramme?.programme?.name ?? null,
-      roundName: award.application.roundProgramme?.round?.name ?? null,
+      applicationId: app.id,
+      applicantEmail: app.applicantEmail,
+      reference: app.externalApplicationId,
+      organisationName: app.organisationName,
+      programmeName: programme?.name ?? null,
+      roundName: app.roundProgramme?.round?.name ?? null,
+      themes: (programme?.tags as string[] | null) ?? [],
+      impactUnitLabel: programme
+        ? impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
+        : null,
+      proposedImpact:
+        app.proposedImpactQuantity != null ? Number(app.proposedImpactQuantity) : null,
+      deprivation,
       submission: s
         ? {
             id: s.id,
@@ -735,6 +770,7 @@ export const getReport = createServerFn({ method: 'GET' })
             deliveryArea: s.deliveryArea,
             responses: (s.responses ?? []) as Array<{ label: string; value: string }>,
             analysisStatus: s.analysisStatus,
+            analysedAt: s.analysedAt ? s.analysedAt.toISOString() : null,
             aiSummary: s.aiSummary,
             aiChallenges: s.aiChallenges,
             aiLessons: s.aiLessons,
