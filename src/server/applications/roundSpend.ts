@@ -1,8 +1,16 @@
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
-import { applications, awardInstalments, awards, roundProgrammes } from '../../../drizzle/schema'
+import {
+  applications,
+  awardInstalments,
+  awards,
+  roundProgrammes,
+  rounds,
+} from '../../../drizzle/schema'
 import type { getDb } from '../db'
 import type { FinancialYear } from '../../lib/financialYear'
+import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
 import { resolveFirstYearAmount } from '../../lib/multiYear'
+import { roundFinancialYear } from '../../lib/roundYear'
 
 /**
  * What a round-programme has spent of its budget — in THIS YEAR'S CASH, which is what
@@ -50,6 +58,15 @@ import { resolveFirstYearAmount } from '../../lib/multiYear'
  *
  * Cancelled grants are excluded, per CLAUDE.md's money rule: a withdrawn grant is not
  * money committed, and a round whose budget stayed consumed by one could never re-spend it.
+ *
+ * ## Each round is measured in ITS OWN year
+ *
+ * Not the year that happens to be current. A round-programme's budget is an allocation of
+ * the year its round belongs to (`roundFinancialYear`), so a round that closed last March
+ * is still metered against last year — otherwise its meter would drift every 1 April, as
+ * instalments it scheduled fell inside a window that had moved on without it. Round-
+ * programmes are therefore grouped by year and queried a group at a time; in practice
+ * that is one group, because a screen shows one round or one year's rounds.
  */
 
 type Db = ReturnType<typeof getDb>
@@ -164,12 +181,33 @@ function proposedQuery(db: Db, roundProgrammeIds: string[], excludeApplicationId
 export async function roundProgrammeSpend(
   db: Db,
   roundProgrammeIds: string[],
-  fy: FinancialYear,
-  opts: { excludeApplicationId?: string } = {},
+  opts: { excludeApplicationId?: string; financialYearEndMonth?: number; now?: Date } = {},
 ): Promise<Map<string, RoundProgrammeSpend>> {
   const out = new Map<string, RoundProgrammeSpend>()
   // `inArray(x, [])` is a SQL error, and an empty scope is a legitimate caller state.
   if (roundProgrammeIds.length === 0) return out
+
+  // Each round-programme's own year, then grouped — one query pair per distinct year
+  // rather than per round-programme.
+  const endMonth = opts.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
+  const roundRows = await db
+    .select({
+      roundProgrammeId: roundProgrammes.id,
+      financialYearStart: rounds.financialYearStart,
+      openedAt: rounds.openedAt,
+      closedAt: rounds.closedAt,
+    })
+    .from(roundProgrammes)
+    .innerJoin(rounds, eq(rounds.id, roundProgrammes.roundId))
+    .where(inArray(roundProgrammes.id, roundProgrammeIds))
+
+  const byYear = new Map<string, { fy: FinancialYear; ids: string[] }>()
+  for (const r of roundRows) {
+    const fy = roundFinancialYear(r, endMonth, opts.now)
+    const group = byYear.get(fy.start) ?? { fy, ids: [] }
+    group.ids.push(r.roundProgrammeId)
+    byYear.set(fy.start, group)
+  }
 
   const row = (id: string): RoundProgrammeSpend => {
     const existing = out.get(id)
@@ -185,27 +223,55 @@ export async function roundProgrammeSpend(
     return fresh
   }
 
-  const [awardedRows, proposedRows] = await db.batch([
-    awardedQuery(db, roundProgrammeIds, fy),
-    proposedQuery(db, roundProgrammeIds, opts.excludeApplicationId),
-  ])
+  for (const { fy, ids } of byYear.values()) {
+    // Both halves of one year in one batch: an award landing between them would be
+    // counted twice or not at all, and the figure is metered against a budget.
+    const [awardedRows, proposedRows] = await db.batch([
+      awardedQuery(db, ids, fy),
+      proposedQuery(db, ids, opts.excludeApplicationId),
+    ])
 
-  for (const r of awardedRows) {
-    const target = row(r.roundProgrammeId)
-    target.awardedThisYear = num(r.thisYear)
-    target.awardedFull = num(r.full)
-  }
-  for (const r of proposedRows) {
-    const target = row(r.roundProgrammeId)
-    const requested = num(r.amountRequested)
-    target.proposedThisYear += resolveFirstYearAmount({
-      amountRequested: requested,
-      firstYearAmount: r.firstYearAmount === null ? null : num(r.firstYearAmount),
-      grantDurationYears: r.grantDurationYears,
-    })
-    target.proposedFull += requested
+    for (const r of awardedRows) {
+      const target = row(r.roundProgrammeId)
+      target.awardedThisYear = num(r.thisYear)
+      target.awardedFull = num(r.full)
+    }
+    for (const r of proposedRows) {
+      const target = row(r.roundProgrammeId)
+      const requested = num(r.amountRequested)
+      target.proposedThisYear += resolveFirstYearAmount({
+        amountRequested: requested,
+        firstYearAmount: r.firstYearAmount === null ? null : num(r.firstYearAmount),
+        grantDurationYears: r.grantDurationYears,
+      })
+      target.proposedFull += requested
+    }
   }
   return out
+}
+
+/** The financial year one round-programme's budget belongs to. */
+export async function roundProgrammeYear(
+  db: Db,
+  roundProgrammeId: string,
+  endMonth: number,
+  now?: Date,
+): Promise<FinancialYear> {
+  const [r] = await db
+    .select({
+      financialYearStart: rounds.financialYearStart,
+      openedAt: rounds.openedAt,
+      closedAt: rounds.closedAt,
+    })
+    .from(roundProgrammes)
+    .innerJoin(rounds, eq(rounds.id, roundProgrammes.roundId))
+    .where(eq(roundProgrammes.id, roundProgrammeId))
+    .limit(1)
+  return roundFinancialYear(
+    r ?? { financialYearStart: null, openedAt: null, closedAt: null },
+    endMonth,
+    now,
+  )
 }
 
 /** This year's cash already spent against a round-programme: awarded plus shortlisted. */

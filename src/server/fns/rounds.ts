@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { and, eq, inArray, ne, sql } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applications, awards, roundProgrammes, rounds } from '../../../drizzle/schema'
+import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { SaveRoundSchema } from '../../lib/validators/round'
@@ -108,6 +109,23 @@ export const listRoundDates = createServerFn({ method: 'GET' }).handler(async ()
   })
 })
 
+/**
+ * The foundation's financial year end, as a month.
+ *
+ * Its own tiny fn because the rounds screen needs it only to decide whether a round's
+ * dates straddle a year end — one single-row lookup on a unique index, run in parallel
+ * with the list. Deliberately NOT on `getMe`, which is read on every authenticated call.
+ */
+export const getFinancialYearEndMonth = createServerFn({ method: 'GET' }).handler(async () => {
+  const user = await requireAuthUser()
+  if (!user.clientId) return DEFAULT_FY_END_MONTH
+  const profile = await getDb().query.clientProfiles.findFirst({
+    where: (p, { eq }) => eq(p.clientId, user.clientId!),
+    columns: { financialYearEndMonth: true },
+  })
+  return profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
+})
+
 export const getRound = createServerFn({ method: 'GET' })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }) => {
@@ -180,6 +198,10 @@ export const saveRound = createServerFn({ method: 'POST' })
       name: data.name,
       openedAt: new Date(data.openedAt),
       closedAt: new Date(data.closedAt),
+      // Written on every save, including as NULL: a round dragged back inside one year
+      // must lose the answer it was given while it straddled two, or it would keep
+      // spending a year its dates no longer touch.
+      financialYearStart: data.financialYearStart ?? null,
     }
     if (roundId) {
       await db.update(rounds).set(values).where(eq(rounds.id, roundId))

@@ -6,7 +6,12 @@ import {
   Delete02Icon,
   PencilEdit02Icon,
 } from '@hugeicons/core-free-icons'
-import { listRoundsOverview, getRound, setRoundArchived } from '../../server/fns/rounds'
+import {
+  getFinancialYearEndMonth,
+  getRound,
+  listRoundsOverview,
+  setRoundArchived,
+} from '../../server/fns/rounds'
 import { listProgrammes } from '../../server/fns/programmes'
 import { getRoundStatus, ROUND_STATUS_LABELS, ROUND_STATUS_COLOURS } from '../../lib/roundStatus'
 import { RoundDialog, type RoundDraft } from '../../components/RoundDialog'
@@ -24,8 +29,12 @@ import { fmtDate } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
   loader: async () => {
-    const [rounds, programmes] = await Promise.all([listRoundsOverview(), listProgrammes()])
-    return { rounds, programmes }
+    const [rounds, programmes, financialYearEndMonth] = await Promise.all([
+      listRoundsOverview(),
+      listProgrammes(),
+      getFinancialYearEndMonth(),
+    ])
+    return { rounds, programmes, financialYearEndMonth }
   },
   component: Rounds,
 })
@@ -48,7 +57,7 @@ const money = (n: number) => `£${n.toLocaleString('en-GB')}`
 
 function Rounds() {
   const router = useRouter()
-  const { rounds, programmes } = Route.useLoaderData()
+  const { rounds, programmes, financialYearEndMonth } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
   const canManage = ['superadmin', 'admin'].includes(user.role)
 
@@ -64,7 +73,7 @@ function Rounds() {
 
   function startNewRound() {
     setError('')
-    setDraft({ name: '', openedAt: '', closedAt: '', programmes: [] })
+    setDraft({ name: '', openedAt: '', closedAt: '', financialYearStart: '', programmes: [] })
   }
 
   // The list only carries the figures it displays, so editing fetches the round's own
@@ -80,6 +89,7 @@ function Rounds() {
         name: round.name,
         openedAt: toDateInput(round.openedAt),
         closedAt: toDateInput(round.closedAt),
+        financialYearStart: round.financialYearStart ?? '',
         programmes: round.roundProgrammes.map((rp) => ({
           programmeId: rp.programmeId,
           budget: rp.budget,
@@ -149,6 +159,7 @@ function Rounds() {
         open={draft !== undefined}
         draft={draft}
         programmes={programmes}
+        financialYearEndMonth={financialYearEndMonth}
         onClose={() => setDraft(undefined)}
         onSaved={() => {
           setDraft(undefined)

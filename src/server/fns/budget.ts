@@ -141,13 +141,18 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
         .where(and(eq(programmes.clientId, clientId), isNull(programmes.archivedAt)))
         .orderBy(programmes.name),
 
-      // What the ROUNDS overlapping this year have allocated, per programme.
+      // What the rounds BELONGING TO this year have allocated, per programme.
       //
-      // "Overlapping" rather than "closing in": a round that opened in February and runs
-      // to June is spending both years' money, and a reconciliation that ignored it would
-      // under-report every time. An undated round matches every year — deliberate, since a
-      // foundation that has not dated its rounds still wants to see their allocations, and
-      // this figure is advice on a settings screen rather than a gate on anything.
+      // Each round belongs to exactly one year — the one it closes in, or the one the
+      // foundation picked where it straddles a year end (`rounds.financial_year_start`,
+      // and `roundFinancialYear` is the rule). This used to match every round whose dates
+      // OVERLAPPED the year, which counted a February-to-June round's whole allocation in
+      // both years: a foundation running two such rounds saw its year look fully
+      // allocated on money half of which belonged to the next one.
+      //
+      // The year is resolved in SQL rather than in JS because this is a grouped sum: a
+      // stored start date wins, else the closing date places it, else the opening date,
+      // else it falls to the current year the same way `roundFinancialYear` does.
       db
         .select({
           programmeId: roundProgrammes.programmeId,
@@ -159,8 +164,12 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           and(
             eq(rounds.clientId, clientId),
             isNull(rounds.archivedAt),
-            sql`(${rounds.openedAt} is null or ${rounds.openedAt} < (${fy.end}::date + 1))`,
-            sql`(${rounds.closedAt} is null or ${rounds.closedAt} >= ${fy.start}::date)`,
+            sql`coalesce(
+              ${rounds.financialYearStart}::date,
+              ${rounds.closedAt}::date,
+              ${rounds.openedAt}::date,
+              ${todayIso()}::date
+            ) between ${fy.start}::date and ${fy.end}::date`,
           ),
         )
         .groupBy(roundProgrammes.programmeId),

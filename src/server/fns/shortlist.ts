@@ -10,8 +10,8 @@ import {
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { intersectScope, visibleRoundProgrammeIds } from '../scope'
-import { roundProgrammeSpend } from '../applications/roundSpend'
-import { DEFAULT_FY_END_MONTH, financialYear } from '../../lib/financialYear'
+import { roundProgrammeSpend, roundProgrammeYear } from '../applications/roundSpend'
+import { DEFAULT_FY_END_MONTH, type FinancialYear } from '../../lib/financialYear'
 import { isSuggestedFirstYear, resolveFirstYearAmount } from '../../lib/multiYear'
 
 /**
@@ -72,7 +72,7 @@ export async function shortlistData(
       // Null rather than a default-derived year: there is no budget card to caption when
       // nothing is shortlisted, and inventing a year from the default end month would be
       // stating something about a foundation whose profile was never read.
-      financialYear: null as ReturnType<typeof financialYear> | null,
+      financialYear: null as FinancialYear | null,
     }
     // An empty (non-null) scope is a caller who can see nothing. The guard lives HERE
     // rather than in the handler, unlike the older extractions, because `inArray(x, [])`
@@ -98,19 +98,22 @@ export async function shortlistData(
     // take the first (for a single-client caller it is the only one).
     const clientId = callerClientId ?? clientIds[0]!
 
-    // The financial year the round's budget is being drawn from. Read before the rest
-    // because every cash figure below needs its bounds as parameters — the same reason
-    // `balanceAndBudget` reads the profile first.
+    // The year-end month, read before the rest because every cash figure below needs it —
+    // the same reason `balanceAndBudget` reads the profile first. The YEAR itself is each
+    // round's own (`roundFinancialYear`), not whichever one is current, so a round that
+    // closed last March keeps being metered against last March.
     const fyProfile = await db.query.clientProfiles.findFirst({
       where: (p, { eq }) => eq(p.clientId, clientId),
       columns: { financialYearEndMonth: true },
     })
-    const fy = financialYear(fyProfile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH)
-    const spend = await roundProgrammeSpend(
-      db,
-      [...new Set(items.map((a) => a.roundProgrammeId))],
-      fy,
-    )
+    const endMonth = fyProfile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
+    const roundProgrammeIdsInPlay = [...new Set(items.map((a) => a.roundProgrammeId))]
+    const spend = await roundProgrammeSpend(db, roundProgrammeIdsInPlay, {
+      financialYearEndMonth: endMonth,
+    })
+    // The card's caption names one year. Every application on a shortlist screen is in one
+    // round, so in practice there is one; a superadmin looking across rounds gets the first.
+    const fy = await roundProgrammeYear(db, roundProgrammeIdsInPlay[0]!, endMonth)
 
     const [voteRows, trustees, profile, commentRows] = await Promise.all([
       db

@@ -13,6 +13,15 @@ export const SaveRoundSchema = z
     name: z.string().min(1, 'Give the round a name').max(255),
     openedAt: z.string().min(1, 'Set the date the round opens'),
     closedAt: z.string().min(1, 'Set the date the round closes'),
+    // Which financial year this round's budgets are drawn from, as that year's
+    // `yyyy-mm-dd` start. NULL means derive it from the closing date, which is right for
+    // every round that does not straddle a year end — see `src/lib/roundYear.ts`. The
+    // dialog only offers it when there are two answers.
+    financialYearStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable()
+      .optional(),
     programmes: z.array(
       z.object({
         programmeId: z.uuid(),

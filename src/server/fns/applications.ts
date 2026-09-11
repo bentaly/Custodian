@@ -29,8 +29,9 @@ import {
   clientProfiles,
 } from '../../../drizzle/schema'
 import { searchAny } from '../searchTerm'
-import { roundProgrammeSpend, spentThisYear } from '../applications/roundSpend'
-import { DEFAULT_FY_END_MONTH, financialYear } from '../../lib/financialYear'
+import { roundProgrammeSpend, roundProgrammeYear, spentThisYear } from '../applications/roundSpend'
+import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
+import { roundFinancialYear } from '../../lib/roundYear'
 import { resolveFirstYearAmount, suggestFirstYearAmount } from '../../lib/multiYear'
 import { requireAuthUser, requireRole } from '../session'
 import { canSeePayments } from '../../lib/roles'
@@ -215,7 +216,10 @@ export const getApplication = createServerFn({ method: 'GET' })
       where: (p, { eq }) => eq(p.clientId, application.roundProgramme.programme.clientId),
       columns: { enforceRoundBudget: true, financialYearEndMonth: true },
     })
-    const fy = financialYear(profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH)
+    // The round's OWN year, not whichever is current — a round that closed last March is
+    // still spending last March's allocation.
+    const endMonth = profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
+    const fy = roundFinancialYear(application.roundProgramme.round, endMonth)
 
     // What the round has already spent of this year's budget, on the SAME basis as the
     // shortlist meter and the ceiling in `updateApplicationStatus` — this screen's
@@ -224,8 +228,9 @@ export const getApplication = createServerFn({ method: 'GET' })
     //
     // This application is excluded so the figure means "already spent, apart from this
     // one" whether or not it is itself shortlisted. The screen adds its own drawdown.
-    const spend = await roundProgrammeSpend(getDb(), [application.roundProgrammeId], fy, {
+    const spend = await roundProgrammeSpend(getDb(), [application.roundProgrammeId], {
       excludeApplicationId: application.id,
+      financialYearEndMonth: endMonth,
     })
     const committedThisYear = spentThisYear(spend.get(application.roundProgrammeId))
 
@@ -484,9 +489,11 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
         // screens counted the whole ask and is not safe now they count a year of it: the
         // meter would have said there was room and this would have refused, both
         // behaving as designed. See `roundProgrammeSpend`.
-        const fy = financialYear(profile.financialYearEndMonth ?? DEFAULT_FY_END_MONTH)
-        const spend = await roundProgrammeSpend(getDb(), [app.roundProgrammeId], fy, {
+        const endMonth = profile.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
+        const fy = await roundProgrammeYear(getDb(), app.roundProgrammeId, endMonth)
+        const spend = await roundProgrammeSpend(getDb(), [app.roundProgrammeId], {
           excludeApplicationId: id,
+          financialYearEndMonth: endMonth,
         })
         const committed = spentThisYear(spend.get(app.roundProgrammeId))
 

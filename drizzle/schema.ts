@@ -305,6 +305,20 @@ export const rounds = pgTable(
     name: text('name').notNull(),
     openedAt: timestamp('opened_at'),
     closedAt: timestamp('closed_at'),
+    // Which financial year this round's budgets are drawn from, as that year's inclusive
+    // `yyyy-mm-dd` start date.
+    //
+    // A round budget counts ONE year's cash (`src/lib/multiYear.ts`), so every round has
+    // to belong to exactly one year. Nearly always that is derivable: a round that opens
+    // and closes inside the same year has only one answer. NULL means "derive it", which
+    // is the normal case and is why nothing had to be backfilled.
+    //
+    // A round that STRADDLES a year end genuinely has two answers, and only the
+    // foundation knows which is right — a round opening in February and closing in June
+    // may be spending the old year's underspend or the new year's allocation. So the
+    // round dialog asks, but only then, and stores the answer here.
+    // `roundFinancialYear` (`src/lib/roundYear.ts`) is the single reader.
+    financialYearStart: text('financial_year_start'),
     // Retired, not removed. A round that has applications can never be deleted — its
     // applications and awards are financial records that must keep pointing at the round
     // they were judged in — so "I'm done with this" is expressed by archiving: hidden

@@ -279,6 +279,16 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   sums can disagree, and the failure is a meter saying there is room over a server that refuses.
   Both halves of the meter moved — already-awarded AND shortlisted — and so did the "Budget full"
   courtesy on the application screen.
+- **Every round belongs to exactly ONE financial year** (`src/lib/roundYear.ts`), and its
+  budget is metered against that year rather than whichever is current — otherwise a round's
+  meter drifts every 1 April as instalments fall inside a window that moved on without it.
+  Derived from the year the round CLOSES in (decisions are made at close); `rounds
+  .financial_year_start` stores an answer only where the round STRADDLES a year end and there
+  are genuinely two, which is the one case `RoundDialog` asks about. It is written on every
+  save including as NULL, so a round dragged back inside one year loses a stale answer.
+  `getAnnualBudgetSettings`'s allocation query matches on that year: it used to match every
+  round whose dates OVERLAPPED the year, which counted a February-to-June round's whole
+  allocation in both years.
 - **Bounded at BOTH ends for a round, at the top only for Finance.** A round's allocation is drawn
   on by instalments falling INSIDE its year. The Finance panel's `dueByYearEnd` and the annual
   "already promised" figure have no lower bound, because arrears from last March are still cash
