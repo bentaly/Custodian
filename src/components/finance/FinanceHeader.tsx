@@ -25,13 +25,11 @@ export type FinanceTab = 'payments' | 'balance'
 export function FinanceHeader({
   tab,
   subtitle,
-  showTabs,
   actions,
 }: {
   tab: FinanceTab
   /** The screen's own one-line subtitle, under the title. */
   subtitle?: React.ReactNode
-  showTabs: boolean
   /** This screen's own action, sat immediately left of the tabs — as Shortlist does it. */
   actions?: React.ReactNode
 }) {
@@ -52,7 +50,7 @@ export function FinanceHeader({
 
       <div className="flex flex-wrap items-center gap-3">
         {actions}
-        {showTabs && (
+        {
           <Tabs<FinanceTab>
             ariaLabel="Finance view"
             value={tab}
@@ -65,7 +63,7 @@ export function FinanceHeader({
               navigate({ to: next === 'payments' ? '/finance' : '/finance/balance' })
             }
           />
-        )}
+        }
       </div>
     </div>
   )

@@ -111,17 +111,15 @@ export function BalanceAndBudget({ data }: { data: Data }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Stats balance={balance} budget={budget} outstanding={outstanding} spare={spare} fy={fy} />
-      {budget ? <BudgetPanel budget={budget} spare={spare} fy={fy} /> : <NoBudget />}
-      {/* The cash view sits UNDER the commitment one, not beside it. The commitment
-          figures are the accounts basis and the ones a foundation is asked for; this
-          answers the question that basis cannot — what this year actually has to pay, and
-          what is genuinely free to give. Below rather than above because a reader coming
-          to Finance wants the familiar figure first, and only then the reconciliation.
-          Drawn only when there is a multi-year grant to reconcile: with every grant paid
-          inside its own year the two views are identical, and printing both would be the
-          same numbers twice with two different headings. */}
-      {cash && budget && <CashPanel cash={cash} budget={budget} fy={fy} />}
+      <Stats
+        balance={balance}
+        budget={budget}
+        cash={cash}
+        outstanding={outstanding}
+        spare={spare}
+        fy={fy}
+      />
+      {budget ? <BudgetPanel budget={budget} cash={cash} spare={spare} fy={fy} /> : <NoBudget />}
       {balance && <BalanceNote balance={balance} />}
     </div>
   )
@@ -137,18 +135,25 @@ export function BalanceAndBudget({ data }: { data: Data }) {
 function Stats({
   balance,
   budget,
+  cash,
   outstanding,
   spare,
   fy,
 }: {
   balance: Data['balance']
   budget: Data['budget']
+  cash: Data['cash']
   outstanding: Data['outstanding']
   spare: number | null
   fy: Data['financialYear']
 }) {
+  // The two cash cards only earn their place where a multi-year grant makes cash and
+  // commitment differ. On a portfolio paid inside its own year they would be the annual
+  // budget card restated twice.
+  const showCash =
+    cash !== null && Math.abs((budget?.used ?? 0) - (cash.promised + cash.allocated)) >= 0.005
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {balance && (
         <MiniKpi
           tint={balance.stale ? KPI_TINTS.amber : KPI_TINTS.green}
@@ -174,6 +179,33 @@ function Stats({
           sub={`${fmtMoney(budget.used)} committed${
             budget.total > 0 ? ` · ${Math.round((budget.used / budget.total) * 100)}%` : ''
           }`}
+        />
+      )}
+      {/* What the year actually has to find, and what is left to give out of it — the
+          question the annual budget card above cannot answer, because that one counts
+          whole multi-year commitments. Placed directly after it so the two readings of
+          the same year sit together. */}
+      {showCash && (
+        <MiniKpi
+          tint={KPI_TINTS.amber}
+          icon={Calendar03Icon}
+          label={`Due in ${fy.label}`}
+          value={fmtMoney(cash.promised + cash.allocated)}
+          sub={
+            cash.promised > 0
+              ? `${fmtMoney(cash.promised)} promised before this year`
+              : 'All from decisions made this year'
+          }
+        />
+      )}
+      {showCash && (
+        <MiniKpi
+          tint={KPI_TINTS.green}
+          icon={CoinsPoundIcon}
+          label="Available grant spend"
+          value={fmtMoney(cash.free)}
+          valueColour={cash.free > 0 ? C.success : C.danger}
+          sub={`Of ${fmtMoney(cash.budget)} budgeted, after prior commitments`}
         />
       )}
       {budget && (
@@ -209,13 +241,20 @@ function Stats({
 
 function BudgetPanel({
   budget,
+  cash,
   spare,
   fy,
 }: {
   budget: NonNullable<Data['budget']>
+  cash: Data['cash']
   spare: number | null
   fy: Data['financialYear']
 }) {
+  // Each programme appears ONCE. The commitment figures and the cash figures are two
+  // readings of the same programme's year, and as two panels they made a reader scroll
+  // between two lists to put one programme's numbers together — and read as two different
+  // sets of programmes at a glance.
+  const cashByProgramme = new Map((cash?.lines ?? []).map((l) => [l.programmeId, l]))
   return (
     <Panel label="Annual budget">
       <PanelTitle
@@ -284,6 +323,38 @@ function BudgetPanel({
                     : `${fmtMoney(line.remaining)} unallocated`}
                 </span>
               </div>
+              {/* The same programme's year in CASH, under its year in commitments. The
+                  meter above counts whole multi-year commitments, which is the accounts
+                  basis; this states what actually falls due inside the year, which is what
+                  a round's budget is carved out of. Only where a multi-year grant makes
+                  the two differ — otherwise it would be the same figure with a second
+                  label, on every row. */}
+              {(() => {
+                const c = line.programmeId ? cashByProgramme.get(line.programmeId) : undefined
+                if (!c || Math.abs(line.used - (c.promised + c.allocated)) < 0.005) return null
+                return (
+                  <div
+                    className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t pt-1.5 font-display text-label"
+                    style={{ borderColor: C.line, color: C.faint }}
+                  >
+                    <span>
+                      Due this year: {fmtMoney(c.promised + c.allocated)}
+                      {c.promised > 0 && <> · {fmtMoney(c.promised)} from earlier years</>}
+                      {/* Both figures where a finance lead overrode ours, because a buffer
+                          is a policy decision and should read as one. */}
+                      {c.overridden && (
+                        <span style={{ color: C.amber }}>
+                          {' '}
+                          · stated, vs {fmtMoney(c.promisedDerived)} from the schedules
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ color: c.free > 0 ? C.success : C.faint }}>
+                      {fmtMoney(c.free)} available grant spend
+                    </span>
+                  </div>
+                )
+              })()}
             </div>
           )
         })}
@@ -317,138 +388,6 @@ function BudgetPanel({
  * Provenance rather than decoration: this is a number a board may act on, so who entered
  * it and when it was true belong on screen next to it.
  */
-/**
- * The year on a cash basis: what is already promised, what is free, what has been drawn.
- *
- * ## Why this exists beside the panel above
- *
- * `BudgetPanel` counts DECISIONS at their full multi-year value — a three-year £90,000
- * grant consumes £90,000 of the year it was decided in, which is how charity SORP
- * recognises it and what the signed accounts say. That is right, and it cannot answer the
- * question a foundation asks when it sets a new round's budget: *how much of this year's
- * money is already spoken for, and what is left to give?* Years two and three of last
- * year's grants are not in the accounts figure for this year at all, and they are the
- * first call on this year's cash.
- *
- * So: `promised` is cash owed this year against grants decided in earlier years,
- * `allocated` is cash owed this year against grants decided in this one, and `free` is
- * the budget less the promised — the figure round budgets are carved out of.
- *
- * ## Where a foundation overrode us
- *
- * `promised` is derived from the instalment dates Custodian already holds, so it needs
- * nothing typed to be right. A finance lead can still state their own figure — a
- * contingency buffer, or a grant whose future instalments they treat differently — and
- * where they have, both numbers are printed. An override has to read as a deliberate
- * choice against a figure still on screen, not as a correction to one that vanished.
- */
-function CashPanel({
-  cash,
-  budget,
-  fy,
-}: {
-  cash: NonNullable<Data['cash']>
-  budget: NonNullable<Data['budget']>
-  fy: Data['financialYear']
-}) {
-  // Nothing to reconcile when every grant is paid inside the year it was decided: the two
-  // views agree to the penny and the second heading would be the only new information.
-  const reconciles = Math.abs(budget.used - (cash.promised + cash.allocated)) < 0.005
-  if (cash.lines.length === 0 || reconciles) return null
-
-  return (
-    <Panel label="This year's cash">
-      <PanelTitle>
-        Free to give <span style={{ color: C.faint }}>· {fy.label}</span>
-      </PanelTitle>
-      {/* The one sentence this panel needs, because its figures look like the ones above
-          and count something else. Under the title rather than in it: a title carrying two
-          clauses stops being a title. */}
-      <p className="-mt-1 font-display text-label" style={{ color: C.faint }}>
-        The panel above counts whole commitments, which is the accounts figure. This counts only the
-        instalments falling due inside {fy.label}.
-      </p>
-
-      <div className="flex flex-col gap-3.5">
-        {cash.lines.map((line, i) => {
-          const colour = resolveProgrammeColour(line.colour, i)
-          const over = line.unallocated < 0
-          return (
-            <div key={line.programmeId} className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-2">
-                  <Swatch colour={colour} square />
-                  <span className="truncate font-display text-body" style={{ color: C.body }}>
-                    {line.name}
-                  </span>
-                </span>
-                <span className="shrink-0 font-display text-body font-medium tabular-nums text-grey-900">
-                  {fmtMoney(line.free)}
-                  <span style={{ color: C.faint }}> free of {fmtMoney(line.budget)}</span>
-                </span>
-              </div>
-              {/* The same bar as the budget meter, measuring the other thing: what earlier
-                  years already claim of this programme's allocation, then what this year's
-                  own decisions have drawn on top. */}
-              <Meter
-                paid={line.promised}
-                used={line.promised + line.allocated}
-                total={line.budget}
-                colour={colour}
-                delay={i * 90}
-              />
-              <div
-                className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 font-display text-label"
-                style={{ color: C.faint }}
-              >
-                <span>
-                  {fmtMoney(line.promised)} promised from earlier years
-                  {line.allocated > 0 && <> · {fmtMoney(line.allocated)} drawn this year</>}
-                  {/* Both figures, where they differ. A buffer is a policy decision and
-                      the screen should name it rather than let it surface as a figure that
-                      quietly disagrees with the grants behind it. */}
-                  {line.overridden && (
-                    <span style={{ color: C.amber }}>
-                      {' '}
-                      · stated, vs {fmtMoney(line.promisedDerived)} from the schedules
-                    </span>
-                  )}
-                </span>
-                {over && (
-                  <span style={{ color: C.danger }}>
-                    {fmtMoney(-line.unallocated)} more drawn than was free
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* The reconciliation, stated rather than smoothed over: the two panels count the
-          same decisions on two bases and a reader who adds one up and compares it with the
-          other must find the difference explained. It is not an error — it is the value of
-          the years beyond this one, which is exactly what multi-year giving means. */}
-      <div
-        className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4 font-display text-body"
-        style={{ borderColor: C.line, color: C.sub }}
-      >
-        <span>
-          Committed in {fy.label} across all years
-          <span style={{ color: C.faint }}> · the figure in the panel above</span>
-        </span>
-        <span className="font-medium tabular-nums" style={{ color: C.ink }}>
-          {fmtMoney(budget.used)}
-          <span style={{ color: C.faint }}>
-            {' '}
-            · {fmtMoney(cash.promised + cash.allocated)} falls due this year
-          </span>
-        </span>
-      </div>
-    </Panel>
-  )
-}
-
 function BalanceNote({ balance }: { balance: NonNullable<Data['balance']> }) {
   return (
     <p className="font-display text-label" style={{ color: C.faint }}>

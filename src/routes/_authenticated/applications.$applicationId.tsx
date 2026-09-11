@@ -617,15 +617,28 @@ function ApplicationDetail() {
     }
   }
 
-  // Shortlisting ASKS how much falls in this financial year; un-shortlisting just acts.
-  // The question only has an answer going in — on the way out the figure is cleared, and
-  // a dialog confirming a removal nobody needs confirmed would be friction on the undo.
+  /**
+   * Shortlisting only ASKS how much falls in this year when the answer gates something.
+   *
+   * With the round budget as a target — the default — an estimate that is a little out
+   * makes the shortlist meter a little approximate and blocks nobody, so a dialog in front
+   * of every shortlisting would be a question asked for our benefit rather than theirs.
+   * The figure is still correctable afterwards, from the amount card on this screen.
+   *
+   * With `enforce_round_budget` ON it stops being an estimate: it decides whether this
+   * application can be shortlisted at all, and a foundation refused on a figure nobody was
+   * shown would have no way to see why. So that is exactly when we ask.
+   *
+   * Un-shortlisting never asks. The question has no answer on the way out, the stored
+   * figure is cleared, and a confirmation would be friction on an undo.
+   */
   const handleShortlist = () => {
     if (isShortlisted) {
       return act(setShortlisting, () =>
         updateApplicationStatus({ data: { id: application.id, status: 'for_review' } }),
       )
     }
+    if (!application.enforceRoundBudget) return confirmShortlist(null)
     setFirstYearMode('shortlist')
     setFirstYearOpen(true)
   }

@@ -544,10 +544,20 @@ export function VoteCard({
                   per-year line stays the more useful thing to say. */}
               <div className="font-display text-heading font-medium" style={{ color: C.ink }}>
                 {fmtMoney(multiYear ? firstYear : amount)}
+                {/* "this year" rides WITH the figure rather than captioning it from the
+                    line below. At a glance the eye takes the big number and moves on, and
+                    a qualifier a line down is read as belonging to whatever else is on
+                    that line — here, the total. Trailing rather than leading so the
+                    figures still form a clean right-aligned column down the list. */}
+                {multiYear && (
+                  <span className="ml-1.5 text-label font-normal" style={{ color: C.sub }}>
+                    this year
+                  </span>
+                )}
               </div>
               <div className="font-display text-label" style={{ color: C.faint }}>
                 {multiYear
-                  ? `this year · ${fmtMoney(amount)} ${
+                  ? `${fmtMoney(amount)} ${
                       years && years > 1 ? `over ${years} years` : 'total commitment'
                     }`
                   : (fmtPerYear(amount, years) ?? 'requested')}

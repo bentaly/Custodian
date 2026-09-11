@@ -259,6 +259,12 @@ rule; every figure in the round chain is cash, and the accounts total is the one
 - **`annual_budget_lines.carried_commitment`** is the "already promised" override. NULL means use
   the figure DERIVED from instalment dates — the normal case, and the whole point. A budget is a
   decision and is stated; money already promised under signed agreements is a fact and is derived.
+- **The shortlist dialog only opens when `enforce_round_budget` is ON.** With the budget as a
+  target — the default — an estimate that is slightly out makes the meter slightly approximate and
+  blocks nobody, so asking would be a question for our benefit. With the ceiling on, the figure
+  decides whether an application can be shortlisted at all, and being refused on a number nobody
+  was shown is the worst version of this screen. Either way it stays correctable afterwards, from
+  the amount card on the application.
 - **`applications.first_year_amount`** is the one new stored number, and it is stated because
   **at shortlist there is no schedule to divide**: start date, instalment count and cadence are all
   set later in award set-up. Dividing the ask by `grant_duration_years` is the SUGGESTION and is
@@ -794,9 +800,14 @@ Structural decisions worth knowing before adding a screen:
   To pay / Paid pair inside the grants card is a FILTER over one list, and the two must not be
   confused. Balance & budget started as a collapsible panel above the payments table, which put a
   quarterly question (can we cover what we promised?) permanently on top of a daily one and pushed
-  the grants table ~900px down. The tab pair is hidden entirely when
-  `client_profiles.show_balance_and_budget` is false — **a visibility switch that touches no data**,
-  because the only alternative on offer was "delete your budget to hide it".
+  the grants table ~900px down. **Both tabs are always offered.** There was a visibility switch
+  (`client_profiles.show_balance_and_budget`), removed 2026-09-11 along with `getFinanceNav` and
+  `setBalanceAndBudgetVisible`: absence is the setting, since a foundation that records no balance
+  and sets no budget already sees an empty state. The COLUMN survives, unread, until a later push
+  drops it — CLAUDE.md's expand/contract rule.
+- **Balance & budget lists each programme ONCE**, with the commitment figures and the cash figures
+  on the same row. They were two panels and a reader had to scroll between two lists to put one
+  programme's year together — and at a glance they read as two different sets of programmes.
 - **Shortlist is two routes wearing one header** (`components/shortlist/ShortlistHeader`) — To vote
   / Set up awards. The tabs are NAVIGATION, not a filter. A screen's own action goes through
   `actions`, immediately LEFT of the tabs — the right-hand cluster reads outwards, this screen's

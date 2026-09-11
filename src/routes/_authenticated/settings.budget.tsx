@@ -6,7 +6,6 @@ import {
   getAnnualBudgetSettings,
   saveAnnualBudget,
   saveFinancialYearEndMonth,
-  setBalanceAndBudgetVisible,
 } from '../../server/fns/budget'
 import {
   Button,
@@ -18,7 +17,6 @@ import {
   PanelTitle,
   Select,
   TOKENS as C,
-  Toggle,
 } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
 import { canSeePayments } from '../../lib/roles'
@@ -85,6 +83,16 @@ type Row = {
   promised: string
 }
 
+/**
+ * The shared column template for the budget list: name, the two money fields, the remove
+ * button's slot. One constant so the header cannot drift out of line with the rows —
+ * a programme row has no remove button and a core-cost row does, which is exactly the
+ * kind of difference a hand-matched flex layout gets wrong.
+ *
+ * One column at phone width, where the fields stack and each carries its own label.
+ */
+const BUDGET_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_9rem_2.25rem]'
+
 let coreKey = 0
 const newCoreRow = (label = 'Core costs'): Row => ({
   key: `core-${coreKey++}`,
@@ -123,7 +131,6 @@ function AnnualBudget() {
 
   const [rows, setRows] = useState<Row[]>(initialRows)
   const [endMonth, setEndMonth] = useState(data.financialYearEndMonth)
-  const [visible, setVisible] = useState(data.showBalanceAndBudget)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -191,6 +198,9 @@ function AnnualBudget() {
   const coreCosts = rows.filter((r) => !r.programmeId).reduce((s, r) => s + amount(r), 0)
   const grantMaking = total - coreCosts
   const allocatedInRounds = data.roundAllocations.reduce((s, a) => s + a.allocated, 0)
+  // Prior commitments across every programme line — the stated figure where there is one,
+  // else the one derived from the instalment dates.
+  const promisedTotal = rows.filter((r) => r.programmeId).reduce((s, r) => s + promisedOf(r), 0)
 
   const patch = (key: string, next: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...next } : r)))
@@ -217,18 +227,6 @@ function AnnualBudget() {
    * entering. A visibility preference cannot contradict the data, because it makes no
    * claim about it.
    */
-  async function handleVisibility(next: boolean) {
-    setVisible(next)
-    setError('')
-    try {
-      await setBalanceAndBudgetVisible({ data: { visible: next } })
-      await router.invalidate()
-    } catch (e) {
-      setError(messageFor(e))
-      setVisible(!next)
-    }
-  }
-
   async function handleSaveYearEnd(month: number) {
     setEndMonth(month)
     setError('')
@@ -291,243 +289,243 @@ function AnnualBudget() {
       title="Annual budget"
       description="What your organisation plans to give away this financial year, by programme, plus the cost of running it. Finance shows your commitments against these figures."
     >
-      <Panel label="Tracking">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-              Track a budget and bank balance
-            </p>
-            <p className="mt-1 font-display text-body" style={{ color: C.sub }}>
-              Adds a <span className="font-medium">Balance &amp; budget</span> screen to Finance.
-              Turning this off hides it and everything below — your figures are kept, and come back
-              exactly as they were.
-            </p>
+      <Panel label="Financial year">
+        <PanelTitle>Financial year</PanelTitle>
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="w-full sm:w-64">
+            <Label htmlFor="fy-end">Our financial year ends in</Label>
+            <Select
+              id="fy-end"
+              value={String(endMonth)}
+              options={MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }))}
+              onChange={(v) => handleSaveYearEnd(Number(v))}
+            />
           </div>
-          <Toggle
-            checked={visible}
-            onChange={handleVisibility}
-            label="Track a budget and bank balance"
-          />
+          <p className="font-display text-body" style={{ color: C.sub }}>
+            This year runs {financialYearRange(data.financialYear)}.
+          </p>
         </div>
-        <ErrorNote error={error} className="mt-3" />
+        {/* Saying this plainly is cheaper than the support email: a foundation that
+            changes its year end will otherwise assume last year's figures moved with it. */}
+        <p className="mt-3 font-display text-label" style={{ color: C.faint }}>
+          Budgets already saved keep the year they were set for — changing this only affects how
+          future years are worked out.
+        </p>
       </Panel>
 
-      {!visible ? null : (
-        <>
-          <Panel label="Financial year">
-            <PanelTitle>Financial year</PanelTitle>
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="w-full sm:w-64">
-                <Label htmlFor="fy-end">Our financial year ends in</Label>
-                <Select
-                  id="fy-end"
-                  value={String(endMonth)}
-                  options={MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }))}
-                  onChange={(v) => handleSaveYearEnd(Number(v))}
-                />
-              </div>
-              <p className="font-display text-body" style={{ color: C.sub }}>
-                This year runs {financialYearRange(data.financialYear)}.
-              </p>
-            </div>
-            {/* Saying this plainly is cheaper than the support email: a foundation that
-            changes its year end will otherwise assume last year's figures moved with it. */}
-            <p className="mt-3 font-display text-label" style={{ color: C.faint }}>
-              Budgets already saved keep the year they were set for — changing this only affects how
-              future years are worked out.
-            </p>
-          </Panel>
-
-          <Panel label={`Budget for ${data.financialYear.label}`}>
-            <PanelTitle
-              right={
-                allocatedInRounds > 0 && (
-                  <Button variant="text" size="sm" onClick={useRoundAllocations}>
-                    Use round allocations
-                  </Button>
-                )
-              }
-            >
-              Budget for {data.financialYear.label}
-            </PanelTitle>
-            {/* Two money fields on a row need naming, and the names belong over the
-                columns rather than inside each field: repeated per row they would be
-                twenty labels saying the same two things. Hidden below `sm`, where the
-                fields stack and each one's own accessible label is what reads. */}
-            <div className="hidden items-end gap-3 sm:flex">
-              <div className="min-w-0 flex-1" />
-              <span className="w-36 shrink-0 font-display text-label" style={{ color: C.faint }}>
-                Budget
-              </span>
-              <span className="w-36 shrink-0 font-display text-label" style={{ color: C.faint }}>
-                Already promised
-              </span>
-              <span className="w-9 shrink-0" />
-            </div>
-            <div className="flex flex-col gap-3">
-              {rows.map((row, i) => {
-                const allocated = row.programmeId
-                  ? allocatedByProgramme.get(row.programmeId)
-                  : undefined
-                const derived = row.programmeId
-                  ? (promisedByProgramme.get(row.programmeId) ?? 0)
-                  : 0
-                const overridden = promisedOverride(row) !== null
-                return (
-                  <div key={row.key} className="flex flex-wrap items-end gap-3 sm:flex-nowrap">
-                    <div className="min-w-0 flex-1">
-                      {row.programmeId ? (
-                        <div className="flex items-center gap-2">
-                          <span
-                            aria-hidden="true"
-                            className="h-2 w-2 shrink-0 rounded-[2px]"
-                            style={{ backgroundColor: resolveProgrammeColour(row.colour, i) }}
-                          />
-                          <span className="truncate font-display text-body text-grey-900">
-                            {row.label}
-                          </span>
-                        </div>
-                      ) : (
-                        <Input
-                          value={row.label}
-                          aria-label="Name of this cost line"
-                          placeholder="Core costs"
-                          maxLength={80}
-                          onChange={(e) => patch(row.key, { label: e.target.value })}
-                        />
-                      )}
-                      {/* The pair this screen exists to state: what is genuinely free to
+      <Panel label={`Budget for ${data.financialYear.label}`}>
+        <PanelTitle
+          right={
+            allocatedInRounds > 0 && (
+              <Button variant="text" size="sm" onClick={useRoundAllocations}>
+                Use round allocations
+              </Button>
+            )
+          }
+        >
+          Budget for {data.financialYear.label}
+        </PanelTitle>
+        {/* Two money fields on a row need naming, and the names belong over the columns
+            rather than inside each field: repeated per row they would be twenty labels
+            saying the same two things. Hidden below `sm`, where the fields stack and each
+            one's own accessible label is what reads.
+            Header and rows share ONE grid template (`BUDGET_GRID`) rather than matching
+            widths by hand — flex with a `w-36` on each side drifted, because only the
+            core-cost rows carry a remove button and the programme rows were pulled right
+            by its absence. */}
+        <div className={`${BUDGET_GRID} hidden items-end sm:grid`}>
+          <span />
+          <span className="font-display text-label" style={{ color: C.faint }}>
+            Available budget
+          </span>
+          <span className="font-display text-label" style={{ color: C.faint }}>
+            Prior commitment total
+          </span>
+          <span />
+        </div>
+        <div className="flex flex-col gap-3">
+          {rows.map((row, i) => {
+            const allocated = row.programmeId
+              ? allocatedByProgramme.get(row.programmeId)
+              : undefined
+            const derived = row.programmeId ? (promisedByProgramme.get(row.programmeId) ?? 0) : 0
+            const overridden = promisedOverride(row) !== null
+            return (
+              <div key={row.key} className="flex flex-wrap items-end gap-3 sm:flex-nowrap">
+                <div className="min-w-0 flex-1">
+                  {row.programmeId ? (
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="h-2 w-2 shrink-0 rounded-[2px]"
+                        style={{ backgroundColor: resolveProgrammeColour(row.colour, i) }}
+                      />
+                      <span className="truncate font-display text-body text-grey-900">
+                        {row.label}
+                      </span>
+                    </div>
+                  ) : (
+                    <Input
+                      value={row.label}
+                      aria-label="Name of this cost line"
+                      placeholder="Core costs"
+                      maxLength={80}
+                      onChange={(e) => patch(row.key, { label: e.target.value })}
+                    />
+                  )}
+                  {/* The pair this screen exists to state: what is genuinely free to
                           give this year, and how much of that the rounds have taken. The
                           derived figure stays visible next to an override rather than
                           being replaced by it, so a buffer reads as a deliberate choice.
                           Only for programme rows — core costs have no grants behind them,
                           so nothing carries forward and no round allocates to them. */}
-                      {row.programmeId && amount(row) > 0 && (
-                        <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-                          <span style={{ color: C.sub }}>{fmtMoney(freeOf(row))} free to give</span>
-                          {allocated !== undefined && allocated > 0 && (
-                            <> · {fmtMoney(allocated)} allocated to rounds</>
-                          )}
-                          {overridden && <> · derived figure {fmtMoney(derived)}</>}
-                        </p>
+                  {row.programmeId && amount(row) > 0 && (
+                    <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+                      <span style={{ color: C.sub }}>
+                        {fmtMoney(freeOf(row))} available to award
+                      </span>
+                      {/* What the rounds have taken of it. Over it is the thing this screen
+                          exists to catch — the rounds between them promising more than the
+                          year has free — so it is said in words and in red rather than left
+                          for the reader to subtract. */}
+                      {allocated !== undefined && allocated > 0 && (
+                        <>
+                          {' · '}
+                          <span style={{ color: allocated > freeOf(row) ? C.danger : C.faint }}>
+                            {fmtMoney(allocated)} allocated to rounds
+                            {allocated > freeOf(row) &&
+                              ` — ${fmtMoney(allocated - freeOf(row))} over`}
+                          </span>
+                        </>
                       )}
-                      {!row.programmeId && allocated !== undefined && (
-                        <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-                          {fmtMoney(allocated)} allocated across this year&rsquo;s rounds
-                        </p>
-                      )}
-                    </div>
+                      {overridden && <> · {fmtMoney(derived)} from the schedules</>}
+                    </p>
+                  )}
+                  {!row.programmeId && allocated !== undefined && (
+                    <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+                      {fmtMoney(allocated)} allocated across this year&rsquo;s rounds
+                    </p>
+                  )}
+                </div>
 
-                    <MoneyInput
-                      className="w-36 shrink-0"
-                      value={row.amount}
-                      label={`Budget for ${row.label || 'this line'}`}
-                      placeholder="Not budgeted"
-                      onChange={(v) => {
-                        patch(row.key, { amount: v })
-                        setSaved(false)
-                      }}
-                    />
+                <MoneyInput
+                  className="w-36 shrink-0"
+                  value={row.amount}
+                  label={`Budget for ${row.label || 'this line'}`}
+                  placeholder="Not budgeted"
+                  onChange={(v) => {
+                    patch(row.key, { amount: v })
+                    setSaved(false)
+                  }}
+                />
 
-                    {/* Empty is not zero: it means "your figure is right", and the derived
+                {/* Empty is not zero: it means "your figure is right", and the derived
                         one shows as the placeholder so the field reads as pre-answered
                         rather than as one more thing to fill in. A core-costs line gets a
                         spacer instead, keeping the Budget column aligned down the list. */}
-                    {row.programmeId ? (
-                      <MoneyInput
-                        className="w-36 shrink-0"
-                        value={row.promised}
-                        label={`Already promised this year for ${row.label || 'this programme'}`}
-                        placeholder={derived > 0 ? String(derived) : '0'}
-                        onChange={(v) => {
-                          patch(row.key, { promised: v })
-                          setSaved(false)
-                        }}
-                      />
-                    ) : (
-                      <span className="hidden w-36 shrink-0 sm:block" />
-                    )}
+                {row.programmeId ? (
+                  <MoneyInput
+                    className="w-36 shrink-0"
+                    value={row.promised}
+                    label={`Already promised this year for ${row.label || 'this programme'}`}
+                    placeholder={derived > 0 ? String(derived) : '0'}
+                    onChange={(v) => {
+                      patch(row.key, { promised: v })
+                      setSaved(false)
+                    }}
+                  />
+                ) : (
+                  <span className="hidden w-36 shrink-0 sm:block" />
+                )}
 
-                    {/* Only the non-grant lines can be removed. A programme row is not the
+                {/* Only the non-grant lines can be removed. A programme row is not the
                     foundation's to delete here — it is deleted by archiving the
                     programme, and an empty amount already says "nothing this year". */}
-                    <button
-                      type="button"
-                      onClick={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
-                      aria-label={`Remove ${row.label || 'this line'}`}
-                      disabled={!!row.programmeId}
-                      className="mb-2 flex shrink-0 rounded-full p-1 text-danger transition-opacity hover:opacity-70 disabled:invisible"
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} size={20} color="currentColor" />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
+                  aria-label={`Remove ${row.label || 'this line'}`}
+                  disabled={!!row.programmeId}
+                  className="mb-2 flex shrink-0 rounded-full p-1 text-danger transition-opacity hover:opacity-70 disabled:invisible"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={20} color="currentColor" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
 
-            <Button
-              variant="text"
-              size="sm"
-              className="mt-3"
-              onClick={() => setRows((rs) => [...rs, newCoreRow('')])}
-            >
-              <HugeiconsIcon icon={Add01Icon} size={16} color="currentColor" />
-              Add a cost line
-            </Button>
+        <Button
+          variant="text"
+          size="sm"
+          className="mt-3"
+          onClick={() => setRows((rs) => [...rs, newCoreRow('')])}
+        >
+          <HugeiconsIcon icon={Add01Icon} size={16} color="currentColor" />
+          Add a cost line
+        </Button>
 
-            {data.programmes.length === 0 && (
-              <p className="mt-3 font-display text-body" style={{ color: C.faint }}>
-                You have no programmes yet. Add them first and their budgets will appear here.
-              </p>
-            )}
-          </Panel>
+        {data.programmes.length === 0 && (
+          <p className="mt-3 font-display text-body" style={{ color: C.faint }}>
+            You have no programmes yet. Add them first and their budgets will appear here.
+          </p>
+        )}
+      </Panel>
 
-          <Panel label="Check">
-            <PanelTitle>Check</PanelTitle>
-            <dl className="flex flex-col gap-2">
-              <CheckRow label="Grant-making budget" value={fmtMoney(grantMaking)} />
-              <CheckRow label="Core costs" value={fmtMoney(coreCosts)} />
-              <CheckRow label="Total annual budget" value={fmtMoney(total)} strong />
-            </dl>
+      <Panel label="Check">
+        <PanelTitle>Check</PanelTitle>
+        <dl className="flex flex-col gap-2">
+          {/* The grant-making figure split into the two things it is actually made of. One
+              line reading "Grant-making budget" hid that part of it is already spoken for
+              before a single round opens. */}
+          <CheckRow
+            label={`Available grant-making budget for ${data.financialYear.label}`}
+            value={fmtMoney(grantMaking)}
+          />
+          <CheckRow
+            label={`Prior grant commitments to be paid in ${data.financialYear.label}`}
+            value={fmtMoney(promisedTotal)}
+          />
+          <CheckRow label="Core costs" value={fmtMoney(coreCosts)} />
+          <CheckRow label="Total annual budget" value={fmtMoney(total)} strong />
+        </dl>
 
-            {/* The check that cannot exist without an annual figure to check against. */}
-            <div className="mt-4 border-t pt-4" style={{ borderColor: C.line }}>
-              <Reconciliation grantMaking={grantMaking} allocated={allocatedInRounds} />
-            </div>
+        {/* The check that cannot exist without an annual figure to check against. */}
+        <div className="mt-4 border-t pt-4" style={{ borderColor: C.line }}>
+          <Reconciliation grantMaking={grantMaking} allocated={allocatedInRounds} />
+        </div>
 
-            {preview.lines.length > 0 && (
-              <p className="mt-3 font-display text-label" style={{ color: C.faint }}>
-                {preview.lines.length} line{preview.lines.length === 1 ? '' : 's'} will be saved.
-                Lines left blank are not saved.
-              </p>
-            )}
+        {preview.lines.length > 0 && (
+          <p className="mt-3 font-display text-label" style={{ color: C.faint }}>
+            {preview.lines.length} line{preview.lines.length === 1 ? '' : 's'} will be saved. Lines
+            left blank are not saved.
+          </p>
+        )}
 
-            {removing && (
-              <p className="mt-3 font-display text-body" style={{ color: C.sub }}>
-                Every amount is blank, so saving will remove this year&rsquo;s budget. Finance will
-                stop showing commitments against it.
-              </p>
-            )}
-            <ErrorNote error={error} className="mt-3" />
-            <Button
-              onClick={handleSave}
-              disabled={saving || !dirty}
-              variant={removing ? 'danger' : 'primary'}
-              className="mt-3"
-            >
-              {saving
-                ? removing
-                  ? 'Removing…'
-                  : 'Saving…'
-                : saved
-                  ? 'Saved'
-                  : removing
-                    ? 'Remove budget'
-                    : 'Save budget'}
-            </Button>
-          </Panel>
-        </>
-      )}
+        {removing && (
+          <p className="mt-3 font-display text-body" style={{ color: C.sub }}>
+            Every amount is blank, so saving will remove this year&rsquo;s budget. Finance will stop
+            showing commitments against it.
+          </p>
+        )}
+        <ErrorNote error={error} className="mt-3" />
+        <Button
+          onClick={handleSave}
+          disabled={saving || !dirty}
+          variant={removing ? 'danger' : 'primary'}
+          className="mt-3"
+        >
+          {saving
+            ? removing
+              ? 'Removing…'
+              : 'Saving…'
+            : saved
+              ? 'Saved'
+              : removing
+                ? 'Remove budget'
+                : 'Save budget'}
+        </Button>
+      </Panel>
     </SettingsPage>
   )
 }

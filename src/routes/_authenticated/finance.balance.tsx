@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
-import { getBalanceAndBudget, getFinanceNav } from '../../server/fns/budget'
+import { getBalanceAndBudget } from '../../server/fns/budget'
 import { BalanceAndBudget } from '../../components/finance/BalanceAndBudget'
 import { BankBalanceDialog } from '../../components/finance/BankBalanceDialog'
 import { FinanceHeader } from '../../components/finance/FinanceHeader'
@@ -24,8 +24,6 @@ export const Route = createFileRoute('/_authenticated/finance/balance')({
   // tab is gone, so the only ways here are a stale link or a bookmark, and both should
   // land on the screen Finance actually offers.
   loader: async () => {
-    const nav = await getFinanceNav()
-    if (!nav.showBalanceAndBudget) throw redirect({ to: '/finance' })
     return { data: await getBalanceAndBudget() }
   },
   component: BalancePage,
@@ -41,7 +39,6 @@ function BalancePage() {
       <FinanceHeader
         tab="balance"
         subtitle={data ? `Financial year ${data.financialYear.label}` : undefined}
-        showTabs
         actions={
           <Button variant="secondary" size="sm" onClick={() => setDialogOpen(true)}>
             {data?.balance ? 'Update balance' : 'Record balance'}

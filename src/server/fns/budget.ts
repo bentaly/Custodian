@@ -41,14 +41,14 @@ import { todayIso } from '../../lib/schedule'
  *
  * ## Neither is required, and each works without the other
  *
- * There is deliberately no enable/disable switch. Not every foundation wants this: a
- * family office may draw grant money from the principal's balance sheet on demand and
- * have no standing balance to record, and an endowed foundation's meaningful number is a
- * portfolio held elsewhere — showing a small current-account float against a year of
- * commitments would read as a crisis that is not happening. For all of them the answer
- * is the same: record nothing and the panel does not appear. Absence IS the setting, so
- * there is no flag to get out of step with the data, and the two halves stay independent
- * so a foundation that wants budget tracking and has no useful balance gets exactly that.
+ * There is no enable/disable switch, and the `show_balance_and_budget` column that once
+ * held one is no longer read. Not every foundation wants this: a family office may draw
+ * grant money from the principal's balance sheet on demand and have no standing balance
+ * to record, and an endowed foundation's meaningful number is a portfolio held elsewhere.
+ * For all of them the answer is the same: record nothing and the panel does not appear.
+ * **Absence IS the setting**, so there is no flag to get out of step with the data, and
+ * the two halves stay independent — a foundation that wants budget tracking and has no
+ * useful balance gets exactly that.
  *
  * ## Access
  *
@@ -88,47 +88,6 @@ export const getBalanceAndBudget = createServerFn({ method: 'GET' }).handler(asy
 })
 
 /**
- * Whether Finance offers its second screen — all the payments list needs to draw the tabs.
- *
- * Its own tiny fn rather than a field on `listFinanceGrants`: that one is built from a
- * round-programme scope and knows nothing of `clientId`, and this is a single-row lookup
- * on a unique index that runs in parallel with it. It is deliberately NOT on `getMe`,
- * which is read on every authenticated call — the same reason avatars were moved off the
- * `users` row.
- */
-export const getFinanceNav = createServerFn({ method: 'GET' }).handler(async () => {
-  const user = await requireRole(...MONEY_ROLES)
-  if (!user.clientId) return { showBalanceAndBudget: false }
-  const profile = await getDb().query.clientProfiles.findFirst({
-    where: (p, { eq: e }) => e(p.clientId, user.clientId!),
-    columns: { showBalanceAndBudget: true },
-  })
-  return { showBalanceAndBudget: profile?.showBalanceAndBudget ?? true }
-})
-
-/**
- * Show or hide the Balance & budget screen.
- *
- * Writes nothing but the flag. Hiding must never be a way to lose figures somebody spent
- * an afternoon entering — that was the first cut's mistake, where the only way back to
- * "we don't work like this" was clearing every line.
- */
-export const setBalanceAndBudgetVisible = createServerFn({ method: 'POST' })
-  .validator(z.object({ visible: z.boolean() }))
-  .handler(async ({ data }) => {
-    const user = await requireRole(...MONEY_ROLES)
-    if (!user.clientId) throw forbidden('No organisation is associated with your account.')
-    await getDb()
-      .insert(clientProfiles)
-      .values({ clientId: user.clientId, showBalanceAndBudget: data.visible })
-      .onConflictDoUpdate({
-        target: clientProfiles.clientId,
-        set: { showBalanceAndBudget: data.visible, updatedAt: new Date() },
-      })
-    return { ok: true as const, visible: data.visible }
-  })
-
-/**
  * Everything the Settings → Annual budget screen draws.
  *
  * Three things beyond the budget itself: the programmes to offer as lines, the year-end
@@ -153,7 +112,7 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
 
     const profile = await db.query.clientProfiles.findFirst({
       where: (p, { eq: e }) => e(p.clientId, clientId),
-      columns: { financialYearEndMonth: true, showBalanceAndBudget: true },
+      columns: { financialYearEndMonth: true },
     })
     const endMonth = profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
     const offset = data?.yearOffset ?? 0
@@ -246,7 +205,6 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
     return {
       financialYear: fy,
       financialYearEndMonth: endMonth,
-      showBalanceAndBudget: profile?.showBalanceAndBudget ?? true,
       yearOffset: offset,
       exists: budgetRows.length > 0,
       label: existing?.label ?? fy.label,
