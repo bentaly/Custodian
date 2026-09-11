@@ -152,8 +152,20 @@ function Stats({
   // budget card restated twice.
   const showCash =
     cash !== null && Math.abs((budget?.used ?? 0) - (cash.promised + cash.allocated)) >= 0.005
+
+  /**
+   * The widest row that divides the cards evenly, so the last row is never a short one.
+   *
+   * The count varies from one to six with what the foundation has recorded, and a fixed
+   * four-across left six cards as a row of four and a row of two — which reads as a card
+   * missing rather than as a grid. Three across gives six two clean rows of three, and
+   * four across gives four a single row.
+   */
+  const count = (balance ? 2 : 0) + (budget ? 2 : 0) + (showCash ? 2 : 0)
+  const wide =
+    count % 4 === 0 ? 'xl:grid-cols-4' : count % 3 === 0 ? 'xl:grid-cols-3' : 'xl:grid-cols-2'
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className={`grid gap-3 sm:grid-cols-2 ${wide}`}>
       {balance && (
         <MiniKpi
           tint={balance.stale ? KPI_TINTS.amber : KPI_TINTS.green}

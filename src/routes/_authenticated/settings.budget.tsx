@@ -351,7 +351,7 @@ function AnnualBudget() {
             const derived = row.programmeId ? (promisedByProgramme.get(row.programmeId) ?? 0) : 0
             const overridden = promisedOverride(row) !== null
             return (
-              <div key={row.key} className="flex flex-wrap items-end gap-3 sm:flex-nowrap">
+              <div key={row.key} className={`${BUDGET_GRID} items-end`}>
                 <div className="min-w-0 flex-1">
                   {row.programmeId ? (
                     <div className="flex items-center gap-2">
@@ -409,9 +409,8 @@ function AnnualBudget() {
                 </div>
 
                 <MoneyInput
-                  className="w-36 shrink-0"
                   value={row.amount}
-                  label={`Budget for ${row.label || 'this line'}`}
+                  label={`Available budget for ${row.label || 'this line'}`}
                   placeholder="Not budgeted"
                   onChange={(v) => {
                     patch(row.key, { amount: v })
@@ -425,9 +424,8 @@ function AnnualBudget() {
                         spacer instead, keeping the Budget column aligned down the list. */}
                 {row.programmeId ? (
                   <MoneyInput
-                    className="w-36 shrink-0"
                     value={row.promised}
-                    label={`Already promised this year for ${row.label || 'this programme'}`}
+                    label={`Prior commitments to be paid this year for ${row.label || 'this programme'}`}
                     placeholder={derived > 0 ? String(derived) : '0'}
                     onChange={(v) => {
                       patch(row.key, { promised: v })
@@ -435,7 +433,7 @@ function AnnualBudget() {
                     }}
                   />
                 ) : (
-                  <span className="hidden w-36 shrink-0 sm:block" />
+                  <span />
                 )}
 
                 {/* Only the non-grant lines can be removed. A programme row is not the
