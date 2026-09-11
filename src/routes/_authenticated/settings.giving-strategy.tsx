@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { getClientProfile, upsertClientProfile } from '../../server/fns/clients'
-import { Button, ErrorNote, Panel } from '../../components/ui'
+import { Button, ErrorNote, Panel, UnsavedChangesGuard } from '../../components/ui'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { SettingsPage } from '../../components/SettingsPage'
 
@@ -18,9 +18,16 @@ function GivingStrategy() {
   const { profile } = Route.useLoaderData()
   const initial = profile?.missionStatement ?? ''
   const [markdown, setMarkdown] = useState(initial)
+  // What is actually stored, as far as this screen knows. Moved forward on a successful
+  // save rather than being read from the loader, which is not re-run here: without it the
+  // Save button stayed lit after saving, and the unsaved-changes guard would have gone on
+  // warning about work that was safely written.
+  const [baseline, setBaseline] = useState(initial)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+
+  const dirty = markdown !== baseline
 
   async function handleSave() {
     setSaving(true)
@@ -28,6 +35,7 @@ function GivingStrategy() {
     setSaved(false)
     try {
       await upsertClientProfile({ data: { missionStatement: markdown } })
+      setBaseline(markdown)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {
@@ -47,10 +55,11 @@ function GivingStrategy() {
       <Panel label="Giving strategy">
         <RichTextEditor defaultValue={initial} onChange={setMarkdown} minHeight="240px" headings />
         <ErrorNote error={error} className="mt-3" />
-        <Button onClick={handleSave} disabled={saving || markdown === initial} className="mt-3">
+        <Button onClick={handleSave} disabled={saving || !dirty} className="mt-3">
           {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
         </Button>
       </Panel>
+      <UnsavedChangesGuard dirty={dirty} what="your giving strategy" />
     </SettingsPage>
   )
 }

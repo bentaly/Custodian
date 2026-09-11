@@ -15,7 +15,7 @@ import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { useRemembered } from '../../lib/useRemembered'
 import { getAwardLetterSettings, updateAwardLetterSettings } from '../../server/fns/awardSetup'
 import { AwardLetterPreview } from '../AwardLetterPreview'
-import { Button, Input, Label, Panel, PanelTitle, Textarea } from '../ui'
+import { Button, Input, Label, Panel, PanelTitle, Textarea, UnsavedChangesGuard } from '../ui'
 import { SettingsSaveBar } from './SettingsSaveBar'
 import { C } from '../ui/tokens'
 import {
@@ -308,6 +308,7 @@ export function AwardLetterForm({ settings }: { settings: AwardLetterSettings })
         dirty={dirty}
         error={error}
       />
+      <UnsavedChangesGuard dirty={dirty} what="your award letter template" />
     </div>
   )
 }

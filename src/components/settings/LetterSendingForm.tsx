@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { updateAwardLetterSettings } from '../../server/fns/awardSetup'
-import { Button, ErrorNote, Input, Label, Panel, PanelTitle } from '../ui'
+import { Button, ErrorNote, Input, Label, Panel, PanelTitle, UnsavedChangesGuard } from '../ui'
 import { C } from '../ui/tokens'
 
 const hintClass = 'mt-1.5 font-display text-label text-grey-500'
@@ -112,6 +112,7 @@ export function LetterSendingForm({
       <div className="mt-3">
         <ErrorNote error={error} />
       </div>
+      <UnsavedChangesGuard dirty={dirty} what="your sender name and reply-to address" />
     </Panel>
   )
 }

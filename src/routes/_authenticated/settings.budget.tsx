@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute, redirect, useBlocker, useRouter } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
@@ -14,7 +14,6 @@ import {
 } from '../../server/fns/budget'
 import {
   Button,
-  ConfirmDialog,
   ErrorNote,
   Input,
   Label,
@@ -23,6 +22,7 @@ import {
   PanelTitle,
   Select,
   TOKENS as C,
+  UnsavedChangesGuard,
 } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
 import { canSeePayments } from '../../lib/roles'
@@ -246,23 +246,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   // Prior commitments across every programme line — the stated figure where there is one,
   // else the one derived from the instalment dates.
   const promisedTotal = rows.filter((r) => r.programmeId).reduce((s, r) => s + promisedOf(r), 0)
-
-  /**
-   * Leaving the screen with unsaved figures.
-   *
-   * The year arrows disable while dirty, which covers stepping between years and nothing
-   * else — the sidebar, a breadcrumb and the browser's own back button all still walked
-   * away and dropped an afternoon's typing without a word. This is the rest of that guard.
-   *
-   * A dialog rather than a disabled control, because unlike the arrows there is no single
-   * thing to disable: navigation arrives from everywhere. It fires only while `dirty`, so
-   * a screen nobody has touched never interrupts anyone.
-   */
-  const blocker = useBlocker({
-    shouldBlockFn: () => dirty,
-    withResolver: true,
-    enableBeforeUnload: () => dirty,
-  })
 
   const patch = (key: string, next: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...next } : r)))
@@ -636,19 +619,10 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                 : 'Save budget'}
         </Button>
       </Panel>
-      {/* Only ever on screen while there are unsaved figures, and it names what is at
-          stake — "leave" and "stay" without the year in them is a dialog anybody clicks
-          through without reading. */}
-      <ConfirmDialog
-        open={blocker.status === 'blocked'}
-        title="Leave without saving?"
-        confirmLabel="Leave without saving"
-        onCancel={() => blocker.reset?.()}
-        onConfirm={() => blocker.proceed?.()}
-      >
-        Your changes to the {data.financialYear.label} budget have not been saved. Leaving now
-        discards them.
-      </ConfirmDialog>
+      {/* Disabling the year arrows only ever covered stepping between years; the sidebar,
+          a breadcrumb and the browser's back button all still walked away with an
+          afternoon's typing. */}
+      <UnsavedChangesGuard dirty={dirty} what={`the ${data.financialYear.label} budget`} />
     </SettingsPage>
   )
 }

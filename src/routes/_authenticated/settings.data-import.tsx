@@ -16,7 +16,7 @@ import {
   prepareImport,
   rollbackImport,
 } from '../../server/fns/dataImport'
-import { Breadcrumb, Button, Select } from '../../components/ui'
+import { Breadcrumb, Button, Select, UnsavedChangesGuard } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { columnAsk, SHEETS } from '../../lib/dataImport/columns'
 import type { CellIssue, GrantRow, PaymentRow, ReportRow } from '../../lib/dataImport/parse'
@@ -388,6 +388,16 @@ function DataImport() {
   }
 
   const rec = prepared?.reconciliation
+
+  /**
+   * A workbook is uploaded and not yet committed.
+   *
+   * The most expensive unsaved state in the app: leaving here throws away the upload, the
+   * parsed rows and every match somebody confirmed by hand on the reconcile step, and the
+   * only way back is to do all of it again. Once `result` is set the import is written and
+   * there is nothing left to lose.
+   */
+  const importInProgress = payload !== null && result === null
 
   return (
     // Same header as `SettingsPage` gives every other settings screen. This page does not
@@ -816,6 +826,10 @@ function DataImport() {
           </div>
         </div>
       )}
+      {/* The one place in Settings where leaving costs more than retyping: the upload, the
+          parsed rows and every hand-confirmed match all go, and the only way back is to do
+          it again from the file. */}
+      <UnsavedChangesGuard dirty={importInProgress} what="this import" />
     </div>
   )
 }

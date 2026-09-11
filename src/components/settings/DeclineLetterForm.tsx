@@ -13,7 +13,7 @@ import {
   updateDeclineLetterSettings,
 } from '../../server/fns/declineLetters'
 import { AwardLetterPreview } from '../AwardLetterPreview'
-import { Button, Input, Label, Panel, PanelTitle, Textarea } from '../ui'
+import { Button, Input, Label, Panel, PanelTitle, Textarea, UnsavedChangesGuard } from '../ui'
 import { SettingsSaveBar } from './SettingsSaveBar'
 import { C } from '../ui/tokens'
 import {
@@ -194,6 +194,7 @@ export function DeclineLetterForm({ settings }: { settings: DeclineLetterSetting
         dirty={dirty}
         error={error}
       />
+      <UnsavedChangesGuard dirty={dirty} what="your decline letter template" />
     </div>
   )
 }

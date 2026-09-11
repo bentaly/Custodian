@@ -871,6 +871,16 @@ Structural decisions worth knowing before adding a screen:
   from the sidebar, a breadcrumb and the browser's back button alike. The form is **keyed on the
   year**, or stepping back would leave this year's figures in the fields ready to be saved into
   the wrong one.
+- **A screen that saves on a button wears `UnsavedChangesGuard`** (`ui/UnsavedChangesGuard`).
+  Between typing and pressing Save the only copy of somebody's work is in a text box, and
+  navigation arrives from the sidebar, a breadcrumb, a tab and the browser's back button alike —
+  there is no single control to disable, so the screen asks instead. It arms only while dirty and
+  names what is at stake ("the 2026/27 budget"), because a dialog reading "you have unsaved
+  changes" is one people click through. Worn by budget, giving strategy, both letter forms, the
+  letter sending form, and data import (where `dirty` is "a workbook is uploaded and not
+  committed" — the costliest state in the app, since the only way back is to re-upload and
+  re-confirm every match). Screens that save on the spot — the voting and round-budget toggles —
+  have nothing to guard and deliberately have none.
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
   `team`, `giving-strategy`, `voting`, `letters`, `api-keys`, `submissions`, `data-import`,
   `budget`, `round-budgets`.
