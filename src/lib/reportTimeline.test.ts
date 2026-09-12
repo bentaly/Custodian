@@ -188,11 +188,11 @@ describe('againstProposal', () => {
 
   it('states a single report against the proposal, as the design has it', () => {
     expect(againstProposal({ total: 391, reports: 1 }, 359, units)).toEqual({
-      text: '32 more than proposed',
+      text: '32 more than the 359 proposed',
       ahead: true,
     })
     expect(againstProposal({ total: 300, reports: 1 }, 359, units)).toEqual({
-      text: '59 below proposed',
+      text: '59 short of the 359 proposed',
       ahead: false,
     })
     expect(againstProposal({ total: 359, reports: 1 }, 359, units)?.text).toBe(

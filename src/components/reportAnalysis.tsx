@@ -98,8 +98,10 @@ export function ReportAnalysisCard({
   analysis: ReportAnalysisData | null
   analysedAt: string | null
   impact: {
-    /** What the report is, where it sits: "Interim report · Warm Homes · Spring 2026". */
+    /** What the report is: "Interim report". */
     title: string
+    /** Where it sits: "Warm Homes · Spring 2026". */
+    context: string | null
     quantity: number | null
     unit: string | null
     /** Set against the proposal — see `againstProposal`. */
@@ -184,30 +186,44 @@ export function ReportAnalysisCard({
           )}
         </div>
 
+        {/* One row: what the report is on the left, its figure on the right — the figure
+            with its unit, and the comparison on its own line beneath rather than strung
+            after the unit with a dot. Stacks when there is no room for both. */}
         <div
-          className="flex flex-col gap-3 rounded-control p-3"
+          className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-control p-3"
           style={{ backgroundColor: C.wash }}
         >
-          <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-            {impact.title}
-          </p>
-          {impact.quantity != null ? (
-            <p className="flex flex-wrap items-baseline gap-x-1.5 font-display font-medium">
-              <span className="text-heading leading-none tabular-nums" style={{ color: C.ink }}>
-                {fmtQuantity(impact.quantity)}
-              </span>
-              <span className="text-label" style={{ color: C.sub }}>
-                {impact.unit && lowerFirst(impact.unit)}
-                {impact.comparison && (
-                  <>
-                    {impact.unit && ' · '}
-                    <span style={{ color: impact.comparison.ahead ? C.brand : C.sub }}>
-                      {impact.comparison.text}
-                    </span>
-                  </>
-                )}
-              </span>
+          <div className="flex min-w-0 flex-col gap-1 font-display">
+            <p className="text-body font-medium" style={{ color: C.ink }}>
+              {impact.title}
             </p>
+            {impact.context && (
+              <p className="text-label" style={{ color: C.sub }}>
+                {impact.context}
+              </p>
+            )}
+          </div>
+          {impact.quantity != null ? (
+            <div className="flex flex-col gap-1 font-display sm:items-end sm:text-right">
+              <p className="flex flex-wrap items-baseline gap-x-1.5 font-medium sm:justify-end">
+                <span className="text-heading leading-none tabular-nums" style={{ color: C.ink }}>
+                  {fmtQuantity(impact.quantity)}
+                </span>
+                {impact.unit && (
+                  <span className="text-label" style={{ color: C.sub }}>
+                    {lowerFirst(impact.unit)}
+                  </span>
+                )}
+              </p>
+              {impact.comparison && (
+                <p
+                  className="text-label font-medium"
+                  style={{ color: impact.comparison.ahead ? C.brand : C.sub }}
+                >
+                  {upperFirst(impact.comparison.text)}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="font-display text-label" style={{ color: C.sub }}>
               {analysed ? 'No quantity evidenced in this report' : 'No impact figure yet'}
@@ -254,6 +270,11 @@ function DigestLine({ label, text }: { label: string; text: string }) {
  *  `impactPhrase` in `lib/impactUnits`. */
 function lowerFirst(label: string) {
   return label.charAt(0).toLowerCase() + label.slice(1)
+}
+
+/** "exactly as proposed" → "Exactly as proposed", now that it opens its own line. */
+function upperFirst(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 /** One alignment as a card: the question, the model's 1–10 answer, and its reasoning. */

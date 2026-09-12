@@ -248,8 +248,8 @@ export function againstProposal(
     return {
       text:
         diff > 0
-          ? `${fmtQuantity(diff)} more than proposed`
-          : `${fmtQuantity(-diff)} below proposed`,
+          ? `${fmtQuantity(diff)} more than the ${fmtQuantity(proposed)} proposed`
+          : `${fmtQuantity(-diff)} short of the ${fmtQuantity(proposed)} proposed`,
       ahead,
     }
   }

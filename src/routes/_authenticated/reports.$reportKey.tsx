@@ -265,9 +265,9 @@ function ReportDetail() {
                 analysis={analysis}
                 analysedAt={s.analysedAt}
                 impact={{
-                  title: [report.label, report.programmeName, report.roundName]
-                    .filter(Boolean)
-                    .join(' · '),
+                  title: report.label,
+                  context:
+                    [report.programmeName, report.roundName].filter(Boolean).join(' · ') || null,
                   quantity: impactQuantity,
                   unit: s.impactUnitLabel ?? report.impactUnitLabel,
                   comparison,
