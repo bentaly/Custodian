@@ -640,6 +640,7 @@ export const getReport = createServerFn({ method: 'GET' })
             // The purpose the applicant asked for, shown only when the award itself
             // recorded none (awards minted before `awards.purpose` existed).
             grantPurpose: true,
+            themes: true,
             deprivationStatus: true,
             deprivationContext: true,
           },
@@ -648,7 +649,7 @@ export const getReport = createServerFn({ method: 'GET' })
               columns: { id: true, grantDurationYears: true },
               with: {
                 programme: {
-                  columns: { name: true, impactUnit: true, impactUnitLabel: true, tags: true },
+                  columns: { name: true, impactUnit: true, impactUnitLabel: true },
                 },
                 round: { columns: { name: true } },
               },
@@ -736,7 +737,7 @@ export const getReport = createServerFn({ method: 'GET' })
       organisationName: app.organisationName,
       programmeName: programme?.name ?? null,
       roundName: app.roundProgramme?.round?.name ?? null,
-      themes: (programme?.tags as string[] | null) ?? [],
+      themes: app.themes ?? [],
       impactUnitLabel: programme
         ? impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
         : null,

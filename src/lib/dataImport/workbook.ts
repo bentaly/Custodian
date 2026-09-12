@@ -34,6 +34,12 @@ import type { RawRow } from './parse'
 export type LookupLists = {
   programmes: string[]
   rounds: string[]
+  /**
+   * Each programme's themes, printed on the Start here sheet to copy from. A reference
+   * rather than a dropdown, because a grant can carry several themes and Excel's list
+   * validation holds one value per cell.
+   */
+  programmeThemes?: Array<{ programme: string; themes: string[] }>
 }
 
 export type TemplateContext = {
@@ -189,6 +195,32 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
       const row = intro.addRow([`    ${headerLabel(col)}`, col.help])
       row.getCell(1).font = { size: 10 }
       row.getCell(2).font = { size: 10, color: { argb: MUTED } }
+      row.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+    }
+    spacer()
+  }
+
+  // ── Themes by programme ──
+  //
+  // The Themes column is free text (several per cell), so this is what stands in for
+  // its dropdown: the exact names to copy, per programme, where the column's own help
+  // text points. A programme with no themes is listed as such, so a blank reads as an
+  // answer rather than a mistake in the file.
+  const withThemes = ctx.lookups.programmeThemes ?? []
+  if (withThemes.length > 0) {
+    const head = intro.addRow([
+      'Themes by programme',
+      'Copy these into the Themes column, separated by semicolons.',
+    ])
+    head.getCell(1).font = { size: 12, bold: true }
+    head.getCell(2).font = { size: 10, color: { argb: MUTED } }
+    for (const p of withThemes) {
+      const row = intro.addRow([
+        `    ${p.programme}`,
+        p.themes.length > 0 ? p.themes.join('; ') : 'No themes — leave the cell blank',
+      ])
+      row.getCell(1).font = { size: 10 }
+      row.getCell(2).font = { size: 10, color: { argb: p.themes.length > 0 ? BODY : MUTED } }
       row.getCell(2).alignment = { wrapText: true, vertical: 'top' }
     }
     spacer()

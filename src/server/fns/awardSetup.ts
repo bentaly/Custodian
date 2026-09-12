@@ -131,7 +131,7 @@ export async function awardCandidatesData(
         grantPurpose: a.grantPurpose,
         programmeId: a.roundProgramme.programmeId,
         programmeName: a.roundProgramme.programme.name,
-        tags: ((a.roundProgramme.programme.tags as string[] | null) ?? []) as string[],
+        tags: a.themes ?? [],
         roundName: a.roundProgramme.round.name,
         roundId: a.roundProgramme.roundId,
         grantDurationYears: a.roundProgramme.grantDurationYears,

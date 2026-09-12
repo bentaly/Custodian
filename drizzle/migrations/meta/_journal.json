@@ -610,6 +610,13 @@
       "when": 1789162197112,
       "tag": "0086_drop_show_balance_and_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1789249830850,
+      "tag": "0087_application_themes",
+      "breakpoints": true
     }
   ]
 }

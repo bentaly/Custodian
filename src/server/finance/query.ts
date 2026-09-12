@@ -159,7 +159,8 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
       programmeName: sql<string | null>`${programmes.name}`.as('programme_name'),
       roundId: sql<string | null>`${roundProgrammes.roundId}`.as('round_id'),
       roundName: sql<string | null>`${rounds.name}`.as('round_name'),
-      tags: sql<unknown>`${programmes.tags}`.as('tags'),
+      // The application's own themes, not its programme's whole list.
+      tags: sql<unknown>`${applications.themes}`.as('tags'),
       awardStatus: sql<string>`${awards.status}`.as('award_status'),
       // Provenance, not status: a grant carried in by the onboarding import keeps its
       // batch id for good, and the row says so — see `ui/ImportedPill` for why the

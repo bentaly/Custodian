@@ -7,6 +7,7 @@ const base: CustodianScoreInput = {
   programmeName: 'Youth Futures',
   programmeGoal: 'Improve employment outcomes for 16–24 year olds.',
   programmeDescription: null,
+  programmeThemes: null,
   organisationName: 'Bradford Youth Trust',
   organisationSummary: null,
   amountRequested: 25000,

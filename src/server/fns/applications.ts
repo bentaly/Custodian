@@ -79,22 +79,15 @@ export const listApplications = createServerFn({ method: 'GET' })
     const { page, pageSize, ...filters } = data
 
     let filterIds: string[] | undefined
-    if (filters.roundId || filters.programmeId || filters.tag) {
-      // Tag lives on the programme (jsonb array), so resolve it by joining programmes.
+    if (filters.roundId || filters.programmeId) {
       const conds = and(
         filters.roundId ? eq(roundProgrammes.roundId, filters.roundId) : undefined,
         filters.programmeId ? eq(roundProgrammes.programmeId, filters.programmeId) : undefined,
-        filters.tag
-          ? sql`${programmes.tags} @> ${JSON.stringify([filters.tag])}::jsonb`
-          : undefined,
       )
-      const rows = filters.tag
-        ? await getDb()
-            .select({ id: roundProgrammes.id })
-            .from(roundProgrammes)
-            .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
-            .where(conds)
-        : await getDb().select({ id: roundProgrammes.id }).from(roundProgrammes).where(conds)
+      const rows = await getDb()
+        .select({ id: roundProgrammes.id })
+        .from(roundProgrammes)
+        .where(conds)
       filterIds = rows.map((r) => r.id)
     }
 
@@ -129,6 +122,11 @@ export const listApplications = createServerFn({ method: 'GET' })
       // did: only the name was matched, so no reference a reviewer typed ever found its
       // row.
       searchAny(filters.q, applications.organisationName, applications.externalApplicationId),
+      // The application's OWN themes. It used to match every application in a programme
+      // carrying the tag, which is exactly what `applications.themes` replaced.
+      filters.tag
+        ? sql`${applications.themes} @> ${JSON.stringify([filters.tag])}::jsonb`
+        : undefined,
       filters.submittedFrom
         ? gte(applications.submittedAt, new Date(`${filters.submittedFrom}T00:00:00.000Z`))
         : undefined,
@@ -378,7 +376,7 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
     // Committed money split into its two tiers: awarded (a real grant) vs shortlisted
     // (still awaiting decision). The round-budget dominos bar renders them as separate
     // opacity bands, so they can't stay lumped into a single "committed" figure.
-    const [committedRows, countRows] = await Promise.all([
+    const [committedRows, countRows, themeRows] = await Promise.all([
       getDb()
         .select({
           roundProgrammeId: applications.roundProgrammeId,
@@ -402,7 +400,30 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
         .from(applications)
         .where(inArray(applications.roundProgrammeId, rpIds))
         .groupBy(applications.roundProgrammeId),
+      // Applications per theme per programme, off each application's OWN themes — the
+      // Theme pill's counts. It used to credit every application in a programme to every
+      // theme the programme carried.
+      getDb()
+        .select({
+          roundProgrammeId: applications.roundProgrammeId,
+          theme: sql<string>`theme.value`,
+          total: sql<number>`(count(*))::int`,
+        })
+        .from(applications)
+        .innerJoin(
+          sql`lateral jsonb_array_elements_text(${applications.themes}) as theme(value)`,
+          sql`true`,
+        )
+        .where(inArray(applications.roundProgrammeId, rpIds))
+        .groupBy(applications.roundProgrammeId, sql`theme.value`),
     ])
+
+    const themeCountsByRpId = new Map<string, Record<string, number>>()
+    for (const r of themeRows) {
+      const counts = themeCountsByRpId.get(r.roundProgrammeId) ?? {}
+      counts[r.theme] = r.total
+      themeCountsByRpId.set(r.roundProgrammeId, counts)
+    }
 
     const byRpId = new Map(committedRows.map((r) => [r.roundProgrammeId, r]))
     const countByRpId = new Map(countRows.map((r) => [r.roundProgrammeId, r.total]))
@@ -416,6 +437,8 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
         programmeId: rp.programmeId,
         programmeName: rp.programme.name,
         tags: (rp.programme.tags as string[] | null) ?? [],
+        /** Applications in this programme carrying each theme. */
+        themeCounts: themeCountsByRpId.get(rp.id) ?? {},
         budget: rp.budget ? parseFloat(rp.budget) : null,
         awarded,
         shortlisted,
@@ -1201,7 +1224,7 @@ export const getAward = createServerFn({ method: 'GET' })
       roundName: app.roundProgramme?.round?.name ?? null,
       deliveryArea: deliveryAreaLabel(app),
       impactUnitLabel: unitLabel,
-      themes: (programme?.tags as string[] | null) ?? [],
+      themes: app.themes ?? [],
       // What the grant set out to reach, for the whole grant — the award's impact total
       // is read against it.
       proposedImpact:

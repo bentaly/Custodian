@@ -197,6 +197,7 @@ const grant = (over: Partial<GrantRow> = {}): GrantRow => ({
   contactEmail: 'hello@pya.org.uk',
   deliveryArea: 'Calderdale',
   purpose: 'Youth work',
+  themes: [],
   endDate: null,
   impactQuantity: null,
   ...over,

@@ -81,7 +81,9 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
       programmeColour: sql<string | null>`${programmes.colour}`.as('programme_colour'),
       roundId: sql<string | null>`${roundProgrammes.roundId}`.as('round_id'),
       roundName: sql<string | null>`${rounds.name}`.as('round_name'),
-      tags: sql<unknown>`${programmes.tags}`.as('tags'),
+      // The APPLICATION's themes — the subset its programme's list was narrowed to — not
+      // the programme's. NULL (not yet assigned) reads as no themes.
+      tags: sql<unknown>`${applications.themes}`.as('tags'),
       durationYears: sql<number | null>`${roundProgrammes.grantDurationYears}`.as('duration_years'),
       // The sharpest location we resolved — district, else the matched area's own name
       // (which is what a county-level match carries), else the region, else whatever the

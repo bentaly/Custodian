@@ -42,6 +42,7 @@ import {
   RelatedLink,
   Tooltip,
   TruncatedText,
+  ThemePill,
   useClamp,
   ClampToggle,
 } from '../../components/ui'
@@ -459,6 +460,9 @@ function ApplicationDetail() {
   const scoreDetail = application.custodianScoreDetail as CustodianScoreDetail | null
   const scored = scoreStatus === 'scored' && score != null && scoreDetail != null
   const grantPurpose = application.grantPurpose?.trim() || null
+  // Picked by the same model call as the purpose (or taken from an import), and read-only
+  // here on purpose — see `applications.themes`. Null is "not assigned yet".
+  const themes = application.themes
 
   // The model can return a dozen flags, and a wall of red under the score buries the
   // score. Two is enough to say "there are concerns here"; the rest are one click away.
@@ -894,6 +898,17 @@ function ApplicationDetail() {
                   >
                     {grantPurpose}
                   </p>
+                  {/* Beside the purpose because they come from the same reading of the
+                      application. No edit control: a grants officer cannot re-tag an
+                      application, which is the rule, not a missing feature. Nothing at
+                      all while unassigned rather than the programme's whole list. */}
+                  {themes && themes.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1" aria-label="Themes">
+                      {themes.map((t) => (
+                        <ThemePill key={t}>{t}</ThemePill>
+                      ))}
+                    </div>
+                  )}
                   {/* The one line of copy on this panel that has to be exactly right.
                       `grantPurpose` is written by the scoring model (see
                       `CustodianScoreOutputSchema` — one or two sentences, 40 words, no

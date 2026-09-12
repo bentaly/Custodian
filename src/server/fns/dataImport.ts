@@ -20,6 +20,12 @@ import {
 import { requireRole } from '../session'
 import { badRequest, conflict, notFoundError } from '../../lib/errors'
 import { resolveColumn, type Candidate } from '../../lib/dataImport/match'
+import {
+  grantThemes,
+  resolveThemeValues,
+  themeCandidates,
+  themeMismatchIssues,
+} from '../../lib/dataImport/themes'
 import { validateImport, type ExistingReference } from '../../lib/dataImport/validate'
 import { CommitImportSchema, ImportPayloadSchema } from '../../lib/validators/dataImport'
 import type { GrantRow } from '../../lib/dataImport/parse'
@@ -59,7 +65,7 @@ export const getImportContext = createServerFn({ method: 'GET' }).handler(async 
   const [client, programmeRows, roundRows] = await Promise.all([
     db.query.clients.findFirst({ where: eq(clients.id, clientId), columns: { name: true } }),
     db
-      .select({ id: programmes.id, name: programmes.name })
+      .select({ id: programmes.id, name: programmes.name, tags: programmes.tags })
       .from(programmes)
       .where(eq(programmes.clientId, clientId))
       .orderBy(programmes.name),
@@ -112,7 +118,7 @@ export const prepareImport = createServerFn({ method: 'POST' })
 
     const [programmeRows, roundRows, existing] = await Promise.all([
       db
-        .select({ id: programmes.id, name: programmes.name })
+        .select({ id: programmes.id, name: programmes.name, tags: programmes.tags })
         .from(programmes)
         .where(eq(programmes.clientId, clientId)),
       db
@@ -135,11 +141,29 @@ export const prepareImport = createServerFn({ method: 'POST' })
       roundRows as Candidate[],
     )
 
+    // The Themes column, per distinct value like the two above — plus the one check those
+    // don't need: a real theme belonging to a DIFFERENT programme than the grant's.
+    const themeResolutions = resolveThemeValues(data.grants, programmeRows)
+    const themeIssues = themeMismatchIssues(
+      data.grants,
+      programmeRows,
+      programmeResolutions,
+      themeResolutions,
+    )
+
     return {
       ...validation,
+      issues: [...validation.issues, ...themeIssues],
+      canCommit: validation.canCommit && themeIssues.length === 0,
       programmes: programmeRows,
       rounds: roundRows,
-      resolutions: { programmes: programmeResolutions, rounds: roundResolutions },
+      /** Every theme the foundation has, for the review screen's theme picker. */
+      themes: themeCandidates(programmeRows).map((c) => c.name),
+      resolutions: {
+        programmes: programmeResolutions,
+        rounds: roundResolutions,
+        themes: themeResolutions,
+      },
       /** Grants already imported under the same reference — these will be replaced. */
       replacing: data.grants.filter((g) =>
         existing.some(
@@ -183,6 +207,7 @@ export const commitImport = createServerFn({ method: 'POST' })
         name: programmes.name,
         impactUnit: programmes.impactUnit,
         impactUnitLabel: programmes.impactUnitLabel,
+        tags: programmes.tags,
       })
       .from(programmes)
       .where(eq(programmes.clientId, clientId))
@@ -222,6 +247,37 @@ export const commitImport = createServerFn({ method: 'POST' })
       if (!roundIdFor.has(grant.round.trim().toLowerCase())) {
         throw badRequest(`No round was chosen for “${grant.round}”.`)
       }
+    }
+
+    // ── Resolve themes ──
+    //
+    // Same door rule as programmes: every theme the mapping names must be one this
+    // client actually has. Then each grant is checked against its OWN programme, which
+    // the review screen could not do for a value a human confirmed — refused, not
+    // dropped, so a theme never goes missing without anyone being told.
+    const ownThemes = new Set(
+      ownProgrammes.flatMap((p) => (p.tags ?? []).map((t) => t.trim().toLowerCase())),
+    )
+    for (const theme of Object.values(mapping.themes)) {
+      if (theme != null && !ownThemes.has(theme.trim().toLowerCase())) {
+        throw badRequest(`“${theme}” is not one of your themes.`)
+      }
+    }
+    const themesByRow = new Map<number, string[]>()
+    for (const grant of payload.grants) {
+      const programme = programmeById.get(
+        programmeIdFor.get(grant.programme.trim().toLowerCase())!,
+      )!
+      const { themes, outside, undecided } = grantThemes(grant, programme.tags, mapping.themes)
+      if (undecided.length > 0) {
+        throw badRequest(`No theme was chosen for “${undecided[0]}”.`)
+      }
+      if (outside.length > 0) {
+        throw badRequest(
+          `Row ${grant.rowNumber}: “${outside[0]}” is not one of ${programme.name}’s themes. Choose a different theme for it, or leave it out.`,
+        )
+      }
+      themesByRow.set(grant.rowNumber, themes)
     }
 
     // ── Round-programme pairings ──
@@ -350,6 +406,10 @@ export const commitImport = createServerFn({ method: 'POST' })
         // because it is the only thing an imported row can say about what the money
         // funded — the score below never runs, so nothing else would fill that panel.
         grantPurpose: grant.purpose,
+        // The workbook's Themes, or every theme the programme has where the cell was
+        // blank. Stated by the foundation, like the purpose above — the model that picks
+        // themes for a live application never runs on an imported one.
+        themes: themesByRow.get(grant.rowNumber) ?? [],
         status: 'awarded',
         // Deliberately left at their defaults (`pending`): due diligence and the
         // deprivation lookup re-derive themselves from the registration number and the

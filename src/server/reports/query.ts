@@ -68,7 +68,8 @@ function grantColumns() {
     programmeName: sql<string | null>`${programmes.name}`.as('programme_name'),
     roundId: sql<string | null>`${rounds.id}`.as('round_id'),
     roundName: sql<string | null>`${rounds.name}`.as('round_name'),
-    tags: sql<unknown>`${programmes.tags}`.as('tags'),
+    // The grant's application's themes, not its programme's whole list.
+    tags: sql<unknown>`${applications.themes}`.as('tags'),
   }
 }
 

@@ -228,6 +228,7 @@ async function main() {
       programmeName: programme.name,
       programmeGoal: programme.goal,
       programmeDescription: programme.description,
+      programmeThemes: programme.tags,
       grantDurationYears: app.roundProgramme.grantDurationYears,
       organisationName: app.organisationName,
       organisationSummary: app.organisationSummary,
@@ -258,6 +259,7 @@ async function main() {
           // Kept only when the run produced one, so a failed re-score doesn't blank a
           // purpose that is already on the row.
           ...(result.grantPurpose ? { grantPurpose: result.grantPurpose } : {}),
+          ...(result.themes ? { themes: result.themes } : {}),
         })
         .where(eq(schema.applications.id, app.id))
     }

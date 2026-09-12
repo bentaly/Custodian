@@ -23,6 +23,8 @@ export const GrantRowSchema = z.object({
   contactEmail: z.string().max(320).nullable(),
   deliveryArea: z.string().max(300).nullable(),
   purpose: z.string().max(2000).nullable(),
+  /** The Themes cell, split on semicolons. Empty means "all of the programme's". */
+  themes: z.array(z.string().min(1).max(100)).max(50),
   endDate: isoDate.nullable(),
   impactQuantity: z.number().finite().min(0).nullable(),
 })
@@ -73,6 +75,12 @@ export const ImportPayloadSchema = z.object({
 export const ImportMappingSchema = z.object({
   programmes: z.record(z.string().max(300), z.uuid()),
   rounds: z.record(z.string().max(300), z.uuid().nullable()),
+  /**
+   * Each distinct Themes value in the file → the theme it is, or `null` for "leave it
+   * out". Themes are never created here either: a programme's list is set on the
+   * programme, and an import that invented themes would bypass that.
+   */
+  themes: z.record(z.string().max(100), z.string().max(100).nullable()),
 })
 
 export const CommitImportSchema = z.object({

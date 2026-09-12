@@ -78,6 +78,7 @@ export async function scoreApplication(
     programmeName: programme.name,
     programmeGoal: programme.goal,
     programmeDescription: programme.description,
+    programmeThemes: programme.tags,
     grantDurationYears: roundProgramme.grantDurationYears,
     organisationName: application.organisationName,
     organisationSummary: application.organisationSummary,
@@ -107,6 +108,9 @@ export async function scoreApplication(
       custodianScore: custodian.score,
       custodianScoreDetail: custodian.detail,
       grantPurpose: custodian.grantPurpose,
+      // Only when the run produced them — a forced re-score that fails must not blank
+      // themes that every list and filter is already reading.
+      ...(custodian.themes ? { themes: custodian.themes } : {}),
       custodianScoredAt: new Date(custodian.scoredAt),
     })
     .where(eq(applications.id, applicationId))

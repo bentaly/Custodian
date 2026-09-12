@@ -41,4 +41,58 @@ export const CustodianScoreOutputSchema = z.object({
     ),
 })
 
-export type CustodianScoreOutput = z.infer<typeof CustodianScoreOutputSchema>
+export type CustodianScoreOutput = z.infer<typeof CustodianScoreOutputSchema> & {
+  /** Present only when the programme offered themes to choose from. */
+  themes?: string[]
+}
+
+/**
+ * The schema for one application: the fixed shape above, plus `themes` as an array of
+ * an ENUM of that programme's own themes, so the model cannot return a theme the
+ * programme does not have — not even a near-spelling. Built per request because the
+ * list is per programme.
+ *
+ * "At least one" is NOT in the schema: structured outputs do not enforce array length
+ * (the SDK strips it and would then reject the whole assessment client-side over it).
+ * The prompt asks for at least one and `assignedThemes` tidies what comes back.
+ *
+ * A programme with no themes gets the plain schema — an empty enum is not a schema.
+ */
+export function custodianScoreOutputSchemaFor(programmeThemes: readonly string[]) {
+  const offered = offeredThemes(programmeThemes)
+  if (offered.length === 0) return CustodianScoreOutputSchema
+  return CustodianScoreOutputSchema.extend({
+    themes: z
+      .array(z.enum(offered as [string, ...string[]]))
+      .describe(
+        "The programme themes this application is genuinely about, chosen only from the programme's list and spelled exactly as given. At least one.",
+      ),
+  })
+}
+
+/** A programme's themes as offered to the model: trimmed, non-empty, de-duplicated. */
+export function offeredThemes(programmeThemes: readonly string[] | null | undefined): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of programmeThemes ?? []) {
+    const t = raw?.trim()
+    if (!t || seen.has(t.toLowerCase())) continue
+    seen.add(t.toLowerCase())
+    out.push(t)
+  }
+  return out
+}
+
+/**
+ * What the model picked, reduced to themes the programme really has, in the
+ * PROGRAMME's order (so two applications with the same themes read identically) and
+ * spelled as the programme spells them. Matched case-insensitively as a belt to the
+ * enum's braces.
+ */
+export function assignedThemes(
+  picked: readonly string[] | null | undefined,
+  programmeThemes: readonly string[] | null | undefined,
+): string[] {
+  const chosen = new Set((picked ?? []).map((p) => p.trim().toLowerCase()))
+  return offeredThemes(programmeThemes).filter((t) => chosen.has(t.toLowerCase()))
+}

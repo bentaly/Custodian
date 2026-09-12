@@ -137,6 +137,7 @@ export async function createApplicationFromCanonical(
           programmeName: programme.name,
           programmeGoal: programme.goal,
           programmeDescription: programme.description,
+          programmeThemes: programme.tags,
           grantDurationYears: roundProgramme.grantDurationYears,
           organisationName: input.organisationName,
           organisationSummary: input.organisationSummary,
@@ -190,6 +191,9 @@ export async function createApplicationFromCanonical(
     custodianScore: custodian?.score ?? null,
     custodianScoreDetail: custodian?.detail ?? null,
     grantPurpose: custodian?.grantPurpose ?? null,
+    // Null while the score is queued: themes arrive with it, and until then there is
+    // nothing to show rather than the programme's whole list.
+    themes: custodian?.themes ?? null,
     // Null, not now(): nothing has been scored yet, and a timestamp here would
     // read as "assessed a moment ago, and it had nothing to say".
     custodianScoredAt: custodian ? new Date(custodian.scoredAt) : null,
@@ -307,6 +311,7 @@ export async function updateApplicationFromCanonical(
         programmeName: programme.name,
         programmeGoal: programme.goal,
         programmeDescription: programme.description,
+        programmeThemes: programme.tags,
         grantDurationYears: roundProgramme.grantDurationYears,
         organisationName: input.organisationName,
         organisationSummary: input.organisationSummary,
@@ -373,6 +378,8 @@ export async function updateApplicationFromCanonical(
             // error detail, but must not blank a purpose an admin may already have read
             // on the shortlist — or worse, be about to award from.
             ...(custodian.grantPurpose ? { grantPurpose: custodian.grantPurpose } : {}),
+            // Same rule for themes: a failed re-run keeps the ones already assigned.
+            ...(custodian.themes ? { themes: custodian.themes } : {}),
           }
         : {}),
       ...(deprivation && deprivationGeo

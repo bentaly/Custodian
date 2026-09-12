@@ -176,7 +176,7 @@ function exportCsv(items: AppItem[], filename: string) {
       a.externalApplicationId ?? '',
       a.amountRequested ?? '',
       a.roundProgramme?.programme?.name ?? '',
-      ((a.roundProgramme?.programme?.tags as string[] | null) ?? []).join('; '),
+      (a.themes ?? []).join('; '),
       // ISO in the CSV, not `12 Mar 2026` — a spreadsheet should sort it as a date.
       a.submittedAt ? new Date(a.submittedAt).toISOString().slice(0, 10) : '',
       a.custodianScoreStatus === 'scored' && a.custodianScore != null ? a.custodianScore : '',
@@ -513,14 +513,17 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     // Every theme, clipped to the column, with the rest on hover — not "Environment +2",
     // which threw away the names at widths where they fitted and left "+2" meaning
     // nothing in particular. See `ui/TruncatedText`.
+    //
+    // The application's OWN themes (`applications.themes`). NULL is "not assigned yet" —
+    // the score, which picks them, has not landed — and says so rather than showing the
+    // programme's whole list.
     cell: (app) => (
       <TruncatedList
-        items={(app.roundProgramme?.programme?.tags as string[] | null) ?? []}
-        label="Themes for this programme"
+        items={app.themes ?? []}
+        empty={app.themes == null ? 'Pending' : '—'}
+        label="Themes for this application"
         className={`font-display text-body ${
-          ((app.roundProgramme?.programme?.tags as string[] | null) ?? []).length > 0
-            ? 'text-grey-500'
-            : 'text-grey-400'
+          (app.themes ?? []).length > 0 ? 'text-grey-500' : 'text-grey-400'
         }`}
       />
     ),
@@ -662,11 +665,15 @@ function ApplicationsList() {
           : null
 
   // Themes across the round's programmes, counted the way every other filter row counts
-  // its options — a theme's count is the applications sitting in the programmes carrying
-  // it, which is what the pill would show you if you picked it.
+  // its options — a theme's count is the applications carrying it, which is what the pill
+  // would show you if you picked it. Every theme a programme offers is listed, at 0 where
+  // no application has been given it yet, so the pill still names the full vocabulary.
   const tagCounts = new Map<string, number>()
   for (const r of budgetSummary) {
-    for (const t of r.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + r.total)
+    for (const t of r.tags) tagCounts.set(t, tagCounts.get(t) ?? 0)
+    for (const [t, n] of Object.entries(r.themeCounts)) {
+      tagCounts.set(t, (tagCounts.get(t) ?? 0) + n)
+    }
   }
   const tags = [...tagCounts]
     .sort(([a], [b]) => a.localeCompare(b))

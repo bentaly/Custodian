@@ -10,7 +10,9 @@
 
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import {
-  CustodianScoreOutputSchema,
+  assignedThemes,
+  custodianScoreOutputSchemaFor,
+  offeredThemes,
   buildSystemPrompt,
   buildUserPrompt,
   computeComposite,
@@ -51,14 +53,17 @@ export const liveAssessor: CustodianScoreAssessor = async (input) => {
       },
     ],
     messages: [{ role: 'user', content: buildUserPrompt(input) }],
-    output_config: { format: zodOutputFormat(CustodianScoreOutputSchema) },
+    // Per programme: `themes` is an enum of that programme's own list.
+    output_config: {
+      format: zodOutputFormat(custodianScoreOutputSchemaFor(input.programmeThemes ?? [])),
+    },
   })
 
   if (!message.parsed_output) {
     // stop_reason: 'refusal' | 'max_tokens' leaves parsed_output null.
     throw new Error(`model returned no parsed output (stop_reason: ${message.stop_reason})`)
   }
-  return message.parsed_output
+  return message.parsed_output as CustodianScoreOutput
 }
 
 export async function runCustodianScore(
@@ -70,7 +75,14 @@ export async function runCustodianScore(
 
   // Not configured yet → leave as pending (re-runnable) rather than erroring.
   if (!opts.assess && !isAnthropicConfigured()) {
-    return { status: 'pending', score: null, detail: null, grantPurpose: null, scoredAt }
+    return {
+      status: 'pending',
+      score: null,
+      detail: null,
+      grantPurpose: null,
+      themes: null,
+      scoredAt,
+    }
   }
 
   const assess = opts.assess ?? liveAssessor
@@ -94,6 +106,14 @@ export async function runCustodianScore(
         model: SCORING_MODEL,
       },
       grantPurpose: output.grantPurpose?.trim() || null,
+      // `[]` when the programme has no themes — an answer, not a gap. Otherwise what the
+      // model picked, narrowed to the programme's own list. Should the model return none
+      // despite being asked for at least one, that is stored as `[]` too, rather than as
+      // every theme: a fallback to the whole list is exactly what this column replaced.
+      themes:
+        offeredThemes(input.programmeThemes).length === 0
+          ? []
+          : assignedThemes(output.themes, input.programmeThemes),
       scoredAt,
     }
   } catch (e) {
@@ -110,6 +130,8 @@ export async function runCustodianScore(
       // Null rather than a placeholder: callers must not overwrite a purpose they
       // already hold with the output of a run that failed.
       grantPurpose: null,
+      // Null for the same reason: never overwrite themes a row already holds.
+      themes: null,
       scoredAt,
     }
   }

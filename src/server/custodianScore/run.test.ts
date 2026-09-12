@@ -11,6 +11,7 @@ const INPUT: CustodianScoreInput = {
   programmeName: 'Environment & Nature',
   programmeGoal: 'Fund schools-based ecology and nature programmes.',
   programmeDescription: null,
+  programmeThemes: null,
   organisationName: 'Nature Learning Network',
   organisationSummary: null,
   amountRequested: 35000,
@@ -45,6 +46,34 @@ function flatAssessor(
     flags,
   })
 }
+
+describe('runCustodianScore — themes', () => {
+  const withThemes = { ...INPUT, programmeThemes: ['Nature', 'Education', 'Youth'] }
+  const picking =
+    (themes: string[]): CustodianScoreAssessor =>
+    async (input) => ({ ...(await flatAssessor(7)(input)), themes })
+
+  it("stores the picks in the programme's order", async () => {
+    const result = await runCustodianScore(withThemes, { assess: picking(['Youth', 'Nature']) })
+    expect(result.themes).toEqual(['Nature', 'Youth'])
+  })
+
+  it('stores an empty list, not null, when the programme has no themes', async () => {
+    const result = await runCustodianScore(INPUT, { assess: flatAssessor(7) })
+    expect(result.themes).toEqual([])
+  })
+
+  // Null is "leave what the row holds": a failed re-score must not blank themes.
+  it('returns null themes when scoring fails', async () => {
+    const result = await runCustodianScore(withThemes, {
+      assess: async () => {
+        throw new Error('boom')
+      },
+    })
+    expect(result.status).toBe('error')
+    expect(result.themes).toBeNull()
+  })
+})
 
 describe('runCustodianScore', () => {
   it('rolls sub-scores up into a composite and returns scored', async () => {

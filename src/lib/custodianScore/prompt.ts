@@ -12,10 +12,22 @@
 
 import { CRITERION_DEFINITIONS, CRITERION_ORDER } from './definitions'
 import type { CustodianScoreInput } from './types'
+import { offeredThemes } from './schema'
 import { budgetTotal, formatPounds } from '../budget'
 import { impactUnitLabel } from '../impactUnits'
 import type { DeprivationNation, DeprivationResult } from '../deprivation/types'
 import type { OrganisationProfile } from '../dueDiligence/types'
+
+/**
+ * How an application's themes are chosen from its programme's list. One statement,
+ * shared by the scoring prompt and `scripts/assign-themes.ts` (the themes-only
+ * backfill), so a backfilled row is tagged by the same rules as a freshly scored one.
+ */
+export const THEME_RULES = `- The programme's list is every theme an application to it could carry; your job is to say which of them THIS application is about.
+- Judge on the work the application proposes to fund, not on the organisation's wider activities, the programme's name, or which themes would flatter it.
+- Choose every theme the proposed work genuinely addresses, and at least one. Where none fits well, choose the single closest.
+- Use only themes from the programme's list, spelled exactly as given.
+- A theme is a category, not evidence. Fitting several themes is not a mark of strategic alignment, and fitting one is not a weakness.`
 
 /**
  * The scoring rubric and instructions. Stable across all applications — change
@@ -45,6 +57,9 @@ Separately, state the grant purpose: one or two sentences saying what the money 
 - Use plain factual language. No evaluation, praise, hedging or scoring words ("strong", "well-evidenced", "promising"), and no reference to the assessment or this scoring exercise.
 - If the application says too little to describe the work, say so plainly in one sentence rather than inventing detail.
 - Use ONLY what the application itself states. Deprivation deciles and charity-register figures are assessment context: they must never appear in the purpose, which describes the funded work and nothing else.
+
+Separately again, where the programme lists themes, choose this application's themes. This is also not part of your assessment:
+${THEME_RULES}
 
 Scoring guidance — read carefully, as consistency matters more than generosity:
 - Anchor every score to the mission and programme goal. Strong work that does not advance the funder's mission is a weak application here, and must score low on strategic alignment.
@@ -160,6 +175,12 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
   const mission = input.missionStatement?.trim() || '(no mission statement on file)'
   const goal = input.programmeGoal?.trim() || '(no specific goal recorded for this programme)'
   const description = input.programmeDescription?.trim()
+  // The list the themes are chosen from. Omitted entirely when there is none, so the
+  // system prompt's "where the programme lists themes" never has an empty list to act on.
+  const themes = offeredThemes(input.programmeThemes)
+  const themeList = themes.length
+    ? `\nThemes to choose from:\n${themes.map((t) => `- ${t}`).join('\n')}`
+    : ''
 
   const responses = (input.responses ?? [])
     .filter((r) => r.value?.trim())
@@ -253,7 +274,7 @@ Goal: ${goal}${description ? `\nDescription: ${description}` : ''}${
           input.grantDurationYears === 1 ? '' : 's'
         }.`
       : ''
-  }
+  }${themeList}
 
 # Application
 Organisation: ${input.organisationName}

@@ -227,6 +227,8 @@ function DataImport() {
   // string in the file. `null` for a round means "create it".
   const [programmeChoice, setProgrammeChoice] = useState<Record<string, string>>({})
   const [roundChoice, setRoundChoice] = useState<Record<string, string | null>>({})
+  // `null` for a theme means "leave it out" — themes are never created by an import.
+  const [themeChoice, setThemeChoice] = useState<Record<string, string | null>>({})
 
   const blockers = prepared?.issues.filter((i) => i.kind === 'blocker') ?? []
   const degradations = prepared?.issues.filter((i) => i.kind === 'degradation') ?? []
@@ -235,9 +237,11 @@ function DataImport() {
   const openProgrammes =
     prepared?.resolutions.programmes.filter((r) => r.match.kind !== 'exact') ?? []
   const openRounds = prepared?.resolutions.rounds.filter((r) => r.match.kind !== 'exact') ?? []
+  const openThemes = prepared?.resolutions.themes.filter((r) => r.match.kind !== 'exact') ?? []
   const unresolved =
     openProgrammes.filter((r) => !programmeChoice[r.value]).length +
-    openRounds.filter((r) => roundChoice[r.value] === undefined).length
+    openRounds.filter((r) => roundChoice[r.value] === undefined).length +
+    openThemes.filter((r) => themeChoice[r.value] === undefined).length
 
   async function handleDownloadTemplate() {
     setBusy('template')
@@ -250,6 +254,10 @@ function DataImport() {
         lookups: {
           programmes: context.programmes.map((p) => p.name),
           rounds: context.rounds.map((r) => r.name),
+          programmeThemes: context.programmes.map((p) => ({
+            programme: p.name,
+            themes: p.tags ?? [],
+          })),
         },
       })
       const url = URL.createObjectURL(blob)
@@ -320,6 +328,13 @@ function DataImport() {
         else if (r.match.kind === 'none') rd[r.value] = null
       }
       setRoundChoice(rd)
+      // A theme with no close match stays undecided: unlike a round there is no sensible
+      // default, since "leave it out" silently narrows a grant and a guess mis-tags it.
+      const th: Record<string, string | null> = {}
+      for (const r of check.resolutions.themes) {
+        if (r.match.kind === 'suggestion') th[r.value] = r.match.candidate.id
+      }
+      setThemeChoice(th)
 
       setStep('review')
     } catch (e) {
@@ -346,11 +361,16 @@ function DataImport() {
         roundsMap[r.value] =
           r.match.kind === 'exact' ? r.match.candidate.id : (roundChoice[r.value] ?? null)
       }
+      const themesMap: Record<string, string | null> = {}
+      for (const r of prepared.resolutions.themes) {
+        themesMap[r.value] =
+          r.match.kind === 'exact' ? r.match.candidate.id : (themeChoice[r.value] ?? null)
+      }
 
       const committed = await commitImport({
         data: {
           payload,
-          mapping: { programmes: programmesMap, rounds: roundsMap },
+          mapping: { programmes: programmesMap, rounds: roundsMap, themes: themesMap },
           fileName,
           acceptedWarnings: degradations.map((d) => d.code),
         },
@@ -565,7 +585,7 @@ function DataImport() {
             {prepared.replacing > 0 && ` · ${prepared.replacing} already imported, will be updated`}
           </div>
 
-          {(openProgrammes.length > 0 || openRounds.length > 0) && (
+          {(openProgrammes.length > 0 || openRounds.length > 0 || openThemes.length > 0) && (
             <Panel
               title="Confirm a few names"
               description="These don’t exactly match anything you have. That usually means they were pasted in rather than picked from the dropdown. Each decision applies to every row using that name."
@@ -631,6 +651,46 @@ function DataImport() {
                       options={[
                         { value: '__new__', label: `Create “${r.value}” as a new round` },
                         ...prepared.rounds.map((p) => ({ value: p.id, label: p.name })),
+                      ]}
+                    />
+                  </div>
+                ))}
+
+                {/* Themes are typed, several to a cell, so this is where the typos land.
+                    Every theme the foundation has is offered; one that belongs to a
+                    different programme than a row's is refused at commit, naming the
+                    row. */}
+                {openThemes.map((r) => (
+                  <div
+                    key={`t-${r.value}`}
+                    className="flex flex-wrap items-center gap-3 rounded-control border p-3"
+                    style={{ borderColor: C.line }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-body font-medium" style={{ color: C.ink }}>
+                        “{r.value}”
+                      </div>
+                      <div className="text-label" style={{ color: C.sub }}>
+                        Theme · {r.rowCount} row{r.rowCount === 1 ? '' : 's'}
+                        {r.reason && ` · ${r.reason}`}
+                      </div>
+                    </div>
+                    <Select
+                      className="w-56 shrink-0"
+                      aria-label={`Theme for “${r.value}”`}
+                      value={
+                        themeChoice[r.value] === null ? '__none__' : (themeChoice[r.value] ?? '')
+                      }
+                      onChange={(next) =>
+                        setThemeChoice((prev) => ({
+                          ...prev,
+                          [r.value]: next === '__none__' ? null : next,
+                        }))
+                      }
+                      placeholder="Choose a theme…"
+                      options={[
+                        { value: '__none__', label: 'Leave it out' },
+                        ...prepared.themes.map((t) => ({ value: t, label: t })),
                       ]}
                     />
                   </div>

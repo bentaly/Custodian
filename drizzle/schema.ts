@@ -544,6 +544,19 @@ export const applications = pgTable(
     // keeps its OWN copy from that point on: editing the letter's wording must not
     // rewrite what the AI made of the application.
     grantPurpose: text('grant_purpose'),
+    // The subset of its programme's themes (`programmes.tags`) this application is
+    // about, picked by the same model call that scores it. Every screen that shows or
+    // filters on a theme reads THIS, not the programme's list — a programme's themes are
+    // the possibilities, an application's are the answer.
+    //
+    // NULL means "not assigned yet" (scoring queued, failed, or not configured) and the
+    // screens say nothing rather than falling back to the programme's whole list, which
+    // would read as the model having chosen every theme. Frozen at assignment: editing a
+    // programme's themes later does not touch applications already tagged. Only a
+    // successful (re-)score rewrites it, and nobody can edit it from the application.
+    // An imported grant takes the Themes column of the workbook, or all its programme's
+    // themes when that cell is blank.
+    themes: jsonb('themes').$type<string[]>(),
     // Deprivation context derived from `deliveryArea`. `deprivationStatus` is the
     // denormalised outcome for cheap list reads; `deprivationContext` holds the full
     // result (decile range, nation, vintage, matched area — or the reason it could not

@@ -27,6 +27,12 @@ export type GrantRow = {
   contactEmail: string | null
   deliveryArea: string | null
   purpose: string | null
+  /**
+   * The Themes cell as the foundation typed it, one entry per semicolon-separated value.
+   * Not yet matched to anything: that is per DISTINCT value on the review screen, like
+   * programme and round. Empty means "every theme its programme has".
+   */
+  themes: string[]
   endDate: string | null
   impactQuantity: number | null
 }
@@ -203,6 +209,27 @@ function dateCell(
   return iso
 }
 
+/**
+ * A multi-value cell → its values. Semicolons, not commas, are the separator — a theme
+ * name can contain a comma ("Arts, culture and heritage") and cannot be told apart from
+ * two themes if commas split. A line break inside the cell (Alt+Enter) also separates,
+ * because that is the other way people put a list in one cell. Duplicates typed twice
+ * collapse, case-insensitively.
+ */
+export function splitThemes(value: unknown): string[] {
+  const text = asText(value)
+  if (!text) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const part of text.split(/[;\n\r]+/)) {
+    const t = part.trim()
+    if (!t || seen.has(t.toLowerCase())) continue
+    seen.add(t.toLowerCase())
+    out.push(t)
+  }
+  return out
+}
+
 const byKey = (sheet: SheetKey) =>
   Object.fromEntries(columnsFor(sheet).map((c) => [c.key, c])) as Record<string, ImportColumn>
 
@@ -294,6 +321,7 @@ export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIss
       contactEmail: asText(cells.contactEmail),
       deliveryArea: asText(cells.deliveryArea),
       purpose: asText(cells.purpose),
+      themes: splitThemes(cells.themes),
       endDate: dateCell(cells.endDate, cols.endDate!, rowNumber, issues),
       impactQuantity: asNumber(cells.impactQuantity),
     })

@@ -212,6 +212,13 @@ function ProgrammeDialogForm({
             suggestions={suggestions}
             hint="Choose an existing theme or type a new one, then press Enter"
           />
+          {/* The one thing about themes that is not obvious from the field: nobody tags an
+              application by hand. The list is the set of possibilities, and the scoring
+              model picks from it per application (`applications.themes`). */}
+          <p className="mt-1.5 font-display text-label text-grey-500">
+            These are all the themes an application to this programme can have. Custodian decides
+            which of them each application gets.
+          </p>
         </div>
 
         <div>

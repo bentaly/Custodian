@@ -176,6 +176,19 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     help: 'One line, in your words — the same phrasing you would put on an award letter.',
   },
   {
+    key: 'themes',
+    header: 'Themes',
+    // Optional and never a degradation: a blank cell is a complete answer ("all of the
+    // programme's themes"), not a gap.
+    tier: 'optional',
+    // Plain text, not a lookup — Excel's dropdowns take ONE value per cell and a grant
+    // can have several themes. The Start here sheet lists each programme's themes to
+    // copy from, and the review step matches every distinct value like it does
+    // programmes, so a typo is caught there rather than imported.
+    type: 'text',
+    help: 'Which of the programme’s themes this grant is about. Separate several with semicolons, e.g. “Youth; Mental health”. Leave blank to give the grant every theme its programme has. The themes each programme offers are listed at the foot of this sheet.',
+  },
+  {
     key: 'endDate',
     header: 'Grant end date',
     tier: 'optional',

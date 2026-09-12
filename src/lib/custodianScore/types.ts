@@ -77,6 +77,13 @@ export interface CustodianScoreResult {
    * in a letter to a grantee. Null unless status is 'scored'.
    */
   grantPurpose: string | null
+  /**
+   * The programme themes this application is about — see `applications.themes`. Outside
+   * `detail` for the same reason as `grantPurpose`: it is not a judgement, and a failed
+   * re-score must not blank it. Null unless status is 'scored'; `[]` only when the
+   * programme offers no themes to choose from.
+   */
+  themes: string[] | null
   scoredAt: string
 }
 
@@ -90,6 +97,12 @@ export interface CustodianScoreInput {
   programmeGoal: string | null | undefined
   /** Programme description, if the goal is sparse. */
   programmeDescription: string | null | undefined
+  /**
+   * Every theme the programme carries (`programmes.tags`) — the list the model picks
+   * this application's themes FROM. Not scoring evidence: a theme is a category, and
+   * the prompt keeps it out of `strategic_alignment`, which the goal already covers.
+   */
+  programmeThemes: string[] | null | undefined
   /** Applicant organisation name. */
   organisationName: string
   /** The applicant's own description of their organisation, where the form asked for

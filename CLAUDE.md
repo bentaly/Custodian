@@ -172,7 +172,9 @@ Traps:
 - **client_profiles** — per-tenant settings (mission statement, admin-voting toggle)
 - **rounds** ↔ **programmes** via **round_programmes** (budget, grant duration, impact unit per
   pairing); applications hang off a round-programme
-- **applications** — one row per submission; responses/budget lines in jsonb, plus AI columns
+- **applications** — one row per submission; responses/budget lines in jsonb, plus AI columns.
+  **`themes`** is the application's subset of `programmes.tags`, and it is what EVERY theme
+  column, pill and Insights "by theme" reads — never the programme's list. See custodianScore
 - **application_comments** / **application_votes** — discussion + trustee voting (majority gates awards)
 - **decline_letters** — one row per applicant told they were unsuccessful; unique on
   `application_id`, so nobody is ever told twice
@@ -320,6 +322,16 @@ design rationale; this list is a map, not a summary.
   immediately and `src/server/applications/score.ts` fills it in from its own queue message. The
   reviewer's Confirm path scores **inline**, because someone is watching. **`queued` is distinct
   from `pending`**: `pending` means no score is coming (no API key).
+  **The same call picks the application's THEMES** from its programme's list
+  (`applications.themes`). The output schema is built per request with `themes` as an enum of
+  that programme's tags (`custodianScoreOutputSchemaFor`), so an off-list theme cannot come
+  back; "at least one" is prompt-only, because structured outputs do not enforce array length.
+  **NULL = not assigned yet** and screens show nothing ("Pending" in the list) — never a
+  fallback to the programme's whole list, which is what the column replaced. Written only by a
+  successful score, like `grantPurpose`, so a failed re-score keeps what is there. **Frozen at
+  assignment**: editing a programme's themes does not touch tagged applications. Nobody can
+  edit an application's themes. `scripts/assign-themes.ts` backfills NULL rows without
+  re-scoring (imported rows get the programme's whole list, no model call).
   **The score READS the other two derived features**, so it can never share their
   `Promise.all`: `create.ts` resolves due diligence + deprivation first, then scores. Run
   alongside them it saw neither, and on the Confirm path — the one where those inputs change —
@@ -515,6 +527,12 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
 - **`import_batches` makes it reversible.** Every created row carries `importBatchId`;
   `rollbackImport` removes them unless a comment, vote, award letter or non-import report exists.
   Re-uploading the same reference REPLACES rather than duplicating — that is the phasing mechanism.
+- **Themes are one semicolon-separated cell** (`Youth; Mental health`), blank = every theme the
+  programme has. Not a dropdown: Excel list validation holds ONE value per cell. Semicolons, not
+  commas, because theme names contain commas. The Start here sheet lists each programme's themes
+  to copy; distinct values are matched on the review screen like programmes (`lib/dataImport/
+  themes.ts`); a theme belonging to a DIFFERENT programme is a blocker when both matched
+  exactly, and refused at commit otherwise. Themes are never created by an import.
 - Imported rows are **marked permanently** (`ui/ImportedPill`), because their blank score/DD/votes
   read as lost data otherwise. The Reports library wears it too, on the report's OWN
   `import_batch_id` rather than its grant's: a milestone the workbook recorded as received has no

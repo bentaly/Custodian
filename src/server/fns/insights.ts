@@ -115,6 +115,7 @@ export async function insightsData(
       deprivationContext: true,
       proposedImpactQuantity: true,
       decisionAt: true,
+      themes: true,
     },
     with: {
       roundProgramme: { with: { programme: true, round: true } },
@@ -195,7 +196,9 @@ export async function insightsData(
         programmeColour: programme?.colour ?? null,
         unitKey: programme?.impactUnit ?? 'people',
         unitLabel: impactUnitLabel(programme?.impactUnit, programme?.impactUnitLabel),
-        tags: (programme?.tags as string[] | null) ?? [],
+        // The application's own themes. "By theme" counts a grant under the themes it is
+        // about, not under every theme its programme could carry.
+        tags: a.themes ?? [],
         roundId: round?.id ?? null,
         roundName: round?.name ?? null,
         roundOpenedAt: round?.openedAt ? round.openedAt.toISOString() : null,
@@ -221,7 +224,6 @@ export async function insightsData(
 
   return { items }
 }
-
 
 // ─── The AI portfolio summary ────────────────────────────────────────────────
 //
