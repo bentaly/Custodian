@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { AlertCircleIcon, Delete02Icon, Share04Icon } from '@hugeicons/core-free-icons'
+import { AlertCircleIcon, Delete02Icon } from '@hugeicons/core-free-icons'
 import {
   addReportMilestone,
   deleteReportMilestone,
@@ -16,7 +16,6 @@ import {
   Button,
   CardTitle,
   DateField,
-  Dialog,
   ErrorNote,
   Input,
   Label,
@@ -28,7 +27,6 @@ import {
   type TimelineMarker,
 } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
-import { ReportFields } from '../ReportFields'
 import { C } from '../ui/tokens'
 import { fmtDate, fmtMoney } from '../../lib/format'
 import { impactPhrase } from '../../lib/impactUnits'
@@ -59,7 +57,6 @@ import {
 type AwardData = Awaited<ReturnType<typeof getAward>>
 type Instalment = AwardData['instalments'][number]
 type Milestone = AwardData['reportingMilestones'][number]
-type Report = AwardData['reports'][number]
 type ReportEntry = Extract<GrantTimelineEntry, { kind: 'report' }>
 type InstalmentEntry = Extract<GrantTimelineEntry, { kind: 'instalment' }>
 
@@ -89,9 +86,6 @@ function RowPill({ kind }: { kind: keyof typeof PILL }) {
 
 export function AwardSchedule({ award }: { award: AwardData }) {
   const [filter, setFilter] = useState<ScheduleFilter>('all')
-  // The report being read, as it was sent. Held here rather than in the row so the
-  // dialog survives the row collapsing under a filter change behind it.
-  const [reading, setReading] = useState<Report | null>(null)
 
   const entries = grantTimeline({
     decisionAt: award.decisionAt,
@@ -155,7 +149,7 @@ export function AwardSchedule({ award }: { award: AwardData }) {
                     ) : e.kind === 'instalment' ? (
                       <InstalmentRow award={award} entry={e} isNext={e.key === nextPaymentId} />
                     ) : (
-                      <ReportRow award={award} entry={e} onRead={setReading} />
+                      <ReportRow award={award} entry={e} />
                     )}
                   </div>
                 </div>
@@ -184,18 +178,6 @@ export function AwardSchedule({ award }: { award: AwardData }) {
             {(close) => <MilestoneEditor awardId={award.id} milestone={null} close={close} />}
           </EditPopover>
         </div>
-      )}
-
-      {reading && (
-        <Dialog
-          open
-          onClose={() => setReading(null)}
-          title="Grant report"
-          description={`${award.organisationName} · ${reading.label}`}
-          size="lg"
-        >
-          <ReportFields report={reading.fields} />
-        </Dialog>
       )}
     </Panel>
   )
@@ -344,15 +326,7 @@ function InstalmentRow({
   )
 }
 
-function ReportRow({
-  award,
-  entry: e,
-  onRead,
-}: {
-  award: AwardData
-  entry: ReportEntry
-  onRead: (report: Report) => void
-}) {
+function ReportRow({ award, entry: e }: { award: AwardData; entry: ReportEntry }) {
   const report = award.reports.find((r) => r.id === e.key || r.scheduleId === e.key) ?? null
   const milestone = award.reportingMilestones.find((m) => m.id === e.key) ?? null
   const pill: keyof typeof PILL = e.received
@@ -405,25 +379,16 @@ function ReportRow({
         )}
       </div>
 
-      {e.received && report ? (
-        // The report as it was sent, in place — the row's own title goes to its page,
-        // where the analysis and the review live.
-        <Button variant="secondary" onClick={() => onRead(report)}>
-          Read the report
-          <HugeiconsIcon icon={Share04Icon} size={16} color="currentColor" />
-        </Button>
-      ) : (
-        // Reporting dates are the admins' — `finance` runs the money, not the reporting.
-        !e.received &&
-        milestone &&
-        award.canEdit && (
-          <EditPopover
-            label={`Edit ${milestone.label}`}
-            trigger={(p) => <QuietEdit aria-label={`Edit ${milestone.label}`} {...p} />}
-          >
-            {(close) => <MilestoneEditor awardId={award.id} milestone={milestone} close={close} />}
-          </EditPopover>
-        )
+      {/* Reading a report as it was sent is the View submissions card's; the row's own
+          title goes to its page, where the analysis and the review live.
+          Reporting dates are the admins' — `finance` runs the money, not the reporting. */}
+      {!e.received && milestone && award.canEdit && (
+        <EditPopover
+          label={`Edit ${milestone.label}`}
+          trigger={(p) => <QuietEdit aria-label={`Edit ${milestone.label}`} {...p} />}
+        >
+          {(close) => <MilestoneEditor awardId={award.id} milestone={milestone} close={close} />}
+        </EditPopover>
       )}
     </>
   )

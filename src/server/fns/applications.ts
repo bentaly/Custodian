@@ -1100,7 +1100,7 @@ export const getAward = createServerFn({ method: 'GET' })
         impactQuantity: r.impactQuantity,
         impactUnitLabel: r.impactUnitLabel,
         // The report exactly as the grantee sent it, for the "Grant report" dialog the
-        // schedule's Read the report opens — the same fields, in the same order, as the
+        // View submissions card opens — the same fields, in the same order, as the
         // report screen's own View Report (`ReportFields`). Reading one is a glance at
         // what they wrote, and a glance should not cost a page.
         fields: {
@@ -1150,7 +1150,7 @@ export const getAward = createServerFn({ method: 'GET' })
     // controls on it. No report is "current" here; that marker is the report screen's.
     const reporting = reportingTimeline(
       // In date order: the relation comes back in whatever order Postgres found the rows,
-      // and the Linked reports card lists these as they come.
+      // and the View submissions card lists these as they come.
       [...award.schedule].sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
       award.reports.map((r) => ({
         id: r.id,
@@ -1230,6 +1230,40 @@ export const getAward = createServerFn({ method: 'GET' })
         companyNumber: app.companyNumber,
         externalApplicationId: app.externalApplicationId,
         deliveryArea: app.deliveryArea,
+        submittedAt: app.submittedAt.toISOString(),
+        // The application exactly as it was sent, for the "Application form" dialog the
+        // View submissions card opens — what `ApplicationFields` renders on the
+        // application screen. The bank columns are withheld from roles that cannot see
+        // the payment schedule, as `getApplication` withholds them.
+        fields: {
+          externalApplicationId: app.externalApplicationId,
+          organisationName: app.organisationName,
+          organisationSummary: app.organisationSummary,
+          applicantEmail: app.applicantEmail,
+          charityNumber: app.charityNumber,
+          companyNumber: app.companyNumber,
+          deliveryArea: app.deliveryArea,
+          amountRequested: app.amountRequested,
+          unrestrictedReserves: app.unrestrictedReserves,
+          proposedImpactQuantity: app.proposedImpactQuantity,
+          budgetBreakdown: app.budgetBreakdown,
+          budgetBreakdownLink: app.budgetBreakdownLink,
+          ...(canSeePayments(user.role)
+            ? {
+                bankName: app.bankName,
+                bankAccountName: app.bankAccountName,
+                bankAccountNumber: app.bankAccountNumber,
+                bankSortCode: app.bankSortCode,
+              }
+            : {
+                bankName: null,
+                bankAccountName: null,
+                bankAccountNumber: null,
+                bankSortCode: null,
+              }),
+          responses: app.responses,
+          submittedFields: app.submittedFields,
+        },
       },
       canEdit,
       canEditPayments,

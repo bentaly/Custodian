@@ -1,13 +1,15 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { parseAwardsSearch } from '../../lib/listSearch'
 import { useState, type ReactNode } from 'react'
 import { getAward, GRANT_STATUS_LABELS } from '../../server/fns/applications'
 import { resendAwardLetter } from '../../server/fns/awardSetup'
 import { AwardLetterPreview } from '../../components/AwardLetterPreview'
+import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmissionDialog'
+import { ReportFields } from '../../components/ReportFields'
 import { AwardSchedule } from '../../components/awards/AwardSchedule'
 import { Donut } from '../../components/charts/Donut'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Alert02Icon, Share04Icon } from '@hugeicons/core-free-icons'
 import {
   Badge,
@@ -54,6 +56,7 @@ export const Route = createFileRoute('/_authenticated/awards/$awardId')({
 })
 
 type AwardData = Awaited<ReturnType<typeof getAward>>
+type Report = AwardData['reports'][number]
 
 /** The lifecycle colour, on the same three values the awards list bands (`GRANT_STATUS_HEX`
  *  there) — a grant's status must not be one colour in the table and another on its page. */
@@ -148,7 +151,7 @@ function AwardDetail() {
           <PurposeCard award={award} />
           <GrantDetailsCard award={award} />
           <AwardLetterCard award={award} onRead={() => setLetterOpen(true)} />
-          <LinkedReportsCard award={award} />
+          <SubmissionsCard award={award} />
           <ScoresCard award={award} />
         </div>
       </div>
@@ -210,19 +213,21 @@ function HeadlineCard({ award }: { award: AwardData }) {
             <p className="font-display text-body" style={{ color: C.sub }}>
               Award total
             </p>
-            <p
-              className="font-display text-display font-medium leading-none tabular-nums"
-              style={{ color: C.ink }}
-            >
-              {fmtMoney(award.amountAwarded)}
+            <p className="flex flex-wrap items-baseline gap-x-1.5">
+              <span
+                className="font-display text-display font-medium leading-none tabular-nums"
+                style={{ color: C.ink }}
+              >
+                {fmtMoney(award.amountAwarded)}
+              </span>
+              {years != null && years > 0 && (
+                <span className="font-display text-title" style={{ color: C.sub }}>
+                  {years === 1 ? 'single year' : `over ${years} years`}
+                </span>
+              )}
             </p>
-            {years != null && years > 0 && (
-              <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-                {years === 1 ? 'Single year' : `Over ${years} years`}
-              </p>
-            )}
           </div>
-          <div className="flex min-w-48 flex-1 flex-col justify-between gap-2">
+          <div className="flex min-w-48 flex-1 flex-col gap-1">
             <p className="font-display text-body" style={{ color: C.sub }}>
               {unit ? `Impact measured in ${unit}` : 'Impact reported'}
             </p>
@@ -680,80 +685,98 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
 }
 
 /**
- * Every report the grant has — arrived and still to come — by name, each opening its
- * own page. The schedule says the same things in date order among the payments; this is
- * the short list for someone who came to this grant to open a report.
+ * Everything the grantee has sent — the application that won the grant, then each report
+ * that has arrived, in the order they came — each opening in place, exactly as it was
+ * sent. Reading what they wrote is a glance, and a glance should not cost a page; the
+ * pages themselves (with the score, the analysis, the review) are on the breadcrumb row.
+ * Reports still to come are the schedule's, among the payments.
  */
-function LinkedReportsCard({ award }: { award: AwardData }) {
+function SubmissionsCard({ award }: { award: AwardData }) {
+  const [reading, setReading] = useState<'application' | Report | null>(null)
+  const received = award.reporting.flatMap((e) => {
+    if (!e.received) return []
+    const report = award.reports.find((r) => r.id === e.key || r.scheduleId === e.key)
+    return report ? [{ key: e.key, date: e.date, report }] : []
+  })
+
   return (
-    <Panel label="Linked reports" className="flex flex-col gap-4">
-      <CardTitle>Linked reports</CardTitle>
-      {award.reporting.length === 0 ? (
-        <p className="font-display text-body" style={{ color: C.sub }}>
-          No reports are expected from this grantee.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-4">
-          {award.reporting.map((e) => {
-            const when = e.received
-              ? `Received ${fmtDate(e.date)}`
-              : e.dueStatus === 'overdue'
-                ? `Overdue since ${fmtDate(e.date)}`
-                : `Due ${fmtDate(e.date)}`
-            const body = (
-              <>
-                <span className="flex min-w-0 items-start gap-2 font-display text-body">
-                  <HugeiconsIcon
-                    icon={AREA_ICON['/reports']!}
-                    size={16}
-                    color={C.sub}
-                    className="mt-0.5 shrink-0"
-                  />
-                  {/* Inline, so a long name wraps with its date after it rather than
-                      being cut off — a report's name is the thing being looked for. */}
-                  <span className="min-w-0">
-                    <span className="font-medium group-hover:underline" style={{ color: C.ink }}>
-                      {e.label}
-                    </span>
-                    {/* The dot travels with the date, so a wrap never strands it. */}
-                    <span
-                      className="whitespace-nowrap"
-                      style={{ color: e.dueStatus === 'overdue' ? C.danger : C.sub }}
-                    >
-                      <Dot />
-                      {when}
-                    </span>
-                  </span>
-                </span>
-                {e.openable && (
-                  <HugeiconsIcon
-                    icon={Share04Icon}
-                    size={16}
-                    color={C.brand}
-                    className="shrink-0"
-                  />
-                )}
-              </>
-            )
-            return (
-              <li key={e.key}>
-                {e.openable ? (
-                  <Link
-                    to="/reports/$reportKey"
-                    params={{ reportKey: e.key }}
-                    className="group flex items-center justify-between gap-3"
-                  >
-                    {body}
-                  </Link>
-                ) : (
-                  <div className="flex items-center justify-between gap-3">{body}</div>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+    <Panel label="View submissions" className="flex flex-col gap-4">
+      <CardTitle>View submissions</CardTitle>
+      <ul className="flex flex-col gap-4">
+        <SubmissionRow
+          icon={AREA_ICON['/applications']!}
+          label="Application form"
+          when={`Submitted ${fmtDate(award.application.submittedAt)}`}
+          onOpen={() => setReading('application')}
+        />
+        {received.map(({ key, date, report }) => (
+          <SubmissionRow
+            key={key}
+            icon={AREA_ICON['/reports']!}
+            label={report.label}
+            when={`Received ${fmtDate(date)}`}
+            onOpen={() => setReading(report)}
+          />
+        ))}
+      </ul>
+
+      <ApplicationSubmissionDialog
+        application={award.application.fields}
+        programmeName={award.programmeName}
+        open={reading === 'application'}
+        onClose={() => setReading(null)}
+      />
+      {reading && reading !== 'application' && (
+        <Dialog
+          open
+          onClose={() => setReading(null)}
+          title="Grant report"
+          description={`${award.organisationName} · ${reading.label}`}
+          size="lg"
+        >
+          <ReportFields report={reading.fields} />
+        </Dialog>
       )}
     </Panel>
+  )
+}
+
+function SubmissionRow({
+  icon,
+  label,
+  when,
+  onOpen,
+}: {
+  icon: IconSvgElement
+  label: string
+  when: string
+  onOpen: () => void
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="flex min-w-0 items-start gap-2 font-display text-body">
+          <HugeiconsIcon icon={icon} size={16} color={C.sub} className="mt-0.5 shrink-0" />
+          {/* Inline, so a long name wraps with its date after it rather than being cut
+              off — a report's name is the thing being looked for. */}
+          <span className="min-w-0">
+            <span className="font-medium group-hover:underline" style={{ color: C.ink }}>
+              {label}
+            </span>
+            {/* The dot travels with the date, so a wrap never strands it. */}
+            <span className="whitespace-nowrap" style={{ color: C.sub }}>
+              <Dot />
+              {when}
+            </span>
+          </span>
+        </span>
+        <HugeiconsIcon icon={Share04Icon} size={16} color={C.brand} className="shrink-0" />
+      </button>
+    </li>
   )
 }
 
