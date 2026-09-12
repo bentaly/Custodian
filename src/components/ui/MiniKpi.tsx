@@ -20,7 +20,10 @@ import { TruncatedText } from './TruncatedText'
  * blush the comps draw. Same split as `SCORE_BAND`: accents fill, semantics label.
  *
  * A tint here carries no meaning. It is the card's place in the row, which is why the
- * keys are colours rather than states — nothing should read "pink" as "bad".
+ * keys are colours rather than states — nothing should read "pink" as "bad". A row whose
+ * cards come and go with the data takes them in turn off `Object.values`, so the order
+ * holds whichever cards are showing (see `BalanceAndBudget`). A warning belongs in the
+ * card's figure or sub line (`valueColour`, `subColour`), never in its tint.
  */
 export const KPI_TINTS = {
   violet: {

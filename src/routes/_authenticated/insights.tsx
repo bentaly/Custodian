@@ -19,6 +19,7 @@ import {
   EmptyState,
   ExportButton,
   FilterPill,
+  KPI_TINTS,
   MiniKpi,
   Tooltip,
   TruncatedList,
@@ -87,23 +88,15 @@ export const Route = createFileRoute('/_authenticated/insights')({
 })
 
 // ─── Design tokens ───────────────────────────────────────────────────────────────
+// The KPI row's tints are `KPI_TINTS`, in row order. This screen kept its own copy after
+// the dashboard moved to the accents, so Deprivation reach and Average grant were drawn
+// in `warning` and `danger` at 10% — tan and grey-pink beside the dashboard's cream and
+// blush, and a colour that read as a verdict on two figures that are neither.
 const KPI = {
-  committed: {
-    bg: 'color-mix(in srgb, var(--color-accent-violet) 10%, transparent)',
-    accent: 'var(--color-accent-violet)',
-  },
-  people: {
-    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
-    accent: 'var(--color-success)',
-  },
-  reach: {
-    bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)',
-    accent: 'var(--color-warning)',
-  },
-  avg: {
-    bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
-    accent: 'var(--color-danger)',
-  },
+  committed: KPI_TINTS.violet,
+  people: KPI_TINTS.green,
+  reach: KPI_TINTS.amber,
+  avg: KPI_TINTS.pink,
 }
 /**
  * How many areas the map's ranked list names before the tail is pooled into "other".
@@ -891,7 +884,6 @@ function programmeNames(names: string[]): string[] {
   return [...new Set(names)]
 }
 
-
 // ─── The AI portfolio summary ────────────────────────────────────────────────
 //
 // One paragraph measuring the portfolio against the foundation's own giving
@@ -931,7 +923,10 @@ function PortfolioSummary({
   const waiting = !hasStrategy ? (
     <>
       Set your{' '}
-      <Link to="/settings/giving-strategy" style={{ color: 'inherit', textDecoration: 'underline' }}>
+      <Link
+        to="/settings/giving-strategy"
+        style={{ color: 'inherit', textDecoration: 'underline' }}
+      >
         giving strategy
       </Link>{' '}
       and this becomes a read on how your grants measure against it.
@@ -946,7 +941,9 @@ function PortfolioSummary({
     <div
       data-export-block
       className="flex gap-3 rounded-card p-4"
-      style={{ backgroundColor: 'color-mix(in srgb, var(--color-brand) 12%, var(--color-grey-900))' }}
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--color-brand) 12%, var(--color-grey-900))',
+      }}
     >
       <HugeiconsIcon
         icon={SparklesIcon}

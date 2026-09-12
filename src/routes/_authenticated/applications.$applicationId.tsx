@@ -88,11 +88,12 @@ const C = {
 // The stat row's five tints are `KPI_TINTS` — the shared list, in the order the comps
 // (435:38511) read across. This screen used to carry its own copy built from the
 // SEMANTIC hues, which is why its cream and blush cards came out tan and grey-pink and
-// its last card mixed an `info` fill with a `sky` accent.
+// its last card mixed an `info` fill with a `sky` accent. Keyed in the order the cards
+// RENDER: a tint is a place in the row, so moving a card means moving its tint too.
 const KPI = {
   amount: KPI_TINTS.violet,
-  income: KPI_TINTS.green,
-  area: KPI_TINTS.amber,
+  area: KPI_TINTS.green,
+  income: KPI_TINTS.amber,
   reserves: KPI_TINTS.pink,
   community: KPI_TINTS.sky,
 }

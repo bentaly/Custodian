@@ -164,11 +164,17 @@ function Stats({
   const count = (balance ? 2 : 0) + (budget ? 2 : 0) + (showCash ? 2 : 0)
   const wide =
     count % 4 === 0 ? 'xl:grid-cols-4' : count % 3 === 0 ? 'xl:grid-cols-3' : 'xl:grid-cols-2'
+  // A tint is the card's place in the row, not a state (`KPI_TINTS`), and which cards
+  // show varies with the data — so each card takes the next tint as it renders rather
+  // than owning one. A stale balance says so in its sub line; the card stays its colour.
+  const tints = Object.values(KPI_TINTS)
+  let place = 0
+  const nextTint = () => tints[place++ % tints.length]!
   return (
     <div className={`grid gap-3 sm:grid-cols-2 ${wide}`}>
       {balance && (
         <MiniKpi
-          tint={balance.stale ? KPI_TINTS.amber : KPI_TINTS.green}
+          tint={nextTint()}
           icon={CreditCardIcon}
           label="Bank balance"
           value={fmtMoney(balance.amount)}
@@ -184,7 +190,7 @@ function Stats({
       )}
       {budget && (
         <MiniKpi
-          tint={KPI_TINTS.violet}
+          tint={nextTint()}
           icon={CoinsPoundIcon}
           label="Annual budget"
           value={fmtMoney(budget.total)}
@@ -199,7 +205,7 @@ function Stats({
           the same year sit together. */}
       {showCash && (
         <MiniKpi
-          tint={KPI_TINTS.amber}
+          tint={nextTint()}
           icon={Calendar03Icon}
           label={`Due in ${fy.label}`}
           value={fmtMoney(cash.promised + cash.allocated)}
@@ -212,7 +218,7 @@ function Stats({
       )}
       {showCash && (
         <MiniKpi
-          tint={KPI_TINTS.green}
+          tint={nextTint()}
           icon={CoinsPoundIcon}
           label="Available grant spend"
           value={fmtMoney(cash.free)}
@@ -222,7 +228,7 @@ function Stats({
       )}
       {budget && (
         <MiniKpi
-          tint={KPI_TINTS.sky}
+          tint={nextTint()}
           icon={Wallet03Icon}
           label="Paid this year"
           value={fmtMoney(budget.paid)}
@@ -231,7 +237,7 @@ function Stats({
       )}
       {balance && (
         <MiniKpi
-          tint={KPI_TINTS.pink}
+          tint={nextTint()}
           icon={Calendar03Icon}
           label="Left after this year"
           value={fmtMoney(spare!)}
