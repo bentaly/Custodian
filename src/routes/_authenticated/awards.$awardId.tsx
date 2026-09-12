@@ -16,6 +16,7 @@ import {
   Button,
   CardTitle,
   ClampToggle,
+  ConfirmDialog,
   DetailHeader,
   DetailRow,
   Dialog,
@@ -249,7 +250,9 @@ function HeadlineCard({ award }: { award: AwardData }) {
             )}
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-3">
+        {/* Spaced by the card's own `gap-3` — `Boundary` renders its children straight
+            into the flex column, so a margin here would be a second gap on top of it. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-3">
           <FootFact label="Round">{award.roundName ?? dash}</FootFact>
           <FootFact label="Programme">{award.programmeName ?? dash}</FootFact>
           <FootFact label="Themes">
@@ -549,6 +552,7 @@ const LETTER_STATUS: Record<string, { label: string; className: string }> = {
 function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => void }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const letter = award.letter
 
@@ -558,6 +562,7 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
     try {
       await resendAwardLetter({ data: { awardId: award.id } })
       await router.invalidate()
+      setConfirming(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The letter could not be sent')
     } finally {
@@ -616,7 +621,7 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
           {letter.failureReason}
         </p>
       )}
-      {error && (
+      {error && !confirming && (
         <p
           className="rounded-chip px-3 py-2 font-display text-label"
           style={{ backgroundColor: C.dangerWash, color: C.danger }}
@@ -632,7 +637,10 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
           <Button
             variant="text"
             size="xs"
-            onClick={handleResend}
+            onClick={() => {
+              setError(null)
+              setConfirming(true)
+            }}
             disabled={busy}
             style={{ color: C.ink }}
           >
@@ -643,6 +651,28 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
           Read the letter
         </Button>
       </div>
+
+      {/* Sending is a letter to a third party and cannot be taken back, so it is asked
+          first — and the question names the address, since resending to the wrong one
+          is the mistake worth catching. The stored letter goes out unchanged; nothing
+          is re-rendered from today's template. */}
+      <ConfirmDialog
+        open={confirming}
+        title={letter.status === 'sent' ? 'Send this letter again?' : 'Send this letter?'}
+        onCancel={() => setConfirming(false)}
+        onConfirm={handleResend}
+        confirmLabel={letter.status === 'sent' ? 'Send again' : 'Send now'}
+        busyLabel="Sending…"
+        busy={busy}
+        error={error ?? undefined}
+      >
+        The award letter as it was written will be emailed to{' '}
+        <span className="font-medium text-grey-900">{letter.recipientEmail ?? 'the grantee'}</span>
+        {letter.status === 'sent' && letter.sentAt
+          ? `, who was sent it on ${fmtDate(letter.sentAt)}`
+          : ''}
+        .
+      </ConfirmDialog>
     </Panel>
   )
 }

@@ -1099,6 +1099,34 @@ export const getAward = createServerFn({ method: 'GET' })
         programmeAlignment: r.programmeAlignment,
         impactQuantity: r.impactQuantity,
         impactUnitLabel: r.impactUnitLabel,
+        // The report exactly as the grantee sent it, for the "Grant report" dialog the
+        // schedule's Read the report opens — the same fields, in the same order, as the
+        // report screen's own View Report (`ReportFields`). Reading one is a glance at
+        // what they wrote, and a glance should not cost a page.
+        fields: {
+          submittedAt: r.submittedAt.toISOString(),
+          matchMethod: r.matchMethod,
+          externalApplicationId: r.externalApplicationId,
+          charityNumber: r.charityNumber,
+          companyNumber: r.companyNumber,
+          contactName: r.contactName,
+          contactEmail: r.contactEmail,
+          contactPhone: r.contactPhone,
+          amountAwarded: r.amountAwarded,
+          beneficiaryCount: r.beneficiaryCount,
+          awardDate: r.awardDate,
+          awardEndDate: r.awardEndDate,
+          deliveryArea: r.deliveryArea,
+          grantTitle: r.grantTitle,
+          grantPurpose: r.grantPurpose,
+          impactSummary: r.impactSummary,
+          challenges: r.challenges,
+          lessons: r.lessons,
+          caseStudies: r.caseStudies,
+          testimonials: r.testimonials,
+          otherComments: r.otherComments,
+          responses: (r.responses ?? []) as Array<{ label: string; value: string }>,
+        },
       }))
 
     // Aggregate impact across this award's reports, in the programme's unit. Only
