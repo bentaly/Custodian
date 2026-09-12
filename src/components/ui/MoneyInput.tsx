@@ -22,10 +22,13 @@ export function MoneyInput({
   onChange,
   className,
   id,
+  suffix,
 }: {
   value: string
   /** Accessible name — these sit in rows where the visible label is a column header. */
   label: string
+  /** Unit after the figure ("a month"), for a field whose column header states a different one. */
+  suffix?: string
   placeholder?: string
   required?: boolean
   disabled?: boolean
@@ -54,8 +57,17 @@ export function MoneyInput({
         required={required}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="pl-7"
+        className={suffix ? 'pl-7 pr-14' : 'pl-7'}
       />
+      {suffix && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-display text-label"
+          style={{ color: C.faint }}
+        >
+          {suffix}
+        </span>
+      )}
     </div>
   )
 }

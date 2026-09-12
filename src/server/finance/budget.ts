@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm'
 import {
   annualBudgetLines,
   annualBudgets,
@@ -19,7 +19,9 @@ import {
   type OutstandingSplit,
 } from '../../lib/annualBudget'
 import { rollUpCash } from '../../lib/multiYear'
-import { todayIso } from '../../lib/schedule'
+import { scheduleCoreCosts, type CoreCostRollup } from '../../lib/coreCosts'
+import { buildCashFlow, type CashFlow } from '../../lib/cashFlow'
+import { addMonthsIso, todayIso } from '../../lib/schedule'
 
 /**
  * "Bank balance & budget" — the panel at the head of the Finance screen.
@@ -102,6 +104,10 @@ export type BalanceAndBudget = {
   /** The same year counted in this year's cash rather than in commitments. NULL with no budget. */
   cash: ReturnType<typeof rollUpCash> | null
   outstanding: OutstandingSplit
+  /** The non-grant lines placed through the year. NULL with no budget or no such lines. */
+  coreCosts: CoreCostRollup | null
+  /** Month by month, with the projected balance and the headroom it ends on. */
+  cashFlow: CashFlow
   /** True when there is nothing to show at all, so the caller can render no panel. */
   empty: boolean
 }
@@ -139,13 +145,29 @@ export async function balanceAndBudget(
   })
   const fy = financialYear(profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH, now)
 
-  const [balanceRows, budgetRows, actualRows, outstandingRows, cashRows, bucketRows] =
-    await db.batch(budgetPanelQueries(db, clientId, fy))
-  return assemble(fy, balanceRows, budgetRows, actualRows, outstandingRows, cashRows, bucketRows)
+  const [
+    balanceRows,
+    budgetRows,
+    actualRows,
+    outstandingRows,
+    cashRows,
+    bucketRows,
+    instalmentDayRows,
+  ] = await db.batch(budgetPanelQueries(db, clientId, fy))
+  return assemble(
+    fy,
+    balanceRows,
+    budgetRows,
+    actualRows,
+    outstandingRows,
+    cashRows,
+    bucketRows,
+    instalmentDayRows,
+  )
 }
 
 /**
- * The six money queries, as builders.
+ * The seven money queries, as builders.
  *
  * Exported so their SQL can be rendered and asserted without a database — every one of
  * them must filter on `client_id`, and the WHERE must be a plain conjunction. A raw `or`
@@ -156,6 +178,8 @@ export async function balanceAndBudget(
  */
 export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) {
   const today = todayIso()
+  // How far back the cash flow reads PAID instalments. See the last query.
+  const paidFrom = addMonthsIso(fy.start, -12)
 
   // `decision_at` is a timestamp and the year bounds are dates, so the upper bound is
   // exclusive-of-the-next-day rather than `<= end` — an award decided at 14:00 on the
@@ -207,6 +231,8 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
         label: annualBudgetLines.label,
         amount: annualBudgetLines.amount,
         carriedCommitment: annualBudgetLines.carriedCommitment,
+        frequency: annualBudgetLines.frequency,
+        dueDate: annualBudgetLines.dueDate,
         programmeName: programmes.name,
         programmeColour: programmes.colour,
       })
@@ -307,6 +333,43 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
           sql`${awardInstalments.paidDate} is null`,
         ),
       ),
+
+    // ── Every instalment the cash flow draws, by day ─────────────────────────
+    // `buildCashFlow` (`src/lib/cashFlow.ts`) places these in months and projects the
+    // balance from them. PAID rows keep cancelled grants (the money left) and reach back
+    // a year before the year starts — far enough to catch a payment made after a reading
+    // taken before the year began; a reading older than that is flagged stale anyway.
+    // UNPAID rows exclude cancelled grants, need a date and stop at the year end, which is
+    // exactly the `dueByYearEnd` bucket above, so the projection and it are the same money.
+    //
+    // The `or` goes through Drizzle's `or()`, which brackets its own term — see
+    // `budget.test.ts` for what a naked one once did to Finance.
+    db
+      .select({
+        day: sql<string>`coalesce(${awardInstalments.paidDate}, ${awardInstalments.dueDate})`,
+        paid: sql<boolean>`(${awardInstalments.paidDate} is not null)`,
+        amount: sql<string>`sum(${awardInstalments.amount})`,
+      })
+      .from(awardInstalments)
+      .innerJoin(awards, eq(awards.id, awardInstalments.awardId))
+      .where(
+        and(
+          eq(awards.clientId, clientId),
+          or(
+            and(isNotNull(awardInstalments.paidDate), gte(awardInstalments.paidDate, paidFrom)),
+            and(
+              isNull(awardInstalments.paidDate),
+              ne(awards.status, 'cancelled'),
+              isNotNull(awardInstalments.dueDate),
+              lte(awardInstalments.dueDate, fy.end),
+            ),
+          ),
+        ),
+      )
+      .groupBy(
+        sql`coalesce(${awardInstalments.paidDate}, ${awardInstalments.dueDate})`,
+        sql`(${awardInstalments.paidDate} is not null)`,
+      ),
   ] as const
 }
 
@@ -328,7 +391,7 @@ export function ownedProgrammes(db: Db, clientId: string, ids: string[]) {
 }
 
 /** Shape the five result sets into what the panel draws. Pure; see `src/lib/annualBudget.ts`. */
-function assemble(
+export function assemble(
   fy: FinancialYear,
   balanceRows: {
     amount: string
@@ -343,6 +406,8 @@ function assemble(
     label: string | null
     amount: string | null
     carriedCommitment: string | null
+    frequency: string | null
+    dueDate: string | null
     programmeName: string | null
     programmeColour: string | null
   }[],
@@ -356,6 +421,7 @@ function assemble(
   outstandingRows: { total: string }[],
   cashRows: { programmeId: string; promised: string; drawnThisYear: string }[],
   bucketRows: { dueByYearEnd: string; dueLater: string; undated: string }[],
+  instalmentDayRows: { day: string; paid: boolean; amount: string }[],
 ): BalanceAndBudget {
   const today = todayIso()
 
@@ -439,9 +505,37 @@ function assemble(
       )
     : null
 
+  // ── Core costs, and the year month by month ────────────────────────────────
+  //
+  // Placed in the CURRENT year's bounds, like everything else on this screen. The budget
+  // row was found by containing today, so its stored bounds are this year's — except after
+  // a year-end change, when the months on screen are still the ones to place it into.
+  const costLines = budgetRows
+    .filter((r) => r.lineId && !r.programmeId)
+    .map((r) => ({
+      label: r.label,
+      amount: num(r.amount),
+      frequency: r.frequency,
+      dueDate: r.dueDate,
+    }))
+  const coreCosts = costLines.length > 0 ? scheduleCoreCosts(costLines, fy, today) : null
+  const cashFlow = buildCashFlow({
+    fy,
+    today,
+    balance: balance ? { amount: balance.amount, asAtDate: balance.asAtDate } : null,
+    instalments: instalmentDayRows.map((r) => ({
+      day: r.day,
+      paid: r.paid === true,
+      amount: num(r.amount),
+    })),
+    costLines,
+  })
+
   return {
     financialYear: fy,
     balance,
+    coreCosts,
+    cashFlow,
     budget: hasBudget ? { ...rollup, label: budgetRows[0]?.budgetLabel ?? fy.label } : null,
     /**
      * The same year on a cash basis. `allocated` on each line is what grants decided THIS

@@ -177,11 +177,6 @@ export function splitOutstanding(
   }
 }
 
-/**
- * Cash left after everything falling due inside this financial year is paid.
- *
- * Deliberately NOT balance − total outstanding. See `splitOutstanding`.
- */
-export function headroom(balance: number, outstanding: OutstandingSplit): number {
-  return balance - outstanding.dueByYearEnd
-}
+// Headroom — cash left after the year — is `buildCashFlow` (`src/lib/cashFlow.ts`). It
+// is still set against what falls due INSIDE the year, never against every penny owed,
+// but it is now measured from the day the balance was true and counts core costs too.

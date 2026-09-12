@@ -14,6 +14,7 @@ import {
   programmes,
   roundProgrammes,
   rounds,
+  users,
 } from '../../../drizzle/schema'
 import { requireRole } from '../session'
 import { recordAudit } from '../audit'
@@ -25,6 +26,7 @@ import {
   shiftFinancialYear,
 } from '../../lib/financialYear'
 import { todayIso } from '../../lib/schedule'
+import { costTimingProblem, resolveFrequency, storedTiming } from '../../lib/coreCosts'
 
 /**
  * The annual budget and the bank balance: reading, and the two writes.
@@ -129,9 +131,14 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           lineLabel: annualBudgetLines.label,
           amount: annualBudgetLines.amount,
           carriedCommitment: annualBudgetLines.carriedCommitment,
+          frequency: annualBudgetLines.frequency,
+          dueDate: annualBudgetLines.dueDate,
+          updatedAt: annualBudgets.updatedAt,
+          updatedBy: users.name,
         })
         .from(annualBudgets)
         .leftJoin(annualBudgetLines, eq(annualBudgetLines.budgetId, annualBudgets.id))
+        .leftJoin(users, eq(users.id, annualBudgets.updatedByUserId))
         .where(
           and(eq(annualBudgets.clientId, clientId), eq(annualBudgets.financialYearStart, fy.start)),
         ),
@@ -217,6 +224,9 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
       financialYearEndMonth: endMonth,
       yearOffset: offset,
       exists: budgetRows.length > 0,
+      // Who last confirmed this year's figures, and when. A budget is a decision, so the
+      // screen names who took it rather than leaving it to the audit log.
+      lastSaved: existing ? { at: existing.updatedAt.toISOString(), by: existing.updatedBy } : null,
       label: existing?.label ?? fy.label,
       lines: budgetRows
         .filter((r) => r.lineId)
@@ -229,6 +239,8 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           // decided this", and only the second should keep its value when the grants
           // behind the derived one change.
           carriedCommitment: r.carriedCommitment === null ? null : parseFloat(r.carriedCommitment),
+          frequency: r.programmeId ? null : resolveFrequency(r.frequency),
+          dueDate: r.dueDate,
         })),
       programmes: programmeRows,
       roundAllocations: allocationRows.map((r) => ({
@@ -273,6 +285,11 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
             // NULL (or omitted) means "the derived figure is right", which is the normal
             // case and stores nothing; a number is an override a finance lead typed.
             carriedCommitment: MONEY.nullable().optional(),
+            // Non-grant lines only: how the year's `amount` falls through the year. A
+            // programme line's cash comes from its grants' instalments, so both are
+            // dropped there, the same way `carriedCommitment` is dropped on a cost line.
+            frequency: z.enum(['monthly', 'one_off']).nullable().optional(),
+            dueDate: z.string().regex(ISO_DAY).nullable().optional(),
           }),
         )
         .max(100),
@@ -301,6 +318,14 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
         throw badRequest('One of those programmes does not belong to your organisation.')
       }
     }
+
+    // The same rule the Settings screen disables Save on (`costTimingProblem`), so the
+    // button and this boundary cannot disagree about what is saveable.
+    const timingProblem = costTimingProblem(data.lines, {
+      start: data.financialYearStart,
+      end: data.financialYearEnd,
+    })
+    if (timingProblem) throw badRequest(timingProblem)
 
     const previous = await db
       .select({
@@ -384,6 +409,8 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
       // a stale payload, not something worth failing a whole budget save over.
       carriedCommitment:
         l.programmeId && l.carriedCommitment != null ? l.carriedCommitment.toFixed(2) : null,
+      // Nothing on a programme line; a frequency on a cost line, and a date only if one-off.
+      ...storedTiming(l),
     }))
 
     // Both writes in ONE batch, so a foundation's budget is never momentarily empty:

@@ -86,8 +86,8 @@ describe('budgetPanelQueries', () => {
   const queries = budgetPanelQueries(offlineDb(), CLIENT, FY)
   const rendered = queries.map((q) => q.toSQL())
 
-  it('builds the six statements the panel is assembled from', () => {
-    expect(rendered).toHaveLength(6)
+  it('builds the seven statements the panel is assembled from', () => {
+    expect(rendered).toHaveLength(7)
   })
 
   it.each([
@@ -97,6 +97,7 @@ describe('budgetPanelQueries', () => {
     ['outstanding total', 3, 'awards'],
     ['cash by programme', 4, 'award_instalments'],
     ['outstanding buckets', 5, 'award_instalments'],
+    ['cash flow instalments', 6, 'award_instalments'],
   ])('scopes the %s query to one client', (_name, index, table) => {
     const { sql, params } = rendered[index]!
     expect(sql).toContain(table)
@@ -108,8 +109,21 @@ describe('budgetPanelQueries', () => {
   // The cash query (4) carries `(due_date is null or due_date <= end)` in its WHERE. That
   // is a BRACKETED or and is exactly the safe form — what this asserts is that no naked
   // one re-associates the conjunction and drops the client scope off a branch.
-  it.each([0, 1, 2, 3, 4, 5])('keeps statement %i a conjunction with no top-level or', (index) => {
-    expect(hasTopLevelOr(outerWhere(rendered[index]!.sql))).toBe(false)
+  // The cash flow query (6) is a paid-or-unpaid `or` by design — which is exactly why it
+  // must be the bracketed kind, inside the conjunction that carries the client scope.
+  it.each([0, 1, 2, 3, 4, 5, 6])(
+    'keeps statement %i a conjunction with no top-level or',
+    (index) => {
+      expect(hasTopLevelOr(outerWhere(rendered[index]!.sql))).toBe(false)
+    },
+  )
+
+  it('keeps cancelled grants out of the unpaid side of the cash flow only', () => {
+    const { sql, params } = rendered[6]!
+    expect(sql).toContain('"status" <>')
+    expect(params).toContain('cancelled')
+    // Stopped at the year end, like `dueByYearEnd`.
+    expect(params).toContain(FY.end)
   })
 
   it('never interpolates the client id into the SQL text', () => {

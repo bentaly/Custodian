@@ -5,7 +5,7 @@ import {
   Wallet03Icon,
 } from '@hugeicons/core-free-icons'
 import type { BalanceAndBudget as Data } from '../../server/finance/budget'
-import { headroom } from '../../lib/annualBudget'
+import { MONTH_NAMES } from '../../lib/financialYear'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { fmtDate, fmtMoney } from '../../lib/format'
 import { ProgressBar } from '../ProgressBar'
@@ -94,8 +94,10 @@ function Swatch({ colour, square = false }: { colour: string; square?: boolean }
 }
 
 export function BalanceAndBudget({ data }: { data: Data }) {
-  const { balance, budget, cash, outstanding, financialYear: fy } = data
-  const spare = balance ? headroom(balance.amount, outstanding) : null
+  const { balance, budget, cash, outstanding, coreCosts, cashFlow, financialYear: fy } = data
+  // Measured from the day the balance was true, core costs included — see `buildCashFlow`.
+  // The cash flow table's last closing balance is this same figure.
+  const spare = cashFlow.headroom
 
   if (data.empty) {
     return (
@@ -115,11 +117,22 @@ export function BalanceAndBudget({ data }: { data: Data }) {
         balance={balance}
         budget={budget}
         cash={cash}
-        outstanding={outstanding}
+        sinceBalance={cashFlow.sinceBalance}
         spare={spare}
         fy={fy}
       />
-      {budget ? <BudgetPanel budget={budget} cash={cash} spare={spare} fy={fy} /> : <NoBudget />}
+      {budget ? (
+        <BudgetPanel budget={budget} cash={cash} coreCosts={coreCosts} spare={spare} fy={fy} />
+      ) : (
+        <NoBudget />
+      )}
+      <CashFlowPanel
+        cashFlow={cashFlow}
+        balance={balance}
+        hasCoreCosts={coreCosts !== null}
+        undated={outstanding.undated}
+        fy={fy}
+      />
       {balance && <BalanceNote balance={balance} />}
     </div>
   )
@@ -136,14 +149,14 @@ function Stats({
   balance,
   budget,
   cash,
-  outstanding,
+  sinceBalance,
   spare,
   fy,
 }: {
   balance: Data['balance']
   budget: Data['budget']
   cash: Data['cash']
-  outstanding: Data['outstanding']
+  sinceBalance: Data['cashFlow']['sinceBalance']
   spare: number | null
   fy: Data['financialYear']
 }) {
@@ -246,11 +259,9 @@ function Stats({
           // year, never against every penny outstanding. Years two and three of a
           // multi-year grant are not paid out of today's balance, and setting the two
           // against each other would show a healthy foundation a frightening number.
-          sub={
-            outstanding.dueLater > 0
-              ? `${fmtMoney(outstanding.dueByYearEnd)} due by ${fmtDate(fy.end)} · ${fmtMoney(outstanding.dueLater)} in later years`
-              : `${fmtMoney(outstanding.dueByYearEnd)} due by ${fmtDate(fy.end)}`
-          }
+          // Every term between the balance and this figure is named, so the card can be
+          // checked by subtraction — including payments made since the reading.
+          sub={leftAfterYearSub(sinceBalance, fy.end)}
         />
       )}
     </div>
@@ -260,11 +271,13 @@ function Stats({
 function BudgetPanel({
   budget,
   cash,
+  coreCosts,
   spare,
   fy,
 }: {
   budget: NonNullable<Data['budget']>
   cash: Data['cash']
+  coreCosts: Data['coreCosts']
   spare: number | null
   fy: Data['financialYear']
 }) {
@@ -273,6 +286,8 @@ function BudgetPanel({
   // between two lists to put one programme's numbers together — and read as two different
   // sets of programmes at a glance.
   const cashByProgramme = new Map((cash?.lines ?? []).map((l) => [l.programmeId, l]))
+  const programmeLines = budget.lines.filter((l) => l.programmeId)
+  const costLines = budget.lines.filter((l) => !l.programmeId)
   return (
     <Panel label="Annual budget">
       <PanelTitle
@@ -299,12 +314,8 @@ function BudgetPanel({
       </PanelTitle>
 
       <div className="flex flex-col gap-3.5">
-        {budget.lines.map((line, i) => {
-          // A non-grant line is not a programme and must not borrow a programme's hue —
-          // the palette is how a foundation recognises its programmes across the app.
-          const colour = line.programmeId
-            ? resolveProgrammeColour(line.colour, i)
-            : 'var(--color-grey-400)'
+        {programmeLines.map((line, i) => {
+          const colour = resolveProgrammeColour(line.colour, i)
           const over = line.remaining < 0
           return (
             <div key={line.programmeId ?? `core-${i}`} className="flex flex-col gap-1.5">
@@ -378,6 +389,17 @@ function BudgetPanel({
         })}
       </div>
 
+      {/* Core costs are the plan placed through the year, not money Custodian saw leave,
+          so they sit apart from the grant meters and say "by schedule" rather than "paid".
+          The legend above is about grants and does not describe these bars. */}
+      {costLines.length > 0 && coreCosts && (
+        <CoreCostsSection
+          lines={costLines}
+          plan={coreCosts}
+          startDelay={programmeLines.length * 90}
+        />
+      )}
+
       {spare !== null && (
         <div
           className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4 font-display text-body"
@@ -396,6 +418,232 @@ function BudgetPanel({
           </span>
         </div>
       )}
+    </Panel>
+  )
+}
+
+/** The "Left after this year" card's sub line: every term between the balance and it. */
+function leftAfterYearSub(since: Data['cashFlow']['sinceBalance'], end: string): string {
+  if (!since) return ''
+  const due = [
+    `${fmtMoney(since.dueGrants)} grants`,
+    since.core > 0 && `${fmtMoney(since.core)} core costs`,
+  ]
+    .filter(Boolean)
+    .join(' and ')
+  const lead = since.paidGrants > 0 ? `${fmtMoney(since.paidGrants)} paid since the reading · ` : ''
+  return `${lead}${due} due by ${fmtDate(end)}`
+}
+
+/**
+ * The non-grant lines, each with a meter filled by its SCHEDULE.
+ *
+ * A monthly line fills a twelfth at each month end, a one-off fills on its date. Before
+ * frequency existed these meters could only ever read £0, because nothing records rent
+ * leaving the account — which drew every core cost as untouched all year.
+ */
+function CoreCostsSection({
+  lines,
+  plan,
+  startDelay,
+}: {
+  lines: NonNullable<Data['budget']>['lines']
+  plan: NonNullable<Data['coreCosts']>
+  startDelay: number
+}) {
+  const colour = 'var(--color-grey-400)'
+  const summary = [
+    plan.perMonth > 0 && `${fmtMoney(plan.perMonth)} a month`,
+    plan.oneOff > 0 && `${fmtMoney(plan.oneOff)} one-off`,
+  ]
+    .filter(Boolean)
+    .join(' + ')
+  return (
+    <div className="mt-5 flex flex-col gap-3.5 border-t pt-4" style={{ borderColor: C.line }}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 font-display">
+        <span className="text-body font-medium" style={{ color: C.ink }}>
+          Core and other costs
+        </span>
+        <span className="text-label" style={{ color: C.faint }}>
+          {summary}
+        </span>
+      </div>
+      {lines.map((line, i) => {
+        // The same rows in the same order: both are the budget's non-grant lines as stored.
+        const p = plan.lines[i]
+        if (!p) return null
+        return (
+          <div key={`core-${i}`} className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2">
+                <Swatch colour={colour} square />
+                <span className="truncate font-display text-body" style={{ color: C.body }}>
+                  {line.name}
+                </span>
+              </span>
+              <span className="shrink-0 font-display text-body font-medium tabular-nums text-grey-900">
+                {fmtMoney(p.toDate)}
+                <span style={{ color: C.faint }}>/{fmtMoney(p.amount)}</span>
+              </span>
+            </div>
+            <Meter
+              paid={p.toDate}
+              used={p.toDate}
+              total={p.amount}
+              colour={colour}
+              delay={startDelay + i * 90}
+            />
+            <div
+              className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 font-display text-label"
+              style={{ color: C.faint }}
+            >
+              <span>
+                {p.frequency === 'monthly'
+                  ? `${fmtMoney(p.perMonth ?? 0)} a month · ${fmtMoney(p.toDate)} to date by schedule`
+                  : `One-off, ${fmtDate(p.dueDate)}${p.toDate > 0 ? ' · now due' : ''}`}
+              </span>
+              <span>{p.toCome > 0 ? `${fmtMoney(p.toCome)} still to come` : 'All due'}</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  return `${MONTH_NAMES[m! - 1]!.slice(0, 3)} ${y}`
+}
+
+/**
+ * The year month by month: grant payments, core costs, and the balance they leave.
+ *
+ * A table rather than a chart because a finance lead reads it against their own
+ * spreadsheet, figure by figure. The closing balance ends on exactly the "Left after this
+ * year" card, because both are the same sum (`buildCashFlow`).
+ */
+function CashFlowPanel({
+  cashFlow,
+  balance,
+  hasCoreCosts,
+  undated,
+  fy,
+}: {
+  cashFlow: Data['cashFlow']
+  balance: Data['balance']
+  hasCoreCosts: boolean
+  undated: number
+  fy: Data['financialYear']
+}) {
+  const { months } = cashFlow
+  if (!balance && !months.some((m) => m.total !== 0)) return null
+  const current = months.find((m) => m.current)
+  const cell = 'px-2 py-2 text-right'
+  return (
+    <Panel label="Cash flow">
+      <PanelTitle
+        right={
+          balance && (
+            <span className="font-display text-label" style={{ color: C.faint }}>
+              From {fmtMoney(balance.amount)} as at {fmtDate(balance.asAtDate)}
+            </span>
+          )
+        }
+      >
+        Cash flow <span style={{ color: C.faint }}>· {fy.label}</span>
+      </PanelTitle>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse font-display text-body tabular-nums">
+          <thead>
+            <tr className="text-label" style={{ color: C.faint }}>
+              <th scope="col" className="px-2 py-2 text-left font-medium">
+                Month
+              </th>
+              <th scope="col" className={`${cell} font-medium`}>
+                Grant payments
+              </th>
+              {hasCoreCosts && (
+                <th scope="col" className={`${cell} font-medium`}>
+                  Core costs
+                </th>
+              )}
+              {hasCoreCosts && (
+                <th scope="col" className={`${cell} hidden font-medium sm:table-cell`}>
+                  Total out
+                </th>
+              )}
+              {balance && (
+                <th scope="col" className={`${cell} font-medium`}>
+                  Balance at month end
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((m) => (
+              <tr
+                key={m.key}
+                className="border-t"
+                style={{
+                  borderColor: C.line,
+                  color: m.past ? C.sub : C.ink,
+                  backgroundColor: m.current ? C.wash : undefined,
+                }}
+              >
+                <th scope="row" className="whitespace-nowrap px-2 py-2 text-left font-normal">
+                  {monthLabel(m.key)}
+                  {m.current && (
+                    <span className="ml-2 text-label" style={{ color: C.faint }}>
+                      This month
+                    </span>
+                  )}
+                </th>
+                <td className={cell}>
+                  {fmtMoney(m.grants)}
+                  {m.overdue > 0 && (
+                    <div className="text-label" style={{ color: C.danger }}>
+                      incl. {fmtMoney(m.overdue)} overdue
+                    </div>
+                  )}
+                </td>
+                {hasCoreCosts && <td className={cell}>{fmtMoney(m.core)}</td>}
+                {hasCoreCosts && (
+                  <td className={`${cell} hidden font-medium sm:table-cell`}>
+                    {fmtMoney(m.total)}
+                  </td>
+                )}
+                {balance && (
+                  <td
+                    className={cell}
+                    style={{ color: m.closing !== null && m.closing < 0 ? C.danger : undefined }}
+                  >
+                    {m.closing === null ? '' : fmtMoney(m.closing)}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-3 flex flex-col gap-1 font-display text-label" style={{ color: C.faint }}>
+        <p>
+          Grant payments are instalments paid in the month, or due and not yet paid
+          {current ? ` — anything overdue is counted in ${monthLabel(current.key)}` : ''}.
+          {hasCoreCosts &&
+            ' Core costs follow your annual budget: monthly lines at each month end, one-offs on their date. They are your plan, not a record of what was paid.'}
+        </p>
+        {undated > 0 && (
+          <p>{fmtMoney(undated)} of instalments have no date yet, so no month to show them in.</p>
+        )}
+        {balance && (
+          <p>
+            The balance is projected from the reading: less grant payments made since{' '}
+            {fmtDate(balance.asAtDate)}, every unpaid instalment due by {fmtDate(fy.end)}
+            {hasCoreCosts ? ', and core costs scheduled after the reading' : ''}.
+          </p>
+        )}
+      </div>
     </Panel>
   )
 }

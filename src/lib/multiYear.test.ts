@@ -173,3 +173,53 @@ describe('rollUpCash', () => {
     expect(out.budget).toBe(100_000)
   })
 })
+
+/**
+ * The red "allocated to rounds — £X over" line on Settings → Annual budget, which reads
+ * `free` and `allocated` straight off this rollup.
+ */
+describe('rollUpCash — rounds allocated against what is free', () => {
+  const names = new Map([['food', { name: 'Community Food', colour: null }]])
+
+  it('reports a round allocation that ignores earlier years as over by exactly those years', () => {
+    // A £175,000 programme whose rounds were given the whole £175,000, with £18,000 still
+    // owed this year on grants decided last year.
+    const r = rollUpCash(
+      [{ programmeId: 'food', amount: 175_000, carriedCommitment: null }],
+      names,
+      new Map([['food', 18_000]]),
+      new Map([['food', 175_000]]),
+    )
+    expect(r.lines[0]).toMatchObject({ free: 157_000, allocated: 175_000, unallocated: -18_000 })
+  })
+
+  it('clears once a finance lead states that the earlier money is not due this year', () => {
+    const r = rollUpCash(
+      [{ programmeId: 'food', amount: 175_000, carriedCommitment: 0 }],
+      names,
+      new Map([['food', 18_000]]),
+      new Map([['food', 175_000]]),
+    )
+    expect(r.lines[0]).toMatchObject({ free: 175_000, unallocated: 0, overridden: true })
+  })
+
+  it('is not over when the rounds leave room', () => {
+    const r = rollUpCash(
+      [{ programmeId: 'food', amount: 175_000, carriedCommitment: null }],
+      names,
+      new Map([['food', 18_000]]),
+      new Map([['food', 150_000]]),
+    )
+    expect(r.lines[0]!.unallocated).toBe(7_000)
+  })
+
+  it('treats a programme no round funds as nothing allocated', () => {
+    const r = rollUpCash(
+      [{ programmeId: 'food', amount: 10_000, carriedCommitment: null }],
+      names,
+      new Map(),
+      new Map(),
+    )
+    expect(r.lines[0]).toMatchObject({ free: 10_000, allocated: 0, unallocated: 10_000 })
+  })
+})

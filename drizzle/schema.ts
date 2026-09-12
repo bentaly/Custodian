@@ -1165,6 +1165,18 @@ export const annualBudgetLines = pgTable(
     // Only meaningful on a programme line. A core-costs line (NULL `programme_id`) has
     // no grants behind it, so nothing would derive and the read side ignores it.
     carriedCommitment: numeric('carried_commitment'),
+    // When a NON-GRANT line's money leaves the account: `monthly` (rent, payroll — an
+    // equal share at each month end) or `one_off` (a legal fee — the whole amount on
+    // `due_date`). `amount` stays the YEAR's figure either way, so every total and
+    // reconciliation reads it exactly as it reads a programme line; frequency only
+    // decides how that figure falls through the year (`src/lib/coreCosts.ts`).
+    //
+    // NULL on a programme line, whose cash comes from real instalment dates. A non-grant
+    // line reads NULL as `monthly`, so a row written by code older than this column
+    // spreads evenly rather than landing in one lump.
+    frequency: text('frequency').$type<'monthly' | 'one_off'>(),
+    /** `yyyy-mm-dd` a one-off cost falls on. Required for `one_off`, NULL otherwise. */
+    dueDate: text('due_date'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [

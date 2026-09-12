@@ -187,7 +187,8 @@ Traps:
 - **api_keys** — per-client secret keys gating `/api/apply`
 - **import_batches** — onboarding data import, makes it reversible
 - **annual_budgets** + **annual_budget_lines** — a year's grant-making plan; a line's NULL
-  `programme_id` is core costs. **Stated, not derived from `round_programmes.budget`** — a
+  `programme_id` is core costs, which carry a `frequency` (monthly, or one-off on `due_date`) while
+  `amount` stays the YEAR's figure on every line. **Stated, not derived from `round_programmes.budget`** — a
   foundation may hold money back from rounds, and the reconciliation between the two is the point
 - **bank_balance_readings** — append-only ledger of the grant account's balance, each with the date
   it was TRUE (not when it was typed). Never updated; a correction is a new row
@@ -408,7 +409,13 @@ design rationale; this list is a map, not a summary.
   with no lines, so "£0 of £0 with no meters" is unreachable; hiding the feature *without* losing
   the figures is the Settings switch. `src/lib/financialYear.ts` derives the year from
   `client_profiles.financial_year_end_month` (a MONTH, because "our year end is 31 March" is what a
-  grant-maker actually knows; default 3)
+  grant-maker actually knows; default 3).
+  **Core costs are placed through the year by `frequency`** (`src/lib/coreCosts.ts`): a month's
+  share falls at the month END and a one-off on its date — conservative, so headroom can
+  understate spare cash but never overstate it. `src/lib/cashFlow.ts` is the month table on
+  Balance & budget and **owns headroom**, measured from the balance's as-at date: grant payments
+  made since the reading, every unpaid instalment due by the year end, and core costs after the
+  reading. The table's last closing balance is that same sum, so the card and table cannot disagree
 - **budget** — budget-line types/helpers; **validators/** — zod schemas shared client/server
 
 ## Public submission auth

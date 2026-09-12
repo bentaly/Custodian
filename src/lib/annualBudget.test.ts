@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { headroom, rollUpBudget, splitOutstanding } from './annualBudget'
+import { rollUpBudget, splitOutstanding } from './annualBudget'
 
 const actual = (
   programmeId: string,
@@ -155,23 +155,5 @@ describe('splitOutstanding', () => {
 
   it('floors a negative total at zero', () => {
     expect(splitOutstanding(-10, { dueByYearEnd: 0, dueLater: 0, undated: 0 }).total).toBe(0)
-  })
-})
-
-describe('headroom', () => {
-  it('sets cash against what falls due inside the year, not against everything owed', () => {
-    const s = splitOutstanding(400_000, {
-      dueByYearEnd: 120_000,
-      dueLater: 275_000,
-      undated: 5_000,
-    })
-    // The naive reading would be 742,180 − 400,000 = 342,180 and would look alarming
-    // for a foundation whose commitments are simply spread over three years.
-    expect(headroom(742_180, s)).toBe(622_180)
-  })
-
-  it(`goes negative when the year's payments exceed the cash`, () => {
-    const s = splitOutstanding(90_000, { dueByYearEnd: 90_000, dueLater: 0, undated: 0 })
-    expect(headroom(50_000, s)).toBe(-40_000)
   })
 })

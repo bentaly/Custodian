@@ -14,6 +14,7 @@ import {
 } from '../../server/fns/budget'
 import {
   Button,
+  DateField,
   ErrorNote,
   Input,
   Label,
@@ -27,8 +28,20 @@ import {
 import { SettingsPage } from '../../components/SettingsPage'
 import { canSeePayments } from '../../lib/roles'
 import { MONTH_NAMES, financialYear, financialYearRange } from '../../lib/financialYear'
-import { rollUpBudget } from '../../lib/annualBudget'
-import { fmtMoney } from '../../lib/format'
+import { CORE_COSTS_LABEL, rollUpBudget } from '../../lib/annualBudget'
+import {
+  COST_FREQUENCIES,
+  COST_LABEL_SUGGESTIONS,
+  annualFromForm,
+  costTimingProblem,
+  formAmount,
+  monthsOfYear,
+  scheduleCoreCosts,
+  type CostFrequency,
+} from '../../lib/coreCosts'
+import { rollUpCash } from '../../lib/multiYear'
+import { todayIso } from '../../lib/schedule'
+import { fmtDate, fmtMoney } from '../../lib/format'
 import { messageFor } from '../../lib/errors'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 
@@ -52,6 +65,14 @@ import { resolveProgrammeColour } from '../../lib/programmeColours'
  * The cost of stating it is double entry for the foundation whose rounds ARE their year's
  * plan, and that is paid off in the UI rather than the schema: **Use round allocations**
  * fills the form from the rounds and they are done in one click.
+ *
+ * ## Core and other costs say how they are paid
+ *
+ * A non-grant line is monthly (rent, payroll) or one-off (a legal fee, on a date), and
+ * Finance uses that to place it through the year (`src/lib/coreCosts.ts`). A monthly line
+ * is TYPED per month, because that is the figure a finance lead knows, and STORED as the
+ * year — `annual_budget_lines.amount` means the same thing on every line. The label is
+ * free text with suggestions (Staff, Premises, Misc.…) rather than a fixed category list.
  *
  * ## Nothing here is required
  *
@@ -88,6 +109,10 @@ type Row = {
   programmeId: string | null
   label: string
   colour: string | null
+  /**
+   * The figure as typed — per MONTH on a monthly cost line, for the year everywhere else.
+   * `amount()` in the component turns it into the year's figure, which is what is saved.
+   */
   amount: string
   /**
    * What this programme already owes this year from grants decided in earlier years.
@@ -100,26 +125,41 @@ type Row = {
    * a number still on screen.
    */
   promised: string
+  /** Cost lines only. */
+  frequency: CostFrequency
+  /** Cost lines only: a one-off's `yyyy-mm-dd`, or '' until picked. */
+  dueDate: string
+  /**
+   * A monthly line's stored YEAR figure, kept until its per-month field is edited.
+   *
+   * A year shown per month is rounded to the penny (£50,000 is £4,166.67 a month), and
+   * twelve of those is £50,000.04. Without this, saving any OTHER change on the screen
+   * would quietly move an untouched cost line by a few pence.
+   */
+  loadedAnnual: number | null
 }
 
 /**
- * The shared column template for the budget list: name, the two money fields, the remove
- * button's slot. One constant so the header cannot drift out of line with the rows —
- * a programme row has no remove button and a core-cost row does, which is exactly the
- * kind of difference a hand-matched flex layout gets wrong.
+ * The shared column template for the budget lists: name, the two fields, the remove
+ * button's slot. One constant so the header cannot drift out of line with the rows.
  *
  * One column at phone width, where the fields stack and each carries its own label.
  */
 const BUDGET_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_9rem_2.25rem]'
 
+const LABEL_SUGGESTIONS_ID = 'budget-cost-label-suggestions'
+
 let coreKey = 0
-const newCoreRow = (label = 'Core costs'): Row => ({
+const newCoreRow = (label: string = CORE_COSTS_LABEL): Row => ({
   key: `core-${coreKey++}`,
   programmeId: null,
   promised: '',
   label,
   colour: null,
   amount: '',
+  frequency: 'monthly',
+  dueDate: '',
+  loadedAnnual: null,
 })
 
 /**
@@ -141,6 +181,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const navigate = Route.useNavigate()
   const offset = data.yearOffset
   const currentYearLabel = financialYear(data.financialYearEndMonth).label
+  const monthCount = monthsOfYear(data.financialYear).length
 
   /**
    * Step or jump to another financial year.
@@ -158,9 +199,9 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const initialRows = useMemo<Row[]>(() => {
     const saved = new Map(data.lines.filter((l) => l.programmeId).map((l) => [l.programmeId!, l]))
     const programmeRows: Row[] = data.programmes.map((p) => ({
+      ...newCoreRow(p.name),
       key: p.id,
       programmeId: p.id,
-      label: p.name,
       colour: p.colour,
       amount: saved.has(p.id) ? String(saved.get(p.id)!.amount) : '',
       promised:
@@ -170,9 +211,19 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     }))
     const coreRows: Row[] = data.lines
       .filter((l) => !l.programmeId)
-      .map((l) => ({ ...newCoreRow(l.label ?? 'Core costs'), amount: String(l.amount) }))
+      .map((l) => {
+        const frequency = l.frequency ?? 'monthly'
+        const { typed, loadedAnnual } = formAmount(l.amount, frequency, monthCount)
+        return {
+          ...newCoreRow(l.label ?? CORE_COSTS_LABEL),
+          frequency,
+          dueDate: l.dueDate ?? '',
+          amount: typed,
+          loadedAnnual,
+        }
+      })
     return [...programmeRows, ...(coreRows.length > 0 ? coreRows : [newCoreRow()])]
-  }, [data])
+  }, [data, monthCount])
 
   const [rows, setRows] = useState<Row[]>(initialRows)
   const [endMonth, setEndMonth] = useState(data.financialYearEndMonth)
@@ -191,10 +242,17 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     [data.promisedFromEarlierYears],
   )
 
-  const amount = (r: Row) => {
-    const n = parseFloat(r.amount)
-    return Number.isFinite(n) && n > 0 ? n : 0
-  }
+  /**
+   * The YEAR's figure for a row — what is saved and what every total adds up. A programme
+   * line is typed as the year, so it converts the way a one-off does.
+   */
+  const amount = (r: Row) =>
+    annualFromForm(
+      r.amount,
+      r.programmeId ? 'one_off' : r.frequency,
+      monthCount,
+      r.programmeId ? null : r.loadedAnnual,
+    )
   /** The typed override, or null when the derived figure was accepted. */
   const promisedOverride = (r: Row): number | null => {
     if (!r.programmeId || r.promised.trim() === '') return null
@@ -204,8 +262,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   /** The figure in use for a row: the override if there is one, else the derived one. */
   const promisedOf = (r: Row): number =>
     promisedOverride(r) ?? (r.programmeId ? (promisedByProgramme.get(r.programmeId) ?? 0) : 0)
-  /** What is left to give across this year's rounds once earlier years are paid. */
-  const freeOf = (r: Row): number => Math.max(0, amount(r) - promisedOf(r))
   /**
    * What a row set would actually SAVE, as a comparable string.
    *
@@ -222,12 +278,14 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         .filter((r) => amount(r) > 0)
         .map((r) => [
           r.programmeId,
-          r.programmeId ? null : r.label.trim() || 'Core costs',
+          r.programmeId ? null : r.label.trim() || CORE_COSTS_LABEL,
           amount(r),
           // The override is part of what a save writes, so editing it alone has to enable
           // Save. Compared as the payload value (null for "derived figure is right"), not
           // as the raw field, so typing the derived figure back in still reads as clean.
           promisedOverride(r),
+          r.programmeId ? null : r.frequency,
+          !r.programmeId && r.frequency === 'one_off' ? r.dueDate || null : null,
         ]),
     )
   // After a save, `router.invalidate()` reloads the budget and `initialRows` recomputes to
@@ -238,17 +296,63 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   // say it would only be a second thing to keep in step. The button says so rather than
   // leaving it to be discovered.
   const removing = data.exists && payloadOf(rows) === '[]'
+  // The rule `saveAnnualBudget` refuses on, run here too so Save is never a button that
+  // fails: a one-off cost needs a date inside the year.
+  const timingProblem = costTimingProblem(
+    rows.map((r) => ({
+      programmeId: r.programmeId,
+      label: r.label,
+      amount: amount(r),
+      frequency: r.frequency,
+      dueDate: r.dueDate,
+    })),
+    data.financialYear,
+  )
+
+  const programmeRows = rows.filter((r) => r.programmeId)
+  const costRows = rows.filter((r) => !r.programmeId)
+  // "Available to award" and the red "allocated to rounds — £X over" line, per programme.
+  // Read off `rollUpCash`, the rollup Finance draws its cash view with, so the arithmetic
+  // is stated and tested once (`multiYear.test.ts`) rather than re-derived in a component.
+  const cashByProgramme = new Map(
+    rollUpCash(
+      programmeRows.map((r) => ({
+        programmeId: r.programmeId,
+        amount: amount(r),
+        carriedCommitment: promisedOverride(r),
+      })),
+      new Map(),
+      promisedByProgramme,
+      allocatedByProgramme,
+    ).lines.map((l) => [l.programmeId, l]),
+  )
 
   const total = rows.reduce((s, r) => s + amount(r), 0)
-  const coreCosts = rows.filter((r) => !r.programmeId).reduce((s, r) => s + amount(r), 0)
+  const coreCosts = costRows.reduce((s, r) => s + amount(r), 0)
   const grantMaking = total - coreCosts
   const allocatedInRounds = data.roundAllocations.reduce((s, a) => s + a.allocated, 0)
   // Prior commitments across every programme line — the stated figure where there is one,
   // else the one derived from the instalment dates.
-  const promisedTotal = rows.filter((r) => r.programmeId).reduce((s, r) => s + promisedOf(r), 0)
+  const promisedTotal = programmeRows.reduce((s, r) => s + promisedOf(r), 0)
+  // The same function Finance places them with, so "£2,100 a month" here is the figure
+  // the cash flow there is built from.
+  const costPlan = scheduleCoreCosts(
+    costRows
+      .filter((r) => amount(r) > 0)
+      .map((r) => ({
+        label: r.label,
+        amount: amount(r),
+        frequency: r.frequency,
+        dueDate: r.dueDate || null,
+      })),
+    data.financialYear,
+    todayIso(),
+  )
 
-  const patch = (key: string, next: Partial<Row>) =>
+  const patch = (key: string, next: Partial<Row>) => {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...next } : r)))
+    setSaved(false)
+  }
 
   // Fills only the programme rows. Core-cost lines are not in any round by definition,
   // so a foundation that has entered them keeps them.
@@ -264,13 +368,10 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   }
 
   /**
-   * Show or hide the whole feature.
+   * Save the financial year end the moment it is picked.
    *
-   * Hiding writes ONE boolean and touches no figures. The first cut had no switch at all,
-   * on the reasoning that "absence is the setting" — which only holds while getting from
-   * on to off is free, and here it meant deleting a budget somebody had spent an afternoon
-   * entering. A visibility preference cannot contradict the data, because it makes no
-   * claim about it.
+   * Organisation-wide config rather than part of this year's budget, so it does not wait
+   * for the budget's Save — and every year on the page is derived from it.
    */
   async function handleSaveYearEnd(month: number) {
     setEndMonth(month)
@@ -300,9 +401,11 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             .filter((r) => amount(r) > 0)
             .map((r) => ({
               programmeId: r.programmeId,
-              label: r.programmeId ? null : r.label.trim() || 'Core costs',
+              label: r.programmeId ? null : r.label.trim() || CORE_COSTS_LABEL,
               amount: amount(r),
               carriedCommitment: promisedOverride(r),
+              frequency: r.programmeId ? null : r.frequency,
+              dueDate: !r.programmeId && r.frequency === 'one_off' ? r.dueDate || null : null,
             })),
         },
       })
@@ -329,10 +432,17 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     [],
   )
 
+  const costSummary = [
+    costPlan.perMonth > 0 && `${fmtMoney(costPlan.perMonth)} a month`,
+    costPlan.oneOff > 0 && `${fmtMoney(costPlan.oneOff)} one-off`,
+  ]
+    .filter(Boolean)
+    .join(' + ')
+
   return (
     <SettingsPage
       title="Annual budget"
-      description="What your organisation plans to give away this financial year, by programme, plus the cost of running it. Finance shows your commitments against these figures."
+      description="What your organisation plans to give away this financial year, by programme, plus the cost of running it. Finance shows your commitments and cash flow against these figures."
     >
       <Panel label="Financial year">
         <PanelTitle>Financial year</PanelTitle>
@@ -423,146 +533,192 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         {/* Two money fields on a row need naming, and the names belong over the columns
             rather than inside each field: repeated per row they would be twenty labels
             saying the same two things. Hidden below `sm`, where the fields stack and each
-            one's own accessible label is what reads.
-            Header and rows share ONE grid template (`BUDGET_GRID`) rather than matching
-            widths by hand — flex with a `w-36` on each side drifted, because only the
-            core-cost rows carry a remove button and the programme rows were pulled right
-            by its absence. */}
+            one's own accessible label is what reads. */}
         <div className={`${BUDGET_GRID} hidden items-end sm:grid`}>
           <span />
-          <span className="font-display text-label" style={{ color: C.faint }}>
-            Available budget
-          </span>
-          <span className="font-display text-label" style={{ color: C.faint }}>
-            Prior commitment total
-          </span>
+          <ColumnLabel>Available budget</ColumnLabel>
+          <ColumnLabel>Prior commitment total</ColumnLabel>
           <span />
         </div>
         <div className="flex flex-col gap-3">
-          {rows.map((row, i) => {
-            const allocated = row.programmeId
-              ? allocatedByProgramme.get(row.programmeId)
-              : undefined
-            const derived = row.programmeId ? (promisedByProgramme.get(row.programmeId) ?? 0) : 0
+          {programmeRows.map((row, i) => {
+            const cash = cashByProgramme.get(row.programmeId!)
+            const derived = promisedByProgramme.get(row.programmeId!) ?? 0
             const overridden = promisedOverride(row) !== null
             return (
               <div key={row.key} className={`${BUDGET_GRID} items-end`}>
                 <div className="min-w-0 flex-1">
-                  {row.programmeId ? (
-                    <div className="flex items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="h-2 w-2 shrink-0 rounded-[2px]"
-                        style={{ backgroundColor: resolveProgrammeColour(row.colour, i) }}
-                      />
-                      <span className="truncate font-display text-body text-grey-900">
-                        {row.label}
-                      </span>
-                    </div>
-                  ) : (
-                    <Input
-                      value={row.label}
-                      aria-label="Name of this cost line"
-                      placeholder="Core costs"
-                      maxLength={80}
-                      onChange={(e) => patch(row.key, { label: e.target.value })}
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 shrink-0 rounded-[2px]"
+                      style={{ backgroundColor: resolveProgrammeColour(row.colour, i) }}
                     />
-                  )}
-                  {/* The pair this screen exists to state: what is genuinely free to
-                          give this year, and how much of that the rounds have taken. The
-                          derived figure stays visible next to an override rather than
-                          being replaced by it, so a buffer reads as a deliberate choice.
-                          Only for programme rows — core costs have no grants behind them,
-                          so nothing carries forward and no round allocates to them. */}
-                  {row.programmeId && amount(row) > 0 && (
+                    <span className="truncate font-display text-body text-grey-900">
+                      {row.label}
+                    </span>
+                  </div>
+                  {/* The pair this screen exists to state: what is genuinely free to give
+                      this year, and how much of that the rounds have taken. The derived
+                      figure stays visible next to an override rather than being replaced
+                      by it, so a buffer reads as a deliberate choice. */}
+                  {amount(row) > 0 && (
                     <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
                       <span style={{ color: C.sub }}>
-                        {fmtMoney(freeOf(row))} available to award
+                        {fmtMoney(cash?.free ?? 0)} available to award
                       </span>
                       {/* What the rounds have taken of it. Over it is the thing this screen
                           exists to catch — the rounds between them promising more than the
                           year has free — so it is said in words and in red rather than left
                           for the reader to subtract. */}
-                      {allocated !== undefined && allocated > 0 && (
+                      {cash && cash.allocated > 0 && (
                         <>
                           {' · '}
-                          <span style={{ color: allocated > freeOf(row) ? C.danger : C.faint }}>
-                            {fmtMoney(allocated)} allocated to rounds
-                            {allocated > freeOf(row) &&
-                              ` — ${fmtMoney(allocated - freeOf(row))} over`}
+                          <span style={{ color: cash.unallocated < 0 ? C.danger : C.faint }}>
+                            {fmtMoney(cash.allocated)} allocated to rounds
+                            {cash.unallocated < 0 && ` — ${fmtMoney(-cash.unallocated)} over`}
                           </span>
                         </>
                       )}
                       {overridden && <> · {fmtMoney(derived)} from the schedules</>}
                     </p>
                   )}
-                  {!row.programmeId && allocated !== undefined && (
-                    <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-                      {fmtMoney(allocated)} allocated across this year&rsquo;s rounds
-                    </p>
-                  )}
                 </div>
 
                 <MoneyInput
                   value={row.amount}
-                  label={`Available budget for ${row.label || 'this line'}`}
+                  label={`Available budget for ${row.label}`}
                   placeholder="Not budgeted"
-                  onChange={(v) => {
-                    patch(row.key, { amount: v })
-                    setSaved(false)
-                  }}
+                  onChange={(v) => patch(row.key, { amount: v })}
                 />
 
-                {/* Empty is not zero: it means "your figure is right", and the derived
-                        one shows as the placeholder so the field reads as pre-answered
-                        rather than as one more thing to fill in. A core-costs line gets a
-                        spacer instead, keeping the Budget column aligned down the list. */}
-                {row.programmeId ? (
-                  <MoneyInput
-                    value={row.promised}
-                    label={`Prior commitments to be paid this year for ${row.label || 'this programme'}`}
-                    placeholder={derived > 0 ? String(derived) : '0'}
-                    onChange={(v) => {
-                      patch(row.key, { promised: v })
-                      setSaved(false)
-                    }}
-                  />
-                ) : (
-                  <span />
-                )}
+                {/* Empty is not zero: it means "your figure is right", and the derived one
+                    shows as the placeholder so the field reads as pre-answered rather than
+                    as one more thing to fill in. */}
+                <MoneyInput
+                  value={row.promised}
+                  label={`Prior commitments to be paid this year for ${row.label}`}
+                  placeholder={derived > 0 ? String(derived) : '0'}
+                  onChange={(v) => patch(row.key, { promised: v })}
+                />
 
-                {/* Only the non-grant lines can be removed. A programme row is not the
-                    foundation's to delete here — it is deleted by archiving the
-                    programme, and an empty amount already says "nothing this year". */}
-                <button
-                  type="button"
-                  onClick={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
-                  aria-label={`Remove ${row.label || 'this line'}`}
-                  disabled={!!row.programmeId}
-                  className="mb-2 flex shrink-0 rounded-full p-1 text-danger transition-opacity hover:opacity-70 disabled:invisible"
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} size={20} color="currentColor" />
-                </button>
+                {/* A programme row is not the foundation's to delete here — it is deleted by
+                    archiving the programme, and an empty amount already says "nothing this
+                    year". The slot stays so the columns line up with the cost lines. */}
+                <span />
               </div>
             )
           })}
         </div>
-
-        <Button
-          variant="text"
-          size="sm"
-          className="mt-3"
-          onClick={() => setRows((rs) => [...rs, newCoreRow('')])}
-        >
-          <HugeiconsIcon icon={Add01Icon} size={16} color="currentColor" />
-          Add a cost line
-        </Button>
 
         {data.programmes.length === 0 && (
           <p className="mt-3 font-display text-body" style={{ color: C.faint }}>
             You have no programmes yet. Add them first and their budgets will appear here.
           </p>
         )}
+
+        {/* Its own list with its own column names, because the second column means
+            something different here: not a prior commitment (there are no grants behind a
+            cost) but how the money is paid, which is what places it in Finance's cash
+            flow. */}
+        <div className="mt-6 border-t pt-4" style={{ borderColor: C.line }}>
+          <h3 className="font-display text-body font-medium" style={{ color: C.ink }}>
+            Core and other costs
+          </h3>
+          <p className="mt-0.5 mb-3 font-display text-label" style={{ color: C.faint }}>
+            Running the foundation, and anything else that is not a grant. Say how each is paid and
+            Finance will place it through the year.
+          </p>
+          <datalist id={LABEL_SUGGESTIONS_ID}>
+            {COST_LABEL_SUGGESTIONS.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+          <div className={`${BUDGET_GRID} hidden items-end sm:grid`}>
+            <span />
+            <ColumnLabel>Amount</ColumnLabel>
+            <ColumnLabel>How often</ColumnLabel>
+            <span />
+          </div>
+          <div className="flex flex-col gap-3">
+            {costRows.map((row) => (
+              <div key={row.key} className={`${BUDGET_GRID} items-start`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Input
+                    value={row.label}
+                    list={LABEL_SUGGESTIONS_ID}
+                    aria-label="Name of this cost line"
+                    placeholder="Core costs, Staff, Misc.…"
+                    maxLength={80}
+                    onChange={(e) => patch(row.key, { label: e.target.value })}
+                  />
+                  {row.frequency === 'one_off' ? (
+                    <DateField
+                      size="sm"
+                      value={row.dueDate}
+                      min={data.financialYear.start}
+                      max={data.financialYear.end}
+                      placeholder="When is it paid?"
+                      aria-label={`Date ${row.label || 'this cost'} is paid`}
+                      onChange={(v) => patch(row.key, { dueDate: v })}
+                    />
+                  ) : (
+                    amount(row) > 0 && (
+                      <p className="font-display text-label" style={{ color: C.faint }}>
+                        {fmtMoney(amount(row))} over the year
+                      </p>
+                    )
+                  )}
+                </div>
+
+                <MoneyInput
+                  value={row.amount}
+                  label={
+                    row.frequency === 'monthly'
+                      ? `Monthly amount for ${row.label || 'this line'}`
+                      : `Amount for ${row.label || 'this line'}`
+                  }
+                  suffix={row.frequency === 'monthly' ? '/month' : undefined}
+                  placeholder="0"
+                  // Editing the figure drops the loaded year — from here on the typed
+                  // monthly figure is the truth.
+                  onChange={(v) => patch(row.key, { amount: v, loadedAnnual: null })}
+                />
+
+                {/* Switching keeps the typed figure rather than converting it: somebody who
+                    typed 2,000 and then says "monthly" means £2,000 a month. The caption
+                    under the name shows the year it now comes to. */}
+                <Select
+                  aria-label={`How often ${row.label || 'this cost'} is paid`}
+                  value={row.frequency}
+                  options={COST_FREQUENCIES}
+                  onChange={(v) =>
+                    patch(row.key, { frequency: v as CostFrequency, loadedAnnual: null })
+                  }
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
+                  aria-label={`Remove ${row.label || 'this line'}`}
+                  className="mt-2 flex shrink-0 rounded-full p-1 text-danger transition-opacity hover:opacity-70"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={20} color="currentColor" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <Button
+            variant="text"
+            size="sm"
+            className="mt-3"
+            onClick={() => setRows((rs) => [...rs, newCoreRow('')])}
+          >
+            <HugeiconsIcon icon={Add01Icon} size={16} color="currentColor" />
+            Add a cost line
+          </Button>
+        </div>
       </Panel>
 
       <Panel label="Check">
@@ -579,7 +735,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             label={`Prior grant commitments to be paid in ${data.financialYear.label}`}
             value={fmtMoney(promisedTotal)}
           />
-          <CheckRow label="Core costs" value={fmtMoney(coreCosts)} />
+          <CheckRow label="Core and other costs" value={fmtMoney(coreCosts)} sub={costSummary} />
           <CheckRow label="Total annual budget" value={fmtMoney(total)} strong />
         </dl>
 
@@ -601,10 +757,15 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             showing commitments against it.
           </p>
         )}
+        {timingProblem && (
+          <p className="mt-3 font-display text-body" style={{ color: C.danger }}>
+            {timingProblem}
+          </p>
+        )}
         <ErrorNote error={error} className="mt-3" />
         <Button
           onClick={handleSave}
-          disabled={saving || !dirty}
+          disabled={saving || !dirty || !!timingProblem}
           variant={removing ? 'danger' : 'primary'}
           className="mt-3"
         >
@@ -618,6 +779,13 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                 ? 'Remove budget'
                 : 'Save budget'}
         </Button>
+        {/* Saving IS confirming the year's figures, so the screen says who last did it. */}
+        {data.lastSaved && (
+          <p className="mt-2 font-display text-label" style={{ color: C.faint }}>
+            Last saved{data.lastSaved.by ? ` by ${data.lastSaved.by}` : ''} on{' '}
+            {fmtDate(data.lastSaved.at)}.
+          </p>
+        )}
       </Panel>
       {/* Disabling the year arrows only ever covered stepping between years; the sidebar,
           a breadcrumb and the browser's back button all still walked away with an
@@ -627,10 +795,35 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   )
 }
 
-function CheckRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function ColumnLabel({ children }: { children: string }) {
+  return (
+    <span className="font-display text-label" style={{ color: C.faint }}>
+      {children}
+    </span>
+  )
+}
+
+function CheckRow({
+  label,
+  value,
+  sub,
+  strong,
+}: {
+  label: string
+  value: string
+  sub?: string
+  strong?: boolean
+}) {
   return (
     <div className="flex justify-between gap-3 font-display text-body">
-      <dt style={{ color: strong ? C.ink : C.sub }}>{label}</dt>
+      <dt style={{ color: strong ? C.ink : C.sub }}>
+        {label}
+        {sub && (
+          <span className="ml-2 text-label" style={{ color: C.faint }}>
+            {sub}
+          </span>
+        )}
+      </dt>
       <dd className={`tabular-nums ${strong ? 'font-medium' : ''}`} style={{ color: C.ink }}>
         {value}
       </dd>
