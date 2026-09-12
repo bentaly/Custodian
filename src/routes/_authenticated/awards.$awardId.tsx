@@ -416,20 +416,15 @@ function PaymentsCard({ award }: { award: AwardData }) {
 // ─── Side column ─────────────────────────────────────────────────────────────
 
 /**
- * "Awarded for", NOT "Grant purpose" — and the rename is the point.
- *
- * `awards.purpose` and `applications.grant_purpose` are two different sentences about
- * one grant, by design: the application's is what the applicant asked for (mapped from
- * their own submission), the award's is what the foundation agreed to fund, written at
- * set-up and printed on the letter as "towards {purpose}". `createAwards` PRE-FILLS the
- * second from the first and then lets the admin reword or replace it, so the two
- * legitimately differ on most grants. The design called this card "Grant purpose"; that
- * is the application's title, and it is worn here only when an award minted before the
- * column existed falls back to the application's sentence — as on the report screen.
+ * The grant's purpose: `awards.purpose`, what the foundation agreed to fund, written at
+ * set-up and printed on the letter as "towards {purpose}". `createAwards` PRE-FILLS it
+ * from `applications.grant_purpose` (the one-sentence summary the scoring call writes)
+ * and the admin rewords it, so the two usually differ — but both are the grant's purpose
+ * and wear one title everywhere. An award minted before the column existed falls back to
+ * the application's sentence, as on the report screen.
  */
 function PurposeCard({ award }: { award: AwardData }) {
   const purpose = award.purpose ?? award.application.grantPurpose
-  const fromApplication = !award.purpose && Boolean(award.application.grantPurpose)
   const clamp = useClamp(purpose, 4)
   // One per line, as `renderAwardLetter` numbers them on the letter — a grant set up with
   // three bespoke terms must not read here as one paragraph.
@@ -441,7 +436,7 @@ function PurposeCard({ award }: { award: AwardData }) {
   if (!purpose && bespoke.length === 0) return null
 
   return (
-    <Panel label="Awarded for" className="flex flex-col gap-4">
+    <Panel label="Grant purpose" className="flex flex-col gap-4">
       <CardTitle
         right={
           clamp.clipped || clamp.open ? (
@@ -449,7 +444,7 @@ function PurposeCard({ award }: { award: AwardData }) {
           ) : undefined
         }
       >
-        {fromApplication ? 'Grant purpose' : 'Awarded for'}
+        Grant purpose
       </CardTitle>
       {purpose ? (
         <p

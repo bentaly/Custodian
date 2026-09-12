@@ -637,7 +637,7 @@ export const getReport = createServerFn({ method: 'GET' })
             externalApplicationId: true,
             // What a report's impact figure is measured against — the whole grant's.
             proposedImpactQuantity: true,
-            // The purpose the applicant asked for, shown only when the award itself
+            // The application's purpose sentence, shown only when the award itself
             // recorded none (awards minted before `awards.purpose` existed).
             grantPurpose: true,
             themes: true,
@@ -716,11 +716,9 @@ export const getReport = createServerFn({ method: 'GET' })
         amountAwarded: award.amountAwarded,
         decisionAt: award.decisionAt.toISOString(),
         status: award.status,
-        // What the foundation agreed to fund (the award letter's "towards …"). The
-        // application's sentence is the fallback, flagged so the screen can title it
-        // for what it is — see the award screen's `PurposePanel` on why the two differ.
+        // What the foundation agreed to fund (the award letter's "towards …"), falling
+        // back to the application's sentence — see the award screen's `PurposeCard`.
         purpose: award.purpose ?? app.grantPurpose ?? null,
-        purposeFromApplication: !award.purpose && Boolean(app.grantPurpose),
         durationYears: app.roundProgramme?.grantDurationYears ?? null,
         instalments: [...award.instalments]
           .sort((a, b) => a.instalmentNo - b.instalmentNo)

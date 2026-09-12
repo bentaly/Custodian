@@ -842,9 +842,9 @@ function ApplicationDetail() {
             panel rather than a line inside the assessment below, because it is a
             statement of fact carrying no judgement, and because it is present on rows
             the score is missing from (an imported grant, a failed scoring run). */}
-        {/* The applicant's own ask. The grant it becomes carries its OWN purpose — what
+        {/* The scoring call's summary of the ask. The grant it becomes carries its OWN purpose — what
             the foundation agreed to fund, written at award set-up and printed on the
-            letter — shown under "Awarded for" on the grant screen. That one is prefilled
+            letter — shown as the grant screen's "Grant purpose". That one is prefilled
             from this one and then edited, so the two differ on most grants. */}
         {(grantPurpose || orgProfile || orgSummary || noRegistrationNumber) && (
           <Panel label="grant purpose">

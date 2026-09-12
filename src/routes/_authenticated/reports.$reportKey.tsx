@@ -310,18 +310,17 @@ function ReportDetail() {
 // ─── Side column ─────────────────────────────────────────────────────────────
 
 /**
- * What the money is for — the thing this report is read against. The AWARD's purpose,
- * titled "Awarded for" as on the award screen, because it is the foundation's sentence
- * (printed on the award letter) and not the applicant's. An award minted before the
- * column existed falls back to the application's sentence, and says so by wearing the
- * application screen's title for it. Clamped: a purpose is usually a sentence, but it is
+ * What the money is for — the thing this report is read against. The AWARD's purpose
+ * (printed on the award letter), falling back to the application's sentence for an award
+ * minted before that column existed. Titled "Grant purpose" either way, as on the award
+ * and application screens. Clamped: a purpose is usually a sentence, but it is
  * free text, and a side-column card has no business being a page tall.
  */
 function PurposeCard({ grant }: { grant: ReportData['grant'] }) {
   const clamp = useClamp(grant.purpose, 4)
   if (!grant.purpose) return null
   return (
-    <Panel label="Purpose" className="flex flex-col gap-4">
+    <Panel label="Grant purpose" className="flex flex-col gap-4">
       <CardTitle
         right={
           clamp.clipped || clamp.open ? (
@@ -329,7 +328,7 @@ function PurposeCard({ grant }: { grant: ReportData['grant'] }) {
           ) : undefined
         }
       >
-        {grant.purposeFromApplication ? 'Grant purpose' : 'Awarded for'}
+        Grant purpose
       </CardTitle>
       <p
         ref={clamp.ref}
