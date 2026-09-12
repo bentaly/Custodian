@@ -1,10 +1,10 @@
 import { Button } from './Button'
 import { Dialog } from './Dialog'
 
-// The "are you sure?" step in front of a destructive action. A thin preset over
-// `Dialog` — the modal behaviour (Escape, backdrop, focus, scroll lock, and the rule
-// that none of it applies while the action is in flight) lives there, so a confirm and
-// a form dialog can never drift apart.
+// The "are you sure?" step in front of an action that cannot be taken back. A thin
+// preset over `Dialog` — the modal behaviour (Escape, backdrop, focus, scroll lock, and
+// the rule that none of it applies while the action is in flight) lives there, so a
+// confirm and a form dialog can never drift apart.
 
 export function ConfirmDialog({
   open,
@@ -14,6 +14,7 @@ export function ConfirmDialog({
   confirmLabel,
   busyLabel,
   busy = false,
+  tone = 'danger',
   error,
   children,
 }: {
@@ -25,6 +26,15 @@ export function ConfirmDialog({
   /** Confirm-button text while the action runs; defaults to `confirmLabel`. */
   busyLabel?: string
   busy?: boolean
+  /**
+   * What the confirm button is about.
+   *
+   * `danger` (the default) is for an act that DESTROYS something — deleting, cancelling,
+   * rolling an import back. `primary` is for one that is merely irreversible: sending an
+   * award letter is a normal part of the job, and dressing it in red teaches people that
+   * red here means nothing much, which is exactly what the delete buttons cannot afford.
+   */
+  tone?: 'danger' | 'primary'
   error?: string
   /** What is about to happen, in the user's own nouns. */
   children: React.ReactNode
@@ -41,7 +51,7 @@ export function ConfirmDialog({
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="danger" size="sm" onClick={onConfirm} disabled={busy}>
+          <Button variant={tone} size="sm" onClick={onConfirm} disabled={busy}>
             {busy ? (busyLabel ?? confirmLabel) : confirmLabel}
           </Button>
         </div>

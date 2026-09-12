@@ -664,6 +664,8 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
         confirmLabel={letter.status === 'sent' ? 'Send again' : 'Send now'}
         busyLabel="Sending…"
         busy={busy}
+        // Irreversible, not destructive: sending a grantee their letter is the job.
+        tone="primary"
         error={error ?? undefined}
       >
         The award letter as it was written will be emailed to{' '}
