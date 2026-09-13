@@ -150,6 +150,12 @@ type Chip = {
   colour: string
   /** Overrides the leading figure — `£8k` for a chip counting money rather than rows. */
   display?: React.ReactNode
+  /**
+   * Shown only if it fits on a line the legend already has — see `Chips`. For a chip
+   * the reader can work out from the others (Finance's `later` is the headline less
+   * the other two), never for one that carries news of its own.
+   */
+  droppable?: boolean
 }
 
 function Chips({ chips }: { chips: Chip[] }) {
@@ -161,19 +167,39 @@ function Chips({ chips }: { chips: Chip[] }) {
   // outstanding pounds the bar is drawn from. It sits in the legend rather than on a
   // line of its own because a line only present when something is wrong pushes the whole
   // card taller on exactly the day it is worst read.
+  //
+  // A `droppable` chip is shown only when it fits, so a narrow card loses it rather than
+  // growing a second line — and with it, since grid siblings share a height, making all
+  // four cards taller. Done in CSS, not by measuring: the droppable chips sit in a box
+  // that takes whatever is left of the current line (`flex-1`, basis 0) and is exactly
+  // one line tall with its overflow hidden. A zero-width spacer occupies that box's first
+  // line, so a chip too wide for the space left cannot sit beside it and wraps onto the
+  // box's second line, which is clipped — all or nothing, never half a figure. `-ml-4`
+  // cancels the row's gap (the box carries its own, before the chip) so the box can never
+  // be the thing pushed onto a new line. When the legend already wraps for another reason
+  // (bank issues), the box follows onto that line and the chip shows there for free.
   const shown = chips.filter((c) => c.count > 0)
   if (!shown.length) return null
+  const kept = shown.filter((c) => !c.droppable)
+  const droppable = shown.filter((c) => c.droppable)
+  const chip = (c: Chip) => (
+    <span key={c.label} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.colour }} />
+      {c.display ?? c.count} {c.label}
+    </span>
+  )
   return (
     <div
       className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-label"
       style={{ color: C.sub }}
     >
-      {shown.map((c) => (
-        <span key={c.label} className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.colour }} />
-          {c.display ?? c.count} {c.label}
+      {kept.map(chip)}
+      {droppable.length > 0 && (
+        <span className="-ml-4 flex h-[1lh] min-w-0 flex-[1_1_0%] flex-wrap gap-x-4 overflow-hidden">
+          <span aria-hidden className="h-[1lh] w-0" />
+          {droppable.map(chip)}
         </span>
-      ))}
+      )}
     </div>
   )
 }
@@ -550,11 +576,16 @@ function Dashboard() {
       count: financeLater,
       colour: withAlpha(KPI.finance.accent, 0.4),
       display: fmtCompact(financeLater),
+      // The headline less the other two, so a narrow card can lose it (see `Chips`); the
+      // pale segment stays in the bar, and the figure stays in the card's `title`.
+      droppable: true,
     },
   ]
   // Legend only — bank issues are grants, not pounds, so they never reach `toSegments`.
+  // Placed BEFORE `later`, because droppable chips go last: a bank-detail problem is
+  // news and is never the chip a narrow card gives up.
   const financeChips: Chip[] = [
-    ...financeCats,
+    ...financeCats.filter((c) => !c.droppable),
     ...(d.bankIssues > 0
       ? [
           {
@@ -564,6 +595,7 @@ function Dashboard() {
           },
         ]
       : []),
+    ...financeCats.filter((c) => c.droppable),
   ]
 
   return (
@@ -628,11 +660,16 @@ function Dashboard() {
             // "Outstanding", so the two screens reconcile (the 2026-08-27 money audit).
             value={fmtCompact(d.money.outstanding)}
             // Both figures on the card can round, and a Link may hold only one title —
-            // so it carries whichever of them actually lost something.
+            // so it carries whichever of them actually lost something. Plus `later`
+            // whenever there is any, since a narrow card drops that chip and this is
+            // then the one place left to read it.
             title={
               [
                 exactOr(d.money.outstanding, 'outstanding'),
                 exactOr(d.money.paidToDate, 'paid to date'),
+                financeLater > 0
+                  ? `${compactExact(financeLater) ?? fmtCompact(financeLater)} later`
+                  : undefined,
               ]
                 .filter(Boolean)
                 .join(' · ') || undefined
