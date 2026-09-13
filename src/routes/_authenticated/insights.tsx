@@ -1200,8 +1200,18 @@ function InsightsPage() {
   // as international would open a wholly British portfolio on a blank world map.
   const hasOverseas = false
 
+  // A portfolio that reaches exactly ONE region opens already drilled into it: a UK map
+  // with a single region painted answers nothing the reader didn't know, and the
+  // districts beneath it are the first question. Same measure as `hasOverseas` — every
+  // grant, not the filtered slice — and only the opening view; the breadcrumb still
+  // goes back up to the UK. Unlocated grants don't count as a second region.
+  const onlyRegion = regions.length === 1 ? regions[0] : undefined
   const [mapView, setMapView] = useState<MapView>(() =>
-    hasOverseas ? { kind: 'world' } : { kind: 'uk' },
+    hasOverseas
+      ? { kind: 'world' }
+      : onlyRegion
+        ? { kind: 'region', region: onlyRegion }
+        : { kind: 'uk' },
   )
   const [selArea, setSelArea] = useState<string | null>(null)
   // Whichever of the map, donut or list the pointer is over. Hoisted here
