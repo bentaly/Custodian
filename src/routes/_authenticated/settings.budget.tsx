@@ -446,7 +446,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         {/* Saying this plainly is cheaper than the support email: a foundation that
             changes its year end will otherwise assume last year's figures moved with it. */}
         <p className="mt-3 font-display text-label" style={{ color: C.faint }}>
-          Budgets already saved keep the year they were set for — changing this only affects how
+          Budgets already saved keep the year they were set for. Changing this only affects how
           future years are worked out.
         </p>
       </Panel>
@@ -848,9 +848,9 @@ function Reconciliation({ grantMaking, allocated }: { grantMaking: number; alloc
       </div>
       <p className="font-display text-label" style={{ color: tone }}>
         {gap === 0
-          ? 'Fully allocated — your round budgets match your grant-making budget exactly.'
+          ? 'Fully allocated: your round budgets match your grant-making budget exactly.'
           : gap > 0
-            ? `${fmtMoney(gap)} is not yet in any round — held back, or a round still to be set up.`
+            ? `${fmtMoney(gap)} is not yet in any round: held back, or a round still to be set up.`
             : `Your rounds allocate ${fmtMoney(-gap)} more than you have budgeted for the year.`}
       </p>
     </div>

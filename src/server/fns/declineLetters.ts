@@ -424,7 +424,7 @@ export const sendDeclineLetters = createServerFn({ method: 'POST' })
         status: 'draft' as const,
         failureReason: r.applicantEmail
           ? null
-          : 'No contact email on the application — add one, then send again.',
+          : 'No contact email on the application. Add one, then send again.',
       }
     })
 

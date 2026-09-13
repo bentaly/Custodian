@@ -118,7 +118,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     // opening it. The milestone label left the subline when it gained a column of its
     // own; nothing on a row is stated twice.
     cell: (item) => {
-      const subline = fmtRef(item.externalApplicationId) ?? '—'
+      const subline = fmtRef(item.externalApplicationId) ?? '--'
       return (
         <div className="flex items-center gap-2">
           <div
@@ -169,7 +169,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     width: 'sm:w-[14%]',
     cell: (item) => (
       <TruncatedText
-        text={item.label || '—'}
+        text={item.label || '--'}
         label="Report"
         className="font-display text-body text-grey-500"
       />
@@ -183,7 +183,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     width: 'sm:w-[11%]',
     cell: (item) => (
       <TruncatedText
-        text={item.roundName ?? '—'}
+        text={item.roundName ?? '--'}
         label="Round"
         className={`font-display text-body ${item.roundName ? 'text-grey-500' : 'text-grey-400'}`}
       />
@@ -197,7 +197,7 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
     width: 'sm:w-[13%]',
     cell: (item) => (
       <TruncatedText
-        text={item.programmeName ?? '—'}
+        text={item.programmeName ?? '--'}
         label="Programme"
         className={`font-display text-body ${
           item.programmeName ? 'text-grey-500' : 'text-grey-400'
@@ -281,7 +281,7 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
             {item.organisationName}
           </Link>
           <p className="truncate font-display text-label" style={{ color: C.sub }}>
-            {fmtRef(item.externalApplicationId) ?? '—'}
+            {fmtRef(item.externalApplicationId) ?? '--'}
           </p>
         </div>
       </div>
@@ -296,7 +296,7 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     width: 'sm:w-[14%]',
     cell: (item) => (
       <TruncatedText
-        text={item.label || '—'}
+        text={item.label || '--'}
         label="Report"
         className="font-display text-body text-grey-500"
       />
@@ -310,7 +310,7 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     width: 'sm:w-[11%]',
     cell: (item) => (
       <TruncatedText
-        text={item.roundName ?? '—'}
+        text={item.roundName ?? '--'}
         label="Round"
         className={`font-display text-body ${item.roundName ? 'text-grey-500' : 'text-grey-400'}`}
       />
@@ -324,7 +324,7 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     width: 'sm:w-[13%]',
     cell: (item) => (
       <TruncatedText
-        text={item.programmeName ?? '—'}
+        text={item.programmeName ?? '--'}
         label="Programme"
         className={`font-display text-body ${
           item.programmeName ? 'text-grey-500' : 'text-grey-400'

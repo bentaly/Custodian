@@ -140,8 +140,8 @@ export function messageFor(err: unknown): string {
   if (isAppError(err) && err instanceof Error && err.message) return err.message
   // A DOMException's own text ("signal is aborted without reason") tells the user
   // nothing they can act on.
-  if (isAbort(err)) return 'Timed out — refresh to check whether this saved.'
-  if (isNetworkError(err)) return "Couldn't reach the server — check your connection and try again."
+  if (isAbort(err)) return 'Timed out. Refresh to check whether this saved.'
+  if (isNetworkError(err)) return "Couldn't reach the server. Check your connection and try again."
   const status = statusOf(err)
   if (status >= 400 && status < 500 && err instanceof Error && err.message) {
     return err.message

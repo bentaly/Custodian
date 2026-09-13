@@ -108,7 +108,7 @@ describe('isAbort', () => {
     const timedOut = Object.assign(new Error('signal is aborted without reason'), {
       name: 'TimeoutError',
     })
-    expect(messageFor(timedOut)).toBe('Timed out — refresh to check whether this saved.')
+    expect(messageFor(timedOut)).toBe('Timed out. Refresh to check whether this saved.')
   })
 })
 
@@ -143,7 +143,7 @@ describe('isNetworkError', () => {
   // generic "at our end… this has been reported" copy would be three lies at once.
   it('blames the connection rather than the server', () => {
     expect(messageFor(typeError('Failed to fetch'))).toBe(
-      "Couldn't reach the server — check your connection and try again.",
+      "Couldn't reach the server. Check your connection and try again.",
     )
   })
 })

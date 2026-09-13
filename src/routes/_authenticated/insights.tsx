@@ -810,7 +810,7 @@ function ImdNote({ pct }: { pct: number }) {
       />
       <p className="font-display text-label leading-snug" style={{ color: C.sub }}>
         <span style={{ color: C.ink, fontWeight: 500 }}>{pct}%</span> of mapped funding reaches IMD
-        deciles 1–2 — the most deprived fifth of areas in its nation.
+        deciles 1–2, the most deprived fifth of areas in its nation.
       </p>
     </div>
   )
@@ -859,7 +859,7 @@ function roundProgrammes(grants: InsightsGrant[]): RoundProgramme[] {
       const own = grants.filter((g) => g.programmeId === pid)
       return {
         id: pid,
-        name: own[0]!.programmeName ?? '—',
+        name: own[0]!.programmeName ?? '--',
         grants: own.length,
         total: own.reduce((s, g) => s + g.amountAwarded, 0),
         impact: impactByUnit(own),
@@ -988,7 +988,7 @@ function InsightsPage() {
   const programmes = [
     ...new Map(items.filter((g) => g.programmeId).map((g) => [g.programmeId!, g])).values(),
   ]
-    .map((g) => ({ id: g.programmeId!, name: g.programmeName ?? '—' }))
+    .map((g) => ({ id: g.programmeId!, name: g.programmeName ?? '--' }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const allTags = [...new Set(items.flatMap((g) => g.tags))].sort()
   const regions = [
@@ -1083,7 +1083,7 @@ function InsightsPage() {
       const grants = fil.filter((g) => g.programmeId === pid)
       return {
         id: pid,
-        name: grants[0]!.programmeName ?? '—',
+        name: grants[0]!.programmeName ?? '--',
         // The colour the foundation gave the programme on /programmes, not this
         // panel's position in a list — so a programme is the same colour here, on the
         // dashboard, on its card and in its swatch. Index is the legacy fallback for
@@ -1122,7 +1122,7 @@ function InsightsPage() {
         .sort((a, b) => b.amountAwarded - a.amountAwarded)
       return {
         id: rid,
-        name: grants[0]!.roundName ?? '—',
+        name: grants[0]!.roundName ?? '--',
         openedAt: grants[0]!.roundOpenedAt,
         grants,
         programmes: roundProgrammes(grants),
@@ -1458,7 +1458,7 @@ function InsightsPage() {
               // that says "people" is the same mistake the old label made.
               icon={EarthIcon}
               label="Impact"
-              value={impactEff.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '—'}
+              value={impactEff.length > 0 ? Math.round(impactUp).toLocaleString('en-GB') : '--'}
               sub={
                 impactEff.length === 0 ? (
                   'no impact figures yet'
@@ -1485,7 +1485,7 @@ function InsightsPage() {
               tint={KPI.reach}
               icon={Location01Icon}
               label="Deprivation reach"
-              value={locatedAmt > 0 ? `${Math.round(dep14Up)}%` : '—'}
+              value={locatedAmt > 0 ? `${Math.round(dep14Up)}%` : '--'}
               sub={locatedAmt > 0 ? 'reached IMD decile 1–4' : 'no resolved locations yet'}
             />
             <MiniKpi
@@ -1637,7 +1637,7 @@ function InsightsPage() {
               <PanelTitle>Themes</PanelTitle>
               {themes.length === 0 ? (
                 <p className="py-10 text-center font-display text-body" style={{ color: C.faint }}>
-                  No programme tags set — add tags to programmes to see themed giving.
+                  No programme tags set. Add tags to programmes to see themed giving.
                 </p>
               ) : (
                 <div className="flex flex-col gap-1">
@@ -1924,7 +1924,7 @@ function InsightsPage() {
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {r.programmes.map((p) => (
                           <RoundProgrammeCard
-                            key={p.id ?? '—'}
+                            key={p.id ?? '--'}
                             programme={p}
                             colour={(p.id && programmeColour.get(p.id)) || C.sub}
                           />

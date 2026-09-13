@@ -321,7 +321,7 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
     // state the one-of tier exists to prevent. Refuse rather than quietly comply.
     if (supplied && !charityNumber && !companyNumber) {
       throw new Error(
-        'Give a charity number or a company number — with neither there is no register to check against.',
+        'Give a charity number or a company number. With neither there is no register to check against.',
       )
     }
 
@@ -526,7 +526,7 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
           const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
           const remaining = budget - committed
           throw conflict(
-            `Budget limit reached — ${fmt(remaining > 0 ? remaining : 0)} remaining in ${fy.label}, this application draws ${fmt(drawdown)}`,
+            `Budget limit reached: ${fmt(remaining > 0 ? remaining : 0)} remaining in ${fy.label}, this application draws ${fmt(drawdown)}`,
           )
         }
       }
@@ -601,7 +601,7 @@ export const setFirstYearAmount = createServerFn({ method: 'POST' })
     if (!app) throw notFoundError()
     if (app.status === 'awarded') {
       throw conflict(
-        'This grant has been awarded — its payment schedule now says what falls in each year.',
+        'This grant has been awarded, so its payment schedule now says what falls in each year.',
       )
     }
     if (app.status !== 'shortlisted') {

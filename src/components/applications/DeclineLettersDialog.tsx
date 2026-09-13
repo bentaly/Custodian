@@ -232,7 +232,7 @@ export function DeclineLettersDialog({
                   ? 'Nobody in this round has been declined yet.'
                   : alreadyNotified.length + addressAlreadyWritten.length > 0
                     ? 'Everybody declined in this round has already had a letter.'
-                    : 'Nobody left to write to — see below.'}
+                    : 'Nobody left to write to. See below.'}
               </p>
             )}
           </div>
@@ -244,8 +244,8 @@ export function DeclineLettersDialog({
                 {batch.stillInReview === 1
                   ? '1 application in this round is still in review'
                   : `${batch.stillInReview} applications in this round are still in review`}
-              </strong>{' '}
-              — no decision has been recorded, so {batch.stillInReview === 1 ? 'it is' : 'they are'}{' '}
+              </strong>
+              . No decision has been recorded, so {batch.stillInReview === 1 ? 'it is' : 'they are'}{' '}
               not in this batch. Decline {batch.stillInReview === 1 ? 'it' : 'them'} first if you
               mean to tell {batch.stillInReview === 1 ? 'them' : 'them'} too.
             </Note>
@@ -257,8 +257,8 @@ export function DeclineLettersDialog({
                 {unreachable.length === 1
                   ? '1 organisation has no contact email'
                   : `${unreachable.length} organisations have no contact email`}
-              </strong>{' '}
-              — {unreachable.map((r) => r.organisationName).join(', ')}. Their letter is written and
+              </strong>
+              : {unreachable.map((r) => r.organisationName).join(', ')}. Their letter is written and
               kept, but cannot be sent until an address is on the application.
             </Note>
           )}
@@ -269,8 +269,8 @@ export function DeclineLettersDialog({
                 {addressAlreadyWritten.length === 1
                   ? '1 address has already had a decline letter'
                   : `${addressAlreadyWritten.length} addresses have already had a decline letter`}
-              </strong>{' '}
-              — no address is ever written to twice.{' '}
+              </strong>
+              . No address is ever written to twice.{' '}
               {addressAlreadyWritten
                 .map((r) =>
                   [
@@ -292,8 +292,8 @@ export function DeclineLettersDialog({
                 {duplicateInBatch.length === 1
                   ? '1 application shares an address with another in this round'
                   : `${duplicateInBatch.length} applications share an address with another in this round`}
-              </strong>{' '}
-              — {duplicateInBatch.map((r) => r.organisationName).join(', ')}. One letter goes to
+              </strong>
+              : {duplicateInBatch.map((r) => r.organisationName).join(', ')}. One letter goes to
               each address, not one per application.
             </Note>
           )}
@@ -304,8 +304,8 @@ export function DeclineLettersDialog({
                 {alreadyNotified.length === 1
                   ? '1 organisation has already been told'
                   : `${alreadyNotified.length} organisations have already been told`}
-              </strong>{' '}
-              — nobody is emailed twice.{' '}
+              </strong>
+              . Nobody is emailed twice.{' '}
               {(() => {
                 const failed = alreadyNotified.filter((r) => r.letterStatus === 'failed')
                 if (failed.length === 0) return null

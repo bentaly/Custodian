@@ -48,24 +48,26 @@ You will be given: the programme the grant came from (its goal), the grant (amou
 
 Produce six things:
 
-1. **Summary** — a 2-4 sentence digest for the grant officer: what was delivered and the headline impact. Ground it in what the report actually says.
+1. **Summary**: a 2-4 sentence digest for the grant officer: what was delivered and the headline impact. Ground it in what the report actually says.
 
-2. **Application alignment** — compare the report against the original application. Did the charity do what they said they would? Score 1-10, list specific promises kept and promises unmet/unevidenced. If no application is provided, return null for this whole section.
+2. **Application alignment**: compare the report against the original application. Did the charity do what they said they would? Score 1-10, list specific promises kept and promises unmet/unevidenced. If no application is provided, return null for this whole section.
 
-3. **Programme alignment** — how well does the reported work advance the programme's goal? Score 1-10.
+3. **Programme alignment**: how well does the reported work advance the programme's goal? Score 1-10.
 
-4. **Challenges summary** — ONE very brief line (at most ~20 words, no more than a single sentence) naming the main challenge the grantee faced. Look anywhere in the report, not just a dedicated "challenges" field. Return null unless it is useful: if the report mentions none, or the only challenge is already in your summary, return null rather than repeat it.
+4. **Challenges summary**: ONE very brief line (at most ~20 words, no more than a single sentence) naming the main challenge the grantee faced. Look anywhere in the report, not just a dedicated "challenges" field. Return null unless it is useful: if the report mentions none, or the only challenge is already in your summary, return null rather than repeat it.
 
-5. **Lessons summary** — ONE very brief line (at most ~20 words, no more than a single sentence) naming the main lesson the grantee learned. Same rules: look everywhere, and return null unless it adds something. Brevity matters more than coverage here — be concrete ("fixed weekly visit times doubled attendance"), never generic ("they learned a lot").
+5. **Lessons summary**: ONE very brief line (at most ~20 words, no more than a single sentence) naming the main lesson the grantee learned. Same rules: look everywhere, and return null unless it adds something. Brevity matters more than coverage here: be concrete ("fixed weekly visit times doubled attendance"), never generic ("they learned a lot").
 
-6. **Impact quantity** — the report's evidence will be measured in a specific unit, stated in the user message (e.g. "people", "hectares of peatland restored"). Find how many of that unit this report evidences as achieved WITH THIS GRANT. Rules:
+6. **Impact quantity**: the report's evidence will be measured in a specific unit, stated in the user message (e.g. "people", "hectares of peatland restored"). Find how many of that unit this report evidences as achieved WITH THIS GRANT. Rules:
    - Only count what the report states or clearly supports; quote the exact snippet.
-   - Prefer totals attributable to this grant over organisation-wide figures. A rate ("130 people a month attend") is not a total — only convert it when the report states the period it ran; otherwise treat the quantity as not found and mention it in flags.
+   - Prefer totals attributable to this grant over organisation-wide figures. A rate ("130 people a month attend") is not a total; only convert it when the report states the period it ran; otherwise treat the quantity as not found and mention it in flags.
    - If the report evidences no quantity in that unit, return found=false and value=null. NEVER guess, NEVER return 0 to mean "not found".
 
 Also list any flags a grant officer should check: mismatch between the grant amount and what the report claims was received, work not delivered, unspent funds, safeguarding concerns. Be specific and cite the report.
 
-Scoring guidance: use the full 1-10 range; most solid reports land 5-8. Reserve 9-10 for fully-evidenced delivery of everything promised. A glowing narrative with no evidence scores in the middle, not the top.`
+Scoring guidance: use the full 1-10 range; most solid reports land 5-8. Reserve 9-10 for fully-evidenced delivery of everything promised. A glowing narrative with no evidence scores in the middle, not the top.
+
+Never use em dashes (—) in any text you return. Use commas, colons, full stops or brackets instead.`
 }
 
 function section(title: string, lines: Array<string | null | undefined>): string {
@@ -102,7 +104,7 @@ export function buildUserPrompt(input: ReportAnalysisInput): string {
           kv('Amount requested', input.application.amountRequested),
           responsesBlock(input.application.responses),
         ])
-      : '# Original application\n(none on record — return null for applicationAlignment)',
+      : '# Original application\n(none on record; return null for applicationAlignment)',
     section('The report', [
       kv('Organisation', input.report.organisationName),
       kv('Grant title', input.report.grantTitle),

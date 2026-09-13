@@ -267,7 +267,7 @@ function ProgrammeCard({
             {impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)}
           </Stat>
           <Stat label="Themes">
-            {tags.length > 0 ? tags.join(', ') : <span className="text-grey-400">—</span>}
+            {tags.length > 0 ? tags.join(', ') : <span className="text-grey-400">--</span>}
           </Stat>
         </div>
       )}

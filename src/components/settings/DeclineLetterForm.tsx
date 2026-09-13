@@ -106,7 +106,7 @@ export function DeclineLetterForm({ settings }: { settings: DeclineLetterSetting
           />
           <p className={hintClass}>
             {settings?.awardSignatory
-              ? `Leave it blank to sign these letters the way your award letters are signed — ${settings.awardSignatory}.`
+              ? `Leave it blank to sign these letters the way your award letters are signed: ${settings.awardSignatory}.`
               : 'The name above the sign-off. Leave it blank to sign in the foundation’s name alone.'}
           </p>
         </div>

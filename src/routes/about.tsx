@@ -20,7 +20,7 @@ const DESCRIPTION =
 export const Route = createFileRoute('/about')({
   head: () => ({
     meta: [
-      { title: 'Custodian — grant management for foundations' },
+      { title: 'Custodian: grant management for foundations' },
       { name: 'description', content: DESCRIPTION },
       { property: 'og:title', content: 'Custodian' },
       { property: 'og:description', content: DESCRIPTION },
@@ -136,10 +136,10 @@ function About() {
             <p className="hero-lede">The whole grant lifecycle, for the whole foundation team.</p>
             <div className="hero-meta">
               <span>
-                <b>One system</b> — assessment to impact
+                <b>One system</b> from assessment to impact
               </span>
               <span>
-                <b>Your own forms</b> — no migration
+                <b>Your own forms</b>, no migration
               </span>
               <span>
                 <b>Audit-ready</b> by default
@@ -304,7 +304,7 @@ function About() {
                   <p>
                     Not all giving begins with an application. Sourced partners are logged, invited
                     to submit an expression of interest, and carried through the same eligibility,
-                    due diligence and scoring as inbound applications — so proactive funding meets
+                    due diligence and scoring as inbound applications, so proactive funding meets
                     the same standard.
                   </p>
                 </div>
@@ -340,7 +340,7 @@ function About() {
                     </div>
                     <figcaption>
                       Proposed spend against the round budget, then one board paper per shortlisted
-                      application — scoring, purpose, cost per beneficiary, and each trustee's
+                      application: scoring, purpose, cost per beneficiary, and each trustee's
                       recorded vote.
                     </figcaption>
                   </figure>
@@ -395,8 +395,8 @@ function About() {
                       />
                     </div>
                     <figcaption>
-                      Grant lifecycle, payment schedule and verified bank details for a single award
-                      — every step timestamped as it happens.
+                      Grant lifecycle, payment schedule and verified bank details for a single
+                      award, with every step timestamped as it happens.
                     </figcaption>
                   </figure>
                 </div>
@@ -458,7 +458,7 @@ function About() {
         <section className="band band-quiet" id="insight">
           <div className="wrap">
             <div className="two-col">
-              <span className="eyebrow">Portfolio insight — our flagship</span>
+              <span className="eyebrow">Portfolio insight: our flagship</span>
               <h2 className="h2">See your giving whole, for the first time.</h2>
               <div className="prose">
                 <p>
@@ -496,7 +496,7 @@ function About() {
                 />
               </div>
               <figcaption>
-                The whole portfolio in one live view — committed spend by programme, commitment over
+                The whole portfolio in one live view: committed spend by programme, commitment over
                 time, dominant themes, and geographic reach mapped against deprivation.
               </figcaption>
             </figure>
@@ -513,8 +513,8 @@ function About() {
                 <p>
                   Custodian is built for GDPR from the ground up. An immutable, tamper-proof audit
                   trail records every action, and structured tooling supports subject-access and
-                  erasure requests within statutory windows. Full data-governance documentation —
-                  residency, processing, retention and consent — is available for review.
+                  erasure requests within statutory windows. Full data-governance documentation
+                  (residency, processing, retention and consent) is available for review.
                 </p>
               </div>
             </div>
@@ -554,7 +554,7 @@ function About() {
                 developed in collaboration with national foundations.
               </p>
               <p>
-                It brings a grant-making foundation's whole world into one place — designed by the
+                It brings a grant-making foundation's whole world into one place, designed by the
                 people who understand it, because it is theirs.
               </p>
             </div>

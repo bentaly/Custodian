@@ -195,7 +195,7 @@ function dateCell(
     issues.push({
       rowNumber,
       column: column.header,
-      message: `${column.header} could be read as either day/month or month/day — write it as YYYY-MM-DD`,
+      message: `${column.header} could be read as either day/month or month/day. Write it as YYYY-MM-DD`,
     })
     return null
   }
@@ -203,7 +203,7 @@ function dateCell(
     issues.push({
       rowNumber,
       column: column.header,
-      message: `${column.header} is not a date we can read — use YYYY-MM-DD`,
+      message: `${column.header} is not a date we can read. Use YYYY-MM-DD`,
     })
   }
   return iso

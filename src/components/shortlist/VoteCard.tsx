@@ -334,7 +334,7 @@ function CriterionBar({ label, score }: { label: string; score: number | null })
         className="w-8 shrink-0 text-right font-display text-label tabular-nums"
         style={{ color: C.sub }}
       >
-        {score === null ? '—' : `${score}/10`}
+        {score === null ? '--' : `${score}/10`}
       </span>
     </div>
   )
@@ -466,7 +466,7 @@ export function VoteCard({
             ? // Said plainly rather than as "not run": the board is about to vote, and
               // "no register to check" is a fact about the applicant they should weigh,
               // not a job somebody forgot to do.
-              'No charity or company number — not screened'
+              'No charity or company number, so not screened'
             : app.dueDiligenceStatus === 'pending'
               ? 'Due diligence not run'
               : null

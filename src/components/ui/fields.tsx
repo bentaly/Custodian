@@ -94,7 +94,7 @@ export function Select({
             className={cn('flex-1 truncate', !selected?.value && 'text-grey-500')}
             style={{ color: selected?.value ? C.ink : undefined }}
           >
-            {selected?.label ?? placeholder ?? '—'}
+            {selected?.label ?? placeholder ?? '--'}
           </span>
           <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={C.ink} className="shrink-0" />
         </button>

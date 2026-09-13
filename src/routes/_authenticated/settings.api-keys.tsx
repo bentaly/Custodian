@@ -189,12 +189,12 @@ function ApiKeys() {
         >
           <p className="font-display text-body font-medium" style={{ color: C.brand }}>
             {newSecret.kind === 'webhook'
-              ? "Webhook address created — copy it now. You won't be able to see it again."
-              : "Key created — copy it now. You won't be able to see it again."}
+              ? "Webhook address created. Copy it now. You won't be able to see it again."
+              : "Key created. Copy it now. You won't be able to see it again."}
           </p>
           {newSecret.kind === 'webhook' && (
             <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
-              Paste it into your form's webhook settings — in Typeform, Connect → Webhooks → Add a
+              Paste it into your form's webhook settings. In Typeform, Connect → Webhooks → Add a
               webhook. The address contains the key, so treat it like one.
             </p>
           )}

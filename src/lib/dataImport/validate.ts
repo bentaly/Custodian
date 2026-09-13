@@ -202,7 +202,7 @@ export function validateImport(input: {
       code: 'schedule_mismatch',
       message: `${plural(mismatched.length, 'grant')} where the payments don’t add up to the amount awarded`,
       detail:
-        'Often deliberate — later years may not be scheduled yet. Worth a look though, as it is also what a mis-keyed figure looks like. Custodian will use the payment rows as the schedule and the award figure as the commitment.',
+        'Often deliberate: later years may not be scheduled yet. Worth a look though, as it is also what a mis-keyed figure looks like. Custodian will use the payment rows as the schedule and the award figure as the commitment.',
       rows: mismatched.map((g) => g.rowNumber),
     })
   }
@@ -216,7 +216,7 @@ export function validateImport(input: {
       code: 'active_no_payments',
       message: `${plural(activeNoPayments.length, 'active grant')} with no payments listed`,
       detail:
-        'These will show nothing outstanding on the Finance screen. If money is still to go out on them, add the instalments — this is the main thing the import is for.',
+        'These will show nothing outstanding on the Finance screen. If money is still to go out on them, add the instalments. This is the main thing the import is for.',
       rows: activeNoPayments.map((g) => g.rowNumber),
     })
   }
@@ -326,7 +326,7 @@ export function validateImport(input: {
       code: 'received_no_date',
       message: `${plural(receivedNoDate.length, 'report')} marked received with no date`,
       detail:
-        'These count as received — the milestone will not show as outstanding — but they carry the due date as their arrival date, so how late a report was is lost.',
+        'These count as received (the milestone will not show as outstanding), but they carry the due date as their arrival date, so how late a report was is lost.',
       rows: receivedNoDate.map((r) => r.rowNumber),
     })
   }
@@ -338,7 +338,7 @@ export function validateImport(input: {
       code: 'generated_reference',
       message: `${plural(missingReference.length, 'grant')} with no ${columnLabel(grantCol('reference'))}`,
       detail:
-        'We will generate one for each. You will get the list afterwards — a charity needs to quote its reference for a future report to link itself automatically.',
+        'We will generate one for each. You will get the list afterwards. A charity needs to quote its reference for a future report to link itself automatically.',
       rows: missingReference.map((g) => g.rowNumber),
     })
   }

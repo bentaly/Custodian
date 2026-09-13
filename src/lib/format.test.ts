@@ -34,9 +34,9 @@ describe('fmtDate', () => {
   })
 
   it('is an em dash when there is nothing to show', () => {
-    expect(fmtDate(null)).toBe('—')
-    expect(fmtDate(undefined)).toBe('—')
-    expect(fmtDate('')).toBe('—')
+    expect(fmtDate(null)).toBe('--')
+    expect(fmtDate(undefined)).toBe('--')
+    expect(fmtDate('')).toBe('--')
   })
 })
 

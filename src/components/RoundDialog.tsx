@@ -246,12 +246,12 @@ function RoundDialogForm({
               onChange={setFinancialYearStart}
               options={yearOptions.map((y) => ({
                 value: y.start,
-                label: `${y.label} — the year it ${y.isDefault ? 'closes' : 'opens'} in`,
+                label: `${y.label} (the year it ${y.isDefault ? 'closes' : 'opens'} in)`,
               }))}
             />
             <p className="font-display text-label" style={{ color: TOKENS.faint }}>
               This round runs across a year end, so its budget has to be counted in one year or the
-              other — it decides which year&rsquo;s money these allocations spend.
+              other. It decides which year&rsquo;s money these allocations spend.
             </p>
           </div>
         )}

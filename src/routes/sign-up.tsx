@@ -90,7 +90,7 @@ function SignUpPage() {
           Invitation expired
         </h1>
         <p className="mt-2 text-body leading-relaxed text-grey-500">
-          This invitation is no longer valid — invitations last 7 days. Ask your administrator to
+          This invitation is no longer valid. Invitations last 7 days. Ask your administrator to
           send a new one.
         </p>
         <LinkButton to="/sign-in" className="mt-7 w-full">

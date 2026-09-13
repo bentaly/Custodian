@@ -53,7 +53,7 @@ export async function toClientError(err: unknown): Promise<unknown> {
     return clientError(
       503,
       timeout.isWrite
-        ? 'Timed out — refresh to check whether this saved.'
+        ? 'Timed out. Refresh to check whether this saved.'
         : 'The database did not respond in time. Please try again.',
     )
   }

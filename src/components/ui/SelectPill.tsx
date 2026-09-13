@@ -90,7 +90,7 @@ export function SelectPill({
             className={`whitespace-nowrap font-display text-body ${sm ? '' : 'font-medium'}`}
             style={{ color: C.ink }}
           >
-            {selected?.label ?? placeholder ?? clearLabel ?? '—'}
+            {selected?.label ?? placeholder ?? clearLabel ?? '--'}
           </span>
           {suffix && (
             <span

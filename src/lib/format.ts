@@ -18,9 +18,9 @@ export function fmtMoney(n: number): string {
 
 /** As `fmtMoney`, from a numeric column that may arrive as a string: `—` when absent. */
 export function fmtAmount(amount: string | number | null | undefined): string {
-  if (amount == null || amount === '') return '—'
+  if (amount == null || amount === '') return '--'
   const n = typeof amount === 'number' ? amount : parseFloat(amount)
-  if (isNaN(n)) return '—'
+  if (isNaN(n)) return '--'
   return fmtMoney(n)
 }
 
@@ -143,7 +143,7 @@ function asUtc(date: Date | string): Date {
 
 /** `5 Mar 2026` — the app's one date format. `—` when there is nothing to show. */
 export function fmtDate(date: Date | string | null | undefined): string {
-  if (!date) return '—'
+  if (!date) return '--'
   return asUtc(date).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',

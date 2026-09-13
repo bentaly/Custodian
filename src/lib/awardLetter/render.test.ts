@@ -107,8 +107,8 @@ describe('renderAwardLetter', () => {
       'The grant is made towards the following purpose:\n\nPennine Youth Alliance will deliver',
     )
     expect(letter.bodyText).toContain('two instalments')
-    expect(letter.bodyText).toContain('1. £19,000 — 1 Aug 2026')
-    expect(letter.bodyText).toContain('Interim report — 1 Feb 2027')
+    expect(letter.bodyText).toContain('1. £19,000, due 1 Aug 2026')
+    expect(letter.bodyText).toContain('Interim report, due 1 Feb 2027')
     expect(letter.bodyText).toContain('Jane Fairfax, Chair of Trustees')
     expect(letter.conditions).toEqual(DEFAULT_GRANT_CONDITIONS)
   })

@@ -51,9 +51,9 @@ function RoundBudgets() {
               a foundation guessing what it is choosing by leaving it alone. */}
           <p id={COPY_ID} className="mt-0.5 font-display text-body leading-relaxed text-grey-500">
             When enabled, an application that would take a programme past its budget for the round
-            cannot be shortlisted — the button reads “Budget full”. When off, the budget is a target
-            rather than a limit: you can shortlist beyond it, and the shortlist’s proposed spend
-            says how far over the round has gone.
+            cannot be shortlisted, and the button reads “Budget full”. When off, the budget is a
+            target rather than a limit: you can shortlist beyond it, and the shortlist’s proposed
+            spend says how far over the round has gone.
           </p>
           <ErrorNote error={error} className="mt-2" />
         </div>

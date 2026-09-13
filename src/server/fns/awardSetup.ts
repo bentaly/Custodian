@@ -374,7 +374,7 @@ export const createAwards = createServerFn({ method: 'POST' })
         results.push({
           applicationId: grant.applicationId,
           organisationName: name,
-          error: 'No longer shortlisted — it may already have been awarded or declined.',
+          error: 'No longer shortlisted. It may already have been awarded or declined.',
         })
         continue
       }

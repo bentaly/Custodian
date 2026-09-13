@@ -72,7 +72,7 @@ export async function sendSignInCodeEmail({ to, otp }: { to: string; otp: string
       ``,
       `Enter it on the sign-in page. It expires in 5 minutes.`,
       ``,
-      `If you didn't try to sign in, you can safely ignore this email — nobody can`,
+      `If you didn't try to sign in, you can safely ignore this email. Nobody can`,
       `access your account without this code.`,
     ].join('\n'),
     html: `
@@ -88,7 +88,7 @@ export async function sendSignInCodeEmail({ to, otp }: { to: string; otp: string
           ${otp}
         </p>
         <p style="color: #97A1AF; font-size: 13px; margin: 0;">
-          If you didn't try to sign in, you can safely ignore this email — nobody can access
+          If you didn't try to sign in, you can safely ignore this email. Nobody can access
           your account without this code.
         </p>
       </div>
@@ -107,8 +107,8 @@ export async function sendPasswordResetCodeEmail({ to, otp }: { to: string; otp:
       `Enter it on the password reset page to choose a new password.`,
       `It expires in 5 minutes.`,
       ``,
-      `If you didn't ask to reset your password, you can safely ignore this email —`,
-      `your password will not change.`,
+      `If you didn't ask to reset your password, you can safely ignore this email.`,
+      `Your password will not change.`,
     ].join('\n'),
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
@@ -123,7 +123,7 @@ export async function sendPasswordResetCodeEmail({ to, otp }: { to: string; otp:
           ${otp}
         </p>
         <p style="color: #97A1AF; font-size: 13px; margin: 0;">
-          If you didn't ask to reset your password, you can safely ignore this email — your
+          If you didn't ask to reset your password, you can safely ignore this email. Your
           password will not change.
         </p>
       </div>

@@ -206,7 +206,7 @@ function Fact({
         className={`mt-0.5 font-display text-body ${value ? 'font-medium' : ''}`}
         style={{ color: value ? C.ink : C.faint }}
       >
-        {value ?? empty ?? '—'}
+        {value ?? empty ?? '--'}
       </dd>
       {value && note && (
         <dd className="font-display text-label" style={{ color: C.sub }}>
@@ -257,7 +257,7 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
   return (
     <div>
       <p className="font-display text-body" style={{ color: C.sub }}>
-        Not screened — this application has no charity number or company number, so there is no
+        Not screened. This application has no charity number or company number, so there is no
         register to check it against.
       </p>
       {canEdit && !open && (
@@ -273,7 +273,7 @@ function ScreenWithNumber({ applicationId, canEdit }: { applicationId: string; c
       {open && (
         <div className="mt-3 flex flex-col gap-2">
           <p className="font-display text-label" style={{ color: C.sub }}>
-            Give whichever the organisation holds — either alone is enough. The checks run
+            Give whichever the organisation holds; either alone is enough. The checks run
             immediately, and the number is recorded against this application.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -606,7 +606,7 @@ function ApplicationDetail() {
   const orgAbsence = noRegistrationNumber
     ? 'No charity or company number was captured, so there is no register entry to read.'
     : application.charityNumber
-      ? 'Not read yet — the register checks have not run for this application.'
+      ? 'Not read yet. The register checks have not run for this application.'
       : 'Companies House publishes no income or activity summary, so there is nothing to show for a company-only applicant.'
 
   async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
@@ -811,7 +811,7 @@ function ApplicationDetail() {
                     )
                     return isBudgetFull ? (
                       <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
-                        Budget committed — no funds remaining in this programme.
+                        Budget committed. No funds remaining in this programme.
                       </Tooltip>
                     ) : (
                       shortlistButton
@@ -1105,9 +1105,9 @@ function ApplicationDetail() {
           ) : (
             <p className="font-display text-body" style={{ color: C.sub }}>
               {scoreStatus === 'error'
-                ? 'Scoring failed — try re-scoring.'
+                ? 'Scoring failed. Try re-scoring.'
                 : scoreStatus === 'queued'
-                  ? 'AI is currently scoring this application. It usually takes under a minute — reload to see the result.'
+                  ? 'AI is currently scoring this application. It usually takes under a minute. Reload to see the result.'
                   : 'This application has not been scored yet.'}
             </p>
           )}
@@ -1203,7 +1203,7 @@ function ApplicationDetail() {
             tint={KPI.area}
             icon={UserGroupIcon}
             label="Beneficiaries"
-            value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '—'}
+            value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '--'}
             sub={
               proposedImpact != null
                 ? `${unitLabel.toLowerCase()}${costPerBeneficiary != null ? ` · ${fmtMoney(costPerBeneficiary)} each` : ''}`
@@ -1219,7 +1219,7 @@ function ApplicationDetail() {
             icon={MoneyReceive01Icon}
             label="Income (last FY)"
             value={
-              orgIncome != null ? <CompactMoney amount={orgIncome} label="Exact income" /> : '—'
+              orgIncome != null ? <CompactMoney amount={orgIncome} label="Exact income" /> : '--'
             }
             sub={
               orgIncome != null
@@ -1245,7 +1245,7 @@ function ApplicationDetail() {
               orgReserves != null ? (
                 <CompactMoney amount={orgReserves} label="Exact reserves" />
               ) : (
-                '—'
+                '--'
               )
             }
             sub={
@@ -1261,7 +1261,7 @@ function ApplicationDetail() {
             tint={KPI.community}
             icon={UserGroup02Icon}
             label="Community context"
-            value={depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '—'}
+            value={depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '--'}
             sub={
               depResolved
                 ? [deprivation.vintage, region].filter(Boolean).join(' · ')

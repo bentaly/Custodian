@@ -117,7 +117,7 @@ function Submissions() {
           style={{ color: C.body }}
         >
           <p>
-            Send us a flat object of your own field names and their values — there are no reserved
+            Send us a flat object of your own field names and their values. There are no reserved
             keys and no wrapper to build. We match each of your field names to one of the fields
             below, so you can keep calling things whatever your form already calls them.
           </p>
@@ -135,16 +135,16 @@ function Submissions() {
                 {' '}
                 Where a field is marked{' '}
                 <span className="font-medium text-grey-900">One of a pair</span>, at least one of
-                the two must be present — neither is needed on its own, but a submission with
-                neither is held for review.
+                the two must be present. Neither is needed on its own, but a submission with neither
+                is held for review.
               </>
             )}
           </p>
           <p>
             Everything else is optional to send. Some of it still earns its place: each field below
             says what we can do with it, and what we can't do without it. A submission missing one
-            of those goes through, and the application says plainly what is unavailable as a result
-            — nothing is dropped quietly.
+            of those goes through, and the application says plainly what is unavailable as a result.
+            Nothing is dropped quietly.
           </p>
         </div>
       </Panel>
@@ -158,15 +158,15 @@ function Submissions() {
           <p>
             If your applications already come in through a form builder, you do not need to build
             any of the above. Generate a webhook address on{' '}
-            <span className="font-medium text-grey-900">API keys</span> — choosing{' '}
-            <span className="font-medium text-grey-900">A form platform</span> — and paste it into
+            <span className="font-medium text-grey-900">API keys</span> (choosing{' '}
+            <span className="font-medium text-grey-900">A form platform</span>) and paste it into
             the form's webhook settings. In Typeform that is{' '}
             <span className="font-medium text-grey-900">Connect → Webhooks → Add a webhook</span>.
             Nothing else to configure, and no field mapping to do up front.
           </p>
           <p>
             We read the platform's own payload and treat each question as one of your field names,
-            exactly as though you had posted it yourself. So the fields below still apply — they are
+            exactly as though you had posted it yourself. So the fields below still apply: they are
             matched against your questions as written, and anything we can't place with confidence
             waits in a queue rather than being guessed at.
           </p>
@@ -216,7 +216,7 @@ function Submissions() {
                 style={{ backgroundColor: C.warningWash, color: C.warning }}
               >
                 Send a <strong>{describeOneOfGroup(group)}</strong>. Applicants hold one or the
-                other, so neither is required by itself — but with neither there is no register to
+                other, so neither is required by itself, but with neither there is no register to
                 check, and the application can never be screened for due diligence. A submission
                 with neither waits in the review queue.
               </p>
@@ -231,7 +231,7 @@ function Submissions() {
                 className="rounded-chip px-3 py-2 font-display text-body leading-relaxed"
                 style={{ backgroundColor: C.wash, color: C.sub }}
               >
-                Send a <strong>{describeOneOfGroup(group.keys)}</strong> — either one answers the
+                Send a <strong>{describeOneOfGroup(group.keys)}</strong>. Either one answers the
                 question, so there is no need to send both. Neither is required: send neither and
                 the application is still created, saying plainly what is unavailable as a result.{' '}
                 {group.degrades}

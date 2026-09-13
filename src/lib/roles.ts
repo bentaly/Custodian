@@ -17,7 +17,7 @@ export const INVITABLE_ROLES = [
   {
     value: 'admin',
     label: 'Admin',
-    hint: 'Full access — rounds, programmes, grant decisions and payments.',
+    hint: 'Full access: rounds, programmes, grant decisions and payments.',
   },
   {
     value: 'trustee',
@@ -27,7 +27,7 @@ export const INVITABLE_ROLES = [
   {
     value: 'finance',
     label: 'Finance',
-    hint: 'Trustee access, plus the payment schedule — editing instalments and marking them paid.',
+    hint: 'Trustee access, plus the payment schedule: editing instalments and marking them paid.',
   },
 ] as const
 

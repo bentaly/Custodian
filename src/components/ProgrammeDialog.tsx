@@ -166,7 +166,7 @@ function ProgrammeDialogForm({
               to press Save again to find out they have fixed it. */}
           {blockedByTag && pendingTag && (
             <p role="alert" className="font-display text-body text-danger">
-              “{pendingTag}” hasn't been added as a theme yet — press Enter in the box to add it, or
+              “{pendingTag}” hasn't been added as a theme yet. Press Enter in the box to add it, or
               clear it.
             </p>
           )}

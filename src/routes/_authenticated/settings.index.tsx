@@ -72,7 +72,7 @@ const GROUPS: Group[] = [
       {
         title: 'Round budgets',
         description:
-          'Whether the budget on a round’s programmes is a limit or a target — that is, whether you may shortlist more than it covers.',
+          'Whether the budget on a round’s programmes is a limit or a target: whether you may shortlist more than it covers.',
         to: '/settings/round-budgets',
         icon: GaugeIcon,
         adminOnly: true,
@@ -117,7 +117,7 @@ const GROUPS: Group[] = [
       {
         title: 'Activity',
         description:
-          'Every action anyone has taken — decisions, payments, reporting and access — with a CSV to hand to an auditor.',
+          'Every action anyone has taken (decisions, payments, reporting and access), with a CSV to hand to an auditor.',
         to: '/settings/activity',
         icon: NoteIcon,
         adminOnly: true,

@@ -659,7 +659,7 @@ const BANK_DETAIL_TEXT: Record<BankStatus, string> = {
   valid:
     'Sort code and account number pass the modulus check. The check confirms the numbers are a valid pair, not who owns the account.',
   invalid:
-    'Fails the modulus check — likely a typo. The check confirms if the numbers are a valid pair, not who owns the account.',
+    'Fails the modulus check, so it is likely a typo. The check confirms if the numbers are a valid pair, not who owns the account.',
   unchecked: 'Not in a checkable format, so the modulus check has not run.',
   missing: 'No bank details on file.',
 }
@@ -708,7 +708,7 @@ function BankAlertIcon({ className }: { className?: string }) {
 
 /** `402918` → `40-29-18`; anything unexpected is shown as given. */
 function fmtSortCode(value: string | null) {
-  if (!value) return '—'
+  if (!value) return '--'
   const digits = value.replace(/\D/g, '')
   return digits.length === 6
     ? `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`
@@ -842,8 +842,8 @@ function BankDetails({
         </>
       ) : (
         <>
-          <Row label="Account name" value={bank.accountName ?? '—'} />
-          <Row label="Bank" value={bank.bankName ?? '—'} />
+          <Row label="Account name" value={bank.accountName ?? '--'} />
+          <Row label="Bank" value={bank.bankName ?? '--'} />
           <Row
             label="Sort code"
             valueColour={flagged.sortCode ? tone?.figure : undefined}
@@ -864,7 +864,7 @@ function BankDetails({
                     ? revealed
                       ? bank.accountNumber
                       : `••••${bank.last4 ?? ''}`
-                    : '—'}
+                    : '--'}
                 </span>
                 {flagged.accountNumber && <BankAlertIcon />}
               </span>
@@ -889,7 +889,7 @@ function BankDetails({
               >
                 application
               </TextLink>
-              {grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''} — ask the
+              {grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''}. Ask the
               grantee to resubmit them, or correct them here.
             </p>
           )}

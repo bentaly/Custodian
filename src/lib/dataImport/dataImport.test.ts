@@ -356,7 +356,7 @@ describe('validateImport', () => {
     const cellIssues = Array.from({ length: 40 }, (_, i) => ({
       rowNumber: i + 2,
       column: 'Award date',
-      message: 'Award date is not a date we can read — use YYYY-MM-DD',
+      message: 'Award date is not a date we can read. Use YYYY-MM-DD',
     }))
     const result = run({ grants: [grant()], cellIssues })
     const grouped = result.issues.filter((i) => i.code === 'cell')

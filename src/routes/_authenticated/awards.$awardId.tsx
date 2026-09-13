@@ -197,7 +197,7 @@ function HeadlineCard({ award }: { award: AwardData }) {
   const years = award.durationYears
   const { impact } = award
   const unit = award.impactUnitLabel
-  const dash = <span style={{ color: C.faint }}>—</span>
+  const dash = <span style={{ color: C.faint }}>--</span>
 
   return (
     <div
@@ -403,7 +403,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
         >
           <HugeiconsIcon icon={Alert02Icon} size={16} color="currentColor" className="shrink-0" />
           <span>
-            The schedule totals {fmtMoney(award.scheduledTotal)} —{' '}
+            The schedule totals {fmtMoney(award.scheduledTotal)},{' '}
             {shortfall > 0 ? `${fmtMoney(shortfall)} less` : `${fmtMoney(-shortfall)} more`} than
             the {fmtMoney(award.amountAwarded)} awarded.
           </span>
@@ -497,7 +497,7 @@ function GrantDetailsCard({ award }: { award: AwardData }) {
   const a = award.application
   const years = award.durationYears
   const uplift = award.amountAwarded - a.amountRequested
-  const dash = <span style={{ color: C.faint }}>—</span>
+  const dash = <span style={{ color: C.faint }}>--</span>
 
   return (
     <Panel label="Grant details" className="flex flex-col gap-4">
@@ -575,7 +575,7 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
       <Panel label="Award letter" className="flex flex-col gap-4">
         <CardTitle>Award letter</CardTitle>
         <p className="font-display text-body leading-normal" style={{ color: C.sub }}>
-          No letter was issued for this grant. Letters are written and sent during award set-up —
+          No letter was issued for this grant. Letters are written and sent during award set-up, so
           grants made before that existed, and grants imported from a back catalogue, have none.
         </p>
       </Panel>
@@ -605,12 +605,12 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
           </>
         ) : letter.recipientEmail ? (
           <>
-            {letter.status === 'failed' ? 'Could not be sent to' : 'Not sent yet — addressed to'}{' '}
+            {letter.status === 'failed' ? 'Could not be sent to' : 'Not sent yet, addressed to'}{' '}
             {strong(letter.recipientEmail)}
             {replies}.
           </>
         ) : (
-          'Not sent — there is no address on the application to send it to.'
+          'Not sent. There is no address on the application to send it to.'
         )}
       </p>
       {letter.status !== 'sent' && letter.failureReason && (

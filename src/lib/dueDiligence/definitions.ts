@@ -60,7 +60,7 @@ export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
     label: 'Track record',
     passSummary: 'Registered for more than 12 months',
     level: 'warning',
-    rationale: 'Registered within the last 12 months — limited track record.',
+    rationale: 'Registered within the last 12 months, so there is a limited track record.',
   },
   cc_trustee_count: {
     source: 'charity_commission',
@@ -81,7 +81,7 @@ export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
     label: 'Accounts up to date',
     passSummary: 'Accounts filed within the last 18 months',
     level: 'warning',
-    rationale: 'Latest financial period ended more than 18 months ago — accounts overdue.',
+    rationale: 'Latest financial period ended more than 18 months ago, so accounts are overdue.',
   },
   cc_reporting_status: {
     source: 'charity_commission',
@@ -147,7 +147,7 @@ export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
     label: 'Accounts up to date',
     passSummary: 'Returns filed within the last 18 months',
     level: 'warning',
-    rationale: 'Last returns more than 18 months ago — accounts overdue.',
+    rationale: 'Last returns more than 18 months ago, so accounts are overdue.',
   },
 
   // ── Companies House ──
@@ -171,7 +171,7 @@ export const CHECK_DEFINITIONS: Record<CheckKey, CheckDefinition> = {
     label: 'Track record',
     passSummary: 'Incorporated more than 12 months ago',
     level: 'warning',
-    rationale: 'Incorporated within the last 12 months — limited track record.',
+    rationale: 'Incorporated within the last 12 months, so there is a limited track record.',
   },
   ch_accounts_overdue: {
     source: 'companies_house',

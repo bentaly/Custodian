@@ -727,7 +727,7 @@ function Dashboard() {
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-success">
                   ✓
                 </span>
-                You’re all caught up — nothing needs action right now.
+                You’re all caught up. Nothing needs action right now.
               </div>
             ) : (
               <div className="-mx-2 -mt-2 min-h-0 flex-1 overflow-y-auto">

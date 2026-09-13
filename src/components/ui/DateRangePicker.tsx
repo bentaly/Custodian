@@ -215,7 +215,7 @@ export function DateRangePicker({
                 className="flex h-8 flex-1 items-center justify-center rounded-chip border bg-white px-2 font-display text-label font-medium"
                 style={{ borderColor: C.line, color: C.body }}
               >
-                {draft.from ? fmtDay(draft.from) : '—'}
+                {draft.from ? fmtDay(draft.from) : '--'}
               </span>
               <span
                 className="flex size-8 items-center justify-center font-display text-label font-medium"
@@ -227,7 +227,7 @@ export function DateRangePicker({
                 className="flex h-8 flex-1 items-center justify-center rounded-chip border bg-white px-2 font-display text-label font-medium"
                 style={{ borderColor: C.line, color: C.body }}
               >
-                {draft.to ? fmtDay(draft.to) : '—'}
+                {draft.to ? fmtDay(draft.to) : '--'}
               </span>
             </div>
 

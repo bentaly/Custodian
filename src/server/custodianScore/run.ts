@@ -22,6 +22,7 @@ import {
   type CustodianScoreResult,
 } from '../../lib/custodianScore'
 import { getAnthropic, isAnthropicConfigured, SCORING_MODEL } from './client'
+import { withoutEmDashes } from '../../lib/emDash'
 
 /** The model call, injectable for tests. Returns schema-valid structured output. */
 export type CustodianScoreAssessor = (input: CustodianScoreInput) => Promise<CustodianScoreOutput>
@@ -63,7 +64,9 @@ export const liveAssessor: CustodianScoreAssessor = async (input) => {
     // stop_reason: 'refusal' | 'max_tokens' leaves parsed_output null.
     throw new Error(`model returned no parsed output (stop_reason: ${message.stop_reason})`)
   }
-  return message.parsed_output as CustodianScoreOutput
+  const output = message.parsed_output as CustodianScoreOutput
+  // Themes are left as they came: each must match one of the programme's own tags exactly.
+  return { ...withoutEmDashes(output), themes: output.themes }
 }
 
 export async function runCustodianScore(

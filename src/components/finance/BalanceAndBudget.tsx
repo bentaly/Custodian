@@ -470,7 +470,7 @@ function CashFlowTable({ data }: { data: Data }) {
       <div className="flex flex-col gap-1 font-display text-label" style={{ color: C.faint }}>
         <p>
           Grant payments are instalments paid in the month, or due and not yet paid
-          {current ? ` — anything overdue is counted in ${monthLabel(current.key)}` : ''}.
+          {current ? `. Anything overdue is counted in ${monthLabel(current.key)}` : ''}.
           {hasCoreCosts &&
             ' Core costs follow your annual budget: monthly lines at each month end, one-offs on their date. They are your plan, not a record of what was paid.'}
         </p>
@@ -501,7 +501,7 @@ function BalanceNote({ balance }: { balance: NonNullable<Data['balance']> }) {
     <p className="font-display text-label" style={{ color: C.faint }}>
       Balance recorded by hand
       {balance.recordedBy ? ` by ${balance.recordedBy}` : ''}, as at {fmtDate(balance.asAtDate)}
-      {balance.note ? ` — “${balance.note}”` : ''}. Earlier readings are kept.
+      {balance.note ? `: “${balance.note}”` : ''}. Earlier readings are kept.
     </p>
   )
 }

@@ -197,7 +197,7 @@ export function FirstYearDialog({
           <p className="font-display text-label" style={{ color: enforced ? C.danger : C.amber }}>
             {enforced
               ? 'This is more than the round has left, so it cannot be shortlisted.'
-              : 'This takes the round over its budget, which is allowed — the shortlist will say by how much.'}
+              : 'This takes the round over its budget, which is allowed. The shortlist will say by how much.'}
           </p>
         )}
         {error && (

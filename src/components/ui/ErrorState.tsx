@@ -62,7 +62,7 @@ const FACES: Record<number, Face> = {
 const NETWORK_FACE: Face = {
   icon: WifiDisconnected01Icon,
   title: "We couldn't reach the server",
-  body: 'Check your connection — this usually works on the next try.',
+  body: 'Check your connection. This usually works on the next try.',
   tint: 'bg-warning/10 text-warning',
 }
 

@@ -47,8 +47,8 @@ function Voting() {
             Allow admins to vote on behalf of trustees
           </p>
           <p id={COPY_ID} className="mt-0.5 font-display text-body leading-relaxed text-grey-500">
-            When enabled, admins can record yes/no votes for any trustee on an application — useful
-            when a trustee sends their decision outside the platform.
+            When enabled, admins can record yes/no votes for any trustee on an application, which is
+            useful when a trustee sends their decision outside the platform.
           </p>
           <ErrorNote error={error} className="mt-2" />
         </div>

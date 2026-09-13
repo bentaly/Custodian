@@ -397,7 +397,7 @@ export function AwardWizard({
       if (Math.abs(allocated - amount) > 0.005) {
         byId.set(c.id, {
           kind: 'schedule',
-          text: `The payment schedule adds up to ${fmtMoney(allocated)}, not ${fmtMoney(amount)} — adjust the split on Terms.`,
+          text: `The payment schedule adds up to ${fmtMoney(allocated)}, not ${fmtMoney(amount)}. Adjust the split on Terms.`,
         })
         continue
       }
@@ -537,8 +537,8 @@ export function AwardWizard({
           <div className="flex flex-col gap-5">
             <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
               {one
-                ? 'Set the terms for this award. Everything is pre-filled from your standard defaults — adjust anything that differs.'
-                : `Set the terms shared by all ${candidates.length} awards. Everything is pre-filled from your standard defaults — adjust anything that differs.`}
+                ? 'Set the terms for this award. Everything is pre-filled from your standard defaults. Adjust anything that differs.'
+                : `Set the terms shared by all ${candidates.length} awards. Everything is pre-filled from your standard defaults. Adjust anything that differs.`}
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -733,7 +733,7 @@ export function AwardWizard({
           <div className="flex flex-col gap-4">
             <p className="font-display text-body leading-relaxed" style={{ color: C.body }}>
               Review each award. The programme comes from the application and the amount from what
-              was asked for — change either figure that should differ. Grants with no purpose are
+              was asked for. Change either figure that should differ. Grants with no purpose are
               flagged.
             </p>
 
@@ -814,7 +814,7 @@ export function AwardWizard({
                             ),
                           })
                         }
-                        placeholder="Grant-specific condition (optional) — e.g. restricted to capital works"
+                        placeholder="Grant-specific condition (optional), e.g. restricted to capital works"
                         aria-label={`Condition ${i + 1} for ${c.organisationName}`}
                         style={{ backgroundColor: value ? undefined : C.wash }}
                       />
@@ -964,14 +964,14 @@ export function AwardWizard({
                   </>
                 ) : (
                   <>
-                    . No reply-to address is set, so replies come back to Custodian —{' '}
+                    . No reply-to address is set, so replies come back to Custodian.{' '}
                     <Link
                       to="/settings/letters"
                       search={{ tab: 'award' as const }}
                       className="font-medium hover:underline"
                       style={{ color: C.brand }}
                     >
-                      set one in Settings
+                      Set one in Settings
                     </Link>
                     .
                   </>

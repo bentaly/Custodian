@@ -144,7 +144,7 @@ function AiScoreCell({ status, score }: { status: string; score: number | null }
         className={has ? 'font-display text-body font-medium' : 'font-display text-label'}
         style={{ color: has ? C.ink : C.faint }}
       >
-        {has ? score : status === 'queued' ? 'Scoring…' : '—'}
+        {has ? score : status === 'queued' ? 'Scoring…' : '--'}
       </span>
     </div>
   )
@@ -166,7 +166,7 @@ function OrganisationCell({ name, subline }: { name: string; subline: string }) 
           {name}
         </p>
         <p className="truncate font-display text-label" style={{ color: C.sub }}>
-          {subline || '—'}
+          {subline || '--'}
         </p>
       </div>
     </div>
@@ -210,7 +210,7 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
     width: 'sm:w-[10%]',
     cell: (c) => (
       <span className="font-display text-body" style={{ color: C.ink }}>
-        {fmtDuration(c.grantDurationYears) ?? '—'}
+        {fmtDuration(c.grantDurationYears) ?? '--'}
       </span>
     ),
   },
@@ -458,7 +458,7 @@ function SetUpAwards() {
                   className="font-display text-label"
                   style={{ color: C.danger }}
                 >
-                  <strong>{f.organisationName}</strong> — {f.error} It is unchanged and still on the
+                  <strong>{f.organisationName}</strong>: {f.error} It is unchanged and still on the
                   shortlist.
                 </li>
               ))}

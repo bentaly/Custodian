@@ -108,7 +108,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     header: 'Amount awarded',
     tier: 'required',
     type: 'money',
-    help: 'The total grant, across all years. Numbers only — no £ sign, no commas.',
+    help: 'The total grant, across all years. Numbers only, with no £ sign or commas.',
   },
   {
     key: 'amountPaid',
@@ -146,7 +146,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     tier: 'expected',
     type: 'text',
     degrades:
-      'Nothing can be emailed to this grantee — no award letter can be resent, and no report reminder can reach them.',
+      'Nothing can be emailed to this grantee: no award letter can be resent, and no report reminder can reach them.',
     help: 'The grantee’s contact address.',
   },
   {
@@ -162,7 +162,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     type: 'text',
     degrades:
       'No deprivation context and no regional breakdown for this grant, so it is missing from those parts of Insights.',
-    help: 'The community served — a town, district or postcode. Not the grantee’s head office. One cell here drives the whole deprivation and regional picture.',
+    help: 'The community served: a town, district or postcode. Not the grantee’s head office. One cell here drives the whole deprivation and regional picture.',
   },
   {
     key: 'purpose',
@@ -173,7 +173,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     type: 'text',
     degrades:
       'A future report on this grant has nothing to be judged against, so its alignment analysis will be thin.',
-    help: 'One line, in your words — the same phrasing you would put on an award letter.',
+    help: 'One line, in your words, the same phrasing you would put on an award letter.',
   },
   {
     key: 'themes',
@@ -201,7 +201,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     header: 'Impact figure so far',
     tier: 'optional',
     type: 'number',
-    help: 'Any impact recorded for this grant so far — beneficiaries reached, hectares restored, whatever your programme measures. Numbers only. For a completed grant, this is the final total.',
+    help: 'Any impact recorded for this grant so far: beneficiaries reached, hectares restored, whatever your programme measures. Numbers only. For a completed grant, this is the final total.',
   },
 ]
 
@@ -273,7 +273,7 @@ export const REPORT_COLUMNS: ImportColumn[] = [
     header: 'Milestone',
     tier: 'required',
     type: 'text',
-    help: 'What the report is called — e.g. “Interim report”, “Year 1 report”, “Final report”.',
+    help: 'What the report is called, e.g. “Interim report”, “Year 1 report”, “Final report”.',
   },
   {
     key: 'dueDate',
@@ -312,19 +312,19 @@ export const SHEETS: Record<
     title: 'Grants',
     columns: GRANT_COLUMNS,
     blurb: 'One row per grant.',
-    note: 'For both active and completed grants — every grant needs a row here.',
+    note: 'For both active and completed grants. Every grant needs a row here.',
   },
   payments: {
     title: 'Payments',
     columns: PAYMENT_COLUMNS,
     blurb: 'One row per instalment still to track.',
-    note: 'Not needed for completed grants — this section is for active grants only.',
+    note: 'Not needed for completed grants. This section is for active grants only.',
   },
   reports: {
     title: 'Reports',
     columns: REPORT_COLUMNS,
     blurb: 'One row per reporting milestone.',
-    note: 'Not needed for completed grants — this section is for active grants only.',
+    note: 'Not needed for completed grants. This section is for active grants only.',
   },
 }
 

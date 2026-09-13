@@ -344,7 +344,7 @@ function PurposeCard({ grant }: { grant: ReportData['grant'] }) {
 function GrantDetailsCard({ report }: { report: ReportData }) {
   const { grant, themes } = report
   const years = grant.durationYears
-  const dash = <span style={{ color: C.faint }}>—</span>
+  const dash = <span style={{ color: C.faint }}>--</span>
 
   return (
     <Panel label="Grant details" className="flex flex-col gap-4">
@@ -421,7 +421,7 @@ function TimelineCard({ report }: { report: ReportData }) {
     const overdue = e.dueStatus === 'overdue'
     return {
       key: e.key,
-      title: e.here ? `${e.label} — you are here` : e.label,
+      title: e.here ? `${e.label} (you are here)` : e.label,
       sub: e.received
         ? [
             `Received ${fmtDate(e.date)}`,

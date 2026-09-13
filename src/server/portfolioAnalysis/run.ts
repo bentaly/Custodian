@@ -26,6 +26,7 @@ import {
   type PortfolioBrief,
 } from '../../lib/portfolioAnalysis'
 import { getAnthropic, isAnthropicConfigured, SCORING_MODEL } from '../custodianScore/client'
+import { withoutEmDashes } from '../../lib/emDash'
 
 export type PortfolioAssessor = (
   brief: PortfolioBrief,
@@ -67,7 +68,11 @@ export const liveAssessor: PortfolioAssessor = async (brief) => {
     throw new Error(`model returned no parsed output (stop_reason: ${message.stop_reason})`)
   }
   return {
-    output: message.parsed_output,
+    // Only the prose: `figuresCited` must stay verbatim copies of the brief's strings.
+    output: {
+      ...message.parsed_output,
+      summary: withoutEmDashes(message.parsed_output.summary),
+    },
     usage: message.usage as unknown as Record<string, unknown>,
   }
 }

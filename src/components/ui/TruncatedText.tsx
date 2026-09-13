@@ -90,7 +90,7 @@ export function TruncatedText({
 export function TruncatedList({
   items,
   label,
-  empty = '—',
+  empty = '--',
   className,
 }: {
   items: string[]

@@ -301,6 +301,12 @@ rule; every figure in the round chain is cash, and the accounts total is the one
 ## Conventions and naming traps
 
 - **British English** in all copy and identifiers ("Organisation", not "Organization").
+- **No em dashes (—) in anything a user reads.** They read as machine-written. Use a comma,
+  colon, full stop, brackets or a spaced hyphen instead. This covers UI copy, tooltips, error
+  messages, emails, letter templates, exports and AI-generated prose (so a prompt whose output is
+  shown must tell the model not to use them). An empty cell or field shows `--`; `n/a` is only
+  for a value that genuinely does not apply (as on the budget screens), never for one that is
+  merely blank. Code comments, docs, logs and the admin app are out of scope.
 - Call it an **Award letter**, never a "grant letter".
 - **`awardId`, not `grantId`, on the wire.** `computeGrantCandidates` stores `matchCandidates`
   keyed on `awardId` and `ResolveReportSchema` accepts `awardId`. The admin app once declared and

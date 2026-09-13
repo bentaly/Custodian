@@ -231,7 +231,7 @@ const ORGANISATION: TableColumn<FinanceRow> = {
           {g.imported && <ImportedPill />}
         </div>
         <p className="truncate font-display text-label" style={{ color: C.sub }}>
-          {subline || '—'}
+          {subline || '--'}
         </p>
       </div>
     )
@@ -246,7 +246,7 @@ const PROGRAMME: TableColumn<FinanceRow> = {
   width: 'sm:w-[11%]',
   cell: (g) => (
     <TruncatedText
-      text={g.programmeName ?? '—'}
+      text={g.programmeName ?? '--'}
       label="Programme"
       className={`font-display text-body ${g.programmeName ? 'text-grey-500' : 'text-grey-400'}`}
     />
@@ -265,7 +265,7 @@ const ROUND: TableColumn<FinanceRow> = {
   width: 'sm:w-[9%]',
   cell: (g) => (
     <TruncatedText
-      text={g.roundName ?? '—'}
+      text={g.roundName ?? '--'}
       label="Round"
       className={`font-display text-body ${g.roundName ? 'text-grey-500' : 'text-grey-400'}`}
     />
@@ -433,7 +433,7 @@ const PAID_COLUMNS: TableColumn<FinanceRow>[] = [
       <span
         className={`whitespace-nowrap ${g.paidDate ? txtSub : 'font-display text-body text-grey-400'}`}
       >
-        {g.paidDate ? fmtDate(g.paidDate) : '—'}
+        {g.paidDate ? fmtDate(g.paidDate) : '--'}
       </span>
     ),
   },
@@ -681,7 +681,7 @@ function FinancePage() {
               {status || bank || programmeId || tag || roundId || from || to
                 ? 'No payments match these filters.'
                 : tab === 'to_pay'
-                  ? 'Nothing outstanding — every grant is paid up.'
+                  ? 'Nothing outstanding. Every grant is paid up.'
                   : 'No payments made yet.'}
             </p>
             <p className="mt-1 text-label text-grey-400">

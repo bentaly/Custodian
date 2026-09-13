@@ -43,13 +43,13 @@ export function buildSystemPrompt(): string {
 
 You will be given the funder's mission statement, the programme's goal, and the application itself (the applicant organisation, the amount requested, and their answers to the application form).
 
-Score the application on each of the following criteria from 1 (poor) to 10 (excellent). For each, give a one-sentence rationale grounded in what the application actually says — do not invent facts that are not present.
+Score the application on each of the following criteria from 1 (poor) to 10 (excellent). For each, give a one-sentence rationale grounded in what the application actually says. Do not invent facts that are not present.
 
 ${rubric}
 
 Then write a short assessment summary (2-4 sentences) for the grant officer, and list any specific concerns a reviewer should check before deciding.
 
-Separately, state the grant purpose: one or two sentences saying what the money would actually fund. This is NOT part of your assessment — it makes no judgement at all:
+Separately, state the grant purpose: one or two sentences saying what the money would actually fund. This is NOT part of your assessment and makes no judgement at all:
 - Say who the applicant is, what they will do, for whom, where, and over what period, as far as the application states them. Omit any of those the application does not give rather than guessing.
 - Write it as a complete sentence beginning with the organisation's name, e.g. "Bradford Youth Trust will run six employability courses for 90 unemployed 16-24 year olds across Bradford over 12 months."
 - Keep it to 40 words or fewer. Name the core activity and who it reaches; leave out subsidiary activities, delivery detail and anything an applicant lists as part of the wider project. It is a description, not an inventory.
@@ -61,19 +61,21 @@ Separately, state the grant purpose: one or two sentences saying what the money 
 Separately again, where the programme lists themes, choose this application's themes. This is also not part of your assessment:
 ${THEME_RULES}
 
-Scoring guidance — read carefully, as consistency matters more than generosity:
+Scoring guidance. Read carefully, as consistency matters more than generosity:
 - Anchor every score to the mission and programme goal. Strong work that does not advance the funder's mission is a weak application here, and must score low on strategic alignment.
 - Use the full 1-10 range. Reserve 9-10 for genuinely exceptional, fully-evidenced cases and 1-3 for applications with serious deficiencies. Most credible applications land in the 5-8 range.
-- Judge only on the evidence provided. Where the application is silent or vague on a criterion, that is itself a weakness — score it lower and say so in the rationale, rather than giving the benefit of the doubt.
+- Judge only on the evidence provided. Where the application is silent or vague on a criterion, that is itself a weakness: score it lower and say so in the rationale, rather than giving the benefit of the doubt.
 - Be specific and consistent: two applications of equal merit should receive equal scores. Do not inflate scores to be encouraging.
 
-Reading the evidence — some of what you are given is verified and some is the applicant's own claim, and the difference matters:
-- Where a "What the charity register records" section is present, those figures are VERIFIED — filed by the applicant with their regulator, not written for this application. Weigh them accordingly, and weigh the ask against the organisation's scale: an amount that would multiply a charity's annual income is a delivery risk however good the plan, and should be said plainly in the rationale. Note the accounting period given: those figures are routinely 12-18 months old, so describe them as the latest FILED position, never as the organisation's position today.
-- The register's **description of activities is not evidence about this proposal**, and is the one part of that section written by the charity itself. It is filed for a regulator, updated rarely, and very often boilerplate copied from the governing document ("to advance education for the public benefit"). Two errors follow, and both are easy to make: do NOT read broad charitable-objects language as alignment with this funder's mission — it is drafted to be broad, and would superficially fit almost any funder — and do NOT treat a vague, thin or dated entry as a mark against the applicant or their track record. Where it conflicts with the applicant's own account of themselves, the application is the current statement and the register is the older one; say so rather than assuming either is wrong.
-- Anything labelled as stated by the applicant is unverified. Do not treat it as established fact, and do not treat the absence of a register section as a mark against the applicant — many legitimate organisations are unregistered, newly registered, or have not yet filed.
-- A deprivation decile is a measured fact about the AREA, not about the applicant: decile 1 is the most deprived tenth of areas in that nation, decile 10 the least. It is evidence for community need where the programme's goal is about reaching deprived communities, and largely irrelevant where it is not — do not import a geographic priority the funder has not stated.
+Reading the evidence. Some of what you are given is verified and some is the applicant's own claim, and the difference matters:
+- Where a "What the charity register records" section is present, those figures are VERIFIED: filed by the applicant with their regulator, not written for this application. Weigh them accordingly, and weigh the ask against the organisation's scale: an amount that would multiply a charity's annual income is a delivery risk however good the plan, and should be said plainly in the rationale. Note the accounting period given: those figures are routinely 12-18 months old, so describe them as the latest FILED position, never as the organisation's position today.
+- The register's **description of activities is not evidence about this proposal**, and is the one part of that section written by the charity itself. It is filed for a regulator, updated rarely, and very often boilerplate copied from the governing document ("to advance education for the public benefit"). Two errors follow, and both are easy to make: do NOT read broad charitable-objects language as alignment with this funder's mission (it is drafted to be broad, and would superficially fit almost any funder), and do NOT treat a vague, thin or dated entry as a mark against the applicant or their track record. Where it conflicts with the applicant's own account of themselves, the application is the current statement and the register is the older one; say so rather than assuming either is wrong.
+- Anything labelled as stated by the applicant is unverified. Do not treat it as established fact, and do not treat the absence of a register section as a mark against the applicant: many legitimate organisations are unregistered, newly registered, or have not yet filed.
+- A deprivation decile is a measured fact about the AREA, not about the applicant: decile 1 is the most deprived tenth of areas in that nation, decile 10 the least. It is evidence for community need where the programme's goal is about reaching deprived communities, and largely irrelevant where it is not. Do not import a geographic priority the funder has not stated.
 - **Where no deprivation measure is given, say nothing about deprivation.** Its absence means the lookup did not run or could not match the words the applicant wrote. It is NOT evidence that an area is affluent or that need is unproven, and must never lower community need.
 - Where a proposed impact figure is given, read it against the amount requested when judging whether the ask is proportionate. State the comparison in words if it is telling; do not calculate and quote a cost-per-unit figure.
+
+Never use em dashes (—) in any text you return. Use commas, colons, full stops or brackets instead.
 
 Return your assessment in the exact structured format requested.`
 }
@@ -106,10 +108,10 @@ const NATION_IN_PROSE: Record<DeprivationNation, string> = {
 function deprivationLine(result: DeprivationResult | null | undefined): string | null {
   if (!result || result.status === 'pending') return null
   if (result.status === 'unresolvable') {
-    return `Deprivation measure: unavailable — "${result.input}" could not be matched to a place, so no decile has been measured. This says nothing about the area itself.`
+    return `Deprivation measure: unavailable because "${result.input}" could not be matched to a place, so no decile has been measured. This says nothing about the area itself.`
   }
   if (result.status === 'too_broad') {
-    return `Deprivation measure: unavailable — the area given (${result.matchedName}) is too wide to carry a single deprivation measure. This says nothing about the area itself.`
+    return `Deprivation measure: unavailable because the area given (${result.matchedName}) is too wide to carry a single deprivation measure. This says nothing about the area itself.`
   }
   const scale =
     `1 = most deprived tenth of areas in ${NATION_IN_PROSE[result.nation]}, ` +
@@ -165,7 +167,7 @@ function registerSection(profile: OrganisationProfile | null | undefined): strin
   return (
     `\n\n## What the charity register records\n` +
     `Read from the public register, not from this application. The figures below were FILED with the ` +
-    `regulator rather than written to win this grant, and are typically 12-18 months old — the latest ` +
+    `regulator rather than written to win this grant, and are typically 12-18 months old: the latest ` +
     `filed position, not the position today.\n${lines.join('\n')}${activities}`
   )
 }
@@ -231,7 +233,7 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
         )
         .join('\n')}\nTotal project budget: ${formatPounds(
         budgetTotal(lines),
-      )}\n(This is the cost of the whole project. It need not equal the amount requested — ` +
+      )}\n(This is the cost of the whole project. It need not equal the amount requested; ` +
       `the applicant may be asking this funder to fund only part of it, with the remainder matched ` +
       `or secured elsewhere. Do not treat a difference between the two as an error or inconsistency.)`
     : input.budgetBreakdownLink
@@ -246,7 +248,7 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
         `available to you. This foundation's form asked for a file rather than itemised fields, so the ` +
         `absence of a breakdown here is not an omission by the applicant: do not treat the budget as ` +
         `missing, vague or unjustified. Equally, do not assume the document is thorough or well ` +
-        `costed — you have not seen it. Score budget quality only on the evidence you do have (the ` +
+        `costed, because you have not seen it. Score budget quality only on the evidence you do have (the ` +
         `amount requested against the scale and ambition described), and state in your reasoning that ` +
         `the budget document was not reviewed.`
       : ''

@@ -135,15 +135,15 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     tier: 'expected',
     degrades:
       "Without it the organisation is described only by the charity register's own " +
-      'activity summary, filed against its last annual return — or, for an applicant ' +
+      'activity summary, filed against its last annual return or, for an applicant ' +
       'with no charity number, not described at all.',
     description:
-      'THE APPLICANT ORGANISATION DESCRIBED IN ITS OWN WORDS — who they are, what they do, ' +
+      'THE APPLICANT ORGANISATION DESCRIBED IN ITS OWN WORDS: who they are, what they do, ' +
       'who they do it for. Map the form question that asks the applicant to describe their ' +
       'organisation, however it is phrased (e.g. "About your organisation", "Tell us what your ' +
       'charity does", or a funder-specific framing like "How does your charity support young ' +
       'people in your area?"). Prefer the question about the ORGANISATION and its ongoing work. ' +
-      'Do NOT map a description of the PROJECT this grant would fund — what the money would be ' +
+      'Do NOT map a description of the PROJECT this grant would fund; what the money would be ' +
       'spent on is a different question and belongs in `responses`. ' +
       "Do NOT map the organisation's name, a mission statement of the FUNDER, or a track " +
       'record / history question if a general "what do you do" question is also present.',
@@ -153,7 +153,7 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Applicant email',
     tier: 'required',
     description:
-      "The applicant's contact EMAIL ADDRESS — the person or organisation submitting the application. " +
+      "The applicant's contact EMAIL ADDRESS of the person or organisation submitting the application. " +
       'Map a field containing a single email address (e.g. "Contact email", "Applicant email", "Your email"). ' +
       'Prefer the primary applicant/contact email over any generic info@ address if both are present.',
     coerce: (raw: string) => raw.trim().toLowerCase(),
@@ -162,7 +162,7 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     key: 'amountRequested',
     label: 'Amount requested',
     tier: 'required',
-    description: 'The grant amount requested, in GBP — a monetary value.',
+    description: 'The grant amount requested, in GBP, as a monetary value.',
     coerce: coerceAmount,
   },
   {
@@ -178,10 +178,10 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'cannot be read against how long they could run without it. No register publishes ' +
       'the figure, so the application form is the only place it can come from.',
     description:
-      "THE APPLICANT ORGANISATION'S UNRESTRICTED (free) RESERVES, in GBP — the funds they hold " +
+      "THE APPLICANT ORGANISATION'S UNRESTRICTED (free) RESERVES, in GBP: the funds they hold " +
       'that are not tied to a particular purpose. A single monetary value. ' +
       'Do NOT map RESTRICTED reserves, a bank balance, total income, total expenditure or the ' +
-      'amount requested — each of those is a different figure, and three of them commonly sit ' +
+      'amount requested; each of those is a different figure, and three of them commonly sit ' +
       'beside this one on the same form.',
     coerce: coerceAmount,
   },
@@ -200,7 +200,7 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     tier: 'optional',
     description:
       'The name of the bank holding the applicant\'s account (e.g. "Barclays"). ' +
-      'Do NOT map the account holder name — that is `bankAccountName`.',
+      'Do NOT map the account holder name; that is `bankAccountName`.',
   },
   {
     key: 'bankAccountName',
@@ -250,11 +250,11 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'application carries no deprivation context and the Custodian score assesses community ' +
       "need from the applicant's words alone.",
     description:
-      'WHERE THE FUNDED PROJECT IS DELIVERED — the place or community that will benefit from the work. ' +
+      'WHERE THE FUNDED PROJECT IS DELIVERED: the place or community that will benefit from the work. ' +
       'Prefer the most specific delivery location available: a delivery/project postcode if asked, ' +
       'otherwise the delivery region, town or area (e.g. "Bradford", "BD1 1AA", "London"). ' +
       'This is used to look up the deprivation of the area served. ' +
-      'Do NOT map a field about where the ORGANISATION is based, registered, or has its office/headquarters — ' +
+      'Do NOT map a field about where the ORGANISATION is based, registered, or has its office/headquarters; ' +
       "that is the applicant's own location, not the area they serve, and must be left unmapped.",
   },
   {
@@ -265,14 +265,14 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'Without it the application shows only the total ask, with no view of what the money would ' +
       'be spent on.',
     description:
-      'THE PROJECT BUDGET BROKEN INTO LINE ITEMS — what the money will be spent on and how much ' +
+      'THE PROJECT BUDGET BROKEN INTO LINE ITEMS: what the money will be spent on and how much ' +
       'per item (e.g. staff costs, materials, venue hire, evaluation). Map a field holding a ' +
       'STRUCTURED breakdown: a repeated/tabular set of cost lines, or a set of category→amount ' +
       'pairs. ' +
-      'Do NOT map a single total figure — the overall ask is `amountRequested`, a separate field. ' +
+      'Do NOT map a single total figure; the overall ask is `amountRequested`, a separate field. ' +
       'Do NOT map a free-text narrative describing spending in prose; leave that unmapped so it ' +
       'is kept as a form response. ' +
-      'Do NOT map a URL or an uploaded file reference — a link is not line items, and mapping ' +
+      'Do NOT map a URL or an uploaded file reference; a link is not line items, and mapping ' +
       'one here would make the breakdown look captured when nothing can read it. Links belong ' +
       'in `budgetBreakdownLink`.',
   },
@@ -281,10 +281,10 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Budget document',
     tier: 'expected',
     degrades:
-      'Without it — and without a line-item breakdown — the application shows only the total ask, ' +
+      'Without it, and without a line-item breakdown, the application shows only the total ask, ' +
       'with no view of what the money would be spent on.',
     description:
-      'A LINK TO A BUDGET DOCUMENT the applicant uploaded or shared — a spreadsheet or similar ' +
+      'A LINK TO A BUDGET DOCUMENT the applicant uploaded or shared: a spreadsheet or similar ' +
       "holding the project budget (e.g. a file-upload question on the foundation's form, which " +
       'typically arrives as a URL to the stored file). Map only an http(s) URL. ' +
       'Do NOT map line items or category→amount pairs; a structured breakdown belongs in ' +
@@ -299,11 +299,11 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'Insights, and the Custodian score judges whether the amount asked for is proportionate ' +
       'without knowing how many the project would reach.',
     description:
-      'THE NUMBER OF BENEFICIARIES / IMPACT UNITS THE APPLICANT PROPOSES TO REACH — a single count, ' +
+      'THE NUMBER OF BENEFICIARIES / IMPACT UNITS THE APPLICANT PROPOSES TO REACH: a single count, ' +
       'in whatever unit the programme measures (people helped, trees planted, hectares restored, etc.). ' +
       'Map a field stating how many the project WILL reach or benefit (e.g. "we will support 340 young ' +
       'people"). Extract the number only. Do NOT map monetary amounts, and do NOT map figures the ' +
-      'applicant reports having ALREADY achieved in the past — this is the forward-looking proposal.',
+      'applicant reports having ALREADY achieved in the past; this is the forward-looking proposal.',
     coerce: coerceAmount,
   },
 ]

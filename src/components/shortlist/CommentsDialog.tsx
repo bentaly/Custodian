@@ -156,7 +156,7 @@ export function CommentsDialog({
                   className="flex size-8 shrink-0 items-center justify-center rounded-full font-display text-label font-semibold"
                   style={{ backgroundColor: C.wash, color: C.sub }}
                 >
-                  {initials(c.user?.name ?? '—')}
+                  {initials(c.user?.name ?? '--')}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">

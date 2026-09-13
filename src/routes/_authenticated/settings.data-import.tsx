@@ -451,7 +451,7 @@ function DataImport() {
           {context.programmes.length === 0 ? (
             <Panel
               title="Set up your programmes first"
-              description="Every grant is imported against one of your programmes, and the template builds its dropdowns from them. Add your programmes, then come back — it takes a couple of minutes and saves a great deal of tidying up afterwards."
+              description="Every grant is imported against one of your programmes, and the template builds its dropdowns from them. Add your programmes, then come back. It takes a couple of minutes and saves a great deal of tidying up afterwards."
             >
               <Button onClick={() => router.navigate({ to: '/programmes' })}>
                 Go to programmes
@@ -796,11 +796,9 @@ function DataImport() {
                 emailed by an import.
               </li>
               <li>
-                Registration numbers and locations are stored, but due diligence and deprivation
-                context are <strong style={{ color: C.ink }}>not</strong> run automatically —
-                screening a whole back catalogue at once would mean thousands of calls to the
-                Charity Commission and Companies House. Run it per grant from the application when
-                you need it.
+                Due diligence and the deprivation lookup run on every imported grant, in the
+                background once you confirm. Results appear on each application as they finish, so a
+                large import can take a while to fill in.
               </li>
               <li>
                 Imported grants carry no Custodian score. Scoring a decision made years ago against

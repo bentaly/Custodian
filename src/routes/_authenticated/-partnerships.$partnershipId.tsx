@@ -254,7 +254,7 @@ function PartnershipDetail() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="font-display text-body" style={{ color: C.body }}>
               Archived {fmtDate(partnership.archivedAt)}
-              {partnership.archiveNote ? ` — ${partnership.archiveNote}` : ''}
+              {partnership.archiveNote ? `: ${partnership.archiveNote}` : ''}
             </p>
             {canManage && (
               <Button
@@ -337,7 +337,7 @@ function PartnershipDetail() {
                   rows={2}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add what happened — a call, a visit, a decision taken elsewhere…"
+                  placeholder="Add what happened: a call, a visit, a decision taken elsewhere…"
                   aria-label="Add to the relationship history"
                 />
                 <div className="flex justify-end">
@@ -397,10 +397,10 @@ function PartnershipDetail() {
             <PanelTitle>Details</PanelTitle>
             <div className="grid grid-cols-2 gap-4">
               <KeyFact label="Programme" value={partnership.programme?.name ?? 'Not decided'} />
-              <KeyFact label="Source" value={partnership.source ?? '—'} />
-              <KeyFact label="Charity no." value={partnership.charityNumber ?? '—'} />
-              <KeyFact label="Company no." value={partnership.companyNumber ?? '—'} />
-              <KeyFact label="Contact" value={partnership.contactName ?? '—'} />
+              <KeyFact label="Source" value={partnership.source ?? '--'} />
+              <KeyFact label="Charity no." value={partnership.charityNumber ?? '--'} />
+              <KeyFact label="Company no." value={partnership.companyNumber ?? '--'} />
+              <KeyFact label="Contact" value={partnership.contactName ?? '--'} />
               {/* "Indicative", every time it is printed. Nothing in Finance, the annual
                   budget or any meter reads this figure — it is what somebody said over
                   coffee, and the money rule (CLAUDE.md) is that a conversation is not

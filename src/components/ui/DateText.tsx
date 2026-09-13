@@ -20,7 +20,7 @@ export function DateText({
   value: Date | string | null | undefined
   className?: string
 }) {
-  if (!value) return <span className={className}>—</span>
+  if (!value) return <span className={className}>--</span>
   const exact = fmtDateTime(value)
   return (
     <time dateTime={isoValue(value)} title={exact ?? undefined} className={className}>

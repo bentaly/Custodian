@@ -69,7 +69,7 @@ export type AvatarCrop = {
  */
 export async function loadAvatarSource(file: File): Promise<AvatarSource> {
   if (file.size > MAX_SOURCE_BYTES) {
-    throw new AvatarError('That image is too large — please choose one under 10MB.')
+    throw new AvatarError('That image is too large. Please choose one under 10MB.')
   }
 
   let bitmap: ImageBitmap
@@ -81,7 +81,7 @@ export async function loadAvatarSource(file: File): Promise<AvatarSource> {
     // Desktop Chrome cannot decode HEIC. (iOS Safari converts to JPEG in the file
     // picker, so uploads straight from a phone are fine — this is the "copied the
     // photos off my iPhone onto a laptop" case.)
-    throw new AvatarError("That image format isn't supported — try a JPEG or PNG.")
+    throw new AvatarError("That image format isn't supported. Try a JPEG or PNG.")
   }
 
   const shrink = Math.min(1, WORK_PX / Math.max(bitmap.width, bitmap.height))
@@ -129,7 +129,7 @@ export async function cropAvatar(source: AvatarSource, crop: AvatarCrop): Promis
 
   const dataBase64 = await toBase64(blob)
   if (dataBase64.length > MAX_ENCODED_BYTES) {
-    throw new AvatarError('That image is too large — please choose a simpler one.')
+    throw new AvatarError('That image is too large. Please choose a simpler one.')
   }
   return { mimeType: blob.type, dataBase64 }
 }

@@ -621,7 +621,7 @@ export function Choropleth({
             margin: '0 auto',
           }}
           role="img"
-          aria-label={`Funding by area — ${funded} of ${features.length} areas funded, ${fmtMoney(total)} total`}
+          aria-label={`Funding by area: ${funded} of ${features.length} areas funded, ${fmtMoney(total)} total`}
         >
           {/* A zoom is the one moment the map genuinely changes place, so it
               gets a beat: the new tier settles in rather than cutting. Held to

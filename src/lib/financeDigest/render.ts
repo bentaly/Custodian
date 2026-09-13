@@ -31,9 +31,9 @@ export function digestSubject(model: DigestModel): string {
     return `${fmtMoney(dueTotal)} due this week, ${fmtMoney(overdueTotal)} overdue`
   }
   if (model.overdue.length > 0) {
-    return `${fmtMoney(overdueTotal)} overdue — ${model.clientName} payments`
+    return `${fmtMoney(overdueTotal)} of ${model.clientName} payments overdue`
   }
-  return `${fmtMoney(dueTotal)} due this week — ${model.clientName} payments`
+  return `${fmtMoney(dueTotal)} of ${model.clientName} payments due this week`
 }
 
 function itemLine(item: DigestItem): string {
@@ -45,7 +45,7 @@ function itemLine(item: DigestItem): string {
 export function digestText(model: DigestModel): string {
   const weekEnd = addDaysIso(model.weekOf, 6)
   const lines: string[] = [
-    `${model.clientName} — payments due`,
+    `${model.clientName}: payments due`,
     `Week of ${fmtDate(model.weekOf)} to ${fmtDate(weekEnd)}`,
     ``,
   ]
@@ -53,14 +53,14 @@ export function digestText(model: DigestModel): string {
   // missed a fortnight ago has ordered itself by date instead of by urgency.
   if (model.overdue.length > 0) {
     lines.push(
-      `OVERDUE — ${fmtMoney(digestTotal(model.overdue))} across ${model.overdue.length} payment${model.overdue.length === 1 ? '' : 's'}`,
+      `OVERDUE: ${fmtMoney(digestTotal(model.overdue))} across ${model.overdue.length} payment${model.overdue.length === 1 ? '' : 's'}`,
     )
     for (const item of model.overdue) lines.push(`  ${itemLine(item)}`)
     lines.push(``)
   }
   if (model.dueThisWeek.length > 0) {
     lines.push(
-      `DUE THIS WEEK — ${fmtMoney(digestTotal(model.dueThisWeek))} across ${model.dueThisWeek.length} payment${model.dueThisWeek.length === 1 ? '' : 's'}`,
+      `DUE THIS WEEK: ${fmtMoney(digestTotal(model.dueThisWeek))} across ${model.dueThisWeek.length} payment${model.dueThisWeek.length === 1 ? '' : 's'}`,
     )
     for (const item of model.dueThisWeek) lines.push(`  ${itemLine(item)}`)
     lines.push(``)

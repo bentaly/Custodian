@@ -81,7 +81,7 @@ export function KeyValueCard({ rows }: { rows: FieldRow[] }) {
         >
           <span style={{ color: C.sub }}>{r.label}</span>
           <span className="text-right font-medium" style={{ color: C.ink }}>
-            {r.value || '—'}
+            {r.value || '--'}
           </span>
         </div>
       ))}
@@ -295,7 +295,7 @@ function BudgetAnswer({ lines }: { lines: BudgetLine[] }) {
       {/* The budget covers the whole project; the ask may be a part of it. Said
           plainly so a total above "Amount requested" doesn't read as an error. */}
       <p className="mt-2 font-display text-label" style={{ color: C.faint }}>
-        The cost of the whole project — this need not match the amount requested.
+        The cost of the whole project. This need not match the amount requested.
       </p>
     </>
   )

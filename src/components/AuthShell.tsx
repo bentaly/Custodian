@@ -98,7 +98,7 @@ const NOTES: { icon: IconSvgElement; title: string; body: ReactNode }[] = [
   {
     icon: Shield01Icon,
     title: 'Audit-ready by default',
-    body: 'Every decision, payment & report leaves a timestamped trail — for best practice governance & regulatory compliance.',
+    body: 'Every decision, payment & report leaves a timestamped trail, for best practice governance & regulatory compliance.',
   },
   {
     icon: StarAward02Icon,

@@ -134,7 +134,7 @@ export const Route = createFileRoute('/_authenticated/applications/')({
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '—'
+  if (parts.length === 0) return '--'
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
 }
@@ -385,7 +385,7 @@ const DD_MEANING: Record<string, { name: string; detail: string }> = {
     detail: 'The registers could not answer, please manually check.',
   },
   no_registration: {
-    name: 'Not screened — no registration number',
+    name: 'Not screened (no registration number)',
     // No instruction: adding a number is admin-only (`rerunDueDiligence`), and this
     // column is read by trustees too. Say what is true for everyone; the application
     // screen offers the fix to the people who have it.
@@ -439,7 +439,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       // and a region, an unlabelled code is taken for one more of them. Same wording as
       // search, and as the sublines this fact now carries on Awards, Finance and Reports.
       const subline =
-        [type, area, fmtRef(app.externalApplicationId)].filter(Boolean).join(' · ') || '—'
+        [type, area, fmtRef(app.externalApplicationId)].filter(Boolean).join(' · ') || '--'
       return (
         <div className="flex items-center gap-2">
           <div
@@ -499,7 +499,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     // indistinguishable. The tooltip is the rest of the name.
     cell: (app) => (
       <TruncatedText
-        text={app.roundProgramme?.programme?.name ?? '—'}
+        text={app.roundProgramme?.programme?.name ?? '--'}
         label="Programme"
         className="font-display text-body"
       />
@@ -520,7 +520,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     cell: (app) => (
       <TruncatedList
         items={app.themes ?? []}
-        empty={app.themes == null ? 'Pending' : '—'}
+        empty={app.themes == null ? 'Pending' : '--'}
         label="Themes for this application"
         className={`font-display text-body ${
           (app.themes ?? []).length > 0 ? 'text-grey-500' : 'text-grey-400'

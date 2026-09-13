@@ -29,7 +29,7 @@ export const CRITERION_DEFINITIONS: Record<CriterionKey, CriterionDefinition> = 
     label: 'Strategic alignment',
     weight: 3,
     description:
-      "How well the proposed work fits the funder's mission and this programme's stated goal. The single most important criterion — work that does not advance the mission should score low here regardless of its other merits.",
+      "How well the proposed work fits the funder's mission and this programme's stated goal. The single most important criterion: work that does not advance the mission should score low here regardless of its other merits.",
   },
   community_need: {
     label: 'Community need',
@@ -47,7 +47,7 @@ export const CRITERION_DEFINITIONS: Record<CriterionKey, CriterionDefinition> = 
     label: 'Budget quality',
     weight: 1.5,
     description:
-      'Whether the amount requested is proportionate to the outcomes sought and represents good value for money. Weigh the requested amount against the scale and ambition of the work — a disproportionately large ask for the outcomes described is a weakness. Penalise vague, padded, or poorly justified costs.',
+      'Whether the amount requested is proportionate to the outcomes sought and represents good value for money. Weigh the requested amount against the scale and ambition of the work; a disproportionately large ask for the outcomes described is a weakness. Penalise vague, padded, or poorly justified costs.',
   },
   delivery_risk: {
     label: 'Delivery risk',

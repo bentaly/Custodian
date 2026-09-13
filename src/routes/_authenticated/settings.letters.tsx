@@ -49,7 +49,7 @@ function Letters() {
   return (
     <SettingsPage
       title="Letters"
-      description="What Custodian emails an applicant when you make a decision — the award letter that goes with a grant, and the letter that goes to everybody else."
+      description="What Custodian emails an applicant when you make a decision: the award letter that goes with a grant, and the letter that goes to everybody else."
     >
       {/* Above the tabs, because it governs both letters. Everything below the tabs is
           one letter's own. */}

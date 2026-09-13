@@ -824,7 +824,7 @@ export const rollbackImport = createServerFn({ method: 'POST' })
 
     if (blockers.length > 0) {
       throw conflict(
-        `This import can no longer be undone — ${blockers.join(', ')}. These grants are now part of your live records; remove them individually if you need to.`,
+        `This import can no longer be undone: ${blockers.join(', ')}. These grants are now part of your live records; remove them individually if you need to.`,
       )
     }
 

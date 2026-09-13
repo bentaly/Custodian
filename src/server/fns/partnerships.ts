@@ -410,7 +410,7 @@ export const actOnPartnership = createServerFn({ method: 'POST' })
     const action = data.action as PartnershipAction
     if (!canTransition(existing.status, action)) {
       throw conflict(
-        `This partnership is already “${PARTNERSHIP_STATUS_META[existing.status].label}” — reload the page to see where it has got to.`,
+        `This partnership is already “${PARTNERSHIP_STATUS_META[existing.status].label}”. Reload the page to see where it has got to.`,
       )
     }
 
@@ -432,7 +432,7 @@ export const actOnPartnership = createServerFn({ method: 'POST' })
     const sentence = {
       issue_eoi: 'Marked the expression-of-interest form as sent.',
       invite: 'Marked as invited to submit a full application.',
-      decline: 'Closed — not pursuing.',
+      decline: 'Closed, not pursuing.',
       reopen: 'Reopened, back to prospective.',
     }[action]
 
@@ -492,7 +492,7 @@ export const setPartnershipArchived = createServerFn({ method: 'POST' })
         kind: data.archived ? 'archived' : 'unarchived',
         body: data.archived
           ? data.note
-            ? `Archived — ${data.note}`
+            ? `Archived: ${data.note}`
             : 'Archived.'
           : 'Brought back from the archive.',
         actorUserId: user.id,
@@ -560,7 +560,7 @@ export const screenPartnership = createServerFn({ method: 'POST' })
       db.insert(partnershipEvents).values({
         partnershipId: existing.id,
         kind: 'due_diligence_run',
-        body: `Due diligence run — ${result.status.replace(/_/g, ' ')}.`,
+        body: `Due diligence run: ${result.status.replace(/_/g, ' ')}.`,
         actorUserId: user.id,
       }),
     ])

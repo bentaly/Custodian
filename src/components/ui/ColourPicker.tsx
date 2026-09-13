@@ -85,7 +85,7 @@ export function ColourPicker({
           variant="secondary"
           size="xs"
           aria-label={`Change ${label.toLowerCase()}${
-            colourName(selected) ? ` — currently ${colourName(selected)}` : ''
+            colourName(selected) ? `, currently ${colourName(selected)}` : ''
           }`}
           onClick={() => {
             // `showPicker` opens it without a synthetic click on a hidden control, which

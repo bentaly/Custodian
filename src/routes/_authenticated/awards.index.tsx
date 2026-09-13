@@ -93,7 +93,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     // OUT: once location is filterable it needs a header to sort by and a place a reader
     // can scan down, and a subline shared with a reference number is neither.
     cell: (g) => {
-      const subline = fmtRef(g.externalApplicationId) || '—'
+      const subline = fmtRef(g.externalApplicationId) || '--'
       return (
         <div className="flex items-center gap-2">
           <div
@@ -137,7 +137,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     width: 'sm:w-[10%]',
     cell: (g) => (
       <TruncatedText
-        text={g.roundName ?? '—'}
+        text={g.roundName ?? '--'}
         label="Round"
         className={`font-display text-body ${g.roundName ? 'text-grey-500' : 'text-grey-400'}`}
       />
@@ -151,7 +151,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     width: 'sm:w-[12%]',
     cell: (g) => (
       <TruncatedText
-        text={g.programmeName ?? '—'}
+        text={g.programmeName ?? '--'}
         label="Programme"
         className={`font-display text-body ${g.programmeName ? 'text-grey-500' : 'text-grey-400'}`}
       />
@@ -195,7 +195,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
       // the region itself and both lines would say "North West". One line, then.
       const place = g.deliveryArea
       const region = g.deliveryRegion && g.deliveryRegion !== place ? g.deliveryRegion : null
-      if (!place) return <span className="font-display text-body text-grey-400">—</span>
+      if (!place) return <span className="font-display text-body text-grey-400">--</span>
       return (
         <div className="min-w-0">
           <TruncatedText
@@ -301,7 +301,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     width: 'sm:w-[7%]',
     cell: (g) => (
       <span className={`whitespace-nowrap ${txtSub}`}>
-        {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '—'}
+        {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '--'}
       </span>
     ),
   },

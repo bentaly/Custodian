@@ -137,7 +137,7 @@ function PlatformConsole() {
               </h2>
               {client.users.length === 0 ? (
                 <p className="px-4 py-3 font-display text-label" style={{ color: C.faint }}>
-                  No members yet — admin invite pending.
+                  No members yet. Admin invite pending.
                 </p>
               ) : (
                 <ul className="flex flex-col">

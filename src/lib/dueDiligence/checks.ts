@@ -208,7 +208,7 @@ function nameMatchCheck(
   return rec(
     key,
     'pass',
-    best.reason === 'identical' ? best.matched : `${best.matched} — ${best.reason}`,
+    best.reason === 'identical' ? best.matched : `${best.matched} (${best.reason})`,
   )
 }
 
@@ -351,11 +351,11 @@ export function grantHistoryChecks(
       const amount = gr.amount ? `£${gr.amount.toLocaleString('en-GB')} from ` : ''
       const funder = gr.funder ?? 'an unnamed funder'
       const year = gr.date?.slice(0, 4)
-      return `${amount}${funder}${year ? ` (${year})` : ''}${gr.purpose ? ` — ${gr.purpose}` : ''}`
+      return `${amount}${funder}${year ? ` (${year})` : ''}${gr.purpose ? `: ${gr.purpose}` : ''}`
     })
     .join('; ')
 
-  const summary = g.grants.length > 3 ? `${detail} — and ${g.grants.length - 3} more` : detail
+  const summary = g.grants.length > 3 ? `${detail}; and ${g.grants.length - 3} more` : detail
 
   return [rec('tsg_prior_funding', 'pass', summary), capacityCheck(g, ctx)]
 }

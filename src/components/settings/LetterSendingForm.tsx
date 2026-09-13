@@ -83,7 +83,7 @@ export function LetterSendingForm({
             placeholder={foundationName || 'Your foundation'}
           />
           <p className={hintClass}>
-            Shown as the sender. The email itself is sent by Custodian’s mail service — mail
+            Shown as the sender. The email itself is sent by Custodian’s mail service. Mail
             providers check the sending domain against its DNS records, so a letter claiming to come
             from your own domain would be treated as forged and land in spam.
           </p>
@@ -107,8 +107,7 @@ export function LetterSendingForm({
             </p>
           )}
           <p className={hintClass}>
-            Where a reply lands. Set this — without it, replies come back to Custodian rather than
-            to you.
+            Where a reply lands. Set this, or replies come back to Custodian rather than to you.
           </p>
         </div>
       </div>

@@ -106,9 +106,9 @@ export function AwardSchedule({ award }: { award: AwardData }) {
 
   const empty =
     filter === 'payments' && award.instalments.length === 0
-      ? 'No instalment schedule is recorded — nothing is queued to be paid.'
+      ? 'No instalment schedule is recorded, so nothing is queued to be paid.'
       : filter === 'reports' && award.reporting.length === 0
-        ? 'No reporting dates are set — nothing is expected back from this grantee.'
+        ? 'No reporting dates are set, so nothing is expected back from this grantee.'
         : null
 
   return (
@@ -627,7 +627,7 @@ function InstalmentEditor({
         )}
         {changed && Math.abs(gap) >= 1 && (
           <Caution>
-            The schedule will then total {fmtMoney(total)} —{' '}
+            The schedule will then total {fmtMoney(total)},{' '}
             {gap > 0 ? `${fmtMoney(gap)} less` : `${fmtMoney(-gap)} more`} than the{' '}
             {fmtMoney(award.amountAwarded)} awarded.
           </Caution>

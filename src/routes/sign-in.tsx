@@ -271,7 +271,7 @@ function SignInPage() {
             />
             <MethodToggle mode="code" onChange={() => switchMode('password')} />
             <p className="text-body leading-relaxed text-grey-500">
-              We'll email you a 6-digit code — no password needed.
+              We'll email you a 6-digit code, no password needed.
             </p>
             <AuthButton loading={loading} loadingLabel="Sending…">
               Email me a code

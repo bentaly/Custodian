@@ -17,6 +17,7 @@ import {
   type ReportAnalysisResult,
 } from '../../lib/reportAnalysis'
 import { getAnthropic, isAnthropicConfigured, SCORING_MODEL } from '../custodianScore/client'
+import { withoutEmDashes } from '../../lib/emDash'
 
 export type ReportAnalysisAssessor = (input: ReportAnalysisInput) => Promise<ReportAnalysisOutput>
 
@@ -44,7 +45,7 @@ export const liveAssessor: ReportAnalysisAssessor = async (input) => {
   if (!message.parsed_output) {
     throw new Error(`model returned no parsed output (stop_reason: ${message.stop_reason})`)
   }
-  return message.parsed_output
+  return withoutEmDashes(message.parsed_output)
 }
 
 export async function runReportAnalysis(

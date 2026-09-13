@@ -122,7 +122,7 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
                   className="whitespace-pre-wrap font-display text-body leading-relaxed"
                   style={{ color: C.body }}
                 >
-                  {r.value || '—'}
+                  {r.value || '--'}
                 </dd>
               </div>
             ))}

@@ -53,7 +53,7 @@ export async function issueAwardLetter({
     status = result.ok ? 'sent' : 'failed'
     failureReason = result.error ?? null
   } else {
-    failureReason = 'No contact email on the application — add one, then resend.'
+    failureReason = 'No contact email on the application. Add one, then resend.'
   }
 
   const values = {

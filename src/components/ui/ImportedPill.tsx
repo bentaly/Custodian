@@ -26,7 +26,7 @@ export function ImportedPill({ className }: { className?: string }) {
       size="sm"
       className={cn('shrink-0 items-center gap-1', className)}
       style={{ backgroundColor: C.infoWash, color: C.info }}
-      title="Imported from your existing records — it has no application form, score or votes."
+      title="Imported from your existing records, so it has no application form, score or votes."
     >
       <HugeiconsIcon icon={Upload01Icon} size={11} color="currentColor" />
       Imported

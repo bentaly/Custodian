@@ -75,7 +75,7 @@ function scheduleBlock(instalments: AwardLetterInput['instalments']): string {
   return instalments
     .map(
       (i, idx) =>
-        `${idx + 1}. ${fmtMoney(i.amount)} — ${i.dueDate ? fmtDate(i.dueDate) : 'date to be confirmed'}`,
+        `${idx + 1}. ${fmtMoney(i.amount)}, ${i.dueDate ? `due ${fmtDate(i.dueDate)}` : 'date to be confirmed'}`,
     )
     .join('\n')
 }
@@ -84,7 +84,7 @@ function reportingBlock(reporting: AwardLetterInput['reporting']): string {
   // Never left blank: a template that says "we ask for reports on the following dates"
   // followed by nothing reads as a mistake, so say plainly that there are none.
   if (reporting.length === 0) return 'No formal reporting milestones have been set for this grant.'
-  return reporting.map((r) => `${r.label} — ${fmtDate(r.dueDate)}`).join('\n')
+  return reporting.map((r) => `${r.label}, due ${fmtDate(r.dueDate)}`).join('\n')
 }
 
 /** Build the token values for a grant. Exported so the Settings preview can reuse it. */

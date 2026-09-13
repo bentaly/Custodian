@@ -121,7 +121,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
       const subline =
         [item.organisationType, item.location, fmtRef(item.reference)]
           .filter(Boolean)
-          .join(' · ') || '—'
+          .join(' · ') || '--'
       return (
         <div className="flex items-center gap-2">
           <div
@@ -200,7 +200,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     width: 'sm:w-[13%]',
     cell: (item) => (
       <TruncatedText
-        text={item.source ?? '—'}
+        text={item.source ?? '--'}
         label="Source"
         className={`font-display text-body ${item.source ? 'text-grey-500' : 'text-grey-400'}`}
       />

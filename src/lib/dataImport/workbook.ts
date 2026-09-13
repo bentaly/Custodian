@@ -88,7 +88,7 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Custodian'
   wb.company = 'Custodian'
-  wb.title = `Custodian import — ${ctx.foundationName}`
+  wb.title = `Custodian import: ${ctx.foundationName}`
   wb.created = new Date()
 
   // ── Instructions ──
@@ -128,13 +128,13 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
   intro.getRow(1).height = 34
   intro.addRow([])
 
-  const title = intro.addRow([`Custodian import — ${ctx.foundationName}`])
+  const title = intro.addRow([`Custodian import: ${ctx.foundationName}`])
   title.font = { size: 15, bold: true }
   spacer()
   paragraph('Fill in this workbook, then upload it in Settings → Data import.', 16)
   spacer()
   paragraph(
-    'Custodian treats two kinds of grant differently. Active grants are still in progress — the award is ongoing, with outcomes still being delivered and reported — so they use all three sheets. Completed grants are historical — the grant has finished and its reporting is done — so they need only a single row on the Grants sheet. Set each grant’s Status accordingly, and follow the table below.',
+    'Custodian treats two kinds of grant differently. Active grants are still in progress (the award is ongoing, with outcomes still being delivered and reported), so they use all three sheets. Completed grants are historical (the grant has finished and its reporting is done), so they need only a single row on the Grants sheet. Set each grant’s Status accordingly, and follow the table below.',
   )
   spacer()
 
@@ -155,7 +155,7 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
   }
   tableRow(
     'Active grants',
-    'Fill in all three sheets — Grants, Payments and Reports. “Active” means the award is still in progress, with outcomes being delivered and reported.',
+    'Fill in all three sheets: Grants, Payments and Reports. “Active” means the award is still in progress, with outcomes being delivered and reported.',
     46,
   )
   tableRow(
@@ -166,7 +166,7 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
   spacer()
 
   paragraph(
-    'You can upload again later to add more — re-uploading a grant updates it rather than duplicating it.',
+    'You can upload again later to add more. Re-uploading a grant updates it rather than duplicating it.',
   )
   spacer()
   paragraph(
@@ -217,7 +217,7 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
     for (const p of withThemes) {
       const row = intro.addRow([
         `    ${p.programme}`,
-        p.themes.length > 0 ? p.themes.join('; ') : 'No themes — leave the cell blank',
+        p.themes.length > 0 ? p.themes.join('; ') : 'No themes (leave the cell blank)',
       ])
       row.getCell(1).font = { size: 10 }
       row.getCell(2).font = { size: 10, color: { argb: p.themes.length > 0 ? BODY : MUTED } }
@@ -301,7 +301,7 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
           showErrorMessage: true,
           errorStyle: 'warning',
           errorTitle: 'Not one of your options',
-          error: `Pick a value from the list. If you pasted this in, check it matches — we will offer you the closest match when you upload.`,
+          error: `Pick a value from the list. If you pasted this in, check it matches. We will offer you the closest match when you upload.`,
         }
       }
     })

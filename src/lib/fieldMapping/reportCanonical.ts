@@ -77,7 +77,7 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     label: 'Impact summary',
     required: true,
     description:
-      'The main narrative of what difference the funding made — e.g. "How has our funding made a ' +
+      'The main narrative of what difference the funding made, e.g. "How has our funding made a ' +
       'difference?", "Grant impact summary", "Impact on young people supported". The core content ' +
       'of the report.',
   },
@@ -106,7 +106,7 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     label: 'Amount awarded',
     required: false,
     description:
-      'The grant amount as stated on the report, in GBP — e.g. "Funding award amount", "How much ' +
+      'The grant amount as stated on the report, in GBP, e.g. "Funding award amount", "How much ' +
       'funding have you received to date?". Used to cross-check the matched grant.',
     coerce: coerceAmount,
   },
@@ -115,14 +115,14 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     label: 'Award / start date',
     required: false,
     description:
-      'When the funding was awarded or commenced — e.g. "Date of funding award", "When did our ' +
+      'When the funding was awarded or commenced, e.g. "Date of funding award", "When did our ' +
       'partnership start?".',
   },
   {
     key: 'awardEndDate',
     label: 'Award end date',
     required: false,
-    description: 'When the funding period ends — e.g. "Date of funding award end".',
+    description: 'When the funding period ends, e.g. "Date of funding award end".',
   },
   {
     key: 'contactName',
@@ -146,14 +146,14 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     key: 'grantTitle',
     label: 'Grant / funding title',
     required: false,
-    description: 'The title of the funding award or project — e.g. "Funding award title".',
+    description: 'The title of the funding award or project, e.g. "Funding award title".',
   },
   {
     key: 'grantPurpose',
     label: 'Grant purpose',
     required: false,
     description:
-      'What the grant was awarded for / how the funding was intended to be used — e.g. "Grant ' +
+      'What the grant was awarded for / how the funding was intended to be used, e.g. "Grant ' +
       'awarded summary", "Funding award purpose", "How was our funding intended to support…".',
   },
   {
@@ -192,7 +192,7 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     label: 'Beneficiary count',
     required: false,
     description:
-      'A directly-stated NUMBER of people/beneficiaries helped, read as the TOTAL SO FAR — the ' +
+      'A directly-stated NUMBER of people/beneficiaries helped, read as the TOTAL SO FAR: the ' +
       'running count for the whole grant to date, not the figure for this reporting period alone. ' +
       "A grant's reports replace each other rather than adding up, so the latest report's count " +
       'is the one that stands. e.g. "Number of beneficiaries", "How many people have you supported ' +
@@ -204,7 +204,7 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     label: 'Delivery area',
     required: false,
     description:
-      'Where the funded work was delivered — region, town, or postcode (e.g. "Project delivery ' +
+      'Where the funded work was delivered: region, town, or postcode (e.g. "Project delivery ' +
       'region", "Geographical location"). NOT where the organisation is headquartered.',
   },
 ]

@@ -29,7 +29,7 @@ You are given two things: the foundation's own giving strategy in their words, a
 
 ## The one rule about numbers
 
-Every figure you write must be copied verbatim from the brief. You may not calculate anything — not a percentage, not a difference, not an average, not a total. If a point you want to make needs a number the brief does not contain, you do not get to make that point; make a different one.
+Every figure you write must be copied verbatim from the brief. You may not calculate anything: not a percentage, not a difference, not an average, not a total. If a point you want to make needs a number the brief does not contain, you do not get to make that point; make a different one.
 
 Write figures as numerals exactly as the brief formats them: "£376,000", "95%", "14". Never spell a number as a word. List the dotted path of every figure you use in \`figuresCited\`.
 
@@ -39,13 +39,13 @@ The reader is looking at charts of this same data directly below your paragraph.
 
 Before writing, find the strongest thing you can say. Work down this order and take the best available:
 
-1. **A line in the strategy, tested against the figures.** This is the yardstick and it comes first. Quote what the foundation committed to, then say what the figures show about it — matching or not.
+1. **A line in the strategy, tested against the figures.** This is the yardstick and it comes first. Quote what the foundation committed to, then say what the figures show about it, matching or not.
 2. **Two figures the screen shows in different panels, joined.** Money share against grant share for the same area. \`byRound\` is in date order, so mean grant size across successive rounds is direction of travel, which no single panel draws. A programme's share of the budget against its share of the impact.
-3. **A limit from \`coverage\` that changes how everything above it should be read.** Only when it is material — a large share of the money unmapped, or most impact figures still forecast. Never spend a sentence on a note about one grant.
+3. **A limit from \`coverage\` that changes how everything above it should be read.** Only when it is material: a large share of the money unmapped, or most impact figures still forecast. Never spend a sentence on a note about one grant.
 
 A worked contrast, on a portfolio whose strategy says it prefers fewer, larger, longer relationships:
 
-- Wasted: "Community Food has 1 grant and 10% of committed funds — the smallest programme." The reader can see that bar. It tests nothing.
+- Wasted: "Community Food has 1 grant and 10% of committed funds, the smallest programme." The reader can see that bar. It tests nothing.
 - Worth printing: "Mean grant has fallen from £61,200 in Autumn 2021 to £23,400 in Summer 2023, against a strategy that prefers a smaller number of longer relationships." Two rows of one table, read against a line of the strategy.
 
 The figures in that example are invented, for illustration only. They are not in your brief and must never appear in your summary.
@@ -56,7 +56,7 @@ Do not simply announce which programme is largest or smallest, and do not restat
 
 - Report where the portfolio does NOT match the strategy as readily as where it does. A summary that only flatters is worthless to a board.
 - But do not manufacture a tension that is not in the figures. If the portfolio genuinely matches the strategy, say so and spend the remaining sentences on something else.
-- Where the strategy commits to something the brief cannot speak to — how grants are used, the quality of a relationship, whether core costs were funded — say nothing about it at all. Do not guess, and do not note the absence unless it appears in \`coverage\`.
+- Where the strategy commits to something the brief cannot speak to (how grants are used, the quality of a relationship, whether core costs were funded), say nothing about it at all. Do not guess, and do not note the absence unless it appears in \`coverage\`.
 - No praise words ("strong", "impressive", "excellent"), no encouragement, no advice about what to do next. State what is the case.
 - Prefer the positive form of a figure where one exists: "9 of 9 grantees are new to the foundation" says the same as "0 have been funded more than once" without reading as an accusation.
 
@@ -67,7 +67,7 @@ Do not simply announce which programme is largest or smallest, and do not restat
 
 ## Form
 
-At most three sentences and 70 words. British English, and grammatical — this is published to a board, so check number agreement before you finish. Plain, factual, specific. It is a paragraph in a banner, not a report.`
+At most three sentences and 70 words. British English, grammatical, and with no em dashes (—). This is published to a board, so check number agreement before you finish. Plain, factual, specific. It is a paragraph in a banner, not a report.`
 }
 
 /** The foundation's strategy and its figures. Changes per foundation, per run. */

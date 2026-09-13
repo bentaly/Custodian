@@ -282,7 +282,7 @@ describe('grantHistoryChecks', () => {
     )
     expect(outcome(records, 'tsg_prior_funding')).toBe('pass')
     // Amount, funder, year and purpose — not just the funder's name.
-    expect(records[0]!.detail).toContain('£50,000 from Foundation A (2025) — Youth work')
+    expect(records[0]!.detail).toContain('£50,000 from Foundation A (2025): Youth work')
   })
 
   it('notes when the request dwarfs anything they have managed before', () => {

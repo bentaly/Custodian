@@ -89,7 +89,7 @@ describe('subject', () => {
 
   it('names the foundation when there is only one kind of news', () => {
     expect(digestSubject(model({ overdue: [], dueThisWeek: [item({ amount: 500 })] }))).toBe(
-      '£500 due this week — Arete Foundation payments',
+      '£500 of Arete Foundation payments due this week',
     )
   })
 })

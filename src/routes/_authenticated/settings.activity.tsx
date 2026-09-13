@@ -125,7 +125,7 @@ function Activity() {
       width: 'sm:w-[17%]',
       cell: (r) => (
         <span className="font-display text-body whitespace-nowrap" style={{ color: C.sub }}>
-          {fmtDateTime(r.at) ?? '—'}
+          {fmtDateTime(r.at) ?? '--'}
         </span>
       ),
     },
@@ -148,7 +148,7 @@ function Activity() {
         <span className="font-display text-body" style={{ color: C.sub }}>
           {ACTION_VERB[r.action]}{' '}
           <span style={{ color: C.ink }} className="font-medium">
-            {r.subject ?? '—'}
+            {r.subject ?? '--'}
           </span>
         </span>
       ),
@@ -172,7 +172,7 @@ function Activity() {
   return (
     <SettingsPage
       title="Activity"
-      description="Every action anyone has taken in Custodian, newest first. Nothing here can be edited or removed — an entry is only ever added, including when the thing it describes is deleted."
+      description="Every action anyone has taken in Custodian, newest first. Nothing here can be edited or removed. An entry is only ever added, including when the thing it describes is deleted."
     >
       <div className="flex flex-wrap items-center gap-2">
         <SelectPill
