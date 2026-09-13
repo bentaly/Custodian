@@ -1,6 +1,6 @@
 // ─── Demo dataset: the foundation ────────────────────────────────────────────
 //
-// The structural half of the fixture: the tenant, its programmes, its two rounds,
+// The structural half of the fixture: the tenant, its programmes, its rounds,
 // its staff, and the organisations that apply to it.
 //
 // The foundation and every applicant are FICTIONAL, but each applicant carries a
@@ -18,6 +18,7 @@
 // against the register — so the two halves never contradict each other on screen.
 
 import { PROGRAMME_PALETTE } from '../../../src/lib/programmeColours'
+import { daysFromNow } from './shared'
 
 export const CLIENT = {
   name: 'The Wrenfield Foundation',
@@ -111,11 +112,15 @@ export const PROGRAMMES: DemoProgramme[] = [
 // Dates are OFFSETS in days from the seed run, resolved at seed time — an absolute
 // calendar would leave the "open" round quietly closed a month from now, which is
 // the one thing this dataset cannot afford to get wrong.
+//
+// `key` is the stable identity the fixture files each application under. It is NOT the
+// name, and no script looks a round up by name — see `demoRounds` in `lib/rounds.ts`.
 
 export type RoundKey = 'spring25' | 'summer25' | 'autumn25' | 'winter25' | 'spring26' | 'summer26'
 
 export interface DemoRound {
   key: RoundKey
+  /** Derived from the dates at run time — see `ROUNDS`. */
   name: string
   openedDaysAgo: number
   /** Negative = closes in the future (an open round). */
@@ -124,7 +129,11 @@ export interface DemoRound {
    *  schedules hang off this, which is what spreads giving across the calendar
    *  instead of stacking it on one date. */
   decidedDaysAgo: number
-  /** Programme key → budget for that programme in this round. */
+  /**
+   * Programme key → that programme's slot in this round. The OPEN round's `budget` is
+   * used as written. A past round's is replaced by one derived from what the round
+   * actually awarded (`roundBudgets`), so only its grant ceiling and duration are read.
+   */
   budgets: Record<string, { budget: number; maxGrant: number; years: number }>
 }
 
@@ -134,12 +143,12 @@ export interface DemoRound {
 // this size actually gives. Quarterly rounds spread the decisions, so the chart shows a
 // funder with a rhythm.
 //
-// Budgets are per-round (roughly a quarter of an annual allocation) and set close to what
-// each programme actually committed, so the "committed of budget" bars read as a
-// foundation spending its allocation rather than one that barely started. Wild Rivers in
-// the OPEN round is deliberately over-subscribed — the shortlist proposes more than the
-// budget holds, which is the case the "proposed against budget" card exists to surface,
-// and it never appears if every bar is short.
+// Past rounds' budgets are DERIVED from the grants each one awarded, a little above them
+// (`roundBudgets`). They were a flat quarter of an allocation, which left every past
+// round looking a third spent once Finance began reading round budgets as the year's
+// plan. Wild Rivers in the OPEN round is deliberately over-subscribed — the shortlist
+// proposes more than the budget holds, which is the case the "proposed against budget"
+// card exists to surface, and it never appears if every bar is short.
 const QUARTERLY = {
   youth: { budget: 62_000, maxGrant: 60_000, years: 2 },
   homes: { budget: 58_000, maxGrant: 50_000, years: 2 },
@@ -147,10 +156,9 @@ const QUARTERLY = {
   food: { budget: 40_000, maxGrant: 40_000, years: 2 },
 }
 
-export const ROUNDS: DemoRound[] = [
+const TIMINGS: Array<Omit<DemoRound, 'name'>> = [
   {
     key: 'spring25',
-    name: 'Spring 2025',
     openedDaysAgo: 460,
     closedDaysAgo: 425,
     decidedDaysAgo: 395,
@@ -158,7 +166,6 @@ export const ROUNDS: DemoRound[] = [
   },
   {
     key: 'summer25',
-    name: 'Summer 2025',
     openedDaysAgo: 370,
     closedDaysAgo: 335,
     decidedDaysAgo: 305,
@@ -166,7 +173,6 @@ export const ROUNDS: DemoRound[] = [
   },
   {
     key: 'autumn25',
-    name: 'Autumn 2025',
     openedDaysAgo: 280,
     closedDaysAgo: 245,
     decidedDaysAgo: 215,
@@ -174,7 +180,6 @@ export const ROUNDS: DemoRound[] = [
   },
   {
     key: 'winter25',
-    name: 'Winter 2025',
     openedDaysAgo: 190,
     closedDaysAgo: 155,
     decidedDaysAgo: 125,
@@ -182,7 +187,6 @@ export const ROUNDS: DemoRound[] = [
   },
   {
     key: 'spring26',
-    name: 'Spring 2026',
     openedDaysAgo: 105,
     closedDaysAgo: 70,
     decidedDaysAgo: 45,
@@ -190,7 +194,6 @@ export const ROUNDS: DemoRound[] = [
   },
   {
     key: 'summer26',
-    name: 'Summer 2026',
     openedDaysAgo: 45,
     // Closes in three weeks — the round the demo is "in the middle of".
     closedDaysAgo: -21,
@@ -204,8 +207,83 @@ export const ROUNDS: DemoRound[] = [
   },
 ]
 
+const SEASONS = ['Winter', 'Spring', 'Summer', 'Autumn'] as const
+
+/** A calendar season as one number, `year × 4 + season`. Winter takes the year of its January. */
+function seasonOrdinal(d: Date): number {
+  const month = d.getUTCMonth()
+  const season = Math.floor(((month + 1) % 12) / 3)
+  return (d.getUTCFullYear() + (month === 11 ? 1 : 0)) * 4 + season
+}
+
+/**
+ * Names are DERIVED from the dates, because the dates move with the run day and fixed
+ * names did not. Run in September, a round written as "Winter 2025" opened in March and
+ * closed in April, which put it in the 2026/27 financial year under a 2025 name.
+ *
+ * Counted back one season per round from the season the open round closes in, rather
+ * than read off each round's own date: rounds are roughly quarterly, not exactly, and two
+ * closing dates 85 days apart can fall in one season, which would name two rounds alike.
+ */
+const anchorRound = TIMINGS[TIMINGS.length - 1]!
+const anchor = seasonOrdinal(daysFromNow(-(anchorRound.closedDaysAgo ?? anchorRound.openedDaysAgo)))
+
+export const ROUNDS: DemoRound[] = TIMINGS.map((t, i) => {
+  const ordinal = anchor - (TIMINGS.length - 1 - i)
+  return { ...t, name: `${SEASONS[ordinal % 4]} ${Math.floor(ordinal / 4)}` }
+})
+
 /** The round applications are currently being taken for. */
 export const OPEN_ROUND: RoundKey = 'summer26'
+
+// ─── The year's plan and the bank ────────────────────────────────────────────
+//
+// Built by `demo:decide`, after the grants, because the balance is sized against them:
+// an annual budget for the financial year the run falls in, a contingency, and two bank
+// balance readings. Without them Finance → Balance & budget and Settings → Budget open on
+// empty states, and anything typed in by hand was lost on the next re-seed.
+
+/**
+ * Programme lines sit this far above what the year's rounds allocate — money held back
+ * for grants made outside a round, which is the gap the Settings check exists to show.
+ */
+export const BUDGET_HELD_BACK = 0.1
+
+/**
+ * Non-grant lines. `monthly` is the month's figure (stored as the year, as the Settings
+ * screen stores it); a one-off falls `dueInDays` from the run, clamped into the year.
+ */
+export const CORE_COSTS: Array<{
+  label: string
+  monthly?: number
+  oneOff?: number
+  dueInDays?: number
+}> = [
+  { label: 'Staff', monthly: 5_000 },
+  { label: 'Premises', monthly: 500 },
+  { label: 'Governance', monthly: 600 },
+  // The annual audit, still to come.
+  { label: 'Professional fees', oneOff: 3_500, dueInDays: 110 },
+  // Already gone, so core costs carry an actual one-off as well as a projected one.
+  { label: 'Misc.', oneOff: 2_000, dueInDays: -40 },
+]
+
+/** Percentage of the grant budget (the programme lines) held back. */
+export const CONTINGENCY_PERCENT = 5
+
+/**
+ * The bank balance readings. The CURRENT reading is sized at run time so Available balance
+ * lands about `availableMargin` above zero — positive but tight, the position worth
+ * demonstrating. A fixed figure would read very differently depending on how much round
+ * budget happens to be held on the run day. The earlier reading is worked back from it,
+ * adding what left the account between the two, so the pair agrees with the payments.
+ */
+export const BALANCE = {
+  asAtDaysAgo: 6,
+  earlierAsAtDaysAgo: 97,
+  availableMargin: 45_000,
+  note: 'From the monthly bank statement',
+}
 
 // ─── Staff ───────────────────────────────────────────────────────────────────
 //

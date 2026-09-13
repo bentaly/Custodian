@@ -624,6 +624,13 @@
       "when": 1789250270647,
       "tag": "0088_budget_line_frequency",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789331586105,
+      "tag": "0089_budget_contingency",
+      "breakpoints": true
     }
   ]
 }

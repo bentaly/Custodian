@@ -37,20 +37,6 @@ export const COST_FREQUENCIES: { value: CostFrequency; label: string }[] = [
   { value: 'one_off', label: 'One-off' },
 ]
 
-/**
- * Names offered in the Settings label field. Suggestions, not categories: the label stays
- * free text, because a foundation's own chart of accounts is the vocabulary that matters
- * and a fixed list would either be too short for one or too long for another.
- */
-export const COST_LABEL_SUGGESTIONS = [
-  CORE_COSTS_LABEL,
-  'Staff',
-  'Premises',
-  'Governance',
-  'Professional fees',
-  'Misc.',
-] as const
-
 /** NULL, or anything unrecognised, is monthly. See the column comment in the schema. */
 export function resolveFrequency(f: string | null | undefined): CostFrequency {
   return f === 'one_off' ? 'one_off' : 'monthly'

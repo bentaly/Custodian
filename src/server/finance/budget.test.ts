@@ -86,18 +86,16 @@ describe('budgetPanelQueries', () => {
   const queries = budgetPanelQueries(offlineDb(), CLIENT, FY)
   const rendered = queries.map((q) => q.toSQL())
 
-  it('builds the seven statements the panel is assembled from', () => {
-    expect(rendered).toHaveLength(7)
+  it('builds the five statements the screen is assembled from', () => {
+    expect(rendered).toHaveLength(5)
   })
 
   it.each([
     ['bank balance', 0, 'bank_balance_readings'],
     ['annual budget', 1, 'annual_budgets'],
-    ['awards this year', 2, 'awards'],
-    ['outstanding total', 3, 'awards'],
-    ['cash by programme', 4, 'award_instalments'],
-    ['outstanding buckets', 5, 'award_instalments'],
-    ['cash flow instalments', 6, 'award_instalments'],
+    ['instalments', 2, 'award_instalments'],
+    ['undated instalments', 3, 'award_instalments'],
+    ['round budgets', 4, 'round_programmes'],
   ])('scopes the %s query to one client', (_name, index, table) => {
     const { sql, params } = rendered[index]!
     expect(sql).toContain(table)
@@ -106,51 +104,45 @@ describe('budgetPanelQueries', () => {
     expect(params).toContain(CLIENT)
   })
 
-  // The cash query (4) carries `(due_date is null or due_date <= end)` in its WHERE. That
-  // is a BRACKETED or and is exactly the safe form — what this asserts is that no naked
-  // one re-associates the conjunction and drops the client scope off a branch.
-  // The cash flow query (6) is a paid-or-unpaid `or` by design — which is exactly why it
+  // The instalment query (2) is a paid-or-unpaid `or` by design — which is exactly why it
   // must be the bracketed kind, inside the conjunction that carries the client scope.
-  it.each([0, 1, 2, 3, 4, 5, 6])(
-    'keeps statement %i a conjunction with no top-level or',
-    (index) => {
-      expect(hasTopLevelOr(outerWhere(rendered[index]!.sql))).toBe(false)
-    },
-  )
+  it.each([0, 1, 2, 3, 4])('keeps statement %i a conjunction with no top-level or', (index) => {
+    expect(hasTopLevelOr(outerWhere(rendered[index]!.sql))).toBe(false)
+  })
 
-  it('keeps cancelled grants out of the unpaid side of the cash flow only', () => {
-    const { sql, params } = rendered[6]!
+  it('keeps cancelled grants out of the unpaid side of the instalments only', () => {
+    const { sql, params } = rendered[2]!
     expect(sql).toContain('"status" <>')
     expect(params).toContain('cancelled')
-    // Stopped at the year end, like `dueByYearEnd`.
+    // Stopped at the year end: years two and three are not this balance's to pay.
     expect(params).toContain(FY.end)
+  })
+
+  it("splits grants by their round's year, not the award's decision date", () => {
+    const { sql, params } = rendered[2]!
+    expect(sql).toContain('"financial_year_start"')
+    expect(sql).not.toContain('"decision_at"')
+    expect(params).toContain(FY.start)
+  })
+
+  it('counts undated unpaid instalments of live grants only', () => {
+    const { sql, params } = rendered[3]!
+    expect(sql).toContain('"paid_date" is null')
+    expect(sql).toContain('"due_date" is null')
+    expect(params).toContain('cancelled')
+  })
+
+  it("holds only this year's unarchived round budgets, counting undecided applications", () => {
+    const { sql, params } = rendered[4]!
+    expect(sql).toContain('"archived_at" is null')
+    expect(params).toContain(FY.start)
+    expect(params).toContain(FY.end)
+    expect(params).toContain('for_review')
+    expect(params).toContain('shortlisted')
   })
 
   it('never interpolates the client id into the SQL text', () => {
     for (const { sql } of rendered) expect(sql).not.toContain(CLIENT)
-  })
-
-  it('bounds the award cohort by the financial year, upper bound exclusive', () => {
-    const { sql, params } = rendered[2]!
-    expect(sql).toContain('"decision_at" >=')
-    // `< (end + 1)` rather than `<= end`: `decision_at` is a timestamp, so an award
-    // decided at 14:00 on the last day of the year must still be inside it.
-    expect(sql).toContain('+ 1')
-    expect(params).toContain(FY.start)
-    expect(params).toContain(FY.end)
-  })
-
-  it('excludes cancelled grants from both outstanding queries', () => {
-    for (const index of [3, 4]) {
-      const { sql, params } = rendered[index]!
-      expect(sql).toContain('"status" <>')
-      expect(params).toContain('cancelled')
-    }
-  })
-
-  it('counts paid instalments in the outstanding buckets but never unpaid ones as paid', () => {
-    // The bucket query is about what is STILL owed, so it must filter to unpaid rows.
-    expect(rendered[4]!.sql).toContain('"paid_date" is null')
   })
 
   it('takes only the newest balance reading, latest as-at date first', () => {

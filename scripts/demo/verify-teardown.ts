@@ -17,6 +17,8 @@ import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { getDb } from '../../src/server/db'
 import {
+  annualBudgetLines,
+  annualBudgets,
   apiKeys,
   applicationComments,
   applicationIngests,
@@ -26,6 +28,7 @@ import {
   awardInstalments,
   awardLetters,
   awards,
+  bankBalanceReadings,
   clientProfiles,
   clients,
   fieldMappings,
@@ -97,6 +100,27 @@ async function main() {
     .insert(roundProgrammes)
     .values({ roundId: round!.id, programmeId: programme!.id, budget: '1000' })
     .returning({ id: roundProgrammes.id })
+
+  // The year's plan (one line pointing at the programme) and a balance reading.
+  const [budget] = await db
+    .insert(annualBudgets)
+    .values({
+      clientId,
+      financialYearStart: '2026-04-01',
+      financialYearEnd: '2027-03-31',
+      label: '2026/27',
+      contingencyPercent: '5',
+    })
+    .returning({ id: annualBudgets.id })
+  await db
+    .insert(annualBudgetLines)
+    .values({ budgetId: budget!.id, programmeId: programme!.id, amount: '1000' })
+  await db.insert(bankBalanceReadings).values({
+    clientId,
+    amount: '1000',
+    asAtDate: '2026-09-01',
+    recordedByUserId: userId,
+  })
 
   const [app] = await db
     .insert(applications)
@@ -197,6 +221,19 @@ async function main() {
   await check(
     'invitations',
     sql`select count(*)::int n from invitations where client_id = ${clientId}`,
+  )
+
+  await check(
+    'annual_budgets',
+    sql`select count(*)::int n from annual_budgets where client_id = ${clientId}`,
+  )
+  await check(
+    'annual_budget_lines',
+    sql`select count(*)::int n from annual_budget_lines where budget_id = ${budget!.id}`,
+  )
+  await check(
+    'bank_balance_readings',
+    sql`select count(*)::int n from bank_balance_readings where client_id = ${clientId}`,
   )
 
   if (leftovers.length) {

@@ -28,6 +28,7 @@ import {
 import { generateApiKey, hashApiKey } from '../../src/server/apiKeys'
 import { CLIENT, OWNER_EMAIL, PROGRAMMES, ROUNDS, STAFF, DEMO_PASSWORD } from './lib/data'
 import { teardownDemo } from './lib/teardown'
+import { roundBudgets } from './lib/rounds'
 import { daysFromNow, findDemoClient, runScript, step, done } from './lib/shared'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -90,9 +91,12 @@ runScript('demo:seed', async () => {
 
   // ── 4. Rounds and their programme budgets ──────────────────────────────────
   //
-  // Both rounds are created with their FINAL dates here. `demo:apply` moves them
+  // Every round is created with its FINAL dates here. `demo:apply` moves them
   // temporarily while it submits — an application can only be posted to a programme
   // in an OPEN round — and puts them back when it is finished.
+  //
+  // One insert at a time, in fixture order: later scripts find rounds by creation order,
+  // not by name (`demoRounds`).
   step('Creating rounds')
   for (const r of ROUNDS) {
     const [round] = await db
@@ -106,7 +110,7 @@ runScript('demo:seed', async () => {
       .returning({ id: rounds.id })
 
     let total = 0
-    for (const [programmeKey, b] of Object.entries(r.budgets)) {
+    for (const [programmeKey, b] of Object.entries(roundBudgets(r))) {
       await db.insert(roundProgrammes).values({
         roundId: round!.id,
         programmeId: programmeIdByKey[programmeKey]!,

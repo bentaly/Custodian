@@ -92,6 +92,18 @@ export async function teardownDemo(clientId: string): Promise<void> {
           where round_id in (select id from rounds where client_id = ${clientId}) returning id`,
     ],
     ['rounds', sql`delete from rounds where client_id = ${clientId} returning id`],
+    // The year's plan and the bank readings. Both would cascade from the client, but are
+    // listed so the teardown report says what went — and lines go before programmes.
+    [
+      'annual budget lines',
+      sql`delete from annual_budget_lines
+          where budget_id in (select id from annual_budgets where client_id = ${clientId}) returning id`,
+    ],
+    ['annual budgets', sql`delete from annual_budgets where client_id = ${clientId} returning id`],
+    [
+      'bank balance readings',
+      sql`delete from bank_balance_readings where client_id = ${clientId} returning id`,
+    ],
     ['programmes', sql`delete from programmes where client_id = ${clientId} returning id`],
     ['field mappings', sql`delete from field_mappings where client_id = ${clientId} returning id`],
     ['import batches', sql`delete from import_batches where client_id = ${clientId} returning id`],

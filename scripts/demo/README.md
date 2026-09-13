@@ -1,8 +1,8 @@
 # The demo dataset
 
-A complete, representative foundation — **The Wrenfield Foundation** — with two rounds,
-four programmes, forty applications, nine grants, their payment schedules and their
-grant reports. Built so the app can be looked at, and demonstrated, as it behaves in
+A complete, representative foundation — **The Wrenfield Foundation** — with six quarterly
+rounds, four programmes, forty applications, nine grants, their payment schedules, their
+grant reports, and the year's budget and bank balance. Built so the app can be looked at, and demonstrated, as it behaves in
 real use rather than through accumulated test rows.
 
 Everything hangs off one `clients` row, so the whole dataset can be removed exactly.
@@ -54,7 +54,8 @@ the right way to sanity-check a change before paying for the whole set.
 
 `demo:seed` tears the tenant down first, so it is idempotent — but it destroys the
 applications, which means paying for `demo:apply` again. To reshape the _decisions_
-(statuses, votes, discussion, grants, schedules, budgets) without re-paying, edit
+(statuses, votes, discussion, grants, schedules, round budgets, the annual budget and the
+bank balance) without re-paying, edit
 `lib/applications.ts` / `lib/data.ts` and re-run **`demo:decide`** on its own: it clears
 and rebuilds only its own layer, and re-asserts the round budgets from the fixture.
 
@@ -62,7 +63,8 @@ and rebuilds only its own layer, and re-asserts the round budgets from the fixtu
 
 | File                  | What it holds                                                               |
 | --------------------- | --------------------------------------------------------------------------- |
-| `lib/data.ts`         | The foundation, programmes, rounds, budgets, staff, applicant organisations |
+| `lib/data.ts`         | The foundation, programmes, rounds, staff, applicants, core costs, contingency, balance |
+| `lib/rounds.ts`       | Rounds found by creation order; past rounds' budgets derived from their grants |
 | `lib/applications.ts` | The forty applications, their narrative content, and their outcomes         |
 | `lib/reports.ts`      | The eight grant reports                                                     |
 | `lib/teardown.ts`     | Tenant-scoped deletion, ordered to respect the RESTRICT foreign keys        |
@@ -95,7 +97,8 @@ with a backdated timestamp; nothing is delivered.
 (it names a programme that does not exist); one grant's bank details fail the modulus
 check; one application has no delivery area, so the "Not captured" panel has something
 real to report; one report describes a project that under-delivered, so the alignment
-analysis has genuine unmet promises to find. A dataset where everything is clean
+analysis has genuine unmet promises to find; one instalment has no date yet, so Finance
+has a TBC amount to count apart. A dataset where everything is clean
 demonstrates nothing about how the app handles the state it will actually meet.
 
 **Credentials are written down.** `pnpm demo:seed` writes `CREDENTIALS.local.md`
@@ -106,6 +109,23 @@ across re-seeds.
 **Rounds are quarterly**, seasonally named. A single annual round stacks every grant
 decision on one date and leaves the dashboard's giving-over-time chart a lone spike; four
 a year gives the portfolio a rhythm and spreads the awards across the calendar.
+
+**Round names are derived from the dates, and no script looks a round up by name.** The
+dates move with the run day, so fixed names drifted: a round written as "Winter 2025" could
+open in March and close in April, which put it in the 2026/27 financial year. Names count
+back one season per round from the open round, and scripts find rounds by creation order
+(`demoRounds`), so a later run computing a different name still finds the right round.
+
+**Past rounds' budgets are derived from what they awarded**, a little above it. A flat
+quarterly figure made every past round look a third spent once Finance read round budgets
+as the year's plan. The open round keeps its fixture budgets, deliberately over-subscribed.
+
+**The year's budget and bank balance are built by `demo:decide`**, after the grants:
+programme lines 10% above what the year's rounds allocate, monthly and one-off core costs,
+a 5% contingency, and two balance readings. The current reading is SIZED at run time so
+Available balance lands about £45,000 above zero — how much round budget is held depends
+on the run day, so a fixed figure would swing between comfortable and alarming. Anything
+typed into those screens by hand is replaced on the next run.
 
 **`demo:decide` will not rebuild grants once reports exist.** `reports.award_id`
 cascades, so deleting a grant deletes the report attached to it. Pass `--rebuild-grants`

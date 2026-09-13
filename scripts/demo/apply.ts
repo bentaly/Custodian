@@ -43,6 +43,7 @@ import {
   type RoundKey,
 } from './lib/data'
 import { loadSnapshot, warnIfStale, type ApplicationSnapshot } from './lib/snapshot'
+import { demoRounds } from './lib/rounds'
 import { daysFromNow, requireDemoClient, runScript, step, done } from './lib/shared'
 
 const args = process.argv.slice(2)
@@ -222,25 +223,28 @@ async function backdate(applicationId: string, ingestId: string | null, daysAgo:
 /** Only ONE round may be open while a phase submits: `findActiveRoundProgrammeByName`
  *  picks the most recently opened active round for a programme name, and every
  *  programme appears in both rounds. */
-async function openOnly(clientId: string, roundName: string) {
+async function openOnly(clientId: string, target: RoundKey) {
   const db = getDb()
+  // By id, not name: names are derived from the run day, so this run's name for a round
+  // need not be the one `demo:seed` stored (`demoRounds`).
+  const ids = await demoRounds(clientId)
   for (const r of ROUNDS) {
-    const isTarget = r.name === roundName
     await db
       .update(rounds)
       .set(
-        isTarget
+        r.key === target
           ? { openedAt: daysFromNow(-r.openedDaysAgo), closedAt: null }
           : // Parked in the future so it is not "active" for the matcher.
             { openedAt: daysFromNow(365), closedAt: null },
       )
-      .where(sql`${rounds.clientId} = ${clientId} and ${rounds.name} = ${r.name}`)
+      .where(eq(rounds.id, ids.get(r.key)!.id))
   }
 }
 
-/** Put both rounds back to the dates the dataset is supposed to have. */
+/** Put every round back to the dates the dataset is supposed to have. */
 async function restoreRoundDates(clientId: string) {
   const db = getDb()
+  const ids = await demoRounds(clientId)
   for (const r of ROUNDS) {
     await db
       .update(rounds)
@@ -248,7 +252,7 @@ async function restoreRoundDates(clientId: string) {
         openedAt: daysFromNow(-r.openedDaysAgo),
         closedAt: r.closedDaysAgo === null ? null : daysFromNow(-r.closedDaysAgo),
       })
-      .where(sql`${rounds.clientId} = ${clientId} and ${rounds.name} = ${r.name}`)
+      .where(eq(rounds.id, ids.get(r.key)!.id))
   }
 }
 
@@ -306,7 +310,7 @@ runScript('demo:apply', async () => {
       step(`${round.name} — ${batch.length} applications`)
       // The past round has to be open while its own applications are submitted; it is
       // closed again by restoreRoundDates() once the phase is done.
-      await openOnly(clientId, round.name)
+      await openOnly(clientId, round.key)
 
       for (const app of batch) {
         if (submitted >= limit) break

@@ -95,8 +95,7 @@ export const getBalanceAndBudget = createServerFn({ method: 'GET' }).handler(asy
  *
  * Three things beyond the budget itself: the programmes to offer as lines, the year-end
  * setting the year is derived from, and what this year's ROUNDS have allocated — which
- * is the reconciliation that cannot exist without an annual figure to check against, and
- * doubles as the prefill for a foundation whose rounds already are their year's plan.
+ * is the reconciliation that cannot exist without an annual figure to check against.
  */
 export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
   .validator(
@@ -133,6 +132,7 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           carriedCommitment: annualBudgetLines.carriedCommitment,
           frequency: annualBudgetLines.frequency,
           dueDate: annualBudgetLines.dueDate,
+          contingencyPercent: annualBudgets.contingencyPercent,
           updatedAt: annualBudgets.updatedAt,
           updatedBy: users.name,
         })
@@ -228,6 +228,9 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
       // screen names who took it rather than leaving it to the audit log.
       lastSaved: existing ? { at: existing.updatedAt.toISOString(), by: existing.updatedBy } : null,
       label: existing?.label ?? fy.label,
+      /** Percentage of the grant budget held back. NULL = none. */
+      contingencyPercent:
+        existing?.contingencyPercent != null ? parseFloat(existing.contingencyPercent) : null,
       lines: budgetRows
         .filter((r) => r.lineId)
         .map((r) => ({
@@ -274,6 +277,11 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
       financialYearStart: z.string().regex(ISO_DAY),
       financialYearEnd: z.string().regex(ISO_DAY),
       label: z.string().min(1).max(40),
+      /**
+       * Share of the grant budget (programme lines only) set aside as contingency. NULL,
+       * omitted or 0 stores NULL: "no contingency" has one spelling on the row.
+       */
+      contingencyPercent: z.number().min(0).max(100).nullable().optional(),
       lines: z
         .array(
           z.object({
@@ -377,6 +385,11 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
       return { ok: true as const, total: 0, removed: true as const }
     }
 
+    const contingency =
+      data.contingencyPercent != null && data.contingencyPercent > 0
+        ? data.contingencyPercent.toFixed(2)
+        : null
+
     const [budget] = await db
       .insert(annualBudgets)
       .values({
@@ -384,6 +397,7 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
         financialYearStart: data.financialYearStart,
         financialYearEnd: data.financialYearEnd,
         label: data.label,
+        contingencyPercent: contingency,
         updatedByUserId: user.id,
       })
       .onConflictDoUpdate({
@@ -391,6 +405,7 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
         set: {
           financialYearEnd: data.financialYearEnd,
           label: data.label,
+          contingencyPercent: contingency,
           updatedByUserId: user.id,
           updatedAt: new Date(),
         },

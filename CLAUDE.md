@@ -415,7 +415,18 @@ design rationale; this list is a map, not a summary.
   understate spare cash but never overstate it. `src/lib/cashFlow.ts` is the month table on
   Balance & budget and **owns headroom**, measured from the balance's as-at date: grant payments
   made since the reading, every unpaid instalment due by the year end, and core costs after the
-  reading. The table's last closing balance is that same sum, so the card and table cannot disagree
+  reading. The table's last closing balance is that same sum, so the card and table cannot disagree.
+  **The Summary tab is `src/lib/balanceSummary.ts`** (agreed with a foundation 2026-09-13): core
+  costs, prior-year grants and this year's grants (split by the ROUND's year, each broken down by
+  programme), and a contingency (`annual_budgets.contingency_percent`, a % of the programme lines
+  only). Columns are **Actual** (paid, or core costs scheduled to date) / **Projected** (core costs to
+  come, round budget not yet awarded, contingency) / **Still to pay** (awarded, unpaid, due by the
+  year end). An "Awarded" column (paid + unpaid together) hid why a paid grant deducted nothing.
+  Round budget is HELD — budget less `roundProgrammeSpend`'s awarded figure — while its round is
+  upcoming, open, or closed with applications undecided, and released once all are decided.
+  Available = balance − projected − still to pay − Actual money gone after the reading; minus the
+  round projection and contingency that is the cash flow's headroom, off the same instalment
+  rows, and a test pins it
 - **budget** — budget-line types/helpers; **validators/** — zod schemas shared client/server
 
 ## Public submission auth

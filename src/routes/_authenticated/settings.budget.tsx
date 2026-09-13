@@ -31,7 +31,6 @@ import { MONTH_NAMES, financialYear, financialYearRange } from '../../lib/financ
 import { CORE_COSTS_LABEL, rollUpBudget } from '../../lib/annualBudget'
 import {
   COST_FREQUENCIES,
-  COST_LABEL_SUGGESTIONS,
   annualFromForm,
   costTimingProblem,
   formAmount,
@@ -61,9 +60,10 @@ import { resolveProgrammeColour } from '../../lib/programmeColours'
  * *your rounds have allocated £X of the £Y you budgeted*. Two numbers that are allowed to
  * differ are what makes the difference meaningful.
  *
- * The cost of stating it is double entry for the foundation whose rounds ARE their year's
- * plan, and that is paid off in the UI rather than the schema: **Use round allocations**
- * fills the form from the rounds and they are done in one click.
+ * There is no "fill from round allocations" shortcut, and there was one until 2026-09-13.
+ * A foundation sets the year's budget BEFORE its rounds — rounds are carved out of it — so
+ * copying the rounds into the budget ran the flow backwards. The reconciliation below
+ * still reads the rounds, because checking them against the budget is the right way round.
  *
  * ## Core and other costs say how they are paid
  *
@@ -71,7 +71,9 @@ import { resolveProgrammeColour } from '../../lib/programmeColours'
  * Finance uses that to place it through the year (`src/lib/coreCosts.ts`). A monthly line
  * is TYPED per month, because that is the figure a finance lead knows, and STORED as the
  * year — `annual_budget_lines.amount` means the same thing on every line. The label is
- * free text with suggestions (Staff, Premises, Misc.…) rather than a fixed category list.
+ * plain free text rather than a fixed category list. It once carried a list of suggested
+ * names, which the browser draws as a dropdown arrow — and that read as a closed set of
+ * options, the opposite of what it was for. The placeholder gives examples instead.
  *
  * ## Nothing here is required
  *
@@ -145,8 +147,6 @@ type Row = {
  * One column at phone width, where the fields stack and each carries its own label.
  */
 const BUDGET_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_9rem_2.25rem]'
-
-const LABEL_SUGGESTIONS_ID = 'budget-cost-label-suggestions'
 
 let coreKey = 0
 const newCoreRow = (label: string = CORE_COSTS_LABEL): Row => ({
@@ -225,15 +225,15 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   }, [data, monthCount])
 
   const [rows, setRows] = useState<Row[]>(initialRows)
+  // As typed. Blank and 0 both mean "no contingency" and save as NULL.
+  const [contingency, setContingency] = useState(
+    data.contingencyPercent != null ? String(data.contingencyPercent) : '',
+  )
   const [endMonth, setEndMonth] = useState(data.financialYearEndMonth)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
-  const allocatedByProgramme = useMemo(
-    () => new Map(data.roundAllocations.map((a) => [a.programmeId, a.allocated])),
-    [data.roundAllocations],
-  )
   // Cash already owed this year against grants decided in earlier years, per programme.
   // Derived server-side from instalment dates, so it needs no input to be right.
   const promisedByProgramme = useMemo(
@@ -289,7 +289,15 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     )
   // After a save, `router.invalidate()` reloads the budget and `initialRows` recomputes to
   // match what was just written, so this settles back to false on its own.
-  const dirty = payloadOf(rows) !== payloadOf(initialRows)
+  const typedContingency = parseFloat(contingency)
+  const contingencyPercent =
+    Number.isFinite(typedContingency) && typedContingency > 0 ? typedContingency : null
+  const contingencyProblem =
+    contingencyPercent !== null && contingencyPercent > 100
+      ? 'Contingency cannot be more than 100% of the grant budget.'
+      : null
+  const dirty =
+    payloadOf(rows) !== payloadOf(initialRows) || contingencyPercent !== data.contingencyPercent
   // Clearing every amount is how a budget is removed — there is no separate destructive
   // action, because "no lines" and "no budget" are the same statement and a second way to
   // say it would only be a second thing to keep in step. The button says so rather than
@@ -313,6 +321,10 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const total = rows.reduce((s, r) => s + amount(r), 0)
   const coreCosts = costRows.reduce((s, r) => s + amount(r), 0)
   const grantMaking = total - coreCosts
+  // Set aside out of the grant budget, not added to the total — the same sum Finance
+  // deducts (`buildBalanceSummary`).
+  const contingencyAmount =
+    contingencyPercent !== null ? Math.round(grantMaking * contingencyPercent) / 100 : 0
   const allocatedInRounds = data.roundAllocations.reduce((s, a) => s + a.allocated, 0)
   // Prior commitments across every programme line — the stated figure where there is one,
   // else the one derived from the instalment dates.
@@ -334,19 +346,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
 
   const patch = (key: string, next: Partial<Row>) => {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...next } : r)))
-    setSaved(false)
-  }
-
-  // Fills only the programme rows. Core-cost lines are not in any round by definition,
-  // so a foundation that has entered them keeps them.
-  function useRoundAllocations() {
-    setRows((rs) =>
-      rs.map((r) =>
-        r.programmeId && allocatedByProgramme.has(r.programmeId)
-          ? { ...r, amount: String(allocatedByProgramme.get(r.programmeId)) }
-          : r,
-      ),
-    )
     setSaved(false)
   }
 
@@ -380,6 +379,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           financialYearStart: data.financialYear.start,
           financialYearEnd: data.financialYear.end,
           label: data.financialYear.label,
+          contingencyPercent,
           lines: rows
             .filter((r) => amount(r) > 0)
             .map((r) => ({
@@ -452,15 +452,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
       </Panel>
 
       <Panel label={`Budget for ${data.financialYear.label}`}>
-        <PanelTitle
-          right={
-            allocatedInRounds > 0 && (
-              <Button variant="text" size="sm" onClick={useRoundAllocations}>
-                Use round allocations
-              </Button>
-            )
-          }
-        >
+        <PanelTitle>
           {/* The arrows straddle the YEAR, not the panel: a stepper sitting across the
               thing it changes needs no label to say what it steps. "Budget for" stays
               outside them — it is not part of what moves. */}
@@ -527,7 +519,9 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           {programmeRows.map((row, i) => {
             const derived = promisedByProgramme.get(row.programmeId!) ?? 0
             return (
-              <div key={row.key} className={`${BUDGET_GRID} items-end`}>
+              // Centred, not end-aligned like the column labels above: the name is one line
+              // beside a taller field, and end-aligning dropped it to the field's bottom edge.
+              <div key={row.key} className={`${BUDGET_GRID} items-center`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span
@@ -585,11 +579,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             Running the foundation, and anything else that is not a grant. Say how each is paid and
             Finance will place it through the year.
           </p>
-          <datalist id={LABEL_SUGGESTIONS_ID}>
-            {COST_LABEL_SUGGESTIONS.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
           <div className={`${BUDGET_GRID} hidden items-end sm:grid`}>
             <span />
             <ColumnLabel>Amount</ColumnLabel>
@@ -602,7 +591,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <Input
                     value={row.label}
-                    list={LABEL_SUGGESTIONS_ID}
                     aria-label="Name of this cost line"
                     placeholder="Core costs, Staff, Misc.…"
                     maxLength={80}
@@ -675,6 +663,42 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             Add a cost line
           </Button>
         </div>
+
+        {/* A percentage, not a sum: it resizes with the grant budget above, where a typed
+            figure would quietly go stale the next time a programme line changed. */}
+        <div className="mt-6 border-t pt-4" style={{ borderColor: C.line }}>
+          <h3 className="font-display text-body font-medium" style={{ color: C.ink }}>
+            Contingency
+          </h3>
+          <p className="mt-0.5 mb-3 font-display text-label" style={{ color: C.faint }}>
+            A share of the grant budget held back for the unexpected. Finance sets it aside before
+            showing what is available.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-28">
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={100}
+                step="0.5"
+                value={contingency}
+                placeholder="0"
+                aria-label="Contingency, as a percentage of the grant budget"
+                onChange={(e) => {
+                  setContingency(e.target.value)
+                  setSaved(false)
+                }}
+              />
+            </div>
+            <span className="font-display text-body" style={{ color: C.sub }}>
+              % of the grant budget
+              {contingencyPercent !== null && grantMaking > 0 && (
+                <span style={{ color: C.faint }}> · {fmtMoney(contingencyAmount)}</span>
+              )}
+            </span>
+          </div>
+        </div>
       </Panel>
 
       <Panel label="Check">
@@ -691,6 +715,12 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             label={`Prior grant commitments to be paid in ${data.financialYear.label}`}
             value={fmtMoney(promisedTotal)}
           />
+          {contingencyPercent !== null && (
+            <CheckRow
+              label={`Contingency held back, ${contingencyPercent}% of the grant budget`}
+              value={fmtMoney(contingencyAmount)}
+            />
+          )}
           <CheckRow label="Core and other costs" value={fmtMoney(coreCosts)} sub={costSummary} />
           <CheckRow label="Total annual budget" value={fmtMoney(total)} strong />
         </dl>
@@ -713,15 +743,15 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             showing commitments against it.
           </p>
         )}
-        {timingProblem && (
+        {(timingProblem || contingencyProblem) && (
           <p className="mt-3 font-display text-body" style={{ color: C.danger }}>
-            {timingProblem}
+            {timingProblem ?? contingencyProblem}
           </p>
         )}
         <ErrorNote error={error} className="mt-3" />
         <Button
           onClick={handleSave}
-          disabled={saving || !dirty || !!timingProblem}
+          disabled={saving || !dirty || !!timingProblem || !!contingencyProblem}
           variant={removing ? 'danger' : 'primary'}
           className="mt-3"
         >

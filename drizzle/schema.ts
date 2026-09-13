@@ -1110,6 +1110,11 @@ export const annualBudgets = pgTable(
     financialYearEnd: text('financial_year_end').notNull(),
     /** "2026/27", or "2026" for a foundation on a calendar year. Rendered as stored. */
     label: text('label').notNull(),
+    // The share of the year's GRANT budget (the programme lines, never core costs) set
+    // aside as contingency. A percentage rather than a £ figure because a percentage
+    // resizes when the budget is edited, where a stated sum would quietly go stale. NULL
+    // = none. Finance → Balance & budget deducts it before Available balance.
+    contingencyPercent: numeric('contingency_percent'),
     updatedByUserId: text('updated_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),

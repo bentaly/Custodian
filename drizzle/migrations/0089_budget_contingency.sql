@@ -1,0 +1,1 @@
+ALTER TABLE "annual_budgets" ADD COLUMN "contingency_percent" numeric;

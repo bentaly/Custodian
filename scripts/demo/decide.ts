@@ -18,6 +18,8 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from '../../src/server/db'
 import {
+  annualBudgetLines,
+  annualBudgets,
   applicationComments,
   applicationVotes,
   applications,
@@ -25,13 +27,30 @@ import {
   awardInstalments,
   awardLetters,
   awards,
+  bankBalanceReadings,
+  programmes,
   reportSchedule,
   users,
 } from '../../drizzle/schema'
 import { renderAwardLetter } from '../../src/lib/awardLetter'
+import { DEFAULT_FY_END_MONTH, financialYear } from '../../src/lib/financialYear'
+import { roundFinancialYear } from '../../src/lib/roundYear'
+import { costEntries, monthsOfYear } from '../../src/lib/coreCosts'
+import { balanceAndBudget } from '../../src/server/finance/budget'
 import { APPLICATIONS } from './lib/applications'
-import { CLIENT, ORG_BY_KEY, PROGRAMMES, ROUNDS, contactEmail } from './lib/data'
-import { daysFromNow, isoDate, requireDemoClient, runScript, step, done } from './lib/shared'
+import {
+  BALANCE,
+  BUDGET_HELD_BACK,
+  CLIENT,
+  CONTINGENCY_PERCENT,
+  CORE_COSTS,
+  ORG_BY_KEY,
+  PROGRAMMES,
+  ROUNDS,
+  contactEmail,
+} from './lib/data'
+import { demoRounds, roundBudgets } from './lib/rounds'
+import { NOW, daysFromNow, isoDate, requireDemoClient, runScript, step, done } from './lib/shared'
 
 // ─── Who voted how ───────────────────────────────────────────────────────────
 //
@@ -238,6 +257,10 @@ runScript('demo:decide', async () => {
     await db.execute(sql`delete from awards where client_id = ${clientId}`)
   }
   await db.execute(sql`delete from audit_log where client_id = ${clientId}`)
+  // The year's plan and the bank readings are rebuilt below, sized against the grants.
+  // Anything typed into those screens by hand on this tenant goes with them.
+  await db.execute(sql`delete from annual_budgets where client_id = ${clientId}`)
+  await db.execute(sql`delete from bank_balance_readings where client_id = ${clientId}`)
   await db.execute(sql`delete from application_votes where application_id in (${ownApplications})`)
   await db.execute(
     sql`delete from application_comments where application_id in (${ownApplications})`,
@@ -251,16 +274,20 @@ runScript('demo:decide', async () => {
   // right is a matter of looking at the result and adjusting — which must not mean
   // re-running the applications underneath at full cost. Retuning is free from here.
   step('Syncing round budgets')
+  // Found by creation order, never by name: names are derived from the run day, so the
+  // name `demo:seed` stored need not be the one this run computes (`demoRounds`).
+  const roundRows = await demoRounds(clientId)
   for (const r of ROUNDS) {
-    for (const [programmeKey, b] of Object.entries(r.budgets)) {
+    for (const [programmeKey, b] of Object.entries(roundBudgets(r))) {
       await db.execute(sql`
         update round_programmes rp
         set budget = ${String(b.budget)},
             max_grant_amount = ${String(b.maxGrant)},
             grant_duration_years = ${b.years}
-        from rounds ro, programmes p
-        where rp.round_id = ro.id and rp.programme_id = p.id
-          and ro.client_id = ${clientId} and ro.name = ${r.name}
+        from programmes p
+        where rp.programme_id = p.id
+          and rp.round_id = ${roundRows.get(r.key)!.id}
+          and p.client_id = ${clientId}
           and p.name = ${PROGRAMMES.find((x) => x.key === programmeKey)!.name}
       `)
     }
@@ -426,21 +453,31 @@ runScript('demo:decide', async () => {
     // whether each has been paid. A single entry is a one-off payment.
     const count = a.instalments.length
     const per = Math.round((a.amount / count) * 100) / 100
-    const instalments: Array<{ amount: number; dueDate: string }> = []
+    const instalments: Array<{ amount: number; dueDate: string | null }> = []
     for (const [n, plan] of a.instalments.entries()) {
       // Last instalment absorbs the rounding so the schedule sums to the award exactly.
       const amount = n === count - 1 ? a.amount - per * (count - 1) : per
-      const due = daysFromNow(-a.startDaysAgo + plan.daysFromStart)
-      instalments.push({ amount, dueDate: isoDate(due) })
+      // `null` is an undated ("TBC") instalment, which cannot have been paid.
+      if (plan.daysFromStart === null && plan.paid) {
+        throw new Error(`${app.ref}: an undated instalment cannot be marked paid`)
+      }
+      const due =
+        plan.daysFromStart === null
+          ? null
+          : isoDate(daysFromNow(-a.startDaysAgo + plan.daysFromStart))
+      instalments.push({ amount, dueDate: due })
       await db.insert(awardInstalments).values({
         awardId,
         instalmentNo: n + 1,
         amount: String(amount),
-        dueDate: isoDate(due),
+        dueDate: due,
         // Paid a few days after it fell due. An instalment marked unpaid whose date has
         // already passed is what puts a real arrears case in front of Finance — the
         // fixture sets one deliberately.
-        paidDate: plan.paid ? isoDate(daysFromNow(-a.startDaysAgo + plan.daysFromStart + 4)) : null,
+        paidDate:
+          plan.paid && plan.daysFromStart !== null
+            ? isoDate(daysFromNow(-a.startDaysAgo + plan.daysFromStart + 4))
+            : null,
       })
       instalmentCount++
       if (plan.paid) paidCount++
@@ -459,7 +496,8 @@ runScript('demo:decide', async () => {
 
     // The letter, rendered with the real renderer and stored as the snapshot it is.
     const programme = programmeByKey[app.programme]!
-    const roundName = ROUNDS.find((r) => r.key === app.round)!.name
+    // The name as stored, which is what every screen shows beside the letter.
+    const roundName = roundRows.get(app.round)!.name
     const letter = renderAwardLetter({
       input: {
         organisationName: org.name,
@@ -516,6 +554,140 @@ runScript('demo:decide', async () => {
     keepGrants
       ? 'grants preserved (reports depend on them) — pass --rebuild-grants to rebuild'
       : `${grantCount} grants · ${instalmentCount} instalments (${paidCount} paid)`,
+  )
+
+  // ── The year's plan and the bank ───────────────────────────────────────────
+  //
+  // After the grants, because the balance is sized against them, and rebuilt on every run
+  // (grants kept or not), because what a year holds depends on the run day.
+  step('Setting the annual budget and bank balance')
+  const endMonth = profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
+  const fy = financialYear(endMonth, NOW)
+  const monthCount = monthsOfYear(fy).length
+  const roundUp = (n: number, to: number) => Math.ceil(n / to) * to
+  const intoYear = (day: string) => (day < fy.start ? fy.start : day > fy.end ? fy.end : day)
+  const financeUserId = userByKey['marcus'] ?? adminId
+
+  // What this year's rounds allocate per programme — the rounds that BELONG to the year,
+  // by the rule Finance uses (`roundFinancialYear`).
+  const allocated = new Map<string, number>()
+  for (const r of ROUNDS) {
+    const year = roundFinancialYear(
+      {
+        financialYearStart: null,
+        openedAt: daysFromNow(-r.openedDaysAgo),
+        closedAt: r.closedDaysAgo === null ? null : daysFromNow(-r.closedDaysAgo),
+      },
+      endMonth,
+      NOW,
+    )
+    if (year.start !== fy.start) continue
+    for (const [key, b] of Object.entries(roundBudgets(r))) {
+      allocated.set(key, (allocated.get(key) ?? 0) + b.budget)
+    }
+  }
+
+  // Set by the finance lead three weeks before the year began.
+  const budgetSetAt = new Date(new Date(`${fy.start}T10:00:00Z`).getTime() - 21 * 86_400_000)
+  const [budgetRow] = await db
+    .insert(annualBudgets)
+    .values({
+      clientId,
+      financialYearStart: fy.start,
+      financialYearEnd: fy.end,
+      label: fy.label,
+      contingencyPercent: CONTINGENCY_PERCENT.toFixed(2),
+      updatedByUserId: financeUserId,
+      updatedAt: budgetSetAt,
+      createdAt: budgetSetAt,
+    })
+    .returning({ id: annualBudgets.id })
+
+  const programmeRows = await db.query.programmes.findMany({
+    where: eq(programmes.clientId, clientId),
+  })
+  const programmeIdByName = new Map(programmeRows.map((p) => [p.name, p.id]))
+  let grantBudget = 0
+  // One insert per line, in order: lines are read back in the order they were written.
+  for (const p of PROGRAMMES) {
+    const inRounds = allocated.get(p.key)
+    if (!inRounds) continue
+    const amount = roundUp(inRounds * (1 + BUDGET_HELD_BACK), 5_000)
+    grantBudget += amount
+    await db.insert(annualBudgetLines).values({
+      budgetId: budgetRow!.id,
+      programmeId: programmeIdByName.get(p.name)!,
+      amount: amount.toFixed(2),
+    })
+  }
+  const costLines = CORE_COSTS.map((c) => ({
+    label: c.label,
+    amount: c.monthly !== undefined ? c.monthly * monthCount : c.oneOff!,
+    frequency: c.monthly !== undefined ? ('monthly' as const) : ('one_off' as const),
+    dueDate: c.monthly !== undefined ? null : intoYear(isoDate(daysFromNow(c.dueInDays ?? 0))),
+  }))
+  for (const c of costLines) {
+    await db.insert(annualBudgetLines).values({
+      budgetId: budgetRow!.id,
+      programmeId: null,
+      label: c.label,
+      amount: c.amount.toFixed(2),
+      frequency: c.frequency,
+      dueDate: c.dueDate,
+    })
+  }
+  done(
+    `${fy.label}: £${grantBudget.toLocaleString('en-GB')} grant budget, ${costLines.length} cost lines, ${CONTINGENCY_PERCENT}% contingency`,
+  )
+
+  // The current reading goes in at £0 so the screen can be asked what it deducts — which
+  // does not depend on the balance — and is then sized so Available balance lands just
+  // above zero.
+  const currentAsAt = isoDate(daysFromNow(-BALANCE.asAtDaysAgo))
+  const [reading] = await db
+    .insert(bankBalanceReadings)
+    .values({
+      clientId,
+      amount: '0',
+      asAtDate: currentAsAt,
+      note: BALANCE.note,
+      recordedByUserId: financeUserId,
+      createdAt: daysFromNow(-BALANCE.asAtDaysAgo + 1),
+    })
+    .returning({ id: bankBalanceReadings.id })
+  const deducted = (await balanceAndBudget(db, clientId, NOW)).summary.deducted ?? 0
+  const balance = roundUp(deducted + BALANCE.availableMargin, 1_000)
+  await db
+    .update(bankBalanceReadings)
+    .set({ amount: balance.toFixed(2) })
+    .where(eq(bankBalanceReadings.id, reading!.id))
+
+  // The earlier reading, worked back from the current one by adding what left the account
+  // between the two dates. Grant payments include cancelled grants: the money went.
+  const earlierAsAt = isoDate(daysFromNow(-BALANCE.earlierAsAtDaysAgo))
+  const paidRows = await db.execute(sql`
+    select coalesce(sum(i.amount), 0)::float8 as n
+    from award_instalments i
+    join awards a on a.id = i.award_id
+    where a.client_id = ${clientId}
+      and i.paid_date > ${earlierAsAt} and i.paid_date <= ${currentAsAt}
+  `)
+  const paidBetween = Number((paidRows.rows as Array<{ n: number }>)[0]?.n ?? 0)
+  const coreBetween = costLines
+    .flatMap((c) => costEntries(c, fy))
+    .filter((e) => e.date > earlierAsAt && e.date <= currentAsAt)
+    .reduce((sum, e) => sum + e.amount, 0)
+  const earlier = Math.round((balance + paidBetween + coreBetween) / 100) * 100
+  await db.insert(bankBalanceReadings).values({
+    clientId,
+    amount: earlier.toFixed(2),
+    asAtDate: earlierAsAt,
+    note: BALANCE.note,
+    recordedByUserId: financeUserId,
+    createdAt: daysFromNow(-BALANCE.earlierAsAtDaysAgo + 2),
+  })
+  done(
+    `balance £${balance.toLocaleString('en-GB')} as at ${currentAsAt} (earlier £${earlier.toLocaleString('en-GB')} as at ${earlierAsAt}) · available £${(balance - deducted).toLocaleString('en-GB')}`,
   )
 
   // ── Audit trail ────────────────────────────────────────────────────────────

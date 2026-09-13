@@ -37,9 +37,10 @@ export interface DemoAward {
    * payments" rule cannot express either.
    *
    * A single-entry schedule is a one-off payment, which is what a smaller grant
-   * usually is.
+   * usually is. `daysFromStart: null` is an instalment with no date yet ("TBC") — a
+   * real state Finance counts apart, so one grant carries one.
    */
-  instalments: Array<{ daysFromStart: number; paid: boolean }>
+  instalments: Array<{ daysFromStart: number | null; paid: boolean }>
   startDaysAgo: number
   reports: Array<{ label: string; dueDaysAgo: number; received: boolean }>
 }
@@ -202,7 +203,12 @@ export const APPLICATIONS: DemoApplication[] = [
       amount: 39_000,
       purpose: 'peer mentoring for young people in alternative provision across Birmingham',
       status: 'active',
-      instalments: [{ daysFromStart: 0, paid: true }],
+      // Half up front, half released once the second year's plan is agreed — no date yet,
+      // so Finance counts it as TBC rather than placing it in a month.
+      instalments: [
+        { daysFromStart: 0, paid: true },
+        { daysFromStart: null, paid: false },
+      ],
       startDaysAgo: 115,
       reports: [{ label: 'Annual report', dueDaysAgo: 45, received: true }],
     },
@@ -339,7 +345,9 @@ export const APPLICATIONS: DemoApplication[] = [
       status: 'active',
       instalments: [
         { daysFromStart: 0, paid: true },
-        { daysFromStart: 365, paid: false },
+        // Five months in, so it falls due inside the financial year the grant was made in:
+        // this year's rounds need a grant with money still to pay this year.
+        { daysFromStart: 150, paid: false },
       ],
       startDaysAgo: 35,
       reports: [{ label: 'Annual report', dueDaysAgo: -330, received: false }],
