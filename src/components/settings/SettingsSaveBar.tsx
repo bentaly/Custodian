@@ -1,5 +1,5 @@
 import { Button, ErrorNote } from '../ui'
-import { C } from '../ui/tokens'
+import { C, FOOT_BAR_HEIGHT } from '../ui/tokens'
 
 /**
  * The save bar a Settings form pins to the bottom of the screen.
@@ -16,11 +16,14 @@ import { C } from '../ui/tokens'
  * is the scrollport and carries `p-4`, and a sticky `bottom-0` sticks to the bottom of
  * its CONTENT box — so 16px of the page kept scrolling past underneath the bar, which is
  * exactly the gap that made it look like it was hovering. `-bottom-4` drops it by that
- * padding so it sits flush on the window edge, and the extra bottom padding puts the
- * button back where the eye expects it. `-mx-4` does the same job horizontally.
+ * padding so it sits flush on the window edge. `-mx-4` does the same job horizontally.
  *
  * The two are coupled to `<main>`'s padding on purpose and in one place: the alternative
  * is every settings screen discovering the gap for itself.
+ *
+ * **Its top border continues the sidebar's.** The Settings row at the foot of the rail
+ * has a border at the same place, so both take `FOOT_BAR_HEIGHT` rather than a height
+ * that falls out of their padding — they were 3px apart and read as a misaligned line.
  */
 export function SettingsSaveBar({
   onSave,
@@ -37,7 +40,7 @@ export function SettingsSaveBar({
 }) {
   return (
     <div
-      className="sticky -bottom-4 z-10 -mx-4 flex items-center gap-3 border-t bg-white px-4 pb-7 pt-3"
+      className={`sticky -bottom-4 z-10 -mx-4 flex ${FOOT_BAR_HEIGHT} items-center gap-3 border-t bg-white px-4`}
       style={{ borderColor: C.line }}
     >
       <Button onClick={onSave} disabled={saving || !dirty}>

@@ -142,3 +142,12 @@ export const CONTROL = {
 } as const
 
 export type ControlSize = keyof typeof CONTROL
+
+/**
+ * The height of the two bars that meet across the foot of the window: the sidebar's
+ * Settings row and a Settings form's pinned save bar. Their top borders sit side by side,
+ * so they must be the same height — and each deriving its own from its contents (a 45px
+ * nav item in `py-4`, a 40px button in `pt-3 pb-7`) left the two lines 3px apart.
+ * Border-box, so the border is inside it.
+ */
+export const FOOT_BAR_HEIGHT = 'h-19'

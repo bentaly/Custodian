@@ -12,6 +12,7 @@
 
 import { useState } from 'react'
 import { updateAwardLetterSettings } from '../../server/fns/awardSetup'
+import { AwardLetterSettingsSchema } from '../../lib/validators/awardSetup'
 import { Button, ErrorNote, Input, Label, Panel, PanelTitle, UnsavedChangesGuard } from '../ui'
 import { C } from '../ui/tokens'
 
@@ -31,13 +32,21 @@ export function LetterSendingForm({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [replyToTouched, setReplyToTouched] = useState(false)
 
-  const payload = { senderName: senderName || null, replyTo: replyTo || null }
+  // Trimmed, because the server's check does not trim: a pasted address with a trailing
+  // space would otherwise be refused as invalid while looking perfectly fine in the box.
+  const payload = { senderName: senderName || null, replyTo: replyTo.trim() || null }
   const [baseline, setBaseline] = useState(() => ({
     senderName: initialSenderName || null,
     replyTo: initialReplyTo || null,
   }))
   const dirty = JSON.stringify(payload) !== JSON.stringify(baseline)
+  // The server's own rule, not a lookalike regex, so the form can never pass what the
+  // server fn then refuses — which surfaced as "Something went wrong at our end".
+  const replyToInvalid = !AwardLetterSettingsSchema.shape.replyTo.safeParse(payload.replyTo).success
+  // Said once they leave the field, not while an address is still half-typed.
+  const showReplyToError = replyToInvalid && replyToTouched
 
   async function handleSave() {
     setSaving(true)
@@ -59,22 +68,7 @@ export function LetterSendingForm({
 
   return (
     <Panel label="How your letters are sent">
-      <PanelTitle
-        right={
-          <div className="flex items-center gap-3">
-            {dirty && !saving && (
-              <span className="font-display text-label" style={{ color: C.sub }}>
-                Unsaved changes
-              </span>
-            )}
-            <Button variant="secondary" size="xs" onClick={handleSave} disabled={saving || !dirty}>
-              {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
-            </Button>
-          </div>
-        }
-      >
-        How your letters are sent
-      </PanelTitle>
+      <PanelTitle>How your letters are sent</PanelTitle>
       <p className="-mt-2 mb-4 font-display text-body leading-relaxed" style={{ color: C.sub }}>
         Both letters below go out under your foundation’s name, and replies to either come back to
         you.
@@ -101,16 +95,38 @@ export function LetterSendingForm({
             type="email"
             value={replyTo}
             onChange={(e) => setReplyTo(e.target.value)}
+            onBlur={() => setReplyToTouched(true)}
             placeholder="grants@yourfoundation.org"
+            aria-invalid={showReplyToError || undefined}
+            aria-describedby={showReplyToError ? 'letter-reply-to-error' : undefined}
+            className={showReplyToError ? 'ring-2 ring-danger/40!' : undefined}
           />
+          {showReplyToError && (
+            <p id="letter-reply-to-error" className="mt-1.5 font-display text-label text-danger">
+              Enter a valid email address, like grants@yourfoundation.org.
+            </p>
+          )}
           <p className={hintClass}>
             Where a reply lands. Set this — without it, replies come back to Custodian rather than
             to you.
           </p>
         </div>
       </div>
-      <div className="mt-3">
-        <ErrorNote error={error} />
+      {/* Save at the foot, bottom right: it comes after the fields it saves. */}
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+        <ErrorNote error={error} className="mr-auto" />
+        {dirty && !saving && (
+          <span className="font-display text-label" style={{ color: C.sub }}>
+            Unsaved changes
+          </span>
+        )}
+        <Button
+          variant="secondary"
+          onClick={handleSave}
+          disabled={saving || !dirty || replyToInvalid}
+        >
+          {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+        </Button>
       </div>
       <UnsavedChangesGuard dirty={dirty} what="your sender name and reply-to address" />
     </Panel>

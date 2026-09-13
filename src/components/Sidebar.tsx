@@ -15,6 +15,7 @@ import {
   Wallet03Icon,
 } from '@hugeicons/core-free-icons'
 import { LogoMark } from './ui/LogoMark'
+import { FOOT_BAR_HEIGHT } from './ui/tokens'
 import { canSeePayments } from '../lib/roles'
 
 // Values lifted directly from the Figma sidebar (node 126:31796). #637083 = Gray/500,
@@ -97,7 +98,9 @@ function NavBody({ onNavigate, role }: { onNavigate?: () => void; role: string }
       {/* Settings sits apart at the foot of the rail: it is where the app is
           configured (rounds, programmes, the team), not somewhere you work. Shown to
           everyone — the hub itself filters its cards by role. */}
-      <div className="border-t border-grey-200 px-4 py-4">
+      <div
+        className={`flex ${FOOT_BAR_HEIGHT} shrink-0 flex-col justify-center border-t border-grey-200 px-4`}
+      >
         <Link to="/settings" onClick={onNavigate} className={itemClass}>
           <HugeiconsIcon icon={Settings02Icon} className="h-5 w-5" strokeWidth={1.75} />
           Settings
