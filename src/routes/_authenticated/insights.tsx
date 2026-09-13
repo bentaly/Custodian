@@ -959,7 +959,13 @@ function PortfolioSummary({
           Portfolio summary
           {summary && filtered && <span style={{ color: C.faint }}> · across all grants</span>}
         </p>
-        <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.muted }}>
+        {/* The one paragraph that opts out of the 800px measure (globals.css). It is
+            a full-width panel at the foot of the charts, so the text runs the
+            panel's width. Deliberate; do not extend this to other prose. */}
+        <p
+          className="mt-1 max-w-none font-display text-body leading-relaxed"
+          style={{ color: C.muted }}
+        >
           {summary ? summary.summary : waiting}
         </p>
         {summary && (
