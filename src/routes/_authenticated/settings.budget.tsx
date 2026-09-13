@@ -39,7 +39,6 @@ import {
   scheduleCoreCosts,
   type CostFrequency,
 } from '../../lib/coreCosts'
-import { rollUpCash } from '../../lib/multiYear'
 import { todayIso } from '../../lib/schedule'
 import { fmtDate, fmtMoney } from '../../lib/format'
 import { messageFor } from '../../lib/errors'
@@ -311,22 +310,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
 
   const programmeRows = rows.filter((r) => r.programmeId)
   const costRows = rows.filter((r) => !r.programmeId)
-  // "Available to award" and the red "allocated to rounds — £X over" line, per programme.
-  // Read off `rollUpCash`, the rollup Finance draws its cash view with, so the arithmetic
-  // is stated and tested once (`multiYear.test.ts`) rather than re-derived in a component.
-  const cashByProgramme = new Map(
-    rollUpCash(
-      programmeRows.map((r) => ({
-        programmeId: r.programmeId,
-        amount: amount(r),
-        carriedCommitment: promisedOverride(r),
-      })),
-      new Map(),
-      promisedByProgramme,
-      allocatedByProgramme,
-    ).lines.map((l) => [l.programmeId, l]),
-  )
-
   const total = rows.reduce((s, r) => s + amount(r), 0)
   const coreCosts = costRows.reduce((s, r) => s + amount(r), 0)
   const grantMaking = total - coreCosts
@@ -536,15 +519,13 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             one's own accessible label is what reads. */}
         <div className={`${BUDGET_GRID} hidden items-end sm:grid`}>
           <span />
-          <ColumnLabel>Available budget</ColumnLabel>
+          <ColumnLabel>Programme budget total</ColumnLabel>
           <ColumnLabel>Prior commitment total</ColumnLabel>
           <span />
         </div>
         <div className="flex flex-col gap-3">
           {programmeRows.map((row, i) => {
-            const cash = cashByProgramme.get(row.programmeId!)
             const derived = promisedByProgramme.get(row.programmeId!) ?? 0
-            const overridden = promisedOverride(row) !== null
             return (
               <div key={row.key} className={`${BUDGET_GRID} items-end`}>
                 <div className="min-w-0 flex-1">
@@ -558,36 +539,11 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                       {row.label}
                     </span>
                   </div>
-                  {/* The pair this screen exists to state: what is genuinely free to give
-                      this year, and how much of that the rounds have taken. The derived
-                      figure stays visible next to an override rather than being replaced
-                      by it, so a buffer reads as a deliberate choice. */}
-                  {amount(row) > 0 && (
-                    <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
-                      <span style={{ color: C.sub }}>
-                        {fmtMoney(cash?.free ?? 0)} available to award
-                      </span>
-                      {/* What the rounds have taken of it. Over it is the thing this screen
-                          exists to catch — the rounds between them promising more than the
-                          year has free — so it is said in words and in red rather than left
-                          for the reader to subtract. */}
-                      {cash && cash.allocated > 0 && (
-                        <>
-                          {' · '}
-                          <span style={{ color: cash.unallocated < 0 ? C.danger : C.faint }}>
-                            {fmtMoney(cash.allocated)} allocated to rounds
-                            {cash.unallocated < 0 && ` — ${fmtMoney(-cash.unallocated)} over`}
-                          </span>
-                        </>
-                      )}
-                      {overridden && <> · {fmtMoney(derived)} from the schedules</>}
-                    </p>
-                  )}
                 </div>
 
                 <MoneyInput
                   value={row.amount}
-                  label={`Available budget for ${row.label}`}
+                  label={`Programme budget total for ${row.label}`}
                   placeholder="Not budgeted"
                   onChange={(v) => patch(row.key, { amount: v })}
                 />

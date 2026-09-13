@@ -175,8 +175,7 @@ describe('rollUpCash', () => {
 })
 
 /**
- * The red "allocated to rounds — £X over" line on Settings → Annual budget, which reads
- * `free` and `allocated` straight off this rollup.
+ * `free` and `allocated`, which Finance → Balance & budget reads off this rollup.
  */
 describe('rollUpCash — rounds allocated against what is free', () => {
   const names = new Map([['food', { name: 'Community Food', colour: null }]])
