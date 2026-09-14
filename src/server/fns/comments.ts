@@ -1,21 +1,12 @@
 import { badRequest, forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import {
-  applicationComments,
-  applicationVotes,
-  applications,
-  clientProfiles,
-  roundProgrammes,
-  programmes,
-  users,
-} from '../../../drizzle/schema'
+import { applicationComments, applicationVotes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
-import { assertApplicationAccess, assertClientAccess } from '../scope'
-import { currentTrusteeOf } from '../members'
+import { assertApplicationAccess } from '../scope'
 
 export const listComments = createServerFn({ method: 'GET' })
   .validator(z.object({ applicationId: z.uuid() }))
@@ -98,50 +89,6 @@ export const deleteComment = createServerFn({ method: 'POST' })
       },
     })
     return { ok: true }
-  })
-
-export const listVotes = createServerFn({ method: 'GET' })
-  .validator(z.object({ applicationId: z.uuid() }))
-  .handler(async ({ data }) => {
-    const user = await requireAuthUser()
-
-    const app = await getDb().query.applications.findFirst({
-      where: (a, { eq }) => eq(a.id, data.applicationId),
-      with: { roundProgramme: { with: { programme: true } } },
-    })
-    if (!app)
-      return {
-        trustees: [] as Array<{ id: string; name: string }>,
-        votes: [] as Array<{ userId: string; vote: 'yes' | 'no'; createdAt: Date }>,
-        allowAdminVoting: false,
-      }
-
-    const clientId = app.roundProgramme.programme.clientId
-    assertClientAccess(user, clientId)
-
-    const [trustees, votes, profile] = await Promise.all([
-      getDb()
-        .select({ id: users.id, name: users.name })
-        .from(users)
-        .where(currentTrusteeOf(clientId)),
-      getDb().query.applicationVotes.findMany({
-        where: (v, { eq }) => eq(v.applicationId, data.applicationId),
-      }),
-      getDb().query.clientProfiles.findFirst({
-        where: (p, { eq }) => eq(p.clientId, clientId),
-      }),
-    ])
-
-    return {
-      trustees,
-      votes: votes.map((v) => ({
-        userId: v.userId,
-        vote: v.vote,
-        createdAt: v.createdAt,
-        recordedByUserId: v.recordedByUserId,
-      })),
-      allowAdminVoting: profile?.allowAdminVoting ?? false,
-    }
   })
 
 export const castVote = createServerFn({ method: 'POST' })

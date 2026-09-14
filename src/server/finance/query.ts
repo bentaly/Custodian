@@ -335,14 +335,6 @@ export function paymentsQuery(db: Db, g: GrantsQuery, { today, soonCutoff }: Fin
 
 export type PaymentsQuery = ReturnType<typeof paymentsQuery>
 
-/**
- * A column of the `payments` subquery, qualified by hand — `grantsCol`'s twin, for the
- * same reason and with the same trap behind it.
- */
-export function paymentsCol(name: string): SQL {
-  return sql.raw(`"payments"."${name}"`)
-}
-
 /** A page of payments. Exported as a type so the mapper to the screen's row can be typed. */
 export function paymentRows(db: Db, p: PaymentsQuery) {
   return db.select().from(p)

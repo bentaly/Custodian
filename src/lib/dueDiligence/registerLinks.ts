@@ -16,10 +16,3 @@ export function charityRegisterUrl(organisationNumber: number | null | undefined
   if (organisationNumber == null || !Number.isFinite(organisationNumber)) return null
   return `https://register-of-charities.charitycommission.gov.uk/en/charity-search/-/charity-details/${organisationNumber}/charity-overview`
 }
-
-/** The Companies House entry for a company number, which IS addressable directly. */
-export function companiesHouseUrl(companyNumber: string | null | undefined): string | null {
-  const n = companyNumber?.trim()
-  if (!n) return null
-  return `https://find-and-update.company-information.service.gov.uk/company/${encodeURIComponent(n)}`
-}

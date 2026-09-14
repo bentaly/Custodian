@@ -10,7 +10,6 @@ import {
   awardLetters,
   awards,
   clientProfiles,
-  clients,
   reportSchedule,
   roundProgrammes,
   users,
@@ -527,29 +526,7 @@ export const createAwards = createServerFn({ method: 'POST' })
     }
   })
 
-// ─── Reading and resending a letter ─────────────────────────────────────────────
-
-export const getAwardLetter = createServerFn({ method: 'GET' })
-  .validator(z.object({ awardId: z.uuid() }))
-  .handler(async ({ data }) => {
-    const user = await requireAuthUser()
-    const letter = await getDb().query.awardLetters.findFirst({
-      where: (l, { eq }) => eq(l.awardId, data.awardId),
-    })
-    if (!letter) return null
-    assertClientAccess(user, letter.clientId)
-    return {
-      id: letter.id,
-      subject: letter.subject,
-      bodyText: letter.bodyText,
-      conditions: letter.conditions,
-      status: letter.status,
-      recipientEmail: letter.recipientEmail,
-      replyTo: letter.replyTo,
-      failureReason: letter.failureReason,
-      sentAt: letter.sentAt?.toISOString() ?? null,
-    }
-  })
+// ─── Resending a letter ─────────────────────────────────────────────────────────
 
 /**
  * Send a stored letter again — the recovery path for a `failed` letter, and the way to

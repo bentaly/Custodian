@@ -328,24 +328,6 @@ export function BlockerPanel({ blockers }: { blockers: Blocker[] }) {
 export const inputClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-hidden placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
 
-export function Labelled({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
-      {children}
-      {hint && <span className="mt-1 block text-xs text-slate-400">{hint}</span>}
-    </label>
-  )
-}
-
 /** A raw payload, shown as sent. Collapsed by default — useful, but rarely first. */
 export function PayloadViewer({ payload }: { payload: Record<string, unknown> }) {
   const [open, setOpen] = useState(false)

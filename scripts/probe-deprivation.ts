@@ -20,8 +20,8 @@ import { readFile } from 'node:fs/promises'
 import { resolveDeprivation, type ResolveTrace } from '../src/server/deprivation/run'
 import { formatDecileRange } from '../src/lib/deprivation/types'
 
-/** Second column of a CSV whose header row is found, not assumed — see
- *  set-arete-delivery-area.ts for why the export has a title row above it. */
+/** Second column of a CSV whose header row is found, not assumed — a hand-kept
+ *  export can carry a title row above the header. */
 async function locationsFromCsv(path: string): Promise<string[]> {
   const text = await readFile(path, 'utf8')
   const rows = text.split(/\r?\n/).map((line) => {

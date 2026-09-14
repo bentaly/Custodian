@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { PARTNERSHIP_STATUSES } from '../partnerships/status'
 
 /**
  * What the "Log a partner" dialog saves. One schema for create and edit — `id` absent
@@ -38,8 +37,6 @@ export const SavePartnershipSchema = z.object({
   note: z.string().trim().max(4000).nullable(),
 })
 export type SavePartnershipInput = z.infer<typeof SavePartnershipSchema>
-
-export const PartnershipStatusSchema = z.enum(PARTNERSHIP_STATUSES)
 
 /**
  * Moving a partnership along. `action` rather than a target status, because the pipeline
