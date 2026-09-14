@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { and, count, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '../db'
 import { searchAny } from '../searchTerm'
+import { anyOf, anyTag } from '../filterSql'
 import { partnerships, partnershipEvents } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
@@ -60,9 +61,10 @@ export type PartnershipSortKey = (typeof PARTNERSHIP_SORT_KEYS)[number]
 const FiltersSchema = z
   .object({
     tab: z.enum(PARTNERSHIP_TAB_IDS as [PartnershipTab, ...PartnershipTab[]]).optional(),
-    programmeId: z.string().optional(),
-    source: z.string().optional(),
-    tag: z.string().optional(),
+    // Every pill takes several values, OR'd within one — see `lib/filterSelection`.
+    programmeId: z.array(z.string()).min(1).max(500).optional(),
+    source: z.array(z.string()).min(1).max(500).optional(),
+    tag: z.array(z.string()).min(1).max(500).optional(),
     q: z.string().optional(),
     /** Archived rows are out of every tab; this is the only way to see them. */
     archived: z.boolean().optional(),
@@ -144,11 +146,9 @@ export const listPartnerships = createServerFn({ method: 'GET' })
     // only what is below it.
     const baseWhere = and(
       scope,
-      filters.programmeId ? eq(partnerships.programmeId, filters.programmeId) : undefined,
-      filters.source ? eq(partnerships.source, filters.source) : undefined,
-      filters.tag
-        ? sql`${partnerships.tags} @> ${JSON.stringify([filters.tag])}::jsonb`
-        : undefined,
+      anyOf(partnerships.programmeId, filters.programmeId),
+      anyOf(partnerships.source, filters.source),
+      anyTag(partnerships.tags, filters.tag),
       // Name, the foundation's own reference, or where they are — the three things
       // somebody types when they half-remember an organisation.
       searchAny(

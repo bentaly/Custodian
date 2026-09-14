@@ -430,25 +430,25 @@ function AwardsPage() {
   // set of awards, and landing there silently is disorienting. Round no longer clears
   // programme and theme the way the header pill did: that was scoping behaviour, and
   // filters in one row do not reach across and empty each other.
-  function setRound(id: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, roundId: id, page: undefined }) })
+  function setRound(ids: string[] | undefined) {
+    navigate({ search: (prev) => ({ ...prev, roundId: ids, page: undefined }) })
   }
 
-  function setProgramme(id: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, programmeId: id, page: undefined }) })
+  function setProgramme(ids: string[] | undefined) {
+    navigate({ search: (prev) => ({ ...prev, programmeId: ids, page: undefined }) })
   }
 
-  function setTag(value: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, tag: value, page: undefined }) })
+  function setTag(values: string[] | undefined) {
+    navigate({ search: (prev) => ({ ...prev, tag: values, page: undefined }) })
   }
 
-  function setRegion(value: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, region: value, page: undefined }) })
+  function setRegion(values: string[] | undefined) {
+    navigate({ search: (prev) => ({ ...prev, region: values, page: undefined }) })
   }
 
-  function setStatus(value: string | undefined) {
+  function setStatus(values: string[] | undefined) {
     navigate({
-      search: (prev) => ({ ...prev, status: (value as AwardStatus) || undefined, page: undefined }),
+      search: (prev) => ({ ...prev, status: values as AwardStatus[] | undefined, page: undefined }),
     })
   }
 

@@ -3,6 +3,8 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 // Shared with the Awards register: this screen links INTO it on the region, and a
 // sentinel spelled differently at the two ends is a link that silently filters nothing.
 import { NO_REGION } from '../../lib/deprivation/types'
+import { matchesAnyFilter, matchesFilter, summariseSelection } from '../../lib/filterSelection'
+import { textList } from '../../lib/listSearch'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Coins01Icon,
@@ -65,18 +67,20 @@ type InsightsSearch = {
   /** Inclusive decision-date window (`yyyy-mm-dd`); absent = all time. */
   from?: string
   to?: string
-  programmeId?: string
-  tag?: string
-  region?: string
+  // Each pill takes several values, OR'd within one — see `lib/filterSelection`.
+  programmeId?: string[]
+  tag?: string[]
+  /** Delivery regions, `NO_REGION` among them — the same strings the register takes. */
+  region?: string[]
 }
 
 export const Route = createFileRoute('/_authenticated/insights')({
   validateSearch: (search: Record<string, unknown>): InsightsSearch => ({
     from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
     to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
-    programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
-    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
-    region: typeof search.region === 'string' && search.region ? search.region : undefined,
+    programmeId: textList(search.programmeId),
+    tag: textList(search.tag),
+    region: textList(search.region),
   }),
   loader: async () => {
     // Two independent reads, in parallel. The summary is one row written hours ago by
@@ -197,7 +201,12 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
  * child of it — see `AreaList`).
  */
 /** The extra narrowing a particular count carries, on top of the slice being read. */
-type GrantNarrow = { roundId?: string; programmeId?: string; tag?: string; region?: string }
+type GrantNarrow = {
+  roundId?: string[]
+  programmeId?: string[]
+  tag?: string[]
+  region?: string[]
+}
 
 function GrantCount({
   n,
@@ -1003,9 +1012,10 @@ function InsightsPage() {
   // The date window is on the award decision — the moment the money was committed,
   // which is what every figure on this screen counts.
   const fil = items.filter((g) => {
-    if (programmeId && g.programmeId !== programmeId) return false
-    if (tag && !g.tags.includes(tag)) return false
-    if (region === NO_REGION ? Boolean(g.region) : region && g.region !== region) return false
+    if (!matchesFilter(programmeId, g.programmeId)) return false
+    if (!matchesAnyFilter(tag, g.tags)) return false
+    // An unlocated grant answers to the `NO_REGION` option, as it does in the register.
+    if (!matchesFilter(region, g.region ?? NO_REGION)) return false
     const day = g.decisionAt.slice(0, 10)
     if (from && day < from) return false
     if (to && day > to) return false
@@ -1220,11 +1230,11 @@ function InsightsPage() {
   const [hoverArea, setHoverArea] = useState<string | null>(null)
   const unlocatedCount = fil.filter((g) => !g.region).length
 
-  // One region in view, or none. The map's drill wins over the filter pill: if you have
+  // The regions in view, or none. The map's drill wins over the filter pill: if you have
   // opened the North West on the map, that is the region you are reading, whatever the
   // filter above still says.
-  const linkedRegion =
-    mapView.kind === 'region' ? mapView.region : region === NO_REGION ? NO_REGION : (region ?? null)
+  const linkedRegions: string[] | null =
+    mapView.kind === 'region' ? [mapView.region] : (region ?? null)
 
   // Roll grants up to whichever key the current view paints.
   const mapValues = (() => {
@@ -1313,11 +1323,17 @@ function InsightsPage() {
   const exportRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
   const periodLabel = formatDateRange({ from, to })
-  const programmeLabel = programmeId
-    ? (programmes.find((p) => p.id === programmeId)?.name ?? 'Selected programme')
-    : 'All programmes'
-  const themeLabel = tag ?? 'All themes'
-  const regionLabel = region === NO_REGION ? 'No location recorded' : (region ?? 'All locations')
+  const programmeLabel = summariseSelection(
+    (programmeId ?? []).map(
+      (id) => programmes.find((p) => p.id === id)?.name ?? 'Selected programme',
+    ),
+    'All programmes',
+  )
+  const themeLabel = summariseSelection(tag ?? [], 'All themes')
+  const regionLabel = summariseSelection(
+    (region ?? []).map((r) => (r === NO_REGION ? 'No location recorded' : r)),
+    'All locations',
+  )
   async function handleExport() {
     const root = exportRef.current
     if (!root) return
@@ -1563,7 +1579,7 @@ function InsightsPage() {
                           count={p.grants}
                           rest={programmeRest(p)}
                           slice={search}
-                          narrow={p.id ? { programmeId: p.id } : undefined}
+                          narrow={p.id ? { programmeId: [p.id] } : undefined}
                           className="font-display text-label"
                         />
                       </div>
@@ -1671,7 +1687,7 @@ function InsightsPage() {
                               count={t.count}
                               rest={themeRest(t)}
                               slice={search}
-                              narrow={{ tag: t.tag }}
+                              narrow={{ tag: [t.tag] }}
                               className="mt-1 font-display text-label"
                             />
                           </div>
@@ -1805,7 +1821,7 @@ function InsightsPage() {
                     // no equivalent there, so their counts stay text — see `narrowOf`.
                     // The code is what the values were grouped BY (`g.region`), so it is
                     // the string handed over, never the display name beside it.
-                    narrowOf={(code) => (mapView.kind === 'uk' ? { region: code } : null)}
+                    narrowOf={(code) => (mapView.kind === 'uk' ? { region: [code] } : null)}
                     onPick={(code, name, to) => {
                       setSelArea(code)
                       if (to) setMapView(to)
@@ -1826,16 +1842,16 @@ function InsightsPage() {
                       so its count cannot also be a link (see `GrantCount`) and the panel
                       offers one link of its own instead.
 
-                      It appears only with ONE region in view — drilled on the map, or
-                      picked in the filter above — because the register takes a single
-                      region and there is no honest link for "all of them". The value
-                      handed over is `g.region`, the same string the register groups on
+                      It appears only with a region in view — drilled on the map, or one
+                      or more picked in the filter above. With none picked there is no
+                      honest link: "all of them" is just the register. The values
+                      handed over are `g.region`, the same strings the register groups on
                       (`deliveryRegionLabel`, shared); a link built from a display label
                       would land on an empty list and say nothing about why.
 
                       It carries the whole slice exactly as `GrantCount` does, so the two
                       cannot open different registers from the same panel. */}
-                  {linkedRegion && (
+                  {linkedRegions && (
                     <Link
                       to="/awards"
                       search={{
@@ -1843,14 +1859,16 @@ function InsightsPage() {
                         to: search.to,
                         programmeId: search.programmeId,
                         tag: search.tag,
-                        region: linkedRegion,
+                        region: linkedRegions,
                       }}
                       className="self-start font-display text-label font-medium underline underline-offset-2"
                       style={{ color: C.sub }}
                     >
-                      {linkedRegion === NO_REGION
-                        ? 'View the grants with no location recorded'
-                        : `View grants in ${linkedRegion}`}
+                      {linkedRegions.length > 1
+                        ? `View grants in these ${linkedRegions.length} locations`
+                        : linkedRegions[0] === NO_REGION
+                          ? 'View the grants with no location recorded'
+                          : `View grants in ${linkedRegions[0]}`}
                     </Link>
                   )}
                 </div>
@@ -1915,7 +1933,7 @@ function InsightsPage() {
                           <GrantCount
                             n={r.grants.length}
                             slice={search}
-                            narrow={{ roundId: r.id }}
+                            narrow={{ roundId: [r.id] }}
                           />{' '}
                           · <CompactMoney amount={r.total} label="Exact total for this round" />
                         </span>
@@ -1985,7 +2003,7 @@ function RoundProgrammeCard({
   return p.id ? (
     <Link
       to="/insights"
-      search={(prev) => ({ ...prev, programmeId: p.id! })}
+      search={(prev) => ({ ...prev, programmeId: [p.id!] })}
       className="block rounded-card p-4 transition-shadow hover:shadow-xs"
       style={bg}
     >

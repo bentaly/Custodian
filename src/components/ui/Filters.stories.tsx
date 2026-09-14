@@ -34,8 +34,8 @@ const ROUNDS = [
 export const ListScreenRow: Story = {
   render: function Render() {
     const [round, setRound] = useState<string | undefined>('r1')
-    const [status, setStatus] = useState<string | undefined>()
-    const [theme, setTheme] = useState<string | undefined>('Youth')
+    const [status, setStatus] = useState<string[] | undefined>()
+    const [theme, setTheme] = useState<string[] | undefined>(['Youth'])
     const [range, setRange] = useState<DateRange>({})
     const [q, setQ] = useState<string | undefined>()
     return (
@@ -101,7 +101,7 @@ export const IdleAndChosen: Story = {
         <FilterPill
           label="Status"
           plural="statuses"
-          value="shortlisted"
+          value={['shortlisted']}
           options={STATUSES}
           onChange={() => {}}
         />
@@ -109,6 +109,17 @@ export const IdleAndChosen: Story = {
           value={{ from: '2026-08-17', to: '2026-08-18' }}
           onChange={() => {}}
           allLabel="Any date"
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="w-16 font-display text-label text-grey-400">several</span>
+        {/* Names the first picked and counts the rest; hover lists them all. */}
+        <FilterPill
+          label="Status"
+          plural="statuses"
+          value={['shortlisted', 'for_review', 'declined']}
+          options={STATUSES}
+          onChange={() => {}}
         />
       </div>
     </div>

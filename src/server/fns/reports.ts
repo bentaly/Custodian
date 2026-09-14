@@ -62,10 +62,13 @@ export const listReports = createServerFn({ method: 'GET' })
          * row that stayed portfolio-wide beside a filtered table would be read as the
          * table's own count.
          */
-        programmeId: z.uuid().optional(),
-        /** Structural narrowings, scoped exactly as `programmeId` is — see above. */
-        roundId: z.uuid().optional(),
-        tag: z.string().min(1).max(100).optional(),
+        programmeId: z.array(z.uuid()).min(1).max(500).optional(),
+        /**
+         * Structural narrowings, scoped exactly as `programmeId` is — see above. Each
+         * takes several values, OR'd within one (`lib/filterSelection`).
+         */
+        roundId: z.array(z.uuid()).min(1).max(500).optional(),
+        tag: z.array(z.string().min(1).max(100)).min(1).max(500).optional(),
         /**
          * Inclusive RECEIVED-date window (`yyyy-mm-dd`). Unlike the three above this
          * narrows the table and the tab counts only, and deliberately not the "reports
@@ -115,9 +118,9 @@ export type ReportsListInput = {
    * its page is a separate query rather than a filter over the same one.
    */
   tab?: ReportsTab
-  programmeId?: string
-  roundId?: string
-  tag?: string
+  programmeId?: string[]
+  roundId?: string[]
+  tag?: string[]
   from?: string
   to?: string
   q?: string

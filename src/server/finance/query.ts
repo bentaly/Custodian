@@ -9,6 +9,7 @@ import {
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
 import { searchAny } from '../searchTerm'
+import { anyOf, anyTag } from '../filterSql'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
 
 /**
@@ -406,11 +407,11 @@ export function filterWhere(
   p: PaymentsQuery,
   tab: 'to_pay' | 'paid',
   f: {
-    roundId?: string
-    programmeId?: string
-    tag?: string
-    status?: string
-    bank?: string
+    roundId?: readonly string[]
+    programmeId?: readonly string[]
+    tag?: readonly string[]
+    status?: readonly string[]
+    bank?: readonly string[]
     from?: string
     to?: string
     q?: string
@@ -420,14 +421,14 @@ export function filterWhere(
   // payments "between these dates" can finally mean the obvious thing.
   const day = tab === 'paid' ? p.paidDate : p.dueDate
   return and(
-    f.roundId ? eq(p.roundId, f.roundId) : undefined,
-    f.programmeId ? eq(p.programmeId, f.programmeId) : undefined,
-    f.tag ? sql`${p.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
-    f.status ? eq(p.status, f.status) : undefined,
+    anyOf(p.roundId, f.roundId),
+    anyOf(p.programmeId, f.programmeId),
+    anyTag(p.tags, f.tag),
+    anyOf(p.status, f.status),
     // Through `bankVerdict`, so the filter matches what the column DRAWS: a row written
     // before the status column existed reads as `unchecked` on screen, and picking
     // "Not checked" has to return it.
-    f.bank ? sql`${bankVerdict(p)} = ${f.bank}` : undefined,
+    anyOf(bankVerdict(p), f.bank),
     // A row with no date at all is outside any window — it cannot be shown to be inside
     // one, and showing it anyway would make the filter mean "or unknown". That now
     // includes the unscheduled row and a "TBC" instalment, which is the honest answer:

@@ -433,7 +433,7 @@ function Dashboard() {
       lead: `${a.toReview.count} application${plural(a.toReview.count)}`,
       rest: 'ready to review',
       to: '/applications',
-      search: { roundId: undefined, status: 'for_review' },
+      search: { roundId: undefined, status: ['for_review'] },
     })
   // Only for roles that can open Finance. A trustee following this row would be
   // redirected straight back here — an item on your desk you cannot pick up is worse

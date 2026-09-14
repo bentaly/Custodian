@@ -10,6 +10,7 @@ import {
 import { NO_REGION } from '../../lib/deprivation/types'
 import type { getDb } from '../db'
 import { searchAny } from '../searchTerm'
+import { anyOf, anyOfOrNull, anyTag } from '../filterSql'
 
 /**
  * The Awards register, expressed as SQL — the same shape as `server/finance/query.ts`,
@@ -156,27 +157,24 @@ export type GrantRow = Awaited<ReturnType<typeof grantRows>>[number]
 export function filterWhere(
   g: GrantsQuery,
   f: {
-    programmeId?: string
-    tag?: string
-    status?: string
-    region?: string
+    programmeId?: readonly string[]
+    tag?: readonly string[]
+    status?: readonly string[]
+    region?: readonly string[]
     from?: string
     to?: string
     q?: string
   },
 ): SQL | undefined {
   return and(
-    f.programmeId ? eq(g.programmeId, f.programmeId) : undefined,
-    f.tag ? sql`${g.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
-    f.status ? eq(g.status, f.status) : undefined,
+    anyOf(g.programmeId, f.programmeId),
+    anyTag(g.tags, f.tag),
+    anyOf(g.status, f.status),
     // `NO_REGION` is a real filter option, not the absence of one: it asks for the
     // grants whose delivery area never resolved, which is a NULL region rather than a
-    // value to compare against. The facet counts those under the same sentinel.
-    f.region
-      ? f.region === NO_REGION
-        ? sql`${g.deliveryRegion} is null`
-        : eq(g.deliveryRegion, f.region)
-      : undefined,
+    // value to compare against. The facet counts those under the same sentinel, and
+    // ticked beside real regions it adds the unlocated grants to them.
+    anyOfOrNull(g.deliveryRegion, f.region, NO_REGION),
     f.from ? sql`${g.decisionDay} >= ${f.from}` : undefined,
     f.to ? sql`${g.decisionDay} <= ${f.to}` : undefined,
     // Organisation and the foundation's own reference, which is the row's subtext here

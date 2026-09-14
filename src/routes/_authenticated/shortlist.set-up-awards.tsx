@@ -39,7 +39,9 @@ import {
 import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
 import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
-import { SCORE_BAND_OPTIONS, SCORE_BANDS, scoreBandFor } from '../../lib/scoreBands'
+import { SCORE_BAND_OPTIONS, SCORE_BAND_VALUES, scoreBandFor } from '../../lib/scoreBands'
+import { matchesAnyFilter, matchesFilter } from '../../lib/filterSelection'
+import { oneOfList, textList } from '../../lib/listSearch'
 
 const PAGE_SIZE = 25
 
@@ -51,11 +53,12 @@ const C = {
 
 type SetUpAwardsSearch = {
   roundId?: string
-  programmeId?: string
-  tag?: string
-  scoreBand?: string
+  // Each pill takes several values, OR'd within one — see `lib/filterSelection`.
+  programmeId?: string[]
+  tag?: string[]
+  scoreBand?: string[]
   /** The Grants awarded table filters separately — see the note by its pill. */
-  awardedProgramme?: string
+  awardedProgramme?: string[]
   page?: number
 }
 
@@ -78,13 +81,10 @@ export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')(
   // is exactly the view you want to send someone.
   validateSearch: (search: Record<string, unknown>): SetUpAwardsSearch => ({
     roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
-    programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
-    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
-    scoreBand: SCORE_BANDS.some((b) => b.value === search.scoreBand)
-      ? (search.scoreBand as string)
-      : undefined,
-    awardedProgramme:
-      typeof search.awardedProgramme === 'string' ? search.awardedProgramme : undefined,
+    programmeId: textList(search.programmeId),
+    tag: textList(search.tag),
+    scoreBand: oneOfList(SCORE_BAND_VALUES, search.scoreBand),
+    awardedProgramme: textList(search.awardedProgramme),
     page:
       Number.isInteger(Number(search.page)) && Number(search.page) > 1
         ? Number(search.page)
@@ -115,7 +115,9 @@ export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')(
         : Promise.resolve([]),
       // The round's grants, for the table underneath — "what this sitting has already
       // committed" is the question an admin asks between batches.
-      listAwards({ data: { roundId: deps.roundId, pageSize: 200 } }),
+      listAwards({
+        data: { roundId: deps.roundId ? [deps.roundId] : undefined, pageSize: 200 },
+      }),
     ])
     return { candidates, letterSettings, rounds, budget, awarded }
   },
@@ -331,13 +333,14 @@ function SetUpAwards() {
   const visibleRounds = selectableRounds(rounds)
 
   const rows = useMemo(() => {
-    const band = scoreBandFor(scoreBand)
+    const bands = (scoreBand ?? []).flatMap((b) => scoreBandFor(b) ?? [])
     return candidates.items.filter((c) => {
-      if (programmeId && c.programmeId !== programmeId) return false
-      if (tag && !c.tags.includes(tag)) return false
-      if (band) {
+      if (!matchesFilter(programmeId, c.programmeId)) return false
+      if (!matchesAnyFilter(tag, c.tags)) return false
+      if (bands.length) {
         if (c.custodianScoreStatus !== 'scored' || c.custodianScore == null) return false
-        if (c.custodianScore < band.min || c.custodianScore > band.max) return false
+        const score = c.custodianScore
+        if (!bands.some((b) => score >= b.min && score <= b.max)) return false
       }
       return true
     })
@@ -374,9 +377,7 @@ function SetUpAwards() {
   const awardedProgrammeOptions = facetBy(awarded.items, (a) =>
     a.programmeName ? { value: a.programmeName, label: a.programmeName } : null,
   ).map((f) => ({ value: f.value, label: facetLabel(f) }))
-  const awardedRows = awardedProgramme
-    ? awarded.items.filter((a) => a.programmeName === awardedProgramme)
-    : awarded.items
+  const awardedRows = awarded.items.filter((a) => matchesFilter(awardedProgramme, a.programmeName))
   // The whole round, like the caption above — its own pill is below it. It used to be
   // totalled from the rows on screen, on the reasoning that a line above a table should
   // describe that table; the rule that won is positional and applies app-wide, because
@@ -638,7 +639,12 @@ function SetUpAwards() {
 
           <Link
             to="/awards"
-            search={{ roundId, programmeId: undefined, tag: undefined, q: undefined }}
+            search={{
+              roundId: roundId ? [roundId] : undefined,
+              programmeId: undefined,
+              tag: undefined,
+              q: undefined,
+            }}
             className="self-start font-display text-label font-medium hover:underline"
             style={{ color: C.brand }}
           >

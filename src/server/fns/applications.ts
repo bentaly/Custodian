@@ -12,6 +12,7 @@ import {
   lte,
   isNotNull,
   desc,
+  or,
   type SQL,
   type SQLWrapper,
 } from 'drizzle-orm'
@@ -29,6 +30,7 @@ import {
   clientProfiles,
 } from '../../../drizzle/schema'
 import { searchAny } from '../searchTerm'
+import { anyOf, anyTag } from '../filterSql'
 import { roundProgrammeSpend, roundProgrammeYear, spentThisYear } from '../applications/roundSpend'
 import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
 import { roundFinancialYear } from '../../lib/roundYear'
@@ -102,12 +104,19 @@ export const listApplications = createServerFn({ method: 'GET' })
     // The band's bounds come from `lib/scoreBands`, so the rows this returns are exactly
     // the rows wearing that colour. `min`/`max` are inclusive; the `isNotNull` matters
     // only for the bottom band, where an unscored row would otherwise fall through.
-    const band = scoreBandFor(filters.scoreBand)
-    const scoreBandFilter = band
+    // Several bands are OR'd, like every pill's values.
+    const bands = (filters.scoreBand ?? []).flatMap((b) => scoreBandFor(b) ?? [])
+    const scoreBandFilter = bands.length
       ? and(
           isNotNull(applications.custodianScore),
-          gte(applications.custodianScore, band.min),
-          lte(applications.custodianScore, band.max),
+          or(
+            ...bands.map((band) =>
+              and(
+                gte(applications.custodianScore, band.min),
+                lte(applications.custodianScore, band.max),
+              ),
+            ),
+          ),
         )
       : undefined
 
@@ -124,9 +133,7 @@ export const listApplications = createServerFn({ method: 'GET' })
       searchAny(filters.q, applications.organisationName, applications.externalApplicationId),
       // The application's OWN themes. It used to match every application in a programme
       // carrying the tag, which is exactly what `applications.themes` replaced.
-      filters.tag
-        ? sql`${applications.themes} @> ${JSON.stringify([filters.tag])}::jsonb`
-        : undefined,
+      anyTag(applications.themes, filters.tag),
       filters.submittedFrom
         ? gte(applications.submittedAt, new Date(`${filters.submittedFrom}T00:00:00.000Z`))
         : undefined,
@@ -136,10 +143,7 @@ export const listApplications = createServerFn({ method: 'GET' })
       scoreBandFilter,
     )
 
-    const where = and(
-      baseWhere,
-      filters.status ? eq(applications.status, filters.status) : undefined,
-    )
+    const where = and(baseWhere, anyOf(applications.status, filters.status))
 
     // Column sort. Categorical columns (status / due diligence) get an explicit
     // ordering; the rest sort naturally. Newest-first is the default and the tiebreak.
@@ -636,19 +640,24 @@ export const setFirstYearAmount = createServerFn({ method: 'POST' })
 export const listAwards = createServerFn({ method: 'GET' })
   .validator(
     z.object({
-      roundId: z.uuid().optional(),
-      programmeId: z.uuid().optional(),
-      tag: z.string().min(1).max(100).optional(),
+      // Every pill takes several values, OR'd within one — see `lib/filterSelection`.
+      roundId: z.array(z.uuid()).min(1).max(500).optional(),
+      programmeId: z.array(z.uuid()).min(1).max(500).optional(),
+      tag: z.array(z.string().min(1).max(100)).min(1).max(500).optional(),
       q: z.string().trim().min(1).max(255).optional(),
       /** Award lifecycle, not application status — every row here is already awarded. */
-      status: z.enum(['active', 'completed', 'cancelled']).optional(),
+      status: z
+        .array(z.enum(['active', 'completed', 'cancelled']))
+        .min(1)
+        .max(3)
+        .optional(),
       /**
-       * Delivery region, or `NO_REGION` for the grants whose location never resolved.
+       * Delivery regions, `NO_REGION` among them for the grants whose location never resolved.
        * Free-form rather than an enum: the values are ONS region names carried on the
        * application, so an enum here would be a second list to keep in step with the
        * geography data — and an unknown value simply matches nothing.
        */
-      region: z.string().min(1).max(100).optional(),
+      region: z.array(z.string().min(1).max(100)).min(1).max(100).optional(),
       /** Inclusive award-date window (`yyyy-mm-dd`), against the decision date. */
       from: z
         .string()
@@ -686,11 +695,11 @@ export const listAwards = createServerFn({ method: 'GET' })
     // `awardsList`, so the filter options describe the round you are in rather than
     // shrinking as you use them.
     let contextIds: string[] | undefined
-    if (data.roundId) {
+    if (data.roundId?.length) {
       const rows = await getDb()
         .select({ id: roundProgrammes.id })
         .from(roundProgrammes)
-        .where(eq(roundProgrammes.roundId, data.roundId))
+        .where(inArray(roundProgrammes.roundId, data.roundId))
       contextIds = rows.map((r) => r.id)
     }
 
@@ -712,12 +721,12 @@ export const listAwards = createServerFn({ method: 'GET' })
  * are counted over it. Passing a round here alone would silently filter nothing.
  */
 export type AwardsListInput = {
-  roundId?: string
-  programmeId?: string
-  tag?: string
+  roundId?: string[]
+  programmeId?: string[]
+  tag?: string[]
   q?: string
-  status?: 'active' | 'completed' | 'cancelled'
-  region?: string
+  status?: Array<'active' | 'completed' | 'cancelled'>
+  region?: string[]
   from?: string
   to?: string
   sortBy?: AwardSortKey

@@ -754,23 +754,23 @@ function ApplicationsList() {
   function setProgramme(id: string | undefined) {
     navigate({ search: (prev) => ({ ...prev, programmeId: id, page: undefined }) })
   }
-  function setStatus(value: string | undefined) {
+  function setStatus(values: string[] | undefined) {
     navigate({
       search: (prev) => ({
         ...prev,
-        status: (value as ApplicationStatus) || undefined,
+        status: values as ApplicationStatus[] | undefined,
         page: undefined,
       }),
     })
   }
-  function setTag(value: string | undefined) {
-    navigate({ search: (prev) => ({ ...prev, tag: value || undefined, page: undefined }) })
+  function setTag(values: string[] | undefined) {
+    navigate({ search: (prev) => ({ ...prev, tag: values, page: undefined }) })
   }
-  function setScoreBand(value: string | undefined) {
+  function setScoreBand(values: string[] | undefined) {
     navigate({
       search: (prev) => ({
         ...prev,
-        scoreBand: (value as ScoreBand) || undefined,
+        scoreBand: values as ScoreBand[] | undefined,
         page: undefined,
       }),
     })

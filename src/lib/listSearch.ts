@@ -35,6 +35,25 @@ function text(v: unknown): string | undefined {
   return typeof v === 'string' && v ? v : undefined
 }
 
+/**
+ * A multi-select filter's values, or nothing. Every filter pill takes several values (see
+ * `lib/filterSelection`), which reach the URL as a JSON list. A lone string is accepted
+ * too and read as a list of one: every bookmark and hand-built link from before the pills
+ * went multi-select says `?tag=Youth`, and so does a link typed by a person. Duplicates
+ * and empties are dropped, and an empty list is absent — one spelling of "no filter".
+ */
+export function textList(v: unknown): string[] | undefined {
+  const raw: unknown[] = Array.isArray(v) ? v : [v]
+  const out = [...new Set(raw.filter((x): x is string => typeof x === 'string' && x !== ''))]
+  return out.length ? out : undefined
+}
+
+/** As `textList`, keeping only a known vocabulary: a retired status drops out of the list. */
+export function oneOfList<T extends string>(allowed: readonly T[], v: unknown): T[] | undefined {
+  const out = textList(v)?.filter((x): x is T => allowed.includes(x as T))
+  return out?.length ? out : undefined
+}
+
 /** A `yyyy-mm-dd` day, or nothing — the form both date-window ends are stored in. */
 function isoDay(v: unknown): string | undefined {
   return typeof v === 'string' && ISO_DAY.test(v) ? v : undefined
@@ -75,11 +94,13 @@ export const APPLICATIONS_SORT_KEYS: ApplicationsSortKey[] = [
 ]
 
 export type ApplicationsSearch = {
+  /** Single, unlike the pills: the round and programme are the context this screen is
+   *  read in (the round selector and the programme tabs), not narrowings of it. */
   roundId?: string
   programmeId?: string
-  status?: ApplicationStatus
-  scoreBand?: ScoreBand
-  tag?: string
+  status?: ApplicationStatus[]
+  scoreBand?: ScoreBand[]
+  tag?: string[]
   q?: string
   /** Inclusive submission-date window (`yyyy-mm-dd`). */
   from?: string
@@ -93,9 +114,9 @@ export function parseApplicationsSearch(search: Record<string, unknown>): Applic
   return {
     roundId: text(search.roundId),
     programmeId: text(search.programmeId),
-    status: oneOf(ApplicationStatus.options, search.status),
-    scoreBand: oneOf(ScoreBand.options, search.scoreBand),
-    tag: text(search.tag),
+    status: oneOfList(ApplicationStatus.options, search.status),
+    scoreBand: oneOfList(ScoreBand.options, search.scoreBand),
+    tag: textList(search.tag),
     q: text(search.q),
     from: isoDay(search.from),
     to: isoDay(search.to),
@@ -140,17 +161,17 @@ export const AWARDS_SORT_KEYS: AwardsSortKey[] = [
 ]
 
 export type AwardsSearch = {
-  roundId?: string
-  programmeId?: string
-  tag?: string
-  status?: AwardStatus
+  roundId?: string[]
+  programmeId?: string[]
+  tag?: string[]
+  status?: AwardStatus[]
   /**
-   * Delivery region, or `NO_REGION`. Not validated against a list: the options are ONS
+   * Delivery regions, `NO_REGION` among them. Not validated against a list: the options are ONS
    * region names read off the data, so the parser has none to check against — and an
    * unrecognised one filters to an empty register, which is the honest answer to a
    * bookmarked link for a region this foundation no longer funds.
    */
-  region?: string
+  region?: string[]
   q?: string
   from?: string
   to?: string
@@ -161,11 +182,11 @@ export type AwardsSearch = {
 
 export function parseAwardsSearch(search: Record<string, unknown>): AwardsSearch {
   return {
-    roundId: text(search.roundId),
-    programmeId: text(search.programmeId),
-    tag: text(search.tag),
-    status: oneOf(AWARD_STATUSES, search.status),
-    region: text(search.region),
+    roundId: textList(search.roundId),
+    programmeId: textList(search.programmeId),
+    tag: textList(search.tag),
+    status: oneOfList(AWARD_STATUSES, search.status),
+    region: textList(search.region),
     q: text(search.q),
     from: isoDay(search.from),
     to: isoDay(search.to),
@@ -192,9 +213,9 @@ export const REPORTS_SORT_KEYS: ReportsSortKey[] = [
 
 export type ReportsSearch = {
   tab?: ReportsTab
-  programmeId?: string
-  roundId?: string
-  tag?: string
+  programmeId?: string[]
+  roundId?: string[]
+  tag?: string[]
   q?: string
   from?: string
   to?: string
@@ -209,9 +230,9 @@ export function parseReportsSearch(search: Record<string, unknown>): ReportsSear
     // with you, and the app lands on its first tab everywhere else. Which also means a
     // report opened from that tab carries no `tab` back, and lands on it again.
     tab: oneOf(['reviewed', 'awaiting'] as const, search.tab),
-    programmeId: text(search.programmeId),
-    roundId: text(search.roundId),
-    tag: text(search.tag),
+    programmeId: textList(search.programmeId),
+    roundId: textList(search.roundId),
+    tag: textList(search.tag),
     q: text(search.q),
     from: isoDay(search.from),
     to: isoDay(search.to),
@@ -244,9 +265,9 @@ export const PARTNERSHIPS_SORT_KEYS: PartnershipsSortKey[] = [
 
 export type PartnershipsSearch = {
   tab?: PartnershipsTab
-  programmeId?: string
-  source?: string
-  tag?: string
+  programmeId?: string[]
+  source?: string[]
+  tag?: string[]
   q?: string
   /** The archive, which is a destination rather than a tab — see the screen. */
   archived?: true
@@ -261,9 +282,9 @@ export function parsePartnershipsSearch(search: Record<string, unknown>): Partne
     // first tab does. It is also the only tab that is WORK, so landing anywhere else
     // would be answering a question nobody asked.
     tab: oneOf(['awaiting', 'closed'] as const, search.tab),
-    programmeId: text(search.programmeId),
-    source: text(search.source),
-    tag: text(search.tag),
+    programmeId: textList(search.programmeId),
+    source: textList(search.source),
+    tag: textList(search.tag),
     q: text(search.q),
     // Present-or-absent rather than true/false: `archived=false` in a URL is the same
     // state as no archive at all, and two spellings of one state is how a back arrow

@@ -9,6 +9,7 @@ import {
   roundProgrammes,
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
+import { anyOf, anyTag } from '../filterSql'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
 import { UNSCHEDULED_REPORT_LABEL } from '../../lib/reportLabel'
 
@@ -205,11 +206,11 @@ export type OutstandingRow = Awaited<ReturnType<typeof outstandingRows>>[number]
  */
 export function structuralWhere(
   q: { programmeId: any; roundId: any; tags: any },
-  f: { programmeId?: string; roundId?: string; tag?: string },
+  f: { programmeId?: readonly string[]; roundId?: readonly string[]; tag?: readonly string[] },
 ): SQL | undefined {
   return and(
-    f.programmeId ? eq(q.programmeId, f.programmeId) : undefined,
-    f.roundId ? eq(q.roundId, f.roundId) : undefined,
-    f.tag ? sql`${q.tags} @> ${JSON.stringify([f.tag])}::jsonb` : undefined,
+    anyOf(q.programmeId, f.programmeId),
+    anyOf(q.roundId, f.roundId),
+    anyTag(q.tags, f.tag),
   )
 }

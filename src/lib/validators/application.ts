@@ -151,13 +151,14 @@ export type ScoreBand = z.infer<typeof ScoreBand>
 export const ApplicationFiltersSchema = z.object({
   programmeId: z.uuid().optional(),
   roundId: z.uuid().optional(),
-  status: ApplicationStatus.optional(),
+  // The pills take several values each, OR'd within one (`lib/filterSelection`).
+  status: z.array(ApplicationStatus).min(1).max(20).optional(),
   // Free-text search over the organisation name.
   q: z.string().trim().min(1).max(255).optional(),
-  // AI ("Custodian") composite score band; only matches scored applications.
-  scoreBand: ScoreBand.optional(),
-  // Programme tag/theme — matches applications whose programme carries the tag.
-  tag: z.string().min(1).max(100).optional(),
+  // AI ("Custodian") composite score bands; only matches scored applications.
+  scoreBand: z.array(ScoreBand).min(1).max(10).optional(),
+  // Themes — matches applications carrying ANY of them (`applications.themes`).
+  tag: z.array(z.string().min(1).max(100)).min(1).max(200).optional(),
   // Inclusive submission-date window, as calendar days (`yyyy-mm-dd`).
   submittedFrom: z.iso.date().optional(),
   submittedTo: z.iso.date().optional(),

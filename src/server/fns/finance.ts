@@ -222,15 +222,22 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
       .object({
         /** Which tab is open. "To pay" is anything still owing; "paid" is settled + cancelled. */
         tab: z.enum(['to_pay', 'paid']).optional(),
-        roundId: z.uuid().optional(),
-        programmeId: z.uuid().optional(),
-        /** A programme theme (`programmes.tags`), as the Theme pill offers them. */
-        tag: z.string().min(1).max(100).optional(),
+        // Every pill takes several values, OR'd within one — see `lib/filterSelection`.
+        roundId: z.array(z.uuid()).min(1).max(500).optional(),
+        programmeId: z.array(z.uuid()).min(1).max(500).optional(),
+        /** Themes, as the Theme pill offers them: a row carrying any of them. */
+        tag: z.array(z.string().min(1).max(100)).min(1).max(500).optional(),
         status: z
-          .enum(['overdue', 'due_soon', 'scheduled', 'unscheduled', 'paid', 'cancelled'])
+          .array(z.enum(['overdue', 'due_soon', 'scheduled', 'unscheduled', 'paid', 'cancelled']))
+          .min(1)
+          .max(6)
           .optional(),
-        /** The stored modulus verdict, as the Valid column draws it. */
-        bank: z.enum(['valid', 'invalid', 'unchecked', 'missing']).optional(),
+        /** The stored modulus verdicts, as the Valid column draws them. */
+        bank: z
+          .array(z.enum(['valid', 'invalid', 'unchecked', 'missing']))
+          .min(1)
+          .max(4)
+          .optional(),
         /** Inclusive `yyyy-mm-dd` window against the tab's payment date — see `paymentDate`. */
         from: z
           .string()
@@ -294,11 +301,11 @@ export const listFinanceGrants = createServerFn({ method: 'GET' })
 /** Everything the list is filtered, sorted and paged by — the validator's shape. */
 export type FinanceListInput = {
   tab?: 'to_pay' | 'paid'
-  roundId?: string
-  programmeId?: string
-  tag?: string
-  status?: FinanceStatus
-  bank?: BankStatus
+  roundId?: string[]
+  programmeId?: string[]
+  tag?: string[]
+  status?: FinanceStatus[]
+  bank?: BankStatus[]
   from?: string
   to?: string
   q?: string

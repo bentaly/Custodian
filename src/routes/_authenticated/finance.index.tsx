@@ -32,6 +32,7 @@ import {
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { facetLabel } from '../../lib/facets'
+import { oneOfList, textList } from '../../lib/listSearch'
 import { messageFor } from '../../lib/errors'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 import { DUE_SOON_DAYS } from '../../lib/schedule'
@@ -56,11 +57,11 @@ type SortDir = 'asc' | 'desc'
 
 type FinanceSearch = {
   tab?: 'paid'
-  roundId?: string
-  programmeId?: string
-  tag?: string
-  status?: FinanceStatus
-  bank?: BankStatus
+  roundId?: string[]
+  programmeId?: string[]
+  tag?: string[]
+  status?: FinanceStatus[]
+  bank?: BankStatus[]
   from?: string
   to?: string
   q?: string
@@ -97,15 +98,12 @@ export const Route = createFileRoute('/_authenticated/finance/')({
   // every time you open a payment and come back.
   validateSearch: (search: Record<string, unknown>): FinanceSearch => ({
     tab: search.tab === 'paid' ? 'paid' : undefined,
-    roundId: typeof search.roundId === 'string' ? search.roundId : undefined,
-    programmeId: typeof search.programmeId === 'string' ? search.programmeId : undefined,
-    tag: typeof search.tag === 'string' && search.tag ? search.tag : undefined,
-    status: FINANCE_STATUSES.includes(search.status as FinanceStatus)
-      ? (search.status as FinanceStatus)
-      : undefined,
-    bank: BANK_STATUSES.includes(search.bank as BankStatus)
-      ? (search.bank as BankStatus)
-      : undefined,
+    // Every pill takes several values — see `lib/listSearch`'s `textList`.
+    roundId: textList(search.roundId),
+    programmeId: textList(search.programmeId),
+    tag: textList(search.tag),
+    status: oneOfList(FINANCE_STATUSES, search.status),
+    bank: oneOfList(BANK_STATUSES, search.bank),
     from: typeof search.from === 'string' && ISO_DAY.test(search.from) ? search.from : undefined,
     to: typeof search.to === 'string' && ISO_DAY.test(search.to) ? search.to : undefined,
     q: typeof search.q === 'string' && search.q ? search.q : undefined,
@@ -636,7 +634,7 @@ function FinancePage() {
             plural="statuses"
             value={status}
             options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={(v) => setFilter({ status: (v as FinanceStatus) || undefined })}
+            onChange={(v) => setFilter({ status: v as FinanceStatus[] | undefined })}
           />
           <FilterPill
             label="Round"
@@ -664,7 +662,7 @@ function FinancePage() {
             plural="bank checks"
             value={bank}
             options={facets.bank.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={(v) => setFilter({ bank: (v as BankStatus) || undefined })}
+            onChange={(v) => setFilter({ bank: v as BankStatus[] | undefined })}
           />
           {/* The window runs against the date the open tab is about: the next payment due
               on "To pay", the last one made on "Paid". */}

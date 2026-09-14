@@ -1,10 +1,12 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { C } from './tokens'
-import { Listbox } from './Listbox'
+import { MultiListbox } from './Listbox'
+import { Tooltip } from './Tooltip'
+import { toggleFilterValue } from '../../lib/filterSelection'
 
 // The filter pill every list/analysis screen shares (Figma 393:29540): a 32px
-// bordered chip showing either the label ("Programme") or the chosen value, which
+// bordered chip showing either the label ("Programme") or what is chosen, which
 // opens the app's own `Listbox` panel.
 //
 // It used to lay a transparent native <select> over the chip, which bought keyboard
@@ -19,6 +21,18 @@ import { Listbox } from './Listbox'
 // they should not change colour under you when you pick something. What changes is the
 // *surface* — a pill holding a value goes brand-tinted, because with several pills in a
 // row "which filters are on" has to be readable at a glance rather than pill by pill.
+//
+// ── Several values ───────────────────────────────────────────────────────────────────
+// Every pill is multi-select: the panel draws tick boxes and stays open while you tick.
+// What a selection MEANS — OR within a pill, AND across pills, and every option ticked
+// being stored as no filter — is `lib/filterSelection`, shared with the SQL and with the
+// screens that filter in the browser. "All programmes" stays as the panel's first row and
+// is ticked whenever nothing else is, which is how "all" and "none" read as one state.
+//
+// The chip names the first value picked and counts the rest ("Youth work +2"), in the
+// order they were ticked, so ticking a second value extends the label rather than
+// rewriting it. Hovering or focusing a pill holding two or more lists them, up to
+// `LISTED`, because "+2" alone is a promise you have to open the panel to cash.
 //
 // ── The filter row, wherever a list screen wears one ─────────────────────────────────
 // Every row follows the same rules, so that "how do I narrow this" is learned once
@@ -55,6 +69,9 @@ import { Listbox } from './Listbox'
 // anyway, because "this filter is pointless right now" is a smaller confusion than
 // "this screen doesn't have that filter".
 
+/** How many chosen values the hover list names before counting the rest. */
+const LISTED = 10
+
 export function FilterPill({
   label,
   plural,
@@ -71,9 +88,11 @@ export function FilterPill({
    * `${label.toLowerCase()}s` gives "All statuss" and "All AI scores" is not "All scores".
    */
   plural: string
-  value: string | undefined
+  /** The values ticked, in the order they were ticked. `undefined` is the filter off. */
+  value: readonly string[] | undefined
   options: Array<{ value: string; label: string }>
-  onChange: (v: string | undefined) => void
+  /** Never called with an empty list: no selection is `undefined`. */
+  onChange: (v: string[] | undefined) => void
 }) {
   const empty = options.length === 0
   // Greyed to the same faint the app uses for "nothing here" everywhere else, so an
@@ -81,40 +100,74 @@ export function FilterPill({
   const ink = empty ? C.faint : C.ink
   const all = [{ value: '', label: `All ${plural}` }, ...options]
 
+  // A value no longer among the faceted options is not drawn, as it was not when this was
+  // a <select> that could not show it either — and the next tick drops it, because a
+  // selection the pill cannot show is not one it should carry forward.
+  const chosen = (value ?? []).flatMap((v) => options.filter((o) => o.value === v))
+  const optionValues = options.map((o) => o.value)
+
   return (
-    <Listbox
+    <MultiListbox
       className="shrink-0"
       options={all}
-      value={value ?? ''}
-      // The clear row carries `''`; the filter's "off" is `undefined`.
-      onChange={(v) => onChange(v || undefined)}
+      // The clear row is ticked exactly when nothing else is.
+      values={chosen.length > 0 ? chosen.map((o) => o.value) : ['']}
+      onToggle={(v) =>
+        onChange(
+          v === ''
+            ? undefined
+            : toggleFilterValue(
+                chosen.map((o) => o.value),
+                v,
+                optionValues,
+              ),
+        )
+      }
       ariaLabel={label}
       // Disabled rather than absent when there is nothing to pick: the chip keeps its
       // place in the row, but tab order skips a menu of one line.
       disabled={empty}
-      renderTrigger={({ open, selected, props }) => {
-        // A value that is no longer in the faceted options reads as unselected, as it
-        // did when this was a <select> that could not show it either.
-        const chosen = selected?.value ? selected : undefined
-        return (
-          <button
-            {...props}
-            className="flex h-8 cursor-pointer items-center gap-1 rounded-chip border py-2 pl-2 pr-1.5 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden disabled:cursor-default"
-            style={{
-              borderColor: chosen || open ? C.brand : C.line,
-              backgroundColor: chosen ? C.brandBg : C.white,
-            }}
-          >
-            <span
-              className="whitespace-nowrap font-display text-body font-medium"
-              style={{ color: ink }}
+      renderTrigger={({ open, props }) => (
+        <Tooltip
+          control
+          label={label}
+          // Not over its own panel, and not when the chip already says everything.
+          disabled={open || chosen.length < 2}
+          trigger={
+            <button
+              {...props}
+              className="flex h-8 cursor-pointer items-center gap-1 rounded-chip border py-2 pl-2 pr-1.5 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden disabled:cursor-default"
+              style={{
+                borderColor: chosen.length > 0 || open ? C.brand : C.line,
+                backgroundColor: chosen.length > 0 ? C.brandBg : C.white,
+              }}
             >
-              {empty ? `No ${plural}` : (chosen?.label ?? label)}
-            </span>
-            <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={ink} />
-          </button>
-        )
-      }}
+              <span
+                className="whitespace-nowrap font-display text-body font-medium"
+                style={{ color: ink }}
+              >
+                {empty
+                  ? `No ${plural}`
+                  : chosen.length === 0
+                    ? label
+                    : chosen.length === 1
+                      ? chosen[0]!.label
+                      : `${chosen[0]!.label} +${chosen.length - 1}`}
+              </span>
+              <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={ink} />
+            </button>
+          }
+        >
+          <span className="flex flex-col">
+            {chosen.slice(0, LISTED).map((o) => (
+              <span key={o.value}>{o.label}</span>
+            ))}
+            {chosen.length > LISTED && (
+              <span className="text-grey-500">+ {chosen.length - LISTED} more</span>
+            )}
+          </span>
+        </Tooltip>
+      )}
     />
   )
 }

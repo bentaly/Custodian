@@ -416,7 +416,7 @@ function ReportsPage() {
     navigate({ search: (prev) => ({ ...prev, ...patch, page: undefined }) })
   }
 
-  function setProgramme(next: string | undefined) {
+  function setProgramme(next: string[] | undefined) {
     setFilter({ programmeId: next })
   }
 

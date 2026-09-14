@@ -10,9 +10,9 @@ describe('list search parsers', () => {
     const position = {
       roundId: 'r1',
       programmeId: 'p1',
-      status: 'shortlisted',
-      scoreBand: 'fair',
-      tag: 'youth',
+      status: ['shortlisted', 'for_review'],
+      scoreBand: ['fair'],
+      tag: ['youth', 'arts'],
       q: 'trust',
       from: '2026-01-01',
       to: '2026-03-31',
@@ -62,6 +62,28 @@ describe('list search parsers', () => {
     expect('whatIsThis' in got).toBe(false)
   })
 
+  it('read a lone filter value as a list of one', () => {
+    // Every link from before the pills went multi-select, and every one typed by hand.
+    const got = parseAwardsSearch({ status: 'active', region: 'North West', tag: 'youth' })
+    expect(got.status).toEqual(['active'])
+    expect(got.region).toEqual(['North West'])
+    expect(got.tag).toEqual(['youth'])
+  })
+
+  it('give a filter list one spelling: no duplicates, no empties, and empty is absent', () => {
+    expect(parseAwardsSearch({ tag: ['youth', '', 'youth', 'arts'] }).tag).toEqual([
+      'youth',
+      'arts',
+    ])
+    expect(parseAwardsSearch({ tag: [] }).tag).toBeUndefined()
+    expect(parseAwardsSearch({ tag: [''] }).tag).toBeUndefined()
+  })
+
+  it('drop a value it does not recognise from a list, keeping the rest', () => {
+    expect(parseAwardsSearch({ status: ['active', 'shortlisted'] }).status).toEqual(['active'])
+    expect(parseApplicationsSearch({ scoreBand: ['perfect'] }).scoreBand).toBeUndefined()
+  })
+
   it('treat page 1 as absent, so it round-trips to nothing', () => {
     expect(parseAwardsSearch({ page: 1 }).page).toBeUndefined()
     expect(parseAwardsSearch({ page: 2 }).page).toBe(2)
@@ -71,7 +93,7 @@ describe('list search parsers', () => {
     // An award is never `shortlisted`, and a report has no `status` at all — carrying a
     // foreign key across would filter the destination list to nothing.
     expect(parseAwardsSearch({ status: 'shortlisted' }).status).toBeUndefined()
-    expect(parseAwardsSearch({ status: 'cancelled' }).status).toBe('cancelled')
+    expect(parseAwardsSearch({ status: 'cancelled' }).status).toEqual(['cancelled'])
     expect('status' in parseReportsSearch({ status: 'active' })).toBe(false)
   })
 

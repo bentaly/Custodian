@@ -63,6 +63,7 @@ export function Tooltip({
   className,
   triggerClassName,
   control = false,
+  disabled = false,
 }: {
   /**
    * Accessible name for the trigger, e.g. "About max per award". Ignored when
@@ -97,8 +98,16 @@ export function Tooltip({
    * describes it. The element must forward `aria-describedby` to its DOM node.
    */
   control?: boolean
+  /**
+   * Never opens while true: a trigger whose own popover is open, or with nothing to add
+   * right now (a filter pill whose label already names its one value). A switch rather
+   * than leaving the Tooltip out, because unwrapping the trigger REMOUNTS it, and a
+   * control remounted under the keyboard loses its focus.
+   */
+  disabled?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [wanted, setOpen] = useState(false)
+  const open = wanted && !disabled
   const [pos, setPos] = useState<Position | null>(null)
   // Either shape of trigger; only `getBoundingClientRect` is ever called on it.
   const triggerEl = useRef<HTMLElement>(null)

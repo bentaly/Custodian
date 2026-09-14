@@ -847,6 +847,14 @@ Structural decisions worth knowing before adding a screen:
   a single sentence ("Ask £172k · £520k left in round"), both go portfolio-wide — half a sentence
   answering a different question is the bug this rule keeps catching.
 
+- **Every filter pill is multi-select.** OR within a pill, AND across pills; themes match on ANY
+  (never all). **Ticking every option is STORED as no filter** (`undefined`, never `[]`) because
+  facets move: all three programmes in one round is three of five in the next. One-option pills
+  are exempt, or the tick would vanish. The rule is `lib/filterSelection`, the SQL is
+  `server/filterSql` (`NO_REGION` is a sentinel for NULL there, not a string), and the URL
+  parsers (`textList` in `lib/listSearch`) still accept a lone string, because old links say
+  `?tag=Youth`. The round and programme on Applications are context, not pills, and stay single.
+
 - **Finance is two routes wearing one header** (`components/finance/FinanceHeader`) — Payments /
   Balance & budget. Same reasoning as Shortlist below: those header tabs are NAVIGATION, while the
   To pay / Paid pair inside the grants card is a FILTER over one list, and the two must not be
