@@ -1,6 +1,6 @@
 import { forbidden, unauthorized } from '../lib/errors'
 import { getRequest } from '@tanstack/react-start/server'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { callAuth, type AuthInstance } from './auth'
 import { databaseTimeout, getDb } from './db'
 import { clients, users } from '../../drizzle/schema'
@@ -125,7 +125,11 @@ export async function getAuthUser() {
         })
         .from(users)
         .leftJoin(clients, eq(users.clientId, clients.id))
-        .where(eq(users.id, session.user.id)),
+        // An archived member is signed out on their very next request, whatever the
+        // session cookie says. Removal deletes their sessions too, but BetterAuth serves
+        // a session from its signed cookie cache for up to 90s (see `auth.ts`), and this
+        // query is the one part of the check that is never cached.
+        .where(and(eq(users.id, session.user.id), isNull(users.archivedAt))),
     )
     return rows[0] ?? null
   } catch (err) {

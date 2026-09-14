@@ -27,6 +27,7 @@ import {
   type AwardTerms,
 } from '../../lib/validators/awardSetup'
 import { deliveryAreaLabel } from '../../lib/deprivation/types'
+import { currentTrusteeOf, currentTrusteeOfAny } from '../members'
 
 // ─── The award-setup queue ──────────────────────────────────────────────────────
 
@@ -93,17 +94,25 @@ export async function awardCandidatesData(
     const appIds = items.map((a) => a.id)
     const clientIds = [...new Set(items.map((a) => a.roundProgramme.programme.clientId))]
     const [yesRows, trusteeRows] = await Promise.all([
+      // Only CURRENT trustees' votes count, on both sides of the majority: a vote left by
+      // somebody since removed, or moved off the board, stays on record but must not
+      // tip a decision still to be made. Same rule as `listShortlist` and `createAwards`.
       db
         .select({ applicationId: applicationVotes.applicationId, yes: count() })
         .from(applicationVotes)
+        .innerJoin(users, eq(users.id, applicationVotes.userId))
         .where(
-          and(inArray(applicationVotes.applicationId, appIds), eq(applicationVotes.vote, 'yes')),
+          and(
+            inArray(applicationVotes.applicationId, appIds),
+            eq(applicationVotes.vote, 'yes'),
+            currentTrusteeOfAny(clientIds),
+          ),
         )
         .groupBy(applicationVotes.applicationId),
       db
         .select({ clientId: users.clientId, trustees: count() })
         .from(users)
-        .where(and(eq(users.role, 'trustee'), inArray(users.clientId, clientIds)))
+        .where(currentTrusteeOfAny(clientIds))
         .groupBy(users.clientId),
     ])
     const yesByApp = new Map(yesRows.map((r) => [r.applicationId, r.yes]))
@@ -328,17 +337,19 @@ export const createAwards = createServerFn({ method: 'POST' })
     assertClientAccess(user, clientId)
 
     const [trusteeRows, yesRows] = await Promise.all([
-      db
-        .select({ count: count() })
-        .from(users)
-        .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId))),
+      db.select({ count: count() }).from(users).where(currentTrusteeOf(clientId)),
+      // Current trustees only, as in `listAwardCandidates` above: this is the boundary,
+      // and it used to count every yes-vote on the application, including one left by
+      // somebody no longer on the board.
       db
         .select({ applicationId: applicationVotes.applicationId, yes: count() })
         .from(applicationVotes)
+        .innerJoin(users, eq(users.id, applicationVotes.userId))
         .where(
           and(
             inArray(applicationVotes.applicationId, applicationIds),
             eq(applicationVotes.vote, 'yes'),
+            currentTrusteeOf(clientId),
           ),
         )
         .groupBy(applicationVotes.applicationId),

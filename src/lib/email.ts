@@ -131,6 +131,137 @@ export async function sendPasswordResetCodeEmail({ to, otp }: { to: string; otp:
   })
 }
 
+/** The code that confirms removing your own account. See `src/lib/removalCode.ts`. */
+export async function sendAccountRemovalCodeEmail({ to, otp }: { to: string; otp: string }) {
+  await send('account removal code email', {
+    from: fromAddress(),
+    to,
+    subject: `${otp} is your code to remove your Custodian account`,
+    text: [
+      `Your code to remove your Custodian account is ${otp}`,
+      ``,
+      `Enter it on your Profile to confirm. It expires in 5 minutes.`,
+      ``,
+      `If you didn't ask to remove your account, don't enter this code, and consider`,
+      `changing your password. Nothing happens without it.`,
+    ].join('\n'),
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="font-size: 20px; font-weight: 600; color: #141C24; margin: 0 0 12px;">
+          Confirm removing your account
+        </h2>
+        <p style="color: #637083; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">
+          Enter this code on your Profile to confirm. It expires in 5 minutes.
+        </p>
+        <p style="font-size: 32px; font-weight: 600; letter-spacing: 6px; color: #141C24;
+                  margin: 0 0 24px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">
+          ${otp}
+        </p>
+        <p style="color: #97A1AF; font-size: 13px; margin: 0;">
+          If you didn't ask to remove your account, don't enter this code, and consider
+          changing your password. Nothing happens without it.
+        </p>
+      </div>
+    `,
+  })
+}
+
+/**
+ * Tell somebody they no longer have access. Sent to the address they HAD, before it is
+ * tombstoned. Whoever removed them is not named: the foundation can say that itself,
+ * and an email naming a colleague is a worse thing to receive than one that doesn't.
+ */
+export async function sendMemberRemovedEmail({
+  to,
+  clientName,
+  removedBySelf,
+}: {
+  to: string
+  clientName: string | null
+  removedBySelf: boolean
+}) {
+  const org = clientName ?? 'your foundation'
+  const subject = removedBySelf
+    ? 'Your Custodian account has been removed'
+    : `You've been removed from ${org} on Custodian`
+  const lead = removedBySelf
+    ? `Your Custodian account for ${org} has been removed, as you asked.`
+    : `Your access to ${org} on Custodian has been removed by one of its admins.`
+
+  await send('member removed email', {
+    from: fromAddress(),
+    to,
+    subject,
+    text: [
+      lead,
+      ``,
+      `You have been signed out and can no longer sign in. Anything you contributed, such`,
+      `as votes and comments, stays with ${org} as part of its records.`,
+      ``,
+      removedBySelf
+        ? `If you didn't do this, contact ${org} straight away.`
+        : `If you think this is a mistake, contact ${org}.`,
+    ].join('\n'),
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="font-size: 20px; font-weight: 600; color: #141C24; margin: 0 0 12px;">
+          ${removedBySelf ? 'Your account has been removed' : 'Your access has been removed'}
+        </h2>
+        <p style="color: #637083; font-size: 15px; line-height: 1.5; margin: 0 0 8px;">
+          ${lead}
+        </p>
+        <p style="color: #637083; font-size: 15px; line-height: 1.5; margin: 0 0 24px;">
+          You have been signed out and can no longer sign in. Anything you contributed, such as
+          votes and comments, stays with ${org} as part of its records.
+        </p>
+        <p style="color: #97A1AF; font-size: 13px; margin: 0;">
+          ${
+            removedBySelf
+              ? `If you didn't do this, contact ${org} straight away.`
+              : `If you think this is a mistake, contact ${org}.`
+          }
+        </p>
+      </div>
+    `,
+  })
+}
+
+/**
+ * Sent whenever a password is set or changed, from the Profile or through a reset code.
+ * The one email here nobody asked for, and the most useful: it is how somebody finds out
+ * that it wasn't them.
+ */
+export async function sendPasswordChangedEmail({ to }: { to: string }) {
+  await send('password changed email', {
+    from: fromAddress(),
+    to,
+    subject: 'Your Custodian password was changed',
+    text: [
+      `The password for your Custodian account was just set or changed.`,
+      ``,
+      `If this was you, there's nothing more to do.`,
+      ``,
+      `If it wasn't, reset your password straight away from the sign-in page using`,
+      `"Forgot password", and tell your foundation's admin.`,
+    ].join('\n'),
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="font-size: 20px; font-weight: 600; color: #141C24; margin: 0 0 12px;">
+          Your password was changed
+        </h2>
+        <p style="color: #637083; font-size: 15px; line-height: 1.5; margin: 0 0 8px;">
+          The password for your Custodian account was just set or changed. If this was you,
+          there's nothing more to do.
+        </p>
+        <p style="color: #637083; font-size: 15px; line-height: 1.5; margin: 0;">
+          If it wasn't, reset your password straight away from the sign-in page using
+          "Forgot password", and tell your foundation's admin.
+        </p>
+      </div>
+    `,
+  })
+}
+
 /**
  * Email an award letter to a grantee.
  *

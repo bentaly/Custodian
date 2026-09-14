@@ -21,6 +21,7 @@ import { bucketSeries } from '../../lib/timeSeries'
 import { checkBankAccount } from '../../lib/bankVerification'
 import { pickFocusRound } from '../../lib/roundStatus'
 import { isArrivedReport } from '../reports/query'
+import { currentTrusteeOf } from '../members'
 
 // ISO yyyy-mm-dd in UTC for a given Date — grant payment/report due dates are stored
 // as plain date strings, so we compare against the same representation.
@@ -209,11 +210,13 @@ export async function dashboardData(
         organisationName: applications.organisationName,
         amountRequested: applications.amountRequested,
         score: applications.custodianScore,
-        yesVotes: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.vote} = 'yes')`,
+        // Current trustees only, the rule `currentTrusteeOf` states for every majority.
+        yesVotes: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.vote} = 'yes' AND ${users.role} = 'trustee' AND ${users.archivedAt} IS NULL)`,
         myVote: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.userId} = ${user.id})`,
       })
       .from(applications)
       .leftJoin(applicationVotes, eq(applicationVotes.applicationId, applications.id))
+      .leftJoin(users, eq(users.id, applicationVotes.userId))
       .where(and(inScope, eq(applications.status, 'shortlisted')))
       .groupBy(applications.id),
 
@@ -354,10 +357,7 @@ export async function dashboardData(
 
     // Count of trustees for the client (denominator for the vote majority).
     clientId
-      ? db
-          .select({ count: count() })
-          .from(users)
-          .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId)))
+      ? db.select({ count: count() }).from(users).where(currentTrusteeOf(clientId))
       : Promise.resolve([{ count: 0 }]),
 
     // Giving buckets (on awards.decisionAt): all-time / YTD / this year to last year /

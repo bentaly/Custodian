@@ -14,7 +14,11 @@ export const listClients = createServerFn({ method: 'GET' }).handler(async () =>
   await requireRole('superadmin')
   return getDb().query.clients.findMany({
     with: {
-      users: { columns: { id: true, name: true, email: true, role: true } },
+      users: {
+        columns: { id: true, name: true, email: true, role: true },
+        // A removed member has no sessions to enter and nothing to act as.
+        where: (u, { isNull }) => isNull(u.archivedAt),
+      },
     },
     orderBy: (c, { asc }) => [asc(c.name)],
   })
@@ -40,9 +44,12 @@ export const startImpersonation = createServerFn({ method: 'POST' })
 
     const target = await getDb().query.users.findFirst({
       where: (u, { eq }) => eq(u.id, data.userId),
-      columns: { id: true, name: true, email: true, role: true, clientId: true },
+      columns: { id: true, name: true, email: true, role: true, clientId: true, archivedAt: true },
     })
     if (!target) throw notFoundError()
+    if (target.archivedAt) {
+      throw forbidden('That member has been removed from their foundation.')
+    }
     if (!target.clientId) {
       throw forbidden('That account is not attached to a foundation.')
     }

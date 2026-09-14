@@ -9,7 +9,7 @@
 // has a receipt for the week is skipped. See the table's comment for why the receipt is
 // written AFTER the send rather than claimed before it.
 
-import { and, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { getDb } from '../db'
 import { clients, financeDigestSends, users } from '../../../drizzle/schema'
 import { sendFinanceDigestEmail } from '../../lib/email'
@@ -82,6 +82,8 @@ export async function runFinanceDigest(
       and(
         isNotNull(users.clientId),
         eq(users.banned, false),
+        // A removed member's address is already tombstoned; this says so out loud.
+        isNull(users.archivedAt),
         opts.onlyClientId ? eq(users.clientId, opts.onlyClientId) : undefined,
       ),
     )

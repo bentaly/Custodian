@@ -255,6 +255,13 @@ export const users = pgTable(
     // every authenticated call — the reason `user_avatars` is a separate table is image
     // bytes, which does not generalise to a flag.
     weeklyFinanceDigest: boolean('weekly_finance_digest'),
+    // Set when the member was removed from their foundation, by an admin on Settings →
+    // Team or by themselves on Profile. An ARCHIVE, never a delete: their votes and
+    // comments cascade on a deleted user, and they are the foundation's decision record.
+    // An archived row keeps its name, role and client, loses its sessions, logins, photo
+    // and email (tombstoned, so the person can be invited again), and is left out of
+    // every roster and vote count. See `src/lib/team.ts`.
+    archivedAt: timestamp('archived_at'),
     updatedAt: timestamp('updated_at')
       .notNull()
       .$defaultFn(() => new Date()),
@@ -1556,6 +1563,9 @@ export const auditActionEnum = pgEnum('audit_action', [
   'bank_balance_recorded',
   'impersonation_started',
   'decline_letters_sent',
+  'member_role_changed',
+  'member_removed',
+  'invitation_revoked',
 ])
 
 export const auditLog = pgTable(

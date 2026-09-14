@@ -7,6 +7,8 @@
 // writes rows, and the dashboard route decides what to render — and a route must not
 // import a module that pulls `getDb` into the browser bundle.
 
+import { ROLE_LABELS } from './roles'
+
 /**
  * Every human action the platform records.
  *
@@ -89,9 +91,21 @@ export type AuditAction =
   // and the revocation that stops it.
   | 'api_key_created'
   | 'api_key_revoked'
-  // Somebody was granted access to the tenant at a role. Roles are set at invitation
-  // and never edited afterwards, so this IS the access-control event.
+  // Somebody was granted access to the tenant at a role (or the invitation was sent
+  // again, `resent: true`, with a new link). The role can be changed later, which is
+  // `member_role_changed`; this row records it as it stood at the door.
   | 'invitation_sent'
+  // A pending invitation was withdrawn before anyone accepted it. The invitation row is
+  // deleted, so this is the only trace that it ever existed.
+  | 'invitation_revoked'
+  // A member's role was changed. The access-control event after the invitation: moving
+  // somebody to admin hands them the whole foundation, and moving a trustee off the
+  // board takes their vote out of every decision still open.
+  | 'member_role_changed'
+  // A member was removed from the foundation, by an admin or by themselves (`self`).
+  // Removal archives the user rather than deleting it (see `src/lib/team.ts`), and the
+  // row's name survives, so their earlier entries in this log still read as theirs.
+  | 'member_removed'
   // A platform superadmin began acting as one of this foundation's members.
   //
   // The only row in the table whose actor is not one of the foundation's own people,
@@ -189,6 +203,9 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   api_key_created: 'access',
   api_key_revoked: 'access',
   invitation_sent: 'access',
+  invitation_revoked: 'access',
+  member_role_changed: 'access',
+  member_removed: 'access',
   impersonation_started: 'access',
   decline_letters_sent: 'decisions',
 }
@@ -230,6 +247,9 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   api_key_created: 'created an API key',
   api_key_revoked: 'revoked an API key',
   invitation_sent: 'invited',
+  invitation_revoked: 'cancelled the invitation for',
+  member_role_changed: 'changed the role of',
+  member_removed: 'removed',
   impersonation_started: 'signed in as',
   decline_letters_sent: 'sent decline letters for',
 }
@@ -257,6 +277,9 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   api_key_created: 'API key created',
   api_key_revoked: 'API key revoked',
   invitation_sent: 'Invitation sent',
+  invitation_revoked: 'Invitation cancelled',
+  member_role_changed: 'Role changed',
+  member_removed: 'Member removed',
   impersonation_started: 'Platform sign-in as member',
   decline_letters_sent: 'Decline letters sent',
 }
@@ -286,7 +309,13 @@ function change(from: string | null, to: string | null): string | null {
 export function auditSubject(action: AuditAction, metadata: Meta): string | null {
   switch (action) {
     case 'invitation_sent':
+    case 'invitation_revoked':
       return str(metadata, 'email')
+    // The member by name, as they were known: a removed member's row has its email
+    // tombstoned, so the address is kept here only as a fallback.
+    case 'member_role_changed':
+    case 'member_removed':
+      return str(metadata, 'name') ?? str(metadata, 'email')
     // Who was worn, not who did the wearing — the actor column already carries the
     // superadmin, and the question this row answers is whose account was entered.
     case 'impersonation_started':
@@ -454,8 +483,27 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
     }
 
     case 'invitation_sent':
+      parts.push(str(metadata, 'role'), metadata?.['resent'] === true ? 'resent' : null)
+      break
+
+    case 'invitation_revoked':
       parts.push(str(metadata, 'role'))
       break
+
+    case 'member_role_changed': {
+      const label = (role: string | null) => (role ? (ROLE_LABELS[role] ?? role) : null)
+      parts.push(change(label(str(metadata, 'from')), label(str(metadata, 'to'))))
+      break
+    }
+
+    case 'member_removed': {
+      const role = str(metadata, 'role')
+      parts.push(
+        role ? (ROLE_LABELS[role] ?? role) : null,
+        metadata?.['self'] === true ? 'removed their own account' : null,
+      )
+      break
+    }
 
     default:
       break

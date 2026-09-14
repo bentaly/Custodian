@@ -13,6 +13,7 @@ import { intersectScope, visibleRoundProgrammeIds } from '../scope'
 import { roundProgrammeSpend, roundProgrammeYear } from '../applications/roundSpend'
 import { DEFAULT_FY_END_MONTH, type FinancialYear } from '../../lib/financialYear'
 import { isSuggestedFirstYear, resolveFirstYearAmount } from '../../lib/multiYear'
+import { currentTrusteeOf } from '../members'
 
 /**
  * Everything the Shortlist screen renders, in one call: the applications awaiting a
@@ -130,7 +131,7 @@ export async function shortlistData(
         // the roster is a list of faces on the design, and initials are the fallback.
         .select({ id: users.id, name: users.name, image: users.image })
         .from(users)
-        .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId)))
+        .where(currentTrusteeOf(clientId))
         .orderBy(users.name),
       db.query.clientProfiles.findFirst({ where: (p, { eq }) => eq(p.clientId, clientId) }),
       // Just the count. The discussion itself is fetched when a card's comment button

@@ -167,6 +167,11 @@ Traps:
   `src/lib/roles.ts`): bank columns are withheld from `getApplication`, and `/finance` has a route
   guard. Three places must agree (nav, route guard, server fn); only the last is a boundary — the
   other two exist so nobody is shown a door that redirects them away.
+  **Removing a member ARCHIVES the row (`archived_at`), never deletes it** — votes and comments
+  cascade on a deleted user and are the decision record. Every roster and majority count goes
+  through `currentTrusteeOf` (`src/server/members.ts`), numerator AND denominator: a removed or
+  re-roled trustee's vote stays on record but stops counting on anything undecided. See
+  `src/lib/team.ts`; the last admin can be neither removed nor demoted (checked again in SQL).
 - **user_avatars** — profile photos, kept off the `users` row (which `getAuthUser` selects on every
   authenticated call); `users.image` holds the `/api/avatar/$userId?v=<hash>` URL
 - **client_profiles** — per-tenant settings (mission statement, admin-voting toggle)
@@ -773,6 +778,14 @@ that is the boundary.
   `/request-password-reset` returns `RESET_PASSWORD_DISABLED`.
 - Google Console authorized redirect URI: `https://custodian.fund/api/auth/callback/google`
   (workers.dev, staging and localhost are registered alongside).
+- **Account housekeeping** (`src/server/fns/team.ts`): admins change roles and remove members on
+  Settings → Team; anyone changes/sets a password, signs out other devices and removes their own
+  account on Profile. **Self-removal needs an emailed code that is our own `verifications` row**
+  (`account-removal:<userId>`, `src/lib/removalCode.ts`), NOT an emailOTP type: the plugin's send
+  endpoint is public, so reusing it would let anyone trigger removal emails to any member.
+  `getAuthUser` refuses archived rows, which closes the 90s cookie-cache window on removal.
+- **A password set or changed always emails the holder** — an `after` hook in `auth.ts` on
+  `/change-password` and `/email-otp/reset-password`, so no route to a new password skips it.
 
 ## Invite-only onboarding
 

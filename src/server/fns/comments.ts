@@ -15,6 +15,7 @@ import {
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
 import { assertApplicationAccess, assertClientAccess } from '../scope'
+import { currentTrusteeOf } from '../members'
 
 export const listComments = createServerFn({ method: 'GET' })
   .validator(z.object({ applicationId: z.uuid() }))
@@ -122,7 +123,7 @@ export const listVotes = createServerFn({ method: 'GET' })
       getDb()
         .select({ id: users.id, name: users.name })
         .from(users)
-        .where(and(eq(users.role, 'trustee'), eq(users.clientId, clientId))),
+        .where(currentTrusteeOf(clientId)),
       getDb().query.applicationVotes.findMany({
         where: (v, { eq }) => eq(v.applicationId, data.applicationId),
       }),
@@ -180,8 +181,13 @@ export const castVote = createServerFn({ method: 'POST' })
 
       // The target must be a trustee of the same client.
       const target = await getDb().query.users.findFirst({
-        where: (u, { eq, and: andOp }) =>
-          andOp(eq(u.id, data.onBehalfOf!), eq(u.clientId, clientId), eq(u.role, 'trustee')),
+        where: (u, { eq, and: andOp, isNull }) =>
+          andOp(
+            eq(u.id, data.onBehalfOf!),
+            eq(u.clientId, clientId),
+            eq(u.role, 'trustee'),
+            isNull(u.archivedAt),
+          ),
       })
       if (!target) throw badRequest('Not a trustee of this organisation')
       targetUserId = target.id

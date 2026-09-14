@@ -5,7 +5,12 @@ import { createAccessControl } from 'better-auth/plugins/access'
 import { defaultStatements } from 'better-auth/plugins/admin/access'
 import { getDb } from './db'
 import { withDeadline } from './deadline'
-import { sendSignInCodeEmail, sendPasswordResetCodeEmail } from '../lib/email'
+import { createAuthMiddleware, isAPIError } from 'better-auth/api'
+import {
+  sendSignInCodeEmail,
+  sendPasswordChangedEmail,
+  sendPasswordResetCodeEmail,
+} from '../lib/email'
 import { users, sessions, accounts, verifications } from '../../drizzle/schema'
 
 // The admin plugin validates `adminRoles` against its access-control `roles` map
@@ -184,10 +189,10 @@ function createAuth() {
     // view of session validity — an explicitly revoked session, or a ban through the
     // admin plugin.
     //
-    // Note there is currently no in-app way to remove a member or change a role, so
-    // the obvious "sack someone and they keep access" case is not reachable today. If
-    // one is added, revoke the session there rather than relying on this expiring, and
-    // revisit this number.
+    // Removing a member (`archiveMember`) deletes their sessions AND `getAuthUser`
+    // refuses an archived row, so a removed member is out on their next request rather
+    // than when this window expires. A role change needs neither: the role is read off
+    // the uncached row.
     //
     // `refreshCache` is deliberately not set: it is meant for stateless setups and
     // better-auth logs a warning and disables it when a database is configured.
@@ -201,6 +206,32 @@ function createAuth() {
       accountLinking: {
         requireLocalEmailVerified: false,
       },
+    },
+    // Email the account holder whenever their password is set or changed: from the
+    // Profile (`/change-password`) or through a reset code, which is also how a
+    // Google-only user sets their first one (`/email-otp/reset-password`). An after-hook
+    // rather than a call from the screen, so no route to a new password can skip it.
+    //
+    // The reset path looks the address up first: that endpoint takes an email from an
+    // unauthenticated caller, and we must not send "your password was changed" to an
+    // address that has no account.
+    hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== '/change-password' && ctx.path !== '/email-otp/reset-password') return
+        if (isAPIError(ctx.context.returned)) return
+
+        let to: string | undefined
+        if (ctx.path === '/change-password') {
+          to = ctx.context.session?.user.email
+        } else {
+          const email = (ctx.body as { email?: unknown } | undefined)?.email
+          if (typeof email === 'string') {
+            const found = await ctx.context.internalAdapter.findUserByEmail(email.toLowerCase())
+            to = found?.user.email
+          }
+        }
+        if (to) await sendPasswordChangedEmail({ to })
+      }),
     },
     emailAndPassword: {
       enabled: true,

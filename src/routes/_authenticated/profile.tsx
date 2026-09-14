@@ -4,6 +4,10 @@ import { authClient } from '../../lib/auth-client'
 import { invalidateCurrentUser } from '../../lib/currentUser'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
 import { getMyEmailPreferences, setWeeklyFinanceDigest } from '../../server/fns/users'
+import { getAccountSecurity } from '../../server/fns/team'
+import { PasswordPanel } from '../../components/profile/PasswordPanel'
+import { SessionsPanel } from '../../components/profile/SessionsPanel'
+import { RemoveAccountPanel } from '../../components/profile/RemoveAccountPanel'
 import {
   AvatarError,
   cropAvatar,
@@ -27,7 +31,13 @@ import { C } from '../../components/ui/tokens'
 import { longerTimeout } from '../../lib/requestTimeout'
 
 export const Route = createFileRoute('/_authenticated/profile')({
-  loader: async () => ({ emailPrefs: await getMyEmailPreferences() }),
+  loader: async () => {
+    const [emailPrefs, security] = await Promise.all([
+      getMyEmailPreferences(),
+      getAccountSecurity(),
+    ])
+    return { emailPrefs, security }
+  },
   component: Profile,
 })
 
@@ -60,7 +70,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 function Profile() {
   const { user } = Route.useRouteContext()
-  const { emailPrefs } = Route.useLoaderData()
+  const { emailPrefs, security } = Route.useLoaderData()
   const router = useRouter()
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
@@ -280,6 +290,14 @@ function Profile() {
         </form>
       </Panel>
 
+      <PasswordPanel
+        email={user.email}
+        hasPassword={security.hasPassword}
+        onChanged={() => router.invalidate()}
+      />
+
+      <SessionsPanel sessions={security.sessions} onChanged={() => router.invalidate()} />
+
       {emailPrefs.available && (
         <Panel label="Email">
           <PanelTitle>Email</PanelTitle>
@@ -307,6 +325,14 @@ function Profile() {
           </div>
           <ErrorNote error={digestError} className="mt-3" />
         </Panel>
+      )}
+
+      {security.removal.offered && (
+        <RemoveAccountPanel
+          email={user.email}
+          clientName={user.clientName}
+          refusal={security.removal.refusal}
+        />
       )}
 
       {user.role === 'superadmin' && (

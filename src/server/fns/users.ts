@@ -1,11 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db'
 import { users } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { wantsDigest } from '../../lib/financeDigest/optIn'
 
+/** The foundation's current team. Removed members are archived rows and are left out. */
 export const listClientUsers = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
   if (!user.clientId) return []
@@ -19,7 +20,7 @@ export const listClientUsers = createServerFn({ method: 'GET' }).handler(async (
       createdAt: users.createdAt,
     })
     .from(users)
-    .where(eq(users.clientId, user.clientId))
+    .where(and(eq(users.clientId, user.clientId), isNull(users.archivedAt)))
     .orderBy(users.createdAt)
 })
 
