@@ -91,8 +91,8 @@ function Programmes() {
         <div className="flex flex-col gap-1">
           <h1 className="font-display text-heading font-medium text-grey-900">Programmes</h1>
           <p className="font-display text-label text-grey-500">
-            The themes you fund. Set the themes used to match applications, and the unit each
-            programme measures its impact in.
+            For each programme, please set any themes you use to categorise your awards, and the
+            unit each programme measures impact in.
           </p>
         </div>
         {canManage && (

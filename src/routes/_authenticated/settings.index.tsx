@@ -48,6 +48,14 @@ const GROUPS: Group[] = [
     icon: Target01Icon,
     cards: [
       {
+        title: 'Annual budget',
+        description:
+          'What you plan to give away this financial year, by programme, plus the cost of running the foundation. View your balance reconciliation and cash flow in the finance screen.',
+        to: '/settings/budget',
+        icon: CoinsPoundIcon,
+        moneyOnly: true,
+      },
+      {
         title: 'Rounds',
         description:
           'Open and close funding rounds, set their dates, and choose which programmes each round funds and with what budget.',
@@ -57,18 +65,11 @@ const GROUPS: Group[] = [
       {
         title: 'Programmes',
         description:
-          'The themes you fund. Set the tags used to match applications, and the unit each programme measures its impact in.',
+          'Set programme objectives, criteria and priorities, the themes you use, and how you measure impact.',
         to: '/programmes',
         icon: Target01Icon,
       },
-      {
-        title: 'Annual budget',
-        description:
-          'What you plan to give away this financial year, by programme, plus the cost of running the foundation. Finance checks your commitments against it.',
-        to: '/settings/budget',
-        icon: CoinsPoundIcon,
-        moneyOnly: true,
-      },
+
       {
         title: 'Round budgets',
         description:
@@ -80,7 +81,7 @@ const GROUPS: Group[] = [
       {
         title: 'Giving strategy',
         description:
-          'Your goals and funding priorities, in your own words. This is what incoming applications are scored against.',
+          'Your goals and funding priorities, in your own words. This is what incoming submissions are scored against.',
         to: '/settings/giving-strategy',
         icon: Idea01Icon,
         adminOnly: true,
@@ -108,8 +109,7 @@ const GROUPS: Group[] = [
       },
       {
         title: 'Letters',
-        description:
-          'What you email an applicant when you decide: the award letter and your conditions of grant, the letter that goes to everybody else, and who replies come back to.',
+        description: `Award letter and decline letter content lives here. Both can be amended to reflect your organisation's style.`,
         to: '/settings/letters',
         icon: Mail01Icon,
         adminOnly: true,
@@ -196,9 +196,7 @@ function Settings() {
   const seesMoney = canSeePayments(user.role)
   const groups = GROUPS.map((g) => ({
     ...g,
-    cards: g.cards.filter(
-      (c) => (isAdmin || !c.adminOnly) && (seesMoney || !c.moneyOnly),
-    ),
+    cards: g.cards.filter((c) => (isAdmin || !c.adminOnly) && (seesMoney || !c.moneyOnly)),
   })).filter((g) => g.cards.length > 0)
 
   return (

@@ -48,7 +48,25 @@ function GivingStrategy() {
   return (
     <SettingsPage
       title="Giving strategy"
-      description="Describe your organisation's goals and funding priorities. Every incoming application is scored against what you write here, so be specific about what you will and won't fund."
+      description={
+        <>
+          <p>
+            Describe your organisation&rsquo;s goals and funding priorities, in your own words.
+            Custodian uses what you write here in two places:
+          </p>
+          <ul className="list-disc pl-5">
+            <li>
+              <strong className="font-medium">Scoring:</strong> every incoming submission is scored
+              against it.
+            </li>
+            <li>
+              <strong className="font-medium">Insights:</strong> the Portfolio summary measures the
+              grants you have awarded against it.
+            </li>
+          </ul>
+          <p>The more detailed you are, the more accurate and insightful Custodian can be.</p>
+        </>
+      }
     >
       {/* The shared `RichTextEditor`, with headings — this page used to inline its own
           copy of that component with a heading row bolted on, and the two had drifted. */}

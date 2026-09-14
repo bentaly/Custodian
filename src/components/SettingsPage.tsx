@@ -24,7 +24,8 @@ export function SettingsPage({
   children,
 }: {
   title: string
-  description?: string
+  /** A string renders as one paragraph; pass a node for anything longer, such as a list. */
+  description?: React.ReactNode
   /** Any levels between Settings and this page. The page itself is appended. */
   crumbs?: Crumb[]
   children: React.ReactNode
@@ -36,11 +37,18 @@ export function SettingsPage({
         <h1 className="font-display text-heading font-medium" style={{ color: C.ink }}>
           {title}
         </h1>
-        {description && (
+        {typeof description === 'string' ? (
           <p className="font-display text-body leading-relaxed" style={{ color: C.sub }}>
             {description}
           </p>
-        )}
+        ) : description ? (
+          <div
+            className="flex flex-col gap-2 font-display text-body leading-relaxed"
+            style={{ color: C.sub }}
+          >
+            {description}
+          </div>
+        ) : null}
       </div>
       <div className="flex flex-col gap-4">{children}</div>
     </div>

@@ -45,6 +45,14 @@ export type BreakdownRow<T> = {
 
 const HIDE_BELOW = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell' } as const
 
+/**
+ * The header stays in view while a long breakdown scrolls. The wash is on the cells, not
+ * the `<tr>`, because a row's background does not travel with its sticky cells.
+ * `-top-4` is `<main>`'s `p-4`: a sticky `top-0` pins to the scrollport's CONTENT box, so
+ * rows would show through a 16px gap above the header (same coupling as `SettingsSaveBar`).
+ */
+const HEAD_CELL = 'sm:sticky sm:-top-4 sm:z-10 bg-grey-100'
+
 export function BreakdownTable<T>({
   label,
   name,
@@ -88,18 +96,21 @@ export function BreakdownTable<T>({
     ))
 
   return (
-    <div className="overflow-x-auto">
+    // Sticky needs no scroll container between the header and `<main>`: an `overflow-x-auto`
+    // wrapper becomes one, and the header would stick inside a box that never scrolls. So the
+    // wrapper only scrolls sideways on a phone, where the header does not stick.
+    <div className="overflow-x-auto sm:overflow-visible">
       <table className="w-full table-auto border-collapse font-display text-body">
         <thead>
-          <tr className="h-10" style={{ backgroundColor: C.wash, color: C.ink }}>
-            <th scope="col" className="px-3 text-left font-medium">
+          <tr className="h-10" style={{ color: C.ink }}>
+            <th scope="col" className={`${HEAD_CELL} px-3 text-left font-medium`}>
               {label}
             </th>
             {columns.map((col, i) => (
               <th
                 key={col.id}
                 scope="col"
-                className={`text-left font-medium ${figureClass(col, i)}`}
+                className={`${HEAD_CELL} text-left font-medium ${figureClass(col, i)}`}
               >
                 {col.header}
               </th>
