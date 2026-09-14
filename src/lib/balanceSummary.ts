@@ -7,7 +7,7 @@ import { costEntries, round2, type CostLineInput } from './coreCosts'
  *
  * ## The lines
  *
- * - **Projected core costs**: the non-grant budget lines, placed by `costEntries`.
+ * - **Core costs**: the non-grant budget lines, placed by `costEntries`.
  * - **Prior-year committed grants**: this year's instalments on grants from rounds that
  *   belong to an EARLIER financial year (`roundFinancialYear`).
  * - **This year's grant spend**: this year's instalments on grants from this year's rounds,
@@ -45,7 +45,8 @@ import { costEntries, round2, type CostLineInput } from './coreCosts'
  *
  * Instalments due after the year end (years two and three of a multi-year grant are paid
  * from later years' balances), and undated ("TBC") instalments, which have no year to
- * fall in. The screen notes the second rather than hiding it.
+ * fall in. No path writes an undated instalment any more; the rows that remain predate
+ * the rule and are left out silently.
  *
  * ## Projected round budget is held until a round is decided
  *

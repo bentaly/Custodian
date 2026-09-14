@@ -32,7 +32,7 @@ export const GrantRowSchema = z.object({
 export const PaymentRowSchema = z.object({
   rowNumber: z.number().int().nonnegative(),
   reference: z.string().min(1).max(120),
-  dueDate: isoDate.nullable(),
+  dueDate: isoDate,
   amount: z.number().finite().max(1_000_000_000),
   paid: z.boolean(),
   paidDate: isoDate.nullable(),

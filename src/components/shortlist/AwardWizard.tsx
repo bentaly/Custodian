@@ -23,7 +23,13 @@ import {
   renderAwardLetter,
   type AwardLetterInput,
 } from '../../lib/awardLetter'
-import { CADENCES, buildSchedule, cadenceMonths, type CadenceKey } from '../../lib/awardSchedule'
+import {
+  CADENCES,
+  buildSchedule,
+  cadenceMonths,
+  type CadenceKey,
+  type ScheduleRow,
+} from '../../lib/awardSchedule'
 import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { todayIso } from '../../lib/schedule'
 import { longerTimeout } from '../../lib/requestTimeout'
@@ -261,7 +267,7 @@ export function AwardWizard({
   }
 
   /** The schedule for one grant: derived from the shared terms unless hand-edited. */
-  function scheduleFor(c: AwardCandidate): Array<{ amount: number; date: string | null }> {
+  function scheduleFor(c: AwardCandidate): ScheduleRow[] {
     const g = grants[c.id]!
     if (terms.structure === 'custom') {
       return g.rows.map((r) => ({ amount: parseFloat(r.amount) || 0, date: r.date || null }))
@@ -407,6 +413,13 @@ export function AwardWizard({
         byId.set(c.id, { kind: 'schedule', text: 'Every instalment must be more than £0.' })
         continue
       }
+      // An undated instalment falls in no financial year, so Balance & budget would leave
+      // it out of every figure. Only a Custom row can be blank; the derived split is dated
+      // from the first payment date, which the Terms step already requires.
+      if (schedule.some((r) => !r.date)) {
+        byId.set(c.id, { kind: 'schedule', text: 'Every instalment needs a date.' })
+        continue
+      }
       // The purpose is a paragraph of the letter, not a note: the template says "The
       // grant is made towards the following purpose:" and then prints it. Left empty the
       // grantee is sent a letter with a hole in it, and the conditions that bind to "the
@@ -453,7 +466,8 @@ export function AwardWizard({
               schedule: scheduleFor(c).map((r, i) => ({
                 instalment: i + 1,
                 amount: r.amount,
-                date: r.date,
+                // `grantProblems` holds Continue shut on a blank date, so none reaches here.
+                date: r.date!,
               })),
             }
           }),
@@ -716,7 +730,7 @@ export function AwardWizard({
                   </ol>
                   <Link
                     to="/settings/letters"
-                      search={{ tab: 'award' as const }}
+                    search={{ tab: 'award' as const }}
                     className="mt-2.5 inline-block font-display text-label font-medium hover:underline"
                     style={{ color: C.brand }}
                   >
@@ -998,7 +1012,7 @@ function SchedulePreview({
   total,
 }: {
   candidates: AwardCandidate[]
-  scheduleFor: (c: AwardCandidate) => Array<{ amount: number; date: string | null }>
+  scheduleFor: (c: AwardCandidate) => ScheduleRow[]
   total: number
 }) {
   const schedules = candidates.map(scheduleFor)
@@ -1071,6 +1085,7 @@ function CustomSchedules({
         const allocated = g.rows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
         const remaining = amount - allocated
         const reconciled = Math.abs(remaining) < 0.005
+        const undated = g.rows.some((r) => !r.date)
 
         return (
           <div key={c.id} className="rounded-card border p-3.5" style={{ borderColor: C.line }}>
@@ -1170,6 +1185,15 @@ function CustomSchedules({
                 {fmtMoney(allocated)} / {fmtMoney(amount)}
               </span>
             </div>
+            {/* Continue is held shut on a blank date, so say which thing is holding it. */}
+            {undated && (
+              <p
+                className="mt-2 rounded-chip px-3 py-2 font-display text-label"
+                style={{ backgroundColor: C.amberWash, color: C.amber }}
+              >
+                Every instalment needs a date.
+              </p>
+            )}
           </div>
         )
       })}

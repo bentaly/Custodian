@@ -1399,13 +1399,14 @@ export const deleteReportMilestone = createServerFn({ method: 'POST' })
     })
   })
 
-// Edit an instalment's amount and/or due date (null dueDate = date TBC).
+// Edit an instalment's amount and/or due date. A date can be moved but never cleared: an
+// undated instalment falls in no financial year, so Balance & budget cannot count it.
 export const updateInstalment = createServerFn({ method: 'POST' })
   .validator(
     z.object({
       id: z.uuid(),
       amount: z.number().positive().optional(),
-      dueDate: z.string().regex(ISO_DATE).nullable().optional(),
+      dueDate: z.string().regex(ISO_DATE).optional(),
     }),
   )
   .handler(async ({ data }) => {

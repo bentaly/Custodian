@@ -14,7 +14,7 @@ import { costEntries, monthsOfYear, round2, type CostLineInput } from './coreCos
  * - **Core costs** — the non-grant budget lines, placed by `costEntries`.
  *
  * Undated ("TBC") instalments are not in it, for the same reason they are not in
- * `dueByYearEnd`: there is no month to put them in, and the panel counts them apart.
+ * `dueByYearEnd`: there is no month to put them in.
  *
  * ## The balance is projected from the day it was TRUE
  *

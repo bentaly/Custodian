@@ -453,18 +453,11 @@ runScript('demo:decide', async () => {
     // whether each has been paid. A single entry is a one-off payment.
     const count = a.instalments.length
     const per = Math.round((a.amount / count) * 100) / 100
-    const instalments: Array<{ amount: number; dueDate: string | null }> = []
+    const instalments: Array<{ amount: number; dueDate: string }> = []
     for (const [n, plan] of a.instalments.entries()) {
       // Last instalment absorbs the rounding so the schedule sums to the award exactly.
       const amount = n === count - 1 ? a.amount - per * (count - 1) : per
-      // `null` is an undated ("TBC") instalment, which cannot have been paid.
-      if (plan.daysFromStart === null && plan.paid) {
-        throw new Error(`${app.ref}: an undated instalment cannot be marked paid`)
-      }
-      const due =
-        plan.daysFromStart === null
-          ? null
-          : isoDate(daysFromNow(-a.startDaysAgo + plan.daysFromStart))
+      const due = isoDate(daysFromNow(-a.startDaysAgo + plan.daysFromStart))
       instalments.push({ amount, dueDate: due })
       await db.insert(awardInstalments).values({
         awardId,
@@ -474,10 +467,7 @@ runScript('demo:decide', async () => {
         // Paid a few days after it fell due. An instalment marked unpaid whose date has
         // already passed is what puts a real arrears case in front of Finance — the
         // fixture sets one deliberately.
-        paidDate:
-          plan.paid && plan.daysFromStart !== null
-            ? isoDate(daysFromNow(-a.startDaysAgo + plan.daysFromStart + 4))
-            : null,
+        paidDate: plan.paid ? isoDate(daysFromNow(-a.startDaysAgo + plan.daysFromStart + 4)) : null,
       })
       instalmentCount++
       if (plan.paid) paidCount++

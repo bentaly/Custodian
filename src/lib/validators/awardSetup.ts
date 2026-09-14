@@ -35,8 +35,9 @@ export const AwardGrantSchema = z.object({
       z.object({
         instalment: z.number().int().positive(),
         amount: z.number().positive(),
-        // ISO yyyy-mm-dd, or null for "date TBC".
-        date: z.string().regex(ISO_DATE, 'Expected yyyy-mm-dd').nullable(),
+        // ISO yyyy-mm-dd. Required: an undated instalment has no financial year to fall
+        // in, so every budget and cash-flow figure would silently leave it out.
+        date: z.string().regex(ISO_DATE, 'Expected yyyy-mm-dd'),
       }),
     )
     .min(1)

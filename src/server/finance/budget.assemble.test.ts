@@ -91,7 +91,6 @@ const run = (over: Partial<Input> = {}) =>
         amount: '2000',
       },
     ],
-    undatedRows: [{ undated: '750' }],
     roundRows: [
       // Open: held, less what has been awarded against it.
       round({ roundProgrammeId: 'open', budget: '50000', openedAt: new Date('2026-08-01') }),
@@ -132,10 +131,6 @@ describe('assemble', () => {
     expect(d.hasCoreCosts).toBe(true)
     // What leaves the account is the cash flow's; projection and contingency are on top.
     expect(d.summary.available).toBe(d.cashFlow.headroom! - 60_000 - 5_000)
-  })
-
-  it('passes undated instalments through for the note', () => {
-    expect(run().undated).toBe(750)
   })
 
   it('treats a budget header with no lines as no budget, no core costs and no contingency', () => {

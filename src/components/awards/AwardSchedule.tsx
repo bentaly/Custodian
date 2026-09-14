@@ -582,7 +582,7 @@ function InstalmentEditor({
   const { busy, error, run } = useEditorAction(close)
 
   const value = Number(amount)
-  const valid = amount !== '' && Number.isFinite(value) && value > 0
+  const valid = amount !== '' && Number.isFinite(value) && value > 0 && dueDate !== ''
   const changed = valid && Math.abs(value - inst.amount) >= 0.005
   const total = award.scheduledTotal - inst.amount + (valid ? value : inst.amount)
   const gap = award.amountAwarded - total
@@ -590,7 +590,7 @@ function InstalmentEditor({
   const save = () =>
     run('save', () =>
       updateInstalment({
-        data: { id: inst.id, amount: changed ? value : undefined, dueDate: dueDate || null },
+        data: { id: inst.id, amount: changed ? value : undefined, dueDate },
       }),
     )
   const togglePaid = () =>

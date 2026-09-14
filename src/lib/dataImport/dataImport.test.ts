@@ -144,6 +144,15 @@ describe('parseGrants', () => {
 })
 
 describe('parsePayments', () => {
+  it('refuses a payment with no due date', () => {
+    const { rows, issues } = parsePayments([
+      { rowNumber: 2, cells: { reference: 'GR-001', amount: 100, paid: 'No' } },
+    ])
+    expect(rows).toEqual([])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({ rowNumber: 2, column: 'Due date' })
+  })
+
   it('reads Yes/No into a boolean', () => {
     const { rows } = parsePayments([
       {

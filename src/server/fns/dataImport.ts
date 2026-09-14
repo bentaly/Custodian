@@ -443,7 +443,7 @@ export const commitImport = createServerFn({ method: 'POST' })
       if (payments.length > 0) {
         payments
           .slice()
-          .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
           .forEach((p, i) => {
             instalmentRows.push({
               id: crypto.randomUUID(),

@@ -80,8 +80,6 @@ export type BalanceAndBudget = {
   cashFlow: CashFlow
   /** Whether the annual budget has core-cost lines, which the cash flow gives a column. */
   hasCoreCosts: boolean
-  /** Unpaid instalments with no date: not deducted anywhere, so the screen says so. */
-  undated: number
   /** True when there is nothing to show at all. */
   empty: boolean
 }
@@ -117,7 +115,7 @@ export function roundBudgetHeld(row: {
  * auth check should be runnable without a session.
  *
  * Three round trips. The profile first, because every money query needs the year's bounds
- * as parameters; then the five queries in one `db.batch()`, so all the figures are one
+ * as parameters; then the four queries in one `db.batch()`, so all the figures are one
  * snapshot; then `roundProgrammeSpend` for the round budgets still held, because it is the
  * single source for what has been awarded against a round budget and the shortlist meter
  * and the budget ceiling must agree with what this screen calls projected.
@@ -134,7 +132,7 @@ export async function balanceAndBudget(
   const endMonth = profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
   const fy = financialYear(endMonth, now)
 
-  const [balanceRows, budgetRows, instalmentRows, undatedRows, roundRows] = await db.batch(
+  const [balanceRows, budgetRows, instalmentRows, roundRows] = await db.batch(
     budgetPanelQueries(db, clientId, fy),
   )
 
@@ -146,14 +144,13 @@ export async function balanceAndBudget(
     balanceRows,
     budgetRows,
     instalmentRows,
-    undatedRows,
     roundRows,
     awardedThisYear: new Map([...spend].map(([id, s]) => [id, s.awardedThisYear])),
   })
 }
 
 /**
- * The five queries, as builders.
+ * The four queries, as builders.
  *
  * Exported so their SQL can be rendered and asserted without a database — every one of
  * them must filter on `client_id`, and the WHERE must be a plain conjunction. A raw `or`
@@ -267,20 +264,6 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
         sql`(${awardInstalments.paidDate} is not null)`,
       ),
 
-    // ── Unpaid instalments with no date ──────────────────────────────────────
-    db
-      .select({ undated: sql<string>`coalesce(sum(${awardInstalments.amount}), 0)` })
-      .from(awardInstalments)
-      .innerJoin(awards, eq(awards.id, awardInstalments.awardId))
-      .where(
-        and(
-          eq(awards.clientId, clientId),
-          ne(awards.status, 'cancelled'),
-          isNull(awardInstalments.paidDate),
-          isNull(awardInstalments.dueDate),
-        ),
-      ),
-
     // ── This year's round budgets, and whether each is decided ───────────────
     // Archived rounds are out: archiving is "we are done with this", so nothing is held
     // for them. `undecided` counts applications a foundation could still award from.
@@ -335,8 +318,7 @@ export function assemble(input: {
   balanceRows: Rows<0>
   budgetRows: Rows<1>
   instalmentRows: Rows<2>
-  undatedRows: Rows<3>
-  roundRows: Rows<4>
+  roundRows: Rows<3>
   /** `roundProgrammeSpend(...).awardedThisYear`, for the held round-programmes. */
   awardedThisYear: Map<string, number>
 }): BalanceAndBudget {
@@ -418,7 +400,6 @@ export function assemble(input: {
     summary,
     cashFlow,
     hasCoreCosts: costLines.length > 0,
-    undated: num(input.undatedRows[0]?.undated),
     empty: !balance && !hasBudget && summary.lines.length === 0,
   }
 }

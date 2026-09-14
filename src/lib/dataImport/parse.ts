@@ -40,7 +40,7 @@ export type GrantRow = {
 export type PaymentRow = {
   rowNumber: number
   reference: string
-  dueDate: string | null
+  dueDate: string
   amount: number
   paid: boolean
   paidDate: string | null
@@ -349,10 +349,17 @@ export function parsePayments(rows: RawRow[]): { rows: PaymentRow[]; issues: Cel
       issues.push({ rowNumber, column: cols.paid!.header, message: 'Paid? must be Yes or No' })
     }
 
-    const dueDate = dateCell(cells.dueDate, cols.dueDate!, rowNumber, issues)
+    // Required, not merely asked for: an undated instalment falls in no financial year,
+    // so Balance & budget would leave it out of every figure.
+    const dueDate = required(
+      dateCell(cells.dueDate, cols.dueDate!, rowNumber, issues),
+      cols.dueDate!,
+      rowNumber,
+      issues,
+    )
     const paidDate = dateCell(cells.paidDate, cols.paidDate!, rowNumber, issues)
 
-    if (reference == null || amount == null || paid == null) continue
+    if (reference == null || dueDate == null || amount == null || paid == null) continue
 
     out.push({ rowNumber, reference, dueDate, amount, paid, paidDate })
   }

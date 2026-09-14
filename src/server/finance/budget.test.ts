@@ -86,16 +86,15 @@ describe('budgetPanelQueries', () => {
   const queries = budgetPanelQueries(offlineDb(), CLIENT, FY)
   const rendered = queries.map((q) => q.toSQL())
 
-  it('builds the five statements the screen is assembled from', () => {
-    expect(rendered).toHaveLength(5)
+  it('builds the four statements the screen is assembled from', () => {
+    expect(rendered).toHaveLength(4)
   })
 
   it.each([
     ['bank balance', 0, 'bank_balance_readings'],
     ['annual budget', 1, 'annual_budgets'],
     ['instalments', 2, 'award_instalments'],
-    ['undated instalments', 3, 'award_instalments'],
-    ['round budgets', 4, 'round_programmes'],
+    ['round budgets', 3, 'round_programmes'],
   ])('scopes the %s query to one client', (_name, index, table) => {
     const { sql, params } = rendered[index]!
     expect(sql).toContain(table)
@@ -106,7 +105,7 @@ describe('budgetPanelQueries', () => {
 
   // The instalment query (2) is a paid-or-unpaid `or` by design — which is exactly why it
   // must be the bracketed kind, inside the conjunction that carries the client scope.
-  it.each([0, 1, 2, 3, 4])('keeps statement %i a conjunction with no top-level or', (index) => {
+  it.each([0, 1, 2, 3])('keeps statement %i a conjunction with no top-level or', (index) => {
     expect(hasTopLevelOr(outerWhere(rendered[index]!.sql))).toBe(false)
   })
 
@@ -125,15 +124,8 @@ describe('budgetPanelQueries', () => {
     expect(params).toContain(FY.start)
   })
 
-  it('counts undated unpaid instalments of live grants only', () => {
-    const { sql, params } = rendered[3]!
-    expect(sql).toContain('"paid_date" is null')
-    expect(sql).toContain('"due_date" is null')
-    expect(params).toContain('cancelled')
-  })
-
   it("holds only this year's unarchived round budgets, counting undecided applications", () => {
-    const { sql, params } = rendered[4]!
+    const { sql, params } = rendered[3]!
     expect(sql).toContain('"archived_at" is null')
     expect(params).toContain(FY.start)
     expect(params).toContain(FY.end)

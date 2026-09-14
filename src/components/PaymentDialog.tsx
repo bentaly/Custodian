@@ -437,11 +437,11 @@ function Schedule({
   }, 0)
   const unallocated = editing ? grant.committed - draftTotal : grant.unallocated
 
-  // `updateInstalment` takes a positive amount, so an empty or zero box is not something
-  // to report back after a failed save — it just holds Save shut.
+  // `updateInstalment` takes a positive amount and a date, so an empty or zero box is not
+  // something to report back after a failed save — it just holds Save shut.
   const canSave = grant.instalments.every((i) => {
     const n = Number(drafts[i.id]?.amount)
-    return Number.isFinite(n) && n > 0
+    return Number.isFinite(n) && n > 0 && !!drafts[i.id]?.dueDate
   })
 
   async function run(id: string, work: () => Promise<unknown>) {
@@ -469,7 +469,7 @@ function Schedule({
     // slipped should be one write, not eight.
     const changed = grant.instalments.filter((i) => {
       const d = drafts[i.id]
-      return d && (Number(d.amount) !== i.amount || (d.dueDate || null) !== i.dueDate)
+      return d && (Number(d.amount) !== i.amount || d.dueDate !== i.dueDate)
     })
     if (changed.length === 0) {
       setEditing(false)
@@ -482,7 +482,7 @@ function Schedule({
             data: {
               id: i.id,
               amount: Number(drafts[i.id]!.amount),
-              dueDate: drafts[i.id]!.dueDate || null,
+              dueDate: drafts[i.id]!.dueDate,
             },
           }),
         ),

@@ -151,7 +151,7 @@ type Item = {
 function lineName(kind: SummaryLineKind, fyLabel: string): string {
   switch (kind) {
     case 'core':
-      return 'Projected core costs'
+      return 'Core costs'
     case 'prior':
       return 'Prior-year committed grants'
     case 'current':
@@ -168,7 +168,7 @@ function lineHint(line: SummaryLine, data: Data): string {
     case 'prior':
       return 'This year’s instalments on grants from earlier years’ rounds'
     case 'current':
-      return 'Grants from this year’s rounds, and round budgets still open'
+      return 'Grants from this year’s rounds'
     case 'contingency':
       return data.summary.contingency
         ? `${data.summary.contingency.percent}% of the ${fmtMoney(data.summary.grantBudget)} grant budget`
@@ -339,25 +339,9 @@ function Summary({ data }: { data: Data }) {
 }
 
 function SummaryNotes({ data }: { data: Data }) {
-  const { balance, summary, financialYear: fy, undated } = data
+  const { balance, summary, financialYear: fy } = data
   return (
     <div className="flex flex-col gap-1 font-display text-label" style={{ color: C.faint }}>
-      <p>
-        Actual is money gone this year: grant instalments paid, and core costs as scheduled to date
-        (your plan, not a record of payment). Projected is planned but not yet committed: core costs
-        still to come, what is left of round budgets while a round can still award (upcoming, open,
-        or closed with applications to decide), and the contingency. Still to pay is grants awarded
-        and due by {fmtDate(fy.end)}, including anything overdue.
-      </p>
-      {balance && (
-        <p>
-          Instalments due after the year end are paid from later years&rsquo; balances and are not
-          counted.
-        </p>
-      )}
-      {undated > 0 && (
-        <p>{fmtMoney(undated)} of instalments have no date yet, so they are not counted.</p>
-      )}
       {!data.hasCoreCosts && !summary.contingency && (
         <p>
           No core costs or contingency for {fy.label}.{' '}
@@ -383,7 +367,7 @@ function monthLabel(key: string): string {
  * same instalment rows (`buildCashFlow`, `buildBalanceSummary`).
  */
 function CashFlowTable({ data }: { data: Data }) {
-  const { cashFlow, balance, hasCoreCosts, undated, financialYear: fy } = data
+  const { cashFlow, balance, hasCoreCosts, financialYear: fy } = data
   const { months } = cashFlow
   const current = months.find((m) => m.current)
   const cell = 'px-2 py-2 text-left'
@@ -474,9 +458,6 @@ function CashFlowTable({ data }: { data: Data }) {
           {hasCoreCosts &&
             ' Core costs follow your annual budget: monthly lines at each month end, one-offs on their date. They are your plan, not a record of what was paid.'}
         </p>
-        {undated > 0 && (
-          <p>{fmtMoney(undated)} of instalments have no date yet, so no month to show them in.</p>
-        )}
         {balance && (
           <p>
             The balance is projected from the reading: less grant payments made since{' '}
