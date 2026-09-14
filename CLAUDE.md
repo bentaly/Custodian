@@ -898,7 +898,7 @@ Structural decisions worth knowing before adding a screen:
   removed, because a round's applications and awards are the record of a decision. Which rounds a
   programme is funded in is set in the ROUND dialog, next to the budget that decision is about.
   **A round-programme budget is a target, not a ceiling** — unless the foundation says otherwise
-  at `/settings/round-budgets` (`client_profiles.enforce_round_budget`, default FALSE). Most
+  at `/settings/shortlisting` (`client_profiles.enforce_round_budget`, default FALSE). Most
   foundations shortlist more than they can fund and then choose between them, so the hard stop
   this shipped with ("Budget full", the Shortlist button disabled) is now opt-in. Enforced in
   `updateApplicationStatus`, which is the boundary; the disabled button on the application screen
@@ -945,8 +945,11 @@ Structural decisions worth knowing before adding a screen:
   re-confirm every match). Screens that save on the spot — the voting and round-budget toggles —
   have nothing to guard and deliberately have none.
 - **Settings** (`/settings`) — a card-grid hub for configuration rather than daily work; sub-pages
-  `team`, `giving-strategy`, `voting`, `letters`, `api-keys`, `submissions`, `data-import`,
-  `budget`, `round-budgets`.
+  `budget`, `giving-strategy`, `shortlisting`, `letters`, `team`, `activity`, `api-keys`,
+  `submissions`, `data-import`. Grouped in the order the work happens (what you fund, how you
+  decide, your organisation, getting data in); `shortlisting` holds both on-the-spot switches
+  (round budget ceiling, admin voting) because both gate the step from shortlist to award.
+  No card icon repeats another or borrows a sidebar area's glyph.
   `/settings/award-letter` is now a redirect to `/settings/letters?tab=award`.
   It links out to `/rounds` and `/programmes`, which is why those left the sidebar. Cards are
   filtered by role. `/users` is now a redirect to `/settings/team`.

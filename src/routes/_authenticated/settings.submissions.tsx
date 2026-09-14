@@ -107,7 +107,7 @@ function Submissions() {
 
   return (
     <SettingsPage
-      title="Submitting applications"
+      title="Submission guide"
       description="How your website or intake form sends applications and reports to Custodian, and what each field should contain."
     >
       <Panel label="How it works">

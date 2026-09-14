@@ -50,10 +50,9 @@ import { Route as AuthenticatedSettingsBudgetRouteImport } from './routes/_authe
 import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
 import { Route as AuthenticatedSettingsLettersRouteImport } from './routes/_authenticated/settings.letters'
-import { Route as AuthenticatedSettingsRoundBudgetsRouteImport } from './routes/_authenticated/settings.round-budgets'
+import { Route as AuthenticatedSettingsShortlistingRouteImport } from './routes/_authenticated/settings.shortlisting'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
-import { Route as AuthenticatedSettingsVotingRouteImport } from './routes/_authenticated/settings.voting'
 import { Route as AuthenticatedShortlistIndexRouteImport } from './routes/_authenticated/shortlist.index'
 import { Route as AuthenticatedShortlistSetUpAwardsRouteImport } from './routes/_authenticated/shortlist.set-up-awards'
 import { Route as ApiAdminAwardsRouteImport } from './routes/api/admin.awards'
@@ -301,10 +300,10 @@ const AuthenticatedSettingsLettersRoute =
     path: '/letters',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedSettingsRoundBudgetsRoute =
-  AuthenticatedSettingsRoundBudgetsRouteImport.update({
-    id: '/round-budgets',
-    path: '/round-budgets',
+const AuthenticatedSettingsShortlistingRoute =
+  AuthenticatedSettingsShortlistingRouteImport.update({
+    id: '/shortlisting',
+    path: '/shortlisting',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsSubmissionsRoute =
@@ -317,12 +316,6 @@ const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
     path: '/team',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
-const AuthenticatedSettingsVotingRoute =
-  AuthenticatedSettingsVotingRouteImport.update({
-    id: '/voting',
-    path: '/voting',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedShortlistIndexRoute =
@@ -484,10 +477,9 @@ export interface FileRoutesByFullPath {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
-  '/settings/round-budgets': typeof AuthenticatedSettingsRoundBudgetsRoute
+  '/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
-  '/settings/voting': typeof AuthenticatedSettingsVotingRoute
   '/shortlist/set-up-awards': typeof AuthenticatedShortlistSetUpAwardsRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
@@ -545,10 +537,9 @@ export interface FileRoutesByTo {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
-  '/settings/round-budgets': typeof AuthenticatedSettingsRoundBudgetsRoute
+  '/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
-  '/settings/voting': typeof AuthenticatedSettingsVotingRoute
   '/shortlist/set-up-awards': typeof AuthenticatedShortlistSetUpAwardsRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
@@ -616,10 +607,9 @@ export interface FileRoutesById {
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/_authenticated/settings/letters': typeof AuthenticatedSettingsLettersRoute
-  '/_authenticated/settings/round-budgets': typeof AuthenticatedSettingsRoundBudgetsRoute
+  '/_authenticated/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
-  '/_authenticated/settings/voting': typeof AuthenticatedSettingsVotingRoute
   '/_authenticated/shortlist/set-up-awards': typeof AuthenticatedShortlistSetUpAwardsRoute
   '/api/admin/awards': typeof ApiAdminAwardsRoute
   '/api/admin/canonical-fields': typeof ApiAdminCanonicalFieldsRoute
@@ -687,10 +677,9 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
-    | '/settings/round-budgets'
+    | '/settings/shortlisting'
     | '/settings/submissions'
     | '/settings/team'
-    | '/settings/voting'
     | '/shortlist/set-up-awards'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
@@ -748,10 +737,9 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
-    | '/settings/round-budgets'
+    | '/settings/shortlisting'
     | '/settings/submissions'
     | '/settings/team'
-    | '/settings/voting'
     | '/shortlist/set-up-awards'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
@@ -818,10 +806,9 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/data-import'
     | '/_authenticated/settings/giving-strategy'
     | '/_authenticated/settings/letters'
-    | '/_authenticated/settings/round-budgets'
+    | '/_authenticated/settings/shortlisting'
     | '/_authenticated/settings/submissions'
     | '/_authenticated/settings/team'
-    | '/_authenticated/settings/voting'
     | '/_authenticated/shortlist/set-up-awards'
     | '/api/admin/awards'
     | '/api/admin/canonical-fields'
@@ -1172,11 +1159,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsLettersRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/settings/round-budgets': {
-      id: '/_authenticated/settings/round-budgets'
-      path: '/round-budgets'
-      fullPath: '/settings/round-budgets'
-      preLoaderRoute: typeof AuthenticatedSettingsRoundBudgetsRouteImport
+    '/_authenticated/settings/shortlisting': {
+      id: '/_authenticated/settings/shortlisting'
+      path: '/shortlisting'
+      fullPath: '/settings/shortlisting'
+      preLoaderRoute: typeof AuthenticatedSettingsShortlistingRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/submissions': {
@@ -1191,13 +1178,6 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/settings/team'
       preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
-    }
-    '/_authenticated/settings/voting': {
-      id: '/_authenticated/settings/voting'
-      path: '/voting'
-      fullPath: '/settings/voting'
-      preLoaderRoute: typeof AuthenticatedSettingsVotingRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/shortlist/': {
@@ -1453,10 +1433,9 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
   AuthenticatedSettingsLettersRoute: typeof AuthenticatedSettingsLettersRoute
-  AuthenticatedSettingsRoundBudgetsRoute: typeof AuthenticatedSettingsRoundBudgetsRoute
+  AuthenticatedSettingsShortlistingRoute: typeof AuthenticatedSettingsShortlistingRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
-  AuthenticatedSettingsVotingRoute: typeof AuthenticatedSettingsVotingRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
@@ -1469,11 +1448,10 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,
   AuthenticatedSettingsLettersRoute: AuthenticatedSettingsLettersRoute,
-  AuthenticatedSettingsRoundBudgetsRoute:
-    AuthenticatedSettingsRoundBudgetsRoute,
+  AuthenticatedSettingsShortlistingRoute:
+    AuthenticatedSettingsShortlistingRoute,
   AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
-  AuthenticatedSettingsVotingRoute: AuthenticatedSettingsVotingRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 

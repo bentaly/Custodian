@@ -4,12 +4,13 @@ import {
   Building02Icon,
   Calendar03Icon,
   CoinsPoundIcon,
+  Compass01Icon,
   DatabaseImportIcon,
-  GaugeIcon,
-  Idea01Icon,
+  HistoryIcon,
+  JudgeIcon,
   Key01Icon,
   Mail01Icon,
-  NoteIcon,
+  PiggyBankIcon,
   PlugSocketIcon,
   SourceCodeIcon,
   Target01Icon,
@@ -42,10 +43,14 @@ type Card = {
 
 type Group = { title: string; icon: IconSvg; cards: Card[] }
 
+// Groups follow the order the work happens in: what you fund, how you decide, who you
+// are, and how data gets in. A group or card icon never repeats another on this page,
+// and never borrows a sidebar area's glyph (`AREA_ICON`) for something that is not
+// that area.
 const GROUPS: Group[] = [
   {
-    title: 'Funding setup',
-    icon: Target01Icon,
+    title: 'What you fund',
+    icon: PiggyBankIcon,
     cards: [
       {
         title: 'Annual budget',
@@ -56,34 +61,46 @@ const GROUPS: Group[] = [
         moneyOnly: true,
       },
       {
-        title: 'Rounds',
-        description:
-          'Open and close funding rounds, set their dates, and choose which programmes each round funds and with what budget.',
-        to: '/rounds',
-        icon: Calendar03Icon,
-      },
-      {
         title: 'Programmes',
         description:
           'Set programme objectives, criteria and priorities, the themes you use, and how you measure impact.',
         to: '/programmes',
         icon: Target01Icon,
       },
-
       {
-        title: 'Round budgets',
+        title: 'Rounds',
         description:
-          'Whether the budget on a round’s programmes is a limit or a target: whether you may shortlist more than it covers.',
-        to: '/settings/round-budgets',
-        icon: GaugeIcon,
-        adminOnly: true,
+          'Open and close funding rounds, set their dates, and choose which programmes each round funds and with what budget.',
+        to: '/rounds',
+        icon: Calendar03Icon,
       },
+    ],
+  },
+  {
+    title: 'How you decide',
+    icon: JudgeIcon,
+    cards: [
       {
         title: 'Giving strategy',
         description:
           'Your goals and funding priorities, in your own words. This is what incoming submissions are scored against.',
         to: '/settings/giving-strategy',
-        icon: Idea01Icon,
+        icon: Compass01Icon,
+        adminOnly: true,
+      },
+      {
+        title: 'Shortlisting and voting',
+        description:
+          'Whether a round’s programme budgets are a limit or a target, and whether admins may vote on a trustee’s behalf.',
+        to: '/settings/shortlisting',
+        icon: ThumbsUpDownIcon,
+        adminOnly: true,
+      },
+      {
+        title: 'Letters',
+        description: `Award letter and decline letter content lives here. Both can be amended to reflect your organisation's style.`,
+        to: '/settings/letters',
+        icon: Mail01Icon,
         adminOnly: true,
       },
     ],
@@ -100,32 +117,17 @@ const GROUPS: Group[] = [
         icon: UserGroupIcon,
       },
       {
-        title: 'Voting',
-        description:
-          'How trustees record decisions on applications, and whether admins may vote on a trustee’s behalf.',
-        to: '/settings/voting',
-        icon: ThumbsUpDownIcon,
-        adminOnly: true,
-      },
-      {
-        title: 'Letters',
-        description: `Award letter and decline letter content lives here. Both can be amended to reflect your organisation's style.`,
-        to: '/settings/letters',
-        icon: Mail01Icon,
-        adminOnly: true,
-      },
-      {
         title: 'Activity',
         description:
           'Every action anyone has taken (decisions, payments, reporting and access), with a CSV to hand to an auditor.',
         to: '/settings/activity',
-        icon: NoteIcon,
+        icon: HistoryIcon,
         adminOnly: true,
       },
     ],
   },
   {
-    title: 'Receiving applications',
+    title: 'Getting data in',
     icon: PlugSocketIcon,
     cards: [
       {
@@ -137,9 +139,9 @@ const GROUPS: Group[] = [
         adminOnly: true,
       },
       {
-        title: 'Submitting applications',
+        title: 'Submission guide',
         description:
-          'What to send us and what each field means - the endpoints, the format, and the full list of fields we recognise.',
+          'What to send us for applications and reports, and what each field means - the endpoints, the format, and the full list of fields we recognise.',
         to: '/settings/submissions',
         icon: SourceCodeIcon,
         adminOnly: true,

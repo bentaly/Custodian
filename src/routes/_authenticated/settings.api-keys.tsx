@@ -176,8 +176,8 @@ function ApiKeys() {
       description="Keys authenticate your intake integration when it posts applications or reports to Custodian. A server sends its key in the Authorization header; a form platform gets a webhook address with the key already in it, because most of them cannot send headers. Never expose either in browser code."
     >
       <p className="font-display text-body" style={{ color: C.sub }}>
-        See <TextLink to="/settings/submissions">Submitting applications</TextLink> for the
-        endpoints and the fields we expect.
+        See the <TextLink to="/settings/submissions">Submission guide</TextLink> for the endpoints
+        and the fields we expect.
       </p>
 
       {/* Shown once, and never again — so it is the loudest thing on the screen while it
