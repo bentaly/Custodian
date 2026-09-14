@@ -110,7 +110,7 @@ function Rounds() {
 
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-heading font-medium text-grey-900">Funding Rounds</h1>
+          <h1 className="font-display text-heading font-medium text-grey-900">Rounds</h1>
           <p className="font-display text-label text-grey-500">
             Open and close funding rounds, set their dates, and choose which programmes each round
             funds and with what budget.

@@ -27,15 +27,12 @@ export const Route = createFileRoute('/_authenticated/settings/')({
   component: Settings,
 })
 
-// Same palette the dashboard pins down, so the whole app re-themes from one place
-// when the full Figma token set lands.
-
 type Card = {
   title: string
   description: string
   to: LinkProps['to']
   icon: IconSvg
-  /** Config the whole foundation shares — trustees and finance may look, not touch. */
+  /** Only an admin changes it, so the card is hidden from trustees and finance. */
   adminOnly?: boolean
   /** Money: admin and finance only, matching `canSeePayments` and the Finance screen. */
   moneyOnly?: boolean
@@ -55,7 +52,7 @@ const GROUPS: Group[] = [
       {
         title: 'Annual budget',
         description:
-          'What you plan to give away this financial year, by programme, plus the cost of running the foundation. View your balance reconciliation and cash flow in the finance screen.',
+          'Plan what you will give away this financial year, by programme, and what it costs to run the foundation. Finance tracks your balance and cash flow against it.',
         to: '/settings/budget',
         icon: CoinsPoundIcon,
         moneyOnly: true,
@@ -83,7 +80,7 @@ const GROUPS: Group[] = [
       {
         title: 'Giving strategy',
         description:
-          'Your goals and funding priorities, in your own words. This is what incoming submissions are scored against.',
+          'Write your goals and funding priorities in your own words. Every incoming submission is scored against them.',
         to: '/settings/giving-strategy',
         icon: Compass01Icon,
         adminOnly: true,
@@ -91,14 +88,14 @@ const GROUPS: Group[] = [
       {
         title: 'Shortlisting and voting',
         description:
-          'Whether a round’s programme budgets are a limit or a target, and whether admins may vote on a trustee’s behalf.',
+          'Decide whether round budgets are a limit or a target, and whether admins may vote for a trustee.',
         to: '/settings/shortlisting',
         icon: ThumbsUpDownIcon,
         adminOnly: true,
       },
       {
         title: 'Letters',
-        description: `Award letter and decline letter content lives here. Both can be amended to reflect your organisation's style.`,
+        description: `Edit your award and decline letters in your organisation's own style, and choose where replies go.`,
         to: '/settings/letters',
         icon: Mail01Icon,
         adminOnly: true,
@@ -112,14 +109,14 @@ const GROUPS: Group[] = [
       {
         title: 'Team members',
         description:
-          'Who has access, what each role can do, and the invitations you have sent that are still outstanding.',
+          'Invite people, choose what each of them can do, and follow up invitations still outstanding.',
         to: '/settings/team',
         icon: UserGroupIcon,
       },
       {
         title: 'Activity',
         description:
-          'Every action anyone has taken (decisions, payments, reporting and access), with a CSV to hand to an auditor.',
+          'Review every action anyone has taken (decisions, payments, reporting and access) and export it for your auditor.',
         to: '/settings/activity',
         icon: HistoryIcon,
         adminOnly: true,
@@ -133,7 +130,7 @@ const GROUPS: Group[] = [
       {
         title: 'API keys',
         description:
-          'The keys that let your website or intake form post applications and reports to Custodian. Create, review and revoke them here.',
+          'Create, review and revoke the keys your website or intake form uses to send applications and reports.',
         to: '/settings/api-keys',
         icon: Key01Icon,
         adminOnly: true,
@@ -141,7 +138,7 @@ const GROUPS: Group[] = [
       {
         title: 'Submission guide',
         description:
-          'What to send us for applications and reports, and what each field means - the endpoints, the format, and the full list of fields we recognise.',
+          'Look up the endpoints, format and fields to send us for applications and reports.',
         to: '/settings/submissions',
         icon: SourceCodeIcon,
         adminOnly: true,
@@ -149,7 +146,7 @@ const GROUPS: Group[] = [
       {
         title: 'Data import',
         description:
-          'Bring the grants you have already made into Custodian, so your payments, reports and totals are right from day one.',
+          'Bring in the grants you have already made, so payments, reports and totals are right from day one.',
         to: '/settings/data-import',
         icon: DatabaseImportIcon,
         adminOnly: true,
@@ -211,13 +208,19 @@ function Settings() {
           Settings
         </h1>
         <p className="font-display text-body" style={{ color: C.sub }}>
+          {/* Finance can edit the annual budget, so only a trustee is told outright
+              that nothing here is theirs to change. */}
           {isAdmin
-            ? 'Manage how your foundation funds, decides and receives applications.'
-            : 'How your foundation funds and decides. Ask an admin to change any of it.'}
+            ? 'What your foundation funds, how it decides, who is on the team, and how applications and reports reach you.'
+            : seesMoney
+              ? 'Your annual budget, what your foundation funds, and who is on the team.'
+              : 'What your foundation funds and who is on the team. Only an admin can change these.'}
         </p>
       </div>
 
-      <div className="flex flex-col gap-6">
+      {/* Capped so a wide display keeps some air rather than stretching three tiles into
+          long thin lines; three columns from medium up, where no group has more than three. */}
+      <div className="flex max-w-6xl flex-col gap-6">
         {groups.map((group) => (
           <section key={group.title}>
             <div className="flex items-center gap-2.5">
@@ -231,7 +234,7 @@ function Settings() {
                 {group.title}
               </h2>
             </div>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
               {group.cards.map((card) => (
                 <SettingsCard key={card.title} card={card} />
               ))}
