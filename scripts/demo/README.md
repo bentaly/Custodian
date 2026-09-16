@@ -97,8 +97,8 @@ with a backdated timestamp; nothing is delivered.
 (it names a programme that does not exist); one grant's bank details fail the modulus
 check; one application has no delivery area, so the "Not captured" panel has something
 real to report; one report describes a project that under-delivered, so the alignment
-analysis has genuine unmet promises to find; one instalment has no date yet, so Finance
-has a TBC amount to count apart. A dataset where everything is clean
+analysis has genuine unmet promises to find. (There is no undated "TBC" instalment any
+more: the app refuses one, so the demo does not seed one.) A dataset where everything is clean
 demonstrates nothing about how the app handles the state it will actually meet.
 
 **Credentials are written down.** `pnpm demo:seed` writes `CREDENTIALS.local.md`

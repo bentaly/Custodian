@@ -950,6 +950,10 @@ Structural decisions worth knowing before adding a screen:
   decide, your organisation, getting data in); `shortlisting` holds both on-the-spot switches
   (round budget ceiling, admin voting) because both gate the step from shortlist to award.
   No card icon repeats another or borrows a sidebar area's glyph.
+  Each tile ends in a **status line** (`lib/settingsStatus`, one `db.batch` in `server/settingsHub`):
+  grey for a fact, warning for something missing that COSTS the foundation (no giving strategy,
+  reply-to, API key, programme or round). A missing annual budget is deliberately grey, since
+  many foundations never set one. The role split is applied to the answer, not just the tiles.
   `/settings/award-letter` is now a redirect to `/settings/letters?tab=award`.
   It links out to `/rounds` and `/programmes`, which is why those left the sidebar. Cards are
   filtered by role. `/users` is now a redirect to `/settings/team`.

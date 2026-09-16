@@ -19,11 +19,16 @@ import {
 } from '@hugeicons/core-free-icons'
 import { C } from '../../components/ui/tokens'
 import { canSeePayments } from '../../lib/roles'
+import type { SettingsStatuses, TileStatus } from '../../lib/settingsStatus'
+import { getSettingsStatuses } from '../../server/fns/settingsHub'
 
 // The package declares IconSvgObject but doesn't export it; infer it from an icon.
 type IconSvg = typeof Target01Icon
 
 export const Route = createFileRoute('/_authenticated/settings/')({
+  // The status lines are a courtesy: a failed read shows the hub without them rather
+  // than taking away the one screen every setting is reached from.
+  loader: () => getSettingsStatuses().catch((): SettingsStatuses => ({})),
   component: Settings,
 })
 
@@ -155,7 +160,7 @@ const GROUPS: Group[] = [
   },
 ]
 
-function SettingsCard({ card }: { card: Card }) {
+function SettingsCard({ card, status }: { card: Card; status?: TileStatus }) {
   return (
     <Link
       to={card.to}
@@ -168,7 +173,9 @@ function SettingsCard({ card }: { card: Card }) {
       >
         <HugeiconsIcon icon={card.icon} size={20} strokeWidth={1.75} />
       </span>
-      <span className="min-w-0">
+      {/* A column that fills the tile, so the status line sits on the tile's foot and
+          lines up across a row whatever length the descriptions above it run to. */}
+      <span className="flex min-w-0 flex-1 flex-col">
         <span
           className="block font-display text-body font-medium group-hover:underline"
           style={{ color: C.ink }}
@@ -181,13 +188,40 @@ function SettingsCard({ card }: { card: Card }) {
         >
           {card.description}
         </span>
+        {status && <StatusLine status={status} />}
       </span>
     </Link>
   )
 }
 
+/**
+ * Grey for a fact, warning with a dot for something missing (the rule is
+ * `lib/settingsStatus`). The dot and the words carry it as well as the colour, and the
+ * attention case says so to a screen reader too.
+ */
+function StatusLine({ status }: { status: TileStatus }) {
+  return (
+    <span
+      className={`mt-auto flex min-w-0 items-center gap-1.5 pt-3 font-display text-label font-medium ${
+        status.attention ? 'text-warning' : 'text-grey-500'
+      }`}
+    >
+      {status.attention && (
+        <>
+          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-warning" />
+          <span className="sr-only">Needs attention: </span>
+        </>
+      )}
+      <span className="truncate" title={status.text}>
+        {status.text}
+      </span>
+    </span>
+  )
+}
+
 function Settings() {
   const { user } = Route.useRouteContext()
+  const statuses = Route.useLoaderData()
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
   // A trustee still needs to see the rounds and programmes their applications sit
@@ -236,7 +270,7 @@ function Settings() {
             </div>
             <div className="mt-3 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
               {group.cards.map((card) => (
-                <SettingsCard key={card.title} card={card} />
+                <SettingsCard key={card.title} card={card} status={statuses[String(card.to)]} />
               ))}
             </div>
           </section>

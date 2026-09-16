@@ -153,7 +153,9 @@ async function main() {
     .insert(awards)
     .values({ applicationId: app!.id, clientId, amountAwarded: '500', importBatchId: batch!.id })
     .returning({ id: awards.id })
-  await db.insert(awardInstalments).values({ awardId: award!.id, instalmentNo: 1, amount: '500' })
+  await db
+    .insert(awardInstalments)
+    .values({ awardId: award!.id, instalmentNo: 1, amount: '500', dueDate: '2026-01-01' })
   const [sched] = await db
     .insert(reportSchedule)
     .values({ awardId: award!.id, label: 'Probe report', dueDate: '2026-01-01' })
