@@ -8,7 +8,7 @@ import { neonConfig } from '@neondatabase/serverless'
 // anything unparseable — must fall to the safe side.
 process.env['DATABASE_URL'] = 'postgresql://user:pass@ep-test.eu-west-2.aws.neon.tech/db'
 
-const { getDb, databaseTimeout } = await import('./db')
+const { getDb, databaseTimeout, errorChain } = await import('./db')
 
 type QueryFetch = (url: string, init: RequestInit) => Promise<Response>
 
@@ -173,5 +173,35 @@ describe('databaseTimeout', () => {
     expect(databaseTimeout(new Error('duplicate key value'))).toBeNull()
     expect(databaseTimeout(null)).toBeNull()
     expect(databaseTimeout(undefined)).toBeNull()
+  })
+})
+
+describe('errorChain', () => {
+  it('names every layer down to the fetch failure, without the params', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'))
+
+    const raw = await installedFetch()('https://neon/sql', { body: body('select 1') }).catch(
+      (e: unknown) => e,
+    )
+    const neonError = Object.assign(new Error('Error connecting to database'), {
+      name: 'NeonDbError',
+      sourceError: raw,
+    })
+    const drizzleError = new Error('Failed query: select 1\nparams: 0806e278', {
+      cause: neonError,
+    })
+
+    const chain = errorChain(drizzleError)
+    expect(chain).toMatch(
+      /^Error: Failed query: select 1 ← NeonDbError: .* ← DatabaseTimeout: .* ← TypeError: fetch failed$/,
+    )
+    expect(chain).not.toContain('0806e278')
+  })
+
+  it('survives a cycle and a non-error', () => {
+    const a = new Error('a') as Error & { cause?: unknown }
+    a.cause = a
+    expect(errorChain(a)).toBe('Error: a')
+    expect(errorChain('boom')).toBe('boom')
   })
 })

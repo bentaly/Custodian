@@ -131,16 +131,40 @@ function warnIfSlow(elapsedMs: number, init?: RequestInit): void {
  * downgrades a database fault to a generic 500, or worse to a silent sign-out.
  */
 export function databaseTimeout(err: unknown): { isWrite: boolean } | null {
-  const seen = new Set<unknown>()
-  let node: unknown = err
-  while (node !== null && node !== undefined && !seen.has(node)) {
-    seen.add(node)
+  for (const node of chainOf(err)) {
     if ((node as { name?: unknown }).name === DB_TIMEOUT) {
       return { isWrite: (node as DatabaseTimeoutError).isWrite }
     }
-    node = (node as { sourceError?: unknown }).sourceError ?? (node as { cause?: unknown }).cause
   }
   return null
+}
+
+/**
+ * Every layer of a wrapped error as one line: `Failed query: … ← DatabaseTimeout: … ←
+ * TypeError: fetch failed`.
+ *
+ * Workers Logs prints an error's stack and neither its message nor its `cause`, and a
+ * drizzle "Failed query" message carries only the SQL. On 15 Sep 2026 three portfolio
+ * analyses failed and both Sentry and Workers Logs said which query, but nothing said
+ * WHY — the reason was two wrappers down, on `sourceError`. Log this, not the error.
+ */
+export function errorChain(err: unknown): string {
+  return chainOf(err)
+    .map((node) =>
+      node instanceof Error ? `${node.name}: ${node.message.split('\nparams:')[0]}` : String(node),
+    )
+    .join(' ← ')
+}
+
+/** The error and everything it wraps, via neon's `sourceError` or a standard `cause`. */
+function chainOf(err: unknown): unknown[] {
+  const chain: unknown[] = []
+  let node: unknown = err
+  while (node !== null && node !== undefined && !chain.includes(node)) {
+    chain.push(node)
+    node = (node as { sourceError?: unknown }).sourceError ?? (node as { cause?: unknown }).cause
+  }
+  return chain
 }
 
 let configured = false

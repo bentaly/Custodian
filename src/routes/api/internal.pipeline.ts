@@ -20,6 +20,7 @@ import { resolveApplicationDeprivation } from '../../server/applications/depriva
 import { screenApplication } from '../../server/applications/dueDiligence'
 import { generatePortfolioAnalysis } from '../../server/portfolioAnalysis/generate'
 import type { PipelineMessage } from '../../server/pipelineQueue'
+import { errorChain } from '../../server/db'
 
 function json(data: unknown, status: number): Response {
   return new Response(JSON.stringify(data), {
@@ -104,8 +105,11 @@ export const Route = createFileRoute('/api/internal/pipeline')({
           // A thrown error here is the retryable case — a database timeout, most
           // likely. The pipeline's own failures (a model error, an unmappable
           // payload) never throw: they land on the row as a status.
-          console.error(`[pipeline] ${message.kind} failed:`, err)
-          return json({ error: err instanceof Error ? err.message : 'Pipeline failed' }, 500)
+          // `errorChain`, not `err`: Workers Logs prints only the stack, and the reason a
+          // query failed sits under drizzle's "Failed query" wrapper.
+          const reason = errorChain(err)
+          console.error(`[pipeline] ${message.kind} failed: ${reason}`, err)
+          return json({ error: reason }, 500)
         }
       },
     },
