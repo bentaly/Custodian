@@ -120,6 +120,15 @@ export async function getAuthUser() {
           // Avatar. Populated by Google OAuth on sign-up; falls back to initials in the UI.
           image: users.image,
           role: users.role,
+          // Only meaningful on an admin, and only ever read through `holdsAVote`
+          // (`src/lib/roles.ts`). It rides along on this select — which every
+          // authenticated call already runs — because three separate places need the
+          // answer in the same breath as the role: the vote screen deciding whether to
+          // draw the Approve/Decline pair, `castVote` deciding whether a vote with no
+          // `onBehalfOf` is a proxy that lost its target or an admin voting as
+          // themselves, and the dashboard's "awaiting my vote" queue. A boolean on a
+          // row already being read is cheaper than any of them asking again.
+          votesOnApplications: users.votesOnApplications,
           clientId: users.clientId,
           clientName: clients.name,
         })

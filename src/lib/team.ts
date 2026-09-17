@@ -117,6 +117,34 @@ export function roleChangeRefusal(input: {
 }
 
 /**
+ * Why `actor` may not change whether `target` votes on applications, or null if they may.
+ *
+ * Unlike the two rules above, **your own row is allowed**. A foundation whose admin also
+ * sits on its board is usually a foundation with one admin, so a rule barring self-service
+ * would leave the feature unreachable by the very people who asked for it. Nothing is
+ * escalated by allowing it: an admin can already re-role a trustee, and where the
+ * foundation permits proxies they can already put a vote on the record in somebody else's
+ * name. What stops it being invisible is the audit row, not a second pair of hands.
+ *
+ * Only admins can HOLD a vote this way. A trustee already votes and a finance user
+ * deliberately does not, so the column would be a lie on either — see `holdsAVote`.
+ */
+export function voteChangeRefusal(input: {
+  actor: TeamPerson
+  target: TeamPerson | null
+}): string | null {
+  const { actor, target } = input
+  if (!isAdmin(actor.role)) return 'Only an admin can change who votes.'
+  if (!target) return NOT_FOUND
+  if (target.role === 'superadmin') return PLATFORM_ACCOUNT
+  if (!actor.clientId || target.clientId !== actor.clientId) return NOT_FOUND
+  if (target.archivedAt) return 'They have been removed from the team.'
+  if (target.role === 'trustee') return 'Trustees already vote on applications.'
+  if (target.role !== 'admin') return 'Only an admin can be given a vote on applications.'
+  return null
+}
+
+/**
  * A signed-in session's device, as a person would name it: "Chrome on macOS".
  *
  * Deliberately coarse. It exists so somebody can recognise a session that is not

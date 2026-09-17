@@ -21,7 +21,8 @@ import { bucketSeries } from '../../lib/timeSeries'
 import { checkBankAccount } from '../../lib/bankVerification'
 import { pickFocusRound } from '../../lib/roundStatus'
 import { isArrivedReport } from '../reports/query'
-import { currentTrusteeOf } from '../members'
+import { countsTowardMajority, currentVoterOf } from '../members'
+import { holdsAVote } from '../../lib/voting'
 
 // ISO yyyy-mm-dd in UTC for a given Date — grant payment/report due dates are stored
 // as plain date strings, so we compare against the same representation.
@@ -131,7 +132,7 @@ export async function dashboardData(
     reportRows,
     paymentRows,
     paymentTotalsRows,
-    trusteeCountRows,
+    voterCountRows,
     givingBucketRows,
     givingEventsRows,
     reportsToReviewRows,
@@ -210,8 +211,11 @@ export async function dashboardData(
         organisationName: applications.organisationName,
         amountRequested: applications.amountRequested,
         score: applications.custodianScore,
-        // Current trustees only, the rule `currentTrusteeOf` states for every majority.
-        yesVotes: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.vote} = 'yes' AND ${users.role} = 'trustee' AND ${users.archivedAt} IS NULL)`,
+        // The voting board only, on both sides of the majority. This is a FILTER rather
+        // than a WHERE (the join is optional, so a shortlisted application with no votes
+        // must still return a row), which is why it takes the bare predicate rather than
+        // `currentVoterOf` — the tenant is already settled by `inScope` above.
+        yesVotes: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.vote} = 'yes' AND ${countsTowardMajority()})`,
         myVote: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.userId} = ${user.id})`,
       })
       .from(applications)
@@ -362,9 +366,9 @@ export async function dashboardData(
       .innerJoin(awards, eq(awardInstalments.awardId, awards.id))
       .where(awardScope),
 
-    // Count of trustees for the client (denominator for the vote majority).
+    // Size of the voting board (the denominator for every majority on this screen).
     clientId
-      ? db.select({ count: count() }).from(users).where(currentTrusteeOf(clientId))
+      ? db.select({ count: count() }).from(users).where(currentVoterOf(clientId))
       : Promise.resolve([{ count: 0 }]),
 
     // Giving buckets (on awards.decisionAt): all-time / YTD / this year to last year /
@@ -630,8 +634,8 @@ export async function dashboardData(
   }
 
   // ── Attention queue ──────────────────────────────────────────────────────
-  const trusteeCount = trusteeCountRows[0]?.count ?? 0
-  const isTrustee = user.role === 'trustee'
+  const voterCount = voterCountRows[0]?.count ?? 0
+  const iVote = holdsAVote(user)
 
   const shortlist = shortlistRows.map((r) => ({
     id: r.id,
@@ -640,13 +644,17 @@ export async function dashboardData(
     score: r.score,
     yesVotes: Number(r.yesVotes),
     iVoted: Number(r.myVote) > 0,
-    hasMajority: trusteeCount > 0 && Number(r.yesVotes) * 2 > trusteeCount,
+    hasMajority: voterCount > 0 && Number(r.yesVotes) * 2 > voterCount,
   }))
 
   const readyToAward = shortlist
     .filter((s) => s.hasMajority)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-  const awaitingMyVote = isTrustee ? shortlist.filter((s) => !s.iVoted) : []
+  // Anyone who holds a vote gets the queue, which since 2026-09-17 includes an admin the
+  // foundation has given one. Gated on the vote rather than the role, or the person who
+  // both runs the foundation and sits on its board would be the only member never told
+  // what they still had to decide.
+  const awaitingMyVote = iVote ? shortlist.filter((s) => !s.iVoted) : []
   const shortlistProposed = shortlist.reduce((s, a) => s + a.amountRequested, 0)
 
   const reportsOverdue = reportRows.filter((r) => r.dueDate! < todayIso)

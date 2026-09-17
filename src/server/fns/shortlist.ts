@@ -13,12 +13,16 @@ import { intersectScope, visibleRoundProgrammeIds } from '../scope'
 import { roundProgrammeSpend, roundProgrammeYear } from '../applications/roundSpend'
 import { DEFAULT_FY_END_MONTH, type FinancialYear } from '../../lib/financialYear'
 import { isSuggestedFirstYear, resolveFirstYearAmount } from '../../lib/multiYear'
-import { currentTrusteeOf } from '../members'
+import { currentVoterOf } from '../members'
 
 /**
  * Everything the Shortlist screen renders, in one call: the applications awaiting a
  * board decision, who is entitled to vote and how they have voted, and the budget the
  * decision is being made against.
+ *
+ * `voters` is the roster in `currentVoterOf`, which is trustees plus any admin the
+ * foundation has given a vote — never `role = 'trustee'` read off the row, or this
+ * screen and `createAwards` would count different boards.
  *
  * It is one server fn rather than four because the screen is a single decision surface
  * — the vote cards, the "one vote short" count and the headroom figure all have to
@@ -55,7 +59,7 @@ export const listShortlist = createServerFn({ method: 'GET' })
  * round filter by the caller; `undefined` is a superadmin, unrestricted, and an empty
  * array is the caller's short-circuit and must not reach here.
  *
- * `callerClientId` is separate from the scope because the trustee roster and the
+ * `callerClientId` is separate from the scope because the voting roster and the
  * voting policy belong to ONE foundation: a superadmin looking across tenants has no
  * client of their own, so the roster is taken from the applications in hand.
  */
@@ -67,7 +71,7 @@ export async function shortlistData(
   {
     const empty = {
       items: [],
-      trustees: [],
+      voters: [],
       allowAdminVoting: false,
       budgets: [],
       // Null rather than a default-derived year: there is no budget card to caption when
@@ -95,7 +99,7 @@ export async function shortlistData(
     const appIds = items.map((a) => a.id)
     const clientIds = [...new Set(items.map((a) => a.roundProgramme.programme.clientId))]
     // The shortlist is scoped to one client for everyone except a superadmin looking
-    // across tenants; the trustee roster and voting policy only make sense for one, so
+    // across tenants; the voting roster and voting policy only make sense for one, so
     // take the first (for a single-client caller it is the only one).
     const clientId = callerClientId ?? clientIds[0]!
 
@@ -116,7 +120,7 @@ export async function shortlistData(
     // round, so in practice there is one; a superadmin looking across rounds gets the first.
     const fy = await roundProgrammeYear(db, roundProgrammeIdsInPlay[0]!, endMonth)
 
-    const [voteRows, trustees, profile, commentRows] = await Promise.all([
+    const [voteRows, voters, profile, commentRows] = await Promise.all([
       db
         .select({
           applicationId: applicationVotes.applicationId,
@@ -129,9 +133,9 @@ export async function shortlistData(
       db
         // `image` is the avatar URL on the row itself (`/api/avatar/…`), not a join —
         // the roster is a list of faces on the design, and initials are the fallback.
-        .select({ id: users.id, name: users.name, image: users.image })
+        .select({ id: users.id, name: users.name, image: users.image, role: users.role })
         .from(users)
-        .where(currentTrusteeOf(clientId))
+        .where(currentVoterOf(clientId))
         .orderBy(users.name),
       db.query.clientProfiles.findFirst({ where: (p, { eq }) => eq(p.clientId, clientId) }),
       // Just the count. The discussion itself is fetched when a card's comment button
@@ -144,22 +148,23 @@ export async function shortlistData(
         .groupBy(applicationComments.applicationId),
     ])
 
-    const trusteeIds = new Set(trustees.map((t) => t.id))
+    const voterIds = new Set(voters.map((v) => v.id))
     const votesByApp = new Map<
       string,
       Array<{ userId: string; vote: 'yes' | 'no'; recordedByUserId: string | null }>
     >()
     for (const v of voteRows) {
-      // Only current trustees count towards the majority. A vote left behind by
-      // somebody whose role changed stays in the table but must not tip a decision.
-      if (!trusteeIds.has(v.userId)) continue
+      // Only the current voting board counts towards the majority. A vote left behind
+      // by somebody whose role changed, or whose vote as an admin was taken back, stays
+      // in the table but must not tip a decision.
+      if (!voterIds.has(v.userId)) continue
       const list = votesByApp.get(v.applicationId) ?? []
       list.push({ userId: v.userId, vote: v.vote, recordedByUserId: v.recordedByUserId })
       votesByApp.set(v.applicationId, list)
     }
     const commentsByApp = new Map(commentRows.map((r) => [r.applicationId, r.comments]))
 
-    const trusteeCount = trustees.length
+    const voterCount = voters.length
     const decorated = items.map((a) => {
       const votes = votesByApp.get(a.id) ?? []
       const yesVotes = votes.filter((v) => v.vote === 'yes').length
@@ -180,11 +185,11 @@ export async function shortlistData(
           grantDurationYears: a.roundProgramme.grantDurationYears,
         }),
         firstYearIsSuggested: isSuggestedFirstYear(a.firstYearAmount),
-        trusteeCount,
-        hasMajority: trusteeCount > 0 && yesVotes * 2 > trusteeCount,
+        voterCount,
+        hasMajority: voterCount > 0 && yesVotes * 2 > voterCount,
         // Whether one more yes would carry it — the "last vote needed" nudge.
         oneVoteShort:
-          trusteeCount > 0 && (yesVotes + 1) * 2 > trusteeCount && yesVotes * 2 <= trusteeCount,
+          voterCount > 0 && (yesVotes + 1) * 2 > voterCount && yesVotes * 2 <= voterCount,
       }
     })
 
@@ -226,7 +231,7 @@ export async function shortlistData(
 
     return {
       items: decorated,
-      trustees,
+      voters,
       allowAdminVoting: profile?.allowAdminVoting ?? false,
       budgets,
       /** The year the round budgets above are being drawn from, for the card's caption. */

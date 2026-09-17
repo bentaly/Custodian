@@ -6,6 +6,7 @@ import {
   deviceLabel,
   removalRefusal,
   roleChangeRefusal,
+  voteChangeRefusal,
   type TeamPerson,
 } from './team'
 
@@ -190,5 +191,54 @@ describe('deviceLabel', () => {
   it('admits when it cannot tell', () => {
     expect(deviceLabel(null)).toBe('Unknown device')
     expect(deviceLabel('curl/8.4.0')).toBe('Unknown device')
+  })
+})
+
+describe('voteChangeRefusal', () => {
+  it('lets an admin give another admin a vote', () => {
+    expect(voteChangeRefusal({ actor: admin, target: otherAdmin })).toBe(null)
+  })
+
+  it('lets an admin give THEMSELVES a vote, unlike every other action on this screen', () => {
+    // The point of the feature: the foundation whose admin also sits on the board is
+    // usually the foundation with one admin, so a rule barring self-service would leave
+    // it unreachable by the people who asked for it. Removal and role changes stay barred.
+    expect(voteChangeRefusal({ actor: admin, target: admin })).toBe(null)
+    expect(removalRefusal({ actor: admin, target: admin, activeAdmins: 2, via: 'team' })).toBe(
+      'To remove your own account, go to your Profile.',
+    )
+  })
+
+  it('refuses a trustee, who already votes, and a finance user, who never does', () => {
+    expect(voteChangeRefusal({ actor: admin, target: trustee })).toBe(
+      'Trustees already vote on applications.',
+    )
+    expect(
+      voteChangeRefusal({ actor: admin, target: person({ id: 'fin-1', role: 'finance' }) }),
+    ).toBe('Only an admin can be given a vote on applications.')
+  })
+
+  it('refuses a non-admin actor, an archived target and another tenant', () => {
+    expect(voteChangeRefusal({ actor: trustee, target: otherAdmin })).toBe(
+      'Only an admin can change who votes.',
+    )
+    expect(
+      voteChangeRefusal({
+        actor: admin,
+        target: person({ id: 'admin-3', role: 'admin', archivedAt: new Date() }),
+      }),
+    ).toBe('They have been removed from the team.')
+    expect(
+      voteChangeRefusal({
+        actor: admin,
+        target: person({ id: 'admin-4', role: 'admin', clientId: 'client-2' }),
+      }),
+    ).toBe('We could not find that team member.')
+  })
+
+  it('refuses a platform account', () => {
+    expect(
+      voteChangeRefusal({ actor: admin, target: person({ id: 'sa', role: 'superadmin' }) }),
+    ).toBe('Platform accounts cannot be changed here.')
   })
 })

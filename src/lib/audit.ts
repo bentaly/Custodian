@@ -102,6 +102,12 @@ export type AuditAction =
   // somebody to admin hands them the whole foundation, and moving a trustee off the
   // board takes their vote out of every decision still open.
   | 'member_role_changed'
+  // An admin was given a vote of their own on applications, or had it taken back. It
+  // belongs beside `member_role_changed` because it is the same class of act: it moves
+  // the denominator of every majority still to be decided, without changing anybody's
+  // role. Recorded even when an admin does it to their own row — especially then, since
+  // that is the one change on the Team screen nobody else had to agree to.
+  | 'member_vote_changed'
   // A member was removed from the foundation, by an admin or by themselves (`self`).
   // Removal archives the user rather than deleting it (see `src/lib/team.ts`), and the
   // row's name survives, so their earlier entries in this log still read as theirs.
@@ -205,6 +211,7 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   invitation_sent: 'access',
   invitation_revoked: 'access',
   member_role_changed: 'access',
+  member_vote_changed: 'access',
   member_removed: 'access',
   impersonation_started: 'access',
   decline_letters_sent: 'decisions',
@@ -249,6 +256,7 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   invitation_sent: 'invited',
   invitation_revoked: 'cancelled the invitation for',
   member_role_changed: 'changed the role of',
+  member_vote_changed: 'changed who votes, for',
   member_removed: 'removed',
   impersonation_started: 'signed in as',
   decline_letters_sent: 'sent decline letters for',
@@ -279,6 +287,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   invitation_sent: 'Invitation sent',
   invitation_revoked: 'Invitation cancelled',
   member_role_changed: 'Role changed',
+  member_vote_changed: 'Vote on applications changed',
   member_removed: 'Member removed',
   impersonation_started: 'Platform sign-in as member',
   decline_letters_sent: 'Decline letters sent',
@@ -314,6 +323,7 @@ export function auditSubject(action: AuditAction, metadata: Meta): string | null
     // The member by name, as they were known: a removed member's row has its email
     // tombstoned, so the address is kept here only as a fallback.
     case 'member_role_changed':
+    case 'member_vote_changed':
     case 'member_removed':
       return str(metadata, 'name') ?? str(metadata, 'email')
     // Who was worn, not who did the wearing — the actor column already carries the
@@ -493,6 +503,18 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
     case 'member_role_changed': {
       const label = (role: string | null) => (role ? (ROLE_LABELS[role] ?? role) : null)
       parts.push(change(label(str(metadata, 'from')), label(str(metadata, 'to'))))
+      break
+    }
+
+    // Said as the state it ended in, not as a transition: "changed who votes, for Priya
+    // — Now votes on applications" reads the way somebody scanning the log needs it to.
+    case 'member_vote_changed': {
+      parts.push(
+        metadata?.['votes'] === true
+          ? 'Now votes on applications'
+          : 'No longer votes on applications',
+        metadata?.['self'] === true ? 'their own account' : null,
+      )
       break
     }
 

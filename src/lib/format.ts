@@ -264,3 +264,13 @@ export function fmtPerYear(amount: number, years: number | null | undefined): st
   const each = Math.floor((amount / years) * 100 + 1e-6) / 100
   return `${fmtExact(each)} per year for ${years} years`
 }
+
+/**
+ * Names in a sentence: "Sarah", "Sarah and James", "Sarah, James and Aisha".
+ *
+ * `Intl.ListFormat` rather than a join, so the last separator is the word and not a
+ * comma, and no Oxford comma, which is the British form the rest of the copy uses.
+ */
+export function fmtList(items: string[]): string {
+  return new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' }).format(items)
+}

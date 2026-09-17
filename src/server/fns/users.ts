@@ -18,6 +18,9 @@ export const listClientUsers = createServerFn({ method: 'GET' }).handler(async (
       name: users.name,
       email: users.email,
       role: users.role,
+      // Only meaningful on an admin. The Team screen's Votes column reads it through
+      // `holdsAVote`, which is also what decides whether a trustee shows as voting.
+      votesOnApplications: users.votesOnApplications,
       createdAt: users.createdAt,
     })
     .from(users)

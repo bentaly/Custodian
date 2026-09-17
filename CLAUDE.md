@@ -167,14 +167,29 @@ Traps:
   `src/lib/roles.ts`): bank columns are withheld from `getApplication`, and `/finance` has a route
   guard. Three places must agree (nav, route guard, server fn); only the last is a boundary — the
   other two exist so nobody is shown a door that redirects them away.
+  **Who votes is NOT the same as who is a trustee.** Every trustee does, finance never does, and
+  an admin does if the foundation has given them one (`users.votes_on_applications`, 2026-09-17):
+  at a small foundation the person running Custodian is often also on the board. Every roster and
+  majority count goes through `countsTowardMajority` / `currentVoterOf` (`src/server/members.ts`),
+  numerator AND denominator, with `holdsAVote` (`src/lib/voting.ts`) as the client-side twin that
+  decides what a screen OFFERS. Never test `role = 'trustee'` for a vote: the dashboard's yes-count
+  hand-wrote that rule inside a `COUNT(*) FILTER` and is the reason the predicate is exported
+  separately from the tenant filters. `majorityOf` states the threshold the SQL writes as
+  `yes * 2 > voters`. A removed or re-roled trustee's vote, and an admin's after their vote is
+  taken back, stay on record but stop counting on anything undecided; `changeMemberRole` clears the
+  column when somebody leaves `admin`, so a dormant grant cannot come back with the role.
+  The toggle is on **Settings → Team** (a Votes column plus a row action, audited as
+  `member_vote_changed`) because it names a person, and `/settings/shortlisting` only STATES the
+  board and links here. **Your own row is the one thing on Team you may change** — a foundation
+  with one admin has nobody else to ask, and it grants nothing they could not already take.
   **Removing a member ARCHIVES the row (`archived_at`), never deletes it** — votes and comments
-  cascade on a deleted user and are the decision record. Every roster and majority count goes
-  through `currentTrusteeOf` (`src/server/members.ts`), numerator AND denominator: a removed or
-  re-roled trustee's vote stays on record but stops counting on anything undecided. See
-  `src/lib/team.ts`; the last admin can be neither removed nor demoted (checked again in SQL).
+  cascade on a deleted user and are the decision record. See `src/lib/team.ts`; the last admin
+  can be neither removed nor demoted (checked again in SQL).
 - **user_avatars** — profile photos, kept off the `users` row (which `getAuthUser` selects on every
   authenticated call); `users.image` holds the `/api/avatar/$userId?v=<hash>` URL
-- **client_profiles** — per-tenant settings (mission statement, admin-voting toggle)
+- **client_profiles** — per-tenant settings (mission statement, `allow_admin_voting`: may an admin
+  record a vote on a TRUSTEE's behalf. A whole-foundation policy, and a different thing from one
+  admin holding a vote of their own; an admin may have either, both or neither)
 - **rounds** ↔ **programmes** via **round_programmes** (budget, grant duration, impact unit per
   pairing); applications hang off a round-programme
 - **applications** — one row per submission; responses/budget lines in jsonb, plus AI columns.
@@ -1016,7 +1031,10 @@ Structural decisions worth knowing before adding a screen:
   `budget`, `giving-strategy`, `shortlisting`, `letters`, `team`, `activity`, `api-keys`,
   `submissions`, `data-import`. Grouped in the order the work happens (what you fund, how you
   decide, your organisation, getting data in); `shortlisting` holds both on-the-spot switches
-  (round budget ceiling, admin voting) because both gate the step from shortlist to award.
+  (round budget ceiling, proxy voting) because both gate the step from shortlist to award, and
+  STATES the voting board above them (who holds a vote, and the number a grant needs) because the
+  page said a majority was required without ever saying a majority of whom. The board is changed
+  on Team; two places to edit one roster is two rosters.
   No card icon repeats another or borrows a sidebar area's glyph.
   Each tile ends in a **status line** (`lib/settingsStatus`, one `db.batch` in `server/settingsHub`):
   grey for a fact, warning for something missing that COSTS the foundation (no giving strategy,

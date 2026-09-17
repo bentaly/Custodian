@@ -7,7 +7,7 @@ import {
   resendInvitation,
   revokeInvitation,
 } from '../../server/fns/invitations'
-import { removeMember, setMemberRole } from '../../server/fns/team'
+import { removeMember, setMemberRole, setMemberVoteOnApplications } from '../../server/fns/team'
 import {
   ActionMenu,
   Button,
@@ -28,6 +28,8 @@ import { paginate } from '../../lib/pagination'
 import { fmtDate } from '../../lib/format'
 import { SettingsPage } from '../../components/SettingsPage'
 import { ROLE_LABELS, INVITABLE_ROLES, type InviteRole } from '../../lib/roles'
+import { holdsAVote } from '../../lib/voting'
+import { invalidateCurrentUser } from '../../lib/currentUser'
 
 export const Route = createFileRoute('/_authenticated/settings/team')({
   loader: async ({ context }) => {
@@ -78,6 +80,7 @@ function Team() {
   const [roleTarget, setRoleTarget] = useState<Member | null>(null)
   const [nextRole, setNextRole] = useState<InviteRole>('trustee')
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null)
+  const [voteTarget, setVoteTarget] = useState<Member | null>(null)
   const [memberBusy, setMemberBusy] = useState(false)
   const [memberError, setMemberError] = useState('')
 
@@ -120,11 +123,44 @@ function Team() {
     setRemoveTarget(m)
   }
 
+  function openVote(m: Member) {
+    setMemberError('')
+    setMemberNotice('')
+    setVoteTarget(m)
+  }
+
   function closeMemberDialogs() {
     if (memberBusy) return
     setRoleTarget(null)
     setRemoveTarget(null)
+    setVoteTarget(null)
     setMemberError('')
+  }
+
+  async function handleVoteSave() {
+    if (!voteTarget) return
+    const votes = !voteTarget.votesOnApplications
+    setMemberBusy(true)
+    setMemberError('')
+    try {
+      await setMemberVoteOnApplications({ data: { userId: voteTarget.id, votes } })
+      setMemberNotice(
+        votes
+          ? `${voteTarget.name} now votes on applications.`
+          : `${voteTarget.name} no longer votes on applications.`,
+      )
+      setVoteTarget(null)
+      // The signed-in identity is cached in the browser for five minutes
+      // (`src/lib/currentUser.ts`), and it is what the Shortlist screen asks whether to
+      // draw the Approve and Decline buttons. Without this, an admin who has just given
+      // themselves a vote goes to use it and finds the card unchanged.
+      if (voteTarget.id === user.id) invalidateCurrentUser()
+      router.invalidate()
+    } catch (err) {
+      setMemberError(messageOf(err, 'Could not change whether they vote.'))
+    } finally {
+      setMemberBusy(false)
+    }
   }
 
   async function handleRoleSave() {
@@ -199,6 +235,10 @@ function Team() {
   // emailed code, and a platform account is not the foundation's to change.
   const manageable = (m: Member) => m.id !== user.id && m.role !== 'superadmin'
 
+  // A vote of one's own is an admin-only thing: a trustee has one already and a finance
+  // user deliberately does not. Unlike `manageable`, your own row qualifies.
+  const canHoldAVote = (m: Member) => m.role === 'admin'
+
   const memberColumns: TableColumn<Member>[] = [
     {
       id: 'name',
@@ -222,6 +262,20 @@ function Team() {
       width: 'sm:w-[15%]',
       cell: (m) => <span className={cellSub}>{ROLE_LABELS[m.role] ?? m.role}</span>,
     },
+    // Who counts toward a majority, stated on the roster rather than left to be worked
+    // out from the roles. It answers two questions a foundation otherwise has nowhere to
+    // ask: which of our admins sits on the board, and (the one that surprises people)
+    // that a finance user does not vote at all.
+    {
+      id: 'votes',
+      header: 'Votes',
+      width: 'sm:w-[12%]',
+      cell: (m) => (
+        <span className={cellSub}>
+          {holdsAVote(m) ? 'Yes' : <span className="text-grey-400">--</span>}
+        </span>
+      ),
+    },
     {
       id: 'joined',
       header: 'Joined',
@@ -236,12 +290,34 @@ function Team() {
       header: <span className="sr-only">Actions</span>,
       width: 'w-14',
       cell: (m) =>
-        manageable(m) ? (
+        manageable(m) || canHoldAVote(m) ? (
           <ActionMenu
             label={`Actions for ${m.name}`}
             actions={[
-              { label: 'Change role', onSelect: () => openRole(m) },
-              { label: 'Remove from team', destructive: true, onSelect: () => openRemove(m) },
+              // Your own row carries this one and nothing else: giving an admin a vote is
+              // the single change here you are allowed to make to yourself, because the
+              // foundation whose admin is also a trustee usually has no second admin to
+              // ask. See `voteChangeRefusal`.
+              ...(canHoldAVote(m)
+                ? [
+                    {
+                      label: m.votesOnApplications
+                        ? 'Take away their vote'
+                        : 'Allow voting on applications',
+                      onSelect: () => openVote(m),
+                    },
+                  ]
+                : []),
+              ...(manageable(m)
+                ? [
+                    { label: 'Change role', onSelect: () => openRole(m) },
+                    {
+                      label: 'Remove from team',
+                      destructive: true,
+                      onSelect: () => openRemove(m),
+                    },
+                  ]
+                : []),
             ]}
           />
         ) : null,
@@ -441,10 +517,14 @@ function Team() {
         <p className="mt-2 font-display text-body leading-relaxed text-grey-500">
           {INVITABLE_ROLES.find((r) => r.value === nextRole)?.hint}
         </p>
-        {roleTarget?.role === 'trustee' && nextRole !== 'trustee' && (
+        {/* Said whenever the change moves them ON or OFF the board, which is no longer
+            the same as "was a trustee": an admin who holds a vote loses it here too
+            (`changeMemberRole` clears the column), and a trustee made an admin loses one
+            unless somebody gives it back. */}
+        {roleTarget && holdsAVote(roleTarget) && !holdsAVote({ role: nextRole }) && (
           <p className="mt-2 font-display text-body leading-relaxed text-grey-500">
-            Their votes on applications still being decided will stop counting towards the majority.
-            Votes on decisions already made are unaffected.
+            They will stop voting on applications, and their votes on anything still being decided
+            will stop counting towards the majority. Votes on decisions already made are unaffected.
           </p>
         )}
         <p className="mt-2 font-display text-body leading-relaxed text-grey-500">
@@ -452,6 +532,46 @@ function Team() {
         </p>
         <ErrorNote error={memberError} className="mt-3" />
       </Dialog>
+
+      <ConfirmDialog
+        open={!!voteTarget}
+        title={
+          voteTarget?.votesOnApplications
+            ? `Take away ${voteTarget.name}’s vote?`
+            : `Give ${voteTarget?.name ?? 'them'} a vote on applications?`
+        }
+        onCancel={closeMemberDialogs}
+        onConfirm={handleVoteSave}
+        confirmLabel={voteTarget?.votesOnApplications ? 'Take away their vote' : 'Give them a vote'}
+        busyLabel="Saving…"
+        busy={memberBusy}
+        tone={voteTarget?.votesOnApplications ? 'danger' : 'primary'}
+        error={memberError}
+      >
+        {voteTarget && (
+          <>
+            {/* The consequence first, because it is the one that surprises: the majority
+                is of the board as it stands, so changing the board changes what is
+                already carried. A grant already awarded is untouched. */}
+            <p>
+              {voteTarget.id === user.id ? 'You' : voteTarget.name} will
+              {voteTarget.votesOnApplications ? ' no longer ' : ' '}
+              vote on shortlisted applications
+              {voteTarget.votesOnApplications ? '.' : ', alongside the trustees.'}{' '}
+              {voteTarget.votesOnApplications
+                ? 'Any votes already cast stay on record but stop counting.'
+                : 'They keep every other admin power.'}
+            </p>
+            <p className="mt-2">
+              A majority is counted out of everyone who votes, so this changes what counts as a
+              majority on applications still being decided. Grants already awarded are unaffected.
+            </p>
+            {voteTarget.id === user.id && (
+              <p className="mt-2">This is recorded in the activity log under your name.</p>
+            )}
+          </>
+        )}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={!!removeTarget}
@@ -471,7 +591,8 @@ function Team() {
             </p>
             <p className="mt-2">
               Their votes, comments and past activity stay on record under their name.
-              {removeTarget.role === 'trustee' &&
+              {removeTarget &&
+                holdsAVote(removeTarget) &&
                 ' Their votes on applications still being decided will stop counting towards the majority.'}
             </p>
             <p className="mt-2">You can invite them again later if you need to.</p>

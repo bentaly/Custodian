@@ -1,0 +1,2 @@
+ALTER TYPE "public"."audit_action" ADD VALUE 'member_vote_changed' BEFORE 'member_removed';--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "votes_on_applications" boolean DEFAULT false NOT NULL;

@@ -14,8 +14,14 @@ import { accounts, sessions, users, verifications } from '../../../drizzle/schem
 import { callAuth } from '../auth'
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
-import { activeAdminCount, archiveMember, changeMemberRole } from '../members'
-import { deviceLabel, removalRefusal, roleChangeRefusal, type TeamPerson } from '../../lib/team'
+import { activeAdminCount, archiveMember, changeMemberRole, setMemberVote } from '../members'
+import {
+  deviceLabel,
+  removalRefusal,
+  roleChangeRefusal,
+  voteChangeRefusal,
+  type TeamPerson,
+} from '../../lib/team'
 import {
   REMOVAL_CODE_MESSAGES,
   REMOVAL_CODE_TTL_MS,
@@ -88,6 +94,44 @@ export const removeMember = createServerFn({ method: 'POST' })
       action: 'member_removed',
       clientId: actor.clientId,
       metadata: { name: target.name, email: target.email, role: target.role },
+    })
+    return { ok: true }
+  })
+
+/**
+ * Give an admin a vote of their own on applications, or take it back.
+ *
+ * Deliberately NOT part of `setMemberRole`, though it sits in the same menu: a role says
+ * what somebody can DO, and this says whether they are on the board. Folding it in would
+ * mean every role change had to restate it, and the one you forgot to restate would
+ * quietly drop a vote.
+ *
+ * `votes` is sent as the state wanted, not as a toggle: two admins pressing at once
+ * would otherwise flip it twice and land back where it started, with two audit rows
+ * disagreeing about what happened.
+ */
+export const setMemberVoteOnApplications = createServerFn({ method: 'POST' })
+  .validator(z.object({ userId: z.string().min(1), votes: z.boolean() }))
+  .handler(async ({ data }) => {
+    const actor = await requireRole('superadmin', 'admin')
+    const target = await loadMember(data.userId)
+
+    const refusal = voteChangeRefusal({ actor: asPerson(actor), target })
+    if (refusal) throw target ? badRequest(refusal) : notFoundError(refusal)
+    if (!target || !actor.clientId) throw notFoundError()
+
+    if (!(await setMemberVote(target.id, data.votes))) throw conflict(RACED)
+
+    await recordAudit({
+      actorUserId: actor.id,
+      action: 'member_vote_changed',
+      clientId: actor.clientId,
+      metadata: {
+        name: target.name,
+        email: target.email,
+        votes: data.votes,
+        self: target.id === actor.id,
+      },
     })
     return { ok: true }
   })

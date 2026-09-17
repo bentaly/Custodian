@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { applicationComments, applicationVotes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { holdsAVote } from '../../lib/voting'
 import { recordAudit } from '../audit'
 import { assertApplicationAccess } from '../scope'
 
@@ -96,7 +97,8 @@ export const castVote = createServerFn({ method: 'POST' })
     z.object({
       applicationId: z.uuid(),
       vote: z.enum(['yes', 'no']),
-      // Trustee to record the vote for. Admins only; omitted, a trustee votes as themselves.
+      // Trustee to record the vote for. Admins only; omitted, the caller votes as
+      // themselves, which they may do if they hold a vote of their own.
       onBehalfOf: z.string().optional(),
     }),
   )
@@ -106,13 +108,15 @@ export const castVote = createServerFn({ method: 'POST' })
     await assertApplicationAccess(user, data.applicationId)
     const isAdmin = user.role === 'superadmin' || user.role === 'admin'
 
+    // The two things an admin may be doing here are independent, and both are refused
+    // by default. Holding a vote is about this ONE administrator (`users
+    // .votes_on_applications`, given on Settings → Team); voting for somebody else is a
+    // policy of the whole foundation (`client_profiles.allow_admin_voting`). An admin
+    // may easily have one and not the other, which is why neither check stands in for
+    // the other and why `onBehalfOf` is what decides which one applies.
     let targetUserId: string
     let proxyForName: string | null = null
-    if (isAdmin) {
-      // Admins don't have a vote of their own — they may only record one on
-      // behalf of a trustee, and only when the client has enabled it.
-      if (!data.onBehalfOf) throw badRequest('Select a trustee to vote on behalf of')
-
+    if (isAdmin && data.onBehalfOf) {
       const app = await getDb().query.applications.findFirst({
         where: (a, { eq }) => eq(a.id, data.applicationId),
         with: { roundProgramme: { with: { programme: true } } },
@@ -140,14 +144,25 @@ export const castVote = createServerFn({ method: 'POST' })
       targetUserId = target.id
       proxyForName = target.name
     } else {
-      // Trustees vote as themselves.
+      // Voting as yourself. A trustee always may; an admin may only where the
+      // foundation has given them a vote, and this is the boundary that says so — the
+      // Shortlist screen hides the buttons from an admin without one, but hidden is not
+      // refused.
+      if (!holdsAVote(user))
+        throw forbidden(
+          isAdmin
+            ? 'You do not hold a vote on applications. An admin can give you one on Settings → Team.'
+            : 'Your role does not vote on applications.',
+        )
       targetUserId = user.id
     }
 
-    // `recordedByUserId` is set on BOTH branches, never left alone: a trustee voting
-    // for themselves after an admin voted for them must clear the proxy, or the row
+    // `recordedByUserId` is a PROXY, not "an admin touched this": an admin casting their
+    // own vote leaves it null, exactly as a trustee does, because there is nobody it was
+    // recorded on behalf of. It is set on every branch, never left alone — a trustee
+    // voting for themselves after an admin voted for them must clear it, or the row
     // would keep naming an administrator who had nothing to do with the final vote.
-    const recordedByUserId = isAdmin ? user.id : null
+    const recordedByUserId = proxyForName === null ? null : user.id
     await getDb()
       .insert(applicationVotes)
       .values({
@@ -161,10 +176,10 @@ export const castVote = createServerFn({ method: 'POST' })
         set: { vote: data.vote, recordedByUserId },
       })
 
-    // Only the proxy case is logged. A trustee voting as themselves is already fully
-    // described by the vote row; an administrator entering a vote for somebody else is
+    // Only the proxy case is logged. Anybody voting as themselves is already fully
+    // described by the vote row; an administrator entering a vote for somebody ELSE is
     // the event a board would want to find later.
-    if (isAdmin) {
+    if (proxyForName !== null) {
       await recordAudit({
         actorUserId: user.id,
         action: 'application_vote_recorded_by_admin',

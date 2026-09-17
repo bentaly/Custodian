@@ -18,10 +18,21 @@ import { fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { Avatar, ErrorNote, TextLink, initials } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
+import { majorityOf } from '../../lib/voting'
 import { withAlpha } from '../BarMeter'
 import { CommentsDialog } from './CommentsDialog'
 
-export type ShortlistTrustee = { id: string; name: string; image: string | null }
+/**
+ * One member of the voting board: every current trustee, plus any admin the foundation
+ * has given a vote. `role` is carried so the roster can say which is which — a board
+ * reading "4 of 5 voted" is entitled to know that one of the five is the administrator.
+ */
+export type ShortlistVoter = {
+  id: string
+  name: string
+  image: string | null
+  role: string
+}
 
 /** The order the criteria read in — the registry's own order. */
 const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<
@@ -55,7 +66,7 @@ export type VoteCardApplication = {
   votes: Array<{ userId: string; vote: 'yes' | 'no'; recordedByUserId?: string | null }>
   yesVotes: number
   noVotes: number
-  trusteeCount: number
+  voterCount: number
   hasMajority: boolean
   oneVoteShort: boolean
   commentCount: number
@@ -68,7 +79,7 @@ export type VoteCardApplication = {
  * `app.hasMajority` were computed by the server for the votes it knew about — and for
  * a moment after you vote, this card knows about one more. See `Tally` below.
  */
-type Tally = { trusteeCount: number; voted: number; yesVotes: number; hasMajority: boolean }
+type Tally = { voterCount: number; voted: number; yesVotes: number; hasMajority: boolean }
 
 /**
  * Yes-votes still needed to carry it. The board's question is never "how many have
@@ -76,8 +87,7 @@ type Tally = { trusteeCount: number; voted: number; yesVotes: number; hasMajorit
  * away, which is why the pill says the number rather than "awaiting votes".
  */
 function votesStillNeeded(tally: Tally): number {
-  if (tally.trusteeCount === 0) return 0
-  return Math.max(0, Math.floor(tally.trusteeCount / 2) + 1 - tally.yesVotes)
+  return Math.max(0, majorityOf(tally.voterCount) - tally.yesVotes)
 }
 
 function Pill({
@@ -108,7 +118,7 @@ function Pill({
 function DecisionPill({ tally }: { tally: Tally }) {
   if (tally.hasMajority) return <Pill tone="brand">Board approved</Pill>
   const needed = votesStillNeeded(tally)
-  if (tally.trusteeCount === 0) return <Pill tone="amber">No trustees to vote</Pill>
+  if (tally.voterCount === 0) return <Pill tone="amber">Nobody can vote</Pill>
   if (needed === 1) return <Pill tone="amber">Last vote needed</Pill>
   return <Pill tone="grey">{needed} votes needed</Pill>
 }
@@ -158,7 +168,7 @@ function OnBehalfControl({
   busy,
   onVote,
 }: {
-  trustee: ShortlistTrustee
+  trustee: ShortlistVoter
   vote: 'yes' | 'no' | undefined
   busy: boolean
   onVote: (vote: 'yes' | 'no') => void
@@ -355,15 +365,18 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
  */
 export function VoteCard({
   app,
-  trustees,
+  voters,
   userId,
   userRole,
+  iVote,
   allowAdminVoting,
 }: {
   app: VoteCardApplication
-  trustees: ShortlistTrustee[]
+  voters: ShortlistVoter[]
   userId: string
   userRole: string
+  /** Does the signed-in user hold a vote of their own? `holdsAVote`, resolved by the route. */
+  iVote: boolean
   allowAdminVoting: boolean
 }) {
   const router = useRouter()
@@ -390,13 +403,15 @@ export function VoteCard({
     })
   }, [app.votes])
 
-  const isTrustee = userRole === 'trustee'
   const isAdmin = userRole === 'admin' || userRole === 'superadmin'
-  // An admin has no vote of their own (see `castVote`) — they may only record one on a
-  // named trustee's behalf, and only when the foundation has switched that on. So the
-  // two roles get different controls: a trustee gets the decision buttons, an admin
-  // gets a per-trustee toggle in the roster.
-  const canVoteAsSelf = isTrustee
+  // The two controls are independent, and an admin can have both. Voting as yourself
+  // needs a vote of your own — always true of a trustee, true of an admin the foundation
+  // has given one. Recording somebody else's needs the foundation to allow proxies, and
+  // is an admin power whether or not they sit on the board themselves. An admin with
+  // both gets the decision buttons for their own vote AND a toggle beside each trustee;
+  // their own row in the roster gets no toggle, because voting on your own behalf is
+  // just voting (see `castVote`, where it leaves `recordedByUserId` null).
+  const canVoteAsSelf = iVote
   const canVoteForTrustees = isAdmin && allowAdminVoting
 
   // Votes cast from this card that the server has ACCEPTED but the loader has not
@@ -421,10 +436,10 @@ export function VoteCard({
 
   const yesVotes = [...voteMap.values()].filter((v) => v === 'yes').length
   const tally: Tally = {
-    trusteeCount: app.trusteeCount,
+    voterCount: app.voterCount,
     voted: voteMap.size,
     yesVotes,
-    hasMajority: app.trusteeCount > 0 && yesVotes * 2 > app.trusteeCount,
+    hasMajority: app.voterCount > 0 && yesVotes * 2 > app.voterCount,
   }
   const myVote = voteMap.get(userId)
   const detail = app.custodianScoreDetail
@@ -671,13 +686,13 @@ export function VoteCard({
               Board votes
             </span>
             <span className="font-display text-label" style={{ color: C.sub }}>
-              {tally.voted} of {tally.trusteeCount} voted
+              {tally.voted} of {tally.voterCount} voted
             </span>
           </div>
 
-          {trustees.length === 0 ? (
+          {voters.length === 0 ? (
             <p className="font-display text-label leading-relaxed" style={{ color: C.sub }}>
-              No trustees have been added yet, so nothing can be approved.{' '}
+              Nobody holds a vote yet, so nothing can be approved.{' '}
               <Link
                 to="/settings/team"
                 className="font-medium hover:underline"
@@ -688,7 +703,7 @@ export function VoteCard({
             </p>
           ) : (
             <div className="flex flex-col gap-2">
-              {trustees.map((t) => {
+              {voters.map((t) => {
                 const vote = voteMap.get(t.id)
                 return (
                   <div key={t.id} className="flex items-center gap-2">
@@ -699,13 +714,17 @@ export function VoteCard({
                     >
                       {t.name}
                       {t.id === userId && <span style={{ color: C.faint }}> (You)</span>}
+                      {/* An admin on the board is named as one. The roster is how a
+                          reader checks a majority, and "4 of 5" means something
+                          different when one of the five runs the foundation. */}
+                      {t.role !== 'trustee' && <span style={{ color: C.faint }}> (Admin)</span>}
                     </span>
                     {proxiedFor.has(t.id) && (
                       <span className="shrink-0 text-label" style={{ color: C.faint }}>
                         recorded for them
                       </span>
                     )}
-                    {canVoteForTrustees && (
+                    {canVoteForTrustees && t.id !== userId && (
                       <OnBehalfControl
                         trustee={t}
                         vote={vote}
@@ -789,7 +808,9 @@ export function VoteCard({
 
           {canVoteForTrustees && (
             <p className="font-display text-label leading-snug" style={{ color: C.sub }}>
-              You are recording votes on trustees’ behalf.
+              {canVoteAsSelf
+                ? 'You hold a vote, and can record the other members’ votes on their behalf.'
+                : 'You are recording votes on trustees’ behalf.'}
             </p>
           )}
 

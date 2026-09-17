@@ -9,7 +9,10 @@ import { archivedEmail, type MemberRole } from '../lib/team'
 import { removalCodeIdentifier } from '../lib/removalCode'
 
 /**
- * The trustees whose votes count for `clientId`: role trustee, not archived.
+ * Who counts toward a majority, by role and standing: every current trustee, plus an
+ * admin the foundation has given a vote of their own (`users.votes_on_applications`).
+ * Finance never counts — "trustee access plus the payment schedule, never grant
+ * decisions" is the role split, and this is where that half of it is enforced.
  *
  * EVERY vote roster and majority count goes through this, numerator and denominator
  * alike. They used to be five separate `role = 'trustee' AND client_id = …` clauses, and
@@ -17,17 +20,28 @@ import { removalCodeIdentifier } from '../lib/removalCode'
  * a trustee moved to finance still tipped awards in `createAwards` while `listShortlist`
  * (which did filter) showed them not counting. Role changes and removal made that
  * reachable; one definition keeps the screens and the write path agreeing.
+ *
+ * Split out from the tenant filters below because the dashboard needs the rule INSIDE a
+ * `COUNT(*) FILTER (…)` rather than a WHERE, and hand-wrote it there for exactly as long
+ * as the rule was one word long. It is no longer one word long.
  */
-export function currentTrusteeOf(clientId: string) {
-  return and(eq(users.role, 'trustee'), eq(users.clientId, clientId), isNull(users.archivedAt))
-}
-
-export function currentTrusteeOfAny(clientIds: string[]) {
+export function countsTowardMajority() {
   return and(
-    eq(users.role, 'trustee'),
-    inArray(users.clientId, clientIds),
+    or(
+      eq(users.role, 'trustee'),
+      and(eq(users.role, 'admin'), eq(users.votesOnApplications, true)),
+    ),
     isNull(users.archivedAt),
   )
+}
+
+/** The voting board of one client: `countsTowardMajority`, inside one foundation. */
+export function currentVoterOf(clientId: string) {
+  return and(eq(users.clientId, clientId), countsTowardMajority())
+}
+
+export function currentVoterOfAny(clientIds: string[]) {
+  return and(inArray(users.clientId, clientIds), countsTowardMajority())
 }
 
 export async function activeAdminCount(clientId: string): Promise<number> {
@@ -116,11 +130,17 @@ export async function archiveMember(userId: string, email: string): Promise<bool
  * row, and never leaving the client without an admin. Sessions are left alone, because
  * `getAuthUser` reads the role off the row on every request, so the change is live on
  * their next click.
+ *
+ * Moving somebody off `admin` also drops any vote they were given, because the vote was
+ * granted to a named administrator and nothing about making them the finance officer
+ * says it should survive. Left set, it would be a dormant grant that came back the day
+ * anyone made them an admin again, which is the sort of thing a board finds out about by
+ * losing a majority it thought it had.
  */
 export async function changeMemberRole(userId: string, role: MemberRole): Promise<boolean> {
   const rows = await getDb()
     .update(users)
-    .set({ role, updatedAt: new Date() })
+    .set({ role, votesOnApplications: role === 'admin' ? undefined : false, updatedAt: new Date() })
     .where(
       and(
         eq(users.id, userId),
@@ -130,6 +150,23 @@ export async function changeMemberRole(userId: string, role: MemberRole): Promis
           : sql`(${users.role} <> 'admin' or ${anotherAdminExists(userId)})`,
       ),
     )
+    .returning({ id: users.id })
+  return rows.length > 0
+}
+
+/**
+ * Give an admin a vote of their own, or take it back.
+ *
+ * Guarded in SQL on the role as well as the id: the column is meaningless on a trustee
+ * (who votes regardless) and misleading on a finance user (who never does), and a check
+ * in the caller followed by a write here is two requests with a role change able to land
+ * between them. Returns false when the guard refused, which the caller reports as a race.
+ */
+export async function setMemberVote(userId: string, votes: boolean): Promise<boolean> {
+  const rows = await getDb()
+    .update(users)
+    .set({ votesOnApplications: votes, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.archivedAt), eq(users.role, 'admin')))
     .returning({ id: users.id })
   return rows.length > 0
 }

@@ -264,6 +264,23 @@ export const users = pgTable(
     // subscriptions: a finance officer who wants the payments email almost never wants
     // the reports one, and a single toggle would make turning one off turn both off.
     weeklyReportsDigest: boolean('weekly_reports_digest'),
+    // Does this ADMIN hold a vote of their own on applications? Trustees always do and
+    // this column is not read for them; finance never does. It exists because at a small
+    // foundation the person administering Custodian is often also on the board, and
+    // until now the two facts could not both be true of one account: an admin could
+    // record a vote on a trustee's behalf but never cast one as themselves.
+    //
+    // NOT nullable and NOT a role default, unlike the digest columns above: this is the
+    // denominator of a funding decision, so "nobody chose" must read as "no vote" rather
+    // than as something we inferred. Set by an admin on Settings → Team — INCLUDING on
+    // their own row, which is the one thing there that is not barred to you, because the
+    // foundation whose admin is also a trustee usually has exactly one admin and nobody
+    // else to ask. It grants nothing they could not already take (an admin may re-role a
+    // trustee, and may record votes for one), and it is audited
+    // (`member_vote_changed`). Read ONLY through `countsTowardMajority`
+    // (`src/server/members.ts`) — never as a bare `role = 'admin'` test, or a screen and
+    // the award boundary end up counting different boards.
+    votesOnApplications: boolean('votes_on_applications').notNull().default(false),
     // Set when the member was removed from their foundation, by an admin on Settings →
     // Team or by themselves on Profile. An ARCHIVE, never a delete: their votes and
     // comments cascade on a deleted user, and they are the foundation's decision record.
@@ -1573,6 +1590,7 @@ export const auditActionEnum = pgEnum('audit_action', [
   'impersonation_started',
   'decline_letters_sent',
   'member_role_changed',
+  'member_vote_changed',
   'member_removed',
   'invitation_revoked',
 ])

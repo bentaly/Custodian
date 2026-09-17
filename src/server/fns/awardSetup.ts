@@ -26,7 +26,7 @@ import {
   type AwardTerms,
 } from '../../lib/validators/awardSetup'
 import { deliveryAreaLabel } from '../../lib/deprivation/types'
-import { currentTrusteeOf, currentTrusteeOfAny } from '../members'
+import { currentVoterOf, currentVoterOfAny } from '../members'
 
 // ─── The award-setup queue ──────────────────────────────────────────────────────
 
@@ -92,9 +92,9 @@ export async function awardCandidatesData(
 
     const appIds = items.map((a) => a.id)
     const clientIds = [...new Set(items.map((a) => a.roundProgramme.programme.clientId))]
-    const [yesRows, trusteeRows] = await Promise.all([
-      // Only CURRENT trustees' votes count, on both sides of the majority: a vote left by
-      // somebody since removed, or moved off the board, stays on record but must not
+    const [yesRows, voterRows] = await Promise.all([
+      // Only the CURRENT voting board counts, on both sides of the majority: a vote left
+      // by somebody since removed, or moved off the board, stays on record but must not
       // tip a decision still to be made. Same rule as `listShortlist` and `createAwards`.
       db
         .select({ applicationId: applicationVotes.applicationId, yes: count() })
@@ -104,23 +104,23 @@ export async function awardCandidatesData(
           and(
             inArray(applicationVotes.applicationId, appIds),
             eq(applicationVotes.vote, 'yes'),
-            currentTrusteeOfAny(clientIds),
+            currentVoterOfAny(clientIds),
           ),
         )
         .groupBy(applicationVotes.applicationId),
       db
-        .select({ clientId: users.clientId, trustees: count() })
+        .select({ clientId: users.clientId, voters: count() })
         .from(users)
-        .where(currentTrusteeOfAny(clientIds))
+        .where(currentVoterOfAny(clientIds))
         .groupBy(users.clientId),
     ])
     const yesByApp = new Map(yesRows.map((r) => [r.applicationId, r.yes]))
-    const trusteesByClient = new Map(trusteeRows.map((r) => [r.clientId, r.trustees]))
+    const votersByClient = new Map(voterRows.map((r) => [r.clientId, r.voters]))
 
     const candidates = items
       .filter((a) => {
-        const trustees = trusteesByClient.get(a.roundProgramme.programme.clientId) ?? 0
-        return trustees > 0 && (yesByApp.get(a.id) ?? 0) * 2 > trustees
+        const voters = votersByClient.get(a.roundProgramme.programme.clientId) ?? 0
+        return voters > 0 && (yesByApp.get(a.id) ?? 0) * 2 > voters
       })
       .map((a) => ({
         id: a.id,
@@ -144,7 +144,7 @@ export async function awardCandidatesData(
         roundId: a.roundProgramme.roundId,
         grantDurationYears: a.roundProgramme.grantDurationYears,
         yesVotes: yesByApp.get(a.id) ?? 0,
-        trusteeCount: trusteesByClient.get(a.roundProgramme.programme.clientId) ?? 0,
+        voterCount: votersByClient.get(a.roundProgramme.programme.clientId) ?? 0,
       }))
 
     return { items: candidates, shortlistedCount: items.length }
@@ -171,7 +171,7 @@ export type AwardCandidate = {
   roundId: string
   grantDurationYears: number | null
   yesVotes: number
-  trusteeCount: number
+  voterCount: number
 }
 
 // ─── Letter settings ────────────────────────────────────────────────────────────
@@ -335,11 +335,11 @@ export const createAwards = createServerFn({ method: 'POST' })
     if (!clientId) throw notFoundError()
     assertClientAccess(user, clientId)
 
-    const [trusteeRows, yesRows] = await Promise.all([
-      db.select({ count: count() }).from(users).where(currentTrusteeOf(clientId)),
-      // Current trustees only, as in `listAwardCandidates` above: this is the boundary,
-      // and it used to count every yes-vote on the application, including one left by
-      // somebody no longer on the board.
+    const [voterRows, yesRows] = await Promise.all([
+      db.select({ count: count() }).from(users).where(currentVoterOf(clientId)),
+      // The current voting board only, as in `listAwardCandidates` above: this is the
+      // boundary, and it used to count every yes-vote on the application, including one
+      // left by somebody no longer on the board.
       db
         .select({ applicationId: applicationVotes.applicationId, yes: count() })
         .from(applicationVotes)
@@ -348,12 +348,12 @@ export const createAwards = createServerFn({ method: 'POST' })
           and(
             inArray(applicationVotes.applicationId, applicationIds),
             eq(applicationVotes.vote, 'yes'),
-            currentTrusteeOf(clientId),
+            currentVoterOf(clientId),
           ),
         )
         .groupBy(applicationVotes.applicationId),
     ])
-    const trusteeCount = trusteeRows[0]?.count ?? 0
+    const voterCount = voterRows[0]?.count ?? 0
     const yesByApp = new Map(yesRows.map((r) => [r.applicationId, r.yes]))
 
     const ctx = await loadLetterContext(clientId)
@@ -396,7 +396,7 @@ export const createAwards = createServerFn({ method: 'POST' })
         })
         continue
       }
-      if (trusteeCount === 0 || (yesByApp.get(grant.applicationId) ?? 0) * 2 <= trusteeCount) {
+      if (voterCount === 0 || (yesByApp.get(grant.applicationId) ?? 0) * 2 <= voterCount) {
         results.push({
           applicationId: grant.applicationId,
           organisationName: name,

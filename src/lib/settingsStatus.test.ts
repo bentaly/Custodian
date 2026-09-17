@@ -5,6 +5,7 @@ const admin: NonNullable<SettingsFacts['admin']> = {
   hasGivingStrategy: true,
   enforceRoundBudget: false,
   allowAdminVoting: false,
+  voters: 4,
   replyTo: 'grants@wrenfield.org',
   pendingInvitations: 0,
   activeApiKeys: 2,
@@ -28,7 +29,7 @@ describe('settingsStatuses', () => {
     expect(s['/programmes']).toEqual({ text: '4 programmes', attention: false })
     expect(s['/rounds']?.text).toBe('1 round open')
     expect(s['/settings/api-keys']?.text).toBe('2 active keys')
-    expect(s['/settings/shortlisting']?.text).toBe('Budget is a target, admin voting off')
+    expect(s['/settings/shortlisting']?.text).toBe('Budget is a target, 4 people vote')
   })
 
   it('flags only what costs the foundation something', () => {

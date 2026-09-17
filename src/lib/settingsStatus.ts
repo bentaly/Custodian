@@ -32,6 +32,8 @@ export type SettingsFacts = {
     hasGivingStrategy: boolean
     enforceRoundBudget: boolean
     allowAdminVoting: boolean
+    /** How many people hold a vote on applications — `currentVoterOf`. */
+    voters: number
     replyTo: string | null
     pendingInvitations: number
     activeApiKeys: number
@@ -71,8 +73,11 @@ export function settingsStatuses(f: SettingsFacts): SettingsStatuses {
       : team,
   )
   if (!a.hasGivingStrategy) out['/settings/giving-strategy'] = todo('Not written yet')
+  // The voter count rather than the proxy switch: who votes is the fact a foundation
+  // checks on this page, and "admin voting on" was ambiguous the moment an admin could
+  // hold a vote as well as record one for somebody else.
   out['/settings/shortlisting'] = fact(
-    `Budget is ${a.enforceRoundBudget ? 'a limit' : 'a target'}, admin voting ${a.allowAdminVoting ? 'on' : 'off'}`,
+    `Budget is ${a.enforceRoundBudget ? 'a limit' : 'a target'}, ${plural(a.voters, 'person votes', 'people vote')}`,
   )
   out['/settings/letters'] = a.replyTo
     ? fact(`Replies go to ${a.replyTo}`)
