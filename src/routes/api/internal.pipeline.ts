@@ -19,6 +19,7 @@ import { sendStoredDeclineLetter } from '../../server/declineLetter'
 import { resolveApplicationDeprivation } from '../../server/applications/deprivation'
 import { screenApplication } from '../../server/applications/dueDiligence'
 import { generatePortfolioAnalysis } from '../../server/portfolioAnalysis/generate'
+import { runAwardNotifications } from '../../server/awardNotifications/run'
 import type { PipelineMessage } from '../../server/pipelineQueue'
 import { errorChain } from '../../server/db'
 
@@ -96,6 +97,12 @@ export const Route = createFileRoute('/api/internal/pipeline')({
               // census on the row already matches, so there is nothing to spend a
               // model call on. 200, not a retry.
               const result = await generatePortfolioAnalysis(message.clientId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'award_notification': {
+              // Scoped to the one client. A redelivered message is free: every pair it
+              // would send has a receipt by now, so the query returns nothing.
+              const result = await runAwardNotifications({ onlyClientId: message.clientId })
               return json({ ok: true, result }, 200)
             }
             default:

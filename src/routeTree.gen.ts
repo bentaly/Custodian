@@ -65,6 +65,7 @@ import { Route as ApiAdminReportCanonicalFieldsRouteImport } from './routes/api/
 import { Route as ApiAdminReportIngestsRouteImport } from './routes/api/admin.report-ingests'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiAvatarUserIdRouteImport } from './routes/api/avatar.$userId'
+import { Route as ApiCronAwardNotificationsRouteImport } from './routes/api/cron.award-notifications'
 import { Route as ApiCronFinanceDigestRouteImport } from './routes/api/cron.finance-digest'
 import { Route as ApiCronPortfolioAnalysisRouteImport } from './routes/api/cron.portfolio-analysis'
 import { Route as ApiCronReportsDigestRouteImport } from './routes/api/cron.reports-digest'
@@ -383,6 +384,12 @@ const ApiAvatarUserIdRoute = ApiAvatarUserIdRouteImport.update({
   path: '/api/avatar/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronAwardNotificationsRoute =
+  ApiCronAwardNotificationsRouteImport.update({
+    id: '/api/cron/award-notifications',
+    path: '/api/cron/award-notifications',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiCronFinanceDigestRoute = ApiCronFinanceDigestRouteImport.update({
   id: '/api/cron/finance-digest',
   path: '/api/cron/finance-digest',
@@ -497,6 +504,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
+  '/api/cron/award-notifications': typeof ApiCronAwardNotificationsRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
   '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/cron/reports-digest': typeof ApiCronReportsDigestRoute
@@ -558,6 +566,7 @@ export interface FileRoutesByTo {
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
+  '/api/cron/award-notifications': typeof ApiCronAwardNotificationsRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
   '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/cron/reports-digest': typeof ApiCronReportsDigestRoute
@@ -629,6 +638,7 @@ export interface FileRoutesById {
   '/api/admin/report-ingests': typeof ApiAdminReportIngestsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatar/$userId': typeof ApiAvatarUserIdRoute
+  '/api/cron/award-notifications': typeof ApiCronAwardNotificationsRoute
   '/api/cron/finance-digest': typeof ApiCronFinanceDigestRoute
   '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/cron/reports-digest': typeof ApiCronReportsDigestRoute
@@ -700,6 +710,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-ingests'
     | '/api/auth/$'
     | '/api/avatar/$userId'
+    | '/api/cron/award-notifications'
     | '/api/cron/finance-digest'
     | '/api/cron/portfolio-analysis'
     | '/api/cron/reports-digest'
@@ -761,6 +772,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-ingests'
     | '/api/auth/$'
     | '/api/avatar/$userId'
+    | '/api/cron/award-notifications'
     | '/api/cron/finance-digest'
     | '/api/cron/portfolio-analysis'
     | '/api/cron/reports-digest'
@@ -831,6 +843,7 @@ export interface FileRouteTypes {
     | '/api/admin/report-ingests'
     | '/api/auth/$'
     | '/api/avatar/$userId'
+    | '/api/cron/award-notifications'
     | '/api/cron/finance-digest'
     | '/api/cron/portfolio-analysis'
     | '/api/cron/reports-digest'
@@ -875,6 +888,7 @@ export interface RootRouteChildren {
   ApiAdminReportIngestsRoute: typeof ApiAdminReportIngestsRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAvatarUserIdRoute: typeof ApiAvatarUserIdRoute
+  ApiCronAwardNotificationsRoute: typeof ApiCronAwardNotificationsRoute
   ApiCronFinanceDigestRoute: typeof ApiCronFinanceDigestRoute
   ApiCronPortfolioAnalysisRoute: typeof ApiCronPortfolioAnalysisRoute
   ApiCronReportsDigestRoute: typeof ApiCronReportsDigestRoute
@@ -1277,6 +1291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAvatarUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/award-notifications': {
+      id: '/api/cron/award-notifications'
+      path: '/api/cron/award-notifications'
+      fullPath: '/api/cron/award-notifications'
+      preLoaderRoute: typeof ApiCronAwardNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/finance-digest': {
       id: '/api/cron/finance-digest'
       path: '/api/cron/finance-digest'
@@ -1616,6 +1637,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminReportIngestsRoute: ApiAdminReportIngestsRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAvatarUserIdRoute: ApiAvatarUserIdRoute,
+  ApiCronAwardNotificationsRoute: ApiCronAwardNotificationsRoute,
   ApiCronFinanceDigestRoute: ApiCronFinanceDigestRoute,
   ApiCronPortfolioAnalysisRoute: ApiCronPortfolioAnalysisRoute,
   ApiCronReportsDigestRoute: ApiCronReportsDigestRoute,

@@ -368,6 +368,35 @@ export async function sendReportsDigestEmail({
   return { ok: true }
 }
 
+/**
+ * The new-awards email. A result rather than a swallowed error, like both digests: the
+ * caller writes a receipt only on success, and a recipient with no receipt is retried on
+ * the next tick.
+ */
+export async function sendAwardNotificationEmail({
+  to,
+  subject,
+  text,
+  html,
+}: {
+  to: string
+  subject: string
+  text: string
+  html: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const resend = getResend()
+  if (!resend) {
+    console.warn('RESEND_API_KEY not set — skipping new-awards email')
+    return { ok: false, error: 'Email is not configured (no RESEND_API_KEY).' }
+  }
+  const { error } = await resend.emails.send({ from: fromAddress(), to, subject, text, html })
+  if (error) {
+    console.error(`Resend rejected new-awards email to ${to}:`, error)
+    return { ok: false, error: error.message ?? 'The email provider rejected the message.' }
+  }
+  return { ok: true }
+}
+
 export async function sendInvitationEmail({
   to,
   inviteUrl,

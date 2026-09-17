@@ -6,6 +6,10 @@ import { users } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { wantsDigest } from '../../lib/financeDigest/optIn'
 import { reportsDigestAvailable, wantsReportsDigest } from '../../lib/reportsDigest/optIn'
+import {
+  awardNotificationsAvailable,
+  wantsAwardNotifications,
+} from '../../lib/awardNotifications/optIn'
 
 /** The foundation's current team. Removed members are archived rows and are left out. */
 export const listClientUsers = createServerFn({ method: 'GET' }).handler(async () => {
@@ -40,7 +44,12 @@ export const getMyEmailPreferences = createServerFn({ method: 'GET' }).handler(a
   const user = await requireAuthUser()
   const row = await getDb().query.users.findFirst({
     where: eq(users.id, user.id),
-    columns: { role: true, weeklyFinanceDigest: true, weeklyReportsDigest: true },
+    columns: {
+      role: true,
+      weeklyFinanceDigest: true,
+      weeklyReportsDigest: true,
+      awardNotifications: true,
+    },
   })
   // Superadmins have no client, so there is no foundation whose payments a digest would
   // be about — the setting is hidden rather than shown switched off for a reason nobody
@@ -50,8 +59,10 @@ export const getMyEmailPreferences = createServerFn({ method: 'GET' }).handler(a
   return {
     weeklyFinanceDigest: row ? wantsDigest(row) : false,
     weeklyReportsDigest: row ? wantsReportsDigest(row) : false,
+    awardNotifications: row ? wantsAwardNotifications(row) : false,
     available: tenanted,
     reportsAvailable: tenanted && reportsDigestAvailable(user.role),
+    awardsAvailable: tenanted && awardNotificationsAvailable(user.role),
   }
 })
 
@@ -93,4 +104,25 @@ export const setWeeklyReportsDigest = createServerFn({ method: 'POST' })
       .set({ weeklyReportsDigest: data.enabled })
       .where(eq(users.id, user.id))
     return { weeklyReportsDigest: data.enabled }
+  })
+
+/**
+ * Turn the new-awards email on or off for yourself.
+ *
+ * Refused for anyone it is not offered to, for the reason the reports one is: the screen
+ * already hides the switch, but this is the boundary, and a stored `true` on a trustee is
+ * a row that reads as a subscription somebody will one day "fix" by making it work.
+ */
+export const setAwardNotifications = createServerFn({ method: 'POST' })
+  .validator(z.object({ enabled: z.boolean() }))
+  .handler(async ({ data }) => {
+    const user = await requireAuthUser()
+    if (!user.clientId || !awardNotificationsAvailable(user.role)) {
+      throw new Error('New grant alerts are only available to admins.')
+    }
+    await getDb()
+      .update(users)
+      .set({ awardNotifications: data.enabled })
+      .where(eq(users.id, user.id))
+    return { awardNotifications: data.enabled }
   })

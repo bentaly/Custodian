@@ -294,22 +294,26 @@ const worker = {
 
     const origin = (env.BETTER_AUTH_URL || 'https://custodian.fund').replace(/\/+$/, '')
 
-    // Two triggers, three jobs. `event.cron` is the ONLY thing that tells the triggers
-    // apart — without this switch, adding the 3-hourly dispatcher would have sent the
-    // Monday digests eight times a day.
+    // Two triggers, four jobs. `event.cron` is the ONLY thing that tells the triggers
+    // apart — without this switch, adding the daytime dispatcher would have sent the
+    // Monday digests four times a day.
     //
-    // Monday runs BOTH weekly digests, payments then reports. They are separate
-    // endpoints on purpose (see the note on `cron.reports-digest.ts`): two audiences,
-    // two off switches, and a failure in one must not cost the other its email. Which is
-    // also why the loop below runs them independently rather than in one try — a thrown
-    // payments run must not skip the reports one.
+    // Each trigger runs its jobs as SEPARATE endpoints, and the loop below gives each
+    // one its own try. Two audiences and two off switches per trigger, and a failure in
+    // one must never cost the other its email: a thrown payments run must not skip the
+    // reports one, and a portfolio census that dies on a bad tenant must not swallow the
+    // new-award notifications behind it.
     //
-    // An unrecognised expression runs the Monday pair, which is the conservative
-    // default: this handler predates the second trigger, and a cron firing an unknown
-    // schedule is more likely to be a mis-edited Monday entry than a lost dispatcher.
+    // DAYTIME_CRON must stay character-identical to the second entry in
+    // `[triggers] crons` in wrangler.toml. An unrecognised expression falls through to
+    // the Monday pair, which is the conservative default — this handler predates the
+    // second trigger, so an unknown schedule is likelier to be a mis-edited Monday entry
+    // than a lost dispatcher — but it means a typo here turns the daytime trigger into
+    // four digest sends a day rather than into nothing.
+    const DAYTIME_CRON = '0 9,12,15,18 * * *'
     const paths =
-      event.cron === '0 */3 * * *'
-        ? ['/api/cron/portfolio-analysis']
+      event.cron === DAYTIME_CRON
+        ? ['/api/cron/portfolio-analysis', '/api/cron/award-notifications']
         : ['/api/cron/finance-digest', '/api/cron/reports-digest']
 
     for (const path of paths) {

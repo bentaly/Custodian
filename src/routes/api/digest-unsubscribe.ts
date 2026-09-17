@@ -3,7 +3,7 @@
 // actual write happens on POST from that page's form. An unsubscribe that fires on a
 // preflight fetch is one that turns itself off in a corporate mailbox.
 //
-// One route for two subscriptions, told apart by `?k=`. Absent means payments, because
+// One route for three subscriptions, told apart by `?k=`. Absent means payments, because
 // every payments digest already in an inbox links here without it, and an unsubscribe
 // link must still work in a six-month-old email. The kind is signed into the token
 // (see `server/digestUnsubscribe`), so editing `k` in the address bar does not turn off
@@ -56,11 +56,21 @@ const KINDS = {
     pageTitle: 'Turn off report reminders',
     set: { weeklyReportsDigest: false },
   },
+  awards: {
+    confirmTitle: 'Turn off new grant alerts?',
+    confirmBody:
+      'You will stop being told when grants are set up at your foundation. Award letters and other Custodian email are not affected.',
+    doneBody:
+      'You will no longer be told when new grants are set up. You can turn it back on from your profile in Custodian.',
+    pageTitle: 'Turn off new grant alerts',
+    set: { awardNotifications: false },
+  },
 } satisfies Record<DigestKind, unknown>
 
 /** `?k=` to a known kind. Anything unrecognised, including absent, reads as payments. */
 function kindOf(url: URL): DigestKind {
-  return url.searchParams.get('k') === 'reports' ? 'reports' : 'finance'
+  const k = url.searchParams.get('k')
+  return k === 'reports' || k === 'awards' ? k : 'finance'
 }
 
 export const Route = createFileRoute('/api/digest-unsubscribe')({

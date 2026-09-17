@@ -425,7 +425,9 @@ design rationale; this list is a map, not a summary.
   round. Same rules, minus conditions (there is no grant). See "Decline letters" below
 - **dataImport** — `/settings/data-import`, onboarding a foundation's existing grants
 - **financeDigest** — the Monday payments email; **reportsDigest** — its admin-only twin,
-  the reports expected that week. See "Weekly digests" below
+  the reports expected that week. See "Weekly digests" below. **awardNotifications** —
+  the third email and the only one that is not weekly: grants newly set up, on the
+  daytime cron. See "New-award alerts" below
 - **annualBudget** — `src/lib/annualBudget.ts` (the reconciliation rules) + `src/server/finance/
   budget.ts` (the screen's queries) + `src/server/fns/budget.ts` (both writes). The budget is set in
   Settings (a yearly decision); the bank balance is recorded on **Finance → Balance & budget** (an
@@ -615,11 +617,22 @@ is the yardstick at both ends of the pipeline. `src/lib/portfolioAnalysis` pure,
   states, because the causes differ: no grants is waiting, no giving strategy is a thing
   to go and do.
 
-### The 3-hourly dispatcher
+### The daytime dispatcher
 
-`[triggers] crons` has a second entry, `0 */3 * * *`; `worker-entry.js`'s `scheduled`
-switches on `event.cron` (without that switch the Monday digest would send eight times a
-day). Staging is already covered by the existing `[env.staging.triggers] crons = []`.
+`[triggers] crons` has a second entry, `0 9,12,15,18 * * *`; `worker-entry.js`'s
+`scheduled` switches on `event.cron` (without that switch the Monday digests would send
+four times a day), and that trigger now runs TWO jobs: this dispatcher, then the
+new-award alerts. Staging is already covered by `[env.staging.triggers] crons = []`.
+
+**It was `0 */3 * * *` until 2026-09-17**, which is eight ticks a day including 00:00,
+03:00 and 06:00. That was harmless while the only job queued a summary nobody waits for,
+and stopped being harmless the moment a tick could put an email in somebody's inbox.
+Daytime only, and the summary loses nothing: the census means an unchanged portfolio
+costs four queries whenever it runs. Halving the ticks also halves what the trigger costs
+on the free tiers, because each one wakes the Neon branch out of autosuspend and the
+wake-up is the charge, not the queries after it. **The expression is matched as a literal
+string in `worker-entry.js`** - change it in one place and you must change it in the
+other, or the trigger falls through to the Monday branch.
 
 - **It dispatches, it does not analyse.** One client's work is a whole-portfolio read plus
   30–60s of model time, so the cron takes a census, then `enqueueMany`s ONE message per
@@ -695,10 +708,11 @@ nothing" has to be re-derived per section the moment there are two.
 - **One-click unsubscribe** (`/api/digest-unsubscribe`, helpers in `src/server/digestUnsubscribe.ts`)
   is an HMAC over the user id keyed on `BETTER_AUTH_SECRET`, no expiry (the link must work in a
   six-month-old email). GET shows a confirmation, POST writes, so a scanning mail proxy cannot
-  unsubscribe someone. **One route serves both digests, told apart by `?k=`** — the KIND is signed
-  into the MAC, so editing `k` in the address bar fails rather than turning off the other
-  subscription. Absent `k` means payments, and the payments purpose string is byte-identical to
-  the one it shipped with, because every link in every digest already sent is a MAC over it.
+  unsubscribe someone. **One route serves all THREE emails, told apart by `?k=`** (absent =
+  payments, `reports`, `awards`) — the KIND is signed into the MAC, so editing `k` in the address
+  bar fails rather than turning off a subscription the link was not issued for. The payments
+  purpose string is byte-identical to the one it shipped with, because every link in every digest
+  already sent is a MAC over it.
 
 ### The reports digest
 
@@ -738,6 +752,48 @@ sitting right there and used the wider `awardScope` for this one query.
 **`arrivedQuery` deliberately does not do this.** A report received before the grant was
 withdrawn is a document the foundation holds, and dropping it from the library would lose it.
 Nothing is owed; something arrived. Both are true, and they are different questions.
+
+## New-award alerts
+
+The third email, and the only one that is not weekly: "these grants have been set up since we
+last told you", to ADMINS. `src/lib/awardNotifications` pure, `src/server/awardNotifications` IO,
+dispatched by `POST /api/cron/award-notifications` on the daytime trigger right after the
+portfolio census.
+
+- **A few hours, not instantly and not weekly.** An award is a thing that HAPPENED, so a week's
+  delay makes it history; but sending from `createAwards` would mean twelve emails in ninety
+  seconds while the person who made them was still in the wizard. A cron tick is what turns a
+  board meeting's worth of grants into one message with twelve lines.
+- **`award_notification_sends` is keyed on `(award_id, user_id)`, not on a week.** The digests can
+  key on a week because a week is a batch with a name; awards arrive in clumps at no particular
+  hour. A timestamp watermark is the obvious alternative and is subtly wrong - an award created
+  mid-run falls either side of "now" depending which query read the clock, and is then sent twice
+  or never. A row per pair is exact, makes a re-run free, retries only the recipient who failed,
+  and means a newly invited admin is not told about grants that predate them.
+- **TWO bounds, and both are load-bearing.** Unannounced is the idempotence;
+  `AWARD_NOTIFICATION_WINDOW_DAYS` (7) is what stops the first run after deploy mailing somebody
+  the entire back catalogue, and caps the blast radius of any future gap. Four ticks a day gives
+  28 chances to deliver inside the window. `?windowDays=` overrides it, which is the only way to
+  rehearse this without waiting a week.
+- **Imported grants are excluded** (`awards.import_batch_id is null`) and this is the one that
+  would have done real damage. Onboarding writes a foundation's back catalogue as `awards` rows
+  created TODAY, so the seven-day window would not have saved us. It is the same mistake as the
+  two the import section already forbids (award letters, `audit_log` rows) wearing a third hat:
+  127 charities' grants from 2019 announced as new business.
+- **It DISPATCHES rather than sending.** One query finds the pending work for every tenant, then
+  one queue message per client (`kind: 'award_notification'`), each with its own invocation. Every
+  Resend call and every receipt insert is a subrequest, so sending inline would put all of them in
+  one invocation and hit the 50-subrequest cap as soon as the platform has real tenants. A tick
+  costs two subrequests whatever the tenant count. `?dryRun=1` runs INLINE instead and returns who
+  would get what, because a dispatch can only report that it dispatched.
+- **Admins only** (`awardNotificationsAvailable`), opt-in on Profile, default on, same NULL
+  convention as the two digests. Trustees are arguably the better audience - they voted and then
+  heard nothing - but that is a product decision not yet taken, and widening it means changing
+  that one function. Finance is deliberately out: the Monday payments digest already tells them,
+  on the day the first instalment falls due, which is when they can act on it.
+- **The actor is not excluded.** At a small foundation the admin who set the grants up gets an
+  email about work they finished minutes ago. `awards` has no `created_by`, but `audit_log` has
+  the actor, so filtering them out is cheap if it turns out to grate.
 
 ## Awards: shortlist → grant
 

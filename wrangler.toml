@@ -81,12 +81,26 @@ head_sampling_rate = 1
 #
 [triggers]
 # 1. Mondays at 08:00 UTC: the payments digest and then the reports digest (see above).
-# 2. Every three hours: the Insights portfolio-analysis dispatcher. It takes a cheap
-#    census of every tenant and queues a summary only for those whose grants, reports
-#    or giving strategy have actually moved — so a quiet week costs four queries a run
-#    and no model calls at all. `scheduled` in worker-entry.js switches on `event.cron`
-#    to tell the two TRIGGERS apart; the Monday one then runs both of its jobs.
-crons = ["0 8 * * 1", "0 */3 * * *"]
+# 2. Four times on a WORKING DAY (09:00, 12:00, 15:00, 18:00 UTC): the Insights
+#    portfolio-analysis dispatcher, and then the new-awards notifier.
+#
+#    This was `0 */3 * * *` until 2026-09-17, which is eight ticks a day INCLUDING
+#    00:00, 03:00 and 06:00. That was harmless while the only job queued a summary
+#    nobody is waiting for, and stopped being harmless the moment a tick could put an
+#    email in somebody's inbox: three of the eight would have arrived in the middle of
+#    the night. Daytime only, and the Insights refresh loses nothing by it — the census
+#    means an unchanged portfolio costs four queries whenever it runs, and a foundation
+#    that awards a grant at 8pm reads the new summary the next morning either way.
+#
+#    Halving the ticks also halves what this trigger costs on the free tiers: each one
+#    wakes the Neon branch out of autosuspend, and that wake-up is the charge, not the
+#    four queries that follow it.
+#
+#    `scheduled` in worker-entry.js switches on `event.cron` to tell the two TRIGGERS
+#    apart, and each then runs both of its jobs. THE STRING BELOW IS MATCHED THERE
+#    EXACTLY — change it here and you must change it there, or this trigger falls
+#    through to the default branch and fires the Monday digests four times a day.
+crons = ["0 8 * * 1", "0 9,12,15,18 * * *"]
 
 # Rate limiters for /api/apply. `simple.limit` is requests per `period` (seconds; must
 # be 10 or 60). namespace_id is an arbitrary unique id per limiter. Used in

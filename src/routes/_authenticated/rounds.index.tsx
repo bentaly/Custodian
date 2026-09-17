@@ -113,7 +113,7 @@ function Rounds() {
           <h1 className="font-display text-heading font-medium text-grey-900">Rounds</h1>
           <p className="font-display text-label text-grey-500">
             Open and close funding rounds, set their dates, and choose which programmes each round
-            funds and with what budget.
+            funds.
           </p>
         </div>
         {canManage && (

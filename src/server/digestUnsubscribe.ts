@@ -12,19 +12,20 @@
 // prank, not an escalation. No expiry — an unsubscribe link must still work in a
 // six-month-old email, which is precisely when someone reaches for it.
 //
-// Shared by the payments digest and the reports digest, which is why it lives here
-// rather than under either feature's folder. The KIND is signed into the MAC, so a
-// payments link cannot be edited into one that switches off reports: the two are
-// separate subscriptions and each must be turned off on its own. The payments purpose
+// Shared by the two weekly digests and the new-awards email, which is why it lives here
+// rather than under any one feature's folder. The KIND is signed into the MAC, so a
+// payments link cannot be edited into one that switches off reports or new-award
+// alerts: they are separate subscriptions and each must be turned off on its own. The payments purpose
 // string is left byte-for-byte as it shipped, because every link in every digest
 // already sent is a MAC over it.
 
 /** Which subscription a link turns off. The value is part of the signed payload. */
-export type DigestKind = 'finance' | 'reports'
+export type DigestKind = 'finance' | 'reports' | 'awards'
 
 const PURPOSE: Record<DigestKind, string> = {
   finance: 'finance-digest-unsubscribe',
   reports: 'reports-digest-unsubscribe',
+  awards: 'award-notifications-unsubscribe',
 }
 
 async function key(): Promise<CryptoKey> {

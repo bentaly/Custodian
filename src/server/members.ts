@@ -94,6 +94,7 @@ export async function archiveMember(userId: string, email: string): Promise<bool
         emailVerified: false,
         weeklyFinanceDigest: false,
         weeklyReportsDigest: false,
+        awardNotifications: false,
         updatedAt: now,
       })
       .where(

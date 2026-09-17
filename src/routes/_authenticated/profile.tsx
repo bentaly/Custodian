@@ -5,6 +5,7 @@ import { invalidateCurrentUser } from '../../lib/currentUser'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
 import {
   getMyEmailPreferences,
+  setAwardNotifications,
   setWeeklyFinanceDigest,
   setWeeklyReportsDigest,
 } from '../../server/fns/users'
@@ -65,6 +66,69 @@ async function refreshIdentity(router: ReturnType<typeof useRouter>) {
 /** Each setting's own copy, announced with its switch rather than left beside it. */
 const DIGEST_COPY_ID = 'weekly-digest-explainer'
 const REPORTS_DIGEST_COPY_ID = 'weekly-reports-digest-explainer'
+const AWARD_ALERTS_COPY_ID = 'award-alerts-explainer'
+
+/**
+ * One switchable email, with its explanation and its own error line.
+ *
+ * Lifted out when the panel reached three: the first two were a copy-paste apart and the
+ * third would have made the divergence permanent. Each row keeps its OWN busy and error
+ * state (passed in, not shared), because they are separate subscriptions saved by
+ * separate calls - one shared busy flag would grey out all three while any one saved.
+ *
+ * `first` suppresses the rule and the top padding, so the separators fall BETWEEN rows
+ * rather than above the first one. Which row is first depends on role, so it cannot be
+ * decided with CSS on a fixed child.
+ */
+function EmailPref({
+  title,
+  copyId,
+  copy,
+  checked,
+  onChange,
+  busy,
+  error,
+  first,
+}: {
+  title: string
+  copyId: string
+  copy: string
+  checked: boolean
+  onChange: (next: boolean) => void | Promise<void>
+  busy: boolean
+  error: string
+  first?: boolean
+}) {
+  return (
+    <div
+      className={first ? '' : 'mt-4 border-t pt-4'}
+      style={first ? undefined : { borderColor: C.line }}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="font-display text-body font-medium" style={{ color: C.ink }}>
+            {title}
+          </p>
+          <p
+            id={copyId}
+            className="mt-0.5 font-display text-body leading-relaxed"
+            style={{ color: C.sub }}
+          >
+            {copy}
+          </p>
+        </div>
+        <Toggle
+          checked={checked}
+          onChange={onChange}
+          busy={busy}
+          label={title}
+          describedBy={copyId}
+        />
+      </div>
+      <ErrorNote error={error} className="mt-3" />
+    </div>
+  )
+}
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Super Admin',
@@ -121,6 +185,24 @@ function Profile() {
       setReportsDigestError('Could not save that. Try again.')
     } finally {
       setReportsDigestBusy(false)
+    }
+  }
+
+  const [awardAlerts, setAwardAlerts] = useState(emailPrefs.awardNotifications)
+  const [awardAlertsBusy, setAwardAlertsBusy] = useState(false)
+  const [awardAlertsError, setAwardAlertsError] = useState('')
+
+  async function handleAwardAlertsToggle(next: boolean) {
+    setAwardAlerts(next)
+    setAwardAlertsBusy(true)
+    setAwardAlertsError('')
+    try {
+      await setAwardNotifications({ data: { enabled: next } })
+    } catch {
+      setAwardAlerts(!next)
+      setAwardAlertsError('Could not save that. Try again.')
+    } finally {
+      setAwardAlertsBusy(false)
     }
   }
 
@@ -327,58 +409,38 @@ function Profile() {
       {emailPrefs.available && (
         <Panel label="Email">
           <PanelTitle>Email</PanelTitle>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-                Weekly payment digest
-              </p>
-              <p
-                id={DIGEST_COPY_ID}
-                className="mt-0.5 font-display text-body leading-relaxed"
-                style={{ color: C.sub }}
-              >
-                A Monday email listing the grant payments due that week, and anything already
-                overdue. Nothing is sent in a week with no payments due.
-              </p>
-            </div>
-            <Toggle
-              checked={digest}
-              onChange={handleDigestToggle}
-              busy={digestBusy}
-              label="Weekly payment digest"
-              describedBy={DIGEST_COPY_ID}
-            />
-          </div>
-          <ErrorNote error={digestError} className="mt-3" />
-
+          <EmailPref
+            title="Weekly payment digest"
+            copyId={DIGEST_COPY_ID}
+            copy="A Monday email listing the grant payments due that week, and anything already overdue. Nothing is sent in a week with no payments due."
+            checked={digest}
+            onChange={handleDigestToggle}
+            busy={digestBusy}
+            error={digestError}
+            first
+          />
           {emailPrefs.reportsAvailable && (
-            <div
-              className="mt-4 flex items-center justify-between gap-4 border-t pt-4"
-              style={{ borderColor: C.line }}
-            >
-              <div>
-                <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-                  Weekly reports digest
-                </p>
-                <p
-                  id={REPORTS_DIGEST_COPY_ID}
-                  className="mt-0.5 font-display text-body leading-relaxed"
-                  style={{ color: C.sub }}
-                >
-                  A Monday email listing the grant reports expected that week, and anything already
-                  overdue. Nothing is sent in a week with no reports expected.
-                </p>
-              </div>
-              <Toggle
-                checked={reportsDigest}
-                onChange={handleReportsDigestToggle}
-                busy={reportsDigestBusy}
-                label="Weekly reports digest"
-                describedBy={REPORTS_DIGEST_COPY_ID}
-              />
-            </div>
+            <EmailPref
+              title="Weekly reports digest"
+              copyId={REPORTS_DIGEST_COPY_ID}
+              copy="A Monday email listing the grant reports expected that week, and anything already overdue. Nothing is sent in a week with no reports expected."
+              checked={reportsDigest}
+              onChange={handleReportsDigestToggle}
+              busy={reportsDigestBusy}
+              error={reportsDigestError}
+            />
           )}
-          <ErrorNote error={reportsDigestError} className="mt-3" />
+          {emailPrefs.awardsAvailable && (
+            <EmailPref
+              title="New grant alerts"
+              copyId={AWARD_ALERTS_COPY_ID}
+              copy="An email when grants are set up at your foundation, a few hours after the event so a batch arrives as one message. Nothing is sent when no grants have been set up."
+              checked={awardAlerts}
+              onChange={handleAwardAlertsToggle}
+              busy={awardAlertsBusy}
+              error={awardAlertsError}
+            />
+          )}
         </Panel>
       )}
 

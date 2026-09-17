@@ -264,6 +264,18 @@ export const users = pgTable(
     // subscriptions: a finance officer who wants the payments email almost never wants
     // the reports one, and a single toggle would make turning one off turn both off.
     weeklyReportsDigest: boolean('weekly_reports_digest'),
+    // Opt-in to the new-awards email: the grants set up since we last told you, sent on
+    // the daytime cron rather than weekly. Same NULL convention and the same admins-only
+    // rule as the reports digest (`awardNotificationsAvailable`,
+    // src/lib/awardNotifications/optIn.ts).
+    //
+    // A THIRD column rather than folding into one "notify me" flag, for the reason the
+    // second one exists: these are three subscriptions on three different clocks, and a
+    // person who wants to know about new grants but not to be handed the report chase
+    // list must be able to say so. The cost of a boolean on this row is a byte; the cost
+    // of an unsubscribe that turns off more than the recipient meant is an unsubscribe
+    // from everything.
+    awardNotifications: boolean('award_notifications'),
     // Does this ADMIN hold a vote of their own on applications? Trustees always do and
     // this column is not read for them; finance never does. It exists because at a small
     // foundation the person administering Custodian is often also on the board, and
@@ -1703,6 +1715,42 @@ export const reportDigestSends = pgTable(
     sentAt: timestamp('sent_at').notNull().defaultNow(),
   },
   (t) => [unique('report_digest_sends_user_week_uniq').on(t.userId, t.weekOf)],
+)
+
+/**
+ * One row per award ANNOUNCED to one person. The new-awards email's receipt.
+ *
+ * Keyed on the pair, not on a week or a watermark, and that is the whole design. The two
+ * weekly digests can key on `(user, week_of)` because a week is a natural batch with a
+ * name. There is no such unit here: awards appear when a board meets, in a clump, at no
+ * particular hour. A timestamp watermark would be the obvious alternative and is subtly
+ * wrong — an award created while the run is mid-flight sits either side of "now"
+ * depending on which query read the clock, and is then either announced twice or never.
+ *
+ * A row per pair has neither problem. "What does this person not yet know about" is a
+ * left join, it is exact, and a run that dies after emailing two of three admins retries
+ * only the third. It also means a newly invited admin is not told about grants that were
+ * set up before they arrived, which is the behaviour you would have had to write anyway.
+ *
+ * Rows are awards × admins, so a foundation with two admins and 200 grants holds 400
+ * rows forever. That is nothing, and it buys exactness.
+ */
+export const awardNotificationSends = pgTable(
+  'award_notification_sends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    awardId: uuid('award_id')
+      .notNull()
+      .references(() => awards.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sentAt: timestamp('sent_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // The dedupe, and the index the "not yet told" left join reads.
+    unique('award_notification_sends_award_user_uniq').on(t.awardId, t.userId),
+  ],
 )
 
 // ─── Partnerships ─────────────────────────────────────────────────────────────

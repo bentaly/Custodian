@@ -35,6 +35,11 @@ export type PipelineMessage =
   // every tenant, because a single client's analysis is a whole-portfolio read plus
   // 30-60s of model time and would not fit an invocation shared with anyone else.
   | { kind: 'portfolio_analysis'; clientId: string }
+  // One foundation's new-award notifications. Dispatched by
+  // `/api/cron/award-notifications`, which finds the pending work for EVERY tenant in one
+  // query and then hands each client its own invocation — so the emails for a busy
+  // foundation cannot spend the 50-subrequest budget belonging to the next one.
+  | { kind: 'award_notification'; clientId: string }
   // One imported application's delivery area, to be resolved into a deprivation
   // reading. The onboarding import writes the whole back catalogue in one request and
   // cannot geocode a hundred areas inside it — see `applications/deprivation.ts`.
