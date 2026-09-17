@@ -18,6 +18,7 @@ import {
 import { C } from './ui/tokens'
 import { fmtDate, fmtMoney, fmtRef } from '../lib/format'
 import { messageFor } from '../lib/errors'
+import { localTodayIso } from '../lib/schedule'
 
 // The payment panel (Figma 672:25886) — one grant's money in a dialog over the Finance
 // list, replacing the old `/finance/$awardId` detail screen. Three sections, in the
@@ -45,10 +46,13 @@ type Instalment = FinanceGrant['instalments'][number]
 
 export function PaymentDialog({
   grant,
+  focusInstalmentId = null,
   onClose,
   onChanged,
 }: {
   grant: FinanceGrant
+  /** The payment the dialog was opened from, marked in the schedule. */
+  focusInstalmentId?: string | null
   onClose: () => void
   /** Re-reads the grant and the list behind it after a schedule edit. */
   onChanged: () => Promise<void>
@@ -98,6 +102,7 @@ export function PaymentDialog({
         <Lifecycle grant={grant} />
         <Schedule
           grant={grant}
+          focusInstalmentId={focusInstalmentId}
           busyId={busyId}
           setBusyId={setBusyId}
           onError={setError}
@@ -406,12 +411,14 @@ function draftsFrom(instalments: Instalment[]): Record<string, Draft> {
 
 function Schedule({
   grant,
+  focusInstalmentId,
   busyId,
   setBusyId,
   onError,
   onChanged,
 }: {
   grant: FinanceGrant
+  focusInstalmentId: string | null
   busyId: string | null
   setBusyId: (id: string | null) => void
   onError: (message: string) => void
@@ -419,6 +426,12 @@ function Schedule({
 }) {
   const [editing, setEditing] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
+  // The instalment whose "Mark paid" is open, and the date in its box. Asked on the row
+  // itself rather than in a confirm: this panel is already a dialog, and a second one
+  // stacked on it is a layer nobody can tell apart from the first.
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [payDate, setPayDate] = useState('')
+  const today = localTodayIso()
 
   const busy = busyId !== null
   const saving = busyId === 'schedule'
@@ -502,6 +515,7 @@ function Schedule({
             busy={saving}
             canSave={canSave}
             onEdit={() => {
+              setPayingId(null)
               setDrafts(draftsFrom(grant.instalments))
               setEditing(true)
             }}
@@ -581,48 +595,115 @@ function Schedule({
                 : inst.status
             const badge = PAY_BADGE[key] ?? PAY_BADGE.upcoming!
             const rowBusy = busyId === inst.id
+            // The payment this dialog was opened from, outlined. The outline bleeds out
+            // into the card's padding (the border's 1px comes off the padding) so the
+            // date and the amount stay on the same edges as every other row. Only when
+            // the schedule has more than one row: one instalment cannot be mistaken for
+            // another.
+            const focused = inst.id === focusInstalmentId && grant.instalments.length > 1
+            const paying = payingId === inst.id
 
             return (
-              <Row
+              <div
                 key={inst.id}
-                label={
-                  <span className="flex items-center gap-2">
-                    <span className="whitespace-nowrap">
-                      {inst.paidDate ? fmtDate(inst.paidDate) : fmtDate(inst.dueDate)}
+                aria-current={focused || undefined}
+                className={cn(
+                  'flex flex-col gap-2.5',
+                  focused && '-mx-3 rounded-chip border border-brand px-[11px] py-1.5',
+                  paying && !focused && '-mx-3 rounded-chip bg-grey-50 px-3 py-2',
+                )}
+              >
+                <Row
+                  label={
+                    <span className="flex items-center gap-2">
+                      <span className="whitespace-nowrap">
+                        {inst.paidDate ? fmtDate(inst.paidDate) : fmtDate(inst.dueDate)}
+                      </span>
+                      <Badge size="sm" className={badge.className}>
+                        {badge.label}
+                      </Badge>
                     </span>
-                    <Badge size="sm" className={badge.className}>
-                      {badge.label}
-                    </Badge>
-                  </span>
-                }
-                className={rowBusy ? 'opacity-60' : undefined}
-                // Weight, not colour: the amount is the row's figure, and `Row` already
-                // inks every value grey-900. Green read as a status the money does not
-                // have — a scheduled instalment is not an approval.
-                value={<span className="font-semibold">{fmtMoney(inst.amount)}</span>}
-                action={
-                  grant.canEdit ? (
-                    // Marking paid is the routine act, so it sits on the row rather than
-                    // behind a menu. Un-marking is named by its effect, not "Undo": this
-                    // row may have been paid eight months ago, and clearing it says the
-                    // money never went out — not that a recent click was a mistake. It
-                    // wears the warning colour for the same reason.
+                  }
+                  className={rowBusy ? 'opacity-60' : undefined}
+                  // Weight, not colour: the amount is the row's figure, and `Row` already
+                  // inks every value grey-900. Green read as a status the money does not
+                  // have — a scheduled instalment is not an approval.
+                  value={<span className="font-semibold">{fmtMoney(inst.amount)}</span>}
+                  action={
+                    grant.canEdit && !paying ? (
+                      // Marking paid is the routine act, so it sits on the row rather than
+                      // behind a menu. Un-marking is named by its effect, not "Undo": this
+                      // row may have been paid eight months ago, and clearing it says the
+                      // money never went out — not that a recent click was a mistake. It
+                      // wears the warning colour for the same reason.
+                      <Button
+                        variant="text"
+                        size="xs"
+                        disabled={busy}
+                        style={inst.paidDate ? { color: C.warning } : undefined}
+                        onClick={() => {
+                          if (inst.paidDate) {
+                            run(inst.id, () =>
+                              setInstalmentPaid({ data: { id: inst.id, paid: false } }),
+                            )
+                          } else {
+                            onError('')
+                            setPayDate(today)
+                            setPayingId(inst.id)
+                          }
+                        }}
+                      >
+                        {inst.paidDate ? 'Mark as unpaid' : 'Mark paid'}
+                      </Button>
+                    ) : undefined
+                  }
+                />
+                {paying && (
+                  // When the money went, defaulting to today and never in the future. A
+                  // payment made on Friday and recorded on Monday otherwise lands in the
+                  // ledger on the wrong day, which is what this screen is reconciled by.
+                  <div className="flex flex-wrap items-center justify-end gap-3">
+                    <label
+                      htmlFor={`paid-on-${inst.id}`}
+                      className="font-display text-label font-medium text-grey-500"
+                    >
+                      Paid on
+                    </label>
+                    <DateField
+                      id={`paid-on-${inst.id}`}
+                      size="sm"
+                      value={payDate}
+                      onChange={setPayDate}
+                      max={today}
+                      className="w-40"
+                    />
                     <Button
                       variant="text"
                       size="xs"
-                      disabled={busy}
-                      style={inst.paidDate ? { color: C.warning } : undefined}
-                      onClick={() =>
-                        run(inst.id, () =>
-                          setInstalmentPaid({ data: { id: inst.id, paid: !inst.paidDate } }),
-                        )
-                      }
+                      disabled={rowBusy}
+                      style={{ color: C.sub }}
+                      onClick={() => setPayingId(null)}
                     >
-                      {inst.paidDate ? 'Mark as unpaid' : 'Mark paid'}
+                      Cancel
                     </Button>
-                  ) : undefined
-                }
-              />
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={busy || !payDate || payDate > today}
+                      onClick={async () => {
+                        const ok = await run(inst.id, () =>
+                          setInstalmentPaid({
+                            data: { id: inst.id, paid: true, paidDate: payDate },
+                          }),
+                        )
+                        if (ok) setPayingId(null)
+                      }}
+                    >
+                      {rowBusy ? 'Recording…' : 'Record payment'}
+                    </Button>
+                  </div>
+                )}
+              </div>
             )
           })}
 

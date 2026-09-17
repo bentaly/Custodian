@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { awards } from '../../../drizzle/schema'
 import { deriveAwardStatus } from '../../lib/awardCompletion'
 import { getDb } from '../db'
@@ -44,4 +44,39 @@ export async function recomputeAwardStatus(
     await getDb().update(awards).set({ status: next }).where(eq(awards.id, award.id))
   }
   return next
+}
+
+/**
+ * `recomputeAwardStatus` for several awards at once, for the bulk payment action.
+ *
+ * Same rule, same "write only on a transition", but in two round trips however many
+ * awards there are: one relational query for all of them, and one `db.batch` holding
+ * whatever updates the rule asks for. Calling the single version in a loop spent up to
+ * two subrequests per award, and a page of 25 payments against 25 grants would pass the
+ * 50-per-invocation cap halfway through, leaving some grants re-derived and some not.
+ */
+export async function recomputeAwardStatuses(awardIds: string[]): Promise<void> {
+  if (awardIds.length === 0) return
+  const db = getDb()
+  const rows = await db.query.awards.findMany({
+    where: inArray(awards.id, awardIds),
+    columns: { id: true, status: true },
+    with: {
+      instalments: { columns: { paidDate: true } },
+      schedule: { columns: { submittedDate: true } },
+      reports: { columns: { reviewedAt: true, scheduleId: true, importBatchId: true } },
+    },
+  })
+  const updates = rows.flatMap((award) => {
+    const next = deriveAwardStatus(award.status, {
+      instalments: award.instalments,
+      milestones: award.schedule,
+      reports: award.reports,
+    })
+    return next === award.status
+      ? []
+      : [db.update(awards).set({ status: next }).where(eq(awards.id, award.id))]
+  })
+  const [first, ...rest] = updates
+  if (first) await db.batch([first, ...rest])
 }

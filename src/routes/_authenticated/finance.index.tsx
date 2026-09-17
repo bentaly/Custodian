@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import {
   listFinanceGrants,
@@ -12,17 +12,19 @@ import {
 } from '../../server/fns/finance'
 import { PaymentDialog, type FinanceGrant } from '../../components/PaymentDialog'
 import { FinanceHeader } from '../../components/finance/FinanceHeader'
+import { MarkPaidDialog } from '../../components/finance/MarkPaidDialog'
 import {
   Card,
   DataTable,
   DateRangePicker,
   EmptyState,
-  ExportButton,
+  ExportMenu,
   FilterPill,
   FilterRow,
   ImportedPill,
   SearchInput,
   Horizon,
+  Button,
   Pagination,
   StatusPill,
   Tabs,
@@ -36,6 +38,7 @@ import { oneOfList, textList } from '../../lib/listSearch'
 import { messageFor } from '../../lib/errors'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 import { DUE_SOON_DAYS } from '../../lib/schedule'
+import { downloadTable, type ExportColumn, type ExportFormat } from '../../lib/spreadsheetExport'
 
 // Derived from the server fn rather than the route loader: `Route.useLoaderData` is
 // circular here (the route's component uses these types), which resolves to `any`.
@@ -472,6 +475,7 @@ function FinancePage() {
     page,
   } = search
   const tab: Tab = tabParam ?? 'to_pay'
+  const { user } = Route.useRouteContext()
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
@@ -484,12 +488,17 @@ function FinancePage() {
   // on every row.
   const [grant, setGrant] = useState<FinanceGrant | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
+  // The payment the dialog was opened FROM. A list row is one payment but the dialog is
+  // the whole grant's schedule, so without this a grant of four instalments opens on four
+  // rows and nothing says which of them was clicked.
+  const [focusInstalmentId, setFocusInstalmentId] = useState<string | null>(null)
 
-  async function openGrant(awardId: string) {
+  async function openGrant(awardId: string, instalmentId: string | null) {
     setError('')
     setOpening(awardId)
     try {
       setGrant(await getFinanceGrant({ data: { id: awardId } }))
+      setFocusInstalmentId(instalmentId)
     } catch (err) {
       setError(messageFor(err))
     } finally {
@@ -506,6 +515,38 @@ function FinancePage() {
       router.invalidate(),
     ])
     setGrant(next)
+  }
+
+  // Row selection for the bulk "Mark as paid". Only on To pay, and only for the roles
+  // the server lets pay (`setInstalmentsPaid`): a trustee gets no checkbox column at all
+  // rather than a selection that can only end in "You do not have access to that".
+  // Scoped to the page on screen, like Applications, and cleared whenever the list under
+  // it changes: a selection carried onto rows nobody can see is a payment run nobody
+  // checked.
+  const canPay = ['superadmin', 'admin', 'finance'].includes(user.role) && tab === 'to_pay'
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const [marking, setMarking] = useState(false)
+  useEffect(() => {
+    setSelected(new Set())
+  }, [tab, roundId, programmeId, tag, status, bank, from, to, q, sortBy, sortDir, page])
+
+  // A grant with no schedule has no payment to mark; `instalmentId` is null only there.
+  const selectable = rows.filter(
+    (r): r is FinanceRow & { instalmentId: string } => r.instalmentId !== null && !r.paidDate,
+  )
+  const selectedRows = selectable.filter((r) => selected.has(r.instalmentId))
+  const selectedTotal = selectedRows.reduce((s, r) => s + r.amount, 0)
+  const allSelected = selectable.length > 0 && selectable.every((r) => selected.has(r.instalmentId))
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(selectable.map((r) => r.instalmentId)))
+  }
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   // The tab split ("to pay" is anything still owing; settled and cancelled grants sit
@@ -555,7 +596,7 @@ function FinancePage() {
   // The export is the whole filtered set, not the page on screen — a reconciliation file
   // with 25 of 300 rows in it would be worse than none.
   const [exporting, setExporting] = useState(false)
-  async function handleExport() {
+  async function handleExport(format: ExportFormat) {
     setExporting(true)
     try {
       const all = await listFinanceGrants({
@@ -578,7 +619,7 @@ function FinancePage() {
           includeBankDetails: true,
         },
       })
-      exportCsv(all.items, tab)
+      await exportPayments(all.items, tab, format)
     } catch (e) {
       setError(messageFor(e))
     } finally {
@@ -612,7 +653,7 @@ function FinancePage() {
               { id: 'paid', label: 'Paid', count: tabCounts.paid },
             ]}
           />
-          <ExportButton onClick={handleExport} busy={exporting} disabled={rows.length === 0} />
+          <ExportMenu onExport={handleExport} busy={exporting} disabled={rows.length === 0} />
         </div>
 
         {/* Each pill offers only what this TAB actually contains, with counts — the tab
@@ -697,13 +738,47 @@ function FinancePage() {
                 // instalments, and keying on the award would collide them.
                 rowKey={(g) => g.key}
                 rowClassName={(g) => (opening === g.awardId ? 'opacity-60' : '')}
-                onRowClick={(g) => openGrant(g.awardId)}
+                onRowClick={(g) => openGrant(g.awardId, g.instalmentId)}
                 // The default order is a real order (soonest owed first), so its
                 // column carries the arrow from the moment the screen opens.
                 sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : FINANCE_DEFAULT_SORT}
                 onSort={setSort}
+                selection={
+                  canPay
+                    ? {
+                        isSelectable: (g) => g.instalmentId !== null && !g.paidDate,
+                        isSelected: (g) => g.instalmentId !== null && selected.has(g.instalmentId),
+                        toggle: (g) => g.instalmentId && toggleOne(g.instalmentId),
+                        allSelected,
+                        someSelected: selectedRows.length > 0,
+                        toggleAll,
+                      }
+                    : undefined
+                }
               />
             </div>
+
+            {/* Selection bar, under the table beside the rows it acts on: the same dark
+                bar Applications uses, so selecting rows reads the same app-wide. */}
+            {canPay && selectedRows.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-chip bg-grey-900 p-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(new Set())}
+                    className="flex h-8 shrink-0 items-center gap-1 rounded-chip bg-white/10 px-2 font-display text-body font-medium text-white"
+                  >
+                    Clear
+                  </button>
+                  <span className="font-display text-label font-medium text-brand-light">
+                    {selectedRows.length} selected · {fmtMoney(selectedTotal)}
+                  </span>
+                </div>
+                <Button variant="primary" size="sm" onClick={() => setMarking(true)}>
+                  Mark as paid
+                </Button>
+              </div>
+            )}
             <Pagination
               page={currentPage}
               pageCount={pageCount}
@@ -718,8 +793,33 @@ function FinancePage() {
         )}
       </Card>
 
+      {marking && selectedRows.length > 0 && (
+        <MarkPaidDialog
+          payments={selectedRows.map((r) => ({
+            instalmentId: r.instalmentId,
+            organisationName: r.organisationName,
+            instalmentNo: r.instalmentNo,
+            instalmentCount: r.instalmentCount,
+            amount: r.amount,
+            dueDate: r.dueDate,
+            bankStatus: r.bank.status,
+          }))}
+          onClose={() => setMarking(false)}
+          onDone={async () => {
+            setMarking(false)
+            setSelected(new Set())
+            await router.invalidate()
+          }}
+        />
+      )}
+
       {grant && (
-        <PaymentDialog grant={grant} onClose={() => setGrant(null)} onChanged={refreshGrant} />
+        <PaymentDialog
+          grant={grant}
+          focusInstalmentId={focusInstalmentId}
+          onClose={() => setGrant(null)}
+          onChanged={refreshGrant}
+        />
       )}
     </div>
   )
@@ -747,7 +847,7 @@ function UpcomingPayments({
   opening,
 }: {
   upcoming: FinanceData['upcoming']
-  onOpen: (awardId: string) => void
+  onOpen: (awardId: string, instalmentId: string) => void
   opening: string | null
 }) {
   return (
@@ -768,7 +868,7 @@ function UpcomingPayments({
                 title: p.organisationName,
                 subline: `${p.programmeName ? `${p.programmeName} · ` : ''}Due ${fmtDate(p.dueDate)}`,
                 trailing: fmtMoney(p.amount),
-                onClick: () => onOpen(p.awardId),
+                onClick: () => onOpen(p.awardId, p.instalmentId),
                 disabled: opening === p.awardId,
               }))}
               hidden={bucket.count - bucket.items.length}
@@ -816,7 +916,7 @@ function dashedSortCode(sortCode: string | null | undefined): string {
 /**
  * A payment export of the current tab — the figures on screen, as a spreadsheet, with
  * the details each payment would be made against: account name, sort code, account
- * number.
+ * number. One column list feeds both formats (`lib/spreadsheetExport`).
  *
  * It used to carry the masked account (last four) only, on the reasoning that a file
  * which cannot be paid from is a file that can be shared freely. That made it the wrong
@@ -829,72 +929,54 @@ function dashedSortCode(sortCode: string | null | undefined): string {
  * The sort code is written **dashed** (`08-99-99`) rather than as six digits. Quoting a
  * CSV field does not stop a spreadsheet reading it as a number, and `089999` opened in
  * Excel is `89999` — a sort code that has silently lost its first digit. The dashes are
- * also how a bank asks for it. (An account number beginning with a zero has the same
- * hazard and no such convention to hide behind; it is exported as stored, so check one
- * against the app if a payment file is being built from this.)
+ * also how a bank asks for it. An account number beginning with a zero has the same
+ * hazard in the CSV and no such convention to hide behind, which is what the Excel
+ * format is for: there every bank field is a text cell and keeps its zeros.
  *
  * `bankName` is deliberately absent: the sort code is what identifies the bank, and the
  * name is the one bank field no feature reads (see the canonical tiers).
  */
-function exportCsv(rows: FinanceRow[], tab: Tab) {
-  const header = [
-    'Organisation',
-    // The foundation's own reference, second: this file exists to be reconciled against
-    // their ledger, and the ref is the column the two are joined on.
-    'Reference',
-    'Programme',
-    'Round',
-    'Theme',
-    // The payment itself, which is now what a row IS — so the file is a payment file
-    // rather than a grant summary with a next-payment column bolted to the side. One
-    // line per payment is also the shape a bank's own upload templates take.
-    'Payment',
-    'Payment amount',
-    'Due date',
-    'Paid date',
-    'Status',
-    // The grant behind it, so a row still reconciles against a ledger kept per grant.
-    'Grant total',
-    'Paid to date',
-    'Outstanding',
-    'Instalments paid',
-    'Account name',
-    'Sort code',
-    'Account number',
-    'Valid',
-  ]
-  const body = rows.map((g) => [
-    g.organisationName,
-    g.externalApplicationId ?? '',
-    g.programmeName ?? '',
-    g.roundName ?? '',
-    g.tags.join('; '),
-    g.instalmentId === null
-      ? 'No schedule'
-      : g.instalmentNo !== null
-        ? `${g.instalmentNo} of ${g.instalmentCount}`
-        : '',
-    g.amount,
-    g.dueDate ?? '',
-    g.paidDate ?? '',
-    FINANCE_STATUS_LABELS[g.status],
-    g.committed,
-    g.paidToDate,
-    g.outstanding,
-    `${g.paidCount}/${g.instalmentCount}`,
-    g.bank.accountName ?? '',
-    dashedSortCode(g.bank.sortCode),
-    g.bank.accountNumber ?? '',
-    BANK_STATUS_LABELS[g.bank.status],
-  ])
-  const csv = [header, ...body]
-    .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    .join('\n')
+const EXPORT_COLUMNS: ExportColumn<FinanceRow>[] = [
+  { header: 'Organisation', width: 32, value: (g) => g.organisationName },
+  // The foundation's own reference, second: this file exists to be reconciled against
+  // their ledger, and the ref is the column the two are joined on.
+  { header: 'Reference', width: 16, value: (g) => g.externalApplicationId },
+  { header: 'Programme', width: 24, value: (g) => g.programmeName },
+  { header: 'Round', width: 20, value: (g) => g.roundName },
+  { header: 'Theme', width: 24, value: (g) => g.tags.join('; ') },
+  // The payment itself, which is now what a row IS — so the file is a payment file
+  // rather than a grant summary with a next-payment column bolted to the side. One
+  // line per payment is also the shape a bank's own upload templates take.
+  {
+    header: 'Payment',
+    value: (g) =>
+      g.instalmentId === null
+        ? 'No schedule'
+        : g.instalmentNo !== null
+          ? `${g.instalmentNo} of ${g.instalmentCount}`
+          : '',
+  },
+  { header: 'Payment amount', kind: 'money', width: 16, value: (g) => g.amount },
+  { header: 'Due date', kind: 'date', value: (g) => g.dueDate },
+  { header: 'Paid date', kind: 'date', value: (g) => g.paidDate },
+  { header: 'Status', width: 14, value: (g) => FINANCE_STATUS_LABELS[g.status] },
+  // The grant behind it, so a row still reconciles against a ledger kept per grant.
+  { header: 'Grant total', kind: 'money', width: 14, value: (g) => g.committed },
+  { header: 'Paid to date', kind: 'money', width: 14, value: (g) => g.paidToDate },
+  { header: 'Outstanding', kind: 'money', width: 14, value: (g) => g.outstanding },
+  { header: 'Instalments paid', value: (g) => `${g.paidCount}/${g.instalmentCount}` },
+  { header: 'Account name', width: 28, value: (g) => g.bank.accountName },
+  { header: 'Sort code', value: (g) => dashedSortCode(g.bank.sortCode) },
+  { header: 'Account number', width: 16, value: (g) => g.bank.accountNumber },
+  { header: 'Valid', value: (g) => BANK_STATUS_LABELS[g.bank.status] },
+]
 
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `custodian-finance-${tab === 'to_pay' ? 'to-pay' : 'paid'}-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+function exportPayments(rows: FinanceRow[], tab: Tab, format: ExportFormat) {
+  return downloadTable({
+    format,
+    columns: EXPORT_COLUMNS,
+    rows,
+    filename: `custodian-finance-${tab === 'to_pay' ? 'to-pay' : 'paid'}-${new Date().toISOString().slice(0, 10)}`,
+    sheetName: tab === 'to_pay' ? 'To pay' : 'Paid',
+  })
 }

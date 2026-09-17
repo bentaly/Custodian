@@ -178,6 +178,8 @@ function summarisePayments(instalments: InstalmentRow[], cancelled: boolean) {
 /** One unpaid instalment, named by the grant it belongs to. */
 export type UpcomingPayment = {
   awardId: string
+  /** So the payment panel can point at the payment that was clicked, not just its grant. */
+  instalmentId: string
   organisationName: string
   programmeName: string | null
   dueDate: string
@@ -730,6 +732,7 @@ function upcomingItems(db: ReturnType<typeof getDb>, g: GrantsQuery, dates: Fina
     .select({
       bucket: bucket.as('bucket'),
       awardId: awardInstalments.awardId,
+      instalmentId: sql<string>`${awardInstalments.id}`.as('instalment_id'),
       organisationName: g.organisationName,
       programmeName: g.programmeName,
       dueDate: sql<string>`${awardInstalments.dueDate}`.as('due_date'),
@@ -756,6 +759,7 @@ function toUpcoming(
   items: Array<{
     bucket: string | null
     awardId: string
+    instalmentId: string
     organisationName: string
     programmeName: string | null
     dueDate: string
@@ -772,6 +776,7 @@ function toUpcoming(
         .filter((i) => i.bucket === key)
         .map((i) => ({
           awardId: i.awardId,
+          instalmentId: i.instalmentId,
           organisationName: i.organisationName,
           programmeName: i.programmeName,
           dueDate: i.dueDate,

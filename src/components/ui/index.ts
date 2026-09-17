@@ -46,7 +46,7 @@ export { Timeline, StepMarker, type TimelineStep, type TimelineMarker } from './
 export { Tabs, type TabItem } from './Tabs'
 export { BreakdownTable, type BreakdownColumn, type BreakdownRow } from './BreakdownTable'
 export { PillTabs, type PillTabItem } from './PillTabs'
-export { ExportButton } from './ExportButton'
+export { ExportButton, ExportMenu } from './ExportButton'
 export { LogoMark } from './LogoMark'
 export { ErrorState, type ErrorStateProps } from './ErrorState'
 export { ErrorNote } from './ErrorNote'

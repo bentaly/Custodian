@@ -19,6 +19,17 @@ export function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+/**
+ * Today on the USER's calendar, as `yyyy-mm-dd`. For a date somebody picks, such as when
+ * a payment went out: `todayIso` is UTC, which just after midnight in a British summer
+ * is still yesterday, and a "not in the future" check against it would refuse the day
+ * the person is actually on. Browser-side only; on a Worker the two are the same.
+ */
+export function localTodayIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function addDaysIso(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + days)

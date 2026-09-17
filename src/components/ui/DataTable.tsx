@@ -93,6 +93,9 @@ const HIDE_BELOW = {
 export type TableSelection<T> = {
   isSelected: (row: T) => boolean
   toggle: (row: T) => void
+  /** A row the action cannot apply to gets no box at all, rather than one that does
+   *  nothing when ticked. Default: every row. */
+  isSelectable?: (row: T) => boolean
   allSelected: boolean
   /** Some-but-not-all: the header box shows a dash and announces as `mixed`. Without it
    *  a partial selection reads as "nothing selected". */
@@ -245,11 +248,13 @@ export function DataTable<T>({
             >
               {selection && (
                 <td className="w-11 px-3 align-middle" onClick={(e) => e.stopPropagation()}>
-                  <CellCheckbox
-                    checked={selection.isSelected(row)}
-                    onToggle={() => selection.toggle(row)}
-                    label="Select row"
-                  />
+                  {(selection.isSelectable?.(row) ?? true) && (
+                    <CellCheckbox
+                      checked={selection.isSelected(row)}
+                      onToggle={() => selection.toggle(row)}
+                      label="Select row"
+                    />
+                  )}
                 </td>
               )}
               {columns.map((col) => (

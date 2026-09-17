@@ -28,6 +28,7 @@ import {
   reportSchedule,
   reports,
   clientProfiles,
+  auditLog,
 } from '../../../drizzle/schema'
 import { searchAny } from '../searchTerm'
 import { anyOf, anyTag } from '../filterSql'
@@ -63,7 +64,7 @@ import {
   type GrantRow as AwardGrantRow,
   type GrantsQuery as AwardGrantsQuery,
 } from '../awards/query'
-import { recomputeAwardStatus } from '../awards/status'
+import { recomputeAwardStatus, recomputeAwardStatuses } from '../awards/status'
 import { deliveryAreaLabel, NO_REGION } from '../../lib/deprivation/types'
 
 /**
@@ -1441,6 +1442,77 @@ export const updateInstalment = createServerFn({ method: 'POST' })
         ...(data.dueDate !== undefined ? { dueDate: { from: row.dueDate, to: data.dueDate } } : {}),
       },
     })
+  })
+
+// Mark several instalments paid at once, on one date: the payment run from Finance's
+// To pay list. The single `setInstalmentPaid` below is the same act one row at a time;
+// this exists because a run of fifteen payments made in the bank is otherwise fifteen
+// dialogs, and because doing it as fifteen calls would be fifteen chances to stop
+// halfway.
+//
+// Only ever SETS a date. There is deliberately no bulk reversal: taking back a payment
+// is rare, and a mass "these never went out" is exactly the shape an auditor queries.
+//
+// An instalment already paid is left alone rather than re-dated, so a stale selection
+// cannot quietly rewrite when an earlier payment went out. The response says how many
+// were recorded so the screen can tell the two apart.
+export const setInstalmentsPaid = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      ids: z.array(z.uuid()).min(1).max(100),
+      paidDate: z.string().regex(ISO_DATE),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin', 'finance')
+    const db = getDb()
+    const ids = [...new Set(data.ids)]
+    const rows = await db.query.awardInstalments.findMany({
+      where: inArray(awardInstalments.id, ids),
+      columns: { id: true, instalmentNo: true, amount: true, paidDate: true },
+      with: { award: { columns: { id: true, clientId: true, applicationId: true } } },
+    })
+    // All or nothing on access: one foreign id means the request is not a payment run
+    // this user can make, not a run with a row quietly missing.
+    if (rows.length !== ids.length) throw notFoundError()
+    for (const row of rows) assertClientAccess(user, row.award.clientId)
+
+    const targets = rows.filter((r) => !r.paidDate)
+    if (targets.length === 0) return { recorded: 0 }
+
+    // The dates and who recorded them are ONE fact, so they land in one batch: the
+    // audit row is the only record of who said the money went, and a run of payments
+    // marked with no trail behind half of them is worse than the run failing. (The
+    // single path's audit write is best-effort; there a failure costs one row.)
+    // `paid_date is null` again in the update, so two people running the same page at
+    // once cannot re-date each other's payments.
+    await db.batch([
+      db
+        .update(awardInstalments)
+        .set({ paidDate: data.paidDate })
+        .where(
+          and(
+            inArray(
+              awardInstalments.id,
+              targets.map((t) => t.id),
+            ),
+            sql`${awardInstalments.paidDate} is null`,
+          ),
+        ),
+      db.insert(auditLog).values(
+        targets.map((t) => ({
+          clientId: t.award.clientId,
+          actorUserId: user.id,
+          action: 'grant_payment_recorded' as const,
+          applicationId: t.award.applicationId,
+          metadata: { instalmentNo: t.instalmentNo, amount: t.amount, paidDate: data.paidDate },
+        })),
+      ),
+    ])
+
+    // The last payment is one of the things that can finish a grant.
+    await recomputeAwardStatuses([...new Set(targets.map((t) => t.award.id))])
+    return { recorded: targets.length }
   })
 
 // Mark an instalment paid (records today, or an explicit date) or clear it back to

@@ -5,6 +5,7 @@ import { BalanceAndBudget, type BalanceView } from '../../components/finance/Bal
 import { BankBalanceDialog } from '../../components/finance/BankBalanceDialog'
 import { FinanceHeader } from '../../components/finance/FinanceHeader'
 import { Button } from '../../components/ui'
+import { PayByCheckIcon } from '@hugeicons/core-free-icons'
 
 /**
  * Finance → Balance & budget.
@@ -46,7 +47,13 @@ function BalancePage() {
         tab="balance"
         subtitle={data ? `Financial year ${data.financialYear.label}` : undefined}
         actions={
-          <Button variant="secondary" size="sm" onClick={() => setDialogOpen(true)}>
+          <Button
+            variant="tinted"
+            size="sm"
+            onClick={() => setDialogOpen(true)}
+            icon={PayByCheckIcon}
+            iconPosition="right"
+          >
             {data?.balance ? 'Update balance' : 'Record balance'}
           </Button>
         }
