@@ -35,6 +35,9 @@ export type GrantRow = {
   themes: string[]
   endDate: string | null
   impactQuantity: number | null
+  bankAccountName: string | null
+  bankSortCode: string | null
+  bankAccountNumber: string | null
 }
 
 export type PaymentRow = {
@@ -156,6 +159,35 @@ export function asDate(value: unknown): { iso: string | null; ambiguous: boolean
   }
 
   return { iso: null, ambiguous: false }
+}
+
+/**
+ * A sort code or account number: digits that are text, not a quantity.
+ *
+ * The template formats both columns as text so Excel leaves them alone, but that only
+ * helps a file that was filled in from the template. A pasted column, or a cell someone
+ * reformatted, arrives as a NUMBER, and by then 00123456 is already 123456 — the zeros
+ * were eaten before we ever saw the file.
+ *
+ * So a numeric cell is zero-padded back to `width`. That is a guess, but a safe one:
+ * the modulus check runs over the result and a wrong pad shows up in Finance as a
+ * failed check, which is a flag next to a grant rather than a silent wrong answer.
+ * Nothing in Custodian pays anybody, so the worst case is a human looking twice.
+ *
+ * A value already the right length, or one with dashes and spaces in it, is passed
+ * through untouched; `digitsOnly` in the modulus checker normalises the rest.
+ */
+export function asCode(value: unknown, width: number): string | null {
+  if (typeof value === 'number') {
+    if (!isFinite(value) || value < 0 || !Number.isInteger(value)) return null
+    return String(value).padStart(width, '0')
+  }
+  const text = asText(value)
+  if (!text) return null
+  // Only pad where the cell is bare digits. "40-47-84" is already unambiguous, and a
+  // string someone typed with its zeros intact must not be padded twice.
+  if (/^\d+$/.test(text) && text.length < width) return text.padStart(width, '0')
+  return text
 }
 
 function asBool(value: unknown): boolean | null {
@@ -324,6 +356,9 @@ export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIss
       themes: splitThemes(cells.themes),
       endDate: dateCell(cells.endDate, cols.endDate!, rowNumber, issues),
       impactQuantity: asNumber(cells.impactQuantity),
+      bankAccountName: asText(cells.bankAccountName),
+      bankSortCode: asCode(cells.bankSortCode, 6),
+      bankAccountNumber: asCode(cells.bankAccountNumber, 8),
     })
   }
 

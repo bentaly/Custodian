@@ -261,6 +261,32 @@ export function validateImport(input: {
     })
   }
 
+  // ── Bank details, on the grants that still owe money ──
+  //
+  // Scoped, not blanket. Most of an onboarding file is closed history that needs no
+  // account number, so reporting every grant without one would bury the handful that
+  // matter under a number nobody can act on. What counts is an instalment still to be
+  // paid: that is a payment somebody has to make, and without these two columns they
+  // make it from their own records and Finance shows a missing bank check beside it.
+  //
+  // A lump "Amount paid" grant with no schedule is deliberately NOT counted — it has
+  // no unpaid instalment, so there is nothing left to pay into an account.
+  const owesMoney = grants.filter((g) => {
+    if (g.status === 'cancelled') return false
+    return (paymentsByRef.get(g.reference) ?? []).some((p) => !p.paid)
+  })
+  const owesMoneyNoBank = owesMoney.filter((g) => !g.bankSortCode || !g.bankAccountNumber)
+  if (owesMoneyNoBank.length > 0) {
+    issues.push({
+      kind: 'degradation',
+      code: 'bank_details_missing',
+      message: `${plural(owesMoneyNoBank.length, 'grant')} with payments still to make and no bank details`,
+      detail:
+        'Their instalments will show on Finance with no account to pay into, and the account check cannot run on them. Fill in Account name, Sort code and Account number on the Grants sheet, or add them per grant on the Finance screen afterwards.',
+      rows: owesMoneyNoBank.map((g) => g.rowNumber),
+    })
+  }
+
   const activeNoReports = grants.filter(
     (g) => g.status === 'active' && (reportsByRef.get(g.reference)?.length ?? 0) === 0,
   )

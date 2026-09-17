@@ -27,6 +27,15 @@ export const GrantRowSchema = z.object({
   themes: z.array(z.string().min(1).max(100)).max(50),
   endDate: isoDate.nullable(),
   impactQuantity: z.number().finite().min(0).nullable(),
+  /**
+   * Only meaningful for a grant with instalments still to pay. Loose length caps rather
+   * than a digit pattern: the modulus check (`lib/bankVerification`) is the thing that
+   * decides whether a pair is usable, and it reports `unchecked` for a malformed one.
+   * Refusing the whole workbook over a mistyped sort code would be the wrong trade.
+   */
+  bankAccountName: z.string().max(200).nullable(),
+  bankSortCode: z.string().max(20).nullable(),
+  bankAccountNumber: z.string().max(20).nullable(),
 })
 
 export const PaymentRowSchema = z.object({

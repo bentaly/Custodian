@@ -17,15 +17,24 @@
 //   optional  — genuinely take-it-or-leave-it.
 //
 // Note the asymmetry with the application registry: bank details are `required` for a
-// live submission (you cannot pay someone without them) but absent here entirely — an
-// imported grant from 2019 was paid years ago, and asking for account numbers to
-// record history would be both intrusive and pointless.
+// live submission (you cannot pay someone without them) and `optional` here, at the
+// far end of the Grants sheet. A grant from 2019 was paid years ago, so asking for an
+// account number to record history would be intrusive and pointless — but a three-year
+// award made last year still has instalments to pay, and those have to be paid to
+// somebody. So the columns exist, nothing is held over them, and `bank_details_missing`
+// in validate.ts reports them against the only grants where their absence costs
+// anything: the ones with money still to go out.
 
 export type ImportTier = 'required' | 'one_of' | 'expected' | 'optional'
 
 export type SheetKey = 'grants' | 'payments' | 'reports'
 
-export type CellType = 'text' | 'number' | 'money' | 'date' | 'enum' | 'lookup'
+/**
+ * `code` is text that looks like a number and must not be treated as one: a sort code
+ * or an account number, where Excel's General format silently eats a leading zero and
+ * turns 00123456 into 123456. Written as a text-formatted column, and rescued on read.
+ */
+export type CellType = 'text' | 'number' | 'money' | 'date' | 'enum' | 'lookup' | 'code'
 
 export interface ImportColumn {
   /** Key on the parsed row object. */
@@ -202,6 +211,40 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     tier: 'optional',
     type: 'number',
     help: 'Any impact recorded for this grant so far: beneficiaries reached, hectares restored, whatever your programme measures. Numbers only. For a completed grant, this is the final total.',
+  },
+  // ── Bank details ──
+  //
+  // Last three columns on the sheet, and optional, because most of an onboarding file
+  // is history that was paid years ago. They are here for the grant that is NOT: an
+  // award made last year with two more years of instalments on it has to be paid to
+  // an account, and without these the first thing a foundation does after importing is
+  // open every live grant in Finance and type them in one at a time.
+  //
+  // `optional` rather than `expected` on purpose. An `expected` column reports against
+  // every grant that lacks it, so on a portfolio that is 90% closed it would say "94
+  // grants with no bank details" about 94 grants that need none. The cost is real only
+  // where money is still to go out, so the warning is raised there instead.
+  {
+    key: 'bankAccountName',
+    header: 'Account name',
+    shortLabel: 'account name',
+    tier: 'optional',
+    type: 'text',
+    help: 'The name on the grantee’s bank account, if you still have money to pay them. Only needed for grants with instalments outstanding.',
+  },
+  {
+    key: 'bankSortCode',
+    header: 'Sort code',
+    tier: 'optional',
+    type: 'code',
+    help: 'Six digits, with or without dashes. Only needed for grants with instalments outstanding. Format the cell as text if you are typing one starting with a zero.',
+  },
+  {
+    key: 'bankAccountNumber',
+    header: 'Account number',
+    tier: 'optional',
+    type: 'code',
+    help: 'Eight digits. Only needed for grants with instalments outstanding. Format the cell as text if you are typing one starting with a zero.',
   },
 ]
 

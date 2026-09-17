@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { matchValue, normalise, resolveColumn, similarity } from './match'
-import { asDate, asNumber, parseGrants, parsePayments, parseReports, type RawRow } from './parse'
+import {
+  asCode,
+  asDate,
+  asNumber,
+  parseGrants,
+  parsePayments,
+  parseReports,
+  type RawRow,
+} from './parse'
 import { validateImport } from './validate'
 import type { GrantRow, PaymentRow, ReportRow } from './parse'
 
@@ -83,6 +91,29 @@ describe('asNumber', () => {
     expect(asNumber('about forty grand')).toBeNull()
     expect(asNumber('')).toBeNull()
     expect(asNumber(null)).toBeNull()
+  })
+})
+
+describe('asCode', () => {
+  // The whole reason this function exists: Excel's General format turns a sort code
+  // into an integer the moment the cell is committed, and the leading zero is gone
+  // before the file ever reaches us. An account number missing a zero fails the
+  // modulus check and reads as a bad account rather than a lost digit.
+  it('puts back the leading zeros Excel ate', () => {
+    expect(asCode(123456, 8)).toBe('00123456')
+    expect(asCode(10203, 6)).toBe('010203')
+  })
+
+  it('leaves a full-length or formatted value alone', () => {
+    expect(asCode('00123456', 8)).toBe('00123456')
+    expect(asCode('40-47-84', 6)).toBe('40-47-84')
+    expect(asCode(404784, 6)).toBe('404784')
+  })
+
+  it('reads a blank cell as nothing to check', () => {
+    expect(asCode(null, 8)).toBeNull()
+    expect(asCode('', 8)).toBeNull()
+    expect(asCode('   ', 8)).toBeNull()
   })
 })
 
@@ -209,6 +240,11 @@ const grant = (over: Partial<GrantRow> = {}): GrantRow => ({
   themes: [],
   endDate: null,
   impactQuantity: null,
+  // The fixture grant pays in full on award, so it owes nothing and needs no account.
+  // `bank_details_missing` only looks at grants with an unpaid instalment.
+  bankAccountName: null,
+  bankSortCode: null,
+  bankAccountNumber: null,
   ...over,
 })
 
@@ -296,6 +332,38 @@ describe('validateImport', () => {
     const result = run({ grants: [grant()] })
     expect(result.issues.some((i) => i.code === 'active_no_payments')).toBe(true)
     expect(result.issues.some((i) => i.code === 'active_no_reports')).toBe(true)
+  })
+
+  // Scoped to the grants that still owe money. A back catalogue is mostly closed
+  // grants that need no account number, and warning about those would bury the
+  // handful somebody has to go and find bank details for.
+  it('asks for bank details only where an instalment is still unpaid', () => {
+    const owing = run({
+      grants: [grant()],
+      payments: [payment({ paid: false, paidDate: null })],
+    })
+    expect(owing.issues.some((i) => i.code === 'bank_details_missing')).toBe(true)
+    expect(owing.canCommit).toBe(true)
+
+    const settled = run({ grants: [grant({ status: 'completed' })], payments: [payment()] })
+    expect(settled.issues.some((i) => i.code === 'bank_details_missing')).toBe(false)
+  })
+
+  it('says nothing about bank details once they are filled in', () => {
+    const result = run({
+      grants: [grant({ bankSortCode: '40-47-84', bankAccountNumber: '70872490' })],
+      payments: [payment({ paid: false, paidDate: null })],
+    })
+    expect(result.issues.some((i) => i.code === 'bank_details_missing')).toBe(false)
+  })
+
+  // A cancelled grant is not going to be paid, whatever its schedule still says.
+  it('does not ask for bank details on a cancelled grant', () => {
+    const result = run({
+      grants: [grant({ status: 'cancelled' })],
+      payments: [payment({ paid: false, paidDate: null })],
+    })
+    expect(result.issues.some((i) => i.code === 'bank_details_missing')).toBe(false)
   })
 
   it('counts an unreceived milestone as outstanding', () => {

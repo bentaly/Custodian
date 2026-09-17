@@ -30,6 +30,7 @@ import {
 } from './columns'
 import { CUSTODIAN_MARK_PNG_BASE64 } from './logo'
 import type { RawRow } from './parse'
+import { loadExcelJs } from '../spreadsheetExport'
 
 export type LookupLists = {
   programmes: string[]
@@ -62,14 +63,6 @@ const MUTED = 'FF637083'
 const HEADER_FILL = 'FFF3F6F4'
 const TABLE_FILL = 'FFEFF2F6'
 
-type ExcelJsModule = typeof import('exceljs')
-
-async function loadExcelJs(): Promise<ExcelJsModule> {
-  // The ESM build; `default` interop differs between bundler and runtime.
-  const mod = (await import('exceljs')) as unknown as { default?: ExcelJsModule } & ExcelJsModule
-  return mod.default ?? mod
-}
-
 // ─── Writing ────────────────────────────────────────────────────────────────
 
 function columnLetter(index: number): string {
@@ -81,6 +74,50 @@ function columnLetter(index: number): string {
     n = Math.floor((n - 1) / 26)
   }
   return out
+}
+
+/**
+ * What Excel says when somebody types a value that is not in the dropdown.
+ *
+ * This is the only message in the whole flow that most people will ever read, because
+ * it appears at the moment they go off-list, and it used to say the same thing for
+ * every column: "Pick a value from the list." On Round that is simply WRONG — typing a
+ * round Custodian has never heard of is a supported answer, and we create it during the
+ * import. A foundation reading a refusal where the product means "yes, go ahead" either
+ * deletes what they typed or gives up and hand-creates eleven rounds first.
+ *
+ * Excel's warning dialog offers Yes (keep it) and No (go back), so each message says
+ * which button does what it wants.
+ */
+function validationPrompt(col: ImportColumn): { title: string; body: string } {
+  if (col.lookup === 'round') {
+    return {
+      title: 'That round is not in Custodian yet',
+      body: 'Which is fine. Choose Yes to keep what you typed, and we will create the round when you upload this file. Choose No to pick an existing round from the list instead.',
+    }
+  }
+  if (col.lookup === 'programme') {
+    return {
+      title: 'Not one of your programmes',
+      body: 'Programmes have to exist in Custodian before you import, so please pick one from the list. If you keep what you typed, we will ask you to match it to a programme when you upload.',
+    }
+  }
+  if (col.lookup === 'reference') {
+    return {
+      title: 'Not a reference on the Grants sheet',
+      body: 'Every payment and report belongs to a grant listed on the Grants sheet. Check the reference matches one there, or add the grant.',
+    }
+  }
+  if (col.options) {
+    return {
+      title: 'Not one of the options',
+      body: `Pick one of: ${col.options.join(', ')}.`,
+    }
+  }
+  return {
+    title: 'Not one of your options',
+    body: 'Pick a value from the list. If you pasted this in, check it matches. We will offer you the closest match when you upload.',
+  }
 }
 
 export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
@@ -173,7 +210,7 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
     'This template is built with your own account data. The Programme and Round columns already list your foundation’s programmes and rounds, so you pick from a dropdown instead of typing, and everything connects to the right place in Custodian when you upload.',
   )
   paragraph(
-    'If the round you need isn’t listed, just type the round name you’d like and we’ll create it in your Custodian account during the import. Programmes must already exist in Custodian, so please pick one from the dropdown.',
+    'If the round you need isn’t listed, just type the round name you’d like and we’ll create it in your Custodian account during the import. Excel will warn you that it isn’t one of your options: choose Yes to keep what you typed. Programmes must already exist in Custodian, so please pick one from the dropdown.',
   )
   spacer()
 
@@ -289,19 +326,28 @@ export async function buildTemplate(ctx: TemplateContext): Promise<Blob> {
       if (col.type === 'money') ws.getColumn(i + 1).numFmt = '£#,##0'
       if (col.type === 'number') ws.getColumn(i + 1).numFmt = '#,##0'
       if (col.type === 'date') ws.getColumn(i + 1).numFmt = 'yyyy-mm-dd'
+      // Text, so a sort code or account number keeps its leading zero. Excel's General
+      // format reads 00123456 as the number 123456 the moment the cell is committed,
+      // and nothing downstream can tell that happened.
+      if (col.type === 'code') ws.getColumn(i + 1).numFmt = '@'
 
       const formula = listFor(col)
       if (!formula) return
 
+      const prompt = validationPrompt(col)
       for (let r = 2; r <= VALIDATED_ROWS; r++) {
         ws.getCell(`${letter}${r}`).dataValidation = {
           type: 'list',
           allowBlank: columnAsk(col) !== 'required',
           formulae: [formula],
           showErrorMessage: true,
+          // A WARNING, never a stop, on every one of these columns. Excel's stop style
+          // refuses the keystroke outright, and the one column where that would be
+          // actively wrong is Round: a round that does not exist yet is a supported
+          // answer, and the review screen offers to create it. See `validationPrompt`.
           errorStyle: 'warning',
-          errorTitle: 'Not one of your options',
-          error: `Pick a value from the list. If you pasted this in, check it matches. We will offer you the closest match when you upload.`,
+          errorTitle: prompt.title,
+          error: prompt.body,
         }
       }
     })

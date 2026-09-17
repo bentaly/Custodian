@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getDb } from '../db'
 import {
   applicationComments,
@@ -31,6 +31,7 @@ import { CommitImportSchema, ImportPayloadSchema } from '../../lib/validators/da
 import type { GrantRow } from '../../lib/dataImport/parse'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { enqueueMany } from '../pipelineQueue'
+import { bankFields } from '../applications/bank'
 import { resolveApplicationDeprivation } from '../applications/deprivation'
 import { screenApplication } from '../applications/dueDiligence'
 
@@ -69,11 +70,30 @@ export const getImportContext = createServerFn({ method: 'GET' }).handler(async 
       .from(programmes)
       .where(eq(programmes.clientId, clientId))
       .orderBy(programmes.name),
+    // Rounds in DATE order, newest first.
+    //
+    // Excel renders a list validation in range order, so whatever order this query
+    // returns is the order a foundation scrolls through in the dropdown. Alphabetical
+    // put "April Round (2024)" above "November Round (2026)", which is no order at all
+    // for a thing whose only real sequence is chronological. Closing date is the key
+    // because that is when a round's decisions were made, which is what an imported
+    // grant belongs to; a round with no dates at all falls back to when it was created.
+    //
+    // ARCHIVED ROUNDS ARE INCLUDED, which is the one place in the app that departs from
+    // the schema's "hidden from every picker" rule for archiving, and it is deliberate.
+    // Everywhere else a round picker is about work still to do, so a retired round is
+    // noise. This one is the opposite: an onboarding import is a back catalogue, and a
+    // foundation's oldest grants belong to exactly the rounds they have since retired.
+    // Leaving them out would offer no way to say where a 2019 grant went except to type
+    // the name again, which creates a duplicate round alongside the real one.
     db
       .select({ id: rounds.id, name: rounds.name })
       .from(rounds)
       .where(eq(rounds.clientId, clientId))
-      .orderBy(rounds.name),
+      .orderBy(
+        desc(sql`coalesce(${rounds.closedAt}, ${rounds.openedAt}, ${rounds.createdAt})`),
+        rounds.name,
+      ),
   ])
 
   return {
@@ -419,6 +439,12 @@ export const commitImport = createServerFn({ method: 'POST' })
         // number, so no score is the honest answer.
         submittedAt: decisionAt,
         decisionAt,
+        // Optional in the workbook, and blank on most of a back catalogue. Where they
+        // ARE given, they go on through `bankFields` like every other writer, so the
+        // cached `bank_check_status` is computed rather than left at its default and
+        // Finance can sort by it the moment the import lands.
+        ...bankFields(grant),
+        bankAccountName: grant.bankAccountName,
         importBatchId: batchId,
       } as typeof applications.$inferInsert)
 
