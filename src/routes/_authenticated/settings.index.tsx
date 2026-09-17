@@ -72,7 +72,7 @@ const GROUPS: Group[] = [
       {
         title: 'Rounds',
         description:
-          'Open and close funding rounds, set their dates, and choose which programmes each round funds and with what budget.',
+          'Open and close funding rounds, set their dates, and choose which programmes each round funds.',
         to: '/rounds',
         icon: Calendar03Icon,
       },
@@ -85,7 +85,7 @@ const GROUPS: Group[] = [
       {
         title: 'Giving strategy',
         description:
-          'Write your goals and funding priorities in your own words. Every incoming submission is scored against them.',
+          'Write your goals and funding priorities. Every incoming submission is scored against them.',
         to: '/settings/giving-strategy',
         icon: Compass01Icon,
         adminOnly: true,
@@ -100,7 +100,7 @@ const GROUPS: Group[] = [
       },
       {
         title: 'Letters',
-        description: `Edit your award and decline letters in your organisation's own style, and choose where replies go.`,
+        description: 'Edit your award and decline letters, and choose where replies go.',
         to: '/settings/letters',
         icon: Mail01Icon,
         adminOnly: true,
