@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm'
 import {
   applications,
   awards,
@@ -152,11 +152,25 @@ export function arrivedQuery(db: Db, clientId: string) {
 }
 
 /**
- * Dates still waited on: a schedule row with nothing submitted against it.
+ * Dates still waited on: a schedule row with nothing submitted against it, on a grant
+ * that has not been cancelled.
  *
  * `status` is `dueStatus` in SQL — the same three-way ladder, against the same
  * `DUE_SOON_DAYS` window, so the drawer's red count and the library agree by
  * construction rather than by both being edited together.
+ *
+ * **Cancelled grants are excluded.** They were not until 2026-09-17, so a withdrawn
+ * grant's milestones sat in the chase-list drawer and its counts, being chased. The
+ * money rule already said this in its own words ("outstanding EXCLUDES cancelled -
+ * there is nothing left to pay"); what it had never been applied to was work rather
+ * than money, and a report on a grant that no longer exists is the same fact wearing
+ * different clothes. `completed` awards are NOT excluded: by `awardCompletion`'s rule
+ * they have no open milestone anyway, except an onboarding import, which takes the
+ * workbook's status verbatim — and there the milestone is genuinely still owed.
+ *
+ * `arrivedQuery` deliberately does NOT do this. A report that was actually received
+ * before the grant was withdrawn is a document the foundation holds, and deleting it
+ * from the library would lose it. Nothing is owed; something arrived. Both are true.
  */
 export function outstandingQuery(db: Db, clientId: string) {
   const today = todayIso()
@@ -179,7 +193,13 @@ export function outstandingQuery(db: Db, clientId: string) {
     .leftJoin(roundProgrammes, eq(roundProgrammes.id, applications.roundProgrammeId))
     .leftJoin(programmes, eq(programmes.id, roundProgrammes.programmeId))
     .leftJoin(rounds, eq(rounds.id, roundProgrammes.roundId))
-    .where(and(eq(awards.clientId, clientId), isNull(reportSchedule.submittedDate)))
+    .where(
+      and(
+        eq(awards.clientId, clientId),
+        ne(awards.status, 'cancelled'),
+        isNull(reportSchedule.submittedDate),
+      ),
+    )
     .as('outstanding')
 }
 

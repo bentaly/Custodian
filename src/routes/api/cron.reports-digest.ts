@@ -1,23 +1,23 @@
-// ─── The digest endpoint ─────────────────────────────────────────────────────
+// ─── The reports digest endpoint ─────────────────────────────────────────────
 //
-// The Monday run is an HTTP route rather than logic reached directly from a `scheduled`
-// handler, for two reasons:
+// An HTTP route for the two reasons the payments digest is one: `worker-entry.js` is
+// bundled by wrangler and cannot import anything under `src/`, and a cron you cannot
+// trigger by hand is a cron you debug once a week. It is a curl, and `?dryRun=1`
+// renders the whole run and returns it without sending a thing.
 //
-//  1. `worker-entry.js` is bundled by wrangler, not vite — it cannot import anything
-//     under `src/`. It CAN call `handler.fetch()` with a synthetic Request, which is an
-//     ordinary function call: no network hop, no subrequest, no loopback.
-//  2. A cron you cannot trigger by hand is a cron you debug once a week. This one is a
-//     curl, and `?dryRun=1` renders the whole run and returns it without sending a
-//     thing — which is how it is meant to be exercised until we trust it.
+// Its OWN endpoint rather than a second section inside `/api/cron/finance-digest`,
+// even though the same Monday trigger drives both. Two runs, two failure surfaces: if
+// the payments query dies, the reports email must still go out, and one endpoint would
+// make that one 500. It also keeps each curl-able on its own while the other is being
+// changed.
 //
 // Gated by `CRON_SECRET` as a bearer token, the same fail-closed shape as
-// `requireAdminToken`: no configured secret means every request is refused, so a Worker
-// missing the secret cannot be triggered by anyone.
+// `requireAdminToken`: no configured secret means every request is refused.
 import { createFileRoute } from '@tanstack/react-router'
-import { runFinanceDigest } from '../../server/financeDigest/run'
+import { runReportsDigest } from '../../server/reportsDigest/run'
 import { bearerAuthorised, unauthorised } from '../../server/internalAuth'
 
-export const Route = createFileRoute('/api/cron/finance-digest')({
+export const Route = createFileRoute('/api/cron/reports-digest')({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
@@ -33,12 +33,12 @@ export const Route = createFileRoute('/api/cron/finance-digest')({
         const weekOf = url.searchParams.get('weekOf') ?? undefined
         const onlyClientId = url.searchParams.get('clientId') ?? undefined
 
-        const summary = await runFinanceDigest({ dryRun, weekOf, onlyClientId })
+        const summary = await runReportsDigest({ dryRun, weekOf, onlyClientId })
 
         // Logged as well as returned: when the Cron Trigger is the caller, this response
         // goes nowhere, and Workers Logs is the only record of what Monday did.
         console.log(
-          `[finance-digest] week ${summary.weekOf}${summary.dryRun ? ' (dry run)' : ''}: ` +
+          `[reports-digest] week ${summary.weekOf}${summary.dryRun ? ' (dry run)' : ''}: ` +
             `${summary.sent} sent, ${summary.skipped} skipped, ${summary.failed} failed`,
         )
 

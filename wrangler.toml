@@ -43,23 +43,31 @@ SENTRY_ENVIRONMENT = "production"
 enabled = true
 head_sampling_rate = 1
 
-# ─── Weekly payments digest — NOT WIRED YET ─────────────────────────────────
+# ─── The Monday digests ──────────────────────────────────────────────────────
 #
-# `/api/cron/finance-digest` exists and works (POST, `Authorization: Bearer
-# $CRON_SECRET`, `?dryRun=1` to render without sending). Nothing calls it on a schedule
-# yet, deliberately: we want to read a few Mondays' worth of dry runs before anyone
-# receives one. To wire it, uncomment below — and read all three notes first.
+# TWO emails on one trigger, in this order: `/api/cron/finance-digest` (payments, to
+# finance) then `/api/cron/reports-digest` (grant reports expected, to admins). Both are
+# POST with `Authorization: Bearer $CRON_SECRET` and both take `?dryRun=1` to render a
+# whole run and return it without sending, which is how each was exercised before anyone
+# received one. `scheduled` in worker-entry.js calls them one after the other and logs
+# each independently — a failure in one must not cost the other its email.
+#
+# The three notes below were the conditions for wiring this up. They are kept because
+# each one is still the reason something elsewhere in the file or in worker-entry.js
+# looks the way it does.
 #
 # 1. `triggers` is an INHERITABLE key. Unlike `vars`, `observability` and the unsafe
 #    bindings above, `[env.staging]` inherits it — the same trap `routes = []` exists to
 #    dodge. Without the staging override, BOTH Workers fire and every finance officer
 #    gets two emails; worse, staging runs a prod snapshot, so the duplicate looks real.
+#    The override is `[env.staging.triggers] crons = []`, further down this file.
 #
-# 2. `worker-entry.js` bridges `env` into `process.env` INSIDE `fetch`. A `scheduled`
-#    invocation never runs that loop, so DATABASE_URL and RESEND_API_KEY would be
-#    undefined and the run would fail silently every Monday. Lift the bridging out and
-#    call it from both handlers, then have `scheduled` call `handler.fetch()` with a
-#    synthetic Request (an in-process call — no subrequest, no loopback).
+# 2. `worker-entry.js` used to bridge `env` into `process.env` INSIDE `fetch`. A
+#    `scheduled` invocation never runs that loop, so DATABASE_URL and RESEND_API_KEY
+#    would be undefined and the run would fail silently every Monday. `bridgeEnv` is
+#    therefore lifted out and called from both handlers, and `scheduled` reaches the app
+#    through `handler.fetch()` with a synthetic Request (an in-process call — no
+#    subrequest, no loopback).
 #
 # 3. Cron fires on UTC and does not follow British Summer Time, so `0 8 * * 1` is 9am
 #    London in summer and 8am in winter. That drift is deliberately accepted — the
@@ -72,12 +80,12 @@ head_sampling_rate = 1
 # — but it is why `run.ts` batches its lookups instead of querying per user.
 #
 [triggers]
-# 1. The Monday payments digest (see the notes above).
+# 1. Mondays at 08:00 UTC: the payments digest and then the reports digest (see above).
 # 2. Every three hours: the Insights portfolio-analysis dispatcher. It takes a cheap
 #    census of every tenant and queues a summary only for those whose grants, reports
 #    or giving strategy have actually moved — so a quiet week costs four queries a run
 #    and no model calls at all. `scheduled` in worker-entry.js switches on `event.cron`
-#    to tell the two apart.
+#    to tell the two TRIGGERS apart; the Monday one then runs both of its jobs.
 crons = ["0 8 * * 1", "0 */3 * * *"]
 
 # Rate limiters for /api/apply. `simple.limit` is requests per `period` (seconds; must
@@ -175,7 +183,7 @@ SENTRY_ENVIRONMENT = "staging"
 enabled = true
 head_sampling_rate = 1
 
-# Staging must NOT send the digest. `triggers` is an inheritable key, so without this
+# Staging must NOT send either digest. `triggers` is an inheritable key, so without this
 # override staging inherits the cron above and every recipient gets the email twice —
 # and staging's user rows are copied from the same Neon lineage as prod, so some of those
 # addresses are real mailboxes. An empty list is the override.

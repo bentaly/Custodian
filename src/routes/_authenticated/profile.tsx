@@ -3,7 +3,11 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { authClient } from '../../lib/auth-client'
 import { invalidateCurrentUser } from '../../lib/currentUser'
 import { removeProfilePhoto, updateProfilePhoto } from '../../server/fns/avatar'
-import { getMyEmailPreferences, setWeeklyFinanceDigest } from '../../server/fns/users'
+import {
+  getMyEmailPreferences,
+  setWeeklyFinanceDigest,
+  setWeeklyReportsDigest,
+} from '../../server/fns/users'
 import { getAccountSecurity } from '../../server/fns/team'
 import { PasswordPanel } from '../../components/profile/PasswordPanel'
 import { SessionsPanel } from '../../components/profile/SessionsPanel'
@@ -58,8 +62,9 @@ async function refreshIdentity(router: ReturnType<typeof useRouter>) {
   await router.invalidate()
 }
 
-/** The setting's own copy, announced with the switch rather than left beside it. */
+/** Each setting's own copy, announced with its switch rather than left beside it. */
 const DIGEST_COPY_ID = 'weekly-digest-explainer'
+const REPORTS_DIGEST_COPY_ID = 'weekly-reports-digest-explainer'
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Super Admin',
@@ -95,6 +100,27 @@ function Profile() {
       setDigestError('Could not save that. Try again.')
     } finally {
       setDigestBusy(false)
+    }
+  }
+
+  // The reports digest is the same switch against a different column, kept as its own
+  // piece of state rather than a shared one: they are two subscriptions, and a single
+  // busy flag would grey out both while either was saving.
+  const [reportsDigest, setReportsDigest] = useState(emailPrefs.weeklyReportsDigest)
+  const [reportsDigestBusy, setReportsDigestBusy] = useState(false)
+  const [reportsDigestError, setReportsDigestError] = useState('')
+
+  async function handleReportsDigestToggle(next: boolean) {
+    setReportsDigest(next)
+    setReportsDigestBusy(true)
+    setReportsDigestError('')
+    try {
+      await setWeeklyReportsDigest({ data: { enabled: next } })
+    } catch {
+      setReportsDigest(!next)
+      setReportsDigestError('Could not save that. Try again.')
+    } finally {
+      setReportsDigestBusy(false)
     }
   }
 
@@ -304,7 +330,7 @@ function Profile() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="font-display text-body font-medium" style={{ color: C.ink }}>
-                Weekly payment reminders
+                Weekly payment digest
               </p>
               <p
                 id={DIGEST_COPY_ID}
@@ -319,11 +345,40 @@ function Profile() {
               checked={digest}
               onChange={handleDigestToggle}
               busy={digestBusy}
-              label="Weekly payment reminders"
+              label="Weekly payment digest"
               describedBy={DIGEST_COPY_ID}
             />
           </div>
           <ErrorNote error={digestError} className="mt-3" />
+
+          {emailPrefs.reportsAvailable && (
+            <div
+              className="mt-4 flex items-center justify-between gap-4 border-t pt-4"
+              style={{ borderColor: C.line }}
+            >
+              <div>
+                <p className="font-display text-body font-medium" style={{ color: C.ink }}>
+                  Weekly reports digest
+                </p>
+                <p
+                  id={REPORTS_DIGEST_COPY_ID}
+                  className="mt-0.5 font-display text-body leading-relaxed"
+                  style={{ color: C.sub }}
+                >
+                  A Monday email listing the grant reports expected that week, and anything already
+                  overdue. Nothing is sent in a week with no reports expected.
+                </p>
+              </div>
+              <Toggle
+                checked={reportsDigest}
+                onChange={handleReportsDigestToggle}
+                busy={reportsDigestBusy}
+                label="Weekly reports digest"
+                describedBy={REPORTS_DIGEST_COPY_ID}
+              />
+            </div>
+          )}
+          <ErrorNote error={reportsDigestError} className="mt-3" />
         </Panel>
       )}
 

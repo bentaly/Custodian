@@ -272,7 +272,7 @@ const worker = {
 
   /**
    * Cron Triggers land here (`[triggers]` in wrangler.toml). Today that is only the
-   * weekly payments digest, Mondays at 08:00 UTC.
+   * weekly digests, Mondays at 08:00 UTC: payments first, then reports.
    *
    * It reaches the app by calling `handler.fetch` with a synthetic Request rather than
    * importing the digest code, because this file is bundled by wrangler and cannot see
@@ -294,32 +294,45 @@ const worker = {
 
     const origin = (env.BETTER_AUTH_URL || 'https://custodian.fund').replace(/\/+$/, '')
 
-    // Two triggers, two jobs. `event.cron` is the ONLY thing that tells them apart —
-    // without this switch, adding the 3-hourly dispatcher would have sent the Monday
-    // payments digest eight times a day.
+    // Two triggers, three jobs. `event.cron` is the ONLY thing that tells the triggers
+    // apart — without this switch, adding the 3-hourly dispatcher would have sent the
+    // Monday digests eight times a day.
     //
-    // An unrecognised expression runs the digest, which is the conservative default:
-    // this handler predates the second trigger, and a cron that fires an unknown
-    // schedule is more likely to be a mis-edited digest entry than a lost dispatcher.
-    const path =
-      event.cron === '0 */3 * * *' ? '/api/cron/portfolio-analysis' : '/api/cron/finance-digest'
+    // Monday runs BOTH weekly digests, payments then reports. They are separate
+    // endpoints on purpose (see the note on `cron.reports-digest.ts`): two audiences,
+    // two off switches, and a failure in one must not cost the other its email. Which is
+    // also why the loop below runs them independently rather than in one try — a thrown
+    // payments run must not skip the reports one.
+    //
+    // An unrecognised expression runs the Monday pair, which is the conservative
+    // default: this handler predates the second trigger, and a cron firing an unknown
+    // schedule is more likely to be a mis-edited Monday entry than a lost dispatcher.
+    const paths =
+      event.cron === '0 */3 * * *'
+        ? ['/api/cron/portfolio-analysis']
+        : ['/api/cron/finance-digest', '/api/cron/reports-digest']
 
-    const started = Date.now()
-    try {
-      const response = await handler.fetch(
-        new Request(`${origin}${path}`, {
-          method: 'POST',
-          headers: { authorization: `Bearer ${env.CRON_SECRET}` },
-        }),
-        env,
-        ctx,
-      )
-      const body = await response.text()
-      console.log(
-        `[cron] ${event.cron} ${path} → ${response.status} in ${Date.now() - started}ms: ${body.slice(0, 2000)}`,
-      )
-    } catch (err) {
-      console.error(`[cron] ${event.cron} threw after ${Date.now() - started}ms:`, err)
+    for (const path of paths) {
+      const started = Date.now()
+      try {
+        const response = await handler.fetch(
+          new Request(`${origin}${path}`, {
+            method: 'POST',
+            headers: { authorization: `Bearer ${env.CRON_SECRET}` },
+          }),
+          env,
+          ctx,
+        )
+        const body = await response.text()
+        console.log(
+          `[cron] ${event.cron} ${path} → ${response.status} in ${Date.now() - started}ms: ${body.slice(0, 2000)}`,
+        )
+      } catch (err) {
+        console.error(
+          `[cron] ${event.cron} ${path} threw after ${Date.now() - started}ms:`,
+          err,
+        )
+      }
     }
   },
 }

@@ -255,6 +255,15 @@ export const users = pgTable(
     // every authenticated call — the reason `user_avatars` is a separate table is image
     // bytes, which does not generalise to a flag.
     weeklyFinanceDigest: boolean('weekly_finance_digest'),
+    // Opt-in to the Monday reports digest: the milestones due this week and anything
+    // already overdue. Same NULL convention as the column above, with a different role
+    // default (`reportsDigestDefaultOn` in src/lib/reportsDigest/optIn.ts: on for
+    // `admin`, and ONLY offered to admins — chasing a grantee for a report is an admin's
+    // job, and a trustee who could switch it on would be signing up to work that is not
+    // theirs). Two columns rather than one shared flag because they are two different
+    // subscriptions: a finance officer who wants the payments email almost never wants
+    // the reports one, and a single toggle would make turning one off turn both off.
+    weeklyReportsDigest: boolean('weekly_reports_digest'),
     // Set when the member was removed from their foundation, by an admin on Settings →
     // Team or by themselves on Profile. An ARCHIVE, never a delete: their votes and
     // comments cascade on a deleted user, and they are the foundation's decision record.
@@ -1645,6 +1654,37 @@ export const financeDigestSends = pgTable(
     // rather than a second email.
     unique('finance_digest_sends_user_week_uniq').on(t.userId, t.weekOf),
   ],
+)
+
+/**
+ * The same receipt for the weekly REPORTS digest.
+ *
+ * Its own table rather than a `kind` column on `finance_digest_sends`, for two reasons.
+ * The obvious one: adding a NOT NULL discriminator to a populated table is the
+ * destructive change this repo does in three pushes, to buy nothing. The real one: the
+ * unique key IS the dedupe, and one shared `(user_id, week_of)` index would mean the
+ * payments email a finance officer received on Monday stopped the reports email an admin
+ * was owed on the same row. Two subscriptions, two receipts.
+ *
+ * No `total_amount` twin: a report is not money. `item_count` alone answers "was there
+ * anything in it", which is the only question this table is asked.
+ */
+export const reportDigestSends = pgTable(
+  'report_digest_sends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    /** The Monday of the week covered, `yyyy-mm-dd`. */
+    weekOf: text('week_of').notNull(),
+    itemCount: integer('item_count').notNull(),
+    sentAt: timestamp('sent_at').notNull().defaultNow(),
+  },
+  (t) => [unique('report_digest_sends_user_week_uniq').on(t.userId, t.weekOf)],
 )
 
 // ─── Partnerships ─────────────────────────────────────────────────────────────

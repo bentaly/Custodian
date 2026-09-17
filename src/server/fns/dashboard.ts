@@ -296,6 +296,13 @@ export async function dashboardData(
       .limit(8),
 
     // Outstanding grant reports, soonest first.
+    //
+    // `liveAwardScope`, not `awardScope`: a cancelled grant is owed nothing, and a
+    // milestone on one is not a report anybody should chase. This read the wider scope
+    // until 2026-09-17, so the dashboard listed reports as overdue on grants the
+    // foundation had withdrawn — the same class of mistake the 2026-08-27 money audit
+    // found two panels away, arrived at the same way: `liveAwardScope` was applied to
+    // everything that was obviously money and to nothing that merely CAUSED work.
     db
       .select({
         awardId: reportSchedule.awardId,
@@ -309,7 +316,7 @@ export async function dashboardData(
       .leftJoin(applications, eq(awards.applicationId, applications.id))
       .where(
         and(
-          awardScope,
+          liveAwardScope,
           sql`${reportSchedule.submittedDate} IS NULL`,
           isNotNull(reportSchedule.dueDate),
         ),

@@ -339,6 +339,35 @@ export async function sendFinanceDigestEmail({
   return { ok: true }
 }
 
+/**
+ * The weekly reports digest. The payments digest's twin in every respect including this
+ * one: a result, not a swallowed error, because the caller writes a receipt only on
+ * success and a user with no receipt is retried by the next run.
+ */
+export async function sendReportsDigestEmail({
+  to,
+  subject,
+  text,
+  html,
+}: {
+  to: string
+  subject: string
+  text: string
+  html: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const resend = getResend()
+  if (!resend) {
+    console.warn('RESEND_API_KEY not set — skipping reports digest email')
+    return { ok: false, error: 'Email is not configured (no RESEND_API_KEY).' }
+  }
+  const { error } = await resend.emails.send({ from: fromAddress(), to, subject, text, html })
+  if (error) {
+    console.error(`Resend rejected reports digest to ${to}:`, error)
+    return { ok: false, error: error.message ?? 'The email provider rejected the message.' }
+  }
+  return { ok: true }
+}
+
 export async function sendInvitationEmail({
   to,
   inviteUrl,

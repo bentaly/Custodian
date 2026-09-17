@@ -409,7 +409,8 @@ design rationale; this list is a map, not a summary.
 - **declineLetter** — the award letter's twin, sent to the unsuccessful applicants in a closed
   round. Same rules, minus conditions (there is no grant). See "Decline letters" below
 - **dataImport** — `/settings/data-import`, onboarding a foundation's existing grants
-- **financeDigest** — the Monday payments email
+- **financeDigest** — the Monday payments email; **reportsDigest** — its admin-only twin,
+  the reports expected that week. See "Weekly digests" below
 - **annualBudget** — `src/lib/annualBudget.ts` (the reconciliation rules) + `src/server/finance/
   budget.ts` (the screen's queries) + `src/server/fns/budget.ts` (both writes). The budget is set in
   Settings (a yearly decision); the bank balance is recorded on **Finance → Balance & budget** (an
@@ -627,15 +628,39 @@ day). Staging is already covered by the existing `[env.staging.triggers] crons =
   max_tokens` with nothing parsed — a ceiling that looks like a model error. Effort is the
   cost lever here: thinking is most of the spend for a 60-word output.
 
-## Weekly payments digest
+## Weekly digests
 
-A Monday email to finance users listing what needs paying. Cloudflare Cron Trigger →
-`POST /api/cron/finance-digest` → Resend. `src/lib/financeDigest` pure, `src/server/financeDigest` IO.
+TWO Monday emails off ONE Cron Trigger, sent in order by `scheduled` in `worker-entry.js`:
 
-- **The cron IS wired** — `[triggers] crons = ["0 8 * * 1"]` on prod, with
+- **Payments** — what needs paying, to finance users. `POST /api/cron/finance-digest`,
+  `src/lib/financeDigest` pure + `src/server/financeDigest` IO. Its rules are the first list
+  below, and most of them govern both.
+- **Reports** — the grant reports expected that week, to ADMINS only.
+  `POST /api/cron/reports-digest`, `src/lib/reportsDigest` + `src/server/reportsDigest`,
+  built as a mirror of the payments one. See "The reports digest" below for the four
+  places the two deliberately differ.
+
+**Separate emails, separate endpoints, separate receipt tables, separate off switches.**
+Folding the second into the first was the obvious saving and is wrong on every axis: the
+audiences barely overlap (finance vs admins), one unsubscribe would turn off both, a
+failure in one query would 500 the other's email, and "a week with nothing due sends
+nothing" has to be re-derived per section the moment there are two.
+
+### The payments digest
+
+- **The cron IS wired** — the `0 8 * * 1` entry in `[triggers] crons` on prod, with
   `[env.staging.triggers] crons = []` overriding the inheritable key so staging never fires, and
   `bridgeEnv` lifted out of `fetch` in `worker-entry.js` so `scheduled` gets `DATABASE_URL`.
   Drivable by hand with `?dryRun=1`, which renders the whole run and returns it without sending.
+- **Only production can actually SEND.** Both runs call `resolveDryRun`, which forces a dry run
+  unless `SENTRY_ENVIRONMENT === 'production'` (`src/server/deployEnvironment.ts`, failing closed
+  as `CRON_SECRET` does). `crons = []` on staging is the first line of defence and covers the
+  CRON; this is the second and covers everything else, because the endpoint is a curl away,
+  `.env`'s `DATABASE_URL` points at staging and `FROM_EMAIL` is a verified `custodian.fund`
+  address in `.env` too — so a laptop really can email a foundation. Staging's users come from
+  the same Neon lineage as prod, so plenty of those addresses are live mailboxes. Forced rather
+  than refused, so a staging curl still renders every email; the summary's `dryRun` is the
+  EFFECTIVE value, so `sent: 0` is never mistaken for "no work to do".
 - **`0 8 * * 1` is UTC with no BST correction** — 9am London in summer, 8am in winter. Accepted:
   the requirement is "in the morning", and pinning the local hour costs a second trigger out of five.
 - **The cron has no session**, so `digestWindow` REQUIRES a `clientId` and filters
@@ -652,9 +677,52 @@ A Monday email to finance users listing what needs paying. Cloudflare Cron Trigg
 - **`users.weekly_finance_digest` is nullable and NULL is not "off"** — it means "has never chosen"
   and resolves to the role default (`digestDefaultOn`), same convention as
   `client_profiles.award_letter_template`. An unsubscribe writes an explicit `false`.
-- **One-click unsubscribe** (`/api/digest-unsubscribe`) is an HMAC over the user id keyed on
-  `BETTER_AUTH_SECRET`, no expiry (the link must work in a six-month-old email). GET shows a
-  confirmation, POST writes, so a scanning mail proxy cannot unsubscribe someone.
+- **One-click unsubscribe** (`/api/digest-unsubscribe`, helpers in `src/server/digestUnsubscribe.ts`)
+  is an HMAC over the user id keyed on `BETTER_AUTH_SECRET`, no expiry (the link must work in a
+  six-month-old email). GET shows a confirmation, POST writes, so a scanning mail proxy cannot
+  unsubscribe someone. **One route serves both digests, told apart by `?k=`** — the KIND is signed
+  into the MAC, so editing `k` in the address bar fails rather than turning off the other
+  subscription. Absent `k` means payments, and the payments purpose string is byte-identical to
+  the one it shipped with, because every link in every digest already sent is a MAC over it.
+
+### The reports digest
+
+Outstanding `report_schedule` milestones for the week, overdue first. Everything above holds
+(7-day window, nothing-due-sends-nothing, receipt-after-send in `report_digest_sends`, the
+`clientId`-required query with no "all clients" variant). Where it differs:
+
+- **Admins only, and enforced on the READ as well as the write.** `reportsDigestAvailable`
+  (`src/lib/reportsDigest/optIn.ts`) is the single rule; the Profile toggle is hidden for
+  everyone else and `setWeeklyReportsDigest` refuses them. Unlike the payments digest, which
+  any tenant user may switch on, this one is a WORK QUEUE: every line is a grantee somebody
+  must write to, and that somebody is the admin. `wantsReportsDigest` re-checks availability
+  at send time, because the column is deliberately NOT cleared when an admin is demoted.
+- **`users.weekly_reports_digest` is a second column, not a shared flag.** Same NULL convention
+  (never chosen → role default, on for `admin`). One flag would mean a finance officer turning
+  off payment reminders silently stopped an admin's report chasing.
+- **Cancelled grants are excluded** — see "A cancelled grant is owed no report" below, which
+  this email is what found. `completed` awards are NOT excluded: by `awardCompletion`'s rule
+  they have no open milestone anyway, except an imported one, whose status is the workbook's
+  word and whose milestone is genuinely still owed.
+- **No money.** `report_digest_sends` has `item_count` and no `total_amount` twin, and the
+  subject line leads with a count of reports rather than a sum.
+
+### A cancelled grant is owed no report
+
+Three places ask "what is still waited on", and all three must exclude `cancelled`:
+`outstandingQuery` (`src/server/reports/query.ts` - the Reports screen's chase-list panel,
+its counts and the header line quoting it), `getDashboard`'s outstanding-reports query, and
+`reportDigestWindow`. The first two did not until **2026-09-17**, so a withdrawn grant's
+milestones were listed as overdue on two screens and would have been chased.
+
+This is the money rule ("outstanding EXCLUDES cancelled - there is nothing left to pay")
+applied to WORK rather than to money, and that is exactly why it was missed: the 2026-08-27
+audit swept every figure in pounds and stopped there. `getDashboard` had `liveAwardScope`
+sitting right there and used the wider `awardScope` for this one query.
+
+**`arrivedQuery` deliberately does not do this.** A report received before the grant was
+withdrawn is a document the foundation holds, and dropping it from the library would lose it.
+Nothing is owed; something arrived. Both are true, and they are different questions.
 
 ## Awards: shortlist → grant
 
