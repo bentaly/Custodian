@@ -582,8 +582,38 @@ function DataImport() {
             <HugeiconsIcon icon={File01Icon} className="h-4 w-4" strokeWidth={1.8} />
             {fileName} · {prepared.reconciliation.grants} grants, {prepared.reconciliation.payments}{' '}
             payments, {prepared.reconciliation.reportMilestones} reporting milestones
-            {prepared.replacing > 0 && ` · ${prepared.replacing} already imported, will be updated`}
           </div>
+
+          {/* What a re-upload does, said before it happens.
+              "Will be updated" reads like a merge, and it is not one: a matched grant is
+              rebuilt from this file, so a payment schedule that is on the grant today and
+              not in this workbook goes. The costly mistake is uploading a Grants-only
+              sheet to correct one column and taking the instalments with it. */}
+          {prepared.replacing > 0 && (
+            <Panel
+              title={`${prepared.replacing} ${prepared.replacing === 1 ? 'grant is' : 'grants are'} already in Custodian and will be rebuilt`}
+              description="Each one is replaced by its row in this file, so anything recorded on the Payments and Reports sheets last time needs to be in this workbook too. Bank details you have since added in Finance are kept where this file leaves them blank."
+            >
+              <div className="text-label" style={{ color: C.sub }}>
+                Matched on the Application reference, or where the file has none, on the
+                organisation, award date and amount.
+              </div>
+            </Panel>
+          )}
+
+          {/* Only worth saying on a re-upload: on a first import every row is new. */}
+          {prepared.addingWithoutReference > 0 && prepared.replacing > 0 && (
+            <Panel
+              title={`${prepared.addingWithoutReference} ${prepared.addingWithoutReference === 1 ? 'row has' : 'rows have'} no reference and no match`}
+              description="These will be added as new grants."
+            >
+              <div className="text-label" style={{ color: C.sub }}>
+                If any of them is a grant you have already imported, it will end up in Custodian
+                twice. Give it the reference Custodian generated, or check that the organisation,
+                award date and amount still match what you uploaded before.
+              </div>
+            </Panel>
+          )}
 
           {(openProgrammes.length > 0 || openRounds.length > 0 || openThemes.length > 0) && (
             <Panel

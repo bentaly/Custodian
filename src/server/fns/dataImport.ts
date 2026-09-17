@@ -20,13 +20,18 @@ import {
 import { requireRole } from '../session'
 import { badRequest, conflict, notFoundError } from '../../lib/errors'
 import { resolveColumn, type Candidate } from '../../lib/dataImport/match'
+import { matchBlankReferences } from '../../lib/dataImport/identity'
 import {
   grantThemes,
   resolveThemeValues,
   themeCandidates,
   themeMismatchIssues,
 } from '../../lib/dataImport/themes'
-import { validateImport, type ExistingReference } from '../../lib/dataImport/validate'
+import {
+  validateImport,
+  type ExistingReference,
+  type ValidationIssue,
+} from '../../lib/dataImport/validate'
 import { CommitImportSchema, ImportPayloadSchema } from '../../lib/validators/dataImport'
 import type { GrantRow } from '../../lib/dataImport/parse'
 import { impactUnitLabel } from '../../lib/impactUnits'
@@ -106,21 +111,158 @@ export const getImportContext = createServerFn({ method: 'GET' }).handler(async 
 
 // ─── Validation pass ────────────────────────────────────────────────────────
 
-/** References already in Custodian, and whether an import put them there. */
-async function existingReferences(clientId: string): Promise<ExistingReference[]> {
+/**
+ * Every referenced grant this client holds, with what a re-upload needs to know about it.
+ *
+ * One query serving three jobs, because they all ask about the same rows and a second
+ * trip costs a subrequest: whether a reference is taken (validation), what identifies an
+ * import-owned grant to a workbook that has no references (`matchBlankReferences`), and
+ * what a replace would otherwise silently null (the bank columns).
+ */
+type ExistingGrant = {
+  id: string
+  reference: string
+  importedByBatch: boolean
+  organisationName: string
+  awardDate: string
+  amountAwarded: number
+  bankAccountName: string | null
+  bankSortCode: string | null
+  bankAccountNumber: string | null
+}
+
+async function existingGrants(clientId: string): Promise<ExistingGrant[]> {
   const rows = await getDb()
     .select({
+      id: applications.id,
       reference: applications.externalApplicationId,
       importBatchId: applications.importBatchId,
+      organisationName: applications.organisationName,
+      // The award's own figures, which are what the workbook states. `decisionAt` is
+      // written from the Award date column, so it is the same fact coming back.
+      decisionAt: applications.decisionAt,
+      amountAwarded: awards.amountAwarded,
+      bankAccountName: applications.bankAccountName,
+      bankSortCode: applications.bankSortCode,
+      bankAccountNumber: applications.bankAccountNumber,
     })
     .from(applications)
     .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
     .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
+    .leftJoin(awards, eq(awards.applicationId, applications.id))
     .where(and(eq(programmes.clientId, clientId), isNotNull(applications.externalApplicationId)))
 
   return rows
-    .filter((r): r is { reference: string; importBatchId: string | null } => r.reference !== null)
-    .map((r) => ({ reference: r.reference, importedByBatch: r.importBatchId !== null }))
+    .filter((r) => r.reference !== null)
+    .map((r) => ({
+      id: r.id,
+      reference: r.reference!,
+      importedByBatch: r.importBatchId !== null,
+      organisationName: r.organisationName ?? '',
+      awardDate: r.decisionAt ? r.decisionAt.toISOString().slice(0, 10) : '',
+      amountAwarded: r.amountAwarded ? Number(r.amountAwarded) : 0,
+      bankAccountName: r.bankAccountName,
+      bankSortCode: r.bankSortCode,
+      bankAccountNumber: r.bankAccountNumber,
+    }))
+}
+
+/** The shape `validateImport` wants: just who owns each reference. */
+function toExistingReferences(rows: ExistingGrant[]): ExistingReference[] {
+  return rows.map((r) => ({ reference: r.reference, importedByBatch: r.importedByBatch }))
+}
+
+/**
+ * What a re-upload would destroy that no workbook can put back.
+ *
+ * `rollbackImport` refuses to undo a batch once somebody has commented, voted, sent an
+ * award letter or received a report against one of its grants — those rows are the record
+ * of a decision, and the whole point of the refusal is that they are not ours to delete.
+ *
+ * The replace path deletes the very same grants by the very same mechanism, and checked
+ * none of it. All four cascade on the application or its award, so a foundation
+ * re-uploading their workbook to fill in bank details could silently destroy a trustee's
+ * comments, through the one route rollback exists to prevent. The guard belongs on both
+ * or neither.
+ *
+ * Reported per grant rather than as a count, because the fix is to take those rows out of
+ * the file and the foundation has to know which ones.
+ */
+async function protectedReplacements(
+  applicationIds: string[],
+): Promise<Array<{ reference: string; organisationName: string; reasons: string[] }>> {
+  if (applicationIds.length === 0) return []
+  const db = getDb()
+
+  const [commentRows, voteRows, letterRows, reportRows] = await db.batch([
+    db
+      .select({ applicationId: applicationComments.applicationId })
+      .from(applicationComments)
+      .where(inArray(applicationComments.applicationId, applicationIds)),
+    db
+      .select({ applicationId: applicationVotes.applicationId })
+      .from(applicationVotes)
+      .where(inArray(applicationVotes.applicationId, applicationIds)),
+    db
+      .select({ applicationId: awards.applicationId })
+      .from(awardLetters)
+      .innerJoin(awards, eq(awardLetters.awardId, awards.id))
+      .where(inArray(awards.applicationId, applicationIds)),
+    // Only a report a GRANTEE sent. An import's own impact figure is a `reports` row too,
+    // and it came from the workbook, so rebuilding it from the workbook loses nothing.
+    db
+      .select({ applicationId: awards.applicationId })
+      .from(reports)
+      .innerJoin(awards, eq(reports.awardId, awards.id))
+      .where(and(inArray(awards.applicationId, applicationIds), isNull(reports.importBatchId))),
+  ])
+
+  const reasons = new Map<string, string[]>()
+  const add = (id: string, reason: string) => {
+    const list = reasons.get(id) ?? []
+    if (!list.includes(reason)) list.push(reason)
+    reasons.set(id, list)
+  }
+  for (const r of commentRows) add(r.applicationId, 'someone has commented on it')
+  for (const r of voteRows) add(r.applicationId, 'a vote has been recorded against it')
+  for (const r of letterRows) add(r.applicationId!, 'an award letter has been issued')
+  for (const r of reportRows) add(r.applicationId!, 'a grantee has submitted a report against it')
+
+  if (reasons.size === 0) return []
+
+  const named = await db
+    .select({
+      id: applications.id,
+      reference: applications.externalApplicationId,
+      organisationName: applications.organisationName,
+    })
+    .from(applications)
+    .where(inArray(applications.id, [...reasons.keys()]))
+
+  return named.map((n) => ({
+    reference: n.reference ?? '',
+    organisationName: n.organisationName ?? '',
+    reasons: reasons.get(n.id) ?? [],
+  }))
+}
+
+/** The blocker a protected grant produces, shared by the review step and the commit. */
+function protectedIssues(
+  blocked: Array<{ reference: string; organisationName: string; reasons: string[] }>,
+): ValidationIssue[] {
+  if (blocked.length === 0) return []
+  return [
+    {
+      kind: 'blocker',
+      code: 'replace_would_discard_work',
+      message: `${blocked.length === 1 ? '1 grant has' : `${blocked.length} grants have`} work in Custodian that re-importing would delete`,
+      detail: `Re-importing rebuilds a grant from the workbook, and these carry things no workbook holds: ${blocked
+        .slice(0, 5)
+        .map((b) => `${b.organisationName || b.reference} (${b.reasons.join(', ')})`)
+        .join('; ')}. Remove those rows from the file and upload the rest.`,
+      rows: [],
+    },
+  ]
 }
 
 /**
@@ -145,10 +287,32 @@ export const prepareImport = createServerFn({ method: 'POST' })
         .select({ id: rounds.id, name: rounds.name })
         .from(rounds)
         .where(eq(rounds.clientId, clientId)),
-      existingReferences(clientId),
+      existingGrants(clientId),
     ])
 
-    const validation = validateImport({ ...data, existingReferences: existing })
+    const validation = validateImport({
+      ...data,
+      existingReferences: toExistingReferences(existing),
+    })
+
+    // Blank-reference rows, resolved against what we already hold. Done here as well as
+    // at commit so the review screen's "will be updated" count is the count that happens.
+    const importOwned = existing.filter((e) => e.importedByBatch)
+    const blankMatch = matchBlankReferences(data.grants, importOwned)
+
+    const replacingRefs = new Set<string>()
+    for (const g of data.grants) {
+      const reference = g.reference.trim() || blankMatch.byRow.get(g.rowNumber)
+      if (!reference) continue
+      const hit = importOwned.find((e) => e.reference.toLowerCase() === reference.toLowerCase())
+      if (hit) replacingRefs.add(hit.reference.toLowerCase())
+    }
+    const replacingIds = importOwned
+      .filter((e) => replacingRefs.has(e.reference.toLowerCase()))
+      .map((e) => e.id)
+
+    const blocked = await protectedReplacements(replacingIds)
+    const replaceIssues = protectedIssues(blocked)
 
     // Resolved per DISTINCT value, not per row: 340 rows typically carry six distinct
     // programme names, so one confirmation settles every row that shares it.
@@ -173,8 +337,8 @@ export const prepareImport = createServerFn({ method: 'POST' })
 
     return {
       ...validation,
-      issues: [...validation.issues, ...themeIssues],
-      canCommit: validation.canCommit && themeIssues.length === 0,
+      issues: [...validation.issues, ...themeIssues, ...replaceIssues],
+      canCommit: validation.canCommit && themeIssues.length === 0 && replaceIssues.length === 0,
       programmes: programmeRows,
       rounds: roundRows,
       /** Every theme the foundation has, for the review screen's theme picker. */
@@ -184,12 +348,19 @@ export const prepareImport = createServerFn({ method: 'POST' })
         rounds: roundResolutions,
         themes: themeResolutions,
       },
-      /** Grants already imported under the same reference — these will be replaced. */
-      replacing: data.grants.filter((g) =>
-        existing.some(
-          (e) => e.importedByBatch && e.reference.toLowerCase() === g.reference.toLowerCase(),
-        ),
-      ).length,
+      /**
+       * Grants already imported that this file will replace — by reference, or by
+       * identity where the file carries no references. Counted off the SAME resolution
+       * the commit uses, so the number on the review screen is the number that happens.
+       */
+      replacing: replacingIds.length,
+      /**
+       * Blank-reference rows that matched nothing and will be added as new grants. On a
+       * first import that is simply every row; on a re-upload it is the ones we could not
+       * recognise, which is the only warning a foundation with no references of its own
+       * can be given before they end up with a grant twice.
+       */
+      addingWithoutReference: blankMatch.unmatchedRows.length,
     }
   })
 
@@ -209,8 +380,11 @@ export const commitImport = createServerFn({ method: 'POST' })
 
     // Re-validate server-side. The browser did this already, but the browser is a
     // convenience and this is the door to the database.
-    const existing = await existingReferences(clientId)
-    const validation = validateImport({ ...payload, existingReferences: existing })
+    const existing = await existingGrants(clientId)
+    const validation = validateImport({
+      ...payload,
+      existingReferences: toExistingReferences(existing),
+    })
     if (!validation.canCommit) {
       throw badRequest(
         'This workbook still has problems that must be fixed before it can be imported.',
@@ -338,8 +512,18 @@ export const commitImport = createServerFn({ method: 'POST' })
     // import-owned, so replacing them wholesale is safe and much simpler than a
     // field-by-field merge. Awards go before applications: the FK is `restrict`, so an
     // application cannot be removed while its award still points at it.
+    //
+    // A row with no reference of its own is matched on who/when/how much first, so a
+    // foundation that took the template's advice to leave the column blank can re-upload
+    // at all. Without it their second upload matched nothing, replaced nothing, and
+    // minted a fresh set of IMP- references beside the first — the portfolio twice over.
+    const importOwned = existing.filter((e) => e.importedByBatch)
+    const blankMatch = matchBlankReferences(payload.grants, importOwned)
+
     const incomingRefs = new Set(
-      payload.grants.map((g) => g.reference.trim().toLowerCase()).filter(Boolean),
+      payload.grants
+        .map((g) => (g.reference.trim() || blankMatch.byRow.get(g.rowNumber) || '').toLowerCase())
+        .filter(Boolean),
     )
     const replaceable = await db
       .select({ id: applications.id, reference: applications.externalApplicationId })
@@ -350,6 +534,34 @@ export const commitImport = createServerFn({ method: 'POST' })
     const replacingIds = replaceable
       .filter((r) => r.reference && incomingRefs.has(r.reference.toLowerCase()))
       .map((r) => r.id)
+
+    // Re-checked here as well as at the review step, because this is the boundary and
+    // the review step's answer is a browser round-trip old. A comment left in between is
+    // exactly the case the guard is for.
+    const blocked = await protectedReplacements(replacingIds)
+    if (blocked.length > 0) {
+      throw conflict(
+        `These grants have work in Custodian that re-importing would delete: ${blocked
+          .map((b) => `${b.organisationName || b.reference} (${b.reasons.join(', ')})`)
+          .join('; ')}. Remove those rows from the workbook and upload the rest.`,
+      )
+    }
+
+    // What a replace must not silently null. The bank columns are the case that bites:
+    // they were not a workbook column until recently, so every batch imported before then
+    // has them held in Custodian and absent from the file by definition. A blank cell is
+    // the foundation saying nothing about a payment instruction, not asking us to delete
+    // one. Set them in the sheet to change them; clear them on the grant to clear them.
+    const bankByReference = new Map(
+      existing.map((e) => [
+        e.reference.toLowerCase(),
+        {
+          bankAccountName: e.bankAccountName,
+          bankSortCode: e.bankSortCode,
+          bankAccountNumber: e.bankAccountNumber,
+        },
+      ]),
+    )
 
     // ── Build the rows ──
 
@@ -365,6 +577,10 @@ export const commitImport = createServerFn({ method: 'POST' })
     let generatedCounter = 0
     const referenceFor = (grant: GrantRow): string => {
       if (grant.reference) return grant.reference
+      // A blank row we recognised keeps the reference it already has, so it replaces
+      // that grant instead of arriving beside it under a fresh IMP- number.
+      const matched = blankMatch.byRow.get(grant.rowNumber)
+      if (matched) return matched
       let candidate = generatedReference(generatedCounter++)
       while (usedReferences.has(candidate.toLowerCase())) {
         candidate = generatedReference(generatedCounter++)
@@ -400,9 +616,10 @@ export const commitImport = createServerFn({ method: 'POST' })
       const programme = programmeById.get(programmeId)!
 
       const reference = referenceFor(grant)
-      if (!grant.reference) {
+      if (!grant.reference && !blankMatch.byRow.has(grant.rowNumber)) {
         generatedReferences.push({ organisationName: grant.organisationName, reference })
       }
+      const heldBank = bankByReference.get(reference.toLowerCase())
 
       const applicationId = crypto.randomUUID()
       const awardId = crypto.randomUUID()
@@ -442,9 +659,14 @@ export const commitImport = createServerFn({ method: 'POST' })
         // Optional in the workbook, and blank on most of a back catalogue. Where they
         // ARE given, they go on through `bankFields` like every other writer, so the
         // cached `bank_check_status` is computed rather than left at its default and
-        // Finance can sort by it the moment the import lands.
-        ...bankFields(grant),
-        bankAccountName: grant.bankAccountName,
+        // Finance can sort by it the moment the import lands. Where they are blank on a
+        // grant being REPLACED, whatever Finance holds is carried across rather than
+        // nulled — see `bankByReference`.
+        ...bankFields({
+          bankSortCode: grant.bankSortCode ?? heldBank?.bankSortCode ?? null,
+          bankAccountNumber: grant.bankAccountNumber ?? heldBank?.bankAccountNumber ?? null,
+        }),
+        bankAccountName: grant.bankAccountName ?? heldBank?.bankAccountName ?? null,
         importBatchId: batchId,
       } as typeof applications.$inferInsert)
 
