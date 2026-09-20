@@ -65,7 +65,7 @@ import {
   type GrantsQuery as AwardGrantsQuery,
 } from '../awards/query'
 import { recomputeAwardStatus, recomputeAwardStatuses } from '../awards/status'
-import { deliveryAreaLabel, NO_REGION } from '../../lib/deprivation/types'
+import { deliveryAreaLabel, deliveryRegionLabel, NO_REGION } from '../../lib/deprivation/types'
 
 /**
  * The order the list arrives in when nothing has been clicked — and therefore the sort
@@ -1263,6 +1263,13 @@ export const getAward = createServerFn({ method: 'GET' })
         companyNumber: app.companyNumber,
         externalApplicationId: app.externalApplicationId,
         deliveryArea: app.deliveryArea,
+        // Where the work happens, resolved to a real place. The Awards REGISTER has had
+        // a Location column since the deprivation work landed; the detail screen behind
+        // it only ever showed the decile range, so the one screen about a single grant
+        // was the one that could not say where it was. Same two scales as the register:
+        // the sharp label, and the region under it.
+        deliveryLocation: deliveryAreaLabel(app),
+        deliveryRegion: deliveryRegionLabel(app),
         submittedAt: app.submittedAt.toISOString(),
         // The application exactly as it was sent, for the "Application form" dialog the
         // View submissions card opens — what `ApplicationFields` renders on the

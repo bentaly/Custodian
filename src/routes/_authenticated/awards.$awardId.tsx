@@ -523,6 +523,21 @@ function GrantDetailsCard({ award }: { award: AwardData }) {
                 : `${fmtMoney(-uplift)} less awarded`}
           </span>
         </DetailRow>
+        {/* Above the decile, because "Decile 1-10" means nothing until you know where
+            it is. Both scales, as the register prints them: the district or the place
+            the applicant named, then the region under it where that says more. */}
+        <DetailRow label="Location">
+          {a.deliveryLocation ? (
+            <span className="flex flex-col">
+              <span>{a.deliveryLocation}</span>
+              {a.deliveryRegion && a.deliveryRegion !== a.deliveryLocation && (
+                <span className="text-grey-500">{a.deliveryRegion}</span>
+              )}
+            </span>
+          ) : (
+            dash
+          )}
+        </DetailRow>
         <DetailRow label="Community context">
           {award.deprivation ? formatDecileRange(award.deprivation) : dash}
         </DetailRow>
