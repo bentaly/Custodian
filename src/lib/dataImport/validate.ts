@@ -57,6 +57,12 @@ function plural(n: number, singular: string, pluralForm = `${singular}s`) {
   return `${n} ${n === 1 ? singular : pluralForm}`
 }
 
+/**
+ * The most grants one upload can carry. Not a product opinion: it is what the write
+ * path was measured to do. See the `too_many_grants` blocker below.
+ */
+export const MAX_GRANTS_PER_IMPORT = 2000
+
 export function validateImport(input: {
   grants: GrantRow[]
   payments: PaymentRow[]
@@ -78,6 +84,22 @@ export function validateImport(input: {
       message: 'The Grants sheet is empty',
       detail:
         'Every payment and report row hangs off a grant, so there is nothing to import without at least one.',
+      rows: [],
+    })
+  }
+
+  // A workbook too large for one write. Every row of an import is committed in a single
+  // `db.batch`, which is one round trip to Neon under a hard 4-second timeout: measured
+  // against staging, 3,500 grants took 3.3s and 5,000 timed out. Said here, as a blocker
+  // on the review screen, because the alternative is a database error after somebody has
+  // uploaded, matched every value and confirmed. The number is deliberately well under
+  // what was measured, since the file is only half of what the batch carries.
+  if (grants.length > MAX_GRANTS_PER_IMPORT) {
+    issues.push({
+      kind: 'blocker',
+      code: 'too_many_grants',
+      message: `This workbook has ${grants.length.toLocaleString('en-GB')} grants, which is more than one import can take`,
+      detail: `Split it into files of ${MAX_GRANTS_PER_IMPORT.toLocaleString('en-GB')} grants or fewer and upload them one after another. Each upload adds to the last, so nothing is lost by splitting.`,
       rows: [],
     })
   }

@@ -344,6 +344,19 @@ describe('coverage', () => {
       'insights.ts', // insightsData
       'search.ts', // searchData
       'shortlist.ts', // shortlistData
+      // The one exemption, argued rather than added silently, as the note above asks.
+      //
+      // `declineLetters.ts` resolves a scope, but it is not a list: `getDeclineBatch`
+      // takes a ROUND id and its first act is `assertClientAccess` on that round's
+      // client, which refuses another foundation's round outright. The scope narrows
+      // what a restricted user sees WITHIN a round they may already open, so there is
+      // no shape here for a leak of the kind this suite exists to catch: nothing comes
+      // back at all unless the caller owns the round. It has no `(db, scope, …)`
+      // function to drive either, because the id is what it is scoped by.
+      //
+      // Covered instead by `declineLetter/batch.test.ts` (who is written to) and by the
+      // `assertClientAccess` path shared with every other fetch-by-id.
+      'declineLetters.ts',
     ]
 
     const unaccounted = scoped.filter((f) => !COVERED.includes(f))

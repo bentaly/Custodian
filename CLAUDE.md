@@ -134,6 +134,14 @@ Traps:
   update pointing at it are one fact: `processIngest` only acts on rows still at `received`, so a
   failure between two separate statements leaves a promoted application no ingest points at, and
   the next attempt builds a second one.
+- **Two suites, and `pnpm test` is only one of them.** `pnpm test` is offline and gates
+  CI; `pnpm test:tenancy` runs `src/**/*.itest.ts` against a real database and is run by
+  hand. The second is where anything that WRITES is proven: `tenancy.itest.ts` (no
+  foundation sees another's rows) and `dataImport.itest.ts` (the onboarding import, which
+  is the only code in the app that deletes a foundation's rows). Both build and tear down
+  their own tenant. A server fn is driven there by mocking `@tanstack/react-start`'s
+  `createServerFn` down to its validator, which is how a fn with no extracted
+  `(db, scope, …)` half is still testable.
 - **Tenancy**: every server fn scopes to the caller's client. Lists go through
   `visibleRoundProgrammeIds(user)` + `intersectScope` (`src/server/scope.ts`); fetch-by-id through
   `assertClientAccess` / `assertApplicationAccess`. `null` scope = superadmin, unrestricted. Any
@@ -592,6 +600,14 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   (`src/server/reports/query.ts`) keeps it out of the Reports library, its tab counts, the
   dashboard's "to review" KPI and feed, and global search. A received milestone gets a real
   report row dated when it arrived. Names come from `src/lib/reportLabel.ts`.
+- **Size is a MEASURED limit, not a preference.** Every row is written in one
+  `db.batch`: one round trip under `getDb()`'s 4-second timeout, and one statement may
+  carry at most 65,535 bound parameters. Inserts are chunked (`CHUNK`) because an
+  `applications` row spends ~19 of those and an unchunked insert died at ~3,400 grants
+  with a raw Postgres error; `MAX_GRANTS_PER_IMPORT` (2,000) is then enforced as a
+  review-screen BLOCKER and repeated at the zod door, because the failure it replaces
+  landed after a foundation had matched every value and confirmed. Staging measured
+  3,500 grants at 3.3s and 5,000 as a timeout. `dataImport.itest.ts` pins it.
 - **`import_batches` makes it reversible.** Every created row carries `importBatchId`;
   `rollbackImport` removes them unless a comment, vote, award letter or non-import report exists.
   Re-uploading the same reference REPLACES rather than duplicating — that is the phasing mechanism.

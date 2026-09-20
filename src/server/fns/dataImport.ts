@@ -56,6 +56,18 @@ async function requireImportAdmin() {
   return { user, clientId: user.clientId }
 }
 
+/** Rows per INSERT statement. Postgres allows 65,535 bound parameters per statement,
+ *  and the widest row written here (`applications`) spends about nineteen. 500 leaves
+ *  an order of magnitude of headroom, so adding columns cannot quietly reintroduce the
+ *  limit. Empty in, nothing out: a table with no rows contributes no statement. */
+const CHUNK = 500
+
+function chunked<T>(rows: T[]): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < rows.length; i += CHUNK) out.push(rows.slice(i, i + CHUNK))
+  return out
+}
+
 // ─── Context for generating the template ────────────────────────────────────
 
 /**
@@ -908,12 +920,20 @@ export const commitImport = createServerFn({ method: 'POST' })
       )
     }
 
-    statements.push(db.insert(applications).values(applicationRows))
-    statements.push(db.insert(awards).values(awardRows))
-    if (instalmentRows.length > 0)
-      statements.push(db.insert(awardInstalments).values(instalmentRows))
-    if (scheduleRows.length > 0) statements.push(db.insert(reportSchedule).values(scheduleRows))
-    if (reportRows.length > 0) statements.push(db.insert(reports).values(reportRows))
+    // Multi-row inserts, in chunks, because a statement may carry at most 65,535 bound
+    // parameters. One row of `applications` is ~19 of them, so a single insert gave out
+    // at about 3,400 grants with "too many query parameters" — a raw Postgres error, at
+    // the end of a long manual process, on a workbook the schema had already accepted.
+    // Worse, the ceiling moves every time a column is added, so it cannot be reasoned
+    // about from the row cap alone. `CHUNK` is the same for every table and is set well
+    // under the limit of the widest one; the statements still go in one `db.batch`, so
+    // this changes how the write is spelled and not whether it is atomic.
+    for (const chunk of chunked(applicationRows)) statements.push(db.insert(applications).values(chunk))
+    for (const chunk of chunked(awardRows)) statements.push(db.insert(awards).values(chunk))
+    for (const chunk of chunked(instalmentRows))
+      statements.push(db.insert(awardInstalments).values(chunk))
+    for (const chunk of chunked(scheduleRows)) statements.push(db.insert(reportSchedule).values(chunk))
+    for (const chunk of chunked(reportRows)) statements.push(db.insert(reports).values(chunk))
 
     // ── Tidy up what an earlier import invented and this one no longer needs ──
     //

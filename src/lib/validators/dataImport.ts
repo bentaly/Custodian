@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_GRANTS_PER_IMPORT } from '../dataImport/validate'
 
 // The wire shape of a parsed workbook. The browser does the .xlsx parsing (see
 // lib/dataImport/workbook.ts) and posts the result here — so these schemas are the
@@ -63,12 +64,17 @@ export const CellIssueSchema = z.object({
 })
 
 /**
- * A whole workbook. The row caps are a denial-of-service guard rather than a product
- * limit — a foundation with more than this many historic grants should be talked
- * through splitting the file, not silently truncated.
+ * A whole workbook. The grant cap is the same number the review screen enforces as a
+ * blocker (`MAX_GRANTS_PER_IMPORT`), and it is what the write path was MEASURED to do:
+ * every row is committed in one `db.batch` under a 4-second timeout. The door repeats
+ * the blocker rather than trusting it, since the blocker runs in a browser.
+ *
+ * The payment and report caps stay a denial-of-service guard rather than a product
+ * limit: they are narrower rows, and a workbook large enough to strain them would have
+ * been stopped by the grant cap first.
  */
 export const ImportPayloadSchema = z.object({
-  grants: z.array(GrantRowSchema).max(5000),
+  grants: z.array(GrantRowSchema).max(MAX_GRANTS_PER_IMPORT),
   payments: z.array(PaymentRowSchema).max(20000),
   reports: z.array(ReportRowSchema).max(20000),
   cellIssues: z.array(CellIssueSchema).max(5000),

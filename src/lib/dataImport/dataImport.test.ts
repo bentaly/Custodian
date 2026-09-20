@@ -9,7 +9,7 @@ import {
   parseReports,
   type RawRow,
 } from './parse'
-import { validateImport } from './validate'
+import { MAX_GRANTS_PER_IMPORT, validateImport } from './validate'
 import type { GrantRow, PaymentRow, ReportRow } from './parse'
 
 // ─── Matching ───────────────────────────────────────────────────────────────
@@ -283,6 +283,28 @@ describe('validateImport', () => {
     expect(result.reconciliation.totalCommitted).toBe(65000)
     expect(result.reconciliation.totalPaid).toBe(45000)
     expect(result.reconciliation.totalOutstanding).toBe(20000)
+  })
+
+  // The write path is one `db.batch` under a 4-second timeout, so this is a measured
+  // limit rather than a preference. Said on the review screen because the alternative
+  // is a database error after a foundation has matched every value and confirmed.
+  it('blocks a workbook with more grants than one import can write', () => {
+    const many = Array.from({ length: MAX_GRANTS_PER_IMPORT + 1 }, (_, i) =>
+      grant({ reference: `G${i}` }),
+    )
+    const result = validateImport({ grants: many, payments: [], reports: [], cellIssues: [] })
+    expect(result.canCommit).toBe(false)
+    expect(result.issues.find((i) => i.code === 'too_many_grants')?.detail).toContain('Split it')
+  })
+
+  it('says nothing about size for a workbook that fits', () => {
+    const result = validateImport({
+      grants: [grant({ reference: 'G1' })],
+      payments: [],
+      reports: [],
+      cellIssues: [],
+    })
+    expect(result.issues.some((i) => i.code === 'too_many_grants')).toBe(false)
   })
 
   it('blocks a duplicate reference — payments join on it, so a repeat is ambiguous', () => {
