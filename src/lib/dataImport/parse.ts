@@ -115,6 +115,24 @@ export function asNumber(value: unknown): number | null {
  * `03/04/2025` is April in Britain and March in America, and quietly picking one
  * would misdate a payment by a month with nothing on screen to show for it.
  */
+/**
+ * Is this a day that exists? A month-length check, leap years included.
+ *
+ * Day 1-31 was the whole test, so "2025-02-30" and "31/04/2025" came through as real
+ * dates and went two different wrong ways afterwards: `new Date('2025-02-30T00:00:00Z')`
+ * rolls silently to 2 March, which is what an award's decision date became, while a
+ * column Postgres types as `date` refuses the same string outright and takes the whole
+ * import down with it, naming no row. The function already refuses a date it cannot read
+ * unambiguously; one that cannot exist belongs in the same place, as a cell issue beside
+ * the row that carries it.
+ */
+function isRealDate(year: number, month: number, day: number): boolean {
+  if (month < 1 || month > 12 || day < 1) return false
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+  const lengths = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  return day <= lengths[month - 1]!
+}
+
 export function asDate(value: unknown): { iso: string | null; ambiguous: boolean } {
   if (value == null || value === '') return { iso: null, ambiguous: false }
 
@@ -134,11 +152,9 @@ export function asDate(value: unknown): { iso: string | null; ambiguous: boolean
   const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
   if (iso) {
     const [, y, m, d] = iso
-    const month = Number(m)
-    const day = Number(d)
-    if (month < 1 || month > 12 || day < 1 || day > 31) return { iso: null, ambiguous: false }
+    if (!isRealDate(Number(y), Number(m), Number(d))) return { iso: null, ambiguous: false }
     return {
-      iso: `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      iso: `${y}-${String(Number(m)).padStart(2, '0')}-${String(Number(d)).padStart(2, '0')}`,
       ambiguous: false,
     }
   }
@@ -150,6 +166,7 @@ export function asDate(value: unknown): { iso: string | null; ambiguous: boolean
     const second = Number(b)
     // Only unambiguous when one part cannot be a month.
     if (first > 12 && second <= 12) {
+      if (!isRealDate(Number(y), second, first)) return { iso: null, ambiguous: false }
       return {
         iso: `${y}-${String(second).padStart(2, '0')}-${String(first).padStart(2, '0')}`,
         ambiguous: false,
@@ -379,6 +396,19 @@ export function parsePayments(rows: RawRow[]): { rows: PaymentRow[]; issues: Cel
       issues,
       'is required and must be a number',
     )
+    // Both money columns on the Grants sheet refuse a negative figure and this one did
+    // not, so a clawback or refund keyed the way a ledger keys one, "(5,000)", imported
+    // as an instalment of minus five thousand pounds. Nothing else in Custodian can
+    // produce that: every other writer goes through `buildSchedule`, whose split is
+    // checked against the award. Once in, it quietly reduces both the paid and the
+    // outstanding totals on Finance, and a foundation cannot see why.
+    if (amount != null && amount < 0) {
+      issues.push({
+        rowNumber,
+        column: cols.amount!.header,
+        message: 'Amount cannot be negative',
+      })
+    }
     const paid = asBool(cells.paid)
     if (paid == null) {
       issues.push({ rowNumber, column: cols.paid!.header, message: 'Paid? must be Yes or No' })
@@ -394,7 +424,8 @@ export function parsePayments(rows: RawRow[]): { rows: PaymentRow[]; issues: Cel
     )
     const paidDate = dateCell(cells.paidDate, cols.paidDate!, rowNumber, issues)
 
-    if (reference == null || dueDate == null || amount == null || paid == null) continue
+    if (reference == null || dueDate == null || amount == null || amount < 0 || paid == null)
+      continue
 
     out.push({ rowNumber, reference, dueDate, amount, paid, paidDate })
   }
@@ -422,10 +453,26 @@ export function parseReports(rows: RawRow[]): { rows: ReportRow[]; issues: CellI
     // column existed, reads: no flag anywhere, so a date is the only evidence. A date
     // present always wins over a "No", because a report cannot have arrived on a day
     // and also not have arrived.
+    //
+    // A non-empty answer we cannot read is a different thing from a blank one, and used
+    // to fall into the same `?? false`. "Paid?" and "Received?" are the same kind of
+    // cell, and the Payments sheet has always held the import until somebody says which
+    // it is. Here a foundation that had written "Received" against every report they
+    // held saw every one of them imported as outstanding, then overdue, with nothing on
+    // any screen saying the column had been ignored.
+    const answered = asText(cells.received) !== null || typeof cells.received === 'boolean'
     const flag = asBool(cells.received)
+    if (answered && flag == null) {
+      issues.push({
+        rowNumber,
+        column: cols.received!.header,
+        message: 'Received? must be Yes or No',
+      })
+    }
     const received = receivedDate != null || (flag ?? false)
 
-    if (reference == null || label == null || dueDate == null) continue
+    if (reference == null || label == null || dueDate == null || (answered && flag == null))
+      continue
 
     out.push({ rowNumber, reference, label, dueDate, received, receivedDate })
   }

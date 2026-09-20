@@ -37,6 +37,8 @@ export type SettingsFacts = {
     replyTo: string | null
     pendingInvitations: number
     activeApiKeys: number
+    /** The last committed import, for the one tile that had no line at all. */
+    lastImport: { grants: number; at: string } | null
   } | null
 }
 
@@ -82,6 +84,15 @@ export function settingsStatuses(f: SettingsFacts): SettingsStatuses {
   out['/settings/letters'] = a.replyTo
     ? fact(`Replies go to ${a.replyTo}`)
     : todo('No reply-to address')
+  // Deliberately grey either way. Most foundations import once at onboarding and never
+  // again, so "nothing imported yet" is a description of a normal account and not a job
+  // left undone. It is here because the tile was the only one on the hub with no line,
+  // which left the hub unable to answer "did we ever do this, and when".
+  out['/settings/data-import'] = fact(
+    a.lastImport
+      ? `${plural(a.lastImport.grants, 'grant')} imported, ${a.lastImport.at}`
+      : 'Nothing imported yet',
+  )
   out['/settings/api-keys'] =
     a.activeApiKeys === 0 ? todo('No keys yet') : fact(`${plural(a.activeApiKeys, 'active key')}`)
 

@@ -5,6 +5,7 @@ import { getDb } from '../db'
 import {
   applicationComments,
   applicationVotes,
+  auditLog,
   awardInstalments,
   awardLetters,
   awards,
@@ -54,6 +55,50 @@ async function requireImportAdmin() {
     throw badRequest('Switch to a foundation account to import data.')
   }
   return { user, clientId: user.clientId }
+}
+
+/**
+ * Delete the rounds and pairings an import invented that nothing points at any more.
+ *
+ * Shared by the commit (where a corrected workbook has just moved grants elsewhere) and
+ * by a rollback, and scoped to the CLIENT rather than to one batch. Batch scoping was
+ * the obvious reading and is wrong in the case that actually happens: a round is stamped
+ * with the batch that created it, while the grants inside it belong to whichever batch
+ * wrote them last. Undo a re-upload and then the original, and the round carried the
+ * first batch's id while the second batch's rollback was the one looking, so an empty
+ * round survived both and could not be removed from any screen.
+ *
+ * Two conditions protect a human's work, and the second is the subtle one:
+ *
+ * - `import_batch_id is not null` — a round or pairing somebody made by hand is never
+ *   touched, however empty it is.
+ * - `budget is null` on a pairing — nothing ever clears the provenance column, so a
+ *   pairing the import created and a foundation has SINCE given a budget to still reads
+ *   as an artefact. It is not: setting a budget is deciding to fund that programme in
+ *   that round. Without this, a live round quietly lost a programme, and the amount was
+ *   nowhere in the workbook to put back.
+ */
+function clearEmptyImportRows(db: ReturnType<typeof getDb>, clientId: string) {
+  return [
+    db.delete(roundProgrammes).where(
+      and(
+        isNotNull(roundProgrammes.importBatchId),
+        isNull(roundProgrammes.budget),
+        inArray(
+          roundProgrammes.roundId,
+          db.select({ id: rounds.id }).from(rounds).where(eq(rounds.clientId, clientId)),
+        ),
+        sql`not exists (select 1 from ${applications} where ${applications.roundProgrammeId} = ${roundProgrammes.id})`,
+      ),
+    ),
+    db.delete(rounds).where(
+      and(
+        eq(rounds.clientId, clientId),
+        isNotNull(rounds.importBatchId),
+        sql`not exists (select 1 from ${roundProgrammes} where ${roundProgrammes.roundId} = ${rounds.id})`,
+      ),
+    ),
+  ]
 }
 
 /** Rows per INSERT statement. Postgres allows 65,535 bound parameters per statement,
@@ -588,16 +633,86 @@ export const commitImport = createServerFn({ method: 'POST' })
       ]),
     )
 
+    // What a replace must not silently UNPAY.
+    //
+    // Same rule as the bank columns above, and the case is sharper. A foundation imports
+    // its live grants, Finance pays the next instalment, and somebody then re-uploads the
+    // workbook to correct a delivery area. That workbook was written before the payment
+    // and still says the instalment is unpaid, so the replace wrote it back as unpaid and
+    // the payment record was gone: no warning, no audit row, and the only copy of "this
+    // money went out on the 28th" was the row that had just been deleted.
+    //
+    // A workbook saying "No" in a Paid? column is a file that is out of date, not an
+    // instruction to reverse a payment. Reversing one is a deliberate act on the grant
+    // itself (`setInstalmentPaid`), and it writes an audit row. So a held payment is
+    // carried across, matched on the pair that identifies a schedule row: its due date
+    // and its amount.
+    type HeldPayment = { dueDate: string | null; amount: number; paidDate: string }
+    const heldPayments = new Map<string, HeldPayment[]>()
+    if (replacingIds.length > 0) {
+      const rows = await db
+        .select({
+          reference: applications.externalApplicationId,
+          dueDate: awardInstalments.dueDate,
+          amount: awardInstalments.amount,
+          paidDate: awardInstalments.paidDate,
+        })
+        .from(awardInstalments)
+        .innerJoin(awards, eq(awards.id, awardInstalments.awardId))
+        .innerJoin(applications, eq(applications.id, awards.applicationId))
+        .where(
+          and(inArray(awards.applicationId, replacingIds), isNotNull(awardInstalments.paidDate)),
+        )
+      for (const r of rows) {
+        if (!r.reference || !r.paidDate) continue
+        const key = r.reference.toLowerCase()
+        const list = heldPayments.get(key) ?? []
+        list.push({ dueDate: r.dueDate, amount: Number(r.amount), paidDate: r.paidDate })
+        heldPayments.set(key, list)
+      }
+    }
+
+    /**
+     * The date a held payment went out, for an incoming row this file says is unpaid.
+     *
+     * Matched on the pair that identifies a schedule row, its due date and its amount,
+     * and CONSUMED on a hit so two identical instalments cannot both claim one payment.
+     * No match means the file has restructured the schedule, and a row that is not the
+     * row that was paid must not inherit its date.
+     */
+    const carriedPayments: string[] = []
+    const heldPaidDate = (reference: string, dueDate: string, amount: number): string | null => {
+      const held = heldPayments.get(reference.toLowerCase())
+      if (!held) return null
+      const at = held.findIndex(
+        (h) => h.dueDate === dueDate && Math.abs(h.amount - amount) < 0.005,
+      )
+      if (at === -1) return null
+      const [hit] = held.splice(at, 1)
+      carriedPayments.push(reference)
+      return hit!.paidDate
+    }
+
     // ── Build the rows ──
 
     const batchId = crypto.randomUUID()
     // One clock for the whole import, so every row it stamps agrees with every other.
     const importedAt = new Date()
-    const usedReferences = new Set(
-      existing
+    // Everything a minted IMP- number must not collide with: what this client already
+    // holds and is not about to be replaced, AND the references the file itself states.
+    //
+    // The second half is not hypothetical. We generate IMP- numbers, tell the foundation
+    // to keep the list because a grantee has to quote one, and they paste them back into
+    // the next workbook — beside new rows still left blank. Without this, row two's blank
+    // cell mints "IMP-0001" while row one states it, and one import writes two grants
+    // under one reference: the payments join is then ambiguous and the next re-upload
+    // replaces whichever it finds first.
+    const usedReferences = new Set([
+      ...existing
         .filter((e) => !incomingRefs.has(e.reference.toLowerCase()))
         .map((e) => e.reference.toLowerCase()),
-    )
+      ...payload.grants.map((g) => g.reference.trim().toLowerCase()).filter(Boolean),
+    ])
 
     let generatedCounter = 0
     const referenceFor = (grant: GrantRow): string => {
@@ -726,8 +841,11 @@ export const commitImport = createServerFn({ method: 'POST' })
               dueDate: p.dueDate,
               // A payment marked paid with no date still counts as paid — the client was
               // warned it loses its place on a timeline, and dropping the fact of payment
-              // would be far worse than losing the date.
-              paidDate: p.paid ? (p.paidDate ?? p.dueDate) : null,
+              // would be far worse than losing the date. A row the FILE says is unpaid
+              // keeps a payment Custodian is already holding for it: see `heldPaidDate`.
+              paidDate: p.paid
+                ? (p.paidDate ?? p.dueDate)
+                : heldPaidDate(reference, p.dueDate, p.amount),
             })
           })
       } else if (grant.amountPaid != null && grant.amountPaid > 0) {
@@ -943,30 +1061,9 @@ export const commitImport = createServerFn({ method: 'POST' })
     // foundation has, and rounds cannot be deleted from the UI. That is where "July 2022"
     // and "April 2025" came from on a real portfolio: rounds nobody had ever run.
     //
-    // Only ever import-created rows (`import_batch_id is not null`), only ever when
-    // genuinely empty, and last in the batch so the rows this import just wrote are
-    // already in place and count. A pairing or round a human made is never touched.
-    statements.push(
-      db.delete(roundProgrammes).where(
-        and(
-          isNotNull(roundProgrammes.importBatchId),
-          inArray(
-            roundProgrammes.roundId,
-            db.select({ id: rounds.id }).from(rounds).where(eq(rounds.clientId, clientId)),
-          ),
-          sql`not exists (select 1 from ${applications} where ${applications.roundProgrammeId} = ${roundProgrammes.id})`,
-        ),
-      ),
-    )
-    statements.push(
-      db.delete(rounds).where(
-        and(
-          eq(rounds.clientId, clientId),
-          isNotNull(rounds.importBatchId),
-          sql`not exists (select 1 from ${roundProgrammes} where ${roundProgrammes.roundId} = ${rounds.id})`,
-        ),
-      ),
-    )
+    // Only ever import-created rows, only ever when genuinely empty, and last in the
+    // batch so the rows this import just wrote are already in place and count.
+    statements.push(...clearEmptyImportRows(db, clientId))
 
     await db.batch(statements as [any, ...any[]])
 
@@ -1016,6 +1113,8 @@ export const commitImport = createServerFn({ method: 'POST' })
       payments: instalmentRows.length,
       reportMilestones: scheduleRows.length,
       replaced: replacingIds.length,
+      /** Payments Custodian was holding that this file would otherwise have unpaid. */
+      paymentsKept: carriedPayments.length,
       roundsCreated: newRounds.map((r) => r.name),
       generatedReferences,
       reconciliation: validation.reconciliation,
@@ -1096,10 +1195,16 @@ export const rollbackImport = createServerFn({ method: 'POST' })
     const applicationIds = appRows.map((a) => a.id)
 
     if (applicationIds.length === 0) {
-      await db
-        .update(importBatches)
-        .set({ status: 'rolled_back', rolledBackAt: new Date(), rolledBackBy: user.id })
-        .where(eq(importBatches.id, data.batchId))
+      // A batch whose grants a later upload already replaced. There is nothing to
+      // delete, but the rounds it invented may now be the empty ones: this is the exact
+      // path that used to return before reaching the cleanup at all.
+      await db.batch([
+        db
+          .update(importBatches)
+          .set({ status: 'rolled_back', rolledBackAt: new Date(), rolledBackBy: user.id })
+          .where(eq(importBatches.id, data.batchId)),
+        ...clearEmptyImportRows(db, clientId),
+      ])
       return { removed: 0 }
     }
 
@@ -1134,23 +1239,36 @@ export const rollbackImport = createServerFn({ method: 'POST' })
             .where(and(inArray(reports.awardId, awardIds), isNull(reports.importBatchId)))
             .limit(1)
         : Promise.resolve([]),
-      // An instalment paid since the import is money that moved. Imported-as-paid rows
-      // are excluded by checking against what the batch itself recorded.
-      awardIds.length
-        ? db
-            .select({ id: awardInstalments.id })
-            .from(awardInstalments)
-            .where(
-              and(
-                inArray(awardInstalments.awardId, awardIds),
-                isNotNull(awardInstalments.paidDate),
-                // Anything created after the batch, or marked paid later, is out of scope
-                // for a simple date check — so this is intentionally conservative and only
-                // clears rows the import itself created.
-              ),
-            )
-            .limit(0)
-        : Promise.resolve([]),
+      // An instalment paid since the import is money that moved, and undoing the import
+      // deletes the only record of it.
+      //
+      // The check is on `audit_log`, not on the instalment: a historic import writes
+      // paid instalments by the hundred, so "has a paid instalment" says nothing, and
+      // nothing on the row says who paid it or when they said so. An import writes NO
+      // audit rows, deliberately (the feed would show 127 awards made today), so an
+      // audit row against one of these grants is by construction a human acting in
+      // Custodian. `setInstalmentPaid` writes one on both the payment and its reversal.
+      //
+      // This guard was declared in a comment here and never applied: the query carried
+      // `.limit(0)`, so it could only ever come back empty, and its result was `void`ed
+      // before the blockers were assembled.
+      //
+      // It leans on the audit row, and `recordAudit` swallows its own failures so that an
+      // audit problem can never block a payment. A payment whose audit write failed is
+      // therefore undoable. That is the right way round: the alternative is a guard that
+      // reads the instalment alone, which cannot tell a payment somebody made this
+      // morning from the hundreds the same import wrote, and would make every historic
+      // import permanently un-undoable.
+      db
+        .select({ id: auditLog.id })
+        .from(auditLog)
+        .where(
+          and(
+            inArray(auditLog.applicationId, applicationIds),
+            inArray(auditLog.action, ['grant_payment_recorded', 'grant_payment_reversed']),
+          ),
+        )
+        .limit(1),
     ])
 
     const blockers: string[] = []
@@ -1158,7 +1276,7 @@ export const rollbackImport = createServerFn({ method: 'POST' })
     if (votes.length) blockers.push('votes have been recorded against them')
     if (letters.length) blockers.push('an award letter has been issued')
     if (foreignReports.length) blockers.push('a grantee has submitted a report against one')
-    void paidInstalments
+    if (paidInstalments.length) blockers.push('a payment has been recorded against one in Custodian')
 
     if (blockers.length > 0) {
       throw conflict(
@@ -1169,27 +1287,12 @@ export const rollbackImport = createServerFn({ method: 'POST' })
     await db.batch([
       db.delete(awards).where(inArray(awards.applicationId, applicationIds)),
       db.delete(applications).where(inArray(applications.id, applicationIds)),
-      // The rounds and pairings THIS batch invented go with it. Undoing an import that
-      // left eleven rounds behind is not an undo — they are in every round picker the
-      // foundation has, and nothing in the UI can remove a round. Scoped to the batch
-      // and to rows nothing points at any more, so a round that has since been used for
-      // real, or that a human created, survives its grants being withdrawn.
-      db
-        .delete(roundProgrammes)
-        .where(
-          and(
-            eq(roundProgrammes.importBatchId, data.batchId),
-            sql`not exists (select 1 from ${applications} where ${applications.roundProgrammeId} = ${roundProgrammes.id})`,
-          ),
-        ),
-      db
-        .delete(rounds)
-        .where(
-          and(
-            eq(rounds.importBatchId, data.batchId),
-            sql`not exists (select 1 from ${roundProgrammes} where ${roundProgrammes.roundId} = ${rounds.id})`,
-          ),
-        ),
+      // The rounds and pairings an import invented go with the grants. Undoing an
+      // import that left eleven rounds behind is not an undo: they are in every round
+      // picker the foundation has, and nothing in the UI can remove a round. Scoped to
+      // the client rather than this batch, and to rows nothing points at any more — see
+      // `clearEmptyImportRows` for why both of those are load-bearing.
+      ...clearEmptyImportRows(db, clientId),
       db
         .update(importBatches)
         .set({ status: 'rolled_back', rolledBackAt: new Date(), rolledBackBy: user.id })

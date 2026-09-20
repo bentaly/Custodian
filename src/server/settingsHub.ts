@@ -1,10 +1,11 @@
-import { and, count, eq, gt, isNull } from 'drizzle-orm'
+import { and, count, desc, eq, gt, isNull } from 'drizzle-orm'
 import { getDb } from './db'
 import {
   annualBudgetLines,
   annualBudgets,
   apiKeys,
   clientProfiles,
+  importBatches,
   invitations,
   programmes,
   rounds,
@@ -14,6 +15,7 @@ import { canSeePayments } from '../lib/roles'
 import { currentVoterOf } from './members'
 import { DEFAULT_FY_END_MONTH, financialYear } from '../lib/financialYear'
 import { getRoundStatus } from '../lib/roundStatus'
+import { fmtDate } from '../lib/format'
 import { settingsStatuses, type SettingsStatuses } from '../lib/settingsStatus'
 import type { UserRole } from './session'
 
@@ -39,6 +41,7 @@ export async function settingsStatusesFor(
     voterRows,
     inviteRows,
     keyRows,
+    importRows,
     budgetRows,
   ] = await db.batch([
     db
@@ -79,6 +82,14 @@ export async function settingsStatusesFor(
       .select({ n: count() })
       .from(apiKeys)
       .where(and(eq(apiKeys.clientId, clientId), isNull(apiKeys.revokedAt))),
+    // The most recent import that still owns rows. A rolled-back batch, or one a later
+    // upload has entirely replaced, is not what the tile means by "imported".
+    db
+      .select({ grantCount: importBatches.grantCount, createdAt: importBatches.createdAt })
+      .from(importBatches)
+      .where(and(eq(importBatches.clientId, clientId), eq(importBatches.status, 'committed')))
+      .orderBy(desc(importBatches.createdAt))
+      .limit(1),
     // A budget header with no lines is ignored everywhere it is read, so it does not
     // count as set here either: the inner join drops it.
     db
@@ -109,6 +120,9 @@ export async function settingsStatusesFor(
           replyTo: profile?.replyTo?.trim() || null,
           pendingInvitations: inviteRows[0]?.n ?? 0,
           activeApiKeys: keyRows[0]?.n ?? 0,
+          lastImport: importRows[0]
+            ? { grants: importRows[0].grantCount, at: fmtDate(importRows[0].createdAt) }
+            : null,
         }
       : null,
   })

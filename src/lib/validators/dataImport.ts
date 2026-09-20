@@ -43,7 +43,11 @@ export const PaymentRowSchema = z.object({
   rowNumber: z.number().int().nonnegative(),
   reference: z.string().min(1).max(120),
   dueDate: isoDate,
-  amount: z.number().finite().max(1_000_000_000),
+  // Non-negative, like both money columns on the Grants sheet. A clawback keyed as
+  // "(5,000)" used to import as an instalment of minus five thousand pounds, which
+  // nothing else in Custodian can produce and which quietly reduced the paid and
+  // outstanding totals on Finance. Refused on the review screen too (`parsePayments`).
+  amount: z.number().finite().min(0).max(1_000_000_000),
   paid: z.boolean(),
   paidDate: isoDate.nullable(),
 })

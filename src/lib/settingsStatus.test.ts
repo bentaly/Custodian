@@ -9,6 +9,7 @@ const admin: NonNullable<SettingsFacts['admin']> = {
   replyTo: 'grants@wrenfield.org',
   pendingInvitations: 0,
   activeApiKeys: 2,
+  lastImport: { grants: 127, at: '19 Sep 2026' },
 }
 
 const facts = (over: Partial<SettingsFacts> = {}): SettingsFacts => ({
@@ -71,5 +72,31 @@ describe('settingsStatuses', () => {
     expect(one['/settings/team']?.text).toBe('1 member, 1 invitation pending')
     const two = settingsStatuses(facts({ admin: { ...admin, pendingInvitations: 2 } }))
     expect(two['/settings/team']?.text).toBe('6 members, 2 invitations pending')
+  })
+})
+
+describe('the data import tile', () => {
+  // Grey either way: most foundations import once at onboarding and never again, so
+  // "nothing imported yet" describes a normal account rather than a job left undone.
+  it('says what was imported and when', () => {
+    const out = settingsStatuses(facts())
+    expect(out['/settings/data-import']).toEqual({
+      text: '127 grants imported, 19 Sep 2026',
+      attention: false,
+    })
+  })
+
+  it('says so plainly when nothing has been imported, without raising it as a problem', () => {
+    const out = settingsStatuses(facts({ admin: { ...admin, lastImport: null } }))
+    expect(out['/settings/data-import']).toEqual({
+      text: 'Nothing imported yet',
+      attention: false,
+    })
+  })
+
+  // The tile itself is admin-only, and so is its line.
+  it('says nothing to somebody who cannot import', () => {
+    const out = settingsStatuses(facts({ admin: null }))
+    expect(out['/settings/data-import']).toBeUndefined()
   })
 })

@@ -397,9 +397,24 @@ export function validateImport(input: {
   // flow is preparation for this screen: if these match their ledger they trust the
   // platform, and if they don't we find out before go-live rather than in a meeting.
 
-  const totalCommitted = grants.reduce((s, g) => s + g.amountAwarded, 0)
+  // ── The money rule, applied here as everywhere else ──
+  //
+  // A cancelled grant counts for what was PAID on it and for nothing else: the money
+  // left the building, so paid history reconciles against the foundation's own ledger,
+  // while a withdrawn grant is not money committed and there is nothing left to pay on
+  // it. See "The money rule" in CLAUDE.md, and `grantsQuery`, which enforces it.
+  //
+  // This module was the one the 2026-08-27 audit never reached, and it is the first
+  // figure a foundation ever sees: a cancelled grant's unpaid half was counted as still
+  // to pay, so the screen they signed off on disagreed with Finance an hour later, in
+  // the direction that makes it look as though Custodian has invented a liability.
+  const cancelled = new Set(
+    grants.filter((g) => g.status === 'cancelled').map((g) => g.reference),
+  )
+  const live = (reference: string) => references.has(reference) && !cancelled.has(reference)
+
   const paidRows = payments.filter((p) => p.paid && references.has(p.reference))
-  const unpaidRows = payments.filter((p) => !p.paid && references.has(p.reference))
+  const unpaidRows = payments.filter((p) => !p.paid && live(p.reference))
   // Lump sums count only where there is no schedule to count instead, which is the same
   // rule the commit path uses to decide whether to write one. If the two disagreed, the
   // total a finance lead signed off here would not be the total they saw afterwards.
@@ -407,6 +422,19 @@ export function validateImport(input: {
     .filter((g) => (paymentsByRef.get(g.reference)?.length ?? 0) === 0)
     .reduce((s, g) => s + (g.amountPaid ?? 0), 0)
   const totalPaid = paidRows.reduce((s, p) => s + p.amount, 0) + lumpPaid
+  // In a rollup, "committed" is `max(committed, paid)` per grant — the same rule the
+  // annual budget panel and Insights use. A cancelled grant commits nothing, so it
+  // counts for what it paid; one cancelled having paid nothing drops out entirely.
+  const paidOn = (g: GrantRow) => {
+    const schedule = paymentsByRef.get(g.reference) ?? []
+    return schedule.length > 0
+      ? schedule.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0)
+      : (g.amountPaid ?? 0)
+  }
+  const totalCommitted = grants.reduce(
+    (s, g) => s + (g.status === 'cancelled' ? paidOn(g) : g.amountAwarded),
+    0,
+  )
   // Nothing is outstanding on a grant with no schedule: there is no instalment to be
   // waiting for. An unpaid balance on a completed grant is history, not a debt.
   const totalOutstanding = unpaidRows.reduce((s, p) => s + p.amount, 0)
@@ -420,7 +448,11 @@ export function validateImport(input: {
     totalCommitted,
     totalPaid,
     totalOutstanding,
-    reportsOutstanding: reports.filter((r) => !r.received && references.has(r.reference)).length,
+    // The money rule applied to WORK rather than to money, which is the form it has
+    // been missed in three times: a withdrawn grant is owed no report. The Reports
+    // screen, the dashboard and the Monday reports digest all exclude cancelled grants
+    // from what is still waited on, and this is the fourth place asking that question.
+    reportsOutstanding: reports.filter((r) => !r.received && live(r.reference)).length,
   }
 
   const blockers = issues.filter((i) => i.kind === 'blocker')

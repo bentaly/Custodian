@@ -224,7 +224,7 @@ Traps:
 
 ## The money rule: what a cancelled grant counts toward
 
-Six modules compute money and must agree, because a foundation reads two of them side by side.
+Seven modules compute money and must agree, because a foundation reads two of them side by side.
 Stated on `listFinanceGrants`, enforced in `grantsQuery`:
 
 - **paid** — INCLUDES cancelled. The money left the building; paid history must reconcile against
@@ -263,6 +263,17 @@ different sets, and it is intentional.
 
 `buildSchedule` folds the rounding remainder into the final instalment so a split sums to the
 award exactly, and `createAwards` re-checks that server-side (0.005 tolerance).
+
+The **seventh is the onboarding import's reconciliation** (`validateImport`), and it is
+the first money figure a foundation ever sees: the screen they sign the import off on,
+captioned "check these against your own accounts". It summed every grant in the file
+whatever its status, so a cancelled grant's award counted as committed and its unpaid
+instalments as still to pay, and Finance disagreed with it an hour later in the direction
+that reads as an invented liability. It now follows the rule in full, including the rollup
+reading of committed (`max(committed, paid)`), which is why its committed figure sits
+ABOVE Finance's column of the same name for a part-paid cancelled grant: two words, two
+meanings, both correct. `reportsOutstanding` is the same rule applied to WORK, and was the
+fourth place to get that wrong.
 
 The sixth module is the **annual budget panel** (`src/server/finance/budget.ts`), and it is the
 first to print committed and paid *in the same bar*, which forces a case the rule never had to
@@ -609,7 +620,15 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   landed after a foundation had matched every value and confirmed. Staging measured
   3,500 grants at 3.3s and 5,000 as a timeout. `dataImport.itest.ts` pins it.
 - **`import_batches` makes it reversible.** Every created row carries `importBatchId`;
-  `rollbackImport` removes them unless a comment, vote, award letter or non-import report exists.
+  `rollbackImport` removes them unless a comment, vote, award letter, non-import report, or
+  a payment RECORDED IN CUSTODIAN exists. That last one reads `audit_log`, not the
+  instalment: an import writes paid instalments by the hundred and no audit rows at all,
+  so an audit row against an imported grant is by construction a human acting here.
+- **A replace never silently unpays an instalment.** The workbook that corrects a delivery
+  area was written before this week's payment run and still says "No", and that is a file
+  out of date rather than an instruction to reverse a payment. A held payment is carried
+  across, matched on due date and amount and consumed on the hit, and the done screen says
+  how many. Same rule and same reason as the bank columns beside it.
   Re-uploading the same reference REPLACES rather than duplicating — that is the phasing mechanism.
 - **Themes are one semicolon-separated cell** (`Youth; Mental health`), blank = every theme the
   programme has. Not a dropdown: Excel list validation holds ONE value per cell. Semicolons, not

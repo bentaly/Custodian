@@ -16,11 +16,20 @@ import {
   prepareImport,
   rollbackImport,
 } from '../../server/fns/dataImport'
-import { Breadcrumb, Button, Select, UnsavedChangesGuard } from '../../components/ui'
+import {
+  Breadcrumb,
+  Button,
+  ConfirmDialog,
+  ExportButton,
+  Select,
+  UnsavedChangesGuard,
+} from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { columnAsk, SHEETS } from '../../lib/dataImport/columns'
+import { MAX_GRANTS_PER_IMPORT } from '../../lib/dataImport/validate'
 import type { CellIssue, GrantRow, PaymentRow, ReportRow } from '../../lib/dataImport/parse'
 import { fmtDate, fmtMoney } from '../../lib/format'
+import { downloadTable } from '../../lib/spreadsheetExport'
 
 export const Route = createFileRoute('/_authenticated/settings/data-import')({
   // Importing writes a foundation's whole back catalogue and can delete it again.
@@ -102,24 +111,32 @@ function Stepper({ step }: { step: Step }) {
 function Panel({
   title,
   description,
+  actions,
   children,
 }: {
   title: string
   description?: string
+  /** A control belonging to the panel, on the title's own line, hard right. */
+  actions?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <section className="rounded-card border bg-white p-4" style={{ borderColor: C.line }}>
-      {/* The panel heading the rest of the app uses (`ui/Detail`'s PanelTitle): 16px
-          medium, not 14px semibold. This screen predates it. */}
-      <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
-        {title}
-      </h2>
-      {description && (
-        <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.sub }}>
-          {description}
-        </p>
-      )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          {/* The panel heading the rest of the app uses (`ui/Detail`'s PanelTitle): 16px
+              medium, not 14px semibold. This screen predates it. */}
+          <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
+            {title}
+          </h2>
+          {description && (
+            <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.sub }}>
+              {description}
+            </p>
+          )}
+        </div>
+        {actions && <div className="shrink-0">{actions}</div>}
+      </div>
       <div className="mt-4">{children}</div>
     </section>
   )
@@ -213,10 +230,22 @@ function DataImport() {
   const { context, batches } = Route.useLoaderData()
   const router = useRouter()
   const fileInput = useRef<HTMLInputElement>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
 
   const [step, setStep] = useState<Step>('prepare')
   const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const [error, setErrorState] = useState('')
+
+  /** Every failure path goes through here, so none of them can report into empty space. */
+  function setError(message: string) {
+    setErrorState(message)
+    if (message) {
+      // After paint, or the node is not in the document yet on the first failure.
+      requestAnimationFrame(() =>
+        errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+      )
+    }
+  }
   const [fileName, setFileName] = useState<string | null>(null)
   const [payload, setPayload] = useState<Payload | null>(null)
   const [prepared, setPrepared] = useState<Prepared | null>(null)
@@ -436,8 +465,14 @@ function DataImport() {
         <Stepper step={step} />
       </div>
 
+      {/* Scrolled to, not just rendered. The banner sits under the stepper at the top of
+          the page, and the action it reports on is two tall panels below the fold: a
+          failed commit put the button back to "Import 340 grants" with the explanation
+          several hundred pixels above, unseen, and the natural next move is to press it
+          again. */}
       {error && (
         <div
+          ref={errorRef}
           className="mt-6 rounded-control border px-4 py-3 text-body"
           style={{ borderColor: ERROR_BORDER, backgroundColor: C.dangerWash, color: C.danger }}
         >
@@ -461,7 +496,7 @@ function DataImport() {
             <>
               <Panel
                 title="1. Download your template"
-                description="This workbook is built for you: the Programme and Round columns already contain your own lists, so there is nothing to match up afterwards."
+                description={`This workbook is built for you: the Programme and Round columns already contain your own lists, so there is nothing to match up afterwards. Up to ${MAX_GRANTS_PER_IMPORT.toLocaleString('en-GB')} grants per file, so split a longer history across several uploads.`}
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <Button onClick={handleDownloadTemplate} disabled={busy === 'template'}>
@@ -817,6 +852,26 @@ function DataImport() {
 
           <Panel title="What happens when you confirm">
             <ul className="space-y-2 text-body leading-relaxed" style={{ color: C.sub }}>
+              {/* First, because it is the only line here describing something being
+                  DESTROYED. The review step says it too, but this is the step where the
+                  decision is actually taken, and a button reading "Import 340 grants"
+                  over a list that never mentions replacement reads as purely additive. */}
+              {prepared.replacing > 0 && (
+                <li>
+                  <strong style={{ color: C.ink }}>
+                    {prepared.replacing} of these {prepared.replacing === 1 ? 'grant is' : 'grants are'}{' '}
+                    already in Custodian and will be rebuilt from this file.
+                  </strong>{' '}
+                  Their payments and reporting milestones are replaced by what is in this workbook,
+                  so anything recorded last time and missing now will go.
+                  {rec.grants - prepared.replacing > 0 && (
+                    <>
+                      {' '}
+                      The other {rec.grants - prepared.replacing} are added as new grants.
+                    </>
+                  )}
+                </li>
+              )}
               <li>
                 Every grant is marked as imported, permanently, so its blanks read as history rather
                 than missing data.
@@ -846,7 +901,11 @@ function DataImport() {
               Back
             </Button>
             <Button onClick={handleCommit} disabled={busy === 'commit'}>
-              {busy === 'commit' ? 'Importing…' : `Import ${rec.grants} grants`}
+              {busy === 'commit'
+                ? 'Importing…'
+                : prepared.replacing > 0
+                  ? `Rebuild ${prepared.replacing} and import ${rec.grants - prepared.replacing}`
+                  : `Import ${rec.grants} grants`}
             </Button>
           </div>
         </div>
@@ -868,6 +927,19 @@ function DataImport() {
                 reporting milestones are now in Custodian.
                 {result.replaced > 0 &&
                   ` ${result.replaced} previously imported grants were updated.`}
+                {/* Said out loud, because it is the one thing in the result that the
+                    workbook did NOT ask for: the file said unpaid and we kept the
+                    payment. A foundation checking the file against the screen would
+                    otherwise find a figure they cannot account for. */}
+                {result.paymentsKept > 0 && (
+                  <>
+                    {' '}
+                    {result.paymentsKept === 1
+                      ? '1 payment recorded in Custodian was kept'
+                      : `${result.paymentsKept} payments recorded in Custodian were kept`}
+                    , where this file still showed the instalment as unpaid.
+                  </>
+                )}
                 {result.roundsCreated.length > 0 && (
                   <> New rounds created: {result.roundsCreated.join(', ')}.</>
                 )}
@@ -878,7 +950,29 @@ function DataImport() {
           {result.generatedReferences.length > 0 && (
             <Panel
               title="References we generated"
-              description="These grants arrived without a reference of their own. A charity needs to quote its reference for a future report to link itself automatically, so keep this list."
+              description="These grants arrived without a reference of their own. A charity needs to quote its reference for a future report to link itself automatically, so keep this list. Each grant also shows its reference on its own page, so this is a convenience rather than the only copy."
+              /* "Keep this list" over a scroll box with no way to keep it. The panel
+                 lives in component state, so importing another file or navigating away
+                 destroys the one artefact of an import that cannot be rebuilt from the
+                 workbook the foundation uploaded. */
+              actions={
+                <ExportButton
+                  size="sm"
+                  label="Download CSV"
+                  onClick={() =>
+                    downloadTable({
+                      format: 'csv',
+                      columns: [
+                        { header: 'Organisation', value: (r) => r.organisationName },
+                        { header: 'Reference', value: (r) => r.reference },
+                      ],
+                      rows: result.generatedReferences,
+                      filename: 'custodian-generated-references',
+                      sheetName: 'References',
+                    })
+                  }
+                />
+              }
             >
               <div
                 className="max-h-64 overflow-y-auto rounded-control border"
@@ -933,6 +1027,15 @@ function History({
   busy: string | null
   onRollback: (id: string) => void
 }) {
+  // Asked before, not reported after. Undoing an import is the most destructive click in
+  // the app: it removes every grant, payment, milestone and imported report the file
+  // brought in, plus the rounds it created, and the only way back is to still have the
+  // workbook. Removing one team member ARCHIVES a row and is reversible, and that gets a
+  // dialog; this did not. Several batches sit in one list wearing identical buttons, so
+  // the question also has to name which import is about to go.
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const batch = batches.find((b) => b.id === confirming)
+
   return (
     <Panel
       title="Previous imports"
@@ -967,7 +1070,7 @@ function History({
                 <Button
                   variant="dangerGhost"
                   size="xs"
-                  onClick={() => onRollback(b.id)}
+                  onClick={() => setConfirming(b.id)}
                   disabled={busy === b.id}
                 >
                   {busy === b.id ? 'Undoing…' : 'Undo'}
@@ -977,6 +1080,38 @@ function History({
           )
         })}
       </div>
+
+      <ConfirmDialog
+        open={batch !== undefined}
+        title={
+          batch
+            ? `Undo the import of ${batch.grantCount} ${batch.grantCount === 1 ? 'grant' : 'grants'}?`
+            : ''
+        }
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          const id = confirming!
+          setConfirming(null)
+          onRollback(id)
+        }}
+        confirmLabel="Undo this import"
+        busyLabel="Undoing…"
+        busy={busy !== null}
+        tone="danger"
+      >
+        {batch && (
+          <>
+            This removes the {batch.grantCount}{' '}
+            {batch.grantCount === 1 ? 'grant' : 'grants'} that came in from{' '}
+            <span className="font-medium text-grey-900">{batch.fileName ?? 'this file'}</span> on{' '}
+            {fmtDate(batch.createdAt)}, along with{' '}
+            {batch.paymentCount === 1 ? 'its 1 payment' : `their ${batch.paymentCount} payments`},{' '}
+            {batch.reportCount === 1 ? '1 reporting milestone' : `${batch.reportCount} reporting milestones`}{' '}
+            and any rounds the import created that nothing else is in. It cannot be undone,
+            and the only way to get them back is to upload the workbook again.
+          </>
+        )}
+      </ConfirmDialog>
     </Panel>
   )
 }
