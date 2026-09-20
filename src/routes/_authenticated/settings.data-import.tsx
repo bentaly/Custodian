@@ -251,6 +251,8 @@ function DataImport() {
   const [prepared, setPrepared] = useState<Prepared | null>(null)
   const [result, setResult] = useState<Committed | null>(null)
   const [dragging, setDragging] = useState(false)
+  /** What the upload is doing right now, so a big file does not read as a hung one. */
+  const [stage, setStage] = useState<string | null>(null)
 
   // Confirmed choices for values the dropdowns didn't catch — keyed by the exact
   // string in the file. `null` for a round means "create it".
@@ -306,6 +308,11 @@ function DataImport() {
     setBusy('upload')
     setError('')
     setFileName(file.name)
+    // A 2,000-row workbook is parsed in this browser, then posted whole and checked
+    // against every grant the foundation already holds. On an office laptop that is
+    // seconds of nothing, and a single unchanging "Reading your workbook…" cannot tell
+    // slow from stuck. Naming the stage is not a progress bar, but it moves.
+    setStage('Opening the workbook…')
     try {
       const [{ readWorkbook, WorkbookError }, parse] = await Promise.all([
         import('../../lib/dataImport/workbook'),
@@ -321,12 +328,24 @@ function DataImport() {
           'That template was generated for a different foundation. Download a fresh one below.',
         )
       }
-      if (read.missingHeaders.grants.length > 0) {
-        throw new WorkbookError(
-          `The Grants sheet is missing these columns: ${read.missingHeaders.grants.join(', ')}. Download a fresh template and copy your data into it.`,
-        )
+      // All three sheets, not just Grants. `readWorkbook` drops any row it cannot map to
+      // a column, so a Payments header row that has been overwritten, renamed by an
+      // export tool or pushed down by an inserted line produced an import of "340
+      // grants, 0 payments" that committed perfectly happily. The only hint was a
+      // degradation saying some grants had no payments listed, which reads as a remark
+      // about the foundation's data rather than about a broken file.
+      for (const sheet of ['grants', 'payments', 'reports'] as const) {
+        const missing = read.missingHeaders[sheet]
+        if (missing.length > 0) {
+          throw new WorkbookError(
+            `The ${SHEETS[sheet].title} sheet is missing these columns: ${missing.join(', ')}. Nothing on that sheet can be read. Download a fresh template and copy your data into it.`,
+          )
+        }
       }
 
+      const rowCount =
+        read.sheets.grants.length + read.sheets.payments.length + read.sheets.reports.length
+      setStage(`Reading ${rowCount.toLocaleString('en-GB')} rows…`)
       const grants = parse.parseGrants(read.sheets.grants)
       const payments = parse.parsePayments(read.sheets.payments)
       const reportRows = parse.parseReports(read.sheets.reports)
@@ -339,6 +358,9 @@ function DataImport() {
       }
       setPayload(next)
 
+      setStage(
+        `Checking ${grants.rows.length.toLocaleString('en-GB')} grants against your records…`,
+      )
       const check = await prepareImport({ data: next })
       setPrepared(check)
 
@@ -371,6 +393,7 @@ function DataImport() {
       setFileName(null)
     } finally {
       setBusy(null)
+      setStage(null)
       if (fileInput.current) fileInput.current.value = ''
     }
   }
@@ -572,7 +595,7 @@ function DataImport() {
                   />
                   <div className="mt-3 text-body" style={{ color: C.ink }}>
                     {busy === 'upload' ? (
-                      'Reading your workbook…'
+                      (stage ?? 'Reading your workbook…')
                     ) : (
                       <>
                         Drop your completed workbook here, or{' '}

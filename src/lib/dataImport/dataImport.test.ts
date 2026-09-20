@@ -456,6 +456,7 @@ describe('validateImport', () => {
       rowNumber: i + 2,
       column: 'Award date',
       message: 'Award date is not a date we can read. Use YYYY-MM-DD',
+      sheet: 'grants' as const,
     }))
     const result = run({ grants: [grant()], cellIssues })
     const grouped = result.issues.filter((i) => i.code === 'cell')

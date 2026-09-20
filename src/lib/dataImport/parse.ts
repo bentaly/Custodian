@@ -9,7 +9,19 @@ import { columnsFor, type ImportColumn, type SheetKey } from './columns'
 
 export type RawRow = { rowNumber: number; cells: Record<string, unknown> }
 
-export type CellIssue = { rowNumber: number; column: string; message: string }
+export type CellIssue = {
+  rowNumber: number
+  column: string
+  message: string
+  /** Which sheet the row is on. Three sheets share column names ("Application
+   *  reference", "Due date", "Amount"), so a message without this names no place a
+   *  person can go and look, and two sheets' rows merge into one list. */
+  sheet: SheetKey
+  /** The reference on a GRANT row that was dropped for being unreadable. Its payments
+   *  and reports then match no grant, and would otherwise be reported as orphans
+   *  pointing at a reference which is in fact perfectly correct. */
+  reference?: string
+}
 
 export type GrantRow = {
   rowNumber: number
@@ -219,11 +231,22 @@ function asBool(value: unknown): boolean | null {
 
 // ─── Row builders ───────────────────────────────────────────────────────────
 
+/** An issue as a parser builds it: the sheet is stamped on at the end, so no helper in
+ *  this file has to carry the same constant through fifteen call sites. */
+type RawIssue = Omit<CellIssue, 'sheet'>
+
+/** Stamps the sheet onto a parser's issues on the way out. Kept here rather than
+ *  threaded through `required` and `dateCell`, which would put the same constant in
+ *  fifteen call sites. */
+function onSheet(issues: RawIssue[], sheet: SheetKey): CellIssue[] {
+  return issues.map((i) => ({ ...i, sheet }))
+}
+
 function required<T>(
   value: T | null,
   column: ImportColumn,
   rowNumber: number,
-  issues: CellIssue[],
+  issues: RawIssue[],
   message = 'is required',
 ): T | null {
   if (value == null) {
@@ -237,7 +260,7 @@ function dateCell(
   raw: unknown,
   column: ImportColumn,
   rowNumber: number,
-  issues: CellIssue[],
+  issues: RawIssue[],
 ): string | null {
   const { iso, ambiguous } = asDate(raw)
   if (ambiguous) {
@@ -284,7 +307,7 @@ const byKey = (sheet: SheetKey) =>
 
 export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIssue[] } {
   const cols = byKey('grants')
-  const issues: CellIssue[] = []
+  const issues: RawIssue[] = []
   const out: GrantRow[] = []
 
   for (const { rowNumber, cells } of rows) {
@@ -349,6 +372,14 @@ export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIss
       amountAwarded == null ||
       status == null
     ) {
+      // Tag this row's issues with the reference that is about to go missing, so the
+      // orphan check downstream can say "belongs to a grant we could not read" instead
+      // of blaming the payment rows that name it.
+      if (reference) {
+        for (const issue of issues) {
+          if (issue.rowNumber === rowNumber) issue.reference = reference
+        }
+      }
       continue
     }
 
@@ -379,12 +410,12 @@ export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIss
     })
   }
 
-  return { rows: out, issues }
+  return { rows: out, issues: onSheet(issues, 'grants') }
 }
 
 export function parsePayments(rows: RawRow[]): { rows: PaymentRow[]; issues: CellIssue[] } {
   const cols = byKey('payments')
-  const issues: CellIssue[] = []
+  const issues: RawIssue[] = []
   const out: PaymentRow[] = []
 
   for (const { rowNumber, cells } of rows) {
@@ -430,12 +461,12 @@ export function parsePayments(rows: RawRow[]): { rows: PaymentRow[]; issues: Cel
     out.push({ rowNumber, reference, dueDate, amount, paid, paidDate })
   }
 
-  return { rows: out, issues }
+  return { rows: out, issues: onSheet(issues, 'payments') }
 }
 
 export function parseReports(rows: RawRow[]): { rows: ReportRow[]; issues: CellIssue[] } {
   const cols = byKey('reports')
-  const issues: CellIssue[] = []
+  const issues: RawIssue[] = []
   const out: ReportRow[] = []
 
   for (const { rowNumber, cells } of rows) {
@@ -477,5 +508,5 @@ export function parseReports(rows: RawRow[]): { rows: ReportRow[]; issues: CellI
     out.push({ rowNumber, reference, label, dueDate, received, receivedDate })
   }
 
-  return { rows: out, issues }
+  return { rows: out, issues: onSheet(issues, 'reports') }
 }

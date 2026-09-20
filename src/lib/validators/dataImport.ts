@@ -65,6 +65,10 @@ export const CellIssueSchema = z.object({
   rowNumber: z.number().int().nonnegative(),
   column: z.string().max(200),
   message: z.string().max(500),
+  /** Three sheets share column names, so an issue without this names no place to look. */
+  sheet: z.enum(['grants', 'payments', 'reports']),
+  /** Set where a GRANT row was dropped: what its payments and reports point at. */
+  reference: z.string().max(120).optional(),
 })
 
 /**

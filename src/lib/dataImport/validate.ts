@@ -13,7 +13,14 @@
 // The degradation wording is the same wording shown later on the grant itself, so the
 // warning a client accepted and the gap they see afterwards always agree.
 
-import { columnLabel, GRANT_COLUMNS, ONE_OF_GROUPS, PAYMENT_COLUMNS } from './columns'
+import {
+  columnLabel,
+  GRANT_COLUMNS,
+  ONE_OF_GROUPS,
+  PAYMENT_COLUMNS,
+  SHEETS,
+  type SheetKey,
+} from './columns'
 import type { CellIssue, GrantRow, PaymentRow, ReportRow } from './parse'
 
 export type IssueKind = 'blocker' | 'degradation'
@@ -105,18 +112,31 @@ export function validateImport(input: {
   }
 
   // Cell-level problems, grouped by column so 40 bad dates are one line, not forty.
-  const byMessage = new Map<string, number[]>()
+  // Grouped by SHEET and message, not by message alone. "Due date", "Amount" and
+  // "Application reference" are headers on more than one sheet, so grouping on the text
+  // merged a bad date on Payments row 12 with a bad date on Reports row 12 into one line
+  // reading "Due date is required (2 rows) · Rows 12, 12".
+  //
+  // The detail used to say "fix these in the review step below", and there has never
+  // been anywhere in the wizard to fix a cell: the review step confirms programme, round
+  // and theme NAMES. The panel around it said the opposite in the same breath.
+  const byMessage = new Map<string, { sheet: SheetKey; message: string; rows: number[] }>()
   for (const issue of cellIssues) {
-    const list = byMessage.get(issue.message) ?? []
-    list.push(issue.rowNumber)
-    byMessage.set(issue.message, list)
+    const key = `${issue.sheet}::${issue.message}`
+    const entry = byMessage.get(key) ?? { sheet: issue.sheet, message: issue.message, rows: [] }
+    entry.rows.push(issue.rowNumber)
+    byMessage.set(key, entry)
   }
-  for (const [message, rows] of byMessage) {
+  for (const { sheet, message, rows } of byMessage.values()) {
+    const where = SHEETS[sheet].title
     issues.push({
       kind: 'blocker',
       code: 'cell',
-      message: rows.length === 1 ? message : `${message} (${rows.length} rows)`,
-      detail: 'Fix these in the review step below, or correct them in the workbook and re-upload.',
+      message:
+        rows.length === 1
+          ? `${where} sheet: ${message}`
+          : `${where} sheet: ${message} (${rows.length} rows)`,
+      detail: 'Correct these in your workbook and upload it again.',
       rows,
     })
   }
@@ -165,32 +185,52 @@ export function validateImport(input: {
   }
 
   // Payments and reports pointing at a grant that isn't in the file.
+  //
+  // Split in two, because one mistyped Status on the Grants sheet used to produce three
+  // blockers: the status itself, and then every payment and report belonging to that
+  // grant, reported as pointing at a reference that is not there. The reference was
+  // perfectly correct; the grant row had been dropped for being unreadable. Sending
+  // somebody to check forty payment references that are all right, while the real cause
+  // sits in a separate blocker above, inverts the diagnosis.
   const references = new Set(grants.map((g) => g.reference).filter(Boolean))
-  const orphanPayments = payments.filter((p) => !references.has(p.reference))
-  if (orphanPayments.length > 0) {
-    issues.push({
-      kind: 'blocker',
-      code: 'orphan_payments',
-      message: `${plural(orphanPayments.length, 'payment')} refers to a grant that is not on the Grants sheet`,
-      detail: `Unmatched references: ${[...new Set(orphanPayments.map((p) => p.reference))]
-        .slice(0, 5)
-        .map((r) => `“${r}”`)
-        .join(', ')}.`,
-      rows: orphanPayments.map((p) => p.rowNumber),
-    })
-  }
-  const orphanReports = reports.filter((r) => !references.has(r.reference))
-  if (orphanReports.length > 0) {
-    issues.push({
-      kind: 'blocker',
-      code: 'orphan_reports',
-      message: `${plural(orphanReports.length, 'report row')} refers to a grant that is not on the Grants sheet`,
-      detail: `Unmatched references: ${[...new Set(orphanReports.map((r) => r.reference))]
-        .slice(0, 5)
-        .map((r) => `“${r}”`)
-        .join(', ')}.`,
-      rows: orphanReports.map((r) => r.rowNumber),
-    })
+  const unreadable = new Set(
+    cellIssues.map((i) => i.reference).filter((r): r is string => Boolean(r)),
+  )
+  const namesUnreadable = (reference: string) => unreadable.has(reference)
+
+  const orphanList = (rows: Array<{ reference: string; rowNumber: number }>) => ({
+    fromUnreadable: rows.filter((r) => namesUnreadable(r.reference)),
+    missing: rows.filter((r) => !namesUnreadable(r.reference)),
+  })
+  const quoted = (refs: string[]) =>
+    [...new Set(refs)]
+      .slice(0, 5)
+      .map((r) => `“${r}”`)
+      .join(', ')
+
+  for (const [noun, code, rows] of [
+    ['payment', 'orphan_payments', payments.filter((p) => !references.has(p.reference))],
+    ['report row', 'orphan_reports', reports.filter((r) => !references.has(r.reference))],
+  ] as const) {
+    const { fromUnreadable, missing } = orphanList(rows)
+    if (fromUnreadable.length > 0) {
+      issues.push({
+        kind: 'blocker',
+        code: `${code}_unreadable`,
+        message: `${plural(fromUnreadable.length, noun)} belongs to a grant we could not read`,
+        detail: `Nothing is wrong with these rows. Fix the problems on the Grants sheet for ${quoted(fromUnreadable.map((r) => r.reference))} and they will resolve themselves.`,
+        rows: fromUnreadable.map((r) => r.rowNumber),
+      })
+    }
+    if (missing.length > 0) {
+      issues.push({
+        kind: 'blocker',
+        code,
+        message: `${plural(missing.length, noun)} refers to a grant that is not on the Grants sheet`,
+        detail: `Unmatched references: ${quoted(missing.map((r) => r.reference))}. If the Grants sheet has no references of its own, give each of those grants one (anything unique will do) and use it here.`,
+        rows: missing.map((r) => r.rowNumber),
+      })
+    }
   }
 
   // ── Degradations ──

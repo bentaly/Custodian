@@ -596,8 +596,12 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   for a decision, meaningless for a fact). The Custodian score is not auto-run either —
   scoring a 2019 application against goals written in 2026 is a confident, meaningless
   number, so an imported grant has no score for good.
-- **Deprivation and due diligence ARE auto-run**, on the queue — `kind: 'deprivation'` and
+- **Deprivation and due diligence ARE auto-run**, on the queue. The commit sends ONE
+  `import_derive` message; `fanOutImportDerivations` turns it into `kind: 'deprivation'` and
   `kind: 'due_diligence'`, two messages per imported application, sent with `sendBatch`
+  from a consumer invocation with a subrequest budget of its own. Sending them from the
+  commit cost a subrequest per hundred, so a full-size workbook ran out of budget and
+  `enqueueMany`'s failure was ignored: the screen promised checks that never ran
   (`src/server/applications/deprivation.ts` / `dueDiligence.ts`, both guarded on `pending`
   so a redelivery is free). Separate kinds on purpose: a Companies House outage must not
   re-geocode anything. **The line is a check of the world as it is today versus a judgement

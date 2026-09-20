@@ -40,6 +40,19 @@ export type PipelineMessage =
   // query and then hands each client its own invocation — so the emails for a busy
   // foundation cannot spend the 50-subrequest budget belonging to the next one.
   | { kind: 'award_notification'; clientId: string }
+  // One import's derived work, to be FANNED OUT into the two messages per grant below.
+  //
+  // The import used to send those itself, and at the top of its range it could not: a
+  // 2,000-grant workbook is 4,000 messages, which is 40 `sendBatch` calls on top of the
+  // fifteen database round trips the commit has already spent, against the Free plan's
+  // 50-subrequest ceiling. `enqueueMany` catches that failure and returns `failed`,
+  // which the commit ignored, so the screen promised deprivation and due diligence that
+  // were never going to run and Insights stayed blank with nothing to explain it.
+  //
+  // One message costs the commit one subrequest whatever the size of the workbook, and
+  // the fan-out then happens in a consumer invocation with a budget of its own. Same
+  // shape as the cron dispatchers, and for the same reason.
+  | { kind: 'import_derive'; batchId: string }
   // One imported application's delivery area, to be resolved into a deprivation
   // reading. The onboarding import writes the whole back catalogue in one request and
   // cannot geocode a hundred areas inside it — see `applications/deprivation.ts`.

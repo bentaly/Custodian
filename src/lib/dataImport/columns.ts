@@ -80,7 +80,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     header: 'Application reference',
     tier: 'required',
     type: 'text',
-    help: 'Your own reference for this application, from whatever system you use today. This becomes the grant’s reference in Custodian, and it is the code a charity quotes on a future report so the report links itself automatically. If you have none, leave the column blank and we will generate them.',
+    help: 'Your own reference for this application, from whatever system you use today. This becomes the grant’s reference in Custodian, and it is the code a charity quotes on a future report so the report links itself automatically. If you have none, leave the column blank and we will generate them. One exception: a grant with rows on the Payments or Reports sheet needs a reference here, because that is what those rows join to. Anything unique will do.',
   },
   {
     key: 'organisationName',

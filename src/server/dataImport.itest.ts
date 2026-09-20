@@ -86,7 +86,9 @@ vi.mock('./pipelineQueue', () => ({
 const { getDb } = await import('./db')
 const { assertWritableDatabase } = await import('../../scripts/demo/lib/shared')
 const { teardownDemo } = await import('../../scripts/demo/lib/teardown')
-const { commitImport, rollbackImport, prepareImport } = await import('./fns/dataImport')
+const { commitImport, rollbackImport, prepareImport, fanOutImportDerivations } = await import(
+  './fns/dataImport'
+)
 const { financeList } = await import('./fns/finance')
 const { MAX_GRANTS_PER_IMPORT } = await import('../lib/dataImport/validate')
 const schema = await import('../../drizzle/schema')
@@ -515,12 +517,28 @@ describe('the supported ceiling', () => {
 // Keeps the queue mock honest: every grant should have asked for a geocode and a
 // screening, and nothing should have been run inline.
 describe('derived features', () => {
-  it('queues a deprivation and a due diligence message per imported grant', async () => {
+  // ONE message, whatever the size of the workbook: a full-size import's 4,000 messages
+  // are 40 `sendBatch` calls, which does not fit beside the commit's own queries inside
+  // one 50-subrequest invocation. The fan-out runs in a consumer instead.
+  it('queues one fan-out message, not two per grant', async () => {
     const before = queued.length
-    await commit([
+    const result = await commit([
       grantRow({ reference: `${MARKER}-J1`, round: `Queue ${MARKER}` }),
       grantRow({ reference: `${MARKER}-J2`, round: `Queue ${MARKER}` }),
     ])
+    const sent = queued.slice(before) as Array<{ kind: string; batchId?: string }>
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toEqual({ kind: 'import_derive', batchId: result.batchId })
+  })
+
+  it('fans that message out into a deprivation and a screening per grant', async () => {
+    const result = await commit([
+      grantRow({ reference: `${MARKER}-J3`, round: `Fan ${MARKER}` }),
+      grantRow({ reference: `${MARKER}-J4`, round: `Fan ${MARKER}` }),
+    ])
+    const before = queued.length
+    const fan = await fanOutImportDerivations(result.batchId)
+    expect(fan.queued).toBe(4)
     const sent = queued.slice(before) as Array<{ kind: string }>
     expect(sent.filter((m) => m.kind === 'deprivation')).toHaveLength(2)
     expect(sent.filter((m) => m.kind === 'due_diligence')).toHaveLength(2)

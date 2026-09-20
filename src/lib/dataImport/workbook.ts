@@ -366,7 +366,10 @@ export type WorkbookFingerprint = { version: string; clientId: string } | null
 export type ReadResult = {
   fingerprint: WorkbookFingerprint
   sheets: Record<SheetKey, RawRow[]>
-  /** Headers we found but don't recognise — surfaced so a renamed column isn't silent. */
+  /** Headers we found but don't recognise. Computed and NOT yet shown anywhere: a
+   *  foundation's own extra column (their notes, their internal codes) is harmless and
+   *  common, so warning on every one would be noise. The case worth catching is a
+   *  RENAMED column, and that already shows up as a missing required header below. */
   unknownHeaders: Record<SheetKey, string[]>
   /** Required headers that are missing entirely. */
   missingHeaders: Record<SheetKey, string[]>

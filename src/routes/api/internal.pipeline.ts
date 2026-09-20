@@ -20,6 +20,7 @@ import { resolveApplicationDeprivation } from '../../server/applications/depriva
 import { screenApplication } from '../../server/applications/dueDiligence'
 import { generatePortfolioAnalysis } from '../../server/portfolioAnalysis/generate'
 import { runAwardNotifications } from '../../server/awardNotifications/run'
+import { fanOutImportDerivations } from '../../server/fns/dataImport'
 import type { PipelineMessage } from '../../server/pipelineQueue'
 import { errorChain } from '../../server/db'
 
@@ -76,6 +77,13 @@ export const Route = createFileRoute('/api/internal/pipeline')({
               // throwing: Resend rejecting an address will reject it three more times,
               // and the dialog shows a failed letter for a human to deal with.
               const result = await sendStoredDeclineLetter(message.letterId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'import_derive': {
+              // The fan-out, in an invocation with a subrequest budget of its own. A
+              // redelivery re-sends the same messages, which is free: both handlers
+              // below answer 200 without spending a call on a row already resolved.
+              const result = await fanOutImportDerivations(message.batchId)
               return json({ ok: true, result }, 200)
             }
             case 'deprivation': {

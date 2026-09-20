@@ -36,7 +36,7 @@ import {
 import { CommitImportSchema, ImportPayloadSchema } from '../../lib/validators/dataImport'
 import type { GrantRow } from '../../lib/dataImport/parse'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import { enqueueMany } from '../pipelineQueue'
+import { enqueue, enqueueMany } from '../pipelineQueue'
 import { bankFields } from '../applications/bank'
 import { resolveApplicationDeprivation } from '../applications/deprivation'
 import { screenApplication } from '../applications/dueDiligence'
@@ -99,6 +99,37 @@ function clearEmptyImportRows(db: ReturnType<typeof getDb>, clientId: string) {
       ),
     ),
   ]
+}
+
+/**
+ * Turn one import into its per-grant derived work: a deprivation lookup and a registry
+ * screening for every application the batch created.
+ *
+ * Runs in a queue consumer's own invocation (see `import_derive`), so the 40 `sendBatch`
+ * calls a full-size workbook needs are spent against a fresh 50-subrequest budget rather
+ * than the remains of the one that wrote the rows. Reads the applications back from the
+ * batch rather than taking them in the message: a retry then acts on what is actually
+ * there, and both handlers are already guarded on `pending`, so a redelivery is free.
+ */
+export async function fanOutImportDerivations(batchId: string): Promise<{ queued: number }> {
+  const rows = await getDb()
+    .select({ id: applications.id })
+    .from(applications)
+    .where(eq(applications.importBatchId, batchId))
+  if (rows.length === 0) return { queued: 0 }
+
+  await enqueueMany(
+    rows.flatMap((a) => [
+      { kind: 'deprivation' as const, applicationId: a.id },
+      { kind: 'due_diligence' as const, applicationId: a.id },
+    ]),
+    (message) => {
+      if (message.kind === 'deprivation') return resolveApplicationDeprivation(message.applicationId)
+      if (message.kind === 'due_diligence') return screenApplication(message.applicationId)
+      return Promise.resolve()
+    },
+  )
+  return { queued: rows.length * 2 }
 }
 
 /** Rows per INSERT statement. Postgres allows 65,535 bound parameters per statement,
@@ -1093,19 +1124,11 @@ export const commitImport = createServerFn({ method: 'POST' })
     // goals, and a 2019 application against goals written in 2026 is a confident,
     // meaningless number. That is the line — a check of the world as it is today is
     // worth running late; a judgement of a decision already made is not.
-    await enqueueMany(
-      applicationRows.flatMap((a) => [
-        { kind: 'deprivation' as const, applicationId: a.id! },
-        { kind: 'due_diligence' as const, applicationId: a.id! },
-      ]),
-      (message) => {
-        if (message.kind === 'deprivation') {
-          return resolveApplicationDeprivation(message.applicationId)
-        }
-        if (message.kind === 'due_diligence') return screenApplication(message.applicationId)
-        return Promise.resolve()
-      },
-    )
+    // ONE message, whatever the size of the workbook. See `import_derive`: sending the
+    // two-per-grant messages from here cost a subrequest per hundred of them, and at
+    // the top of the range that ran the invocation out of budget and silently dropped
+    // the lot. `fanOutImportDerivations` does it from a consumer invocation instead.
+    await enqueue({ kind: 'import_derive', batchId }, () => fanOutImportDerivations(batchId))
 
     return {
       batchId,
