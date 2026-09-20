@@ -739,9 +739,10 @@ function FinancePage() {
                 rowKey={(g) => g.key}
                 rowClassName={(g) => (opening === g.awardId ? 'opacity-60' : '')}
                 onRowClick={(g) => openGrant(g.awardId, g.instalmentId)}
-                // The default order is a real order (soonest owed first), so its
-                // column carries the arrow from the moment the screen opens.
-                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : FINANCE_DEFAULT_SORT}
+                // The default order is a real order (soonest owed first on To pay,
+                // most recently paid first on Paid), so its column carries the arrow
+                // from the moment the screen opens.
+                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : FINANCE_DEFAULT_SORT[tab]}
                 onSort={setSort}
                 selection={
                   canPay

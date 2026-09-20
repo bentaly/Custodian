@@ -400,7 +400,15 @@ design rationale; this list is a map, not a summary.
   right five districts. **Matched only on an EXACT name match**, because some forces merge
   counties, so "Buckinghamshire" against "Thames Valley" fails and falls back to the region
   exactly as before. Never a wrong answer, sometimes no better one. Scotland and NI are null (one
-  national force each). Only town-vs-city still turns on footprint, because Google types Potters
+  national force each).
+  **A REGION named outright never reaches Google** (`matchRegionName`, run before the
+  geocoder): restricted to GB, Google answers "North West" with "Northwest", an
+  `administrative_area_level_3` inside Kilmarnock, so a North West England portfolio
+  reported East Ayrshire, Scotland. The ten `deprivation_areas.region_name` values are
+  matched by name instead, exact after normalisation plus a few spellings that can mean
+  nothing else. Scotland and NI are absent from it (no region below the nation, so
+  `too_broad` stands); "Yorkshire" alone is absent too, being as likely to name a police
+  force area as the statistical region. Only town-vs-city still turns on footprint, because Google types Potters
   Bar and Leeds alike.
   **A location is PRINTED and GROUPED on two different scales, and both helpers live in
   `src/lib/deprivation/types.ts`.** `deliveryAreaLabel` is the sharp one (district → matched area
@@ -541,6 +549,19 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
 `/settings/data-import` (admin-only) brings a foundation's existing grants in at onboarding.
 `src/lib/dataImport` is pure, `src/server/fns/dataImport.ts` is IO.
 
+- **A round the workbook names but the foundation does not have is CREATED, and the import
+  owns it.** It is dated from the grants inside it (first and last decision date), never from
+  the clock: stamping `new Date()` made every historic round the most recent round the
+  foundation had ever run, all tied to the millisecond, so Applications' "latest round"
+  default landed on one of eleven at random and changed between loads, and the live round
+  looked deleted. Its pairings get **no budget at all** (`round_programmes.budget` is
+  nullable; NULL is "not set", where the £0 it replaced was a budget of nothing and read as
+  permanently overspent). `rounds.import_batch_id` / `round_programmes.import_batch_id`
+  record whose invention it was, which is what lets an empty one be taken away again: a
+  re-upload that moves grants to another round, and `rollbackImport`, both delete
+  import-created rounds and pairings that nothing points at any more. Rows a human made are
+  never touched. `scripts/repair-imported-rounds.ts` fixes portfolios imported before this
+  (2026-09-20).
 - **Scoped by lifecycle, not "all history"**: the grants that still owe money or a report. Old
   application text, votes and retrospective scores are never imported.
 - One .xlsx workbook, three sheets (Grants / Payments / Reports) joined on the foundation's own
@@ -1056,8 +1077,11 @@ Structural decisions worth knowing before adding a screen:
 - **Rounds and Programmes have no detail route.** Each is created and edited in a dialog over the
   list; `saveRound` / `saveProgramme` write the whole thing in one call, and a round's programme
   array is a REPLACEMENT, not a patch. A round's budget is always **derived** (the sum of its
-  programme allocations). Both are **archive only** — `deleteRound` / `deleteProgramme` were
-  removed, because a round's applications and awards are the record of a decision. Which rounds a
+  programme allocations) and is `null` when not one of them carries a figure, which is "not
+  set" rather than £0. Both are **archive only** — `deleteRound` / `deleteProgramme` were
+  removed, because a round's applications and awards are the record of a decision. (The one
+  thing that still deletes a round is the data import, and only one it created itself that
+  has nothing left in it — see the import section.) Which rounds a
   programme is funded in is set in the ROUND dialog, next to the budget that decision is about.
   **A round-programme budget is a target, not a ceiling** — unless the foundation says otherwise
   at `/settings/shortlisting` (`client_profiles.enforce_round_budget`, default FALSE). Most

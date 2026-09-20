@@ -443,6 +443,17 @@ export const commitImport = createServerFn({ method: 'POST' })
       }
     }
 
+    // Every decision date in each round, ascending — what a round created below is
+    // dated from. ISO day strings, so they sort as text.
+    const awardDatesByRound = new Map<string, string[]>()
+    for (const grant of payload.grants) {
+      const key = grant.round.trim().toLowerCase()
+      const list = awardDatesByRound.get(key) ?? []
+      list.push(grant.awardDate)
+      awardDatesByRound.set(key, list)
+    }
+    for (const list of awardDatesByRound.values()) list.sort()
+
     // ── Resolve themes ──
     //
     // Same door rule as programmes: every theme the mapping names must be one this
@@ -477,9 +488,11 @@ export const commitImport = createServerFn({ method: 'POST' })
     // ── Round-programme pairings ──
     //
     // An application must hang off a (round, programme) pairing. Historic pairings
-    // mostly won't exist, and they carry a NOT NULL budget — set to 0 here because a
-    // budget is a forward-looking control on a round you are still deciding, and
-    // inventing a number for a round that closed in 2019 would be worse than a zero.
+    // mostly won't exist, and they are created with NO budget — a budget is a
+    // forward-looking control on a round you are still deciding, and inventing a number
+    // for a round that closed in 2019 would be worse than saying nothing. NULL says
+    // exactly that; the £0 it replaced read as a budget of nothing, which is why the
+    // Rounds screen showed "£4.1k committed of £0" on a round that was never overspent.
     const existingPairs = await db
       .select({
         id: roundProgrammes.id,
@@ -852,22 +865,46 @@ export const commitImport = createServerFn({ method: 'POST' })
     if (newRounds.length > 0) {
       statements.push(
         db.insert(rounds).values(
-          newRounds.map((r) => ({
-            id: r.id,
-            clientId,
-            name: r.name,
-            // A historic round is closed by definition — it is being imported because
-            // its decisions were made. Leaving it open would put finished grants in the
-            // round pickers on Applications and Shortlist.
-            openedAt: new Date(),
-            closedAt: new Date(),
-          })),
+          newRounds.map((r) => {
+            // Dated from the decisions made in it, NOT from the clock.
+            //
+            // Stamping `new Date()` made every historic round the most recent round the
+            // foundation had ever run, all tied to the millisecond. Applications defaults
+            // to the latest round by `openedAt`, so it landed on one of eleven 2021-2024
+            // rounds at random and changed its mind on every load, and the live round
+            // looked like it had been deleted. The same tie put the round pill, the
+            // Rounds screen and Insights' commitment-over-time in no order at all.
+            //
+            // An award date is the day a decision was made, and it is required on every
+            // grant row, so a round created here always has one. Closing on the LAST of
+            // them is the honest reading: a round closes when its decisions are made.
+            // Opening on the first is the best available guess — real applications opened
+            // earlier, and nothing in the workbook says when.
+            const dates = awardDatesByRound.get(r.name.trim().toLowerCase()) ?? []
+            const opened = dates[0]
+            const closed = dates[dates.length - 1]
+            return {
+              id: r.id,
+              clientId,
+              name: r.name,
+              // Whose invention this was — see `rounds.import_batch_id`. It is what
+              // lets an empty one be taken away again.
+              importBatchId: batchId,
+              // A historic round is closed by definition — it is being imported because
+              // its decisions were made. Leaving it open would put finished grants in the
+              // round pickers on Applications and Shortlist.
+              openedAt: opened ? new Date(opened) : new Date(),
+              closedAt: closed ? new Date(closed) : new Date(),
+            }
+          }),
         ),
       )
     }
     if (newPairs.length > 0) {
       statements.push(
-        db.insert(roundProgrammes).values(newPairs.map((p) => ({ ...p, budget: '0' }))),
+        db.insert(roundProgrammes).values(
+          newPairs.map((p) => ({ ...p, budget: null, importBatchId: batchId })),
+        ),
       )
     }
 
@@ -877,6 +914,39 @@ export const commitImport = createServerFn({ method: 'POST' })
       statements.push(db.insert(awardInstalments).values(instalmentRows))
     if (scheduleRows.length > 0) statements.push(db.insert(reportSchedule).values(scheduleRows))
     if (reportRows.length > 0) statements.push(db.insert(reports).values(reportRows))
+
+    // ── Tidy up what an earlier import invented and this one no longer needs ──
+    //
+    // Re-uploading is the phasing mechanism, and a corrected workbook routinely moves a
+    // grant to a different round. The old round was only ever created to hang that grant
+    // off, so once nothing hangs off it, it is an empty label in every round picker the
+    // foundation has, and rounds cannot be deleted from the UI. That is where "July 2022"
+    // and "April 2025" came from on a real portfolio: rounds nobody had ever run.
+    //
+    // Only ever import-created rows (`import_batch_id is not null`), only ever when
+    // genuinely empty, and last in the batch so the rows this import just wrote are
+    // already in place and count. A pairing or round a human made is never touched.
+    statements.push(
+      db.delete(roundProgrammes).where(
+        and(
+          isNotNull(roundProgrammes.importBatchId),
+          inArray(
+            roundProgrammes.roundId,
+            db.select({ id: rounds.id }).from(rounds).where(eq(rounds.clientId, clientId)),
+          ),
+          sql`not exists (select 1 from ${applications} where ${applications.roundProgrammeId} = ${roundProgrammes.id})`,
+        ),
+      ),
+    )
+    statements.push(
+      db.delete(rounds).where(
+        and(
+          eq(rounds.clientId, clientId),
+          isNotNull(rounds.importBatchId),
+          sql`not exists (select 1 from ${roundProgrammes} where ${roundProgrammes.roundId} = ${rounds.id})`,
+        ),
+      ),
+    )
 
     await db.batch(statements as [any, ...any[]])
 
@@ -1079,6 +1149,27 @@ export const rollbackImport = createServerFn({ method: 'POST' })
     await db.batch([
       db.delete(awards).where(inArray(awards.applicationId, applicationIds)),
       db.delete(applications).where(inArray(applications.id, applicationIds)),
+      // The rounds and pairings THIS batch invented go with it. Undoing an import that
+      // left eleven rounds behind is not an undo — they are in every round picker the
+      // foundation has, and nothing in the UI can remove a round. Scoped to the batch
+      // and to rows nothing points at any more, so a round that has since been used for
+      // real, or that a human created, survives its grants being withdrawn.
+      db
+        .delete(roundProgrammes)
+        .where(
+          and(
+            eq(roundProgrammes.importBatchId, data.batchId),
+            sql`not exists (select 1 from ${applications} where ${applications.roundProgrammeId} = ${roundProgrammes.id})`,
+          ),
+        ),
+      db
+        .delete(rounds)
+        .where(
+          and(
+            eq(rounds.importBatchId, data.batchId),
+            sql`not exists (select 1 from ${roundProgrammes} where ${roundProgrammes.roundId} = ${rounds.id})`,
+          ),
+        ),
       db
         .update(importBatches)
         .set({ status: 'rolled_back', rolledBackAt: new Date(), rolledBackBy: user.id })

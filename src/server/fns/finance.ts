@@ -395,7 +395,7 @@ export async function financeList(
       .select()
       .from(p)
       .where(onTab(tab))
-      .orderBy(...orderFor(p, data.sortBy, data.sortDir))
+      .orderBy(...orderFor(p, data.sortBy, data.sortDir, tab))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     countOn(onTab(tab)),
@@ -620,6 +620,7 @@ function orderFor(
   p: PaymentsQuery,
   by: SortKey | undefined,
   dir: 'asc' | 'desc' | undefined,
+  tab: 'to_pay' | 'paid',
 ): SQL[] {
   const d = sql.raw(dir === 'asc' ? 'asc' : 'desc')
   const text = (col: SQLWrapper) => sql`lower(${col}) ${d} nulls last`
@@ -646,22 +647,30 @@ function orderFor(
       return [sql`${bankRank(p)} ${d}`, withinGrant]
     case 'status':
       return [sql`${statusRank(p)} ${d}`, withinGrant]
-    default:
+    default: {
       // The declared default plus a tiebreak, rather than a second spelling of it: the
       // screen draws its arrow on `FINANCE_DEFAULT_SORT`, so the first key here has to
       // BE that sort and not merely look like it.
-      return [
-        ...orderFor(p, FINANCE_DEFAULT_SORT.by, FINANCE_DEFAULT_SORT.dir),
-        sql`${p.paidDate} desc nulls last`,
-      ]
+      const fallback = FINANCE_DEFAULT_SORT[tab]
+      return [...orderFor(p, fallback.by, fallback.dir, tab), sql`${p.paidDate} desc nulls last`]
+    }
   }
 }
 
-/** The order with nothing clicked — and the arrow the header shows on landing. */
-export const FINANCE_DEFAULT_SORT = { by: 'due', dir: 'asc' } as const satisfies {
-  by: SortKey
-  dir: 'asc' | 'desc'
-}
+/**
+ * The order with nothing clicked — and the arrow the header shows on landing.
+ *
+ * One per tab, because the two ask opposite questions of the same rows. To pay is a
+ * queue: the money owed soonest is the work, so it comes first. Paid is a record, and a
+ * record is read from the top: the payment that just went out, not the one from 2019.
+ * A single default served both and opened a foundation's paid history on its oldest
+ * grant, which after an onboarding import is several hundred rows from anything they
+ * had done that week.
+ */
+export const FINANCE_DEFAULT_SORT = {
+  to_pay: { by: 'due', dir: 'asc' },
+  paid: { by: 'paid', dir: 'desc' },
+} as const satisfies Record<'to_pay' | 'paid', { by: SortKey; dir: 'asc' | 'desc' }>
 
 /**
  * Bank details that would stop a payment going out, first. A row never checked sorts

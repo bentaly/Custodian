@@ -71,7 +71,9 @@ async function main() {
 
     const g = trace.google
     if (g == null) {
-      console.log('  google      not called (postcode branch)')
+      console.log(
+        `  google      not called (${trace.level === 'region' ? 'named region' : 'postcode'} branch)`,
+      )
     } else if (g.kind === 'match') {
       const p = g.place
       console.log(`  google      "${p.name}"  [${p.types.join(', ') || 'no types'}]`)

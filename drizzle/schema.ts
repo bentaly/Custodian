@@ -364,6 +364,16 @@ export const rounds = pgTable(
     // round dialog asks, but only then, and stores the answer here.
     // `roundFinancialYear` (`src/lib/roundYear.ts`) is the single reader.
     financialYearStart: text('financial_year_start'),
+    // Set when the onboarding import created this round, because a grant in the workbook
+    // named a round the foundation did not have. Provenance with a job: the import is
+    // the only thing that creates a round nobody asked for, so it is the only thing that
+    // can take one away again. Without it, a re-upload that moved its grants elsewhere
+    // left an empty round in the pickers for good ("July 2022", "April 2025"), and a
+    // rollback left every round the batch had invented behind. NULL is a round a human
+    // made, which is never removed this way.
+    importBatchId: uuid('import_batch_id').references(() => importBatches.id, {
+      onDelete: 'set null',
+    }),
     // Retired, not removed. A round that has applications can never be deleted — its
     // applications and awards are financial records that must keep pointing at the round
     // they were judged in — so "I'm done with this" is expressed by archiving: hidden
@@ -430,13 +440,25 @@ export const roundProgrammes = pgTable(
       .references(() => programmes.id, { onDelete: 'cascade' }),
     // Total pot available for this programme in this specific round, e.g. £500,000.
     // Tracked against shortlisted application amounts to show budget utilisation.
-    budget: numeric('budget').notNull(),
+    //
+    // NULL is "no budget set", and is a different answer from £0. The onboarding import
+    // writes it: a round that closed in 2019 is being recorded, not planned, and nobody
+    // is going to invent the pot it was given. £0 was the old stand-in and read as a
+    // budget of nothing — "£4.1k committed of £0", a round permanently 100% overspent,
+    // and (with `enforce_round_budget` on) a round nothing could be shortlisted into.
+    // Every reader treats NULL as "not measured against anything" rather than zero.
+    budget: numeric('budget'),
     // The most any single applicant can be awarded, e.g. £50,000.
     // Shown to reviewers and used as a guardrail when assessing applications.
     maxGrantAmount: numeric('max_grant_amount'),
     // How many years awards from this round programme typically run, e.g. 3.
     // Used to show an annualised figure (max_grant_amount / years) alongside the total.
     grantDurationYears: integer('grant_duration_years'),
+    // As `rounds.import_batch_id`: the pairing was invented by an import to hang a
+    // historic grant off, and is removed again once nothing hangs off it.
+    importBatchId: uuid('import_batch_id').references(() => importBatches.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [

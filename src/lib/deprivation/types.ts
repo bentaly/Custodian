@@ -224,3 +224,80 @@ export function deliveryRegionLabel(app: {
     app.deliveryRegion ?? (app.deliveryNation ? (NATION_LABELS[app.deliveryNation] ?? null) : null)
   )
 }
+
+// ─── A region named outright ───────────────────────────────────────────────────
+//
+// "North West" is a delivery area a foundation really does write, and it is the one
+// input the geocoder cannot be trusted with: Google restricts to GB and answers with
+// "Northwest", an `administrative_area_level_3` inside Kilmarnock, so a North West
+// England portfolio reported East Ayrshire, Scotland. That is not a near miss to be
+// widened later — the whole chain downstream is reasoning about the wrong country.
+//
+// So a region is matched on its NAME, before anything is geocoded. `deprivation_areas
+// .region_name` carries exactly ten values (England's nine plus Wales), and the match
+// is exact after normalisation, in the same spirit as the police-force rule: never a
+// wrong answer, sometimes no better one. Only spellings that can mean nothing else are
+// accepted — "Yorkshire" alone is not one of them, since it is as likely to mean one of
+// the three Yorkshire police areas as the statistical region, and Google reads it
+// correctly anyway.
+//
+// Scotland and Northern Ireland are deliberately absent: neither has a statistical
+// region below the nation, so naming one is `too_broad`, which is what it already
+// resolves to.
+//
+// **"West Midlands" names two geographies and is included anyway.** It is a region of
+// 3,574 neighbourhoods and also a police force area of 1,702 (the metropolitan county).
+// Being in this list does not decide that: `reportingLevel` tests the region name
+// before the county rule, so the geocoded path already answers West Midlands with the
+// region. The list changes what it costs, not what it says.
+const REGION_NAMES = [
+  'East Midlands',
+  'East of England',
+  'London',
+  'North East',
+  'North West',
+  'South East',
+  'South West',
+  'West Midlands',
+  'Yorkshire and The Humber',
+  'Wales',
+] as const
+
+/** Aliases that can only mean one region. Keyed by their normalised form. */
+const REGION_ALIASES: Record<string, (typeof REGION_NAMES)[number]> = {
+  'north west england': 'North West',
+  'north east england': 'North East',
+  'south west england': 'South West',
+  'south east england': 'South East',
+  'east of england region': 'East of England',
+  'eastern england': 'East of England',
+  'east midlands region': 'East Midlands',
+  'west midlands region': 'West Midlands',
+  'yorkshire and humber': 'Yorkshire and The Humber',
+  'yorkshire the humber': 'Yorkshire and The Humber',
+  'yorkshire humber': 'Yorkshire and The Humber',
+  'greater london': 'London',
+  'cymru': 'Wales',
+}
+
+/** Normalised for comparison: case, punctuation and "&" folded away. */
+function normaliseRegion(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z]+/g, ' ')
+    .replace(/^the /, '')
+    .trim()
+}
+
+/**
+ * Does this free text name one of the statistical regions outright? Returns the
+ * region's name exactly as `deprivation_areas.region_name` spells it, or null.
+ */
+export function matchRegionName(input: string): string | null {
+  const key = normaliseRegion(input)
+  if (!key) return null
+  const exact = REGION_NAMES.find((r) => normaliseRegion(r) === key)
+  if (exact) return exact
+  return REGION_ALIASES[key] ?? null
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "round_programmes" ALTER COLUMN "budget" DROP NOT NULL;

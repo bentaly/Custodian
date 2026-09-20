@@ -168,7 +168,7 @@ function RoundDialogForm({
           financialYearStart: financialYearStart || null,
           programmes: filled.map((r) => ({
             programmeId: r.programmeId,
-            budget: parseFloat(r.budget) || 0,
+            budget: r.budget.trim() === '' ? null : parseFloat(r.budget) || 0,
             maxGrantAmount: r.maxGrantAmount ? parseFloat(r.maxGrantAmount) : null,
             grantDurationYears: r.grantDurationYears ? parseInt(r.grantDurationYears, 10) : null,
           })),
@@ -302,8 +302,10 @@ function RoundDialogForm({
                   <MoneyInput
                     value={row.budget}
                     label={`Budget for ${nameById.get(row.programmeId) ?? `programme ${i + 1}`}`}
-                    placeholder="Amount"
-                    required={row.programmeId !== ''}
+                    // Optional, and blank is stored as "not set" rather than £0 — the
+                    // two are different answers (see `round_programmes.budget`), and a
+                    // round the onboarding import created arrives here with no figure.
+                    placeholder="Not set"
                     onChange={(v) => patch(i, { budget: v })}
                   />
                 </div>

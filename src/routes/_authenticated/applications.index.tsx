@@ -52,7 +52,7 @@ import {
   TruncatedText,
   type TableColumn,
 } from '../../components/ui'
-import { fmtAmount, fmtCompact, fmtDate, fmtRef } from '../../lib/format'
+import { fmtAmount, fmtCompact, fmtDate, fmtList, fmtRef } from '../../lib/format'
 import { deliveryAreaLabel } from '../../lib/deprivation/types'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import { SCORE_BAND_OPTIONS } from '../../lib/scoreBands'
@@ -228,12 +228,25 @@ function BudgetLegend({
 }
 
 function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
-  const totalBudget = rows.reduce((s, r) => s + (r.budget ?? 0), 0)
   const totalAwarded = rows.reduce((s, r) => s + r.awarded, 0)
   const totalShortlisted = rows.reduce((s, r) => s + r.shortlisted, 0)
   const awardedCount = rows.reduce((s, r) => s + r.awardedCount, 0)
   const shortlistedCount = rows.reduce((s, r) => s + r.shortlistedCount, 0)
   const committed = totalAwarded + totalShortlisted
+
+  // A programme with no budget set is measured against what it gave — see
+  // `round_programmes.budget`. Every round the onboarding import creates arrives that
+  // way, and the alternative readings are both wrong on a closed round: £0 makes it
+  // permanently overspent, and leaving the card out hides the money it did commit.
+  // Said in words underneath, so "of £4.1k" is never read as a pot somebody chose.
+  const unbudgeted = rows.filter((r) => r.budget === null)
+  const totalBudget = rows.reduce((s, r) => s + (r.budget ?? r.awarded + r.shortlisted), 0)
+  const noBudgetSet =
+    unbudgeted.length === 0
+      ? null
+      : unbudgeted.length === rows.length && rows.length > 1
+        ? 'No budget set for this round, so the total committed is shown instead.'
+        : `No budget set for ${fmtList(unbudgeted.map((r) => r.programmeName))}, so the total committed is counted instead.`
   const unallocated = Math.max(0, totalBudget - committed)
 
   return (
@@ -299,6 +312,15 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
             label="unallocated"
           />
         </div>
+
+        {/* Why the figure it is measured against is the figure it committed. Without
+            this the card reads as a budget somebody chose and happened to spend to the
+            penny, which is the one thing it is not. */}
+        {noBudgetSet && (
+          <p className="font-display text-label" style={{ color: C.sub }}>
+            {noBudgetSet}
+          </p>
+        )}
       </div>
     </div>
   )

@@ -35,6 +35,17 @@ export const listMyRounds = createServerFn({ method: 'GET' })
   })
 
 /**
+ * A round's budget: the sum of its programme allocations, or null when not one of them
+ * has been given a figure. A round with SOME set sums those — a half-set budget is
+ * still a budget, and the alternative (reporting nothing until every programme has a
+ * number) would hide a figure somebody typed.
+ */
+function sumBudgets(allocations: Array<{ budget: string | null }>): number | null {
+  const set = allocations.filter((rp) => rp.budget !== null)
+  return set.length > 0 ? set.reduce((sum, rp) => sum + Number(rp.budget), 0) : null
+}
+
+/**
  * The Rounds screen's payload: every round the client has, each with the three figures
  * the comp shows — how many programmes it funds, what it has actually committed, and
  * the pot that is measured against.
@@ -45,9 +56,10 @@ export const listMyRounds = createServerFn({ method: 'GET' })
  *
  * `budget` is DERIVED — the sum of the programme allocations, never a stored column.
  * A round funds programmes and nothing else, so there is no pot it could hold that its
- * allocations don't already describe. A round with no programmes reads as `null` rather
- * than £0, because "no budget set yet" and "a budget of nothing" are different answers
- * and only one of them is a reason to go and set one.
+ * allocations don't already describe. A round with no programmes, or none of whose
+ * allocations carries a figure, reads as `null` rather than £0, because "no budget set
+ * yet" and "a budget of nothing" are different answers and only one of them is a reason
+ * to go and set one.
  */
 export const listRoundsOverview = createServerFn({ method: 'GET' }).handler(async () => {
   const user = await requireAuthUser()
@@ -89,10 +101,11 @@ export const listRoundsOverview = createServerFn({ method: 'GET' }).handler(asyn
     closedAt: round.closedAt,
     archivedAt: round.archivedAt,
     programmeCount: round.roundProgrammes.length,
-    budget:
-      round.roundProgrammes.length > 0
-        ? round.roundProgrammes.reduce((sum, rp) => sum + Number(rp.budget), 0)
-        : null,
+    // Only the allocations that HAVE a budget are summed, and a round where none of
+    // them does reads `null` — "not set" — rather than £0. The onboarding import
+    // creates its pairings that way on purpose (see `round_programmes.budget`), so
+    // without this every historic round reported its spend against a pot of nothing.
+    budget: sumBudgets(round.roundProgrammes),
     committed: committedByRound.get(round.id) ?? 0,
   }))
 })
@@ -244,7 +257,7 @@ export const saveRound = createServerFn({ method: 'POST' })
           return db
             .update(roundProgrammes)
             .set({
-              budget: next.budget.toString(),
+              budget: next.budget === null ? null : next.budget.toString(),
               maxGrantAmount: next.maxGrantAmount?.toString() ?? null,
               grantDurationYears: next.grantDurationYears,
             })
@@ -256,7 +269,7 @@ export const saveRound = createServerFn({ method: 'POST' })
           db.insert(roundProgrammes).values({
             roundId: roundId!,
             programmeId: p.programmeId,
-            budget: p.budget.toString(),
+            budget: p.budget === null ? null : p.budget.toString(),
             maxGrantAmount: p.maxGrantAmount?.toString() ?? null,
             grantDurationYears: p.grantDurationYears,
           }),

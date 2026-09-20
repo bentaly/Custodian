@@ -5,6 +5,7 @@ import {
   deliveryRegionLabel,
   formatDecileRange,
   looksLikePostcode,
+  matchRegionName,
   nationFromGssCode,
 } from './types'
 import type { DeprivationResult } from './types'
@@ -136,5 +137,57 @@ describe('deliveryRegionLabel', () => {
   it('produces only labels the awards query CASE also produces', () => {
     expect(deliveryRegionLabel({ deliveryRegion: null, deliveryNation: 'england' })).toBeNull()
     expect(deliveryRegionLabel({ deliveryRegion: null, deliveryNation: 'wales' })).toBeNull()
+  })
+})
+
+
+describe('matchRegionName', () => {
+  /**
+   * The case this exists for. Google restricts to GB and still answers "North West"
+   * with an administrative_area_level_3 inside Kilmarnock, so a North West England
+   * portfolio reported East Ayrshire, Scotland — a wrong answer that looks exactly
+   * like a right one on the application screen.
+   */
+  it('matches a region named outright, whatever the casing or spacing', () => {
+    expect(matchRegionName('North West')).toBe('North West')
+    expect(matchRegionName('north west')).toBe('North West')
+    expect(matchRegionName('  NORTH   WEST  ')).toBe('North West')
+    expect(matchRegionName('North West England')).toBe('North West')
+  })
+
+  it('folds the ampersand and the article, which is how foundations write it', () => {
+    expect(matchRegionName('Yorkshire and The Humber')).toBe('Yorkshire and The Humber')
+    expect(matchRegionName('Yorkshire & the Humber')).toBe('Yorkshire and The Humber')
+    expect(matchRegionName('the South West')).toBe('South West')
+  })
+
+  it('answers Wales, which has a region row of its own', () => {
+    expect(matchRegionName('Wales')).toBe('Wales')
+  })
+
+  /** A region and a police force area share this name. The geocoded path already
+   *  answers it with the region (`reportingLevel` tests the region before the county
+   *  rule), so matching it here changes the cost and not the answer. */
+  it('answers West Midlands with the region, as the geocoded path does', () => {
+    expect(matchRegionName('West Midlands')).toBe('West Midlands')
+  })
+
+  /**
+   * Exact after normalisation, like the police-force rule: never a wrong answer,
+   * sometimes no better one. "Yorkshire" alone is as likely to mean one of the three
+   * Yorkshire force areas, and a town inside a region must still be read as the town.
+   */
+  it('declines anything that is not unambiguously a region', () => {
+    expect(matchRegionName('Yorkshire')).toBeNull()
+    expect(matchRegionName('Manchester')).toBeNull()
+    expect(matchRegionName('North Westminster')).toBeNull()
+    expect(matchRegionName('West Midlands Police')).toBeNull()
+    expect(matchRegionName('')).toBeNull()
+  })
+
+  /** Neither has a statistical region below the nation, so naming one is too_broad. */
+  it('leaves Scotland and Northern Ireland to the existing path', () => {
+    expect(matchRegionName('Scotland')).toBeNull()
+    expect(matchRegionName('Northern Ireland')).toBeNull()
   })
 })

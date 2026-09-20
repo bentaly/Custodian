@@ -25,7 +25,10 @@ export const SaveRoundSchema = z
     programmes: z.array(
       z.object({
         programmeId: z.uuid(),
-        budget: z.number().nonnegative(),
+        // NULL is "no budget set", which is not the same as £0 — see
+        // `round_programmes.budget`. The dialog leaves the field blank for a round the
+        // onboarding import created, and saving it must not turn that into a zero.
+        budget: z.number().nonnegative().nullable(),
         // Both optional, and `null` is meaningful: it clears a limit that was set.
         maxGrantAmount: z.number().positive().nullable(),
         grantDurationYears: z.number().int().positive().max(50).nullable(),

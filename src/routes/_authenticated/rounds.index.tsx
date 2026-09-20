@@ -92,7 +92,9 @@ function Rounds() {
         financialYearStart: round.financialYearStart ?? '',
         programmes: round.roundProgrammes.map((rp) => ({
           programmeId: rp.programmeId,
-          budget: rp.budget,
+          // "" is the dialog's "not set"; a null budget must not arrive as the string
+          // "null" in a money field.
+          budget: rp.budget ?? '',
           maxGrantAmount: rp.maxGrantAmount ?? '',
           grantDurationYears: rp.grantDurationYears?.toString() ?? '',
         })),

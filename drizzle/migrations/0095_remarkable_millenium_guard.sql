@@ -1,0 +1,4 @@
+ALTER TABLE "round_programmes" ADD COLUMN "import_batch_id" uuid;--> statement-breakpoint
+ALTER TABLE "rounds" ADD COLUMN "import_batch_id" uuid;--> statement-breakpoint
+ALTER TABLE "round_programmes" ADD CONSTRAINT "round_programmes_import_batch_id_import_batches_id_fk" FOREIGN KEY ("import_batch_id") REFERENCES "public"."import_batches"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_import_batch_id_import_batches_id_fk" FOREIGN KEY ("import_batch_id") REFERENCES "public"."import_batches"("id") ON DELETE set null ON UPDATE no action;

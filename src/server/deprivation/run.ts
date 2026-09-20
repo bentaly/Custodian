@@ -33,6 +33,7 @@ import { deprivationAreas } from '../../../drizzle/schema'
 import {
   decileStats,
   looksLikePostcode,
+  matchRegionName,
   LAD_EXTENT_KM,
   type DeprivationContext,
   type DeprivationResult,
@@ -167,6 +168,25 @@ export async function resolveDeprivation(
       status: 'resolved',
       input,
       ...contextFromRows(rows, 'lsoa', area.lsoaName ?? rows[0]!.name, 'postcode'),
+    }
+  }
+
+  // ── A region named outright → that region ───────────────────────────────────
+  //
+  // Before Google, because Google is what gets this one wrong: "North West" comes
+  // back as an administrative_area_level_3 in Kilmarnock and reported East Ayrshire
+  // for a North West England portfolio. A region's name can only mean the region, so
+  // it is answered from the reference table directly. See `matchRegionName`.
+  const namedRegion = matchRegionName(input)
+  if (namedRegion) {
+    if (trace) trace.level = 'region'
+    const rows = await areasByRegion(namedRegion)
+    if (rows.length) {
+      return {
+        status: 'resolved',
+        input,
+        ...contextFromRows(rows, 'region', namedRegion, 'place'),
+      }
     }
   }
 
