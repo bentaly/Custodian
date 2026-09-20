@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { getDb } from '../db'
 import { users } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
-import { wantsDigest } from '../../lib/financeDigest/optIn'
+import { financeDigestAvailable, wantsDigest } from '../../lib/financeDigest/optIn'
 import { reportsDigestAvailable, wantsReportsDigest } from '../../lib/reportsDigest/optIn'
 import {
   awardNotificationsAvailable,
@@ -60,9 +60,18 @@ export const getMyEmailPreferences = createServerFn({ method: 'GET' }).handler(a
     weeklyFinanceDigest: row ? wantsDigest(row) : false,
     weeklyReportsDigest: row ? wantsReportsDigest(row) : false,
     awardNotifications: row ? wantsAwardNotifications(row) : false,
-    available: tenanted,
+    // One availability flag per email, because the three no longer agree: payments is
+    // finance + admin, reports is admin, new awards is admin + finance. `available` is
+    // the panel itself - a trustee is eligible for none of them and should be shown no
+    // Email section at all rather than an empty one.
+    financeAvailable: tenanted && financeDigestAvailable(user.role),
     reportsAvailable: tenanted && reportsDigestAvailable(user.role),
     awardsAvailable: tenanted && awardNotificationsAvailable(user.role),
+    available:
+      tenanted &&
+      (financeDigestAvailable(user.role) ||
+        reportsDigestAvailable(user.role) ||
+        awardNotificationsAvailable(user.role)),
   }
 })
 
@@ -76,6 +85,13 @@ export const setWeeklyFinanceDigest = createServerFn({ method: 'POST' })
   .validator(z.object({ enabled: z.boolean() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
+    // The boundary. The screen hides the switch from a trustee, but this is what makes
+    // that true - and it matters more here than on the other two, because this email was
+    // offered to every role until 2026-09-20 and a trustee who took it up has a live
+    // toggle in their muscle memory.
+    if (!user.clientId || !financeDigestAvailable(user.role)) {
+      throw new Error('The weekly payments digest is only available to finance and admins.')
+    }
     await getDb()
       .update(users)
       .set({ weeklyFinanceDigest: data.enabled })

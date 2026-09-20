@@ -660,13 +660,28 @@ other, or the trigger falls through to the Monday branch.
 
 TWO Monday emails off ONE Cron Trigger, sent in order by `scheduled` in `worker-entry.js`:
 
-- **Payments** — what needs paying, to finance users. `POST /api/cron/finance-digest`,
+- **Payments** — what needs paying, to **finance and admins**. `POST /api/cron/finance-digest`,
   `src/lib/financeDigest` pure + `src/server/financeDigest` IO. Its rules are the first list
   below, and most of them govern both.
-- **Reports** — the grant reports expected that week, to ADMINS only.
+- **Reports** — the grant reports expected that week, to **admins** only.
   `POST /api/cron/reports-digest`, `src/lib/reportsDigest` + `src/server/reportsDigest`,
   built as a mirror of the payments one. See "The reports digest" below for the four
   places the two deliberately differ.
+
+**Who is eligible for what** (2026-09-20). Three emails, three audiences, one function each -
+`financeDigestAvailable`, `reportsDigestAvailable`, `awardNotificationsAvailable`, all in the
+matching `optIn.ts`, each read by its run filter, its `set…` server fn AND the Profile toggle's
+visibility. Trustees are eligible for NONE of the three and see no Email panel at all.
+
+| Email | Eligible | Default on |
+|---|---|---|
+| Payments digest | finance, admin | finance only |
+| Reports digest | admin | admin |
+| New-award alerts | admin, finance | both |
+
+Payments is the only one whose default is narrower than its eligibility, and that is deliberate:
+an admin may switch it on, but their week is applications and decisions, and mail they did not
+ask for teaches them to ignore mail from us.
 
 **Separate emails, separate endpoints, separate receipt tables, separate off switches.**
 Folding the second into the first was the obvious saving and is wrong on every axis: the
@@ -705,6 +720,11 @@ nothing" has to be re-derived per section the moment there are two.
 - **`users.weekly_finance_digest` is nullable and NULL is not "off"** — it means "has never chosen"
   and resolves to the role default (`digestDefaultOn`), same convention as
   `client_profiles.award_letter_template`. An unsubscribe writes an explicit `false`.
+- **`wantsDigest` checks eligibility BEFORE it reads the column**, and that check is what made the
+  2026-09-20 narrowing real. This email was offered to every tenant role until then, so a trustee
+  carrying a stored `true` is real data rather than a hypothetical, and without the check they
+  would go on receiving the payment run for good. The column is deliberately not cleared on a role
+  change, so re-role them to finance and their own answer is still there. A test pins it.
 - **One-click unsubscribe** (`/api/digest-unsubscribe`, helpers in `src/server/digestUnsubscribe.ts`)
   is an HMAC over the user id keyed on `BETTER_AUTH_SECRET`, no expiry (the link must work in a
   six-month-old email). GET shows a confirmation, POST writes, so a scanning mail proxy cannot
@@ -722,10 +742,10 @@ Outstanding `report_schedule` milestones for the week, overdue first. Everything
 
 - **Admins only, and enforced on the READ as well as the write.** `reportsDigestAvailable`
   (`src/lib/reportsDigest/optIn.ts`) is the single rule; the Profile toggle is hidden for
-  everyone else and `setWeeklyReportsDigest` refuses them. Unlike the payments digest, which
-  any tenant user may switch on, this one is a WORK QUEUE: every line is a grantee somebody
-  must write to, and that somebody is the admin. `wantsReportsDigest` re-checks availability
-  at send time, because the column is deliberately NOT cleared when an admin is demoted.
+  everyone else and `setWeeklyReportsDigest` refuses them. It is the NARROWEST of the three,
+  because it is a WORK QUEUE rather than news: every line is a grantee somebody must write to,
+  and that somebody is the admin. `wantsReportsDigest` re-checks availability at send time,
+  because the column is deliberately NOT cleared when an admin is demoted.
 - **`users.weekly_reports_digest` is a second column, not a shared flag.** Same NULL convention
   (never chosen → role default, on for `admin`). One flag would mean a finance officer turning
   off payment reminders silently stopped an admin's report chasing.
@@ -786,11 +806,14 @@ portfolio census.
   one invocation and hit the 50-subrequest cap as soon as the platform has real tenants. A tick
   costs two subrequests whatever the tenant count. `?dryRun=1` runs INLINE instead and returns who
   would get what, because a dispatch can only report that it dispatched.
-- **Admins only** (`awardNotificationsAvailable`), opt-in on Profile, default on, same NULL
-  convention as the two digests. Trustees are arguably the better audience - they voted and then
-  heard nothing - but that is a product decision not yet taken, and widening it means changing
-  that one function. Finance is deliberately out: the Monday payments digest already tells them,
-  on the day the first instalment falls due, which is when they can act on it.
+- **Admins and finance** (`awardNotificationsAvailable`), opt-in on Profile, default on for both,
+  same NULL convention as the two digests. Finance was excluded when this shipped on 2026-09-17,
+  on the reasoning that the Monday payments digest already tells them, and that was backwards:
+  the digest fires when an INSTALMENT falls due, which can be months after the grant is set up.
+  Finance needs the lead time to plan cash against a new commitment, and a new award with
+  unverified bank details is their chase. Corrected 2026-09-20. Trustees are arguably the
+  remaining audience - they voted and then heard nothing - but that is a product decision not yet
+  taken, and widening means changing that one function.
 - **The actor is not excluded.** At a small foundation the admin who set the grants up gets an
   email about work they finished minutes ago. `awards` has no `created_by`, but `audit_log` has
   the actor, so filtering them out is cheap if it turns out to grate.

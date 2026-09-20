@@ -40,24 +40,26 @@ function model(over: Partial<AwardNotificationModel> = {}): AwardNotificationMod
 }
 
 describe('opt-in', () => {
-  it('is offered to admins and nobody else', () => {
+  it('is offered to admins and finance, and to nobody else', () => {
     expect(awardNotificationsAvailable('admin')).toBe(true)
+    expect(awardNotificationsAvailable('finance')).toBe(true)
     expect(awardNotificationsAvailable('trustee')).toBe(false)
-    expect(awardNotificationsAvailable('finance')).toBe(false)
     expect(awardNotificationsAvailable('superadmin')).toBe(false)
   })
 
-  it('defaults on for admins, and NULL follows the default', () => {
+  it('defaults on for both eligible roles, and NULL follows the default', () => {
     expect(awardNotificationsDefaultOn('admin')).toBe(true)
+    expect(awardNotificationsDefaultOn('finance')).toBe(true)
     expect(wantsAwardNotifications({ role: 'admin', awardNotifications: null })).toBe(true)
+    expect(wantsAwardNotifications({ role: 'finance', awardNotifications: null })).toBe(true)
     expect(wantsAwardNotifications({ role: 'admin', awardNotifications: false })).toBe(false)
   })
 
-  it('never sends to a non-admin, even with a stored true', () => {
+  it('never sends to an ineligible role, even with a stored true', () => {
     // The demotion case: an admin switched it on and later became a trustee. The column
     // is deliberately not cleared, so availability has to be re-checked at read time.
     expect(wantsAwardNotifications({ role: 'trustee', awardNotifications: true })).toBe(false)
-    expect(wantsAwardNotifications({ role: 'finance', awardNotifications: true })).toBe(false)
+    expect(wantsAwardNotifications({ role: 'superadmin', awardNotifications: true })).toBe(false)
   })
 })
 

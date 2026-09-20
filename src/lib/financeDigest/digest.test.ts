@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { startOfWeekIso } from '../schedule'
-import { digestDefaultOn, wantsDigest } from './optIn'
+import { digestDefaultOn, financeDigestAvailable, wantsDigest } from './optIn'
 import { digestHasContent, digestTotal, type DigestItem, type DigestModel } from './types'
 import { digestSubject, digestText, digestHtml } from './render'
 
@@ -52,9 +52,25 @@ describe('opt-in', () => {
     expect(digestDefaultOn('superadmin')).toBe(false)
   })
 
+  it('is offered to finance and admins, and to nobody else', () => {
+    expect(financeDigestAvailable('finance')).toBe(true)
+    expect(financeDigestAvailable('admin')).toBe(true)
+    expect(financeDigestAvailable('trustee')).toBe(false)
+    expect(financeDigestAvailable('superadmin')).toBe(false)
+  })
+
   it('lets a stored choice beat the role default in both directions', () => {
     expect(wantsDigest({ role: 'finance', weeklyFinanceDigest: false })).toBe(false)
-    expect(wantsDigest({ role: 'trustee', weeklyFinanceDigest: true })).toBe(true)
+    expect(wantsDigest({ role: 'admin', weeklyFinanceDigest: true })).toBe(true)
+  })
+
+  it('stops sending to a trustee who had opted in while it was offered to them', () => {
+    // The migration case for the 2026-09-20 narrowing, and the reason `wantsDigest`
+    // checks availability before reading the column. Trustees could switch this on until
+    // then, so a stored `true` on one is real data, not a hypothetical - and without the
+    // check they would keep receiving the payment run for good.
+    expect(wantsDigest({ role: 'trustee', weeklyFinanceDigest: true })).toBe(false)
+    expect(wantsDigest({ role: 'trustee', weeklyFinanceDigest: null })).toBe(false)
   })
 
   it('treats NULL as "never chosen", not as off', () => {

@@ -206,6 +206,42 @@ function Profile() {
     }
   }
 
+  // Which emails this person is eligible for, in the order they are shown. Built as a
+  // LIST rather than three conditional blocks so that `first` (which suppresses the
+  // separator rule) falls on whichever row actually renders first: the three audiences
+  // no longer agree - payments is finance + admin, reports is admin, new awards is
+  // admin + finance - so "the payments row is always at the top" is an invariant that
+  // held by luck and would have broken silently the next time one of them narrowed.
+  const emailRows = [
+    emailPrefs.financeAvailable && {
+      title: 'Weekly payment digest',
+      copyId: DIGEST_COPY_ID,
+      copy: 'A Monday email listing the grant payments due that week, and anything already overdue. Nothing is sent in a week with no payments due.',
+      checked: digest,
+      onChange: handleDigestToggle,
+      busy: digestBusy,
+      error: digestError,
+    },
+    emailPrefs.reportsAvailable && {
+      title: 'Weekly reports digest',
+      copyId: REPORTS_DIGEST_COPY_ID,
+      copy: 'A Monday email listing the grant reports expected that week, and anything already overdue. Nothing is sent in a week with no reports expected.',
+      checked: reportsDigest,
+      onChange: handleReportsDigestToggle,
+      busy: reportsDigestBusy,
+      error: reportsDigestError,
+    },
+    emailPrefs.awardsAvailable && {
+      title: 'New grant alerts',
+      copyId: AWARD_ALERTS_COPY_ID,
+      copy: 'An email when grants are set up at your foundation, a few hours after the event so a batch arrives as one message. Nothing is sent when no grants have been set up.',
+      checked: awardAlerts,
+      onChange: handleAwardAlertsToggle,
+      busy: awardAlertsBusy,
+      error: awardAlertsError,
+    },
+  ].filter((r) => r !== false) as Array<Omit<Parameters<typeof EmailPref>[0], 'first'>>
+
   // ── Profile photo ────────────────────────────────────────────────────────────
   const fileInput = useRef<HTMLInputElement>(null)
   const [photo, setPhoto] = useState(user.image ?? null)
@@ -406,41 +442,12 @@ function Profile() {
 
       <SessionsPanel sessions={security.sessions} onChanged={() => router.invalidate()} />
 
-      {emailPrefs.available && (
+      {emailRows.length > 0 && (
         <Panel label="Email">
           <PanelTitle>Email</PanelTitle>
-          <EmailPref
-            title="Weekly payment digest"
-            copyId={DIGEST_COPY_ID}
-            copy="A Monday email listing the grant payments due that week, and anything already overdue. Nothing is sent in a week with no payments due."
-            checked={digest}
-            onChange={handleDigestToggle}
-            busy={digestBusy}
-            error={digestError}
-            first
-          />
-          {emailPrefs.reportsAvailable && (
-            <EmailPref
-              title="Weekly reports digest"
-              copyId={REPORTS_DIGEST_COPY_ID}
-              copy="A Monday email listing the grant reports expected that week, and anything already overdue. Nothing is sent in a week with no reports expected."
-              checked={reportsDigest}
-              onChange={handleReportsDigestToggle}
-              busy={reportsDigestBusy}
-              error={reportsDigestError}
-            />
-          )}
-          {emailPrefs.awardsAvailable && (
-            <EmailPref
-              title="New grant alerts"
-              copyId={AWARD_ALERTS_COPY_ID}
-              copy="An email when grants are set up at your foundation, a few hours after the event so a batch arrives as one message. Nothing is sent when no grants have been set up."
-              checked={awardAlerts}
-              onChange={handleAwardAlertsToggle}
-              busy={awardAlertsBusy}
-              error={awardAlertsError}
-            />
-          )}
+          {emailRows.map((row, i) => (
+            <EmailPref key={row.copyId} {...row} first={i === 0} />
+          ))}
         </Panel>
       )}
 
