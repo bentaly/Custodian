@@ -39,7 +39,12 @@ type RoundRow = {
   grants: number
 }
 
-const day = (d: string | null) => (d ? new Date(d).toISOString().slice(0, 10) : '--')
+/** The day as Postgres reports it. NOT `new Date(d)`: the driver hands timestamps back
+ *  as "2022-06-01 00:00:00" with no zone marker, which JS reads as LOCAL time, so under
+ *  BST every date in the preview came out a day early while the write (which passes the
+ *  string straight back) was correct. A report that disagrees with what it is about to
+ *  do is worse than no report. */
+const day = (d: string | null) => (d ? String(d).slice(0, 10) : '--')
 
 async function main() {
   const apply = process.argv.includes('--apply')
