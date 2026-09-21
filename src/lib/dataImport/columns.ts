@@ -218,7 +218,7 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     header: 'Impact figure so far',
     tier: 'optional',
     type: 'number',
-    help: 'Any impact recorded for this grant so far: beneficiaries reached, hectares restored, whatever your programme measures. Numbers only. For a completed grant, this is the final total.',
+    help: 'What this grant has achieved so far, as your own records have it: beneficiaries reached, hectares restored, whatever your programme measures. What it has reached, not the target it was set. Numbers only. For a completed grant, this is the final total.',
   },
   // ── Bank details ──
   //

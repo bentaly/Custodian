@@ -107,7 +107,9 @@ export function AwardSchedule({ award }: { award: AwardData }) {
   const empty =
     filter === 'payments' && award.instalments.length === 0
       ? 'No instalment schedule is recorded, so nothing is queued to be paid.'
-      : filter === 'reports' && award.reporting.length === 0
+      : // The imported impact figure is not a reporting date and is not on this line
+        // (`grantTimeline`), so a grant carrying nothing else is still empty here.
+        filter === 'reports' && award.reporting.every((e) => e.importedFigure)
         ? 'No reporting dates are set, so nothing is expected back from this grantee.'
         : null
 

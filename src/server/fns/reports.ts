@@ -671,23 +671,49 @@ export const markReportsReviewed = createServerFn({ method: 'POST' })
     return { reviewed: targets.length }
   })
 
-// One report for the detail screen. `key` is either a grant_reports milestone id
-// (rows from the schedule, with or without a submission) or a report_submissions
-// id (unscheduled reports) — the list uses whichever exists, so resolve both.
+// One report for the detail screen. `key` is either a `report_schedule` milestone id (a
+// date still waited on, from the chase list) or a `reports` id (every row the library
+// lists, scheduled or not) — the list uses whichever exists, so resolve both.
 export const getReport = createServerFn({ method: 'GET' })
   .validator(z.object({ key: z.uuid() }))
   .handler(async ({ data }) => {
     const user = await requireAuthUser()
 
-    const milestone = await getDb().query.reportSchedule.findFirst({
+    const byKey = await getDb().query.reportSchedule.findFirst({
       where: eq(reportSchedule.id, data.key),
       with: { reports: true },
     })
-    const submissionRow = milestone
-      ? (milestone.reports[0] ?? null)
+    const submissionRow = byKey
+      ? (byKey.reports[0] ?? null)
       : ((await getDb().query.reports.findFirst({
           where: eq(reports.id, data.key),
         })) ?? null)
+
+    // The onboarding import's impact figure has no page: nobody sent anything, so there
+    // is nothing to read, review or chase. The same rule as `isArrivedReport` — a row
+    // the import wrote that answers no milestone is not a report — enforced at the
+    // boundary rather than only in the lists, so a saved address cannot walk in behind
+    // the links that no longer offer it.
+    if (
+      !byKey &&
+      submissionRow &&
+      submissionRow.importBatchId !== null &&
+      submissionRow.scheduleId === null
+    ) {
+      throw notFoundError()
+    }
+
+    // The library keys every arrived report on the REPORT's id, so a scheduled report
+    // arrives here with its milestone unresolved — and the milestone is what the report
+    // is called. Without this second lookup, "Year 1 report" opened its own page titled
+    // "Unscheduled report", with no due date beside it.
+    const milestone =
+      byKey ??
+      (submissionRow?.scheduleId
+        ? ((await getDb().query.reportSchedule.findFirst({
+            where: eq(reportSchedule.id, submissionRow.scheduleId),
+          })) ?? null)
+        : null)
 
     const awardId = milestone?.awardId ?? submissionRow?.awardId
     if (!awardId) throw notFoundError()

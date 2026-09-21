@@ -983,7 +983,10 @@ export const commitImport = createServerFn({ method: 'POST' })
       // — Insights is the reason this row exists at all — but it is NOT a report that
       // arrived, so it says what it is and is dated the import rather than borrowing a
       // milestone's date or the award's. `isArrivedReport` keeps it out of the Reports
-      // library and its counts; it is visible on the grant it belongs to.
+      // library and its counts; `grantTimeline` keeps it off the grant's own line and out
+      // of its submissions, and `getReport` refuses it a page. The NUMBER is shown on the
+      // grant's impact card, captioned with where it came from (`HeadlineCard`): the row
+      // is only the carrier, and the caption is the honest half of it.
       if (grant.impactQuantity != null && carriesImpact === null) {
         reportRows.push({
           ...reportBase(),

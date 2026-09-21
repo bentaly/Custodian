@@ -54,9 +54,26 @@ describe('reportingTimeline', () => {
     })
   })
 
-  it('names an imported impact figure for what it is', () => {
+  it('names an imported impact figure for what it is, and gives it no page to open', () => {
     const [entry] = reportingTimeline([], [report({ id: 'imp', importBatchId: 'batch-1' })], nobody)
-    expect(entry!.label).toBe('Imported impact figure')
+    expect(entry).toMatchObject({
+      label: 'Imported impact figure',
+      importedFigure: true,
+      openable: false,
+    })
+  })
+
+  it('treats an imported row that ANSWERS a milestone as the real report it is', () => {
+    const [entry] = reportingTimeline(
+      [milestone({ id: 'm1', submittedDate: '2026-06-03' })],
+      [report({ id: 'r1', scheduleId: 'm1', importBatchId: 'batch-1' })],
+      nobody,
+    )
+    expect(entry).toMatchObject({
+      label: 'Interim report',
+      importedFigure: false,
+      openable: true,
+    })
   })
 
   it('marks the report on screen whichever key it was opened by', () => {
@@ -129,6 +146,35 @@ describe('grantTimeline', () => {
 
   it('carries the report on screen through', () => {
     expect(entries[2]).toMatchObject({ kind: 'report', here: true, done: true })
+  })
+
+  it('leaves the imported impact figure off the line, while impact still counts it', () => {
+    const reporting = reportingTimeline(
+      [milestone({ id: 'progress', label: 'Progress report', dueDate: '2026-11-01' })],
+      [
+        report({
+          id: 'imp',
+          importBatchId: 'batch-1',
+          submittedAt: '2026-09-19T00:00:00.000Z',
+          impactQuantity: 100,
+          impactUnitLabel: 'young people',
+        }),
+      ],
+      nobody,
+    )
+    const line = grantTimeline({
+      decisionAt: '2026-05-01T10:00:00.000Z',
+      amountAwarded: 7500,
+      instalments: [],
+      reporting,
+    })
+    // The grant's line is the award and a progress report still awaited: nothing has
+    // been received, which is what the foundation's own workbook says.
+    expect(line.map((e) => e.key)).toEqual(['awarded', 'progress'])
+    expect(impactToDate(reporting, '2026-12-01T00:00:00.000Z')).toEqual({
+      total: 100,
+      reports: 1,
+    })
   })
 
   it('orders the award, then money, then reports on the same day', () => {

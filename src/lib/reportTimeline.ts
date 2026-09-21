@@ -42,6 +42,14 @@ export interface ReportingEntry {
   dueStatus: DueStatus | null
   /** ISO timestamp of the report behind the entry, if one arrived. */
   submittedAt: string | null
+  /**
+   * The onboarding import's impact figure: a `reports` row carrying a number the
+   * foundation already held, answering no milestone, with no document behind it and
+   * nobody having sent anything. It is NOT a report, so `grantTimeline` leaves it off
+   * the grant's line and the two screens that draw submissions leave it out of theirs.
+   * It stays in this list because it is still impact, and `impactToDate` sums it.
+   */
+  importedFigure: boolean
   impactQuantity: number | null
   impactUnitLabel: string | null
   /** The report on screen. */
@@ -80,6 +88,9 @@ export function reportingTimeline(
       submittedAt: r?.submittedAt ?? null,
       impactQuantity: r?.impactQuantity ?? null,
       impactUnitLabel: r?.impactUnitLabel ?? null,
+      // An imported row that ANSWERS a milestone is a real report: the workbook said
+      // that milestone came in. Only the figure riding on nothing is provenance.
+      importedFigure: false,
       here,
       openable: !here && (r != null || !received),
     })
@@ -90,17 +101,21 @@ export function reportingTimeline(
   for (const r of reports) {
     if (r.scheduleId && milestoneIds.has(r.scheduleId)) continue
     const here = r.id === current.reportId
+    const importedFigure = r.importBatchId !== null
     entries.push({
       key: r.id,
-      label: reportLabel(null, r.importBatchId !== null),
+      label: reportLabel(null, importedFigure),
       received: true,
       date: r.submittedAt.slice(0, 10),
       dueStatus: null,
       submittedAt: r.submittedAt,
       impactQuantity: r.impactQuantity,
       impactUnitLabel: r.impactUnitLabel,
+      importedFigure,
       here,
-      openable: !here,
+      // Nothing was ever sent, so there is no page to open: `getReport` refuses this
+      // row for the same reason.
+      openable: !here && !importedFigure,
     })
   }
 
@@ -144,6 +159,12 @@ const SAME_DAY_ORDER: Record<GrantTimelineEntry['kind'], number> = {
  * keeps the line honest — a report received late sits after the payment that went out
  * before it arrived. An instalment with no date yet ("TBC") goes at the end, in schedule
  * order: it has no place in time to be put in.
+ *
+ * **The imported impact figure is not on it.** The line is things that happened TO THE
+ * GRANT; that row happened to the foundation's spreadsheet, on the day of the import,
+ * and drawn here it read as a report received — with a "Received" pill and a "Reported
+ * 100 young people" line — on a grant whose own workbook says nothing has come in. The
+ * figure is shown on the grant's impact card instead, where it says where it came from.
  */
 export function grantTimeline(input: {
   decisionAt: string
@@ -171,7 +192,9 @@ export function grantTimeline(input: {
         dueStatus: p.paidDate ? null : dueStatus(p.dueDate),
       }),
     ),
-    ...input.reporting.map((e): GrantTimelineEntry => ({ kind: 'report', done: e.received, ...e })),
+    ...input.reporting
+      .filter((e) => !e.importedFigure)
+      .map((e): GrantTimelineEntry => ({ kind: 'report', done: e.received, ...e })),
   ]
 
   return entries

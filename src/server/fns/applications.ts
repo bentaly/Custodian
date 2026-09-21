@@ -1120,6 +1120,10 @@ export const getAward = createServerFn({ method: 'GET' })
         // So the schedule can find the report behind a reporting date — the timeline's
         // key is the milestone id for a scheduled report, the report's own for the rest.
         scheduleId: r.scheduleId,
+        // The onboarding import's impact figure rather than a report — see
+        // `ReportingEntry.importedFigure`. An imported row that answers a milestone is a
+        // real report, so it is the pair that decides, not the batch id alone.
+        importedFigure: r.importBatchId !== null && r.scheduleId === null,
         label: reportLabel(
           r.scheduleId ? scheduleById.get(r.scheduleId)?.label : null,
           r.importBatchId !== null,
@@ -1170,12 +1174,19 @@ export const getAward = createServerFn({ method: 'GET' })
     const unitLabel = programme
       ? impactUnitLabel(programme.impactUnit, programme.impactUnitLabel)
       : null
+    // Split by where the number came from, because the card says a different sentence
+    // for each. A figure nobody reported has not been "reached" as far as we know: it
+    // is what the foundation's own records said on the day it brought them in, and
+    // saying so is the difference between a fact and a claim about the grantee.
+    const imported = quantified.filter((r) => r.importedFigure)
+    const sum = (rows: typeof quantified) => rows.reduce((s, r) => s + Number(r.impactQuantity), 0)
     const impact = {
-      total: quantified.length
-        ? quantified.reduce((s, r) => s + Number(r.impactQuantity), 0)
-        : null,
+      total: quantified.length ? sum(quantified) : null,
       unitLabel: unitLabel ?? quantified[0]?.impactUnitLabel ?? null,
-      reportCount: quantified.length,
+      /** Reports that evidenced a figure. Excludes the import's, which is not one. */
+      reportCount: quantified.length - imported.length,
+      /** The part of the total the onboarding import carried in, if any. */
+      importedTotal: imported.length ? sum(imported) : null,
     }
 
     // Every reporting date and every report, merged the way the report screen's

@@ -13,9 +13,15 @@
  *
  * Where each is reachable: the imported figure is kept OUT of the Reports library, its
  * counts and global search (`isArrivedReport`, `server/reports/query.ts`) — it is not a
- * report, so it is not in a list of them. It still shows on the grant it belongs to,
- * which is the one place a foundation should be able to see where its impact figure
- * came from, and that is what this label names.
+ * report, so it is not in a list of them. Nor is it on the grant's own line or among its
+ * submissions (`grantTimeline`), where it wore a "Received" pill and a "Reported 100
+ * young people" sentence on a grant that had sent nothing; and `getReport` refuses it a
+ * page, because there is no document to read. The figure itself is shown on the grant's
+ * impact card, which says where it came from.
+ *
+ * So this label now names the row in code rather than on screen. It stays because the
+ * rule it states is the one every one of those places enforces, and because the moment
+ * something DOES surface the row again, it must be called this and not "report".
  */
 export const UNSCHEDULED_REPORT_LABEL = 'Unscheduled report'
 export const IMPORTED_FIGURE_LABEL = 'Imported impact figure'

@@ -615,6 +615,20 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   (`src/server/reports/query.ts`) keeps it out of the Reports library, its tab counts, the
   dashboard's "to review" KPI and feed, and global search. A received milestone gets a real
   report row dated when it arrived. Names come from `src/lib/reportLabel.ts`.
+  **The grant's own screen was the place the rule had never been applied**, and it is
+  where a foundation found it (2026-09-21): the row was drawn on the grant's line with a
+  "Received" pill and "Reported 100 young people", was a breadcrumb link and a View
+  submissions row opening an empty form, and was summed into "100 reached" — on a grant
+  whose workbook says nothing has come in, above a progress report still outstanding.
+  Now `ReportingEntry.importedFigure` carries the fact, `grantTimeline` filters it off
+  the line, the two submission surfaces skip it, `openable` is false and `getReport`
+  404s it. **The FIGURE is still shown**, on the impact card, as `recorded` rather than
+  `reached` plus a line saying it came from the foundation's own records and no report
+  has been received (`impact.importedTotal` / `reportCount`, `getAward`). The number was
+  never wrong; what it was called was. The workbook column stays "Impact figure so far",
+  because it is an achieved figure, not a target: moving it to
+  `applications.proposed_impact_quantity` would read as "0 of 100 reached" and would take
+  it away from Insights entirely.
 - **Size is a MEASURED limit, not a preference.** Every row is written in one
   `db.batch`: one round trip under `getDb()`'s 4-second timeout, and one statement may
   carry at most 65,535 bound parameters. Inserts are chunked (`CHUNK`) because an

@@ -192,12 +192,29 @@ function FootFact({ label, children }: { label: string; children: ReactNode }) {
  * what it set out to reach. Impact is summed across every report, the way Insights sums
  * it, and set against the application's proposal for the WHOLE grant — so a grant
  * halfway through reads as "310 of 600", which is progress, not a shortfall.
+ *
+ * **Where the figure came from is part of the figure.** A number the onboarding import
+ * carried in was not reported by anybody: it is what the foundation's own records held
+ * on the day they were brought in, on a grant that may have sent nothing yet. It used to
+ * be summed in silently while the grant's line showed an "Imported impact figure"
+ * received on the day of the import — a report that never came, above a progress report
+ * still outstanding. The row is off the line now (`grantTimeline`), and this card is the
+ * one place the figure is shown and the only place it says where it is from.
  */
 function HeadlineCard({ award }: { award: AwardData }) {
   const years = award.durationYears
   const { impact } = award
   const unit = award.impactUnitLabel
   const dash = <span style={{ color: C.faint }}>--</span>
+  // Nothing has been reported: every figure on this grant is the import's. The verb
+  // changes with it — "recorded", not "reached".
+  const importedOnly = impact.total != null && impact.reportCount === 0
+  const provenance =
+    impact.importedTotal == null
+      ? null
+      : importedOnly
+        ? 'From your own records when this grant was imported. No report has been received.'
+        : `Includes ${fmtQuantity(impact.importedTotal)} from your own records when this grant was imported.`
 
   return (
     <div
@@ -229,7 +246,7 @@ function HeadlineCard({ award }: { award: AwardData }) {
           </div>
           <div className="flex min-w-48 flex-1 flex-col gap-1">
             <p className="font-display text-body" style={{ color: C.sub }}>
-              {unit ? `Impact measured in ${unit}` : 'Impact reported'}
+              {unit ? `Impact measured in ${unit}` : 'Impact recorded'}
             </p>
             {impact.total != null ? (
               <p className="flex flex-wrap items-baseline gap-x-1.5">
@@ -241,8 +258,10 @@ function HeadlineCard({ award }: { award: AwardData }) {
                 </span>
                 <span className="font-display text-title" style={{ color: C.sub }}>
                   {award.proposedImpact != null && award.proposedImpact > 0
-                    ? `of ${fmtQuantity(award.proposedImpact)} reached`
-                    : 'reached'}
+                    ? `of ${fmtQuantity(award.proposedImpact)} ${importedOnly ? 'recorded' : 'reached'}`
+                    : importedOnly
+                      ? 'recorded'
+                      : 'reached'}
                 </span>
               </p>
             ) : (
@@ -251,6 +270,11 @@ function HeadlineCard({ award }: { award: AwardData }) {
                 {award.proposedImpact != null && award.proposedImpact > 0
                   ? ` · ${fmtQuantity(award.proposedImpact)} proposed`
                   : ''}
+              </p>
+            )}
+            {provenance && (
+              <p className="max-w-[44ch] font-display text-body" style={{ color: C.sub }}>
+                {provenance}
               </p>
             )}
           </div>
@@ -695,16 +719,19 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
 }
 
 /**
- * Everything the grantee has sent — the application that won the grant, then each report
+ * Everything the grantee has SENT — the application that won the grant, then each report
  * that has arrived, in the order they came — each opening in place, exactly as it was
- * sent. Reading what they wrote is a glance, and a glance should not cost a page; the
+ * sent. The onboarding import's impact figure is not among them; it is a number off the
+ * foundation's own spreadsheet, and it is named on the impact card instead. Reading what they wrote is a glance, and a glance should not cost a page; the
  * pages themselves (with the score, the analysis, the review) are on the breadcrumb row.
  * Reports still to come are the schedule's, among the payments.
  */
 function SubmissionsCard({ award }: { award: AwardData }) {
   const [reading, setReading] = useState<'application' | Report | null>(null)
   const received = award.reporting.flatMap((e) => {
-    if (!e.received) return []
+    // The imported impact figure is not a submission: nobody sent anything, and the
+    // dialog behind it opened onto a form with every field empty.
+    if (!e.received || e.importedFigure) return []
     const report = award.reports.find((r) => r.id === e.key || r.scheduleId === e.key)
     return report ? [{ key: e.key, date: e.date, report }] : []
   })
