@@ -213,7 +213,7 @@ function HeadlineCard({ award }: { award: AwardData }) {
     impact.importedTotal == null
       ? null
       : importedOnly
-        ? 'From your own records when this grant was imported. No report has been received.'
+        ? 'From your records when this grant was imported. No report has been received.'
         : `Includes ${fmtQuantity(impact.importedTotal)} from your own records when this grant was imported.`
 
   return (
