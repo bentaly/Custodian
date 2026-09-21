@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   CompactMoney,
@@ -6,6 +6,7 @@ import {
   DateRangePicker,
   DateText,
   EmptyState,
+  ExportMenu,
   FilterPill,
   ImportedPill,
   Pagination,
@@ -24,6 +25,8 @@ import { facetLabel } from '../../lib/facets'
 import { C } from '../../components/ui/tokens'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { downloadTable, type ExportColumn, type ExportFormat } from '../../lib/spreadsheetExport'
+import { messageFor } from '../../lib/errors'
 import {
   parseAwardsSearch,
   type AwardStatus,
@@ -313,6 +316,44 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
 type Totals = Awaited<ReturnType<typeof listAwards>>['totals']
 
 /**
+ * The register as a file. Same bargain as Finance's: whatever the filters have narrowed
+ * the list to, in the order the screen is showing it, with no bank details — a grants
+ * portfolio is circulated (a board pack, a funder report), and a payable pair is not
+ * something to put in a file that gets emailed around. Finance's export is the one that
+ * carries those, because that file has one reader and one purpose.
+ */
+const EXPORT_COLUMNS: ExportColumn<AwardItem>[] = [
+  { header: 'Organisation', width: 32, value: (g) => g.organisationName },
+  { header: 'Reference', width: 16, value: (g) => g.externalApplicationId },
+  { header: 'Programme', width: 24, value: (g) => g.programmeName },
+  { header: 'Round', width: 20, value: (g) => g.roundName },
+  { header: 'Theme', width: 24, value: (g) => g.tags.join('; ') },
+  { header: 'Award date', kind: 'date', value: (g) => g.decisionAt.slice(0, 10) },
+  { header: 'Amount awarded', kind: 'money', width: 16, value: (g) => g.amountAwarded },
+  { header: 'Paid to date', kind: 'money', width: 16, value: (g) => g.paidToDate },
+  { header: 'To pay', kind: 'money', width: 14, value: (g) => g.outstanding },
+  { header: 'Instalments paid', value: (g) => `${g.paidCount}/${g.instalmentCount}` },
+  { header: 'Status', width: 14, value: (g) => GRANT_STATUS_LABELS[g.status] ?? g.status },
+  // Both scales, as the Location column prints them: the sharp label, then the region
+  // it sits in. Two columns rather than one, so a spreadsheet can group on the region.
+  { header: 'Location', width: 24, value: (g) => g.deliveryArea },
+  { header: 'Region', width: 20, value: (g) => g.deliveryRegion },
+  // Provenance travels with the row: a blank score or vote column on an imported grant
+  // is history, not missing data, and a file read away from Custodian cannot hover.
+  { header: 'Imported', value: (g) => (g.imported ? 'Yes' : '') },
+]
+
+function exportAwards(rows: AwardItem[], format: ExportFormat) {
+  return downloadTable({
+    format,
+    columns: EXPORT_COLUMNS,
+    rows,
+    filename: `custodian-awards-${new Date().toISOString().slice(0, 10)}`,
+    sheetName: 'Awards',
+  })
+}
+
+/**
  * Where the portfolio's money actually went, in one bar.
  *
  * This replaces the four KPI tiles that used to sit here, following the move the
@@ -358,7 +399,7 @@ function PortfolioCard({ totals }: { totals: Totals }) {
             <CompactMoney amount={totals.totalAwarded} label="Exact total awarded" />
           </p>
           <p className="font-display text-body" style={{ color: C.sub }}>
-            {fmtMoney(totals.paidToDate)} paid · {fmtMoney(totals.outstanding)} outstanding
+            {fmtMoney(totals.paidToDate)} paid · {fmtMoney(totals.outstanding)} to pay
           </p>
         </div>
 
@@ -405,6 +446,8 @@ function AwardsPage() {
   const search = Route.useSearch()
   const { roundId, programmeId, tag, status, region, q, from, to, sortBy, sortDir, page } = search
   const { items, total, pageSize, totals, facets } = Route.useLoaderData()
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
@@ -475,6 +518,22 @@ function AwardsPage() {
     navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
   }
 
+  // The whole filtered set, not the page on screen: `pageSize` is raised for exactly
+  // this, as it is on Finance and Applications.
+  async function handleExport(format: ExportFormat) {
+    setExporting(true)
+    try {
+      const all = await listAwards({
+        data: { ...search, page: 1, pageSize: 10_000 },
+      })
+      await exportAwards(all.items, format)
+    } catch (e) {
+      setExportError(messageFor(e))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header — <h1>, then what you are looking at. Round is NOT up here: on the
@@ -484,7 +543,12 @@ function AwardsPage() {
           row with the others (see `ui/FilterPill` on the shared order), and so does the
           search box (`ui/FilterRow`). */}
       <div className="flex flex-col gap-4">
-        <h1 className="font-display text-heading font-medium text-grey-900">Awards</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-heading font-medium text-grey-900">Awards</h1>
+          {/* The screen's own action, on the title's line and hard right, where Finance
+              and Applications put theirs. */}
+          <ExportMenu onExport={handleExport} busy={exporting} disabled={items.length === 0} />
+        </div>
         <span className="whitespace-nowrap font-display text-label font-medium text-grey-500">
           {metaLine.map((part, i) => (
             <Fragment key={i}>
@@ -493,6 +557,11 @@ function AwardsPage() {
             </Fragment>
           ))}
         </span>
+        {exportError && (
+          <p className="font-display text-label" style={{ color: C.danger }}>
+            {exportError}
+          </p>
+        )}
       </div>
 
       {/* Everything below the header is one card, as on Applications and Finance: what

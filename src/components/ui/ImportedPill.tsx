@@ -19,17 +19,23 @@ import { cn } from './cn'
  * with it (see `Badge`). The glyph is a plain upload arrow rather than Settings' own
  * database-import mark: at 11px the database drum closes up into a smudge, and what the
  * row is saying is "this came from you", not which screen it came through.
+ *
+ * **The glyph carries it alone**, without the word, at a foundation's request: the mark
+ * sits next to an organisation name in a narrow column and "Imported" was taking room
+ * from the thing people are actually reading. The word has not gone anywhere a screen
+ * reader is concerned — it is the accessible name — and hovering still explains what
+ * the blanks on the row mean, which is the whole reason the mark exists.
  */
 export function ImportedPill({ className }: { className?: string }) {
   return (
     <Badge
       size="sm"
-      className={cn('shrink-0 items-center gap-1', className)}
+      className={cn('shrink-0 items-center', className)}
       style={{ backgroundColor: C.infoWash, color: C.info }}
       title="Imported from your existing records, so it has no application form, score or votes."
+      aria-label="Imported"
     >
       <HugeiconsIcon icon={Upload01Icon} size={11} color="currentColor" />
-      Imported
     </Badge>
   )
 }

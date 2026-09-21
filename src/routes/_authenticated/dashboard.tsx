@@ -657,7 +657,7 @@ function Dashboard() {
             // The headline is the sum of the two money chips, the same bargain the
             // other three cards make — the strip beneath is the whole of this number
             // and not a fraction of it. It is also the figure Finance prints as
-            // "Outstanding", so the two screens reconcile (the 2026-08-27 money audit).
+            // "To pay", so the two screens reconcile (the 2026-08-27 money audit).
             value={fmtCompact(d.money.outstanding)}
             // Both figures on the card can round, and a Link may hold only one title —
             // so it carries whichever of them actually lost something. Plus `later`
@@ -665,7 +665,7 @@ function Dashboard() {
             // then the one place left to read it.
             title={
               [
-                exactOr(d.money.outstanding, 'outstanding'),
+                exactOr(d.money.outstanding, 'to pay'),
                 exactOr(d.money.paidToDate, 'paid to date'),
                 financeLater > 0
                   ? `${compactExact(financeLater) ?? fmtCompact(financeLater)} later`

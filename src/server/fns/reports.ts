@@ -1,13 +1,13 @@
 import { notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
-import { and, eq, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db'
 import { searchAny } from '../searchTerm'
-import { reportSchedule, awards, reports } from '../../../drizzle/schema'
+import { auditLog, reportSchedule, awards, reports } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
 import { recordAudit } from '../audit'
-import { recomputeAwardStatus } from '../awards/status'
+import { recomputeAwardStatus, recomputeAwardStatuses } from '../awards/status'
 import { assertClientAccess } from '../scope'
 import {
   addMonthsIso,
@@ -602,6 +602,73 @@ export const markReportReviewed = createServerFn({ method: 'POST' })
       clientId: submission.clientId,
       metadata: { reportId: data.id, reviewed: data.reviewed },
     })
+  })
+
+/**
+ * Sign several received reports off at once.
+ *
+ * The same act as `markReportReviewed`, in the shape `setInstalmentsPaid` already uses
+ * for a payment run: a foundation that has just read through a morning's reports should
+ * not have to open each one to tick it. Only ever SETS the sign-off, never takes it
+ * back — an undo is a considered act on one report, and a mass "none of these were read
+ * after all" is not something to make easy.
+ *
+ * A report already reviewed is left alone rather than re-stamped, so a stale selection
+ * cannot quietly rewrite who signed a report off and when. The count comes back so the
+ * screen can tell the two apart.
+ */
+export const markReportsReviewed = createServerFn({ method: 'POST' })
+  .validator(z.object({ ids: z.array(z.uuid()).min(1).max(100) }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    const db = getDb()
+    const ids = [...new Set(data.ids)]
+    const rows = await db.query.reports.findMany({
+      where: inArray(reports.id, ids),
+      columns: { id: true, clientId: true, awardId: true, reviewedAt: true },
+      with: { award: { columns: { applicationId: true } } },
+    })
+    // All or nothing on access, as the payment run does: one foreign id means this is
+    // not a request this user can make, rather than one with a row quietly missing.
+    if (rows.length !== ids.length) throw notFoundError()
+    for (const row of rows) assertClientAccess(user, row.clientId)
+
+    const targets = rows.filter((r) => !r.reviewedAt)
+    if (targets.length === 0) return { reviewed: 0 }
+
+    const reviewedBy = user.email ?? user.name ?? null
+    await db.batch([
+      db
+        .update(reports)
+        .set({ reviewedAt: new Date(), reviewedBy })
+        .where(
+          and(
+            inArray(
+              reports.id,
+              targets.map((t) => t.id),
+            ),
+            isNull(reports.reviewedAt),
+          ),
+        ),
+      // One row each, exactly as if they had been ticked one at a time: who signed a
+      // report off is a per-report fact, and the feed should read the same either way.
+      db.insert(auditLog).values(
+        targets.map((t) => ({
+          clientId: t.clientId,
+          actorUserId: user.id,
+          action: 'grant_report_reviewed' as const,
+          ...(t.award ? { applicationId: t.award.applicationId } : {}),
+          metadata: { reportId: t.id, reviewed: true },
+        })),
+      ),
+    ])
+
+    // Sign-off is the last thing a grant can be waiting on, so a batch of them can
+    // finish several. Two round trips however many, unlike the single path's loop.
+    await recomputeAwardStatuses(
+      [...new Set(targets.map((t) => t.awardId).filter((id): id is string => Boolean(id)))],
+    )
+    return { reviewed: targets.length }
   })
 
 // One report for the detail screen. `key` is either a grant_reports milestone id

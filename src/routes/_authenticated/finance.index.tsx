@@ -964,7 +964,8 @@ const EXPORT_COLUMNS: ExportColumn<FinanceRow>[] = [
   // The grant behind it, so a row still reconciles against a ledger kept per grant.
   { header: 'Grant total', kind: 'money', width: 14, value: (g) => g.committed },
   { header: 'Paid to date', kind: 'money', width: 14, value: (g) => g.paidToDate },
-  { header: 'Outstanding', kind: 'money', width: 14, value: (g) => g.outstanding },
+  // "To pay", the foundation's own word for it, matching the tab it is exported from.
+  { header: 'To pay', kind: 'money', width: 14, value: (g) => g.outstanding },
   { header: 'Instalments paid', value: (g) => `${g.paidCount}/${g.instalmentCount}` },
   { header: 'Account name', width: 28, value: (g) => g.bank.accountName },
   { header: 'Sort code', value: (g) => dashedSortCode(g.bank.sortCode) },

@@ -1,11 +1,15 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import {
   listReports,
+  markReportsReviewed,
   REPORTS_ARRIVED_DEFAULT_SORT,
   REPORTS_AWAITED_DEFAULT_SORT,
   type ReportRowStatus,
 } from '../../server/fns/reports'
+import { messageFor } from '../../lib/errors'
 import {
+  Button,
   Card,
   DataTable,
   DateText,
@@ -377,7 +381,9 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
 function ReportsPage() {
   const { items, awaiting, total, pageSize, tabCounts, portfolio, horizons, facets } =
     Route.useLoaderData()
+  const { user } = Route.useRouteContext()
   const navigate = Route.useNavigate()
+  const router = useRouter()
   const {
     tab: tabParam,
     programmeId,
@@ -394,6 +400,48 @@ function ReportsPage() {
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
+
+  // Row selection for the bulk sign-off, the same shape as Finance's payment run: only
+  // on To review (the other tabs hold nothing to sign off), only for the roles the
+  // server lets sign off, scoped to the page on screen, and cleared whenever the list
+  // under it changes — a selection carried onto rows nobody can see is a sign-off
+  // nobody read.
+  const canReview = user.role === 'admin' || user.role === 'superadmin'
+  const selectable = tab === 'to_review' && canReview ? items : []
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const [reviewing, setReviewing] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+  useEffect(() => {
+    setSelected(new Set())
+  }, [tab, programmeId, roundId, tag, q, from, to, sortBy, sortDir, page])
+
+  const selectedRows = selectable.filter((r) => selected.has(r.key))
+  const allSelected = selectable.length > 0 && selectable.every((r) => selected.has(r.key))
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(selectable.map((r) => r.key)))
+  }
+  function toggleOne(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  async function handleReviewSelected() {
+    setReviewing(true)
+    setReviewError('')
+    try {
+      await markReportsReviewed({ data: { ids: selectedRows.map((r) => r.key) } })
+      setSelected(new Set())
+      await router.invalidate()
+    } catch (e) {
+      setReviewError(messageFor(e))
+    } finally {
+      setReviewing(false)
+    }
+  }
 
   // Switching tab always starts at page 1 — page 3 of one tab is not page 3 of another.
   // The sort does NOT survive it: the two document tabs sort by a received date the
@@ -607,6 +655,20 @@ function ReportsPage() {
               }
               sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : REPORTS_ARRIVED_DEFAULT_SORT}
               onSort={setSort}
+              // Only where there is something to sign off. The Reviewed tab holds rows
+              // that are already done, and this action never takes a sign-off back.
+              selection={
+                selectable.length > 0
+                  ? {
+                      isSelectable: () => true,
+                      isSelected: (item) => selected.has(item.key),
+                      toggle: (item) => toggleOne(item.key),
+                      allSelected,
+                      someSelected: selectedRows.length > 0,
+                      toggleAll,
+                    }
+                  : undefined
+              }
               empty={
                 <div className="p-4">
                   <EmptyState>
@@ -625,6 +687,38 @@ function ReportsPage() {
             />
           )}
         </div>
+
+        {/* Selection bar, under the table beside the rows it acts on: the same dark bar
+            Finance and Applications use, so selecting rows reads the same app-wide. */}
+        {selectedRows.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-chip bg-grey-900 p-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                className="flex h-8 shrink-0 items-center gap-1 rounded-chip bg-white/10 px-2 font-display text-body font-medium text-white"
+              >
+                Clear
+              </button>
+              <span className="font-display text-label font-medium text-brand-light">
+                {selectedRows.length} selected
+              </span>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleReviewSelected}
+              disabled={reviewing}
+            >
+              {reviewing ? 'Signing off…' : 'Mark as reviewed'}
+            </Button>
+          </div>
+        )}
+        {reviewError && (
+          <p className="font-display text-label" style={{ color: C.danger }}>
+            {reviewError}
+          </p>
+        )}
 
         {total > 0 && (
           <Pagination
