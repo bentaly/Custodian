@@ -942,7 +942,9 @@ export const getFinanceGrant = createServerFn({ method: 'GET' })
       bank: {
         status: bank.status,
         reason: bank.reason ?? null,
-        bankName: app.bankName,
+        // No `bankName`: the payment panel is the only screen that ever read it, and it
+        // no longer prints it — see `BankDraft` there. The column stays on the
+        // application, with the rest of what the grantee submitted.
         accountName: app.bankAccountName,
         sortCode: app.bankSortCode,
         accountNumber: app.bankAccountNumber,
@@ -989,7 +991,6 @@ export const updateGrantBankDetails = createServerFn({ method: 'POST' })
     z.object({
       awardId: z.uuid(),
       accountName: BankText,
-      bankName: BankText,
       sortCode: BankText,
       accountNumber: BankText,
     }),
@@ -1016,7 +1017,6 @@ export const updateGrantBankDetails = createServerFn({ method: 'POST' })
       .update(applications)
       .set({
         ...(data.accountName !== undefined ? { bankAccountName: data.accountName } : {}),
-        ...(data.bankName !== undefined ? { bankName: data.bankName } : {}),
         ...bankFields({
           bankSortCode: data.sortCode !== undefined ? data.sortCode : before.bankSortCode,
           bankAccountNumber:
@@ -1025,8 +1025,8 @@ export const updateGrantBankDetails = createServerFn({ method: 'POST' })
       })
       .where(eq(applications.id, award.applicationId))
 
-    // Only when the destination actually moved. Renaming the account holder or filling in
-    // the bank's name is housekeeping; the sort code and account number are the payment.
+    // Only when the destination actually moved. Renaming the account holder is
+    // housekeeping; the sort code and account number are the payment.
     const moved =
       (data.sortCode !== undefined && data.sortCode !== before.bankSortCode) ||
       (data.accountNumber !== undefined && data.accountNumber !== before.bankAccountNumber)

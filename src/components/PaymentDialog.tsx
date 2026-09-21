@@ -19,6 +19,7 @@ import { C } from './ui/tokens'
 import { fmtDate, fmtMoney, fmtRef } from '../lib/format'
 import { messageFor } from '../lib/errors'
 import { localTodayIso } from '../lib/schedule'
+import { AREA_ICON } from './Sidebar'
 
 // The payment panel (Figma 672:25886) — one grant's money in a dialog over the Finance
 // list, replacing the old `/finance/$awardId` detail screen. Three sections, in the
@@ -72,30 +73,62 @@ export function PaymentDialog({
         // so this one dialog states it at 14px (Figma 823:118), in one flat grey with
         // no emphasised half: the comp gives the whole line Gray/500.
         //
-        // Identity ONLY. The two ways out of the dialog used to hang off the end of this
-        // line, which made a sentence that was half fact and half navigation, and grew a
-        // little worse with each thing worth stating about the grant. They now sit in the
-        // footer, where a dialog's actions live.
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
-          <span>{grant.organisationName}</span>
-          {/* Their own reference for the grant: this dialog is where a payment is marked
+        // Two lines, and the split is fact then navigation: who this money is for, and
+        // then the two ways out of the dialog. They used to hang off the end of the
+        // identity line itself, which made one sentence that was half fact and half
+        // navigation and grew a little worse with each thing worth stating about the
+        // grant. Both stay INLINE elements — `Dialog` draws the description in a `<p>`,
+        // and a block inside one is closed by the HTML parser where it stands.
+        <>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
+            <span>{grant.organisationName}</span>
+            {/* Their own reference for the grant: this dialog is where a payment is marked
               paid, so it is exactly where someone is holding a bank statement or a
               ledger line and needs to know they have the right grant. */}
-          {grant.externalApplicationId && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{fmtRef(grant.externalApplicationId)}</span>
-            </>
-          )}
-          {grant.programmeName && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{grant.programmeName}</span>
-            </>
-          )}
-        </span>
+            {grant.externalApplicationId && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{fmtRef(grant.externalApplicationId)}</span>
+              </>
+            )}
+            {grant.programmeName && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{grant.programmeName}</span>
+              </>
+            )}
+          </span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
+            {/* The separator belongs to the link before it: an applicant with no address
+                held leaves no "Email grantee", and a lone leading dot in front of the
+                one remaining link reads as something that failed to load. */}
+            {grant.applicantEmail && (
+              <>
+                <EmailGrantee grant={grant} />
+                <span aria-hidden>·</span>
+              </>
+            )}
+            {/* The way out of this dialog into the decision behind it: the terms, the
+                letter and the reporting schedule all live on the award record.
+
+                The glyph is Awards' own, read from `AREA_ICON` rather than picked here,
+                and it replaces a trailing arrow: beside "Email grantee" the two links
+                are a pair, and one leading with a mark while the other trailed one made
+                them read as two unrelated controls that happened to share a line. */}
+            <TextLink
+              to="/awards/$awardId"
+              params={{ awardId: grant.id }}
+              className="inline-flex items-center gap-1.5 text-body"
+            >
+              <HugeiconsIcon icon={AREA_ICON['/awards']!} size={16} color="currentColor" />
+              View award
+            </TextLink>
+          </span>
+        </>
       }
-      footer={<GrantLinks grant={grant} />}
+      // The header is three lines rather than two, and the standing 24px under it read as
+      // a break between the identity block and the panel it belongs to.
+      tightHeader
     >
       <div className="flex flex-col gap-4">
         {error && <p className="font-display text-body text-danger">{error}</p>}
@@ -121,14 +154,13 @@ export function PaymentDialog({
 }
 
 /**
- * The two places this dialog leads: the grantee, and the decision behind the money.
+ * Writing to the grantee, the one thing in this dialog's header that is not navigation.
  *
- * They are the footer rather than a tail on the identity line because they are not facts
- * about the grant — and because "email the grantee" is the thing a finance officer wants
- * at exactly the moment the numbers in front of them are wrong: a sort code that fails
- * the modulus check, an instalment nobody can evidence, an invoice that never came. The
- * address was only ever on the application, three clicks away, so the payment got left
- * open in one tab while the grantee was looked up in another.
+ * It is here because "email the grantee" is what a finance officer wants at exactly the
+ * moment the numbers in front of them are wrong: a sort code that fails the modulus
+ * check, an instalment nobody can evidence, an invoice that never came. The address was
+ * only ever on the application, three clicks away, so the payment got left open in one
+ * tab while the grantee was looked up in another.
  *
  * `mailto:` rather than anything we send: this is the foundation writing to a grantee in
  * their own words, from their own client, with a copy in their own sent items — the same
@@ -136,42 +168,34 @@ export function PaymentDialog({
  * carried an address; there is no "no email held" placeholder, because a control that
  * cannot act is worse than an absent one.
  */
-function GrantLinks({ grant }: { grant: FinanceGrant }) {
+function EmailGrantee({ grant }: { grant: FinanceGrant }) {
+  if (!grant.applicantEmail) return null
   const subject = `Your grant payment${
     grant.externalApplicationId ? ` (${grant.externalApplicationId})` : ''
   }`
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      {grant.applicantEmail ? (
-        // `control`: the address DESCRIBES a link that already names itself, so the
-        // tooltip must not add a tab stop or a second name over the top of it.
-        <Tooltip
-          control
-          label="Grantee email address"
-          trigger={
-            <ExternalTextLink
-              className="inline-flex items-center gap-1.5 text-body"
-              href={`mailto:${encodeURIComponent(grant.applicantEmail)}?subject=${encodeURIComponent(subject)}`}
-            >
-              {/* The same mark "email this organisation" wears on the application and
-                  report screens — `currentColor` so it is the link's brand, and 16px,
-                  which is what `Button` gives a small control's leading icon. */}
-              <HugeiconsIcon icon={Mail01Icon} size={16} color="currentColor" />
-              Email grantee
-            </ExternalTextLink>
-          }
-        >
-          {grant.applicantEmail}
-        </Tooltip>
-      ) : (
-        <span />
-      )}
-      {/* The way out of this dialog into the decision behind it: the terms, the letter
-          and the reporting schedule all live on the award record. */}
-      <TextLink to="/awards/$awardId" params={{ awardId: grant.id }} className="text-body">
-        View Award →
-      </TextLink>
-    </div>
+    <>
+      {/* `control`: the address DESCRIBES a link that already names itself, so the
+          tooltip must not add a tab stop or a second name over the top of it. */}
+      <Tooltip
+        control
+        label="Grantee email address"
+        trigger={
+          <ExternalTextLink
+            className="inline-flex items-center gap-1.5 text-body"
+            href={`mailto:${encodeURIComponent(grant.applicantEmail)}?subject=${encodeURIComponent(subject)}`}
+          >
+            {/* The same mark "email this organisation" wears on the application and
+                report screens — `currentColor` so it is the link's brand, and 16px,
+                which is what `Button` gives a small control's leading icon. */}
+            <HugeiconsIcon icon={Mail01Icon} size={16} color="currentColor" />
+            Email grantee
+          </ExternalTextLink>
+        }
+      >
+        {grant.applicantEmail}
+      </Tooltip>
+    </>
   )
 }
 
@@ -796,9 +820,18 @@ function fmtSortCode(value: string | null) {
     : value
 }
 
+/**
+ * `bankName` is deliberately not here. It is the one bank field no feature reads (see
+ * the canonical tiers): the sort code is what identifies the bank, what the modulus
+ * check verifies and what a BACS payment is made against. Printed beside the digits it
+ * earned a row on the panel and a field in the edit form for nothing, and for a
+ * foundation whose form never asks which bank — Arete's does not — that row read "--"
+ * on every grant, which is the look of a fact we lost rather than one nobody wanted.
+ * Whatever a grantee did submit is still on the application, with the rest of their
+ * answers.
+ */
 type BankDraft = {
   accountName: string
-  bankName: string
   sortCode: string
   accountNumber: string
 }
@@ -820,7 +853,6 @@ function BankDetails({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<BankDraft>({
     accountName: '',
-    bankName: '',
     sortCode: '',
     accountNumber: '',
   })
@@ -881,7 +913,6 @@ function BankDetails({
             onEdit={() => {
               setDraft({
                 accountName: bank.accountName ?? '',
-                bankName: bank.bankName ?? '',
                 sortCode: bank.sortCode ?? '',
                 accountNumber: bank.accountNumber ?? '',
               })
@@ -913,7 +944,6 @@ function BankDetails({
       {editing ? (
         <>
           {field('accountName', 'Account name', 'Enter account name')}
-          {field('bankName', 'Bank', 'Enter bank')}
           {field('sortCode', 'Sort code', '00-00-00')}
           {field('accountNumber', 'Account number', 'Enter account number')}
           <p className="text-label text-grey-400">
@@ -924,7 +954,6 @@ function BankDetails({
       ) : (
         <>
           <Row label="Account name" value={bank.accountName ?? '--'} />
-          <Row label="Bank" value={bank.bankName ?? '--'} />
           <Row
             label="Sort code"
             valueColour={flagged.sortCode ? tone?.figure : undefined}

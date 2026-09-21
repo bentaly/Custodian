@@ -22,6 +22,7 @@ export function Dialog({
   busy = false,
   size = 'md',
   children,
+  tightHeader = false,
   footer,
 }: {
   open: boolean
@@ -33,6 +34,13 @@ export function Dialog({
   busy?: boolean
   size?: 'sm' | 'md' | 'lg'
   children: ReactNode
+  /**
+   * Closes the standing 24px between the header and the body up to 16px. For a header
+   * that is more than a title and a line of copy — the payment panel's runs to an
+   * identity line AND the two ways out of the dialog — the full gap stops reading as
+   * the space under a heading and starts reading as a break between two things.
+   */
+  tightHeader?: boolean
   /** Pinned below the scrolling body, so the primary action never scrolls out of reach. */
   footer?: ReactNode
 }) {
@@ -85,12 +93,17 @@ export function Dialog({
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'relative flex max-h-[calc(100dvh-2rem)] w-full flex-col gap-6 rounded-card border bg-white p-6 shadow-xl focus:outline-hidden',
+          // Spacing is stated on the header and the footer rather than as one gap on
+          // the panel, so `tightHeader` can move the top one without touching the
+          // bottom one: the footer holds the action, and it keeps its distance.
+          'relative flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-card border bg-white p-6 shadow-xl focus:outline-hidden',
           width,
         )}
         style={{ borderColor: C.line }}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div
+          className={cn('flex items-start justify-between gap-4', tightHeader ? 'mb-4' : 'mb-6')}
+        >
           <div className="flex flex-col gap-1">
             <h2 className="font-display text-heading font-medium text-grey-900">{title}</h2>
             {description && <p className="font-display text-label text-grey-500">{description}</p>}
@@ -110,7 +123,7 @@ export function Dialog({
             programmes must not push Save off the bottom of the screen. */}
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">{children}</div>
 
-        {footer}
+        {footer && <div className="mt-6">{footer}</div>}
       </div>
     </div>
   )

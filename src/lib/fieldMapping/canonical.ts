@@ -190,13 +190,16 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
     label: 'Bank name',
     // The only `optional` field, and it earns the tier: nothing at all breaks without
     // it. The sort code identifies the bank — it is what `checkBankAccount` verifies
-    // and what a BACS payment is actually made against — so this column is read only
-    // to print a name beside the digits on the payment panel. It was `required`, which
-    // meant a foundation that collects bank details in earnest but never asks which
-    // bank (Arete's live form does exactly this: account name, number, sort code, and
-    // no bank name) had EVERY submission held in the review queue over a field no
-    // feature reads. The column has always been nullable and Finance has always been
-    // able to clear it, so `required` was never true of anything but the ingest.
+    // and what a BACS payment is actually made against — so no feature reads this
+    // column at all. It is shown where every submitted answer is shown, on the
+    // application, and nowhere else: the payment panel printed it beside the digits
+    // until 2026-09-21, which cost a row and an edit field to state something the sort
+    // code already said, and read as "--" on every grant at a foundation whose form
+    // never asks. It was `required`, which meant a foundation that collects bank
+    // details in earnest but never asks which bank (Arete's live form does exactly
+    // this: account name, number, sort code, and no bank name) had EVERY submission
+    // held in the review queue over it. The column has always been nullable, so
+    // `required` was never true of anything but the ingest.
     tier: 'optional',
     description:
       'The name of the bank holding the applicant\'s account (e.g. "Barclays"). ' +
