@@ -85,7 +85,14 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
       // The APPLICATION's themes — the subset its programme's list was narrowed to — not
       // the programme's. NULL (not yet assigned) reads as no themes.
       tags: sql<unknown>`${applications.themes}`.as('tags'),
-      durationYears: sql<number | null>`${roundProgrammes.grantDurationYears}`.as('duration_years'),
+      // The grant's own figure where the foundation stated one (the workbook's optional
+      // Duration column), else the length the round was set up for. A round can hold a
+      // one-year grant beside a three-year one, which is exactly what an imported back
+      // catalogue looks like. See `awards.duration_years`.
+      durationYears: sql<number | null>`coalesce(
+        ${awards.durationYears},
+        ${roundProgrammes.grantDurationYears}
+      )`.as('duration_years'),
       // The sharpest location we resolved — district, else the matched area's own name
       // (which is what a county-level match carries), else the region, else whatever the
       // applicant wrote. `lib/deprivation/types`' `deliveryAreaLabel` in SQL: the rows

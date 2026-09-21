@@ -46,6 +46,8 @@ export type GrantRow = {
    */
   themes: string[]
   endDate: string | null
+  /** Whole years the grant runs for, where the workbook says. */
+  durationYears: number | null
   impactQuantity: number | null
   bankAccountName: string | null
   bankSortCode: string | null
@@ -403,6 +405,12 @@ export function parseGrants(rows: RawRow[]): { rows: GrantRow[]; issues: CellIss
       purpose: asText(cells.purpose),
       themes: splitThemes(cells.themes),
       endDate: dateCell(cells.endDate, cols.endDate!, rowNumber, issues),
+      // Whole years only: "2.5 years" is not a thing a grant agreement says, and a
+      // fraction here would print as "2.5 yrs" on the register.
+      durationYears: (() => {
+        const n = asNumber(cells.durationYears)
+        return n != null && n > 0 ? Math.round(n) : null
+      })(),
       impactQuantity: asNumber(cells.impactQuantity),
       bankAccountName: asText(cells.bankAccountName),
       bankSortCode: asCode(cells.bankSortCode, 6),

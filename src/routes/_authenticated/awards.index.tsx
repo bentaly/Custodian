@@ -8,14 +8,13 @@ import {
   EmptyState,
   ExportMenu,
   FilterPill,
-  ImportedPill,
+  OrganisationCell,
   Pagination,
   FilterRow,
   SearchInput,
   StatusPill,
   TruncatedList,
   TruncatedText,
-  initials,
   type TableColumn,
 } from '../../components/ui'
 import { BarMeter } from '../../components/BarMeter'
@@ -95,42 +94,28 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     // see — pick a region and every row looks the same. The converse is what moved it
     // OUT: once location is filterable it needs a header to sort by and a place a reader
     // can scan down, and a subline shared with a reference number is neither.
-    cell: (g) => {
-      const subline = fmtRef(g.externalApplicationId) || '--'
-      return (
-        <div className="flex items-center gap-2">
-          <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-chip"
-            style={{ backgroundColor: C.wash }}
+    cell: (g) => (
+      <OrganisationCell
+        name={g.organisationName}
+        subline={fmtRef(g.externalApplicationId)}
+        imported={g.imported}
+        wrapName={(content, className) => (
+          <Link
+            to="/awards/$awardId"
+            params={{ awardId: g.awardId }}
+            /* As the row click: same URL either way, filters included. Parsed rather
+                 than spread because these columns are module-level, so `prev` is typed
+                 as every route's search at once. */
+            search={(prev) => parseAwardsSearch(prev)}
+            onClick={(e) => e.stopPropagation()}
+            className={`${className} hover:underline`}
+            style={{ color: C.ink }}
           >
-            <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
-              {initials(g.organisationName)}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <Link
-                to="/awards/$awardId"
-                params={{ awardId: g.awardId }}
-                /* As the row click: same URL either way, filters included. Parsed rather
-                   than spread because these columns are module-level, so `prev` is typed
-                   as every route's search at once. */
-                search={(prev) => parseAwardsSearch(prev)}
-                onClick={(e) => e.stopPropagation()}
-                className="block truncate font-display text-body font-medium hover:underline"
-                style={{ color: C.ink }}
-              >
-                {g.organisationName}
-              </Link>
-              {g.imported && <ImportedPill />}
-            </div>
-            <p className="truncate font-display text-label" style={{ color: C.sub }}>
-              {subline}
-            </p>
-          </div>
-        </div>
-      )
-    },
+            {content}
+          </Link>
+        )}
+      />
+    ),
   },
   {
     id: 'round',
@@ -238,6 +223,18 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     ),
   },
   {
+    id: 'duration',
+    sortable: true,
+    hideBelow: 'xl',
+    header: 'Duration',
+    width: 'sm:w-[7%]',
+    cell: (g) => (
+      <span className={`whitespace-nowrap ${txtSub}`}>
+        {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '--'}
+      </span>
+    ),
+  },
+  {
     id: 'paid',
     sortable: true,
     hideBelow: 'md',
@@ -288,25 +285,22 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
           />
           <div className="flex items-center justify-between gap-2">
             <span className="whitespace-nowrap font-display text-label text-grey-500">
-              {g.paidCount} of {g.instalmentCount} instalment{g.instalmentCount === 1 ? '' : 's'}
+              {/* "1 of 1 instalments" is a count of one thing said twice, and it is the
+                  common case on an imported back catalogue, where a completed grant
+                  arrives as a single lump. Finance suppresses the same phrase for the
+                  same reason. Where there really is a schedule the count stays: "2 of 3"
+                  is the sentence this line exists for. */}
+              {g.instalmentCount === 1
+                ? g.paidCount === 1
+                  ? 'Paid in full'
+                  : 'One instalment'
+                : `${g.paidCount} of ${g.instalmentCount} instalments`}
             </span>
             {pill}
           </div>
         </div>
       )
     },
-  },
-  {
-    id: 'duration',
-    sortable: true,
-    hideBelow: 'xl',
-    header: 'Duration',
-    width: 'sm:w-[7%]',
-    cell: (g) => (
-      <span className={`whitespace-nowrap ${txtSub}`}>
-        {g.durationYears ? `${g.durationYears} yr${g.durationYears > 1 ? 's' : ''}` : '--'}
-      </span>
-    ),
   },
 ]
 

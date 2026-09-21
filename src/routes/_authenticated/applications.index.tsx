@@ -39,7 +39,7 @@ import {
   Button,
   ExportButton,
   FilterPill,
-  ImportedPill,
+  OrganisationCell,
   Listbox,
   Pagination,
   FilterRow,
@@ -463,38 +463,27 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       const subline =
         [type, area, fmtRef(app.externalApplicationId)].filter(Boolean).join(' · ') || '--'
       return (
-        <div className="flex items-center gap-2">
-          <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-chip"
-            style={{ backgroundColor: C.wash }}
-          >
-            <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
-              {initials(app.organisationName)}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <Link
-                to="/applications/$applicationId"
-                params={{ applicationId: app.id }}
-                /* The list's filters ride along to the detail screen, whose back arrow
-                   hands them straight back — see `parseApplicationsSearch`. Parsed rather
-                   than spread because these columns are module-level and so `prev` is
-                   typed as every route's search at once. */
-                search={(prev) => parseApplicationsSearch(prev)}
-                onClick={(e) => e.stopPropagation()}
-                className="block truncate font-display text-body font-medium hover:underline"
-                style={{ color: C.ink }}
-              >
-                {app.organisationName}
-              </Link>
-              {app.importBatchId !== null && <ImportedPill />}
-            </div>
-            <p className="truncate font-display text-label" style={{ color: C.sub }}>
-              {subline}
-            </p>
-          </div>
-        </div>
+        <OrganisationCell
+          name={app.organisationName}
+          subline={subline}
+          imported={app.importBatchId !== null}
+          wrapName={(content, className) => (
+            <Link
+              to="/applications/$applicationId"
+              params={{ applicationId: app.id }}
+              /* The list's filters ride along to the detail screen, whose back arrow
+                 hands them straight back — see `parseApplicationsSearch`. Parsed rather
+                 than spread because these columns are module-level and so `prev` is
+                 typed as every route's search at once. */
+              search={(prev) => parseApplicationsSearch(prev)}
+              onClick={(e) => e.stopPropagation()}
+              className={`${className} hover:underline`}
+              style={{ color: C.ink }}
+            >
+              {content}
+            </Link>
+          )}
+        />
       )
     },
   },

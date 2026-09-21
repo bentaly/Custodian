@@ -1074,6 +1074,19 @@ export const awards = pgTable(
     // may move before or after the period opens). Nullable — it is a letter/reporting
     // concern, not something every legacy award has.
     startDate: text('start_date'),
+    // How many years this grant runs for, where the foundation has said.
+    //
+    // `round_programmes.grant_duration_years` answers the same question for a round as a
+    // whole, and is the right answer for a grant Custodian made: every award from that
+    // pairing runs the length the round was set up for. It is the WRONG answer for an
+    // imported back catalogue, where one round can hold a one-year grant beside a
+    // three-year one, and the fact that a grant ran across three years is one a grantee
+    // would recognise and a foundation wants on screen. The workbook asks for it, in an
+    // optional column; NULL means fall back to the round's figure.
+    //
+    // NOT an input to `buildSchedule`, which is driven by the instalments themselves —
+    // the same rule as `grant_duration_years`.
+    durationYears: integer('duration_years'),
     // When the award was generated (the grant's start). Mirrors the application's
     // decisionAt for application-derived awards.
     decisionAt: timestamp('decision_at').notNull().defaultNow(),

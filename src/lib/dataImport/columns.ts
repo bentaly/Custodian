@@ -205,6 +205,14 @@ export const GRANT_COLUMNS: ImportColumn[] = [
     help: 'When the grant period finishes, if you track it. Format YYYY-MM-DD.',
   },
   {
+    key: 'durationYears',
+    shortLabel: 'duration',
+    header: 'Duration (years)',
+    tier: 'optional',
+    type: 'number',
+    help: 'How many years the grant runs for, if it is more than one. A whole number: 2 for a two year grant. Leave blank and we use the length the round was set up for. It does not affect the payment schedule, which comes from the Payments sheet.',
+  },
+  {
     key: 'impactQuantity',
     shortLabel: 'impact figure',
     header: 'Impact figure so far',

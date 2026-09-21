@@ -854,6 +854,9 @@ export const commitImport = createServerFn({ method: 'POST' })
               : 'completed',
         purpose: grant.purpose,
         startDate: grant.awardDate,
+        // The workbook's figure where it gave one; NULL falls back to the round's own
+        // `grant_duration_years` on the way out. See `awards.duration_years`.
+        durationYears: grant.durationYears,
         decisionAt,
         importBatchId: batchId,
       })

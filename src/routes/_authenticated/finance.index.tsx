@@ -21,7 +21,7 @@ import {
   ExportMenu,
   FilterPill,
   FilterRow,
-  ImportedPill,
+  OrganisationCell,
   SearchInput,
   Horizon,
   Button,
@@ -223,19 +223,8 @@ const ORGANISATION: TableColumn<FinanceRow> = {
   header: 'Organisation',
   cell: (g) => {
     const subline = [paymentLabel(g), fmtRef(g.externalApplicationId)].filter(Boolean).join(' · ')
-    return (
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <p className="truncate font-display text-body font-medium text-grey-900">
-            {g.organisationName}
-          </p>
-          {g.imported && <ImportedPill />}
-        </div>
-        <p className="truncate font-display text-label" style={{ color: C.sub }}>
-          {subline || '--'}
-        </p>
-      </div>
-    )
+    // No link: a row here opens the payment dialog, so the whole row is the target.
+    return <OrganisationCell name={g.organisationName} subline={subline} imported={g.imported} />
   },
 }
 

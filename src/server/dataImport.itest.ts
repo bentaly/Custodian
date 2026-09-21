@@ -175,6 +175,7 @@ function grantRow(o: {
   amountPaid?: number | null
   status?: 'active' | 'completed' | 'cancelled'
   endDate?: string | null
+  durationYears?: number | null
   deliveryArea?: string | null
   themes?: string[]
 }) {
@@ -195,6 +196,7 @@ function grantRow(o: {
     purpose: 'Core costs',
     themes: o.themes ?? [],
     endDate: o.endDate === undefined ? '2023-05-31' : o.endDate,
+    durationYears: o.durationYears ?? null,
     impactQuantity: null,
     bankAccountName: null,
     bankSortCode: null,

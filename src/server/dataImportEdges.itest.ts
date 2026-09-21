@@ -162,6 +162,7 @@ function grantRow(o: {
     purpose: 'Core costs',
     themes: [] as string[],
     endDate: o.endDate === undefined ? '2023-05-31' : o.endDate,
+    durationYears: null,
     impactQuantity: null,
     bankAccountName: null,
     bankSortCode: null,

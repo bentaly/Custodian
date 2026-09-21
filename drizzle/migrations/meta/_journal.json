@@ -673,6 +673,13 @@
       "when": 1789920431912,
       "tag": "0095_remarkable_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1790026110658,
+      "tag": "0096_fuzzy_the_enforcers",
+      "breakpoints": true
     }
   ]
 }

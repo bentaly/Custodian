@@ -27,6 +27,8 @@ export const GrantRowSchema = z.object({
   /** The Themes cell, split on semicolons. Empty means "all of the programme's". */
   themes: z.array(z.string().min(1).max(100)).max(50),
   endDate: isoDate.nullable(),
+  /** Whole years, where the foundation tracks it. See `awards.duration_years`. */
+  durationYears: z.number().int().positive().max(50).nullable(),
   impactQuantity: z.number().finite().min(0).nullable(),
   /**
    * Only meaningful for a grant with instalments still to pay. Loose length caps rather

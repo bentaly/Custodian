@@ -1,0 +1,1 @@
+ALTER TABLE "awards" ADD COLUMN "duration_years" integer;

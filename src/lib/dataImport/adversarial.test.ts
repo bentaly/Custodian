@@ -65,6 +65,7 @@ const grant = (over: Partial<GrantRow> = {}): GrantRow => ({
   purpose: 'Youth work',
   themes: [],
   endDate: null,
+  durationYears: null,
   impactQuantity: null,
   bankAccountName: null,
   bankSortCode: null,

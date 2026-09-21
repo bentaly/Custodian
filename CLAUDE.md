@@ -634,6 +634,12 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   across, matched on due date and amount and consumed on the hit, and the done screen says
   how many. Same rule and same reason as the bank columns beside it.
   Re-uploading the same reference REPLACES rather than duplicating — that is the phasing mechanism.
+- **`OrganisationCell` (`ui/`) is how every list names a grantee**: monogram, name,
+  one line of identifying facts. Applications, Awards, Finance and Reports each had their
+  own copy, and Finance's had no monogram, so the same charity read as a different kind of
+  thing depending on the screen. The imported mark sits on the CORNER of the monogram
+  rather than beside the name: as a pill it took room from the name, and once the word was
+  dropped the bare chip read as a button.
 - **Themes are one semicolon-separated cell** (`Youth; Mental health`), blank = every theme the
   programme has. Not a dropdown: Excel list validation holds ONE value per cell. Semicolons, not
   commas, because theme names contain commas. The Start here sheet lists each programme's themes

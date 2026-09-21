@@ -239,6 +239,7 @@ const grant = (over: Partial<GrantRow> = {}): GrantRow => ({
   purpose: 'Youth work',
   themes: [],
   endDate: null,
+  durationYears: null,
   impactQuantity: null,
   // The fixture grant pays in full on award, so it owes nothing and needs no account.
   // `bank_details_missing` only looks at grants with an unpaid instalment.
@@ -466,5 +467,26 @@ describe('validateImport', () => {
 
   it('refuses an empty workbook', () => {
     expect(run().canCommit).toBe(false)
+  })
+})
+
+describe('the Duration column', () => {
+  // Optional, and the round's own figure stands where it is blank. A round can hold a
+  // one-year grant beside a three-year one, which is what an imported back catalogue
+  // looks like, so the grant is allowed its own answer.
+  it('reads a whole number of years', () => {
+    expect(parseGrants([grantCells({ durationYears: '3' })]).rows[0]!.durationYears).toBe(3)
+  })
+
+  it('is blank rather than zero when nobody said', () => {
+    expect(parseGrants([grantCells({})]).rows[0]!.durationYears).toBeNull()
+    expect(parseGrants([grantCells({ durationYears: '0' })]).rows[0]!.durationYears).toBeNull()
+  })
+
+  // "2.5 years" is not a thing a grant agreement says, and a fraction would print as
+  // "2.5 yrs" on the register.
+  it('rounds a fraction to whole years', () => {
+    expect(parseGrants([grantCells({ durationYears: '2.4' })]).rows[0]!.durationYears).toBe(2)
+    expect(parseGrants([grantCells({ durationYears: '2.6' })]).rows[0]!.durationYears).toBe(3)
   })
 })

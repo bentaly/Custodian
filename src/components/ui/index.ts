@@ -30,6 +30,7 @@ export { ColourPicker } from './ColourPicker'
 export { Breadcrumb, BreadcrumbBar, RelatedLink, type Crumb } from './Breadcrumb'
 export { Badge } from './Badge'
 export { ImportedPill } from './ImportedPill'
+export { OrganisationCell } from './OrganisationCell'
 export { DateText } from './DateText'
 export { Avatar, initials } from './Avatar'
 export {
