@@ -27,6 +27,8 @@ import {
   CADENCES,
   buildSchedule,
   cadenceMonths,
+  scheduleTermMonths,
+  termLabel,
   type CadenceKey,
   type ScheduleRow,
 } from '../../lib/awardSchedule'
@@ -54,6 +56,11 @@ type Terms = {
   /** 1–3 even instalments, or `custom` — a hand-edited split per grant. */
   structure: 1 | 2 | 3 | 'custom'
   cadence: CadenceKey
+  /**
+   * How long these grants run, in years, as typed. Empty is "nobody said", which leaves
+   * every grant falling back to its own round-programme's figure.
+   */
+  durationYears: string
   useStandardConditions: boolean
   reporting: Array<{ label: string; date: string }>
 }
@@ -210,6 +217,28 @@ function isEvenSplit(g: GrantState): boolean {
   return g.rows.every((r, i) => Math.abs((parseFloat(r.amount) || 0) - even[i]!) < 0.005)
 }
 
+/**
+ * The duration to start the batch on: the round's figure, where every grant in the run
+ * agrees on one.
+ *
+ * A batch almost always comes from a single round-programme and simply inherits its
+ * length. Where a run spans pairings that disagree there is no one right answer to put
+ * in a single box, and an empty box is not a gap: it stores NULL, which is what every
+ * award did before this field existed, so each grant goes on reading its own round's
+ * figure.
+ */
+function sharedDuration(candidates: AwardCandidate[]): string {
+  const first = candidates[0]?.grantDurationYears ?? null
+  if (first === null) return ''
+  return candidates.every((c) => c.grantDurationYears === first) ? String(first) : ''
+}
+
+/** The term these terms imply, or null for a hand-edited split. */
+function impliedTermMonths(terms: Terms): number | null {
+  if (terms.structure === 'custom') return null
+  return scheduleTermMonths(terms.structure, cadenceMonths(terms.cadence))
+}
+
 // ─── The wizard ─────────────────────────────────────────────────────────────────
 
 export function AwardWizard({
@@ -230,6 +259,7 @@ export function AwardWizard({
     firstPaymentDate: todayIso(),
     structure: 1,
     cadence: 'yearly',
+    durationYears: sharedDuration(candidates),
     useStandardConditions: true,
     // One empty row, because a grant must carry at least one reporting date: the
     // requirement shows as a field waiting to be filled rather than only as a message
@@ -379,6 +409,15 @@ export function AwardWizard({
     if (terms.reporting.some((r) => r.date && r.date < todayIso())) {
       list.push('A reporting date cannot be in the past.')
     }
+    // Empty is allowed and means "use each grant's round". Anything typed has to be a
+    // year count the schema will accept, or Confirm fails on a raw validation error at
+    // the end of the flow rather than on the field that caused it.
+    if (terms.durationYears) {
+      const years = Number(terms.durationYears)
+      if (!Number.isInteger(years) || years < 1 || years > 50) {
+        list.push('A grant duration must be a whole number of years, from 1 to 50.')
+      }
+    }
     return list
   }, [terms, completeMilestones])
 
@@ -440,6 +479,24 @@ export function AwardWizard({
       ? termsProblems.length > 0 || scheduleBlocked
       : termsProblems.length > 0 || grantProblems.size > 0
 
+  /**
+   * The line under the duration box. Beyond naming the field it has one job: to say so
+   * when the payment plan runs longer than the figure in the box. That is the case the
+   * round's default gets wrong (a three-year plan set up inside a round of two), and
+   * the admin is the only one who can tell whether the plan or the round is right.
+   */
+  const durationHint = (() => {
+    const months = impliedTermMonths(terms)
+    const stated = terms.durationYears ? Number(terms.durationYears) : null
+    if (stated !== null && months !== null && months > stated * 12) {
+      return `These payments run over ${termLabel(months)}. Change the duration if that is the length of the grant.`
+    }
+    if (stated === null) {
+      return 'Left empty, each grant keeps the duration set on its own round.'
+    }
+    return 'How long these grants run, taken from the round. Change it if these grants differ.'
+  })()
+
   async function handleConfirm() {
     setSaving(true)
     setError(null)
@@ -448,6 +505,7 @@ export function AwardWizard({
         data: {
           terms: {
             startDate: terms.startDate,
+            durationYears: terms.durationYears ? parseInt(terms.durationYears, 10) : null,
             useStandardConditions: terms.useStandardConditions,
             reporting: terms.reporting
               .filter((r) => r.label.trim() && r.date)
@@ -606,6 +664,34 @@ export function AwardWizard({
                 />
               </div>
             )}
+
+            <div>
+              <FieldLabel>Grant duration</FieldLabel>
+              <div className="w-[200px]">
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    step={1}
+                    inputMode="numeric"
+                    value={terms.durationYears}
+                    aria-label="Grant duration in years"
+                    placeholder="Optional"
+                    onChange={(e) => setTerms((t) => ({ ...t, durationYears: e.target.value }))}
+                    className={terms.durationYears ? 'pr-12' : undefined}
+                  />
+                  {terms.durationYears && (
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-display text-body text-grey-400">
+                      {terms.durationYears === '1' ? 'year' : 'years'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
+                {durationHint}
+              </p>
+            </div>
 
             {custom ? (
               <CustomSchedules

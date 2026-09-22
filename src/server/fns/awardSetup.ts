@@ -443,6 +443,9 @@ export const createAwards = createServerFn({ method: 'POST' })
         purpose: grant.purpose,
         specialCondition: grant.specialCondition,
         startDate: data.terms.startDate,
+        // Stated once for the batch. NULL leaves the grant reading its round-programme's
+        // figure, which is the only answer awards had before this field existed.
+        durationYears: data.terms.durationYears,
         decisionAt,
       })
       const insertInstalments = db.insert(awardInstalments).values(

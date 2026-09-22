@@ -54,3 +54,26 @@ export function buildSchedule(
     date: firstDate ? addMonthsIso(firstDate, months * i) : null,
   }))
 }
+
+/**
+ * The term a payment plan implies, in months: the number of instalments times the gap
+ * between them.
+ *
+ * Counts what the instalments COVER rather than measuring the first date to the last.
+ * An annual instalment pays for the year ahead of it, so two payments twelve months
+ * apart are a two-year grant even though only twelve months separate the dates.
+ * Measuring the dates reports every multi-year grant a year short, which is the trap
+ * this function exists to avoid.
+ *
+ * A hand-edited split has no shared cadence to count, so it has no answer here.
+ */
+export function scheduleTermMonths(instalments: number, months: number): number {
+  return instalments * months
+}
+
+/** A term as a whole number of years where the months divide, else as months. */
+export function termLabel(months: number): string {
+  if (months % 12 !== 0) return `${months} months`
+  const years = months / 12
+  return years === 1 ? '1 year' : `${years} years`
+}

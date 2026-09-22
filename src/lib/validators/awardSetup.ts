@@ -10,6 +10,17 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
  */
 export const AwardTermsSchema = z.object({
   startDate: z.string().regex(ISO_DATE, 'Expected yyyy-mm-dd'),
+  /**
+   * How long these grants run, in years, where the admin has said.
+   *
+   * NULL is "nobody stated one", and the award then falls back to
+   * `round_programmes.grant_duration_years` exactly as an imported grant does. That is
+   * also what a batch spanning rounds of different lengths sends, so each grant keeps
+   * its own round's answer rather than being flattened to one of them.
+   *
+   * NOT an input to the schedule, which is built from the instalment rows themselves.
+   */
+  durationYears: z.number().int().positive().max(50).nullable().default(null),
   /** Whether the foundation's standard conditions are attached to these awards. */
   useStandardConditions: z.boolean().default(true),
   reporting: z
