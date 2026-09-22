@@ -2,26 +2,25 @@
 // it appears — the swatch on the programmes list, chart series, budget bars.
 //
 // ── How the palette was built ────────────────────────────────────────────────────────
-// Ten hues 36° apart, every one at OKLCH lightness 0.76, each as colourful as it can be
-// up to a shared ceiling of chroma 0.135. Lightness is what keeps the set even — no
-// programme's colour shouts louder than its neighbour's, which a hand-picked set cannot
-// promise. (The designer's earlier ten spanned L 0.50–0.86, so Amber was nearly invisible
-// beside Purple.)
+// Ten hues evenly spaced round the wheel, each taking the lightness and chroma a curve
+// through the four ORIGINAL colours from the Figma design gives it. Those four are stated below;
+// every other hue is generated on the curve between them, so the eleventh programme and
+// the fortieth have an answer the hand-picked set never had.
 //
-// Chroma was the free coordinate once, taken as high as each hue could reach: even in
-// lightness, and 0.11 → 0.29 in colourfulness, so Magenta was three times as loud as Teal
-// at identical weight. It also put the whole set well above the accent family it replaced
-// (L 0.80–0.86, C 0.11–0.13), which is why programmes read as shouting at the pastel UI
-// around them.
+// Two rules were tried before this, and both flattened the set to one lightness: first
+// with chroma taken to the gamut edge at every hue (even in weight, 0.11 → 0.29 in
+// colourfulness, so Magenta was three times as loud as Teal), then with chroma held flat
+// too. Flat chroma has to be set by the tightest hue on the whole wheel. Flat LIGHTNESS
+// is what made the warm half mud: a gold is a pale colour, and a gold with the lightness
+// taken out of it is not a deeper gold, it is a brown. No rotation escapes that — ten
+// hues go all the way round, so something always lands in the gold-to-olive quarter.
 //
-// The answer to that was to hold chroma perfectly flat as well, at 0.112 — and holding it
-// flat means every hue meets where the WEAKEST one can reach, which at this lightness is
-// Blue. The hues robbed hardest by that are the warm ones, and a gold with the colour
-// taken out of it is a mustard: Amber came out `#dba65b`, Olive `#b5b75f`. So the ceiling
-// is a ceiling and not a floor. Blue, Sky, Teal and Violet still sit at 0.115–0.126,
-// which is all sRGB has for them here; the warm half goes to 0.135 and reads as gold
-// rather than mud. Total spread 0.020, against the 0.180 that made the max-chroma ramp
-// look uneven.
+// The designer's own four never sat on one lightness: their gold is at 0.86 and their
+// violet at 0.64. That spread is most of what people recognise as the original palette.
+//
+// The cost, stated plainly: this set is NOT even in weight. Some colours are lighter than
+// others, which is the thing flat lightness existed to prevent, and it is a trade taken
+// deliberately rather than an oversight.
 //
 // These are DELIBERATELY not aliases of `--color-success` / `--color-danger` /
 // `--color-warning`. A programme's colour is a label a person chose; a semantic token is
@@ -30,52 +29,99 @@
 //
 // ── What they may be used for ────────────────────────────────────────────────────────
 // Swatches, chart series, bars — never TEXT and never a border carrying meaning on its
-// own. At lightness 0.76 these sit at 2.0–2.3:1 on white, well below AA — quieter than
-// the 2.7–3.4 of the max-chroma ramp, and still ahead of the `#37d1f7` sky (1.5:1) the
-// dashboard was drawing programmes in before any of this. Raising the warm half barely
-// moved that (2.03–2.28), because chroma is not what contrast is made of.
+// own. These run 1.5–3.5:1 on white, every one below AA, and the spread is wider than the
+// flat ramps before them precisely because lightness is free again.
 
 export type ProgrammeColour = { hex: string; name: string }
 
 /**
- * OKLCH lightness every generated colour sits at — the coordinate that is genuinely flat,
- * and the one doing the work. Together with the chroma ceiling below it lands near the
- * accent family this replaced (L 0.80–0.86, C 0.11–0.13), which is the register the rest
- * of the app is drawn in.
+ * The four programme colours from Custodian's original Figma design, which are what this
+ * ramp is now built out of. Measured, they sit nowhere near one lightness: the gold is at 0.86 and the
+ * violet at 0.64, because a gold is only a gold while it is pale and a violet is only a
+ * violet while it is deep. Holding all ten at one lightness is what turned the warm half
+ * to mud, and no rotation of the wheel escapes it — ten hues go all the way round, so
+ * something always lands in the gold-to-olive quarter.
  */
-const RAMP_L = 0.76
-/**
- * The MOST chroma any generated colour may take. Not a flat value: a hue that cannot
- * reach it takes what it can, so this is a ceiling, never a floor.
- *
- * A flat value is what was tried first, and the number it has to be is decided by the
- * single tightest hue on the whole wheel — at this lightness ~267°, blue-violet, which
- * falls between Blue and Violet and is therefore exactly where a generated eleventh
- * programme lands. That capped everything at 0.112 and turned the warm half to mud.
- *
- * 0.135 is where the warm hues stop being earthy while the cool half is left where it
- * already was: at L 0.76 the headroom runs Blue 0.115, Violet 0.122, Teal 0.125, Sky
- * 0.126 against Amber 0.148, Olive 0.153, Magenta 0.216. So this ceiling changes the
- * colours that needed changing and almost nothing else — Blue moved `#7eb4f7` → `#7cb5f9`.
- *
- * Raising it further is the dial to turn if the set ever reads too quiet, but past ~0.145
- * Rose goes hot enough to argue with the red assessment flags it sits beside.
- */
-const RAMP_C = 0.135
+const ORIGINAL_ANCHORS = ['#fdc86f', '#37d1f7', '#7a7bef', '#f7a1c4'] as const
 /** Back off the gamut edge: right on it, rounding to 8-bit can clip and shift the hue. */
 const RAMP_C_SAFETY = 0.92
 
+type Anchor = { L: number; C: number; h: number }
+
+/**
+ * The anchors as coordinates, in hue order, so the curve below can run through them.
+ * Resolved on first use rather than at module load: `oklchOf` leans on the sRGB helpers
+ * further down the file, and a `const` arrow is not hoisted the way a function is.
+ */
+let anchorCache: { pts: Anchor[]; L: [number, number]; C: [number, number] } | null = null
+function anchors() {
+  if (!anchorCache) {
+    const pts = ORIGINAL_ANCHORS.map(oklchOf).sort((a, b) => a.h - b.h)
+    const at = (key: 'L' | 'C') =>
+      [Math.min(...pts.map((p) => p[key])), Math.max(...pts.map((p) => p[key]))] as [number, number]
+    anchorCache = { pts, L: at('L'), C: at('C') }
+  }
+  return anchorCache
+}
+
+/**
+ * Lightness (or chroma) at a hue, on a loop that passes exactly through all four anchors.
+ *
+ * A Catmull-Rom segment between the two anchors either side, with the next one out at
+ * each end setting the slope, so the loop is smooth where it crosses an anchor rather
+ * than kinked. Clamped to the anchors' own range because a cubic overshoots on an uneven
+ * spacing like this one, and an overshoot is a colour paler or weaker than anything the
+ * designer picked.
+ */
+function curveAt(key: 'L' | 'C', hDeg: number): number {
+  const { pts, L, C } = anchors()
+  const n = pts.length
+  const h = ((hDeg % 360) + 360) % 360
+  let i = 0
+  for (let k = 0; k < n; k++) {
+    const span = (pts[(k + 1) % n]!.h - pts[k]!.h + 360) % 360
+    if ((h - pts[k]!.h + 360) % 360 <= span + 1e-9) {
+      i = k
+      break
+    }
+  }
+  const a = pts[i]!
+  const b = pts[(i + 1) % n]!
+  const p0 = pts[(i - 1 + n) % n]!
+  const p3 = pts[(i + 2) % n]!
+  const span = (b.h - a.h + 360) % 360 || 360
+  const t = ((h - a.h + 360) % 360) / span
+  const [v0, v1, v2, v3] = [p0[key], a[key], b[key], p3[key]]
+  const v =
+    0.5 *
+    (2 * v1 +
+      (-v0 + v2) * t +
+      (2 * v0 - 5 * v1 + 4 * v2 - v3) * t * t +
+      (-v0 + 3 * v1 - 3 * v2 + v3) * t * t * t)
+  const [lo, hi] = key === 'L' ? L : C
+  return Math.min(hi, Math.max(lo, v))
+}
+
+/**
+ * The ten, generated by `colourForHue` at 36° steps from the Sky anchor's own hue. Sky is
+ * the one that lands on an anchor exactly; the others fall between anchors, on the curve,
+ * because the four originals are not 36° apart and an even ten cannot hit all four.
+ *
+ * Sky comes first because the first preset is what a foundation's first programme is
+ * given (`nextProgrammeColour`, with nothing taken). Budget lines and other generated
+ * series do NOT start here — see `colourSeries`.
+ */
 export const PROGRAMME_PALETTE: ProgrammeColour[] = [
-  { hex: '#f78baa', name: 'Rose' },
-  { hex: '#f99170', name: 'Coral' },
-  { hex: '#e4a341', name: 'Amber' },
-  { hex: '#b7b847', name: 'Olive' },
-  { hex: '#75c87c', name: 'Green' },
-  { hex: '#33cbb7', name: 'Teal' },
-  { hex: '#32c4e6', name: 'Sky' },
-  { hex: '#7cb5f9', name: 'Blue' },
-  { hex: '#b0a3f9', name: 'Violet' },
-  { hex: '#dd92df', name: 'Magenta' },
+  { hex: '#37d1f7', name: 'Sky' },
+  { hex: '#519bf7', name: 'Blue' },
+  { hex: '#9077ea', name: 'Violet' },
+  { hex: '#d58cd5', name: 'Magenta' },
+  { hex: '#fba7bc', name: 'Blush' },
+  { hex: '#fbbda8', name: 'Coral' },
+  { hex: '#fcc87f', name: 'Amber' },
+  { hex: '#d4d873', name: 'Lime' },
+  { hex: '#93e39b', name: 'Green' },
+  { hex: '#4ae1cd', name: 'Teal' },
 ]
 
 export const PROGRAMME_COLOUR_PATTERN = /^#[0-9a-f]{6}$/
@@ -136,15 +182,17 @@ function maxChroma(L: number, h: number): number {
 }
 
 /**
- * A hue's place on the ramp, as a stored `#rrggbb`. Flat lightness AND flat chroma, so
- * two colours off this ramp differ in hue and nothing else. The gamut cap still applies:
- * if `RAMP_L` is ever raised, `RAMP_C` may stop being reachable at some hue, and a
- * colour that quietly left sRGB would clip to something off-ramp.
+ * A hue's place on the ramp, as a stored `#rrggbb`. Lightness and chroma both come off
+ * the curve through the four originals, so a colour is as light as that hue wants to be
+ * rather than as light as every other hue can manage. The gamut cap still applies: the
+ * curve asks for more chroma than sRGB has at some hues, and a colour that quietly left
+ * the gamut would clip to something off-ramp.
  */
 export function colourForHue(hDeg: number): string {
   const h = ((hDeg % 360) + 360) % 360
-  const chroma = Math.min(RAMP_C, maxChroma(RAMP_L, h) * RAMP_C_SAFETY)
-  const rgb = oklchToLinearRgb(RAMP_L, chroma, h)
+  const lightness = curveAt('L', h)
+  const chroma = Math.min(curveAt('C', h), maxChroma(lightness, h) * RAMP_C_SAFETY)
+  const rgb = oklchToLinearRgb(lightness, chroma, h)
   return `#${rgb
     .map((v) => {
       const n = Math.round(linearToSrgb(Math.min(1, Math.max(0, v))) * 255)
@@ -153,11 +201,9 @@ export function colourForHue(hDeg: number): string {
     .join('')}`
 }
 
-/** A stored colour's OKLCH hue, so a custom pick can be reasoned about like a preset. */
-export function hueOf(hex: string): number | null {
-  const v = normaliseColour(hex)
-  if (!v) return null
-  const [r, g, b] = [1, 3, 5].map((i) => srgbToLinear(parseInt(v.slice(i, i + 2), 16) / 255)) as [
+/** A `#rrggbb` as OKLCH coordinates. Assumes an already-normalised six-digit hex. */
+function oklchOf(hex: string): { L: number; C: number; h: number } {
+  const [r, g, b] = [1, 3, 5].map((i) => srgbToLinear(parseInt(hex.slice(i, i + 2), 16) / 255)) as [
     number,
     number,
     number,
@@ -167,9 +213,20 @@ export function hueOf(hex: string): number | null {
   const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
   const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s
   const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s
+  return {
+    L: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    C: Math.hypot(A, B),
+    h: ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360,
+  }
+}
+
+/** A stored colour's OKLCH hue, so a custom pick can be reasoned about like a preset. */
+export function hueOf(hex: string): number | null {
+  const v = normaliseColour(hex)
+  if (!v) return null
+  const { C, h } = oklchOf(v)
   // A near-grey has no meaningful hue — its angle is numerical noise.
-  if (Math.hypot(A, B) < 0.01) return null
-  return ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360
+  return C < 0.01 ? null : h
 }
 
 /** Angular distance between two hues, the short way round the wheel. */
@@ -241,7 +298,7 @@ export function nextProgrammeColour(taken: Iterable<string | null | undefined>):
 
 /**
  * `n` colours for an ad-hoc series — budget lines, chart segments — as far apart on the
- * wheel as `n` colours can be, all at the ramp's one lightness.
+ * wheel as `n` colours can be, each at the lightness the curve gives its hue.
  *
  * This exists because the alternative is a fixed list cycled with `i % length`, which
  * hands the sixth item the first item's colour. On a budget bar the swatch is the ONLY
@@ -249,10 +306,16 @@ export function nextProgrammeColour(taken: Iterable<string | null | undefined>):
  * it makes the bar unreadable at exactly the point it got interesting enough to have
  * six lines in it.
  *
- * Anchored on the first preset and stepping `360/n`, so the presets fall out of the
- * same maths: `colourSeries(10)` IS `PROGRAMME_PALETTE` (bar a rounding digit), and any
- * `n` dividing into it — 2, 5 — lands on preset hexes too. A budget of five and a
- * programme swatch are visibly the same family because they are literally the same ramp.
+ * Same curve as the presets, different starting point: a series opens on the ORIGINAL
+ * Amber, where programmes open on Sky. The two jobs want different first colours — a
+ * foundation's first programme and an application's first budget line are not the same
+ * kind of thing, and the budget line should not look like it belongs to a programme.
+ *
+ * Starting elsewhere does not keep a series off the programme colours, and nothing
+ * could: presets sit every 36° all the way round, so every hue is within 18° of one, and
+ * for three to eight lines the best possible start still leaves some 5–9° from a preset.
+ * Accepted — a budget bar and a programme swatch sharing a hue is a mild coincidence,
+ * not a misreading, since the two never appear as one legend.
  *
  * Unlike `nextProgrammeColour` this takes no account of what is already in use: a series
  * is positional and thrown away with the render, where a programme's colour is an
@@ -260,7 +323,7 @@ export function nextProgrammeColour(taken: Iterable<string | null | undefined>):
  */
 export function colourSeries(n: number): string[] {
   if (n <= 0) return []
-  const anchor = hueOf(PROGRAMME_PALETTE[0]!.hex) ?? 0
+  const anchor = oklchOf(ORIGINAL_ANCHORS[0]).h
   return Array.from({ length: n }, (_, i) => colourForHue(anchor + (i * 360) / n))
 }
 

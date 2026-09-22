@@ -64,12 +64,11 @@ describe('the palette itself', () => {
     }
   })
 
-  it('lets a hue keep the chroma it has, instead of flattening the set to its weakest', () => {
-    // The mustard bug, pinned. Holding chroma flat caps every hue at what the tightest
-    // one on the wheel can reach — Blue, here — and a gold with the colour taken out of
-    // it is mud. The ceiling is a ceiling, so the warm half stays clear of the cool half;
-    // anyone "tidying" this back to one flat value brings `#dba65b` back with it.
-    const chroma = (hex: string) => {
+  it('lets a hue sit at the lightness it needs, rather than one figure for all ten', () => {
+    // The mustard bug, pinned. Holding every hue at one lightness is what turned the warm
+    // half to mud: a gold is a pale colour, and a gold with the lightness taken out of it
+    // is a brown. Anyone levelling this set back out brings `#dba65b` back with it.
+    const lightness = (hex: string) => {
       const [r, g, b] = [1, 3, 5].map((i) => {
         const v = parseInt(hex.slice(i, i + 2), 16) / 255
         return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
@@ -77,17 +76,14 @@ describe('the palette itself', () => {
       const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
       const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
       const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
-      return Math.hypot(
-        1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
-        0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
-      )
+      return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s
     }
-    const of = (name: string) => chroma(PROGRAMME_PALETTE.find((c) => c.name === name)!.hex)
+    const of = (name: string) => lightness(PROGRAMME_PALETTE.find((c) => c.name === name)!.hex)
 
-    for (const c of PROGRAMME_PALETTE) expect(chroma(c.hex)).toBeLessThanOrEqual(0.136)
-    for (const warm of ['Amber', 'Olive', 'Coral']) {
-      expect(of(warm)).toBeGreaterThan(of('Blue') + 0.01)
-    }
+    // The gold end sits well above the violet end. That gap IS the palette.
+    expect(of('Amber')).toBeGreaterThan(of('Violet') + 0.1)
+    // And nothing in the gold-to-olive quarter is allowed down where it turns to mud.
+    for (const warm of ['Amber', 'Lime']) expect(of(warm)).toBeGreaterThan(0.8)
   })
 
   it('holds every colour at one lightness, which is what stops any one shouting', () => {
@@ -130,19 +126,22 @@ describe('colourSeries', () => {
     }
   })
 
-  it('is the palette when there are ten of them', () => {
-    // Same ramp, same anchor, same 36° step — so a budget bar and a programme swatch are
-    // the same family by construction rather than by two lists being kept in step.
-    // (±2 per channel, as above: an 8-bit hue does not round-trip losslessly.)
+  it('draws off the same curve as the presets, from its own starting point', () => {
+    // A series opens on the original Amber, where programmes open on Sky: the first
+    // budget line should not read as the first programme. Same curve either way, so
+    // every series colour regenerates from its own hue. (±2 per channel: an 8-bit hue
+    // does not round-trip losslessly.)
     const series = colourSeries(PROGRAMME_PALETTE.length)
-    series.forEach((hex, i) => {
-      const preset = PROGRAMME_PALETTE[i]!.hex
+    expect(series[0]).not.toBe(PROGRAMME_PALETTE[0]!.hex)
+    expect(hueGap(hueOf(series[0]!)!, hueOf('#fdc86f')!)).toBeLessThan(1)
+    for (const hex of series) {
+      const regenerated = colourForHue(hueOf(hex)!)
       for (const j of [1, 3, 5]) {
         expect(
-          Math.abs(parseInt(hex.slice(j, j + 2), 16) - parseInt(preset.slice(j, j + 2), 16)),
+          Math.abs(parseInt(hex.slice(j, j + 2), 16) - parseInt(regenerated.slice(j, j + 2), 16)),
         ).toBeLessThanOrEqual(2)
       }
-    })
+    }
   })
 
   it('spreads as widely as the count allows', () => {
@@ -151,7 +150,8 @@ describe('colourSeries', () => {
       .sort((a, b) => a - b)
     for (let i = 0; i < hues.length; i++) {
       const gap = (hues[(i + 1) % hues.length]! - hues[i]! + 360) % 360 || 360
-      expect(gap).toBeCloseTo(90, 0)
+      // Recovering a hue from an 8-bit colour is lossy, so a degree or two either way.
+      expect(Math.abs(gap - 90)).toBeLessThan(2)
     }
   })
 
@@ -250,8 +250,8 @@ describe('resolveProgrammeColour', () => {
 
 describe('colourName', () => {
   it('names a preset, whatever the casing', () => {
-    expect(colourName(PROGRAMME_PALETTE[0]!.hex)).toBe('Rose')
-    expect(colourName(PROGRAMME_PALETTE[0]!.hex.toUpperCase())).toBe('Rose')
+    expect(colourName(PROGRAMME_PALETTE[0]!.hex)).toBe(PROGRAMME_PALETTE[0]!.name)
+    expect(colourName(PROGRAMME_PALETTE[0]!.hex.toUpperCase())).toBe(PROGRAMME_PALETTE[0]!.name)
   })
 
   it('calls anything off-palette Custom', () => {

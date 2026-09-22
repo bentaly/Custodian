@@ -1183,12 +1183,15 @@ Structural decisions worth knowing before adding a screen:
 - **Programme colour** (`src/lib/programmeColours.ts`) — `programmes.colour` holds a lowercase
   `#rrggbb`. Assigned **server-side** on create so two admins can't be handed the same one.
   Deliberately not aliases of the semantic tokens: a contrast fix to `--color-danger` must not
-  repaint somebody's programmes. Nullable with no backfill. **Never use these as TEXT** — at
-  OKLCH L 0.76 they sit at 2.0–2.3:1 on white. Lightness is flat across the ten; chroma is
-  **capped, not flattened** (`RAMP_C` is a ceiling), because flattening it caps every hue at what
-  the tightest one on the wheel can reach and turns the warm half to mustard. Regenerating the ten
-  means a migration too — the colour is stored on the row, and one off the current ten reads as
-  "Custom" and can be handed out twice (see `0074_programme_colour_ramp_reweight`).
+  repaint somebody's programmes. Nullable with no backfill. **Never use these as TEXT** — they
+  run 1.5–3.5:1 on white. The ramp is a **curve through the four original Figma colours**
+  (Sky, Blush, Amber, Violet): lightness follows the hue, gold high and violet deep. Two flat
+  ramps came before it, and holding every hue at ONE lightness is what turned the warm half to
+  mustard; do not level it back out. Programmes are assigned from **Sky**, furthest-from-taken;
+  budget lines and other `colourSeries` open on the original **Amber**, so a first budget line
+  does not read as a first programme. Regenerating the ten means a migration too — the colour is
+  stored on the row, and one off the current ten reads as "Custom" and can be handed out twice
+  (see `0074` and `0097`).
 - **`/settings/budget` steps between financial years** on a `?year=` offset (−5 to +1), so a
   particular year is a link and the back button walks them. **Past years are EDITABLE, not
   read-only**: a budget is a plan somebody typed, not an accounting record, and a foundation that
