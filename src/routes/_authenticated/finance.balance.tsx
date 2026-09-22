@@ -4,8 +4,9 @@ import { getBalanceAndBudget } from '../../server/fns/budget'
 import { BalanceAndBudget, type BalanceView } from '../../components/finance/BalanceAndBudget'
 import { BankBalanceDialog } from '../../components/finance/BankBalanceDialog'
 import { FinanceHeader } from '../../components/finance/FinanceHeader'
+import { GrantCreditorsDialog } from '../../components/finance/GrantCreditorsDialog'
 import { Button } from '../../components/ui'
-import { PayByCheckIcon } from '@hugeicons/core-free-icons'
+import { Download01Icon, PayByCheckIcon } from '@hugeicons/core-free-icons'
 
 /**
  * Finance → Balance & budget.
@@ -40,6 +41,7 @@ function BalancePage() {
   const navigate = Route.useNavigate()
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [creditorsOpen, setCreditorsOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,15 +49,30 @@ function BalancePage() {
         tab="balance"
         subtitle={data ? `Financial year ${data.financialYear.label}` : undefined}
         actions={
-          <Button
-            variant="tinted"
-            size="sm"
-            onClick={() => setDialogOpen(true)}
-            icon={PayByCheckIcon}
-            iconPosition="right"
-          >
-            {data?.balance ? 'Update balance' : 'Record balance'}
-          </Button>
+          <>
+            {/* A download for the accountant, not a reading of this screen, so it sits
+                beside the screen's own action rather than inside the Summary card. */}
+            {data && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setCreditorsOpen(true)}
+                icon={Download01Icon}
+                iconPosition="right"
+              >
+                Grant creditors
+              </Button>
+            )}
+            <Button
+              variant="tinted"
+              size="sm"
+              onClick={() => setDialogOpen(true)}
+              icon={PayByCheckIcon}
+              iconPosition="right"
+            >
+              {data?.balance ? 'Update balance' : 'Record balance'}
+            </Button>
+          </>
         }
       />
 
@@ -75,6 +92,14 @@ function BalancePage() {
         onClose={() => setDialogOpen(false)}
         onSaved={() => router.invalidate()}
       />
+
+      {data && (
+        <GrantCreditorsDialog
+          open={creditorsOpen}
+          currentYearEnd={data.financialYear.end}
+          onClose={() => setCreditorsOpen(false)}
+        />
+      )}
     </div>
   )
 }

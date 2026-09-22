@@ -19,6 +19,7 @@ import {
 import { requireRole } from '../session'
 import { recordAudit } from '../audit'
 import { balanceAndBudget, ownedProgrammes } from '../finance/budget'
+import { grantCreditorsReport } from '../finance/creditors'
 import {
   DEFAULT_FY_END_MONTH,
   financialYear,
@@ -521,4 +522,37 @@ export const recordBankBalance = createServerFn({ method: 'POST' })
     })
 
     return { ok: true as const }
+  })
+
+/**
+ * The year-end grant creditors report — what was promised and still unpaid on a given
+ * day, split within / after one year as the SORP accounts need it. Downloaded from
+ * Finance → Balance & budget; see `src/lib/grantCreditors.ts` for the rules.
+ *
+ * Takes any date rather than only a year end: the screen offers year ends, and whether
+ * an accountant also wants a half-year is still an open question for foundations. The
+ * answer for any date is well defined, so the server does not need to know which.
+ */
+export const getGrantCreditors = createServerFn({ method: 'GET' })
+  .validator(
+    z.object({
+      yearEnd: z
+        .string()
+        .regex(ISO_DAY, 'Choose a date')
+        .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)), 'Choose a date'),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireRole(...MONEY_ROLES)
+    if (!user.clientId) throw forbidden('No organisation is associated with your account.')
+    const db = getDb()
+    const clientId = user.clientId
+    const [report, client] = await Promise.all([
+      grantCreditorsReport(db, clientId, data.yearEnd),
+      db.query.clients.findFirst({
+        where: (c, { eq: e }) => e(c.id, clientId),
+        columns: { name: true },
+      }),
+    ])
+    return { report, foundationName: client?.name ?? null }
   })

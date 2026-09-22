@@ -500,6 +500,11 @@ design rationale; this list is a map, not a summary.
   Available = balance − projected − still to pay − Actual money gone after the reading; minus the
   round projection and contingency that is the cash flow's headroom, off the same instalment
   rows, and a test pins it
+- **grantCreditors** — the year-end SORP creditors file (Finance → Balance & budget → Grant
+  creditors): unpaid at a past year end, due within one year / after more than one year.
+  "Unpaid at" reads `paidDate <= yearEnd`, so a payment made since still counts as owed;
+  cancelled grants are out; an undated or unscheduled remainder gets its own column rather
+  than a guessed bucket. `src/lib/grantCreditors.ts` + `server/finance/creditors.ts`
 - **budget** — budget-line types/helpers; **validators/** — zod schemas shared client/server
 
 ## Public submission auth
