@@ -316,18 +316,35 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   `grant_duration_years` is a display hint, NOT an input to `buildSchedule` — do not treat it as one.
 - **Once an award exists none of that is read.** `roundProgrammeSpend`
   (`src/server/applications/roundSpend.ts`) reads the award's real instalments, and it is the
-  **single** source for both the shortlist meter and the `enforce_round_budget` ceiling. They used
-  to be two sums that happened to agree because both counted the whole ask; on a cash basis two
-  sums can disagree, and the failure is a meter saying there is room over a server that refuses.
-  Both halves of the meter moved — already-awarded AND shortlisted — and so did the "Budget full"
-  courtesy on the application screen.
+  **single** source for the shortlist meter, the `enforce_round_budget` ceiling and the Rounds
+  screen's card. They used to be separate sums that happened to agree because all counted the
+  whole ask; on a cash basis they can disagree, and the failure is a meter saying there is room
+  over a server that refuses. Both halves of the meter moved — already-awarded AND shortlisted —
+  and so did the "Budget full" courtesy on the application screen.
+  **The Rounds card was the one that got away**, and read the whole commitment against one year's
+  budget until 2026-09-22: a round of five two-year grants printed **£41,000 of £20,500** on a
+  foundation that had spent its allocation to the penny. `listRoundsOverview` now asks
+  `roundProgrammeSpend` (with `awardedOnly`, since a card is about DECIDED money and shortlisting
+  is the dashboard's pipeline sense of the word), and prints the full commitment on a second line
+  wherever the two differ — that figure is what the Awards register shows, so dropping it would
+  read as half the money going missing.
 - **Every round belongs to exactly ONE financial year** (`src/lib/roundYear.ts`), and its
   budget is metered against that year rather than whichever is current — otherwise a round's
   meter drifts every 1 April as instalments fall inside a window that moved on without it.
-  Derived from the year the round CLOSES in (decisions are made at close); `rounds
-  .financial_year_start` stores an answer only where the round STRADDLES a year end and there
-  are genuinely two, which is the one case `RoundDialog` asks about. It is written on every
-  save including as NULL, so a round dragged back inside one year loses a stale answer.
+  Derived from the year the round CLOSES in (decisions are made at close), and `rounds
+  .financial_year_start` overrides that. It is written on every save including as NULL, so a
+  round that is answered and then un-answered loses the stale figure.
+  **The question is asked on EVERY round, and it is about when the grants are PAID** (2026-09-22).
+  It used to appear only where a round's own dates straddled a year end, on the reasoning that a
+  round opening and closing inside one year had a single possible answer. Arete broke that: their
+  round takes applications from January, closes **31 March** and pays in **May**, so every date
+  sits in 2025/26 while every pound leaves in 2026/27. The control never appeared, and the one
+  year it would have offered was the wrong one — the round was unfixable rather than merely
+  mis-defaulted, and the 2026/27 budget screen was quietly summing a different pair of rounds than
+  the foundation was. So `roundYearOptions` now offers the closing year (still the default, so an
+  untouched round is unchanged), the year AFTER it, and — only where the round straddles — the
+  year it opens in. Never the years between a long round's ends; that reasoning survives intact.
+  `roundYearIsAmbiguous` is gone with the rule it expressed.
   `getAnnualBudgetSettings`'s allocation query matches on that year: it used to match every
   round whose dates OVERLAPPED the year, which counted a February-to-June round's whole
   allocation in both years.

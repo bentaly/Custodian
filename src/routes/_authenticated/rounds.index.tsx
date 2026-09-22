@@ -308,6 +308,21 @@ function RoundRowCard({
                 {money(round.committed)} of
               </span>{' '}
               <span className="text-grey-500">{money(round.budget)}</span>
+              {/* Both figures above are THIS YEAR'S cash, because the budget is (see
+                  `listRoundsOverview`). A round of multi-year grants has committed more
+                  than that, and the whole promise is the figure the Awards register
+                  prints, so it goes underneath rather than being dropped: a foundation
+                  looking for £41,000 and finding £20,500 would read the card as having
+                  lost half its money.
+
+                  Only where the two differ, which on a round of single-year grants is
+                  never, and only where there is a budget: this line explains a gap
+                  between a pair, and "Not set" is not half of a pair. */}
+              {round.committedFull > round.committed && (
+                <span className="mt-1 block font-display text-label font-normal text-grey-500">
+                  {money(round.committedFull)} committed in total
+                </span>
+              )}
             </>
           )}
         </Stat>

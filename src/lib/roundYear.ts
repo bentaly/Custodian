@@ -1,4 +1,4 @@
-import { financialYear, type FinancialYear } from './financialYear'
+import { financialYear, shiftFinancialYear, type FinancialYear } from './financialYear'
 
 /**
  * Which financial year a round's budgets are drawn from.
@@ -8,17 +8,27 @@ import { financialYear, type FinancialYear } from './financialYear'
  * two years' reconciliation and the shortlist meter measures against whichever year
  * happens to be current when somebody looks.
  *
- * ## Derived where there is only one answer, asked where there are two
+ * ## Derived by default, always correctable
  *
  * **The year a round CLOSES in** is the default, because that is when its decisions are
- * made and when its money is committed. A round that opens and closes inside one year has
- * only that answer, and asking would be a question with one option.
+ * made and when its money is committed. It is right for most rounds and it is what a
+ * round that has never been asked about keeps.
  *
- * A round that straddles a year end has two real answers and we cannot pick: one opening
- * in February and closing in June may be spending the old year's underspend or the new
- * year's allocation, and only the foundation knows. So `rounds.financial_year_start`
- * stores what they said, NULL means "derive it", and the dialog only asks when
- * `roundYearIsAmbiguous` says the question exists.
+ * It is not right for all of them, which is the thing this got wrong until 2026-09-22.
+ * The question used to be asked only where a round's own dates straddled a year end, on
+ * the reasoning that a round opening and closing inside one year had a single possible
+ * answer. A real foundation broke that: theirs takes applications from January, closes
+ * on **31 March** — the last day of the year — and pays the grants in **May**, which is
+ * the next one. Every date on the round sat inside 2025/26 while every pound left the
+ * bank in 2026/27, so the control never appeared, and the one year it would have offered
+ * was the wrong one. The round was unfixable rather than merely mis-defaulted.
+ *
+ * So the question is now asked on every round, phrased as the thing the foundation
+ * actually knows: **which year will these grants be paid from**. A round decides and then
+ * pays, so the answer is the year it closes in or the year after, never earlier. Where
+ * the round straddles a year end the year it OPENS in joins them, because spending the
+ * old year's underspend is a real thing a foundation does, and that was the case the
+ * control was built for.
  *
  * An undated round falls back to the year containing today. It is the state a
  * half-created round is in, it resolves the moment dates are set, and every alternative
@@ -43,41 +53,45 @@ export function roundFinancialYear(
   return financialYear(endMonth, anchor ? new Date(anchor) : now)
 }
 
+/** How a year on offer relates to the round's dates, so the control can say it in words. */
+export type RoundYearRelation = 'opens' | 'closes' | 'after'
+
+export type RoundYearOption = FinancialYear & {
+  isDefault: boolean
+  relation: RoundYearRelation
+}
+
 /**
- * The years a round could belong to — one, or two where it straddles a year end.
+ * The years a round's grants could be paid from, in date order, with the default flagged.
  *
- * Two entries is exactly the condition the dialog asks on. Returned in date order, with
- * the default (the closing year) flagged, so the control can present it as the
- * pre-selected option rather than as an empty question.
+ * Always at least two, because "the year it closes in" and "the year after" are both real
+ * answers for every round: a foundation deciding in March and paying in May is the case
+ * that forced this (see `roundFinancialYear`). A round that straddles a year end gets a
+ * third, the year it OPENS in, which is the old-underspend answer.
+ *
+ * Only ever those three. A round running eighteen months is a data-entry mistake far more
+ * often than a real shape, so the years BETWEEN its ends are still never offered.
  */
 export function roundYearOptions(
   round: { openedAt: Date | string | null; closedAt: Date | string | null },
   endMonth: number,
   now: Date = new Date(),
-): Array<FinancialYear & { isDefault: boolean }> {
+): RoundYearOption[] {
   const opened = round.openedAt ? new Date(round.openedAt) : null
   const closed = round.closedAt ? new Date(round.closedAt) : null
-  if (!opened || !closed) {
-    const only = financialYear(endMonth, closed ?? opened ?? now)
-    return [{ ...only, isDefault: true }]
-  }
-  const from = financialYear(endMonth, opened)
-  const to = financialYear(endMonth, closed)
-  if (from.start === to.start) return [{ ...from, isDefault: true }]
-  // Only the two ENDS are offered, never the years between. A round running eighteen
-  // months is a data-entry mistake far more often than a real three-year round, and
-  // offering the middle year would dress that up as a supported shape.
-  return [
-    { ...from, isDefault: false },
-    { ...to, isDefault: true },
-  ]
-}
+  // The same anchor `roundFinancialYear` derives from, so the flagged default and the
+  // year an unanswered round is actually metered in can never drift apart.
+  const anchor = closed ?? opened ?? now
 
-/** Whether the round straddles a year end, and so has a question to ask. */
-export function roundYearIsAmbiguous(
-  round: { openedAt: Date | string | null; closedAt: Date | string | null },
-  endMonth: number,
-  now: Date = new Date(),
-): boolean {
-  return roundYearOptions(round, endMonth, now).length > 1
+  const closing = financialYear(endMonth, anchor)
+  const opening = opened ? financialYear(endMonth, opened) : null
+  const following = shiftFinancialYear(endMonth, 1, anchor)
+
+  const out: RoundYearOption[] = []
+  if (opening && opening.start !== closing.start) {
+    out.push({ ...opening, isDefault: false, relation: 'opens' })
+  }
+  out.push({ ...closing, isDefault: true, relation: 'closes' })
+  out.push({ ...following, isDefault: false, relation: 'after' })
+  return out
 }

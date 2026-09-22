@@ -1,10 +1,11 @@
 import { conflict, forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, inArray, ne, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, awards, roundProgrammes, rounds } from '../../../drizzle/schema'
+import { roundProgrammes, rounds } from '../../../drizzle/schema'
 import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
+import { roundProgrammeSpend } from '../applications/roundSpend'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { SaveRoundSchema } from '../../lib/validators/round'
@@ -46,13 +47,30 @@ function sumBudgets(allocations: Array<{ budget: string | null }>): number | nul
 }
 
 /**
- * The Rounds screen's payload: every round the client has, each with the three figures
- * the comp shows — how many programmes it funds, what it has actually committed, and
- * the pot that is measured against.
+ * The Rounds screen's payload: every round the client has, each with the figures the
+ * card shows — how many programmes it funds, what it has committed, and the pot that is
+ * measured against.
  *
- * `committed` is money PROMISED, not money paid: the sum of live awards made from the
- * round. Cancelled awards are excluded because a cancelled grant frees its budget back
- * up, and a round that showed it as spent would under-report what is left to give.
+ * ## Both sides of the pair count THIS YEAR'S CASH
+ *
+ * `round_programmes.budget` is one financial year's cash (`src/lib/multiYear.ts`), so
+ * the figure printed against it has to be the same kind of thing. This summed
+ * `awards.amount_awarded` raw until 2026-09-22, which is the WHOLE commitment: a round
+ * of five two-year grants read **£41,000 of £20,500** on a foundation that had spent its
+ * allocation exactly, to the penny. Two years of promises against one year of money, and
+ * it looks like double the overspend rather than none.
+ *
+ * So `committed` now comes from `roundProgrammeSpend`, the same module the shortlist
+ * meter and the `enforce_round_budget` ceiling read. Three meters over one budget, one
+ * piece of arithmetic.
+ *
+ * `committedFull` is the whole promise, and the card prints it underneath wherever the
+ * two differ. It is the figure the Awards register shows, so dropping it entirely would
+ * leave a foundation looking for money that had apparently gone missing.
+ *
+ * Both exclude cancelled grants, per CLAUDE.md's money rule, and both count DECIDED
+ * money only — shortlisted applications are the dashboard's pipeline sense of committed
+ * and deliberately not this one.
  *
  * `budget` is DERIVED — the sum of the programme allocations, never a stored column.
  * A round funds programmes and nothing else, so there is no pot it could hold that its
@@ -66,48 +84,49 @@ export const listRoundsOverview = createServerFn({ method: 'GET' }).handler(asyn
   if (!user.clientId) return []
   const db = getDb()
 
-  const rows = await db.query.rounds.findMany({
-    where: (r, { eq }) => eq(r.clientId, user.clientId!),
-    orderBy: (r, { desc }) => [desc(r.openedAt), desc(r.createdAt)],
-    with: { roundProgrammes: { columns: { id: true, budget: true } } },
-  })
+  const [rows, profile] = await Promise.all([
+    db.query.rounds.findMany({
+      where: (r, { eq }) => eq(r.clientId, user.clientId!),
+      orderBy: (r, { desc }) => [desc(r.openedAt), desc(r.createdAt)],
+      with: { roundProgrammes: { columns: { id: true, budget: true } } },
+    }),
+    db.query.clientProfiles.findFirst({
+      where: (p, { eq }) => eq(p.clientId, user.clientId!),
+      columns: { financialYearEndMonth: true },
+    }),
+  ])
   if (rows.length === 0) return []
 
-  const committedByRound = new Map<string, number>()
-  const committed = await db
-    .select({
-      roundId: roundProgrammes.roundId,
-      total: sql<string>`coalesce(sum(${awards.amountAwarded}), 0)`,
-    })
-    .from(awards)
-    .innerJoin(applications, eq(awards.applicationId, applications.id))
-    .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
-    .where(
-      and(
-        inArray(
-          roundProgrammes.roundId,
-          rows.map((r) => r.id),
-        ),
-        ne(awards.status, 'cancelled'),
-      ),
-    )
-    .groupBy(roundProgrammes.roundId)
-  for (const row of committed) committedByRound.set(row.roundId, Number(row.total))
+  // Each round is metered in its OWN financial year, which is why the year end has to be
+  // known here rather than left to the caller: a round that closed two years ago is
+  // measured against the year it closed in, not against whichever one is current.
+  const spend = await roundProgrammeSpend(
+    db,
+    rows.flatMap((round) => round.roundProgrammes.map((rp) => rp.id)),
+    {
+      financialYearEndMonth: profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH,
+      awardedOnly: true,
+    },
+  )
 
-  return rows.map((round) => ({
-    id: round.id,
-    name: round.name,
-    openedAt: round.openedAt,
-    closedAt: round.closedAt,
-    archivedAt: round.archivedAt,
-    programmeCount: round.roundProgrammes.length,
-    // Only the allocations that HAVE a budget are summed, and a round where none of
-    // them does reads `null` — "not set" — rather than £0. The onboarding import
-    // creates its pairings that way on purpose (see `round_programmes.budget`), so
-    // without this every historic round reported its spend against a pot of nothing.
-    budget: sumBudgets(round.roundProgrammes),
-    committed: committedByRound.get(round.id) ?? 0,
-  }))
+  return rows.map((round) => {
+    const mine = round.roundProgrammes.map((rp) => spend.get(rp.id))
+    return {
+      id: round.id,
+      name: round.name,
+      openedAt: round.openedAt,
+      closedAt: round.closedAt,
+      archivedAt: round.archivedAt,
+      programmeCount: round.roundProgrammes.length,
+      // Only the allocations that HAVE a budget are summed, and a round where none of
+      // them does reads `null` — "not set" — rather than £0. The onboarding import
+      // creates its pairings that way on purpose (see `round_programmes.budget`), so
+      // without this every historic round reported its spend against a pot of nothing.
+      budget: sumBudgets(round.roundProgrammes),
+      committed: mine.reduce((sum, s) => sum + (s?.awardedThisYear ?? 0), 0),
+      committedFull: mine.reduce((sum, s) => sum + (s?.awardedFull ?? 0), 0),
+    }
+  })
 })
 
 // Lightweight feed for the app-shell header's round-status line ("Spring 2026

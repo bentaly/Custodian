@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { roundFinancialYear, roundYearIsAmbiguous, roundYearOptions } from './roundYear'
+import { roundFinancialYear, roundYearOptions } from './roundYear'
 
 // 31 March, the commonest UK charity year end: 2026/27 runs 1 Apr 2026 – 31 Mar 2027.
 const MARCH = 3
@@ -36,6 +36,20 @@ describe('roundFinancialYear', () => {
     expect(fy.label).toBe('2026/27')
   })
 
+  it('honours a stored answer for a round that closes on the year end and pays after it', () => {
+    // The case the whole control exists for: applications from January, closing 31 March,
+    // grants paid in May. Every date sits in 2025/26; every pound leaves in 2026/27.
+    const fy = roundFinancialYear(
+      {
+        financialYearStart: '2026-04-01',
+        openedAt: d('2026-01-12'),
+        closedAt: d('2026-03-31'),
+      },
+      MARCH,
+    )
+    expect(fy.label).toBe('2026/27')
+  })
+
   it('re-derives a stored answer through the CURRENT year-end month', () => {
     // A foundation that moves its year end must not leave old rounds pointing at bounds
     // that no longer exist; the year that start date falls in is still the year they meant.
@@ -64,39 +78,72 @@ describe('roundFinancialYear', () => {
 })
 
 describe('roundYearOptions', () => {
-  it('offers one year for a round inside a single year, flagged as the default', () => {
+  it('offers the closing year and the one after it, closing year default', () => {
+    // A round decides and then pays, so those are the two years the money can leave in.
     const opts = roundYearOptions({ openedAt: d('2026-05-01'), closedAt: d('2026-07-01') }, MARCH)
-    expect(opts).toHaveLength(1)
-    expect(opts[0]).toMatchObject({ label: '2026/27', isDefault: true })
-    expect(
-      roundYearIsAmbiguous({ openedAt: d('2026-05-01'), closedAt: d('2026-07-01') }, MARCH),
-    ).toBe(false)
+    expect(opts.map((o) => o.label)).toEqual(['2026/27', '2027/28'])
+    expect(opts.map((o) => o.relation)).toEqual(['closes', 'after'])
+    expect(opts.find((o) => o.isDefault)?.label).toBe('2026/27')
   })
 
-  it('offers both ends for a round that straddles a year end, closing year default', () => {
+  it('offers the year after for a round closing ON the year end', () => {
+    // The foundation that closes 31 March and pays in May. Under the old rule this round
+    // got a single option, and it was the wrong one, so the round could not be fixed.
+    const opts = roundYearOptions({ openedAt: d('2026-01-12'), closedAt: d('2026-03-31') }, MARCH)
+    expect(opts.map((o) => o.label)).toEqual(['2025/26', '2026/27'])
+    expect(opts.find((o) => o.isDefault)?.label).toBe('2025/26')
+  })
+
+  it('adds the opening year for a round that straddles a year end', () => {
+    // Three real answers: last year's underspend, the year it closes in, or the next.
     const round = { openedAt: d('2027-02-01'), closedAt: d('2027-06-01') }
     const opts = roundYearOptions(round, MARCH)
-    expect(opts.map((o) => o.label)).toEqual(['2026/27', '2027/28'])
+    expect(opts.map((o) => o.label)).toEqual(['2026/27', '2027/28', '2028/29'])
+    expect(opts.map((o) => o.relation)).toEqual(['opens', 'closes', 'after'])
     expect(opts.find((o) => o.isDefault)?.label).toBe('2027/28')
-    expect(roundYearIsAmbiguous(round, MARCH)).toBe(true)
   })
 
-  it('offers only the two ENDS, never the years between', () => {
+  it('offers only the two ENDS and the year after, never the years between', () => {
     // An eighteen-month round is a data-entry mistake far more often than a real shape,
     // and offering the middle year would dress that up as something we support.
     const opts = roundYearOptions({ openedAt: d('2026-05-01'), closedAt: d('2027-11-01') }, MARCH)
-    expect(opts.map((o) => o.label)).toEqual(['2026/27', '2027/28'])
+    expect(opts.map((o) => o.label)).toEqual(['2026/27', '2027/28', '2028/29'])
   })
 
-  it('asks nothing while the round is still half-dated', () => {
-    expect(roundYearOptions({ openedAt: d('2026-05-01'), closedAt: null }, MARCH)).toHaveLength(1)
-    expect(roundYearOptions({ openedAt: null, closedAt: null }, MARCH)).toHaveLength(1)
+  it('still offers a choice while the round is half-dated', () => {
+    expect(
+      roundYearOptions({ openedAt: d('2026-05-01'), closedAt: null }, MARCH).map((o) => o.label),
+    ).toEqual(['2026/27', '2027/28'])
+    expect(
+      roundYearOptions({ openedAt: null, closedAt: null }, MARCH, d('2026-05-01')).map(
+        (o) => o.label,
+      ),
+    ).toEqual(['2026/27', '2027/28'])
   })
 
   it('follows the foundation’s own year end', () => {
-    // On a calendar year the same dates no longer straddle anything.
+    // On a calendar year the same dates no longer straddle anything, so the opening year
+    // drops out and only the pay-this-year-or-next pair is left.
     const round = { openedAt: d('2027-02-01'), closedAt: d('2027-06-01') }
-    expect(roundYearIsAmbiguous(round, 12)).toBe(false)
-    expect(roundYearIsAmbiguous(round, MARCH)).toBe(true)
+    expect(roundYearOptions(round, 12).map((o) => o.label)).toEqual(['2027', '2028'])
+    expect(roundYearOptions(round, MARCH).map((o) => o.label)).toEqual([
+      '2026/27',
+      '2027/28',
+      '2028/29',
+    ])
+  })
+
+  it('flags the default as the year an unanswered round is actually metered in', () => {
+    // The two must never drift: the dialog pre-selects the flagged option, and a round
+    // saved without touching it keeps NULL and is placed by `roundFinancialYear`.
+    for (const round of [
+      { openedAt: d('2026-01-12'), closedAt: d('2026-03-31') },
+      { openedAt: d('2027-02-01'), closedAt: d('2027-06-01') },
+      { openedAt: d('2026-05-01'), closedAt: null },
+    ]) {
+      const flagged = roundYearOptions(round, MARCH).find((o) => o.isDefault)!
+      const derived = roundFinancialYear({ ...round, financialYearStart: null }, MARCH)
+      expect(flagged.start).toBe(derived.start)
+    }
   })
 })

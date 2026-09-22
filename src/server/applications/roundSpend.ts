@@ -181,7 +181,18 @@ function proposedQuery(db: Db, roundProgrammeIds: string[], excludeApplicationId
 export async function roundProgrammeSpend(
   db: Db,
   roundProgrammeIds: string[],
-  opts: { excludeApplicationId?: string; financialYearEndMonth?: number; now?: Date } = {},
+  opts: {
+    excludeApplicationId?: string
+    financialYearEndMonth?: number
+    now?: Date
+    /**
+     * Skip the shortlisted half. The Rounds screen asks only what a round has DECIDED,
+     * which is the money-rule sense of committed rather than the dashboard's pipeline
+     * sense, and it asks it of every round the foundation has ever run — one query per
+     * financial year rather than two, on a screen that can span six of them.
+     */
+    awardedOnly?: boolean
+  } = {},
 ): Promise<Map<string, RoundProgrammeSpend>> {
   const out = new Map<string, RoundProgrammeSpend>()
   // `inArray(x, [])` is a SQL error, and an empty scope is a legitimate caller state.
@@ -225,11 +236,14 @@ export async function roundProgrammeSpend(
 
   for (const { fy, ids } of byYear.values()) {
     // Both halves of one year in one batch: an award landing between them would be
-    // counted twice or not at all, and the figure is metered against a budget.
-    const [awardedRows, proposedRows] = await db.batch([
-      awardedQuery(db, ids, fy),
-      proposedQuery(db, ids, opts.excludeApplicationId),
-    ])
+    // counted twice or not at all, and the figure is metered against a budget. With one
+    // half there is nothing to be consistent with, so it runs on its own.
+    const [awardedRows, proposedRows] = opts.awardedOnly
+      ? [await awardedQuery(db, ids, fy), []]
+      : await db.batch([
+          awardedQuery(db, ids, fy),
+          proposedQuery(db, ids, opts.excludeApplicationId),
+        ])
 
     for (const r of awardedRows) {
       const target = row(r.roundProgrammeId)

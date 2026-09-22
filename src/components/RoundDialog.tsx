@@ -26,9 +26,9 @@ export type RoundDraft = {
   openedAt: string
   closedAt: string
   /**
-   * Which financial year this round's budgets are drawn from, as that year's `yyyy-mm-dd`
-   * start. Empty means derive it, which is right for every round that does not straddle a
-   * year end — see `src/lib/roundYear.ts`.
+   * Which financial year this round's grants are paid from, as that year's `yyyy-mm-dd`
+   * start. Empty means derive it from the closing date, which is what a round nobody has
+   * answered for keeps — see `src/lib/roundYear.ts`.
    */
   financialYearStart: string
   programmes: RoundProgrammeDraft[]
@@ -36,6 +36,13 @@ export type RoundDraft = {
 
 /** Programmes the client has, to populate the picker. */
 export type PickableProgramme = { id: string; name: string }
+
+/** How each year on offer relates to the round's dates, in the words a foundation uses. */
+const YEAR_RELATION = {
+  opens: 'the year the round opens',
+  closes: 'the year the round closes',
+  after: 'the year after it closes',
+} as const
 
 const emptyRow = (): RoundProgrammeDraft => ({
   programmeId: '',
@@ -95,9 +102,9 @@ function RoundDialogForm({
   const [financialYearStart, setFinancialYearStart] = useState(draft.financialYearStart)
 
   /**
-   * The years this round could belong to. Two only where its dates straddle a year end,
-   * and that is the only case worth asking about — everywhere else there is one answer
-   * and a control offering it would be a question with a single option.
+   * The years this round's grants could be paid from. Always at least two, and asked on
+   * every round rather than only where the dates straddle a year end — see
+   * `roundYearOptions` for the foundation that broke the old rule.
    */
   const yearOptions = useMemo(
     () =>
@@ -107,12 +114,14 @@ function RoundDialogForm({
       ),
     [openedAt, closedAt, financialYearEndMonth],
   )
-  const straddles = yearOptions.length > 1
-  // A round dragged back inside one year keeps no stale answer: the stored choice only
-  // means anything while the question exists.
+  // Moving the dates can take the answer off the list. Clearing it falls back to the
+  // derived year, which is a year the round actually touches; leaving it would meter the
+  // round against one its dates no longer reach.
   useEffect(() => {
-    if (!straddles && financialYearStart) setFinancialYearStart('')
-  }, [straddles, financialYearStart])
+    if (financialYearStart && !yearOptions.some((y) => y.start === financialYearStart)) {
+      setFinancialYearStart('')
+    }
+  }, [yearOptions, financialYearStart])
   const [rows, setRows] = useState<RoundProgrammeDraft[]>(
     draft.programmes.length > 0 ? draft.programmes : [emptyRow()],
   )
@@ -232,29 +241,28 @@ function RoundDialogForm({
           </div>
         </div>
 
-        {/* Only where the round crosses a year end. A round budget is an allocation of ONE
-            financial year's cash, and a round opening in February and closing in June has
-            two real answers — the old year's underspend or the new year's allocation —
-            which only the foundation knows. Everywhere else it is derived from the closing
-            date and nothing is asked. */}
-        {straddles && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="round-fy">Financial year this budget comes from</Label>
-            <Select
-              id="round-fy"
-              value={financialYearStart || yearOptions.find((y) => y.isDefault)!.start}
-              onChange={setFinancialYearStart}
-              options={yearOptions.map((y) => ({
-                value: y.start,
-                label: `${y.label} (the year it ${y.isDefault ? 'closes' : 'opens'} in)`,
-              }))}
-            />
-            <p className="font-display text-label" style={{ color: TOKENS.faint }}>
-              This round runs across a year end, so its budget has to be counted in one year or the
-              other. It decides which year&rsquo;s money these allocations spend.
-            </p>
-          </div>
-        )}
+        {/* Asked on every round. A round budget is an allocation of ONE financial year's
+            cash, and the year the round CLOSES in is only usually the year the money goes
+            out: a foundation deciding on 31 March and paying in May spends the next year's
+            allocation while every date on the round sits inside this one. The default is
+            the closing year, so leaving this alone changes nothing. */}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="round-fy">Financial year these grants will be paid from</Label>
+          <Select
+            id="round-fy"
+            value={financialYearStart || yearOptions.find((y) => y.isDefault)!.start}
+            onChange={setFinancialYearStart}
+            options={yearOptions.map((y) => ({
+              value: y.start,
+              label: `${y.label} (${YEAR_RELATION[y.relation]})`,
+            }))}
+          />
+          <p className="font-display text-label" style={{ color: TOKENS.faint }}>
+            A round&rsquo;s budget is a slice of one year&rsquo;s giving, so pick the year the money
+            will actually leave the account. Usually the year the round closes, or the next one if
+            you decide at the very end of a year.
+          </p>
+        </div>
 
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-1.5 font-display text-body font-medium text-grey-700">
