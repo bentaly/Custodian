@@ -25,7 +25,7 @@ import {
   Pagination,
 } from '../../components/ui'
 import { messageFor } from '../../lib/errors'
-import { fmtDate } from '../../lib/format'
+import { fmtDate, fmtExact } from '../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/rounds/')({
   loader: async () => {
@@ -53,7 +53,9 @@ function toDateInput(date: Date | string | null | undefined): string {
   return new Date(date).toISOString().slice(0, 10)
 }
 
-const money = (n: number) => `£${n.toLocaleString('en-GB')}`
+// Pennies only where there are any, and then always two digits: a round-programme
+// budget may be typed as £9,829.50, and `toLocaleString` alone printed `£9,829.5`.
+const money = fmtExact
 
 function Rounds() {
   const router = useRouter()
@@ -299,7 +301,7 @@ function RoundRowCard({
             programme's impact unit and themes describe how it TAKES applications, so
             they say nothing once it is retired; a round's committed spend is the record
             of what it gave away, which is most of why anyone opens Past Rounds. */}
-        <Stat label="Budget" muted={archived}>
+        <Stat label="Budget" muted={archived} className="lg:w-[240px]">
           {round.budget === null ? (
             <span className="text-grey-400">Not set</span>
           ) : (
@@ -379,13 +381,16 @@ function Stat({
   label,
   children,
   muted = false,
+  className = '',
 }: {
   label: string
   children: React.ReactNode
   muted?: boolean
+  /** A fixed width, for a stat whose content varies row to row. */
+  className?: string
 }) {
   return (
-    <div className="flex min-w-[120px] flex-col gap-2">
+    <div className={`flex min-w-[120px] flex-col gap-2 self-start ${className}`}>
       <span className="font-display text-label font-medium text-grey-500">{label}</span>
       <span
         className={`font-display text-body font-medium ${muted ? 'text-grey-400' : 'text-grey-900'}`}

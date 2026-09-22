@@ -217,14 +217,16 @@ export function fmtDuration(years: number | null | undefined): string | null {
 
 /**
  * Money that has to divide exactly: whole pounds when the figure is whole (`£12,000`),
- * pennies when it is not (`£11,666.66`).
+ * pennies when it is not (`£11,666.66`), and always both digits of them (`£9,829.50`,
+ * never `£9,829.5`).
  *
  * Not the app's default money format — `fmtMoney` is, and stays whole-pound, because
  * every figure a foundation reconciles is a stated amount rather than a derived one.
  * This is for the few places that show the RESULT of a division, where the pennies are
- * the difference between arithmetic that checks out and arithmetic that does not.
+ * the difference between arithmetic that checks out and arithmetic that does not, and
+ * for a budget that was itself typed in pennies.
  */
-function fmtExact(n: number): string {
+export function fmtExact(n: number): string {
   const whole = Math.abs(n - Math.round(n)) < 0.005
   return `${n < 0 ? '-' : ''}£${Math.abs(n).toLocaleString('en-GB', {
     minimumFractionDigits: whole ? 0 : 2,
