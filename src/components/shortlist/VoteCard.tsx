@@ -610,7 +610,9 @@ export function VoteCard({
                   {flags.length === 1 ? 'One thing to check' : `${flags.length} things to check`}
                 </span>
               </div>
-              <ul className="mt-1.5 space-y-1">
+              {/* Numbered, so the board can say "the second one" across the table. A lone
+                  flag gets no "1." under a heading that already says "One thing". */}
+              <ol className={`mt-1.5 space-y-1 ${flags.length > 1 ? 'list-decimal pl-5' : ''}`}>
                 {flags.map((f, i) => (
                   <li
                     key={i}
@@ -620,7 +622,7 @@ export function VoteCard({
                     {f}
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           )}
 
