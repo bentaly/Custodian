@@ -1,5 +1,6 @@
 import { CORE_COSTS_LABEL } from './annualBudget'
 import { addDaysIso, endOfMonthIso } from './schedule'
+import { penceInput } from './format'
 
 /**
  * Core costs through the year — when a non-grant budget line's money actually leaves.
@@ -224,8 +225,8 @@ export function formAmount(
   frequency: CostFrequency,
   months: number,
 ): { typed: string; loadedAnnual: number | null } {
-  if (frequency !== 'monthly') return { typed: String(annual), loadedAnnual: null }
-  return { typed: String(round2(annual / months)), loadedAnnual: annual }
+  if (frequency !== 'monthly') return { typed: penceInput(annual), loadedAnnual: null }
+  return { typed: penceInput(round2(annual / months)), loadedAnnual: annual }
 }
 
 /** The year's figure from what a cost line's form fields hold. Blank or negative is 0. */

@@ -39,7 +39,7 @@ import {
   type CostFrequency,
 } from '../../lib/coreCosts'
 import { todayIso } from '../../lib/schedule'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtMoney, penceInput } from '../../lib/format'
 import { messageFor } from '../../lib/errors'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 
@@ -202,10 +202,10 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
       key: p.id,
       programmeId: p.id,
       colour: p.colour,
-      amount: saved.has(p.id) ? String(saved.get(p.id)!.amount) : '',
+      amount: saved.has(p.id) ? penceInput(saved.get(p.id)!.amount) : '',
       promised:
         saved.get(p.id)?.carriedCommitment != null
-          ? String(saved.get(p.id)!.carriedCommitment)
+          ? penceInput(saved.get(p.id)!.carriedCommitment!)
           : '',
     }))
     const coreRows: Row[] = data.lines
@@ -548,7 +548,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                 <MoneyInput
                   value={row.promised}
                   label={`Prior commitments to be paid this year for ${row.label}`}
-                  placeholder={derived > 0 ? String(derived) : '0'}
+                  placeholder={derived > 0 ? penceInput(derived) : '0'}
                   onChange={(v) => patch(row.key, { promised: v })}
                 />
 
