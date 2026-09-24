@@ -8,6 +8,9 @@ export type DonutSlice = {
   /** Stable identity for cross-highlighting with a sibling map or list. Names
    *  are display strings and can collide or be renamed; ids are the area key. */
   areaId?: string
+  /** The money the tooltip prints, when `value` is a drawn share rather than the figure
+   *  itself (an over-budget ring scales its slices to fit the overspend beside them). */
+  amount?: number
 }
 
 function DonutTooltip({
@@ -33,7 +36,7 @@ function DonutTooltip({
         <span style={{ width: 8, height: 8, borderRadius: 2, background: s.colour }} />
         {s.name}
       </span>
-      <div style={{ color: chart.sub, marginTop: 2 }}>{fmtMoney(s.value)}</div>
+      <div style={{ color: chart.sub, marginTop: 2 }}>{fmtMoney(s.amount ?? s.value)}</div>
     </div>
   )
 }

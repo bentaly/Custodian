@@ -468,18 +468,29 @@ function Dashboard() {
     })
 
   // ── Round donut data (per-programme committed + an "unallocated" remainder) ──
+  //
+  // Over budget, the ring is the whole commitment: the programmes share out the budget's
+  // part in proportion to what each committed, and the overspend is a red slice beside
+  // them. Drawn at their true values the programmes filled the ring and the overspend
+  // was invisible, a 135% round looking exactly like a 100% one. The tooltip still
+  // prints each programme's real figure (`amount`), since the drawn share is not one.
+  const roundOver = round && round.budget > 0 ? Math.max(0, round.committed - round.budget) : 0
+  const drawnShare = roundOver > 0 ? round!.budget / round!.committed : 1
   const donutData: DonutSlice[] = round
     ? [
         ...round.programmes.map((p, i) => ({
           name: p.name,
-          value: p.committed,
+          value: p.committed * drawnShare,
+          amount: p.committed,
           colour: resolveProgrammeColour(p.colour, i),
         })),
-        {
-          name: 'Unallocated',
-          value: Math.max(0, round.budget - round.committed),
-          colour: ALLOCATE_LEFT,
-        },
+        roundOver > 0
+          ? { name: 'Over budget', value: roundOver, colour: C.danger }
+          : {
+              name: 'Unallocated',
+              value: Math.max(0, round.budget - round.committed),
+              colour: ALLOCATE_LEFT,
+            },
       ]
     : []
   const roundPct =
@@ -812,10 +823,26 @@ function Dashboard() {
                         className="mt-0.5 text-center text-label leading-tight"
                         style={{ color: C.sub }}
                       >
-                        <CompactMoney amount={roundLeft} label="Exact amount left to allocate" />{' '}
-                        left
-                        <br />
-                        to allocate
+                        {roundOver > 0 ? (
+                          <>
+                            <span style={{ color: C.danger }}>
+                              <CompactMoney amount={roundOver} label="Exact amount over budget" />{' '}
+                              over
+                            </span>
+                            <br />
+                            budget
+                          </>
+                        ) : (
+                          <>
+                            <CompactMoney
+                              amount={roundLeft}
+                              label="Exact amount left to allocate"
+                            />{' '}
+                            left
+                            <br />
+                            to allocate
+                          </>
+                        )}
                       </div>
                     </>
                   }
