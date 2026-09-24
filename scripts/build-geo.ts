@@ -16,8 +16,10 @@
 //   uk.json      — England's 9 statistical regions + Wales/Scotland/NI, keyed
 //                  by the region name we already persist on DeliveryGeo.region
 //   uk-lad.json  — all UK local authority districts, keyed ONS LAD code
-//                  ("E09000019"). London's 33 boroughs are LADs, so the London
-//                  view is a filter on this layer, not a separate file.
+//                  ("E09000019"), each carrying its region and county (Police
+//                  Force Area). London's 33 boroughs are LADs, so the London
+//                  view is a filter on this layer, not a separate file, and a
+//                  region's counties are its districts merged, not another file.
 //
 // Sources (both free to use, attribution required for ONS — see ATTRIBUTION
 // below, which is rendered under the map):
@@ -187,6 +189,37 @@ async function main() {
     ['LAD25CD,RGN25NM', ...rows.map((r) => `${r.LAD25CD},"${r.RGN25NM}"`)].join('\n'),
   )
 
+  // And the COUNTY each district sits in — its Police Force Area, the same geography
+  // `deprivation_areas.pfa_name` answers "Merseyside" with, from the same ONS table.
+  // Insights draws a region as its counties and rolls district grants up into them, so
+  // the map and the county-wide grants beside it must agree on the name to the byte;
+  // that is why it comes from here and not from `deprivation_areas`, whose LAD codes are
+  // the 2021 set (Cumbria still in six districts) while these boundaries are 2025.
+  // England and Wales only: Scotland and NI are one force each, so null there.
+  const pfaLookup = await fetchJson(
+    `${ONS}/LAD25_CSP25_PFA25_EW_LU/FeatureServer/0/query?` +
+      new URLSearchParams({
+        where: '1=1',
+        outFields: 'LAD25CD,PFA25NM',
+        returnGeometry: 'false',
+        resultRecordCount: '2000',
+        f: 'json',
+      }),
+    'LAD → police force area lookup',
+  )
+  // One row per Community Safety Partnership, so a district can repeat; every row
+  // for it agrees on the force.
+  const pfaOf = new Map<string, string>()
+  for (const f of pfaLookup.features as Array<{ attributes: Record<string, string> }>) {
+    if (f.attributes.LAD25CD && f.attributes.PFA25NM)
+      pfaOf.set(f.attributes.LAD25CD, f.attributes.PFA25NM)
+  }
+  const pfaPath = join(TMP, 'lad-pfa.csv')
+  await writeFile(
+    pfaPath,
+    ['LAD25CD,PFA25NM', ...[...pfaOf].map(([lad, pfa]) => `${lad},"${pfa}"`)].join('\n'),
+  )
+
   await run(
     [
       // NB: `-each` with a comma in the expression must not be followed by
@@ -194,9 +227,11 @@ async function main() {
       // as its own command instead.
       `-i ${ladsPath} name=lads`,
       `-join ${lookupPath} keys=LAD25CD,LAD25CD fields=RGN25NM string-fields=LAD25CD`,
+      `-join ${pfaPath} keys=LAD25CD,LAD25CD fields=PFA25NM string-fields=LAD25CD`,
       `-each 'code = LAD25CD, name = LAD25NM'`,
       `-each 'region = RGN25NM || {W:"Wales", S:"Scotland", N:"Northern Ireland"}[code.charAt(0)] || null'`,
-      `-filter-fields code,name,region`,
+      `-each 'county = PFA25NM || null'`,
+      `-filter-fields code,name,region,county`,
       `-simplify 12% keep-shapes`,
       `-clean`,
       `-o uk-lad.json format=topojson target=lads`,

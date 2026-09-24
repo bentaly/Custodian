@@ -457,6 +457,14 @@ design rationale; this list is a map, not a summary.
   database: **the two must emit identical strings or the Insights link lands on an empty list**
   with nothing on screen to say why. `NO_REGION` ('none') is the shared sentinel for the
   unlocated, and is a real filter option, not the absence of one.
+  **The Insights map drills Region → County → District** (2026-09-24), a county being the
+  PFA, carried per district in `public/geo/uk-lad.json` (`county`, from the same ONS table
+  as `pfa_name`) and merged into shapes client-side. A region drawn only as districts
+  silently dropped every county-wide grant: Arete's "Merseyside" was £266k of £498k and
+  the donut read £223k. Money covering the whole view is its own "Across …" row, never
+  dropped and never divided among districts. London (Met + City forces) and Scotland/NI
+  (no county tier) still go straight to districts. The grant's county comes from that
+  file, not from `deprivation_areas`, whose LAD codes are the 2021 set.
 - **fieldMapping / reportMapping** — ingest payload → canonical fields (rules, then AI fallback)
 - **reportAnalysis** — AI analysis of received reports
 - **portfolioAnalysis** — the AI paragraph at the top of Insights, measuring the portfolio

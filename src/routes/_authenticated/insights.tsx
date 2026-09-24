@@ -37,6 +37,7 @@ import {
   UK_ISO3,
   drillTarget,
   useAreaNames,
+  useCounties,
   type MapView,
 } from '../../components/charts/Choropleth'
 import { DotGrid } from '../../components/charts/DotGrid'
@@ -108,6 +109,22 @@ const KPI = {
  * adding a colour to that list would have silently changed what this panel shows.
  */
 const MAX_AREAS = 5
+/**
+ * The donut and list row for money that covers the WHOLE area in view — a grant
+ * delivered "across Merseyside" in the county view, or "across the North West" in the
+ * region view. Not an area key the map has, so no area lights up for it; the map
+ * outlines the whole view instead (`outlineAll`).
+ */
+const WIDE_KEY = '__wide__'
+/** Neutral: it is not a place on the map, so it must not look like one of the hues
+ *  that are. Darker than the "Other areas" tail, which is `C.line`. */
+const WIDE_COLOUR = 'var(--color-grey-400)'
+
+/** "the North West", "the East of England", but "London", "Wales", "Yorkshire and The
+ *  Humber" — the compass-point regions take an article in a sentence. */
+function regionInProse(region: string) {
+  return /^(North|South|East|West)\b/.test(region) ? `the ${region}` : region
+}
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
 
@@ -195,8 +212,8 @@ function PanelTitle({ children, right }: { children: React.ReactNode; right?: Re
  * gave no sign the text was reachable until the pointer was already on it.
  *
  * The one place it is NOT used is a count already wrapped in a link of its own — the
- * round-programme card, which is a Link that re-filters this screen. Everywhere else the
- * count is the link, including inside truncating sublines (pulled out of the string, see
+ * round-programme card, which is itself a way into the register for that round and
+ * programme (see `RoundProgrammeCard`). Everywhere else the count is the link, including inside truncating sublines (pulled out of the string, see
  * `themeRest`) and inside the map's drill rows (a sibling of the drill button, not a
  * child of it — see `AreaList`).
  */
@@ -402,11 +419,31 @@ function DecileChart({
 // two readings — Line (the default) for the shape of the trend, Bars for "what did
 // each round commit". Both sit on the shared dot-matrix backdrop with a 5-tick money
 // axis.
+//
+// It has to hold any number of rounds. It was drawn for a handful, with every point
+// carrying its figure and name underneath and every point its own Tab stop, and an
+// imported back catalogue of twenty rounds squeezed both lines to "£1…" over "No…".
+// So everything that costs width is now metered against the MEASURED plot:
+// - Labels are thinned to one per `LABEL_SLOT` pixels, counted back from the latest
+//   round (the one a reader opens this for), as Recharts' `preserveEnd` does on the
+//   dashboard's chart.
+// - The figure line under each label only shows when EVERY round is labelled. Thinned,
+//   it would put figures under some rounds and not others, which reads as missing data.
+// - Point markers are drawn only while they have room to be separate dots.
+// - The chart is ONE focus stop (a slider), not one per point. The pointer and the arrow
+//   keys move a single active point, and one readout names it — so no round is ever out of reach
+//   however many labels the thinning dropped, and forty rounds are not forty Tab presses.
 const PLOT_H = 206
 const AXIS_W = 40
 /** Two lines — the committed figure over the round's name — held at a fixed height
- *  because the line mode's labels are positioned, not laid out in flow. */
+ *  because the labels are positioned, not laid out in flow. */
 const LABEL_H = 42
+/** Horizontal room one round name needs before it can be read. */
+const LABEL_SLOT = 84
+/** Below this spacing, point markers merge into a bead chain and are left off. */
+const MARKER_MIN_GAP = 14
+/** The whole bar rise takes about this long, however many bars share it. */
+const BAR_STAGGER_TOTAL_MS = 600
 
 function CommitmentChart({
   mode,
@@ -422,21 +459,71 @@ function CommitmentChart({
   /** Draw the series in — set once the panel has been scrolled to. */
   play?: boolean
 }) {
+  const plotRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  const [active, setActive] = useState<number | null>(null)
+  useEffect(() => {
+    const el = plotRef.current
+    if (!el) return
+    const measure = () => setWidth(el.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const n = series.length
+  // A filter can shrink the series under a held index.
+  const current = active !== null && active < n ? active : null
+
   // Bars occupy a band, so they sit at band centres. The line's points sit ON the
   // axis ends instead — the edge-to-edge scale the dashboard's giving chart uses,
   // which is also what stops a six-round series drawing as a short line floating in
   // the middle of a full-width plot.
-  const single = series.length === 1
-  const pts = series.map((p, i) => ({
-    ...p,
-    x:
-      mode === 'line'
-        ? single
-          ? 50
-          : (i / (series.length - 1)) * 100
-        : (100 / series.length) * (i + 0.5),
-    y: 100 - (p.value / max) * 100,
-  }))
+  const single = n === 1
+  const xOf = (i: number) =>
+    mode === 'line' ? (single ? 50 : (i / (n - 1)) * 100) : (100 / n) * (i + 0.5)
+  const pts = series.map((p, i) => ({ ...p, x: xOf(i), y: 100 - (p.value / max) * 100 }))
+
+  // Pixels between neighbouring points. Before the first measurement it is unknown,
+  // and treating it as roomy means a short series renders exactly as it always did.
+  const pitch = width === 0 ? Infinity : mode === 'line' && !single ? width / (n - 1) : width / n
+  const step = Math.max(1, Math.ceil(LABEL_SLOT / pitch))
+  const labelled = new Set<number>()
+  for (let i = n - 1; i >= 0; i -= step) labelled.add(i)
+  const showFigures = step === 1
+  const showMarkers = pitch >= MARKER_MIN_GAP
+  const labelW = Math.min(step, n) * (Number.isFinite(pitch) ? pitch : LABEL_SLOT)
+  const barW = Number.isFinite(pitch) ? Math.max(1, Math.min(32, pitch * 0.6)) : 32
+
+  const indexAt = (clientX: number) => {
+    const el = plotRef.current
+    if (!el || n === 0) return null
+    const r = el.getBoundingClientRect()
+    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width))
+    if (mode === 'line') return single ? 0 : Math.round(f * (n - 1))
+    return Math.min(n - 1, Math.floor(f * n))
+  }
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const at = current ?? n - 1
+    const next =
+      e.key === 'ArrowRight'
+        ? Math.min(n - 1, at + 1)
+        : e.key === 'ArrowLeft'
+          ? Math.max(0, at - 1)
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? n - 1
+              : null
+    if (next === null) return
+    e.preventDefault()
+    setActive(next)
+  }
+
+  const shown = current !== null ? pts[current]! : null
+  // The readout hangs inward at either end rather than off the panel.
+  const readoutAlign = !shown ? 'center' : shown.x < 15 ? 'left' : shown.x > 85 ? 'right' : 'center'
 
   return (
     <div>
@@ -452,42 +539,52 @@ function CommitmentChart({
             </span>
           ))}
         </div>
-        <div className="relative flex-1">
+        <div
+          ref={plotRef}
+          className="relative flex-1 rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+          // A slider is what this is to a keyboard: one stop, arrows step through the
+          // rounds, and `aria-valuetext` reads the round out as it moves.
+          tabIndex={0}
+          role="slider"
+          aria-label="Commitment by round"
+          aria-valuemin={1}
+          aria-valuemax={n}
+          aria-valuenow={(current ?? n - 1) + 1}
+          aria-valuetext={`${pts[current ?? n - 1]!.label}, ${fmtMoney(pts[current ?? n - 1]!.value)}`}
+          onPointerMove={(e) => setActive(indexAt(e.clientX))}
+          onPointerLeave={() => setActive(null)}
+          onFocus={() => setActive((a) => a ?? n - 1)}
+          onBlur={() => setActive(null)}
+          onKeyDown={onKeyDown}
+        >
           <DotGrid />
           {mode === 'bars' ? (
-            <div className="relative flex h-full items-end">
-              {series.map((p, i) => {
-                const h = (p.value / max) * 100
-                return (
-                  <Tooltip
-                    key={p.id}
-                    label={p.label}
-                    className="flex h-full flex-1"
-                    triggerClassName="flex h-full w-full items-end justify-center rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
-                    trigger={
-                      // `.tick` is the app's load rise (BarMeter, the sign-in art);
-                      // reusing it here means one column chart cannot drift from the
-                      // rest of the app's motion. Staggered so the row reads
-                      // left-to-right, in round order.
-                      <div
-                        className={`w-8 rounded-t-chip ${play ? 'tick' : ''}`}
-                        style={{
-                          height: `${Math.max(1, h)}%`,
-                          backgroundColor: lineChart.stroke,
-                          animationDelay: play ? `${i * 60}ms` : undefined,
-                        }}
-                      />
-                    }
-                  >
-                    {p.label} · {fmtMoney(p.value)}
-                  </Tooltip>
-                )
-              })}
+            <div className="absolute inset-0">
+              {pts.map((p, i) => (
+                // `.tick` is the app's load rise (BarMeter, the sign-in art); reusing
+                // it here means one column chart cannot drift from the rest of the
+                // app's motion. Staggered left-to-right in round order, with the
+                // stagger shared out so a long series still finishes promptly.
+                <div
+                  key={p.id}
+                  className={`absolute bottom-0 -translate-x-1/2 rounded-t-chip transition-opacity duration-150 ${play ? 'tick' : ''}`}
+                  style={{
+                    left: `${p.x}%`,
+                    width: barW,
+                    height: `${Math.max(1, (p.value / max) * 100)}%`,
+                    backgroundColor: lineChart.stroke,
+                    opacity: current === null || current === i ? 1 : 0.45,
+                    animationDelay: play
+                      ? `${Math.round(i * Math.min(60, BAR_STAGGER_TOTAL_MS / n))}ms`
+                      : undefined,
+                  }}
+                />
+              ))}
             </div>
           ) : (
             // The wipe carries the markers as well as the path, so the dots
             // arrive with the line that puts them there.
-            <div className={`relative h-full w-full ${play ? 'wipe-in' : ''}`}>
+            <div className={`absolute inset-0 ${play ? 'wipe-in' : ''}`}>
               {/* The path is drawn in a stretched 100×100 space; the markers are
                   plain elements positioned over it, so they stay circular. */}
               <svg
@@ -525,90 +622,104 @@ function CommitmentChart({
                   vectorEffect="non-scaling-stroke"
                 />
               </svg>
-              {pts.map((p) => (
-                // `flex`, not the default inline flow: `Tooltip`'s wrapper is
-                // `inline-flex`, so as an inline-level box it sits on a text baseline
-                // and the line box keeps the font's descender space UNDER it. That
-                // padding is part of the height `-translate-y-1/2` halves, which
-                // pushed every marker a few pixels above the curve it marks. As a
-                // flex item the wrapper is blockified and the strut goes away.
-                <span
-                  key={p.id}
-                  className="absolute flex -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                >
-                  <Tooltip
-                    label={p.label}
-                    // The dashboard's marker: a 5px filled dot that grows to 8px
-                    // under the pointer — the same r 2.5 → 4 its `activeDot` steps
-                    // through. The trigger around it is 20px, because a five-pixel
-                    // mark still has to be something a pointer can find and a focus
-                    // ring can wrap.
-                    triggerClassName="group flex size-5 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
-                    trigger={
-                      <span
-                        className="block size-[5px] rounded-full transition-all duration-150 group-hover:size-2 group-focus-visible:size-2"
-                        style={{ backgroundColor: lineChart.stroke }}
-                      />
-                    }
-                  >
-                    {p.label} · {fmtMoney(p.value)}
-                  </Tooltip>
-                </span>
-              ))}
+              {/* The dashboard's marker: a 5px filled dot, 8px on the active point —
+                  the same r 2.5 → 4 its `activeDot` steps through. */}
+              {pts.map((p, i) =>
+                showMarkers || current === i ? (
+                  <span
+                    key={p.id}
+                    className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full ${current === i ? 'size-2' : 'size-[5px]'}`}
+                    style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: lineChart.stroke }}
+                    aria-hidden
+                  />
+                ) : null,
+              )}
             </div>
+          )}
+          {shown && (
+            <>
+              {mode === 'line' && (
+                // The dashboard's hover cursor: a dashed rule down through the point.
+                <span
+                  className="pointer-events-none absolute inset-y-0 border-l border-dashed"
+                  style={{ left: `${shown.x}%`, borderColor: lineChart.stroke }}
+                  aria-hidden
+                />
+              )}
+              <div
+                className="pointer-events-none absolute top-0 z-10 max-w-60 rounded-chip border border-grey-200 bg-white px-3 py-2 font-display text-label leading-snug shadow-lg"
+                style={{
+                  left: `${shown.x}%`,
+                  transform:
+                    readoutAlign === 'center'
+                      ? 'translateX(-50%)'
+                      : readoutAlign === 'right'
+                        ? 'translateX(-100%)'
+                        : 'none',
+                }}
+                aria-hidden
+              >
+                <p className="truncate" style={{ color: C.sub }}>
+                  {shown.label}
+                </p>
+                <p className="font-medium" style={{ color: C.ink }}>
+                  {fmtMoney(shown.value)}
+                </p>
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* Bars keep equal cells, one under each band. The line's labels are placed AT
-          their point, and the two ends align inward — centring a label on a point
-          that sits on the axis end would hang half of it off the panel. */}
-      {mode === 'line' ? (
-        <div className="relative" style={{ marginLeft: AXIS_W, height: LABEL_H }}>
-          {pts.map((p, i) => {
-            const align =
-              single || (i > 0 && i < pts.length - 1) ? 'center' : i === 0 ? 'left' : 'right'
-            return (
-              <div
-                key={p.id}
-                className="absolute top-0 min-w-0 px-1"
-                style={{
-                  left: `${p.x}%`,
-                  width: `${100 / pts.length}%`,
-                  transform:
-                    align === 'center'
-                      ? 'translateX(-50%)'
-                      : align === 'right'
-                        ? 'translateX(-100%)'
-                        : 'none',
-                  textAlign: align,
-                }}
-              >
+      {/* Labels are placed AT their point in both modes, each given the width of the
+          rounds it stands for. One that would hang off either end of the plot aligns
+          inward instead of centring. */}
+      <div
+        className="relative"
+        style={{ marginLeft: AXIS_W, height: showFigures ? LABEL_H : LABEL_H / 2 }}
+      >
+        {pts.map((p, i) => {
+          if (!labelled.has(i)) return null
+          const centre = (p.x / 100) * width
+          const align =
+            width === 0 || single
+              ? 'center'
+              : centre - labelW / 2 < 0
+                ? 'left'
+                : centre + labelW / 2 > width
+                  ? 'right'
+                  : 'center'
+          return (
+            <div
+              key={p.id}
+              className="absolute top-0 min-w-0 px-1"
+              style={{
+                left: `${p.x}%`,
+                width: labelW,
+                transform:
+                  align === 'center'
+                    ? 'translateX(-50%)'
+                    : align === 'right'
+                      ? 'translateX(-100%)'
+                      : 'none',
+                textAlign: align,
+              }}
+            >
+              {showFigures && (
                 <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
                   <CompactMoney amount={p.value} label={`Exact total, ${p.label}`} />
                 </p>
-                <div className="font-display text-label" style={{ color: C.sub }}>
-                  {/* Alignment comes from the wrapper's inline `textAlign`, which
-                      the span inherits — a `text-${align}` class would not survive
-                      Tailwind's scan of the source. */}
-                  <TruncatedText text={p.label} label="Full label" />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <div className="flex" style={{ paddingLeft: AXIS_W }}>
-          {series.map((p) => (
-            <div key={p.id} className="min-w-0 flex-1 px-1 text-center">
+              )}
               <div className="font-display text-label" style={{ color: C.sub }}>
-                <TruncatedText text={p.label} label="Full label" className="text-center" />
+                {/* Alignment comes from the wrapper's inline `textAlign`, which the
+                    span inherits — a `text-${align}` class would not survive
+                    Tailwind's scan of the source. */}
+                <TruncatedText text={p.label} label="Full label" />
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1123,13 +1234,18 @@ function InsightsPage() {
   // growing.)
   const [chartMode, setChartMode] = useState<'bars' | 'line'>('line')
   const [showAllThemes, setShowAllThemes] = useState(false)
-  const timelineRounds = [
-    ...new Map(fil.filter((g) => g.roundId).map((g) => [g.roundId!, g])).keys(),
-  ]
-    .map((rid) => {
-      const grants = fil
-        .filter((g) => g.roundId === rid)
-        .sort((a, b) => b.amountAwarded - a.amountAwarded)
+  // Grouped in one pass: a filter per round is rounds × grants, and an imported back
+  // catalogue has plenty of both.
+  const grantsByRound = new Map<string, InsightsGrant[]>()
+  for (const g of fil) {
+    if (!g.roundId) continue
+    const list = grantsByRound.get(g.roundId)
+    if (list) list.push(g)
+    else grantsByRound.set(g.roundId, [g])
+  }
+  const timelineRounds = [...grantsByRound]
+    .map(([rid, own]) => {
+      const grants = own.sort((a, b) => b.amountAwarded - a.amountAwarded)
       return {
         id: rid,
         name: grants[0]!.roundName ?? '--',
@@ -1228,21 +1344,42 @@ function InsightsPage() {
   // because the three are one exhibit: pointing at an area in any of them
   // should answer "and where is that in the other two?".
   const [hoverArea, setHoverArea] = useState<string | null>(null)
-  const unlocatedCount = fil.filter((g) => !g.region).length
+  const unlocated = fil.filter((g) => !g.region)
+  const unlocatedCount = unlocated.length
+  const unlocatedAmt = unlocated.reduce((s, g) => s + g.amountAwarded, 0)
 
   // The regions in view, or none. The map's drill wins over the filter pill: if you have
   // opened the North West on the map, that is the region you are reading, whatever the
   // filter above still says.
   const linkedRegions: string[] | null =
-    mapView.kind === 'region' ? [mapView.region] : (region ?? null)
+    mapView.kind === 'region' || mapView.kind === 'county' ? [mapView.region] : (region ?? null)
 
-  // Roll grants up to whichever key the current view paints.
+  // Which county a grant is in: its district's, off the map's own boundary file, or the
+  // county it was delivered across. See `useCounties` for why the district half is not
+  // read from the server.
+  const counties = useCounties()
+  const countyOf = (g: InsightsGrant) =>
+    g.ladCode ? (counties.countyOf.get(g.ladCode) ?? null) : g.countyWide
+  // The region view's rows are counties wherever the region has them, which is also
+  // what makes a row drill.
+  const regionByCounty = mapView.kind === 'region' && counties.regionByCounty(mapView.region)
+
+  // Roll grants up to whichever key the current view paints. Every grant in view lands
+  // SOMEWHERE — on an area, or in `wide` — so the donut totals everything in the view.
+  // The region view used to add up districts only, and a grant delivered "across
+  // Merseyside" has none: on one portfolio that dropped 19 of 44 grants and 55% of the
+  // money from the donut, with nothing on screen to say so.
+  const wide = { amount: 0, count: 0 }
   const mapValues = (() => {
     const acc = new Map<string, { amount: number; count: number }>()
     const add = (key: string | null, amount: number) => {
       if (!key) return
       const prev = acc.get(key) ?? { amount: 0, count: 0 }
       acc.set(key, { amount: prev.amount + amount, count: prev.count + 1 })
+    }
+    const addWide = (amount: number) => {
+      wide.amount += amount
+      wide.count += 1
     }
     for (const g of fil) {
       if (mapView.kind === 'world' || mapView.kind === 'country') {
@@ -1256,25 +1393,47 @@ function InsightsPage() {
         if (g.region) add(UK_ISO3, g.amountAwarded)
       } else if (mapView.kind === 'uk') add(g.region, g.amountAwarded)
       else if (mapView.kind === 'region') {
-        if (g.region === mapView.region) add(g.ladCode, g.amountAwarded)
+        if (g.region !== mapView.region) continue
+        // Counties where the region has them, districts where it does not (Scotland,
+        // NI). What fits neither covers the region as a whole.
+        const key = regionByCounty ? countyOf(g) : g.ladCode
+        if (key) add(key, g.amountAwarded)
+        else addWide(g.amountAwarded)
+      } else if (mapView.kind === 'county') {
+        if (countyOf(g) !== mapView.county) continue
+        if (g.ladCode) add(g.ladCode, g.amountAwarded)
+        else addWide(g.amountAwarded)
       }
     }
     return acc
   })()
+  const wideName =
+    mapView.kind === 'county'
+      ? `Across ${mapView.county}`
+      : mapView.kind === 'region'
+        ? `Across ${regionInProse(mapView.region)}`
+        : ''
 
   // The donut mirrors whatever the map is showing: same slice of the portfolio,
   // ranked, so the two halves of the panel can never disagree.
   const areaRanked = [...mapValues.entries()]
     .map(([code, v]) => ({ code, ...v }))
     .sort((a, b) => b.amount - a.amount)
-  const areaTotal = areaRanked.reduce((s, a) => s + a.amount, 0)
+  const areaTotal = areaRanked.reduce((s, a) => s + a.amount, 0) + wide.amount
   const areaNames = useAreaNames(mapView)
   const areaColours = colourSeries(Math.min(areaRanked.length, MAX_AREAS))
-  const topAreas = areaRanked.slice(0, MAX_AREAS).map((a, i) => ({
-    ...a,
-    name: areaNames.get(a.code) ?? a.code,
-    colour: areaColours[i]!,
-  }))
+  // The whole-area row takes its place in the ranking by size, but not a hue or one of
+  // the MAX_AREAS slots: it is never folded into "Other areas", because a named total
+  // that is the biggest thing in the view (as "Across Merseyside" can be) hidden inside
+  // an anonymous tail would be the same disappearance this row exists to end.
+  const topAreas = [
+    ...areaRanked.slice(0, MAX_AREAS).map((a, i) => ({
+      ...a,
+      name: areaNames.get(a.code) ?? a.code,
+      colour: areaColours[i]!,
+    })),
+    ...(wide.count > 0 ? [{ code: WIDE_KEY, name: wideName, colour: WIDE_COLOUR, ...wide }] : []),
+  ].sort((a, b) => b.amount - a.amount)
   const restAmount = areaRanked.slice(MAX_AREAS).reduce((s, a) => s + a.amount, 0)
   const areaDonut: DonutSlice[] = [
     ...topAreas.map((a) => ({ areaId: a.code, name: a.name, value: a.amount, colour: a.colour })),
@@ -1290,7 +1449,9 @@ function InsightsPage() {
       ? located
       : mapView.kind === 'region'
         ? located.filter((g) => g.region === mapView.region)
-        : []
+        : mapView.kind === 'county'
+          ? located.filter((g) => countyOf(g) === mapView.county)
+          : []
   const imdAmt = imdScope.reduce((s, g) => s + g.amountAwarded, 0)
   const imdPct =
     imdAmt > 0
@@ -1763,8 +1924,11 @@ function InsightsPage() {
                     values={mapValues}
                     selected={selArea}
                     onSelect={setSelArea}
-                    highlight={hoverArea}
+                    // The whole-area row has no shape of its own to light: the map
+                    // outlines everything in view for it instead of dimming it all.
+                    highlight={hoverArea === WIDE_KEY ? null : hoverArea}
                     onHighlight={setHoverArea}
+                    outlineAll={hoverArea === WIDE_KEY || selArea === WIDE_KEY}
                   />
                   <MapAttribution view={mapView} />
                 </div>
@@ -1814,7 +1978,11 @@ function InsightsPage() {
                     // Rows act exactly as the same area does on the map — same
                     // rule, from the same function, so the two halves of the
                     // panel can never disagree about what a click means.
-                    drillOf={(code, name, funded) => drillTarget(mapView, code, name, funded)}
+                    drillOf={(code, name, funded) =>
+                      code === WIDE_KEY
+                        ? null
+                        : drillTarget(mapView, code, name, funded, regionByCounty)
+                    }
                     slice={search}
                     // Only the UK tier's rows are regions, which is the one geography
                     // the register filters on. Countries above and districts below have
@@ -1830,10 +1998,13 @@ function InsightsPage() {
 
                   {imdPct !== null && <ImdNote pct={imdPct} />}
 
+                  {/* With its money, not just its count: this is the one grant set the
+                      donut above cannot hold, so it is what explains the difference
+                      between the donut's total and Total committed. */}
                   {unlocatedCount > 0 && (
                     <p className="font-display text-label" style={{ color: C.faint }}>
-                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} with no resolvable
-                      location.
+                      {unlocatedCount} award{unlocatedCount !== 1 ? 's' : ''} (
+                      {fmtCompact(unlocatedAmt)}) with no resolvable location, not counted above.
                     </p>
                   )}
 
@@ -1944,6 +2115,8 @@ function InsightsPage() {
                           <RoundProgrammeCard
                             key={p.id ?? '--'}
                             programme={p}
+                            roundId={r.id}
+                            slice={search}
                             colour={(p.id && programmeColour.get(p.id)) || C.sub}
                           />
                         ))}
@@ -1961,9 +2134,13 @@ function InsightsPage() {
 
 function RoundProgrammeCard({
   programme: p,
+  roundId,
+  slice,
   colour,
 }: {
   programme: RoundProgramme
+  roundId: string
+  slice: InsightsSearch
   colour: string
 }) {
   const impact =
@@ -1998,12 +2175,23 @@ function RoundProgrammeCard({
       </p>
     </>
   )
-  // Filtering the whole screen to this programme is the drill a programme card offers
-  // — there is no programme detail route, and the filter pill above shows the state.
+  // The card opens the Awards register on exactly these grants: this round, this
+  // programme, inside the slice being read. It carries the slice the same way
+  // `GrantCount` does, with the card's own round and programme narrowing it, so the
+  // register lists the grants the card counted (plus any cancelled ones, pilled, for the
+  // reason given there). An unresolved pairing has no programme to filter on, and a
+  // round-only link would open onto other programmes' grants, so it stays inert.
   return p.id ? (
     <Link
-      to="/insights"
-      search={(prev) => ({ ...prev, programmeId: [p.id!] })}
+      to="/awards"
+      search={{
+        from: slice.from,
+        to: slice.to,
+        programmeId: [p.id],
+        tag: slice.tag,
+        region: slice.region,
+        roundId: [roundId],
+      }}
       className="block rounded-card p-4 transition-shadow hover:shadow-xs"
       style={bg}
     >

@@ -23,6 +23,7 @@ function grant(over: Partial<InsightsGrant> = {}): InsightsGrant {
     region: 'North West',
     ladCode: null,
     ladName: null,
+    countyWide: null,
     deprivation: null,
     impactQuantity: null,
     proposedImpactQuantity: null,

@@ -52,6 +52,14 @@ export type InsightsGrant = {
   // reliably matches.
   ladCode: string | null
   ladName: string | null
+  /**
+   * The county (Police Force Area) when the delivery area resolved to a WHOLE county
+   * — "Merseyside" — and so to no single district. Null otherwise, including for a
+   * district-level grant: which county a district sits in comes from the map's own
+   * boundary file (`useCounties`), so a grant is placed by the same lookup that draws
+   * the county it is placed in.
+   */
+  countyWide: string | null
   deprivation: InsightsDeprivation | null
   // From the latest analysed report with a quantity — the newest report is taken
   // as the current statement of the grant's impact (milestone reports tend to be
@@ -214,6 +222,10 @@ export async function insightsData(
         region: deliveryRegionLabel(a),
         ladCode: a.deliveryLadCode,
         ladName: a.deliveryLadName,
+        countyWide:
+          !a.deliveryLadCode && dep?.status === 'resolved' && dep.areaType === 'pfa'
+            ? dep.areaName
+            : null,
         deprivation,
         impactQuantity: latestWithQuantity ? parseFloat(latestWithQuantity.impactQuantity!) : null,
         proposedImpactQuantity:

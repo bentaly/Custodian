@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { geoConicEqualArea, geoEqualEarth, geoPath } from 'd3-geo'
-import { feature } from 'topojson-client'
+import { feature, merge } from 'topojson-client'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import { chart, fmtMoney, tooltipBox } from './theme'
 import { Tooltip } from '../ui/Tooltip'
@@ -72,12 +72,22 @@ export type MapView =
    *  region + district layers and so gets `uk` instead. */
   | { kind: 'country'; code: string; name: string }
   | { kind: 'uk' }
-  /** One English region (or Wales/Scotland/NI) broken into its districts. */
+  /** One English region or Wales, drawn as its COUNTIES — or, for Scotland and NI,
+   *  which have no county tier in our data, as its districts. See `regionByCounty`. */
   | { kind: 'region'; region: string }
+  /** One county (a Police Force Area) broken into its districts. */
+  | { kind: 'county'; region: string; county: string }
 
 export type AreaDatum = { amount: number; count: number }
 
-type GeoProps = { code: string; name: string; region?: string | null; continent?: string }
+type GeoProps = {
+  code: string
+  name: string
+  region?: string | null
+  /** LAD layer only: the district's Police Force Area, null outside England and Wales. */
+  county?: string | null
+  continent?: string
+}
 type GeoFeature = Feature<Geometry, GeoProps>
 
 // Each view names its file, the object inside it, which property keys into the
@@ -105,6 +115,58 @@ function sourceFor(view: MapView) {
   // not a different file. Nothing below country level exists outside the UK.
   if (view.kind === 'world' || view.kind === 'country') return SOURCES.world
   return view.kind === 'uk' ? SOURCES.uk : SOURCES.lad
+}
+
+// ─── Counties ───────────────────────────────────────────────────────────────────
+// A region is drawn as its counties, and a county drills to its districts. The tier
+// exists because foundations fund COUNTIES: an applicant writes "Merseyside", which
+// resolves to a Police Force Area with no single district, and a region view drawn
+// only as districts had nowhere to put that money. It was silently left out, and on
+// one portfolio that was over half of it (Merseyside alone out-giving Liverpool
+// nearly four to one, with the map painting Liverpool as the biggest area).
+//
+// A county here IS a Police Force Area — the geography the deprivation lookup already
+// answers county names with (`deprivation_areas.pfa_name`), carried per district in
+// the LAD boundary file so the map and the money agree on the name to the byte. The
+// shapes are the districts MERGED, not a file of their own: counties are exact unions
+// of districts, so a merge cannot disagree with the districts drawn one level down.
+
+/** Is this region drawn as counties? Only where every district has one — England and
+ *  Wales. Scotland and NI are one force each, so they go straight to districts.
+ *
+ *  London is the exception the data does not flag. Its two force areas are the
+ *  Metropolitan Police and the City of London, which is not a way anybody divides
+ *  London: a funder there thinks in boroughs, and the boroughs are its districts. */
+function countiesIn(lads: GeoFeature[], region: string) {
+  if (region === 'London') return false
+  const own = lads.filter((f) => f.properties.region === region)
+  return own.length > 0 && own.every((f) => f.properties.county)
+}
+
+/**
+ * District → county, and which regions are drawn by county, read from the same cached
+ * boundary file the map draws. Exported for the panel beside the map: it has to roll
+ * district grants up into the very counties the map paints, and a second copy of the
+ * lookup is a second answer. Empty until the file lands.
+ */
+export function useCounties() {
+  const { data } = useGeo({ kind: 'region', region: '' })
+  return useMemo(() => {
+    const lads = data?.features ?? []
+    const countyOf = new Map<string, string>()
+    for (const f of lads)
+      if (f.properties.county) countyOf.set(f.properties.code, f.properties.county)
+    const byRegion = new Map<string, boolean>()
+    return {
+      countyOf,
+      /** True when `region` is drawn as its counties rather than its districts. */
+      regionByCounty(region: string) {
+        let v = byRegion.get(region)
+        if (v === undefined) byRegion.set(region, (v = countiesIn(lads, region)))
+        return v
+      },
+    }
+  }, [data])
 }
 
 /**
@@ -147,8 +209,13 @@ export function drillTarget(
   code: string,
   name: string,
   funded: boolean,
+  /** The region view's rows are counties (see `useCounties`), which drill once more. */
+  byCounty = false,
 ): MapView | null {
   if (view.kind === 'uk') return funded ? { kind: 'region', region: name } : null
+  if (view.kind === 'region' && byCounty) {
+    return funded ? { kind: 'county', region: view.region, county: code } : null
+  }
   if (view.kind === 'world' || view.kind === 'country') {
     // The UK skips the country tier: it has real layers beneath it, and
     // stopping at a flat national outline would hide them.
@@ -166,7 +233,15 @@ function keyOf(f: GeoFeature, key: 'code' | 'name') {
 // ─── Boundary loading ───────────────────────────────────────────────────────────
 // Module-level cache: boundaries are immutable static assets, so a given file is
 // fetched at most once per page load however often the view flips between levels.
-const cache = new Map<string, Promise<FeatureCollection<Geometry, GeoProps>>>()
+/** The topology is kept beside the features: counties are MERGED from it (see
+ *  "Counties"), and a merge needs the shared arcs, which geojson has thrown away. */
+type Loaded = {
+  fc: FeatureCollection<Geometry, GeoProps>
+  // oxlint-disable-next-line typescript/no-explicit-any -- topojson-client's own types
+  topo: any
+  object: string
+}
+const cache = new Map<string, Promise<Loaded>>()
 
 function loadGeo(url: string, object: string) {
   const key = `${url}#${object}`
@@ -179,28 +254,38 @@ function loadGeo(url: string, object: string) {
       })
       // topojson → geojson. The cast is safe by construction: build-geo.ts
       // filters every layer down to exactly the GeoProps fields.
-      .then(
-        (topo) =>
-          feature(topo, topo.objects[object]) as unknown as FeatureCollection<Geometry, GeoProps>,
-      )
+      .then((topo) => ({
+        fc: feature(topo, topo.objects[object]) as unknown as FeatureCollection<Geometry, GeoProps>,
+        topo,
+        object,
+      }))
     cache.set(key, hit)
   }
   return hit
+}
+
+/** One shape out of many districts, keeping only the outer boundary. */
+function mergeLads(loaded: Loaded, keep: (p: GeoProps) => boolean): Geometry {
+  const geoms = loaded.topo.objects[loaded.object].geometries.filter(
+    (g: { properties: GeoProps }) => keep(g.properties),
+  )
+  return merge(loaded.topo, geoms) as unknown as Geometry
 }
 
 function useGeo(view: MapView) {
   const src = sourceFor(view)
   const [state, setState] = useState<{
     data: FeatureCollection<Geometry, GeoProps> | null
+    loaded: Loaded | null
     error: string | null
-  }>({ data: null, error: null })
+  }>({ data: null, loaded: null, error: null })
 
   useEffect(() => {
     let live = true
-    setState((s) => (s.data || s.error ? { data: null, error: null } : s))
+    setState((s) => (s.data || s.error ? { data: null, loaded: null, error: null } : s))
     loadGeo(src.url, src.object).then(
-      (data) => live && setState({ data, error: null }),
-      (err: Error) => live && setState({ data: null, error: err.message }),
+      (loaded) => live && setState({ data: loaded.fc, loaded, error: null }),
+      (err: Error) => live && setState({ data: null, loaded: null, error: err.message }),
     )
     return () => {
       live = false
@@ -385,6 +470,7 @@ export function Choropleth({
   highlight = null,
   onHighlight,
   scale = 1,
+  outlineAll = false,
 }: {
   view: MapView
   onViewChange: (view: MapView) => void
@@ -399,8 +485,12 @@ export function Choropleth({
   /** Fraction of the column's width the drawn map takes, centred. Below 1 it is a
    *  smaller map, not a cropped one — see the `style` on the `<svg>`. */
   scale?: number
+  /** Trace the outline of everything in view. How the panel points at money that
+   *  covers the WHOLE region or county on screen ("Across Merseyside"): it belongs to
+   *  no one area, so no area lights up, and the boundary it does belong to is drawn. */
+  outlineAll?: boolean
 }) {
-  const { data, error } = useGeo(view)
+  const { data, loaded, error } = useGeo(view)
   const [hover, setHover] = useState<{ x: number; y: number; f: GeoFeature } | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
 
@@ -412,15 +502,27 @@ export function Choropleth({
     const fallbackHeight = Math.round(width / src.aspect)
     if (!data) return { features: [] as GeoFeature[], pathFor: null, height: fallbackHeight }
 
-    // The region view is a filter on the national LAD layer rather than its own
-    // file — London's 33 boroughs are simply the LADs whose region is London.
-    // Every other view draws its whole layer: on a zoomed country the
-    // surrounding countries are what make it legible as a place rather than a
-    // shape floating in white.
-    const feats =
-      view.kind === 'region'
-        ? data.features.filter((f) => f.properties.region === view.region)
-        : data.features
+    // The region and county views are filters on the national LAD layer rather than
+    // files of their own — London's 33 boroughs are simply the LADs whose region is
+    // London, and Merseyside's five districts the LADs whose county is Merseyside. A
+    // region with counties draws those, merged out of its districts (see "Counties").
+    // Every other view draws its whole layer: on a zoomed country the surrounding
+    // countries are what make it legible as a place rather than a shape floating in
+    // white.
+    let feats: GeoFeature[] = data.features
+    if (view.kind === 'region') {
+      feats = data.features.filter((f) => f.properties.region === view.region)
+      if (loaded && countiesIn(feats, view.region)) {
+        const names = [...new Set(feats.map((f) => f.properties.county!))].sort()
+        feats = names.map((county) => ({
+          type: 'Feature',
+          properties: { code: county, name: county, region: view.region, county },
+          geometry: mergeLads(loaded, (p) => p.region === view.region && p.county === county),
+        }))
+      }
+    } else if (view.kind === 'county') {
+      feats = data.features.filter((f) => f.properties.county === view.county)
+    }
 
     // What the projection is fitted to — which is NOT always what is drawn. A
     // country view draws the world and frames one country.
@@ -511,7 +613,22 @@ export function Choropleth({
       fitTo,
     )
     return { features: feats, pathFor: geoPath(projection), height: h }
-  }, [data, view, width, src.aspect, pitch])
+  }, [data, loaded, view, width, src.aspect, pitch])
+
+  // The outline `outlineAll` draws: the whole region or county in view, as one shape.
+  const outline = useMemo(() => {
+    if (!outlineAll || !loaded || !pathFor) return null
+    if (view.kind === 'region') {
+      return pathFor(mergeLads(loaded, (p) => p.region === view.region) as never)
+    }
+    if (view.kind === 'county') {
+      return pathFor(mergeLads(loaded, (p) => p.county === view.county) as never)
+    }
+    return null
+  }, [outlineAll, loaded, pathFor, view])
+
+  // Whether this region's rows are counties, which is what decides that they drill.
+  const byCounty = view.kind === 'region' && data !== null && countiesIn(data.features, view.region)
 
   const lattice = useMemo(
     () => (pathFor ? buildLattice(features, pathFor, src.key, width, height, pitch) : []),
@@ -577,7 +694,9 @@ export function Choropleth({
       ? `country:${view.code}`
       : view.kind === 'region'
         ? `region:${view.region}`
-        : view.kind
+        : view.kind === 'county'
+          ? `county:${view.county}`
+          : view.kind
 
   return (
     <div className="flex flex-col">
@@ -656,6 +775,16 @@ export function Choropleth({
                 style={{ fill: l.fill, transition: `fill-opacity ${DIM_MS}ms ease` }}
               />
             ))}
+            {outline && (
+              <path
+                d={outline}
+                fill="none"
+                pointerEvents="none"
+                strokeDasharray="4 3"
+                strokeLinejoin="round"
+                style={{ stroke: chart.sub, strokeWidth: 1.25 }}
+              />
+            )}
           </g>
 
           {/* Interaction and accessibility, on the real boundaries but invisible.
@@ -670,7 +799,13 @@ export function Choropleth({
             const areaKey = keyOf(f, src.key)
             const datum = values.get(areaKey)
             const amount = datum?.amount ?? 0
-            const drillTo = drillTarget(view, f.properties.code, f.properties.name, amount > 0)
+            const drillTo = drillTarget(
+              view,
+              f.properties.code,
+              f.properties.name,
+              amount > 0,
+              byCounty,
+            )
             // Unfunded areas are inert at UK levels — there is nothing to show.
             const interactive = amount > 0 || drillTo !== null
 
@@ -804,13 +939,19 @@ function Breadcrumb({
   if (view.kind === 'country') {
     crumbs.push({ label: view.name })
   }
-  if (view.kind === 'uk' || view.kind === 'region') {
+  if (view.kind === 'uk' || view.kind === 'region' || view.kind === 'county') {
     crumbs.push({
       label: 'United Kingdom',
       to: view.kind === 'uk' ? undefined : { kind: 'uk' },
     })
   }
-  if (view.kind === 'region') crumbs.push({ label: view.region })
+  if (view.kind === 'region' || view.kind === 'county') {
+    crumbs.push({
+      label: view.region,
+      to: view.kind === 'region' ? undefined : { kind: 'region', region: view.region },
+    })
+  }
+  if (view.kind === 'county') crumbs.push({ label: view.county })
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-1">
@@ -915,7 +1056,7 @@ function Legend({ cuts, hasEmpty }: { cuts: number[]; hasEmpty: boolean }) {
  * lines of small print making a claim about data that wasn't on the screen.
  */
 export function MapAttribution({ view }: { view: MapView }) {
-  if (view.kind !== 'uk' && view.kind !== 'region') return null
+  if (view.kind !== 'uk' && view.kind !== 'region' && view.kind !== 'county') return null
   return (
     <p className="mt-2 font-display text-label leading-snug" style={{ color: chart.faint }}>
       Contains OS data © Crown copyright and database right 2025. Source: ONS, licensed under the

@@ -41,12 +41,12 @@ function axisMoney(v: number) {
  * Giving over time — gradient fill, hover tooltip, on-load animation.
  *
  * Insights' "Commitment over time" wears the same look (`lineChart` in `theme.ts`)
- * but is a separate, hand-drawn chart, and deliberately so: this series is up to 30
- * auto-bucketed periods, which needs Recharts' tick thinning and its full-height
- * hover band to be readable at all. That one is at most a handful of NAMED rounds,
- * where every point carries its own figure and truncated round name, every point and
- * bar is a keyboard-reachable `Tooltip` trigger, and the same x scale has to serve a
- * bars mode. Sharing one component would mean giving one of those two up.
+ * but is a separate, hand-drawn chart. Its x axis is NAMED rounds rather than
+ * periods, it has to serve a bars mode on the same scale, and it is keyboard-readable
+ * (one focus stop, arrow keys step the rounds), which Recharts' hover tooltip is not.
+ * It does NOT assume a short series: an imported back catalogue runs to dozens of
+ * rounds, so it thins its labels and markers against the measured width the way
+ * Recharts thins this chart's ticks.
  */
 export function GivingArea({ data, height = 210 }: { data: GivingPoint[]; height?: number }) {
   return (
