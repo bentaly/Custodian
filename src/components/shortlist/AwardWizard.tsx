@@ -271,7 +271,7 @@ export function AwardWizard({
       candidates.map((c) => [
         c.id,
         {
-          amount: String(c.amountRequested),
+          amount: penceInput(c.amountRequested),
           // Pre-filled from the application's grant purpose, then edited freely: what
           // ends up here is what the grantee's letter says, so the admin gets the last
           // word. The edit stays on the award — the application keeps the AI's wording.
@@ -879,8 +879,11 @@ export function AwardWizard({
                         <input
                           type="number"
                           min="0"
+                          step="0.01"
+                          inputMode="decimal"
                           value={g.amount}
                           onChange={(e) => setGrant(c.id, { amount: e.target.value })}
+                          onBlur={(e) => setGrant(c.id, { amount: penceInput(e.target.value) })}
                           aria-label={`Amount awarded to ${c.organisationName}`}
                           className="w-[132px] rounded-chip bg-transparent px-1 text-right font-display text-heading font-medium tabular-nums hover:bg-grey-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand/20"
                           style={{ color: C.ink }}
