@@ -627,7 +627,7 @@ function InstalmentEditor({
             Paid {fmtDate(inst.paidDate)}.
           </p>
         )}
-        {changed && Math.abs(gap) >= 1 && (
+        {changed && Math.abs(gap) >= 0.005 && (
           <Caution>
             The schedule will then total {fmtExact(total)},{' '}
             {gap > 0 ? `${fmtExact(gap)} less` : `${fmtExact(-gap)} more`} than the{' '}

@@ -309,6 +309,10 @@ const PILL_TONE = {
 function PaymentsCard({ award }: { award: AwardData }) {
   const [highlight, setHighlight] = useState<string | null>(null)
   const paid = award.paidToDate
+  // Against the AWARD, as Finance's outstanding is: a short schedule still owes the
+  // difference. Where it is short, that difference is not on any instalment, so the
+  // row says so rather than letting "1 instalment" sit beside a figure no instalment
+  // carries (£9,730.50 beside a single £9,729.50 one, on a schedule £1 short).
   const unpaid = Math.max(0, award.amountAwarded - paid)
   const pct = award.amountAwarded > 0 ? Math.round((paid / award.amountAwarded) * 100) : 0
   const unpaidCount = award.instalmentCount - award.paidCount
@@ -319,11 +323,25 @@ function PaymentsCard({ award }: { award: AwardData }) {
   // promised one figure and the payment run will move another — and it is invisible
   // until someone totals the column by eye.
   const shortfall = award.amountAwarded - award.scheduledTotal
-  const unreconciled = award.instalmentCount > 0 && Math.abs(shortfall) >= 1
+  const unreconciled = award.instalmentCount > 0 && Math.abs(shortfall) >= 0.005
 
   const rows = [
-    { id: 'paid', label: 'Paid', count: award.paidCount, amount: paid, colour: C.success },
-    { id: 'unpaid', label: 'Unpaid', count: unpaidCount, amount: unpaid, colour: C.line },
+    {
+      id: 'paid',
+      label: 'Paid',
+      count: award.paidCount,
+      amount: paid,
+      colour: C.success,
+      unscheduled: 0,
+    },
+    {
+      id: 'unpaid',
+      label: 'Unpaid',
+      count: unpaidCount,
+      amount: unpaid,
+      colour: C.line,
+      unscheduled: unreconciled && shortfall > 0 ? shortfall : 0,
+    },
   ]
 
   return (
@@ -393,6 +411,9 @@ function PaymentsCard({ award }: { award: AwardData }) {
                   <span className="flex items-center" style={{ color: C.sub }}>
                     <Dot />
                     {r.count} instalment{r.count === 1 ? '' : 's'}
+                    {r.unscheduled > 0 && (
+                      <>, plus {fmtExact(r.unscheduled)} not scheduled</>
+                    )}
                   </span>
                 )}
               </span>
