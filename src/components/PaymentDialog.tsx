@@ -554,11 +554,16 @@ function Schedule({
     >
       {/* The plan and the promise are separate numbers, and they drift: an award can be
           committed at £60k with only £40k of instalments written down. */}
-      {Math.round(unallocated) !== 0 && (
+      {/* Named with both figures, as the award screen does: "£1 of the committed amount is
+          not on the schedule yet" left a reader asking which £1, and a gap under a pound
+          (which is what an odd-pence split leaves) used to be hidden by rounding. */}
+      {Math.abs(unallocated) >= 0.005 && (
         <p className="rounded-control bg-warning/10 px-3 py-2 text-label text-warning">
+          The instalments add up to {fmtExact(grant.committed - unallocated)},{' '}
           {unallocated > 0
-            ? `${fmtExact(unallocated)} of the committed amount is not on the schedule yet.`
-            : `The schedule is ${fmtExact(-unallocated)} more than the committed amount.`}
+            ? `${fmtExact(unallocated)} less`
+            : `${fmtExact(-unallocated)} more`}{' '}
+          than the {fmtExact(grant.committed)} grant.
         </p>
       )}
 
