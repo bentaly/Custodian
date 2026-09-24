@@ -49,10 +49,9 @@ import {
   SelectPill,
   Tooltip,
   TruncatedList,
-  TruncatedText,
   type TableColumn,
 } from '../../components/ui'
-import { fmtAmount, fmtCompact, fmtDate, fmtList, fmtRef } from '../../lib/format'
+import { fmtAmount, fmtCompact, fmtDate, fmtList, fmtPerYear, fmtRef } from '../../lib/format'
 import { deliveryAreaLabel } from '../../lib/deprivation/types'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import { SCORE_BAND_OPTIONS } from '../../lib/scoreBands'
@@ -490,31 +489,33 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   {
     id: 'amount',
     header: 'Amount',
-    width: 'sm:w-[9%]',
+    width: 'sm:w-[14%]',
     sortable: true,
-    cell: (app) => (
-      <span className="font-display text-body font-medium tabular-nums" style={{ color: C.ink }}>
-        {fmtAmount(app.amountRequested)}
-      </span>
-    ),
-  },
-  {
-    id: 'programme',
-    hideBelow: 'lg',
-    header: 'Programme',
-    width: 'sm:w-[15%]',
-    // Truncated for the same reason the themes beside it are: a programme is named by
-    // the foundation, and "Long-term local partnerships" is an ordinary length for one.
-    // Left to wrap it stacked three lines deep and set the height of every row on the
-    // screen; hard-clipped it would leave two programmes starting "Long-term local…"
-    // indistinguishable. The tooltip is the rest of the name.
-    cell: (app) => (
-      <TruncatedText
-        text={app.roundProgramme?.programme?.name ?? '--'}
-        label="Programme"
-        className="font-display text-body"
-      />
-    ),
+    // The whole ask, then what it comes to a year, as the Amount requested card on the
+    // application screen states it: "£35,000" alone leaves it open whether that is the
+    // grant or one year of it. A single-year ask has no second line, since the two
+    // figures would be the same one twice.
+    cell: (app) => {
+      const perYear = fmtPerYear(
+        parseFloat(app.amountRequested ?? '0') || 0,
+        app.roundProgramme?.grantDurationYears,
+      )
+      return (
+        <div className="flex flex-col">
+          <span
+            className="font-display text-body font-medium tabular-nums"
+            style={{ color: C.ink }}
+          >
+            {fmtAmount(app.amountRequested)}
+          </span>
+          {perYear && (
+            <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
+              {perYear}
+            </span>
+          )}
+        </div>
+      )
+    },
   },
   {
     id: 'theme',
