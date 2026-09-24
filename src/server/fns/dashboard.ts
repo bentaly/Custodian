@@ -15,6 +15,12 @@ import {
   auditLog,
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
+import {
+  roundProgrammeSpend,
+  spentThisYear,
+  type RoundProgrammeSpend,
+} from '../applications/roundSpend'
+import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
 import { FEED_ACTIONS } from '../../lib/audit'
 import { visibleRoundProgrammeIds } from '../scope'
 import { bucketSeries } from '../../lib/timeSeries'
@@ -512,68 +518,76 @@ export async function dashboardData(
   let roundsOut: DashboardRound[] = []
   let funnel: DashboardFunnel | null = null
   let focusRoundBreakdown: DashboardRoundBreakdown | null = null
+  let spend: Map<string, RoundProgrammeSpend> | null = null
   if (roundRows.length > 0) {
     const roundIds = roundRows.map((r) => r.id)
-    const [appCountRows, budgetRows, funnelRows, focusProgrammeRows] = await Promise.all([
-      db
-        .select({ roundId: roundProgrammes.roundId, count: count() })
-        .from(applications)
-        .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
-        .where(inArray(roundProgrammes.roundId, roundIds))
-        .groupBy(roundProgrammes.roundId),
-      db
-        .select({
-          roundId: roundProgrammes.roundId,
-          budget: sql<string>`COALESCE(SUM(${roundProgrammes.budget}), '0')`,
-          committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
-        })
-        .from(roundProgrammes)
-        .leftJoin(applications, eq(applications.roundProgrammeId, roundProgrammes.id))
-        .leftJoin(awards, eq(awards.applicationId, applications.id))
-        .where(inArray(roundProgrammes.roundId, roundIds))
-        .groupBy(roundProgrammes.roundId),
-      // Status counts for the focus round only — the basis of the funnel, and of the
-      // Applications KPI. `inScope` as well as the round: a trustee restricted to some
-      // of the round's programmes must not be shown counts that include the others,
-      // least of all on a card that opens onto the list those counts came from.
-      focusRound
-        ? db
-            .select({
-              status: applications.status,
-              count: count(),
-              decided: sql<number>`(count(*) FILTER (WHERE ${applications.importBatchId} IS NULL))::int`,
+    const [appCountRows, budgetRows, funnelRows, focusProgrammeRows, fyProfile] = await Promise.all(
+      [
+        db
+          .select({ roundId: roundProgrammes.roundId, count: count() })
+          .from(applications)
+          .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
+          .where(inArray(roundProgrammes.roundId, roundIds))
+          .groupBy(roundProgrammes.roundId),
+        db
+          .select({
+            roundId: roundProgrammes.roundId,
+            budget: sql<string>`COALESCE(SUM(${roundProgrammes.budget}), '0')`,
+            committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
+          })
+          .from(roundProgrammes)
+          .leftJoin(applications, eq(applications.roundProgrammeId, roundProgrammes.id))
+          .leftJoin(awards, eq(awards.applicationId, applications.id))
+          .where(inArray(roundProgrammes.roundId, roundIds))
+          .groupBy(roundProgrammes.roundId),
+        // Status counts for the focus round only — the basis of the funnel, and of the
+        // Applications KPI. `inScope` as well as the round: a trustee restricted to some
+        // of the round's programmes must not be shown counts that include the others,
+        // least of all on a card that opens onto the list those counts came from.
+        focusRound
+          ? db
+              .select({
+                status: applications.status,
+                count: count(),
+                decided: sql<number>`(count(*) FILTER (WHERE ${applications.importBatchId} IS NULL))::int`,
+              })
+              .from(applications)
+              .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
+              .where(and(eq(roundProgrammes.roundId, focusRound.id), inScope))
+              .groupBy(applications.status)
+          : Promise.resolve([] as Array<{ status: string; count: number; decided: number }>),
+        // Per-programme budget for the focus round (the round rail donut/bars). What each
+        // has spent comes from `roundProgrammeSpend` below, not from a sum here.
+        focusRound
+          ? db
+              .select({
+                roundProgrammeId: roundProgrammes.id,
+                programmeName: programmes.name,
+                // The foundation's own colour for the programme, so the round donut and
+                // the budget bars draw it the same as its swatch and its cards.
+                programmeColour: programmes.colour,
+                budget: sql<string>`COALESCE(${roundProgrammes.budget}, '0')`,
+              })
+              .from(roundProgrammes)
+              .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
+              .where(eq(roundProgrammes.roundId, focusRound.id))
+          : Promise.resolve(
+              [] as Array<{
+                roundProgrammeId: string
+                programmeName: string
+                programmeColour: string | null
+                budget: string
+              }>,
+            ),
+        // The year-end month, which every cash figure for the focus round needs.
+        focusRound && user.clientId
+          ? db.query.clientProfiles.findFirst({
+              where: (p, { eq }) => eq(p.clientId, user.clientId!),
+              columns: { financialYearEndMonth: true },
             })
-            .from(applications)
-            .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
-            .where(and(eq(roundProgrammes.roundId, focusRound.id), inScope))
-            .groupBy(applications.status)
-        : Promise.resolve([] as Array<{ status: string; count: number; decided: number }>),
-      // Per-programme budget + committed for the focus round (the round rail donut/bars).
-      focusRound
-        ? db
-            .select({
-              programmeName: programmes.name,
-              // The foundation's own colour for the programme, so the round donut and
-              // the budget bars draw it the same as its swatch and its cards.
-              programmeColour: programmes.colour,
-              budget: sql<string>`COALESCE(${roundProgrammes.budget}, '0')`,
-              committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
-            })
-            .from(roundProgrammes)
-            .innerJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
-            .leftJoin(applications, eq(applications.roundProgrammeId, roundProgrammes.id))
-            .leftJoin(awards, eq(awards.applicationId, applications.id))
-            .where(eq(roundProgrammes.roundId, focusRound.id))
-            .groupBy(programmes.name, programmes.colour, roundProgrammes.budget)
-        : Promise.resolve(
-            [] as Array<{
-              programmeName: string
-              programmeColour: string | null
-              budget: string
-              committed: string
-            }>,
-          ),
-    ])
+          : Promise.resolve(undefined),
+      ],
+    )
     const appCountByRound = new Map(appCountRows.map((r) => [r.roundId, r.count]))
     const budgetByRound = new Map(budgetRows.map((r) => [r.roundId, r]))
     roundsOut = roundRows.map((r) => {
@@ -615,12 +629,25 @@ export async function dashboardData(
         awardedByDecision: funnelRows.find((r) => r.status === 'awarded')?.decided ?? 0,
       }
 
+      // THIS YEAR'S CASH, not the whole commitment: a round-programme budget is an
+      // allocation out of one financial year (see "Multi-year grants" in CLAUDE.md), and
+      // `roundProgrammeSpend` is the one place that measures against it, so the round
+      // panel and the Shortlist card say what the Shortlist screen and the ceiling say.
+      // Until 2026-09-24 this summed the whole ask, and a round of two-year grants read
+      // "£41k committed of £15k budget" on a foundation that had spent within it.
+      // Committed here is the PIPELINE sense (awarded + shortlisted), as before.
+      const focusSpend = await roundProgrammeSpend(
+        db,
+        focusProgrammeRows.map((r) => r.roundProgrammeId),
+        { financialYearEndMonth: fyProfile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH },
+      )
+      spend = focusSpend
       const programmesOut = focusProgrammeRows
         .map((r) => ({
           name: r.programmeName,
           colour: r.programmeColour,
           budget: parseFloat(r.budget),
-          committed: parseFloat(r.committed),
+          committed: spentThisYear(focusSpend.get(r.roundProgrammeId)),
         }))
         .sort((a, b) => b.budget - a.budget)
       focusRoundBreakdown = {
@@ -664,7 +691,14 @@ export async function dashboardData(
   // both runs the foundation and sits on its board would be the only member never told
   // what they still had to decide.
   const awaitingMyVote = iVote ? shortlist.filter((s) => !s.iVoted) : []
-  const shortlistProposed = shortlist.reduce((s, a) => s + a.amountRequested, 0)
+  // First-year cash, off the same `spend` as the round panel, and only for the
+  // round-programmes this caller can see (the shortlist above is scoped the same way).
+  // With no focus round there is nothing on the shortlist, so the fallback never counts.
+  const shortlistProposed = spend
+    ? [...spend.values()]
+        .filter((sp) => !rpScope || rpScope.includes(sp.roundProgrammeId))
+        .reduce((s, sp) => s + sp.proposedThisYear, 0)
+    : shortlist.reduce((s, a) => s + a.amountRequested, 0)
 
   const reportsOverdue = reportRows.filter((r) => r.dueDate! < todayIso)
   const reportsDueSoon = reportRows.filter((r) => r.dueDate! >= todayIso && r.dueDate! <= soonIso)
