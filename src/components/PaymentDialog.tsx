@@ -16,7 +16,7 @@ import {
   cn,
 } from './ui'
 import { C } from './ui/tokens'
-import { fmtDate, fmtMoney, fmtRef } from '../lib/format'
+import { fmtDate, fmtExact, fmtRef, penceInput } from '../lib/format'
 import { messageFor } from '../lib/errors'
 import { localTodayIso } from '../lib/schedule'
 import { AREA_ICON } from './Sidebar'
@@ -429,7 +429,7 @@ type Draft = { amount: string; dueDate: string }
 
 function draftsFrom(instalments: Instalment[]): Record<string, Draft> {
   return Object.fromEntries(
-    instalments.map((i) => [i.id, { amount: String(i.amount), dueDate: i.dueDate ?? '' }]),
+    instalments.map((i) => [i.id, { amount: penceInput(i.amount), dueDate: i.dueDate ?? '' }]),
   )
 }
 
@@ -557,8 +557,8 @@ function Schedule({
       {Math.round(unallocated) !== 0 && (
         <p className="rounded-control bg-warning/10 px-3 py-2 text-label text-warning">
           {unallocated > 0
-            ? `${fmtMoney(unallocated)} of the committed amount is not on the schedule yet.`
-            : `The schedule is ${fmtMoney(-unallocated)} more than the committed amount.`}
+            ? `${fmtExact(unallocated)} of the committed amount is not on the schedule yet.`
+            : `The schedule is ${fmtExact(-unallocated)} more than the committed amount.`}
         </p>
       )}
 
@@ -601,10 +601,16 @@ function Schedule({
                   <Input
                     type="number"
                     min="0"
+                    step="0.01"
+                    inputMode="decimal"
                     value={draft.amount}
                     onChange={(e) =>
                       setDrafts((d) => ({ ...d, [inst.id]: { ...draft, amount: e.target.value } }))
                     }
+                    onBlur={(e) => {
+                      const amount = penceInput(e.target.value)
+                      setDrafts((d) => ({ ...d, [inst.id]: { ...d[inst.id]!, amount } }))
+                    }}
                     className="w-32 text-right"
                     aria-label={`Instalment ${inst.instalmentNo} amount`}
                   />
@@ -652,7 +658,7 @@ function Schedule({
                   // Weight, not colour: the amount is the row's figure, and `Row` already
                   // inks every value grey-900. Green read as a status the money does not
                   // have — a scheduled instalment is not an approval.
-                  value={<span className="font-semibold">{fmtMoney(inst.amount)}</span>}
+                  value={<span className="font-semibold">{fmtExact(inst.amount)}</span>}
                   action={
                     grant.canEdit && !paying ? (
                       // Marking paid is the routine act, so it sits on the row rather than
@@ -736,7 +742,7 @@ function Schedule({
               label="Total"
               value={
                 <span className="font-semibold">
-                  {fmtMoney(editing ? draftTotal : grant.scheduledTotal)}
+                  {fmtExact(editing ? draftTotal : grant.scheduledTotal)}
                 </span>
               }
             />

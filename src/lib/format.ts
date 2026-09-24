@@ -240,6 +240,20 @@ export function fmtExact(n: number): string {
 }
 
 /**
+ * A money figure as it should sit in an input box: `9730` when whole, `9729.50` when not.
+ * `String(9729.5)` gives `9729.5`, which reads as a typo for an amount of money.
+ *
+ * Given the box's own string (a field tidying what was typed, on blur) it only PADS a
+ * single decimal digit and never rewrites one: `9729.555` is left for validation to
+ * refuse rather than silently rounded up to `9729.56`.
+ */
+export function penceInput(value: number | string): string {
+  if (typeof value === 'string') return /^-?\d+\.\d$/.test(value.trim()) ? `${value.trim()}0` : value
+  if (!Number.isFinite(value)) return ''
+  return Math.abs(value - Math.round(value)) < 0.005 ? String(Math.round(value)) : value.toFixed(2)
+}
+
+/**
  * What a multi-year ask works out at per year: `£11,666.66 per year for 3 years`.
  *
  * A total and a duration side by side ("£35k" over "3 years") does not say which it

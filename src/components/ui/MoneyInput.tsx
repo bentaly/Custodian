@@ -1,5 +1,6 @@
 import { Input } from './fields'
 import { C } from './tokens'
+import { penceInput } from '../../lib/format'
 
 /**
  * A pounds field: the sign is chrome, not something anybody types.
@@ -57,6 +58,11 @@ export function MoneyInput({
         required={required}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => {
+          // `9729.5` becomes `9729.50` once the reader leaves the field.
+          const tidy = penceInput(e.target.value)
+          if (tidy !== e.target.value) onChange(tidy)
+        }}
         className={suffix ? 'pl-7 pr-14' : 'pl-7'}
       />
       {suffix && (

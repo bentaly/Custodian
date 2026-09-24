@@ -32,7 +32,7 @@ import {
   type CadenceKey,
   type ScheduleRow,
 } from '../../lib/awardSchedule'
-import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtDuration, fmtMoney, fmtRef, penceInput } from '../../lib/format'
 import { todayIso } from '../../lib/schedule'
 import { longerTimeout } from '../../lib/requestTimeout'
 
@@ -339,7 +339,7 @@ export function AwardWizard({
             from,
             terms.firstPaymentDate || null,
             cadenceMonths(terms.cadence),
-          ).map((r) => ({ amount: String(r.amount), date: r.date ?? '' }))
+          ).map((r) => ({ amount: penceInput(r.amount), date: r.date ?? '' }))
           seeded[c.id] = { ...g, rows }
         }
         return seeded
@@ -352,7 +352,7 @@ export function AwardWizard({
   function splitEvenly(c: AwardCandidate) {
     const g = grants[c.id]!
     setGrant(c.id, {
-      rows: g.rows.map((r, i) => ({ ...r, amount: String(evenSplit(g)[i] ?? 0) })),
+      rows: g.rows.map((r, i) => ({ ...r, amount: penceInput(evenSplit(g)[i] ?? 0) })),
     })
   }
 
@@ -1197,11 +1197,20 @@ function CustomSchedules({
                     <Input
                       type="number"
                       min="0"
+                      step="0.01"
+                      inputMode="decimal"
                       value={r.amount}
                       onChange={(e) =>
                         setGrant(c.id, {
                           rows: g.rows.map((row, idx) =>
                             idx === i ? { ...row, amount: e.target.value } : row,
+                          ),
+                        })
+                      }
+                      onBlur={(e) =>
+                        setGrant(c.id, {
+                          rows: g.rows.map((row, idx) =>
+                            idx === i ? { ...row, amount: penceInput(e.target.value) } : row,
                           ),
                         })
                       }

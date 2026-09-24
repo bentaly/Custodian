@@ -351,6 +351,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
         <Donut
           size={120}
           thickness={14}
+          format={fmtExact}
           highlight={highlight}
           onHighlight={setHighlight}
           data={rows.map((r) => ({

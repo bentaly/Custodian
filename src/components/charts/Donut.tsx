@@ -16,9 +16,11 @@ export type DonutSlice = {
 function DonutTooltip({
   active,
   payload,
+  format = fmtMoney,
 }: {
   active?: boolean
   payload?: Array<{ payload: DonutSlice }>
+  format?: (n: number) => string
 }) {
   if (!active || !payload?.length) return null
   const s = payload[0]!.payload
@@ -36,7 +38,7 @@ function DonutTooltip({
         <span style={{ width: 8, height: 8, borderRadius: 2, background: s.colour }} />
         {s.name}
       </span>
-      <div style={{ color: chart.sub, marginTop: 2 }}>{fmtMoney(s.amount ?? s.value)}</div>
+      <div style={{ color: chart.sub, marginTop: 2 }}>{format(s.amount ?? s.value)}</div>
     </div>
   )
 }
@@ -55,6 +57,7 @@ export function Donut({
   highlight = null,
   onHighlight,
   animate = true,
+  format,
 }: {
   data: DonutSlice[]
   size?: number
@@ -72,6 +75,9 @@ export function Donut({
    * play the sweep once the reader is actually there.
    */
   animate?: boolean
+  /** The tooltip's money format. Compact by default; a screen that is reconciled
+   *  against a ledger (a grant's own paid/unpaid ring) passes `fmtExact`. */
+  format?: (n: number) => string
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   const slices: DonutSlice[] =
@@ -120,7 +126,7 @@ export function Donut({
         </Pie>
         {tooltip && total > 0 && (
           <Tooltip
-            content={<DonutTooltip />}
+            content={<DonutTooltip format={format} />}
             wrapperStyle={{ zIndex: 60, outline: 'none' }}
             allowEscapeViewBox={{ x: true, y: true }}
           />

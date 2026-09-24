@@ -28,7 +28,7 @@ import {
 } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C } from '../ui/tokens'
-import { fmtDate, fmtExact } from '../../lib/format'
+import { fmtDate, fmtExact, penceInput } from '../../lib/format'
 import { impactPhrase } from '../../lib/impactUnits'
 import { grantTimeline, type GrantTimelineEntry } from '../../lib/reportTimeline'
 import {
@@ -579,7 +579,7 @@ function InstalmentEditor({
   isNext: boolean
   close: () => void
 }) {
-  const [amount, setAmount] = useState(String(inst.amount))
+  const [amount, setAmount] = useState(penceInput(inst.amount))
   const [dueDate, setDueDate] = useState(inst.dueDate ?? '')
   const { busy, error, run } = useEditorAction(close)
 
