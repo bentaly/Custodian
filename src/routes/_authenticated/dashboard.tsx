@@ -469,28 +469,37 @@ function Dashboard() {
 
   // ── Round donut data (per-programme committed + an "unallocated" remainder) ──
   //
-  // Over budget, the ring is the whole commitment: the programmes share out the budget's
-  // part in proportion to what each committed, and the overspend is a red slice beside
-  // them. Drawn at their true values the programmes filled the ring and the overspend
-  // was invisible, a 135% round looking exactly like a 100% one. The tooltip still
-  // prints each programme's real figure (`amount`), since the drawn share is not one.
+  // Over budget, the ring reads as a meter that has gone round once and kept going:
+  // the full circle is the budget, and the overspend laps past the top in red, starting
+  // at twelve o'clock and running clockwise, so a 135% round shows 35% of the ring in
+  // red. The programmes share what is left of the circle in proportion to what each
+  // committed. Drawn at their true values they filled the ring and the overspend was
+  // invisible, a 135% round looking exactly like a 100% one. The tooltip still prints
+  // each programme's real figure (`amount`), since the drawn share is not one. Past
+  // 200% the red is the whole ring.
   const roundOver = round && round.budget > 0 ? Math.max(0, round.committed - round.budget) : 0
-  const drawnShare = roundOver > 0 ? round!.budget / round!.committed : 1
+  const lapped = round ? Math.min(roundOver, round.budget) : 0
+  const drawnShare = roundOver > 0 ? (round!.budget - lapped) / round!.committed : 1
   const donutData: DonutSlice[] = round
     ? [
+        ...(roundOver > 0
+          ? [{ name: 'Over budget', value: lapped, amount: roundOver, colour: C.danger }]
+          : []),
         ...round.programmes.map((p, i) => ({
           name: p.name,
           value: p.committed * drawnShare,
           amount: p.committed,
           colour: resolveProgrammeColour(p.colour, i),
         })),
-        roundOver > 0
-          ? { name: 'Over budget', value: roundOver, colour: C.danger }
-          : {
-              name: 'Unallocated',
-              value: Math.max(0, round.budget - round.committed),
-              colour: ALLOCATE_LEFT,
-            },
+        ...(roundOver > 0
+          ? []
+          : [
+              {
+                name: 'Unallocated',
+                value: Math.max(0, round.budget - round.committed),
+                colour: ALLOCATE_LEFT,
+              },
+            ]),
       ]
     : []
   const roundPct =
