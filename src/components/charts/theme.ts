@@ -18,10 +18,8 @@ export const chart = {
 }
 
 /**
- * The one line-chart look: the dashboard's giving area (`GivingArea`) and Insights'
- * commitment line draw the same picture from these numbers, so a change to the fill
- * or the stroke reaches both. Only the LOOK is shared — the two differ in what sits
- * around the plot, and `GivingArea` says why.
+ * The one line-chart look, read by `GivingArea` — which both the dashboard's giving
+ * chart and Insights' commitment chart now are.
  */
 export const lineChart = {
   stroke: chart.purple,

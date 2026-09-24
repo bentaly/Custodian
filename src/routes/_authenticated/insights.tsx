@@ -30,7 +30,7 @@ import {
   useReveal,
 } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
-import { lineChart } from '../../components/charts/theme'
+import { GivingArea, type GivingPoint } from '../../components/charts/GivingArea'
 import {
   Choropleth,
   MapAttribution,
@@ -415,342 +415,6 @@ function DecileChart({
   )
 }
 
-// Commitment over time (Figma 128:42632 / 434:26775): the same per-round series in
-// two readings — Line (the default) for the shape of the trend, Bars for "what did
-// each round commit". Both sit on the shared dot-matrix backdrop with a 5-tick money
-// axis.
-//
-// It has to hold any number of rounds. It was drawn for a handful, with every point
-// carrying its figure and name underneath and every point its own Tab stop, and an
-// imported back catalogue of twenty rounds squeezed both lines to "£1…" over "No…".
-// So everything that costs width is now metered against the MEASURED plot:
-// - Labels are thinned to one per `LABEL_SLOT` pixels, counted back from the latest
-//   round (the one a reader opens this for), as Recharts' `preserveEnd` does on the
-//   dashboard's chart.
-// - The figure line under each label only shows when EVERY round is labelled. Thinned,
-//   it would put figures under some rounds and not others, which reads as missing data.
-// - Point markers are drawn only while they have room to be separate dots.
-// - The chart is ONE focus stop (a slider), not one per point. The pointer and the arrow
-//   keys move a single active point, and one readout names it — so no round is ever out of reach
-//   however many labels the thinning dropped, and forty rounds are not forty Tab presses.
-const PLOT_H = 206
-const AXIS_W = 40
-/** Two lines — the committed figure over the round's name — held at a fixed height
- *  because the labels are positioned, not laid out in flow. */
-const LABEL_H = 42
-/** Horizontal room one round name needs before it can be read. */
-const LABEL_SLOT = 84
-/** Below this spacing, point markers merge into a bead chain and are left off. */
-const MARKER_MIN_GAP = 14
-/** The whole bar rise takes about this long, however many bars share it. */
-const BAR_STAGGER_TOTAL_MS = 600
-
-function CommitmentChart({
-  mode,
-  series,
-  max,
-  ticks,
-  play = false,
-}: {
-  mode: 'bars' | 'line'
-  series: Array<{ id: string; label: string; value: number }>
-  max: number
-  ticks: number[]
-  /** Draw the series in — set once the panel has been scrolled to. */
-  play?: boolean
-}) {
-  const plotRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
-  const [active, setActive] = useState<number | null>(null)
-  useEffect(() => {
-    const el = plotRef.current
-    if (!el) return
-    const measure = () => setWidth(el.clientWidth)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const n = series.length
-  // A filter can shrink the series under a held index.
-  const current = active !== null && active < n ? active : null
-
-  // Bars occupy a band, so they sit at band centres. The line's points sit ON the
-  // axis ends instead — the edge-to-edge scale the dashboard's giving chart uses,
-  // which is also what stops a six-round series drawing as a short line floating in
-  // the middle of a full-width plot.
-  const single = n === 1
-  const xOf = (i: number) =>
-    mode === 'line' ? (single ? 50 : (i / (n - 1)) * 100) : (100 / n) * (i + 0.5)
-  const pts = series.map((p, i) => ({ ...p, x: xOf(i), y: 100 - (p.value / max) * 100 }))
-
-  // Pixels between neighbouring points. Before the first measurement it is unknown,
-  // and treating it as roomy means a short series renders exactly as it always did.
-  const pitch = width === 0 ? Infinity : mode === 'line' && !single ? width / (n - 1) : width / n
-  const step = Math.max(1, Math.ceil(LABEL_SLOT / pitch))
-  const labelled = new Set<number>()
-  for (let i = n - 1; i >= 0; i -= step) labelled.add(i)
-  const showFigures = step === 1
-  const showMarkers = pitch >= MARKER_MIN_GAP
-  const labelW = Math.min(step, n) * (Number.isFinite(pitch) ? pitch : LABEL_SLOT)
-  const barW = Number.isFinite(pitch) ? Math.max(1, Math.min(32, pitch * 0.6)) : 32
-
-  const indexAt = (clientX: number) => {
-    const el = plotRef.current
-    if (!el || n === 0) return null
-    const r = el.getBoundingClientRect()
-    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width))
-    if (mode === 'line') return single ? 0 : Math.round(f * (n - 1))
-    return Math.min(n - 1, Math.floor(f * n))
-  }
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    const at = current ?? n - 1
-    const next =
-      e.key === 'ArrowRight'
-        ? Math.min(n - 1, at + 1)
-        : e.key === 'ArrowLeft'
-          ? Math.max(0, at - 1)
-          : e.key === 'Home'
-            ? 0
-            : e.key === 'End'
-              ? n - 1
-              : null
-    if (next === null) return
-    e.preventDefault()
-    setActive(next)
-  }
-
-  const shown = current !== null ? pts[current]! : null
-  // The readout hangs inward at either end rather than off the panel.
-  const readoutAlign = !shown ? 'center' : shown.x < 15 ? 'left' : shown.x > 85 ? 'right' : 'center'
-
-  return (
-    <div>
-      <div className="flex" style={{ height: PLOT_H }}>
-        <div className="flex flex-col justify-between pr-2 text-right" style={{ width: AXIS_W }}>
-          {ticks.map((t) => (
-            <span
-              key={t}
-              className="font-display text-label leading-none"
-              style={{ color: C.faint }}
-            >
-              {t === 0 ? '0' : fmtCompact(t).replace('£', '')}
-            </span>
-          ))}
-        </div>
-        <div
-          ref={plotRef}
-          className="relative flex-1 rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
-          // A slider is what this is to a keyboard: one stop, arrows step through the
-          // rounds, and `aria-valuetext` reads the round out as it moves.
-          tabIndex={0}
-          role="slider"
-          aria-label="Commitment by round"
-          aria-valuemin={1}
-          aria-valuemax={n}
-          aria-valuenow={(current ?? n - 1) + 1}
-          aria-valuetext={`${pts[current ?? n - 1]!.label}, ${fmtMoney(pts[current ?? n - 1]!.value)}`}
-          onPointerMove={(e) => setActive(indexAt(e.clientX))}
-          onPointerLeave={() => setActive(null)}
-          onFocus={() => setActive((a) => a ?? n - 1)}
-          onBlur={() => setActive(null)}
-          onKeyDown={onKeyDown}
-        >
-          <DotGrid />
-          {mode === 'bars' ? (
-            <div className="absolute inset-0">
-              {pts.map((p, i) => (
-                // `.tick` is the app's load rise (BarMeter, the sign-in art); reusing
-                // it here means one column chart cannot drift from the rest of the
-                // app's motion. Staggered left-to-right in round order, with the
-                // stagger shared out so a long series still finishes promptly.
-                <div
-                  key={p.id}
-                  className={`absolute bottom-0 -translate-x-1/2 rounded-t-chip transition-opacity duration-150 ${play ? 'tick' : ''}`}
-                  style={{
-                    left: `${p.x}%`,
-                    width: barW,
-                    height: `${Math.max(1, (p.value / max) * 100)}%`,
-                    backgroundColor: lineChart.stroke,
-                    opacity: current === null || current === i ? 1 : 0.45,
-                    animationDelay: play
-                      ? `${Math.round(i * Math.min(60, BAR_STAGGER_TOTAL_MS / n))}ms`
-                      : undefined,
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            // The wipe carries the markers as well as the path, so the dots
-            // arrive with the line that puts them there.
-            <div className={`absolute inset-0 ${play ? 'wipe-in' : ''}`}>
-              {/* The path is drawn in a stretched 100×100 space; the markers are
-                  plain elements positioned over it, so they stay circular. */}
-              <svg
-                className="block h-full w-full overflow-visible"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden
-              >
-                <defs>
-                  {/* Same fill, same purple, same stroke as the dashboard's giving
-                      chart, read from the `lineChart` token both charts share — so
-                      the app has one line-chart look and no way to drift out of it.
-                      `charts/GivingArea` carries the note on why the two are
-                      separate components. */}
-                  <linearGradient id="commitFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="0%"
-                      stopColor={lineChart.stroke}
-                      stopOpacity={lineChart.fillTop}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor={lineChart.stroke}
-                      stopOpacity={lineChart.fillBottom}
-                    />
-                  </linearGradient>
-                </defs>
-                <path d={areaPath(pts)} fill="url(#commitFill)" stroke="none" />
-                <path
-                  d={smoothPath(pts)}
-                  fill="none"
-                  stroke={lineChart.stroke}
-                  strokeWidth={lineChart.strokeWidth}
-                  strokeLinecap="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-              {/* The dashboard's marker: a 5px filled dot, 8px on the active point —
-                  the same r 2.5 → 4 its `activeDot` steps through. */}
-              {pts.map((p, i) =>
-                showMarkers || current === i ? (
-                  <span
-                    key={p.id}
-                    className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full ${current === i ? 'size-2' : 'size-[5px]'}`}
-                    style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: lineChart.stroke }}
-                    aria-hidden
-                  />
-                ) : null,
-              )}
-            </div>
-          )}
-          {shown && (
-            <>
-              {mode === 'line' && (
-                // The dashboard's hover cursor: a dashed rule down through the point.
-                <span
-                  className="pointer-events-none absolute inset-y-0 border-l border-dashed"
-                  style={{ left: `${shown.x}%`, borderColor: lineChart.stroke }}
-                  aria-hidden
-                />
-              )}
-              <div
-                className="pointer-events-none absolute top-0 z-10 max-w-60 rounded-chip border border-grey-200 bg-white px-3 py-2 font-display text-label leading-snug shadow-lg"
-                style={{
-                  left: `${shown.x}%`,
-                  transform:
-                    readoutAlign === 'center'
-                      ? 'translateX(-50%)'
-                      : readoutAlign === 'right'
-                        ? 'translateX(-100%)'
-                        : 'none',
-                }}
-                aria-hidden
-              >
-                <p className="truncate" style={{ color: C.sub }}>
-                  {shown.label}
-                </p>
-                <p className="font-medium" style={{ color: C.ink }}>
-                  {fmtMoney(shown.value)}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Labels are placed AT their point in both modes, each given the width of the
-          rounds it stands for. One that would hang off either end of the plot aligns
-          inward instead of centring. */}
-      <div
-        className="relative"
-        style={{ marginLeft: AXIS_W, height: showFigures ? LABEL_H : LABEL_H / 2 }}
-      >
-        {pts.map((p, i) => {
-          if (!labelled.has(i)) return null
-          const centre = (p.x / 100) * width
-          const align =
-            width === 0 || single
-              ? 'center'
-              : centre - labelW / 2 < 0
-                ? 'left'
-                : centre + labelW / 2 > width
-                  ? 'right'
-                  : 'center'
-          return (
-            <div
-              key={p.id}
-              className="absolute top-0 min-w-0 px-1"
-              style={{
-                left: `${p.x}%`,
-                width: labelW,
-                transform:
-                  align === 'center'
-                    ? 'translateX(-50%)'
-                    : align === 'right'
-                      ? 'translateX(-100%)'
-                      : 'none',
-                textAlign: align,
-              }}
-            >
-              {showFigures && (
-                <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-                  <CompactMoney amount={p.value} label={`Exact total, ${p.label}`} />
-                </p>
-              )}
-              <div className="font-display text-label" style={{ color: C.sub }}>
-                {/* Alignment comes from the wrapper's inline `textAlign`, which the
-                    span inherits — a `text-${align}` class would not survive
-                    Tailwind's scan of the source. */}
-                <TruncatedText text={p.label} label="Full label" />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-/** The same curve closed down to the baseline, for the gradient fill beneath it. */
-function areaPath(pts: Array<{ x: number; y: number }>): string {
-  if (pts.length === 0) return ''
-  const first = pts[0]!
-  const last = pts[pts.length - 1]!
-  return `${smoothPath(pts)} L ${last.x} 100 L ${first.x} 100 Z`
-}
-
-/** Catmull-Rom → cubic bézier: the design's eased curve through every point. */
-function smoothPath(pts: Array<{ x: number; y: number }>): string {
-  if (pts.length === 0) return ''
-  if (pts.length === 1) return `M ${pts[0]!.x} ${pts[0]!.y}`
-  let d = `M ${pts[0]!.x} ${pts[0]!.y}`
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i]!
-    const p1 = pts[i]!
-    const p2 = pts[i + 1]!
-    const p3 = pts[i + 2] ?? p2
-    const c1x = p1.x + (p2.x - p0.x) / 6
-    const c1y = p1.y + (p2.y - p0.y) / 6
-    const c2x = p2.x - (p3.x - p1.x) / 6
-    const c2y = p2.y - (p3.y - p1.y) / 6
-    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`
-  }
-  return d
-}
-
 // ─── Derivations (pure, over the filtered grant set) ─────────────────────────────
 
 // The ranked area list beside the map (Figma 434:37506).
@@ -988,13 +652,6 @@ function roundProgrammes(grants: InsightsGrant[]): RoundProgramme[] {
     .sort((a, b) => b.total - a.total)
 }
 
-/** Round a chart's top gridline up to 1/2/5 × a power of ten, so ticks divide evenly. */
-function niceMax(n: number): number {
-  const pow = 10 ** Math.floor(Math.log10(n))
-  const step = [1, 2, 2.5, 5, 10].find((m) => n <= m * pow) ?? 10
-  return step * pow
-}
-
 /** How many themes the panel lists before offering the rest behind a toggle. */
 const THEMES_SHOWN = 3
 
@@ -1226,13 +883,10 @@ function InsightsPage() {
   const programmeColour = new Map(byProgramme.map((p) => [p.id, p.colour]))
 
   // ── Commitment over time (by round, chronological) ──
-  // Line and Bars plot the same series — what each round committed. Line leads and is
-  // the default: the panel is called "over time", and the shape of the trend is the
-  // question a round-by-round series is opened for; bars are the reading you switch to
-  // when comparing one round against another. (A cumulative mode was dropped: a running
-  // total answers a different question and read as if the round totals themselves were
-  // growing.)
-  const [chartMode, setChartMode] = useState<'bars' | 'line'>('line')
+  // What each round committed, drawn with the dashboard's own chart (`GivingArea`, which
+  // says why there is one). A bars reading and a cumulative mode both existed and were
+  // dropped: the shape of the trend is the question this panel is opened for, and a
+  // running total read as if the round totals themselves were growing.
   const [showAllThemes, setShowAllThemes] = useState(false)
   // Grouped in one pass: a filter per round is rounds × grants, and an imported back
   // catalogue has plenty of both.
@@ -1256,11 +910,11 @@ function InsightsPage() {
       }
     })
     .sort((a, b) => (a.openedAt ?? '').localeCompare(b.openedAt ?? ''))
-  const commitSeries = timelineRounds.map((r) => ({ id: r.id, label: r.name, value: r.total }))
-  // Axis ticks run 0 → a rounded-up maximum, so the gridline labels are readable
-  // numbers rather than whatever the tallest bar happens to be.
-  const chartMax = niceMax(Math.max(1, ...commitSeries.map((p) => p.value)))
-  const chartTicks = [4, 3, 2, 1, 0].map((i) => (chartMax * i) / 4)
+  const commitSeries: GivingPoint[] = timelineRounds.map((r) => ({
+    label: r.name,
+    title: r.name,
+    amount: r.total,
+  }))
 
   // ── Themes ──
   // A theme is not a programme and has no colour of its own, so it takes a generated
@@ -1759,37 +1413,7 @@ function InsightsPage() {
             className={`grid grid-cols-1 gap-4 lg:grid-cols-2 ${commitReveal.props.className}`}
           >
             <Panel>
-              <PanelTitle
-                right={
-                  <div
-                    className="flex items-center gap-0.5 rounded-chip p-0.5"
-                    style={{ backgroundColor: C.wash }}
-                  >
-                    {/* Line first, and the default — see `chartMode`. */}
-                    {(['line', 'bars'] as const).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setChartMode(m)}
-                        className="h-7 rounded-chip px-2 font-display text-body font-medium capitalize"
-                        style={
-                          chartMode === m
-                            ? {
-                                backgroundColor: '#fff',
-                                border: `1px solid ${C.line}`,
-                                color: C.ink,
-                              }
-                            : { color: C.sub }
-                        }
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                }
-              >
-                Commitment over time
-              </PanelTitle>
+              <PanelTitle>Commitment over time</PanelTitle>
               {commitSeries.length === 0 ? (
                 <p className="py-10 text-center font-display text-body" style={{ color: C.faint }}>
                   No dated rounds in this slice.
@@ -1799,12 +1423,15 @@ function InsightsPage() {
                   <p className="-mt-2 mb-4 font-display text-label" style={{ color: C.sub }}>
                     By grant round · £ committed
                   </p>
-                  <CommitmentChart
-                    mode={chartMode}
-                    series={commitSeries}
-                    max={chartMax}
-                    ticks={chartTicks}
-                    play={commitReveal.shown}
+                  <GivingArea
+                    // Re-keyed on reveal so the draw-in plays when the panel is
+                    // reached rather than below the fold, as the area donut does.
+                    key={commitReveal.shown ? 'shown' : 'idle'}
+                    animate={commitReveal.shown}
+                    data={commitSeries}
+                    height={240}
+                    // Round names are free text; the tooltip carries the whole one.
+                    maxTickChars={16}
                   />
                 </>
               )}
