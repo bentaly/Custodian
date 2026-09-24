@@ -8,7 +8,7 @@ import { ShortlistHeader } from '../../components/shortlist/ShortlistHeader'
 import { ProposedSpend } from '../../components/shortlist/SpendCards'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { holdsAVote } from '../../lib/voting'
-import { EmptyState, ExportButton, Pagination, TextLink } from '../../components/ui'
+import { EmptyState, ExportButton, Pagination, SelectPill, TextLink } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 
 const PAGE_SIZE = 10
@@ -32,6 +32,10 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
   validateSearch: (search: Record<string, unknown>) => ({
     roundId:
       typeof search.roundId === 'string' ? search.roundId : (undefined as string | undefined),
+    programmeId:
+      typeof search.programmeId === 'string'
+        ? search.programmeId
+        : (undefined as string | undefined),
     page: (Number.isInteger(Number(search.page)) && Number(search.page) > 1
       ? Number(search.page)
       : undefined) as number | undefined,
@@ -43,7 +47,10 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
     if (search.roundId) return
     const fallback = selectableRounds(await myRoundsForFallback())[0]
     if (fallback)
-      throw redirect({ to: '/shortlist', search: { roundId: fallback.id, page: undefined } })
+      throw redirect({
+        to: '/shortlist',
+        search: { roundId: fallback.id, programmeId: undefined, page: undefined },
+      })
   },
   loaderDeps: ({ search }) => ({ roundId: search.roundId }),
   loader: async ({ deps }) => {
@@ -58,7 +65,7 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
 
 function ShortlistPage() {
   const navigate = Route.useNavigate()
-  const { roundId, page } = Route.useSearch()
+  const { roundId, programmeId, page } = Route.useSearch()
   const { shortlist, rounds } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
   const { items, voters, allowAdminVoting, budgets, financialYear } = shortlist
@@ -71,11 +78,34 @@ function ShortlistPage() {
   const visibleRounds = selectableRounds(rounds)
   const approved = items.filter((a) => a.hasMajority)
 
-  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  // The programme pill, in the place and shape Applications wears it (the in-card `sm`
+  // pill, counts in the label). Unlike Applications it offers "All programmes" and
+  // starts there: the spend panel above it is the whole round's either way, and a board
+  // arriving at its pack must not be shown one programme's applications without asking.
+  // Options come from what is shortlisted, so none of them opens onto an empty list.
+  const programmeCounts = new Map<string, { name: string; count: number }>()
+  for (const a of items) {
+    const p = a.roundProgramme.programme
+    const entry = programmeCounts.get(p.id) ?? { name: p.name, count: 0 }
+    entry.count++
+    programmeCounts.set(p.id, entry)
+  }
+  const programmeOptions = [...programmeCounts]
+    .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+    .map(([value, { name, count }]) => ({ value, label: `${name} (${count})` }))
+  // A programme id left in the URL from a link, whose applications have since been
+  // decided, falls back to the whole round rather than an empty card.
+  const activeProgrammeId =
+    programmeId && programmeCounts.has(programmeId) ? programmeId : undefined
+  const filtered = activeProgrammeId
+    ? items.filter((a) => a.roundProgramme.programme.id === activeProgrammeId)
+    : items
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page ?? 1, pageCount)
   const pageItems = printing
-    ? items
-    : items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    ? filtered
+    : filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   function downloadPdf() {
     setPrinting(true)
@@ -130,11 +160,32 @@ function ShortlistPage() {
             className="flex flex-col gap-4 rounded-card border bg-white p-4"
             style={{ borderColor: C.line }}
           >
+            {/* Only once there is a choice to make: a round shortlisting from one
+                programme would offer "All" and that programme, which are the same list. */}
+            {programmeOptions.length > 1 && (
+              // Printed with the pack, so a PDF of one programme says which one it is.
+              <div>
+                <SelectPill
+                  size="sm"
+                  ariaLabel="Programme"
+                  label="Programme"
+                  options={programmeOptions}
+                  value={activeProgrammeId}
+                  clearLabel="All programmes"
+                  onChange={(v) =>
+                    navigate({
+                      search: (prev) => ({ ...prev, programmeId: v || undefined, page: undefined }),
+                    })
+                  }
+                />
+              </div>
+            )}
+
             <p className="font-display text-title font-medium" style={{ color: C.ink }}>
               To vote{' '}
               <span style={{ color: C.faint }}>
-                · {items.length} shortlisted application{items.length === 1 ? '' : 's'} awaiting a
-                decision
+                · {filtered.length} shortlisted application{filtered.length === 1 ? '' : 's'}{' '}
+                awaiting a decision
               </span>
             </p>
 
@@ -157,7 +208,7 @@ function ShortlistPage() {
                 page={currentPage}
                 pageCount={pageCount}
                 shown={pageItems.length}
-                total={items.length}
+                total={filtered.length}
                 noun="applications"
                 onChange={(p) =>
                   navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })

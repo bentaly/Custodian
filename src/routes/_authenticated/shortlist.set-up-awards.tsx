@@ -96,7 +96,10 @@ export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')(
   beforeLoad: async ({ context, search }) => {
     const isAdmin = context.user.role === 'admin' || context.user.role === 'superadmin'
     if (!isAdmin) {
-      throw redirect({ to: '/shortlist', search: { roundId: search.roundId, page: undefined } })
+      throw redirect({
+        to: '/shortlist',
+        search: { roundId: search.roundId, programmeId: undefined, page: undefined },
+      })
     }
     if (search.roundId) return
     const fallback = selectableRounds(await myRoundsForFallback())[0]
