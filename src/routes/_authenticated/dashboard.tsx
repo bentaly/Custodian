@@ -433,7 +433,7 @@ function Dashboard() {
       lead: `${a.toReview.count} application${plural(a.toReview.count)}`,
       rest: 'ready to review',
       to: '/applications',
-      search: { roundId: undefined, status: ['for_review'] },
+      search: { roundId: round?.roundId, status: ['for_review'] },
     })
   // Only for roles that can open Finance. A trustee following this row would be
   // redirected straight back here — an item on your desk you cannot pick up is worse
@@ -451,14 +451,14 @@ function Dashboard() {
       lead: `${d.awaitingVotes} application${plural(d.awaitingVotes)}`,
       rest: 'await a trustee vote',
       to: '/shortlist',
-      search: { roundId: undefined },
+      search: { roundId: round?.roundId },
     })
   if (a.readyToAward.count > 0)
     desk.push({
       lead: `${a.readyToAward.count} award${plural(a.readyToAward.count)}`,
       rest: 'ready to set up',
       to: '/shortlist',
-      search: { roundId: undefined },
+      search: { roundId: round?.roundId },
     })
   if (d.reportsToReview > 0)
     desk.push({
@@ -489,35 +489,79 @@ function Dashboard() {
 
   // KPI category breakdowns — one source for both the chips and the bar-meter, so the
   // strip's colours always match the legend beneath it.
-  // Applications carries only the two ends of the pipeline it still owns — what has
-  // yet to be looked at, and what is dead. Everything in between (shortlisted, and the
-  // awarded that grew out of it) belongs to the Shortlist card, so the two cards read
-  // as one pipeline rather than counting the same application twice.
+  // Applications is the WHOLE of the focus round: every application in it, split by
+  // where it has got to, so the headline is the round's size and the strip is all of
+  // it. It used to carry only the two ends (to review, declined) and leave the middle to
+  // Shortlist, which made a headline nobody could name: neither "applications in the
+  // round" nor "applications left to do".
   // The FOCUS ROUND's applications, not the tenant's — this is the one card that names
   // a round in its footer, and a headline counting every round ever run under a footer
   // reading "Summer 2026" is two different questions in one card. Falls back to the
   // tenant-wide counts only when there is no round at all, where the two are the same
   // thing anyway (an application cannot exist without a round-programme).
+  //
+  // Three states, not four: "shortlisted" counts everything that MADE the shortlist,
+  // awarded included, because the Shortlist card beside this one breaks that figure
+  // down (to vote / ready to award / awarded) and the two must agree. Pale violet
+  // waiting, solid violet shortlisted. Declined is a DARK grey: `danger` was
+  // too strong (a decline is a decision made, not something wrong), and a pale grey or
+  // pale violet read as the same thing as "to review" at chip size. NOT droppable,
+  // unlike Finance's "later": a hidden state leaves the legend not summing to the
+  // headline, so on a narrow card the legend wraps instead.
   const appsPipeline = round?.pipeline ?? d.pipeline
   const appsCats: Chip[] = [
-    { label: 'to review', count: appsPipeline.for_review, colour: KPI.apps.accent },
-    { label: 'declined', count: appsPipeline.declined, colour: C.danger },
+    {
+      label: 'to review',
+      count: appsPipeline.for_review,
+      colour: withAlpha(KPI.apps.accent, 0.3),
+    },
+    {
+      label: 'shortlisted',
+      count: appsPipeline.shortlisted + appsPipeline.awarded,
+      colour: KPI.apps.accent,
+    },
+    {
+      label: 'declined',
+      count: appsPipeline.declined,
+      colour: 'var(--color-grey-500)',
+    },
   ]
-  // Approved is "the vote went its way", which stays true after the grant is minted —
-  // so an awarded application is still an approved one, just further along.
+  // The line under the headline says what the number IS, since "+0 this week" was what
+  // it said most weeks. The week's arrivals are appended while there are any, because
+  // that is news; a quiet week says nothing about it.
+  const appsSub = (
+    <>
+      {round ? 'Applications in this round' : 'Applications across all rounds'}
+      {d.submittedThisWeek > 0 && (
+        <>
+          {' · '}
+          <span style={{ color: C.success }}>+{d.submittedThisWeek} this week</span>
+        </>
+      )}
+    </>
+  )
+  // The active round's shortlist (the server scopes it) plus what it has become: to
+  // vote, ready to award, awarded. Together they are Applications' "shortlisted" for
+  // the same round. Carried "approved = ready + every grant EVER awarded" until
+  // 2026-09-24, so the headline only ever grew and could not be squared with the card
+  // next door.
   //
   // `awardedByDecision`, NOT `awarded`: a grant carried in by the onboarding data
-  // import is at `awarded` without ever having been submitted, shortlisted or voted on,
-  // and this card is about the shortlist. A foundation that onboarded eight historic
-  // grants was shown "8 · £0 proposed · 8 approved" on a card that opens onto a
-  // shortlist with nothing on it — the same reason the import is barred from going
-  // through `createAwards`: it is recording a fact, not making a decision.
-  const approved = a.readyToAward.count + d.pipeline.awardedByDecision
-  // Solid green first, its own 30% tint second — the strip darkens toward the decided
-  // end, so the eye reads progress left to right.
+  // import is at `awarded` without ever having been shortlisted or voted on, and an
+  // import-created round can be the focus round for a foundation that has not run one
+  // in Custodian yet. It is recording a fact, not a decision.
+  //
+  // Pale, mid, solid green: the strip darkens toward the decided end, and awarded (the
+  // decision actually made) is the strongest.
+  const roundAwarded = (round?.pipeline ?? d.pipeline).awardedByDecision
   const reviewCats: Chip[] = [
-    { label: 'approved', count: approved, colour: C.success },
     { label: 'to vote', count: d.awaitingVotes, colour: withAlpha(KPI.review.accent, 0.3) },
+    {
+      label: 'ready to award',
+      count: a.readyToAward.count,
+      colour: withAlpha(KPI.review.accent, 0.6),
+    },
+    { label: 'awarded', count: roundAwarded, colour: C.success },
   ]
   // Reports stays inside its own pink family (Figma 126:33904) rather than reaching for
   // the global info/danger colours: on a strip of four cards the accent is what tells
@@ -610,14 +654,10 @@ function Dashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           tint={KPI.apps}
-          // The two chips, not the whole pipeline — same bargain the other three cards
-          // make. `total` counted the shortlisted and awarded ones too, which this card
-          // deliberately does not show (they belong to Shortlist, see `appsCats`), so
-          // the strip beneath drew 6 + 16 as a FULL bar under a headline of 40 and
-          // claimed the two chips were all of it.
-          value={String(appsPipeline.for_review + appsPipeline.declined)}
-          sub={`+${d.submittedThisWeek} this week`}
-          subColour={C.success}
+          // Every application in the round: the strip beneath is all four states, so
+          // it is the whole of this number (see `appsCats`).
+          value={String(appsPipeline.total)}
+          sub={appsSub}
           icon={AREA_ICON['/applications']!}
           label="Applications"
           meta={round?.roundName}
@@ -634,16 +674,16 @@ function Dashboard() {
 
         <KpiCard
           tint={KPI.review}
-          // The headline counts both chips, so the strip beneath it is the whole of
-          // this number and not a fraction of it. `proposed` stays the shortlist's own
-          // spend — an awarded grant is committed, not proposed.
-          value={String(d.awaitingVotes + approved)}
+          // Every chip, so the strip beneath is the whole of this number. It equals
+          // Applications' "shortlisted" (bar imported grants, see `roundAwarded`).
+          value={String(a.shortlist.count + roundAwarded)}
           sub={`${fmtCompact(a.shortlist.proposed)} proposed`}
           title={exactOr(a.shortlist.proposed, 'proposed')}
           icon={AREA_ICON['/shortlist']!}
           label="Shortlist"
+          meta={round?.roundName}
           to="/shortlist"
-          search={{ roundId: undefined }}
+          search={{ roundId: round?.roundId }}
           meter={<BarMeter segments={toSegments(reviewCats)} colour={KPI.review.accent} />}
         >
           <Chips chips={reviewCats} />

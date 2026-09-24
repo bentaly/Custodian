@@ -217,12 +217,14 @@ export async function dashboardData(
         // `currentVoterOf` — the tenant is already settled by `inScope` above.
         yesVotes: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.vote} = 'yes' AND ${countsTowardMajority()})`,
         myVote: sql<number>`COUNT(*) FILTER (WHERE ${applicationVotes.userId} = ${user.id})`,
+        roundId: roundProgrammes.roundId,
       })
       .from(applications)
+      .innerJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
       .leftJoin(applicationVotes, eq(applicationVotes.applicationId, applications.id))
       .leftJoin(users, eq(users.id, applicationVotes.userId))
       .where(and(inScope, eq(applications.status, 'shortlisted')))
-      .groupBy(applications.id),
+      .groupBy(applications.id, roundProgrammes.roundId),
 
     // Applications awaiting first review.
     db
@@ -637,15 +639,22 @@ export async function dashboardData(
   const voterCount = voterCountRows[0]?.count ?? 0
   const iVote = holdsAVote(user)
 
-  const shortlist = shortlistRows.map((r) => ({
-    id: r.id,
-    organisationName: r.organisationName,
-    amountRequested: parseFloat(r.amountRequested),
-    score: r.score,
-    yesVotes: Number(r.yesVotes),
-    iVoted: Number(r.myVote) > 0,
-    hasMajority: voterCount > 0 && Number(r.yesVotes) * 2 > voterCount,
-  }))
+  // The ACTIVE round's shortlist only, like every other application figure on the
+  // dashboard. Tenant-wide, the Shortlist card sat beside an Applications card reading
+  // "9 shortlisted" for Summer 2026 and said "12 approved": this round's 3 with a
+  // majority plus 9 grants awarded in five earlier rounds. An application still
+  // shortlisted in an older round is on the Shortlist screen under that round.
+  const shortlist = shortlistRows
+    .filter((r) => !focusRound || r.roundId === focusRound.id)
+    .map((r) => ({
+      id: r.id,
+      organisationName: r.organisationName,
+      amountRequested: parseFloat(r.amountRequested),
+      score: r.score,
+      yesVotes: Number(r.yesVotes),
+      iVoted: Number(r.myVote) > 0,
+      hasMajority: voterCount > 0 && Number(r.yesVotes) * 2 > voterCount,
+    }))
 
   const readyToAward = shortlist
     .filter((s) => s.hasMajority)
@@ -817,7 +826,10 @@ export async function dashboardData(
     giving,
     lately,
     attention: {
-      toReview: { count: pipeline.for_review, items: reviewRows },
+      toReview: {
+        count: focusRoundBreakdown?.pipeline.for_review ?? pipeline.for_review,
+        items: reviewRows,
+      },
       awaitingMyVote: { count: awaitingMyVote.length, items: awaitingMyVote.slice(0, 5) },
       readyToAward: { count: readyToAward.length, items: readyToAward.slice(0, 5) },
       shortlist: { count: shortlist.length, proposed: shortlistProposed },
