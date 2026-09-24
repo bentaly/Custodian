@@ -28,7 +28,7 @@ import {
 } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C } from '../ui/tokens'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtExact } from '../../lib/format'
 import { impactPhrase } from '../../lib/impactUnits'
 import { grantTimeline, type GrantTimelineEntry } from '../../lib/reportTimeline'
 import {
@@ -233,7 +233,7 @@ function DateLine({ children }: { children: ReactNode }) {
 }
 
 function AwardedRow({ award, date }: { award: AwardData; date: string }) {
-  const amount = fmtMoney(award.amountAwarded)
+  const amount = fmtExact(award.amountAwarded)
   const said = [
     // "Committed" is the rollups' word for money the foundation no longer has; a
     // cancelled grant is no longer committed, so it is not called that here either.
@@ -282,7 +282,7 @@ function InstalmentRow({
       <div className="flex min-w-0 flex-col gap-2">
         <Headline>
           <span className="font-medium tabular-nums" style={{ color: C.ink }}>
-            {fmtMoney(e.amount)}
+            {fmtExact(e.amount)}
           </span>
           <span style={{ color: C.sub }}>
             Instalment {e.n} of {e.of}
@@ -629,9 +629,9 @@ function InstalmentEditor({
         )}
         {changed && Math.abs(gap) >= 1 && (
           <Caution>
-            The schedule will then total {fmtMoney(total)},{' '}
-            {gap > 0 ? `${fmtMoney(gap)} less` : `${fmtMoney(-gap)} more`} than the{' '}
-            {fmtMoney(award.amountAwarded)} awarded.
+            The schedule will then total {fmtExact(total)},{' '}
+            {gap > 0 ? `${fmtExact(gap)} less` : `${fmtExact(-gap)} more`} than the{' '}
+            {fmtExact(award.amountAwarded)} awarded.
           </Caution>
         )}
         <ErrorNote error={error} />

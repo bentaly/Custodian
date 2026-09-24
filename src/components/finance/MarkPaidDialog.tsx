@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { setInstalmentsPaid } from '../../server/fns/applications'
 import type { BankStatus } from '../../server/fns/finance'
 import { Button, DateField, Dialog, Label } from '../ui'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtExact } from '../../lib/format'
 import { messageFor } from '../../lib/errors'
 import { localTodayIso } from '../../lib/schedule'
 
@@ -132,7 +132,7 @@ export function MarkPaidDialog({
                   </span>
                 </div>
                 <span className="shrink-0 font-display text-body font-semibold text-grey-900">
-                  {fmtMoney(p.amount)}
+                  {fmtExact(p.amount)}
                 </span>
               </li>
             ))}
@@ -140,7 +140,7 @@ export function MarkPaidDialog({
           <div className="flex items-center justify-between gap-3 border-t border-grey-200 px-3 py-2.5">
             <span className="font-display text-body font-medium text-grey-500">Total</span>
             <span className="font-display text-body font-semibold text-grey-900">
-              {fmtMoney(total)}
+              {fmtExact(total)}
             </span>
           </div>
         </div>

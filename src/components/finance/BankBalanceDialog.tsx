@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { recordBankBalance } from '../../server/fns/budget'
 import { Button, DateField, Dialog, ErrorNote, Input, Label, MoneyInput, TOKENS as C } from '../ui'
 import { messageFor } from '../../lib/errors'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtExact } from '../../lib/format'
 import { todayIso } from '../../lib/schedule'
 
 /**
@@ -129,7 +129,7 @@ export function BankBalanceDialog({
 
         {previous && (
           <p className="font-display text-label" style={{ color: C.faint }}>
-            Replaces {fmtMoney(previous.amount)} as at {fmtDate(previous.asAtDate)}. Earlier
+            Replaces {fmtExact(previous.amount)} as at {fmtDate(previous.asAtDate)}. Earlier
             readings are kept.
           </p>
         )}

@@ -30,7 +30,7 @@ import {
 } from '../../components/ui'
 import { C, bandForScore } from '../../components/ui/tokens'
 import { AREA_ICON } from '../../components/Sidebar'
-import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtExact, fmtRef } from '../../lib/format'
 import { formatDecileRange } from '../../lib/deprivation/types'
 import { fmtQuantity } from '../../lib/reportTimeline'
 import { todayIso } from '../../lib/schedule'
@@ -235,7 +235,7 @@ function HeadlineCard({ award }: { award: AwardData }) {
                 className="font-display text-display font-medium leading-none tabular-nums"
                 style={{ color: C.ink }}
               >
-                {fmtMoney(award.amountAwarded)}
+                {fmtExact(award.amountAwarded)}
               </span>
               {years != null && years > 0 && (
                 <span className="font-display text-title" style={{ color: C.sub }}>
@@ -334,7 +334,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
             Payments
           </h2>
           <p className="font-display text-label font-medium" style={{ color: C.sub }}>
-            {fmtMoney(paid)} paid of {fmtMoney(award.amountAwarded)} awarded
+            {fmtExact(paid)} paid of {fmtExact(award.amountAwarded)} awarded
           </p>
         </div>
         {pill && (
@@ -396,7 +396,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
                 )}
               </span>
               <span className="font-semibold tabular-nums" style={{ color: C.ink }}>
-                {fmtMoney(r.amount)}
+                {fmtExact(r.amount)}
               </span>
             </div>
           ))}
@@ -407,7 +407,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
             {next ? (
               <>
                 Next payment&nbsp;
-                <span className="font-medium">{fmtMoney(next.amount)}</span>
+                <span className="font-medium">{fmtExact(next.amount)}</span>
                 <Dot />
                 {next.dueDate ? `Due ${fmtDate(next.dueDate)}` : 'Date to be confirmed'}
               </>
@@ -427,9 +427,9 @@ function PaymentsCard({ award }: { award: AwardData }) {
         >
           <HugeiconsIcon icon={Alert02Icon} size={16} color="currentColor" className="shrink-0" />
           <span>
-            The schedule totals {fmtMoney(award.scheduledTotal)},{' '}
-            {shortfall > 0 ? `${fmtMoney(shortfall)} less` : `${fmtMoney(-shortfall)} more`} than
-            the {fmtMoney(award.amountAwarded)} awarded.
+            The schedule totals {fmtExact(award.scheduledTotal)},{' '}
+            {shortfall > 0 ? `${fmtExact(shortfall)} less` : `${fmtExact(-shortfall)} more`} than
+            the {fmtExact(award.amountAwarded)} awarded.
           </span>
         </p>
       )}
@@ -528,7 +528,7 @@ function GrantDetailsCard({ award }: { award: AwardData }) {
       <CardTitle>Grant details</CardTitle>
       <dl className="flex flex-col gap-4">
         <DetailRow label="Award">
-          {fmtMoney(award.amountAwarded)}
+          {fmtExact(award.amountAwarded)}
           {years != null && years > 0 && (
             <span className="whitespace-nowrap font-normal" style={{ color: C.sub }}>
               <Dot />
@@ -537,14 +537,14 @@ function GrantDetailsCard({ award }: { award: AwardData }) {
           )}
         </DetailRow>
         <DetailRow label="Requested">
-          {fmtMoney(a.amountRequested)}
+          {fmtExact(a.amountRequested)}
           <span className="whitespace-nowrap font-normal" style={{ color: C.sub }}>
             <Dot />
             {Math.abs(uplift) < 1
               ? 'as requested'
               : uplift > 0
-                ? `${fmtMoney(uplift)} more awarded`
-                : `${fmtMoney(-uplift)} less awarded`}
+                ? `${fmtExact(uplift)} more awarded`
+                : `${fmtExact(-uplift)} less awarded`}
           </span>
         </DetailRow>
         {/* Above the decile, because "Decile 1-10" means nothing until you know where

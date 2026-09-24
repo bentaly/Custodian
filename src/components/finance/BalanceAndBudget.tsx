@@ -3,7 +3,7 @@ import type { BalanceAndBudget as Data } from '../../server/finance/budget'
 import type { SummaryLine, SummaryLineKind } from '../../lib/balanceSummary'
 import { MONTH_NAMES } from '../../lib/financialYear'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtExact } from '../../lib/format'
 import { C } from '../ui/tokens'
 import {
   BreakdownTable,
@@ -81,7 +81,7 @@ export function BalanceAndBudget({
               tint={KPI_TINTS.violet}
               icon={CreditCardIcon}
               label="Balance"
-              value={fmtMoney(balance.amount)}
+              value={fmtExact(balance.amount)}
               // The as-at date is part of the number, not metadata about it — a balance
               // without the day it was true is not something anybody can act on.
               sub={
@@ -95,10 +95,10 @@ export function BalanceAndBudget({
               tint={KPI_TINTS.green}
               icon={Calendar03Icon}
               label="Projected spend"
-              value={fmtMoney(summary.deducted)}
+              value={fmtExact(summary.deducted)}
               sub={
                 summary.contingency
-                  ? `By ${fmtDate(fy.end)}, incl. ${fmtMoney(summary.contingency.amount)} contingency`
+                  ? `By ${fmtDate(fy.end)}, incl. ${fmtExact(summary.contingency.amount)} contingency`
                   : `Still to come out by ${fmtDate(fy.end)}`
               }
             />
@@ -106,7 +106,7 @@ export function BalanceAndBudget({
               tint={KPI_TINTS.amber}
               icon={CoinsPoundIcon}
               label="Available balance"
-              value={fmtMoney(summary.available)}
+              value={fmtExact(summary.available)}
               valueColour={summary.available < 0 ? C.danger : undefined}
               sub="Balance less projected spend"
             />
@@ -171,7 +171,7 @@ function lineHint(line: SummaryLine, data: Data): string {
       return 'Grants from this year’s rounds'
     case 'contingency':
       return data.summary.contingency
-        ? `${data.summary.contingency.percent}% of the ${fmtMoney(data.summary.grantBudget)} grant budget`
+        ? `${data.summary.contingency.percent}% of the ${fmtExact(data.summary.grantBudget)} grant budget`
         : ''
   }
 }
@@ -227,7 +227,7 @@ function Summary({ data }: { data: Data }) {
     n === null ? (
       <span style={{ color: C.faint }}>n/a</span>
     ) : (
-      <span style={{ color: colour }}>{fmtMoney(n)}</span>
+      <span style={{ color: colour }}>{fmtExact(n)}</span>
     )
 
   const column = (id: keyof typeof HAS.core, header: string): BreakdownColumn<Item> => ({
@@ -253,9 +253,9 @@ function Summary({ data }: { data: Data }) {
         <th scope="row" className={`${footLabel} font-medium`}>
           Total
         </th>
-        <td className={footCell}>{fmtMoney(summary.total.actual)}</td>
-        <td className={footCell}>{fmtMoney(summary.total.projected)}</td>
-        <td className={footLast}>{fmtMoney(summary.total.stillToPay)}</td>
+        <td className={footCell}>{fmtExact(summary.total.actual)}</td>
+        <td className={footCell}>{fmtExact(summary.total.projected)}</td>
+        <td className={footLast}>{fmtExact(summary.total.stillToPay)}</td>
       </tr>
       {/* From the balance down to what is available, one term per row, so the card above
           can be checked by subtraction. */}
@@ -265,14 +265,14 @@ function Summary({ data }: { data: Data }) {
             <th scope="row" colSpan={3} className={`${footLabel} font-normal`}>
               Balance as at {fmtDate(balance.asAtDate)}
             </th>
-            <td className={footLast}>{fmtMoney(balance.amount)}</td>
+            <td className={footLast}>{fmtExact(balance.amount)}</td>
           </tr>
           <tr className="border-t" style={{ borderColor: C.line, color: C.sub }}>
             <th scope="row" colSpan={3} className={`${footLabel} font-normal`}>
               Less projected and still to pay
             </th>
             <td className={footLast}>
-              {fmtMoney(summary.total.projected + summary.total.stillToPay)}
+              {fmtExact(summary.total.projected + summary.total.stillToPay)}
             </td>
           </tr>
           {since.total > 0 && (
@@ -280,7 +280,7 @@ function Summary({ data }: { data: Data }) {
               <th scope="row" colSpan={3} className={`${footLabel} font-normal`}>
                 Less actual spend since {fmtDate(balance.asAtDate)}, not yet in that balance
               </th>
-              <td className={footLast}>{fmtMoney(since.total)}</td>
+              <td className={footLast}>{fmtExact(since.total)}</td>
             </tr>
           )}
           <tr className="border-t font-medium" style={{ borderColor: C.line, color: C.ink }}>
@@ -291,7 +291,7 @@ function Summary({ data }: { data: Data }) {
               className={footLast}
               style={{ color: summary.available < 0 ? C.danger : C.success }}
             >
-              {fmtMoney(summary.available)}
+              {fmtExact(summary.available)}
             </td>
           </tr>
         </>
@@ -327,7 +327,7 @@ function Summary({ data }: { data: Data }) {
                 otherwise drop: the table carries no budget column to compare against. */}
             {r.over ? (
               <span className="text-label" style={{ color: C.danger }}>
-                {fmtMoney(r.over)} over budget
+                {fmtExact(r.over)} over budget
               </span>
             ) : null}
           </div>
@@ -375,7 +375,7 @@ function CashFlowTable({ data }: { data: Data }) {
     <div className="flex flex-col gap-3">
       {balance && (
         <p className="font-display text-label" style={{ color: C.faint }}>
-          From {fmtMoney(balance.amount)} as at {fmtDate(balance.asAtDate)}
+          From {fmtExact(balance.amount)} as at {fmtDate(balance.asAtDate)}
         </p>
       )}
       <div className="overflow-x-auto">
@@ -425,17 +425,17 @@ function CashFlowTable({ data }: { data: Data }) {
                   )}
                 </th>
                 <td className={cell}>
-                  {fmtMoney(m.grants)}
+                  {fmtExact(m.grants)}
                   {m.overdue > 0 && (
                     <div className="text-label" style={{ color: C.danger }}>
-                      incl. {fmtMoney(m.overdue)} overdue
+                      incl. {fmtExact(m.overdue)} overdue
                     </div>
                   )}
                 </td>
-                {hasCoreCosts && <td className={cell}>{fmtMoney(m.core)}</td>}
+                {hasCoreCosts && <td className={cell}>{fmtExact(m.core)}</td>}
                 {hasCoreCosts && (
                   <td className={`${cell} hidden font-medium sm:table-cell`}>
-                    {fmtMoney(m.total)}
+                    {fmtExact(m.total)}
                   </td>
                 )}
                 {balance && (
@@ -443,7 +443,7 @@ function CashFlowTable({ data }: { data: Data }) {
                     className={cell}
                     style={{ color: m.closing !== null && m.closing < 0 ? C.danger : undefined }}
                   >
-                    {m.closing === null ? '' : fmtMoney(m.closing)}
+                    {m.closing === null ? '' : fmtExact(m.closing)}
                   </td>
                 )}
               </tr>

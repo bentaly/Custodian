@@ -225,6 +225,11 @@ export function fmtDuration(years: number | null | undefined): string | null {
  * This is for the few places that show the RESULT of a division, where the pennies are
  * the difference between arithmetic that checks out and arithmetic that does not, and
  * for a budget that was itself typed in pennies.
+ *
+ * It is also the ONLY money format on Finance and Awards (2026-09-24). Those screens are
+ * reconciled against a bank statement, and `fmtMoney`'s `Math.round` printed a
+ * £11,666.66 instalment (a third of £35,000) as `£11,667`, more than is owed. Neither form
+ * rounds to the pound there, and neither uses `fmtCompact`.
  */
 export function fmtExact(n: number): string {
   const whole = Math.abs(n - Math.round(n)) < 0.005

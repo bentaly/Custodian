@@ -1,7 +1,6 @@
 import { Fragment, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
-  CompactMoney,
   DataTable,
   DateRangePicker,
   DateText,
@@ -23,7 +22,7 @@ import { listAwards, GRANT_STATUS_LABELS, AWARDS_DEFAULT_SORT } from '../../serv
 import { facetLabel } from '../../lib/facets'
 import { C } from '../../components/ui/tokens'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
-import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtExact, fmtRef } from '../../lib/format'
 import { downloadTable, type ExportColumn, type ExportFormat } from '../../lib/spreadsheetExport'
 import { messageFor } from '../../lib/errors'
 import {
@@ -218,7 +217,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     cellClassName: 'tabular-nums',
     cell: (g) => (
       <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
-        {fmtMoney(g.amountAwarded)}
+        {fmtExact(g.amountAwarded)}
       </span>
     ),
   },
@@ -274,8 +273,8 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
               why the pill moved down to the instalment line — it is still a statement
               about the bar, now sitting under it rather than over it. */}
           <span className="whitespace-nowrap font-display text-body tabular-nums text-grey-700">
-            <span className="font-medium text-grey-900">{fmtMoney(g.paidToDate)}</span> of{' '}
-            {fmtMoney(g.amountAwarded)}
+            <span className="font-medium text-grey-900">{fmtExact(g.paidToDate)}</span> of{' '}
+            {fmtExact(g.amountAwarded)}
           </span>
           <ProgressBar
             value={g.amountAwarded > 0 ? g.paidToDate / g.amountAwarded : 0}
@@ -390,10 +389,10 @@ function PortfolioCard({ totals }: { totals: Totals }) {
             className="font-display text-heading font-medium leading-none"
             style={{ color: C.ink }}
           >
-            <CompactMoney amount={totals.totalAwarded} label="Exact total awarded" />
+            {fmtExact(totals.totalAwarded)}
           </p>
           <p className="font-display text-body" style={{ color: C.sub }}>
-            {fmtMoney(totals.paidToDate)} paid · {fmtMoney(totals.outstanding)} to pay
+            {fmtExact(totals.paidToDate)} paid · {fmtExact(totals.outstanding)} to pay
           </p>
         </div>
 
@@ -427,7 +426,7 @@ function ShareLegend({ colour, amount, label }: { colour: string; amount: number
       <span className="size-2 shrink-0 rounded-swatch" style={{ backgroundColor: colour }} />
       <span className="truncate font-display text-body font-medium" style={{ color: C.faint }}>
         <span style={{ color: C.ink }}>
-          <CompactMoney amount={amount} label={`Exact total for ${label}`} />
+          {fmtExact(amount)}
         </span>{' '}
         {label}
       </span>
@@ -447,17 +446,17 @@ function AwardsPage() {
 
   // The headline figures the KPI tiles used to carry. Here they describe the list rather
   // than competing with it — the same job the applications count does on Applications.
-  // Nodes rather than a joined string, so the two rounded figures can each hand over
-  // their exact value on hover — see `CompactMoney`.
+  // Exact, like every money figure on this screen: a compact `£356k` for £355,500 rounds
+  // UP, overstating what a foundation has given away.
   const metaLine: React.ReactNode[] = [
     `${totals.count} award${totals.count !== 1 ? 's' : ''}`,
     ...(totals.count > 0
       ? [
           <>
-            <CompactMoney amount={totals.totalAwarded} label="Exact total awarded" /> awarded
+            {fmtExact(totals.totalAwarded)} awarded
           </>,
           <>
-            <CompactMoney amount={totals.paidToDate} label="Exact total paid" /> paid
+            {fmtExact(totals.paidToDate)} paid
           </>,
         ]
       : []),

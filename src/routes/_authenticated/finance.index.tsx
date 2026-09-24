@@ -36,7 +36,7 @@ import { C } from '../../components/ui/tokens'
 import { facetLabel } from '../../lib/facets'
 import { oneOfList, textList } from '../../lib/listSearch'
 import { messageFor } from '../../lib/errors'
-import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
+import { fmtDate, fmtExact, fmtRef } from '../../lib/format'
 import { DUE_SOON_DAYS } from '../../lib/schedule'
 import { downloadTable, type ExportColumn, type ExportFormat } from '../../lib/spreadsheetExport'
 
@@ -292,7 +292,7 @@ const AMOUNT: TableColumn<FinanceRow> = {
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <span className="whitespace-nowrap font-display text-body font-medium text-grey-900">
-      {fmtMoney(g.amount)}
+      {fmtExact(g.amount)}
     </span>
   ),
 }
@@ -321,7 +321,7 @@ const GRANT: TableColumn<FinanceRow> = {
   cellClassName: 'tabular-nums',
   cell: (g) => (
     <div className="whitespace-nowrap">
-      <span className={txtSub}>{fmtMoney(g.committed)}</span>
+      <span className={txtSub}>{fmtExact(g.committed)}</span>
       {g.instalmentCount > 0 && (
         <span className="ml-1 font-display text-label text-grey-400">
           {g.paidCount}/{g.instalmentCount} paid
@@ -761,7 +761,7 @@ function FinancePage() {
                     Clear
                   </button>
                   <span className="font-display text-label font-medium text-brand-light">
-                    {selectedRows.length} selected · {fmtMoney(selectedTotal)}
+                    {selectedRows.length} selected · {fmtExact(selectedTotal)}
                   </span>
                 </div>
                 <Button variant="primary" size="sm" onClick={() => setMarking(true)}>
@@ -852,12 +852,12 @@ function UpcomingPayments({
               label={h.label}
               colour={h.colour}
               empty={h.empty}
-              meta={bucket.count > 0 ? `${fmtMoney(bucket.total)} · ${bucket.count}` : undefined}
+              meta={bucket.count > 0 ? `${fmtExact(bucket.total)} · ${bucket.count}` : undefined}
               items={bucket.items.map((p, i) => ({
                 key: `${p.awardId}-${p.dueDate}-${i}`,
                 title: p.organisationName,
                 subline: `${p.programmeName ? `${p.programmeName} · ` : ''}Due ${fmtDate(p.dueDate)}`,
-                trailing: fmtMoney(p.amount),
+                trailing: fmtExact(p.amount),
                 onClick: () => onOpen(p.awardId, p.instalmentId),
                 disabled: opening === p.awardId,
               }))}

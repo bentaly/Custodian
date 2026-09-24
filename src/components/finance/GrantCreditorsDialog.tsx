@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { getGrantCreditors } from '../../server/fns/budget'
 import { Button, Dialog, ErrorNote, Label, Select, TOKENS as C } from '../ui'
 import { messageFor } from '../../lib/errors'
-import { fmtDate, fmtMoney } from '../../lib/format'
+import { fmtDate, fmtExact } from '../../lib/format'
 import { shiftFinancialYear } from '../../lib/financialYear'
 import { grantCreditorsWorkbook } from '../../lib/grantCreditorsWorkbook'
 
@@ -69,9 +69,9 @@ export function GrantCreditorsDialog({
       URL.revokeObjectURL(url)
       const t = report.totals
       setResult(
-        `Downloaded ${t.count} grant${t.count === 1 ? '' : 's'}: ${fmtMoney(t.dueWithinOneYear)} due within one year, ` +
-          `${fmtMoney(t.dueAfterOneYear)} after more than one year` +
-          (t.noDueDate > 0 ? `, and ${fmtMoney(t.noDueDate)} with no due date set.` : '.'),
+        `Downloaded ${t.count} grant${t.count === 1 ? '' : 's'}: ${fmtExact(t.dueWithinOneYear)} due within one year, ` +
+          `${fmtExact(t.dueAfterOneYear)} after more than one year` +
+          (t.noDueDate > 0 ? `, and ${fmtExact(t.noDueDate)} with no due date set.` : '.'),
       )
     } catch (e) {
       setError(messageFor(e))
