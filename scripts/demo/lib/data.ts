@@ -199,10 +199,15 @@ const TIMINGS: Array<Omit<DemoRound, 'name'>> = [
     closedDaysAgo: -21,
     decidedDaysAgo: -35,
     budgets: {
-      youth: { budget: 180_000, maxGrant: 60_000, years: 3 },
-      homes: { budget: 115_000, maxGrant: 50_000, years: 2 },
-      rivers: { budget: 130_000, maxGrant: 75_000, years: 3 },
-      food: { budget: 95_000, maxGrant: 40_000, years: 2 },
+      // FIRST-YEAR cash, which is what a round budget counts (`src/lib/multiYear.ts`).
+      // Were £180k / £115k / £130k / £95k, sized on whole multi-year asks, which read 44%
+      // spent once the dashboard moved to the cash basis and left Wild Rivers under
+      // budget. Against the shortlist's first-year figures (about £52k / £47k / £94k /
+      // £39k) these put the round around 80% spent with Wild Rivers over.
+      youth: { budget: 75_000, maxGrant: 60_000, years: 3 },
+      homes: { budget: 70_000, maxGrant: 50_000, years: 2 },
+      rivers: { budget: 80_000, maxGrant: 75_000, years: 3 },
+      food: { budget: 55_000, maxGrant: 40_000, years: 2 },
     },
   },
 ]
