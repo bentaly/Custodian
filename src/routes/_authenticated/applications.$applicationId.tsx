@@ -602,11 +602,17 @@ function ApplicationDetail() {
       .join(' · ') || null
 
   // Why there is no profile, in the applicant's own terms. Screening that has not run
-  // yet is not the same as an applicant there is nothing to screen.
+  // yet is not the same as an applicant there is nothing to screen — and neither is the
+  // same as screening that DID run, before the register's figures were kept (the
+  // profile arrived after due diligence did, so every application screened before then
+  // has checks and no profile). Saying "not run" there contradicts the due diligence
+  // verdict on the same screen.
   const orgAbsence = noRegistrationNumber
     ? 'No charity or company number was captured, so there is no register entry to read.'
     : application.charityNumber
-      ? 'Not read yet. The register checks have not run for this application.'
+      ? application.dueDiligenceCheckedAt
+        ? "The register checks ran before Custodian kept the register's own figures, so there is nothing to show for this application yet."
+        : 'Not read yet. The register checks have not run for this application.'
       : 'Companies House publishes no income or activity summary, so there is nothing to show for a company-only applicant.'
 
   async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
