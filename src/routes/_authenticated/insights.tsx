@@ -223,6 +223,18 @@ type GrantNarrow = {
   programmeId?: string[]
   tag?: string[]
   region?: string[]
+  location?: string[]
+}
+
+/**
+ * The value the Awards register's Location pill holds for this grant — its district,
+ * else the county it was delivered across. The same strings as the register's
+ * `deliveryLocation` for every grant the map can place (both come off the same
+ * columns), which is what lets a map row link to exactly the grants it counted. Null for
+ * a region-level grant: the register has no Location for it, only a Region.
+ */
+function registerLocationOf(g: InsightsGrant): string | null {
+  return g.ladName ?? g.countyWide ?? null
 }
 
 function GrantCount({
@@ -462,11 +474,11 @@ function AreaList({
    * How the register should be narrowed to this row's area, or null if it cannot be.
    *
    * Per row, like `drillOf`, and for the same reason. At the UK tier a row IS a region,
-   * which is exactly what the register groups on. One tier down a row is a DISTRICT, and
-   * the register has no district filter — a link there would have to widen silently to
-   * the parent region and hand back a longer list than the count it was attached to. So
-   * those counts stay text, and the panel's own link beneath the list is the way out at
-   * the granularity the register can actually honour.
+   * which is exactly what the register groups on. Below it a row is a county or a
+   * district, and links on the register's Location pill with the Locations of exactly
+   * the grants the row counted. A row holding a grant the register has no Location for
+   * (delivered across a whole region) stays text: a link there would open fewer grants
+   * than the count it hangs off.
    */
   narrowOf: (code: string, name: string) => GrantNarrow | null
 }) {
@@ -1024,16 +1036,27 @@ function InsightsPage() {
   // Merseyside" has none: on one portfolio that dropped 19 of 44 grants and 55% of the
   // money from the donut, with nothing on screen to say so.
   const wide = { amount: 0, count: 0 }
+  // Per row, the register Locations of the grants it counted — the link from that row's
+  // count. NULL once any of them has none (a region-level grant), because a link that
+  // opened fewer grants than the count it hangs off would be worse than no link.
+  const placesOf = new Map<string, Set<string> | null>()
+  const notePlace = (key: string, g: InsightsGrant) => {
+    const place = registerLocationOf(g)
+    const set = placesOf.has(key) ? placesOf.get(key)! : new Set<string>()
+    placesOf.set(key, set && place ? set.add(place) : null)
+  }
   const mapValues = (() => {
     const acc = new Map<string, { amount: number; count: number }>()
-    const add = (key: string | null, amount: number) => {
+    const add = (key: string | null, amount: number, g?: InsightsGrant) => {
       if (!key) return
       const prev = acc.get(key) ?? { amount: 0, count: 0 }
       acc.set(key, { amount: prev.amount + amount, count: prev.count + 1 })
+      if (g) notePlace(key, g)
     }
-    const addWide = (amount: number) => {
+    const addWide = (amount: number, g: InsightsGrant) => {
       wide.amount += amount
       wide.count += 1
+      notePlace(WIDE_KEY, g)
     }
     for (const g of fil) {
       if (mapView.kind === 'world' || mapView.kind === 'country') {
@@ -1051,16 +1074,36 @@ function InsightsPage() {
         // Counties where the region has them, districts where it does not (Scotland,
         // NI). What fits neither covers the region as a whole.
         const key = regionByCounty ? countyOf(g) : g.ladCode
-        if (key) add(key, g.amountAwarded)
-        else addWide(g.amountAwarded)
+        if (key) add(key, g.amountAwarded, g)
+        else addWide(g.amountAwarded, g)
       } else if (mapView.kind === 'county') {
         if (countyOf(g) !== mapView.county) continue
-        if (g.ladCode) add(g.ladCode, g.amountAwarded)
-        else addWide(g.amountAwarded)
+        if (g.ladCode) add(g.ladCode, g.amountAwarded, g)
+        else addWide(g.amountAwarded, g)
       }
     }
     return acc
   })()
+  // How a row's count opens the register. A region at the UK tier; below it, the exact
+  // Locations the row counted, inside the region being read.
+  const rowNarrow = (code: string): GrantNarrow | null => {
+    if (mapView.kind === 'uk') return { region: [code] }
+    if (mapView.kind !== 'region' && mapView.kind !== 'county') return null
+    const places = placesOf.get(code)
+    return places?.size ? { region: [mapView.region], location: [...places] } : null
+  }
+  // The county being read, as the register can hold it: every Location in view. Null if
+  // any grant in view has none, and the panel link falls back to the region.
+  const countyPlaces = (() => {
+    if (mapView.kind !== 'county') return null
+    const all = new Set<string>()
+    for (const set of placesOf.values()) {
+      if (!set) return null
+      for (const p of set) all.add(p)
+    }
+    return all.size ? [...all] : null
+  })()
+
   const wideName =
     mapView.kind === 'county'
       ? `Across ${mapView.county}`
@@ -1611,12 +1654,13 @@ function InsightsPage() {
                         : drillTarget(mapView, code, name, funded, regionByCounty)
                     }
                     slice={search}
-                    // Only the UK tier's rows are regions, which is the one geography
-                    // the register filters on. Countries above and districts below have
-                    // no equivalent there, so their counts stay text — see `narrowOf`.
-                    // The code is what the values were grouped BY (`g.region`), so it is
-                    // the string handed over, never the display name beside it.
-                    narrowOf={(code) => (mapView.kind === 'uk' ? { region: [code] } : null)}
+                    // A region row opens the register on its region; a county or
+                    // district row on the exact Locations of the grants it counted
+                    // (`registerLocationOf`), never on the display name beside it —
+                    // the map names districts from its boundary file, the register
+                    // from the application. Countries have no equivalent, so their
+                    // counts stay text. See `narrowOf`.
+                    narrowOf={rowNarrow}
                     onPick={(code, name, to) => {
                       setSelArea(code)
                       if (to) setMapView(to)
@@ -1641,7 +1685,8 @@ function InsightsPage() {
                       offers one link of its own instead.
 
                       It appears only with a region in view — drilled on the map, or one
-                      or more picked in the filter above. With none picked there is no
+                      or more picked in the filter above — and drilled into a county it
+                      is the COUNTY, on the register's Location pill. With none picked there is no
                       honest link: "all of them" is just the register. The values
                       handed over are `g.region`, the same strings the register groups on
                       (`deliveryRegionLabel`, shared); a link built from a display label
@@ -1649,7 +1694,7 @@ function InsightsPage() {
 
                       It carries the whole slice exactly as `GrantCount` does, so the two
                       cannot open different registers from the same panel. */}
-                  {linkedRegions && (
+                  {(countyPlaces || linkedRegions) && (
                     <Link
                       to="/awards"
                       search={{
@@ -1657,16 +1702,23 @@ function InsightsPage() {
                         to: search.to,
                         programmeId: search.programmeId,
                         tag: search.tag,
-                        region: linkedRegions,
+                        // Drilled into a county, the link is the county: its region plus
+                        // every Location in view (`countyPlaces`).
+                        region: linkedRegions ?? undefined,
+                        location: countyPlaces ?? undefined,
                       }}
                       className="self-start font-display text-label font-medium underline underline-offset-2"
                       style={{ color: C.sub }}
                     >
-                      {linkedRegions.length > 1
-                        ? `View grants in these ${linkedRegions.length} locations`
-                        : linkedRegions[0] === NO_REGION
-                          ? 'View the grants with no location recorded'
-                          : `View grants in ${linkedRegions[0]}`}
+                      {countyPlaces && mapView.kind === 'county'
+                        ? `View grants in ${mapView.county}`
+                        : !linkedRegions
+                          ? null
+                          : linkedRegions.length > 1
+                            ? `View grants in these ${linkedRegions.length} locations`
+                            : linkedRegions[0] === NO_REGION
+                              ? 'View the grants with no location recorded'
+                              : `View grants in ${linkedRegions[0]}`}
                     </Link>
                   )}
                 </div>

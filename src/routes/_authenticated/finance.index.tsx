@@ -33,7 +33,6 @@ import {
   type TableColumn,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
-import { facetLabel } from '../../lib/facets'
 import { oneOfList, textList } from '../../lib/listSearch'
 import { messageFor } from '../../lib/errors'
 import { fmtDate, fmtExact, fmtRef } from '../../lib/format'
@@ -663,35 +662,35 @@ function FinancePage() {
             label="Status"
             plural="statuses"
             value={status}
-            options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.statuses}
             onChange={(v) => setFilter({ status: v as FinanceStatus[] | undefined })}
           />
           <FilterPill
             label="Round"
             plural="rounds"
             value={roundId}
-            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.rounds}
             onChange={(v) => setFilter({ roundId: v })}
           />
           <FilterPill
             label="Programme"
             plural="programmes"
             value={programmeId}
-            options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.programmes}
             onChange={(v) => setFilter({ programmeId: v })}
           />
           <FilterPill
             label="Theme"
             plural="themes"
             value={tag}
-            options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.themes}
             onChange={(v) => setFilter({ tag: v })}
           />
           <FilterPill
             label="Valid"
             plural="bank checks"
             value={bank}
-            options={facets.bank.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.bank}
             onChange={(v) => setFilter({ bank: v as BankStatus[] | undefined })}
           />
           {/* The window runs against the date the open tab is about: the next payment due

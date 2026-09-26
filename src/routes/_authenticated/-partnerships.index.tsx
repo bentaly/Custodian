@@ -26,7 +26,6 @@ import {
   emptyPartnershipDraft,
   type PartnershipDraft,
 } from '../../components/partnerships/PartnershipDialog'
-import { facetLabel } from '../../lib/facets'
 import { fmtRef } from '../../lib/format'
 import {
   parsePartnershipsSearch,
@@ -401,21 +400,21 @@ function PartnershipsPage() {
             label="Programme"
             plural="programmes"
             value={programmeId}
-            options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.programmes}
             onChange={(v) => setFilter({ programmeId: v })}
           />
           <FilterPill
             label="Theme"
             plural="themes"
             value={tag}
-            options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.themes}
             onChange={(v) => setFilter({ tag: v })}
           />
           <FilterPill
             label="Source"
             plural="sources"
             value={source}
-            options={facets.sources.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.sources}
             onChange={(v) => setFilter({ source: v })}
           />
         </FilterRow>

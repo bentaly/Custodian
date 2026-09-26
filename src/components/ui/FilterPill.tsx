@@ -1,7 +1,8 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { C } from './tokens'
-import { MultiListbox } from './Listbox'
+import { useRef, useState } from 'react'
+import { MultiListbox, type ListboxOption } from './Listbox'
 import { Tooltip } from './Tooltip'
 import { toggleFilterValue } from '../../lib/filterSelection'
 
@@ -49,8 +50,10 @@ import { toggleFilterValue } from '../../lib/filterSelection'
 //     had them in three different orders, so the pill you wanted was in a different
 //     place on each. Where a screen is READ inside one round (Applications, Shortlist)
 //     the round is the context above the row, not a pill in it, and Programme leads.
-//  2. **Options are faceted with counts** (`src/lib/facets.ts` → `facetLabel`), so a pill
-//     only ever offers values the rows in view actually hold — "Youth work (24)". Fixed
+//  2. **Options are faceted with counts** (`src/lib/facets.ts`), so a pill only ever
+//     offers values the rows in view actually hold — "Youth work (24)". The count is
+//     passed as `count` and drawn in the PANEL only; the chip names the value alone,
+//     because "East of England (2)" in the row read as two things selected. Fixed
 //     vocabularies (status enums, score bands) are the exception: those name every value
 //     whether or not it is present, because their absence is itself the answer.
 //  3. **Search sits at the END of the row, hard right** — `ui/FilterRow` is what lays
@@ -69,6 +72,30 @@ import { toggleFilterValue } from '../../lib/filterSelection'
 // anyway, because "this filter is pointless right now" is a smaller confusion than
 // "this screen doesn't have that filter".
 
+// ── Searchable ───────────────────────────────────────────────────────────────────────
+// `searchable` is for the pill whose options are not a short vocabulary but whatever the
+// data holds — the Awards register's Location, a district per grant. It adds three
+// things and changes nothing else about the pill:
+//
+//  - A search box at the top of the panel (see `ui/Listbox`), matching anywhere in the
+//    name, ignoring case and accents, so "ynys mon" finds Ynys Môn. Filtered here in
+//    the browser: the facet already carries every option, and a few hundred places is
+//    nothing to hold, where a server round trip per keystroke would cost a subrequest
+//    and turn a selected-but-unloaded value into a label we cannot draw.
+//  - Ticked values PINNED at the top, under the clear row, whatever the query — a
+//    selection you cannot see is one you cannot undo. The pinned set is taken as the
+//    panel opens and held while it is open, so ticking a row does not snatch it out
+//    from under the pointer to the top of the list.
+//  - A second grey line per option (`description`), saying what kind of thing it is.
+//
+// The box and the pinning appear only past `SEARCH_FROM` options. Below that the whole
+// list is in view and a search box is one more thing to read above it; the grey kind
+// line stays either way. This is the one sanctioned exception to rule 4: the CHIP in the
+// row never changes, only what opens beneath it.
+
+/** A `searchable` pill offers its search box once it has MORE options than this. */
+export const SEARCH_FROM = 10
+
 /** How many chosen values the hover list names before counting the rest. */
 const LISTED = 10
 
@@ -78,6 +105,7 @@ export function FilterPill({
   value,
   options,
   onChange,
+  searchable = false,
 }: {
   /** Shown when nothing is selected — the singular noun. "Programme". */
   label: string
@@ -90,21 +118,70 @@ export function FilterPill({
   plural: string
   /** The values ticked, in the order they were ticked. `undefined` is the filter off. */
   value: readonly string[] | undefined
-  options: Array<{ value: string; label: string }>
+  options: Array<{
+    value: string
+    label: string
+    /** A second grey line in the panel. The chip and the hover list use `label` alone. */
+    description?: string
+    /**
+     * How many rows hold it — the facet count. Shown in the PANEL only ("Youth work (24)"),
+     * never on the chip: "East of England (2)" in the row read as two things selected.
+     */
+    count?: number
+  }>
   /** Never called with an empty list: no selection is `undefined`. */
   onChange: (v: string[] | undefined) => void
+  /** A search box in the panel, and ticked values pinned to the top — see above. */
+  searchable?: boolean
 }) {
   const empty = options.length === 0
   // Greyed to the same faint the app uses for "nothing here" everywhere else, so an
   // inert pill is legible as inert without a second visual language for disabled.
   const ink = empty ? C.faint : C.ink
-  const all = [{ value: '', label: `All ${plural}` }, ...options]
 
   // A value no longer among the faceted options is not drawn, as it was not when this was
   // a <select> that could not show it either — and the next tick drops it, because a
   // selection the pill cannot show is not one it should carry forward.
   const chosen = (value ?? []).flatMap((v) => options.filter((o) => o.value === v))
   const optionValues = options.map((o) => o.value)
+
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  // Read during render: while the panel is shut this tracks the selection, so on the
+  // render that opens it, it already holds the selection as it stood — and then stops
+  // moving until the panel shuts again.
+  const pinned = useRef<readonly string[]>([])
+  if (!open) pinned.current = chosen.map((o) => o.value)
+
+  let listed: ListboxOption[] = options
+  const withSearch = searchable && options.length > SEARCH_FROM
+  if (withSearch) {
+    const needle = searchKey(query)
+    const matches = (o: (typeof options)[number]) => searchKey(o.label).includes(needle)
+    const ticked = chosen.map((o) => o.value)
+    const wasPinned = (o: { value: string }) => pinned.current.includes(o.value)
+    // Pinning protects a TICKED value from the query. One unticked since the panel
+    // opened keeps its place at the top (no jump under the pointer) only while it still
+    // matches; otherwise the query hides it like any other row.
+    const pinnedRows = options.filter(
+      (o) => wasPinned(o) && (ticked.includes(o.value) || matches(o)),
+    )
+    const hits = options.filter((o) => !wasPinned(o) && matches(o))
+    listed = [
+      ...pinnedRows,
+      ...hits,
+      // Said only when NOTHING matches: a pinned row that matches is an answer.
+      ...(needle && !options.some(matches)
+        ? [{ value: '\u0000no-match', label: `No ${plural} match "${query.trim()}"`, note: true }]
+        : []),
+    ]
+  }
+  const all: ListboxOption[] = [
+    { value: '', label: `All ${plural}` },
+    ...listed.map((o) =>
+      'count' in o && typeof o.count === 'number' ? { ...o, label: `${o.label} (${o.count})` } : o,
+    ),
+  ]
 
   return (
     <MultiListbox
@@ -124,6 +201,16 @@ export function FilterPill({
         )
       }
       ariaLabel={label}
+      search={
+        withSearch
+          ? { value: query, onChange: setQuery, placeholder: `Search ${plural}` }
+          : undefined
+      }
+      onOpenChange={(next) => {
+        setOpen(next)
+        // A query is for this visit to the panel; the next one starts on the whole list.
+        if (!next) setQuery('')
+      }}
       // Disabled rather than absent when there is nothing to pick: the chip keeps its
       // place in the row, but tab order skips a menu of one line.
       disabled={empty}
@@ -170,4 +257,13 @@ export function FilterPill({
       )}
     />
   )
+}
+
+/** Case- and accent-blind, so "ynys mon" finds Ynys Môn and "BLACKPOOL" finds Blackpool. */
+function searchKey(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
 }

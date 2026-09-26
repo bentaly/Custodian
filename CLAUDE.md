@@ -449,10 +449,21 @@ design rationale; this list is a map, not a summary.
   **A location is PRINTED and GROUPED on two different scales, and both helpers live in
   `src/lib/deprivation/types.ts`.** `deliveryAreaLabel` is the sharp one (district → matched area
   → region → the applicant's own words) and is what a row shows; `deliveryRegionLabel` is the
-  coarse one (England's 9 regions / "Wales" / the nation for Scotland & NI) and is the only one
-  you can FILTER by — a district is very nearly a primary key, so a facet of districts is one
-  pill per grant, and for anything unresolved it would offer free text as an option. The Awards
-  register's Location column prints both, one per line, and Insights links into it on the region.
+  coarse one (England's 9 regions / "Wales" / the nation for Scotland & NI). The Awards
+  register's Location column prints both, one per line, and **has a pill per line**: Region,
+  and Location (2026-09-26), which offers exactly what the top line prints — districts, county
+  areas and, for an unresolved location, the applicant's own words — except a region-level
+  match, which is Region's option already. Each option names its KIND (`DeliveryPlaceKind`)
+  on a grey line beneath, because the match is exact on the name and "Merseyside" does not
+  include the Wirral grants that resolved to their district. The two pills are independent
+  (London + Wirral is an empty table, not a pruned pill). Location is the app's one
+  **searchable** `FilterPill` (past `SEARCH_FROM` = 10 options: a search box in the panel and
+  ticked values pinned on top; filtered in the browser — the facet is a few hundred rows at most). `NO_LOCATION` (`'~none'`, not
+  `'none'`, since the values are free text) is "no delivery area at all", a smaller set than
+  `NO_REGION`. Insights links into the register on the region from a region row, and on
+  the exact Locations a row counted from a county or district row (`registerLocationOf` =
+  `ladName ?? countyWide`, the same columns as the register's `deliveryLocation`); a row
+  holding a region-level grant stays unlinked rather than open fewer grants than it says.
   `server/awards/query.ts` mirrors `deliveryRegionLabel` in SQL because it groups in the
   database: **the two must emit identical strings or the Insights link lands on an empty list**
   with nothing on screen to say why. `NO_REGION` ('none') is the shared sentinel for the

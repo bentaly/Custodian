@@ -225,6 +225,43 @@ export function deliveryRegionLabel(app: {
   )
 }
 
+/**
+ * What KIND of place the sharp label (`deliveryAreaLabel`) names — the grey line under
+ * each option in the Awards register's Location pill, and the reason that pill can
+ * leave some rows out.
+ *
+ *   district  — a local authority. Ward and postcode matches land here too, because the
+ *               label they print is their district's name.
+ *   county    — a police force area, which is what a county-level match resolves to
+ *               ("Merseyside"). It CONTAINS districts, and a filter on it is an exact
+ *               match on the label, so the pill has to say which kind it is or
+ *               "Merseyside" reads as if it included the Wirral grants.
+ *   region    — a match at region level, whose label IS a region name. Offered only by
+ *               the Region pill; in the Location pill it would be the same option twice.
+ *   unmatched — the applicant's own words, for a location that never resolved. Offered,
+ *               because the pill offers what the column prints.
+ *
+ * Derived in SQL (`server/awards/query.ts`, `deliveryPlaceKind`) because the register
+ * filters and groups in the database; this is the vocabulary, not a second derivation.
+ */
+export type DeliveryPlaceKind = 'district' | 'county' | 'region' | 'unmatched'
+
+export const DELIVERY_PLACE_KIND_LABELS: Record<Exclude<DeliveryPlaceKind, 'region'>, string> = {
+  district: 'District',
+  county: 'County area',
+  unmatched: 'Not matched to a place',
+}
+
+/**
+ * The Location pill's "no location recorded" option: a grant with no delivery area at
+ * all, the rows the column prints as `--`. NOT the same set as `NO_REGION`, which also
+ * holds the unmatched free text (it has no region, but it does have a label).
+ *
+ * Not `'none'`: this pill's other values are free text, and "none" is a thing an
+ * applicant really types into a location box. A tilde is not.
+ */
+export const NO_LOCATION = '~none'
+
 // ─── A region named outright ───────────────────────────────────────────────────
 //
 // "North West" is a delivery area a foundation really does write, and it is the one
@@ -277,7 +314,7 @@ const REGION_ALIASES: Record<string, (typeof REGION_NAMES)[number]> = {
   'yorkshire the humber': 'Yorkshire and The Humber',
   'yorkshire humber': 'Yorkshire and The Humber',
   'greater london': 'London',
-  'cymru': 'Wales',
+  cymru: 'Wales',
 }
 
 /** Normalised for comparison: case, punctuation and "&" folded away. */

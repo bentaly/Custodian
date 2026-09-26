@@ -689,7 +689,7 @@ function ApplicationsList() {
   }
   const tags = [...tagCounts]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([value, count]) => ({ value, label: `${value} (${count})` }))
+    .map(([value, count]) => ({ value, label: value, count }))
 
   // Programme (the primary browsing axis), with per-programme counts.
   const programmeOptions = budgetSummary.map((r) => ({

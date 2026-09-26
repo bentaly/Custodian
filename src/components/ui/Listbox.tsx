@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { CheckmarkSquare02Icon, SquareIcon } from '@hugeicons/core-free-icons'
+import { CheckmarkSquare02Icon, Search01Icon, SquareIcon } from '@hugeicons/core-free-icons'
 import { cn } from './cn'
 import { C } from './tokens'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from './popover'
@@ -26,8 +26,34 @@ import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from './popover'
 // every tick would make choosing three themes three trips. Its rows draw the app's tick
 // box (the `Checkbox` glyphs) — the white pill is only ever the keyboard's position
 // there, since several rows can be chosen at once and one pill cannot say which.
+//
+// ── Searching inside the panel ───────────────────────────────────────────────────────
+// A `MultiListbox` given `search` draws a search box at the top of the panel and is
+// then the one case where focus DOES move: into that box, because it has to take
+// keystrokes. The keyboard contract moves with it (arrows, Enter to tick, Tab and
+// Escape out), minus the three keys that belong to the text — Space types a space, and
+// Home/End move the caret — and minus typeahead, which the box replaces. When the panel
+// shuts with focus lost to the page, it goes back to the trigger.
+//
+// The panel is a FIXED width in that mode, so it does not change size under the pointer
+// as the list filters, and long names truncate (with the full text on hover). The caller
+// does the filtering; the panel only draws what it is given.
 
-export type ListboxOption = { value: string; label: string; disabled?: boolean }
+export type ListboxOption = {
+  value: string
+  label: string
+  disabled?: boolean
+  /** A second, smaller grey line beneath the label — what KIND of thing it is. */
+  description?: string
+  /** Not an option at all: a line of text in the list ("No locations match"). */
+  note?: boolean
+}
+
+export type ListboxSearch = {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+}
 
 const ROW =
   'flex h-9 w-full items-center gap-2 rounded-chip px-2.5 text-left font-display text-body transition-colors'
@@ -43,6 +69,7 @@ export function ListboxPanel({
   id,
   activeId,
   onActiveChange,
+  search,
 }: {
   anchorRef: RefObject<HTMLElement | null>
   options: ListboxOption[]
@@ -60,9 +87,13 @@ export function ListboxPanel({
   /** Index of the keyboard-highlighted option, owned by the trigger. */
   activeId: number
   onActiveChange: (index: number) => void
+  /** Draws the search box and takes focus into it — see the header. */
+  search?: ListboxSearch & { onKeyDown: (e: React.KeyboardEvent) => void }
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const pos = useAnchoredPopover(true, anchorRef, panelRef, true)
+  // Sized to its own fixed width when searchable, so the viewport clamp measures the
+  // panel rather than the (narrower) chip.
+  const pos = useAnchoredPopover(true, anchorRef, panelRef, !search)
   useDismiss(true, onClose, anchorRef, panelRef)
   const multiple = selected !== undefined
   const isOn = (v: string) => (multiple ? selected.includes(v) : v === value)
@@ -84,7 +115,10 @@ export function ListboxPanel({
       aria-multiselectable={multiple || undefined}
       // `aria-activedescendant` lives on the TRIGGER, not here: it must sit on the
       // focused element, and focus never leaves the combobox button.
-      className="fixed z-[60] max-h-72 overflow-y-auto rounded-control p-1.5 shadow-[0px_11px_24px_rgba(0,0,0,0.1),0px_43px_43px_rgba(0,0,0,0.09)]"
+      className={cn(
+        'fixed z-[60] max-h-72 overflow-y-auto rounded-control p-1.5 shadow-[0px_11px_24px_rgba(0,0,0,0.1),0px_43px_43px_rgba(0,0,0,0.09)]',
+        search && 'w-72 max-w-[calc(100vw-16px)]',
+      )}
       style={{
         top: pos?.top ?? -9999,
         left: pos?.left ?? -9999,
@@ -94,12 +128,50 @@ export function ListboxPanel({
         visibility: pos ? 'visible' : 'hidden',
       }}
     >
+      {search && (
+        // Pinned to the top of the scrolling panel, on the panel's own wash, so rows
+        // scroll away beneath it rather than taking the box with them.
+        <div
+          className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1 px-1.5 pt-1.5 pb-1"
+          style={{ backgroundColor: C.wash }}
+        >
+          <div
+            className="flex h-8 items-center gap-2 rounded-chip px-2.5"
+            style={{ backgroundColor: C.white, boxShadow: `inset 0 0 0 1px ${C.line}` }}
+          >
+            <HugeiconsIcon icon={Search01Icon} size={16} color={C.sub} />
+            <input
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- opening the panel IS asking to type
+              autoFocus
+              type="text"
+              value={search.value}
+              onChange={(e) => search.onChange(e.target.value)}
+              onKeyDown={search.onKeyDown}
+              placeholder={search.placeholder}
+              aria-label={search.placeholder}
+              role="combobox"
+              aria-expanded
+              aria-autocomplete="list"
+              aria-controls={id}
+              aria-activedescendant={activeId >= 0 ? `${id}-opt-${activeId}` : undefined}
+              className="min-w-0 flex-1 bg-transparent font-display text-body text-grey-900 outline-hidden placeholder:text-grey-500"
+            />
+          </div>
+        </div>
+      )}
       {options.length === 0 && (
         <p className={cn(ROW, 'justify-center')} style={{ color: C.sub }}>
           Nothing to choose from
         </p>
       )}
       {options.map((o, i) => {
+        if (o.note) {
+          return (
+            <p key={o.value} className={cn(ROW, 'h-auto min-h-9 py-2')} style={{ color: C.sub }}>
+              {o.label}
+            </p>
+          )
+        }
         const on = isOn(o.value)
         // Single-select: the white pill marks BOTH the chosen option and the one the
         // keyboard is on — they are the same affordance in this design, and only one can
@@ -126,7 +198,12 @@ export function ListboxPanel({
               onSelect(o.value)
               if (!multiple) onClose()
             }}
-            className={cn(ROW, o.disabled ? 'cursor-not-allowed' : 'cursor-pointer')}
+            title={search ? o.label : undefined}
+            className={cn(
+              ROW,
+              o.description && 'h-auto min-h-9 py-1.5',
+              o.disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+            )}
             style={{
               backgroundColor: raised && !o.disabled ? C.white : undefined,
               boxShadow: raised && !o.disabled ? `inset 0 0 0 1px ${C.line}` : undefined,
@@ -145,7 +222,16 @@ export function ListboxPanel({
                 />
               </span>
             )}
-            <span className="truncate">{o.label}</span>
+            {o.description ? (
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate">{o.label}</span>
+                <span className="truncate text-label" style={{ color: C.sub }}>
+                  {o.description}
+                </span>
+              </span>
+            ) : (
+              <span className="truncate">{o.label}</span>
+            )}
           </button>
         )
       })}
@@ -165,28 +251,32 @@ function useListbox({
   initialIndex,
   commit,
   closeOnCommit,
+  searchable = false,
 }: {
   options: ListboxOption[]
   disabled?: boolean
   initialIndex: () => number
   commit: (value: string) => void
   closeOnCommit: boolean
+  /** The keys run from a search box: Space, Home, End and typeahead belong to the text. */
+  searchable?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
   const typed = useRef({ term: '', at: 0 })
 
+  const pickable = (o: ListboxOption | undefined) => !!o && !o.disabled && !o.note
   const step = (from: number, dir: 1 | -1) => {
     for (let i = 1; i <= options.length; i++) {
       const n = (from + dir * i + options.length * 2) % options.length
-      if (!options[n]?.disabled) return n
+      if (pickable(options[n])) return n
     }
     return from
   }
 
   function openAt() {
     const at = initialIndex()
-    setActive(at >= 0 ? at : options.findIndex((o) => !o.disabled))
+    setActive(at >= 0 ? at : options.findIndex(pickable))
     setOpen(true)
   }
 
@@ -205,6 +295,9 @@ function useListbox({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActive((a) => step(a < 0 ? 0 : a, -1))
+    } else if (searchable && [' ', 'Home', 'End'].includes(e.key)) {
+      // The search box's own keys.
+      return
     } else if (e.key === 'Home') {
       e.preventDefault()
       setActive(step(-1, 1))
@@ -214,11 +307,14 @@ function useListbox({
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       const o = options[active]
-      if (o && !o.disabled) commit(o.value)
+      if (pickable(o)) commit(o!.value)
       if (closeOnCommit) setOpen(false)
     } else if (e.key === 'Tab') {
+      // From a search box, Tab would walk off the end of <body> (the panel is portalled
+      // there), so it comes back to the trigger instead, one Tab from the next control.
+      if (searchable) e.preventDefault()
       setOpen(false)
-    } else if (e.key.length === 1) {
+    } else if (e.key.length === 1 && !searchable) {
       // Typeahead: keystrokes within a second build a prefix, so "co" reaches
       // "Community & Place" rather than cycling the two options starting with C.
       const now = Date.now()
@@ -227,7 +323,7 @@ function useListbox({
         at: now,
       }
       const hit = options.findIndex(
-        (o) => !o.disabled && o.label.toLowerCase().startsWith(typed.current.term),
+        (o) => pickable(o) && o.label.toLowerCase().startsWith(typed.current.term),
       )
       if (hit >= 0) setActive(hit)
     }
@@ -247,7 +343,15 @@ function useListbox({
     onClick: () => (open ? setOpen(false) : openAt()),
   })
 
-  return { open, close: () => setOpen(false), active, setActive, triggerProps }
+  return {
+    open,
+    close: () => setOpen(false),
+    active,
+    setActive,
+    triggerProps,
+    onKeyDown,
+    firstPickable: () => options.findIndex(pickable),
+  }
 }
 
 /**
@@ -326,6 +430,8 @@ export function MultiListbox({
   disabled,
   className,
   renderTrigger,
+  search,
+  onOpenChange,
 }: {
   options: ListboxOption[]
   values: readonly string[]
@@ -335,6 +441,9 @@ export function MultiListbox({
   disabled?: boolean
   className?: string
   renderTrigger: (state: { open: boolean; props: Record<string, unknown> }) => ReactNode
+  /** A search box at the top of the panel; the caller filters `options` on its value. */
+  search?: ListboxSearch
+  onOpenChange?: (open: boolean) => void
 }) {
   const listId = useId()
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -345,7 +454,26 @@ export function MultiListbox({
     initialIndex: () => options.findIndex((o) => values.includes(o.value)),
     commit: onToggle,
     closeOnCommit: false,
+    searchable: !!search,
   })
+
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    onOpenChange?.(lb.open)
+    // The search box took focus and has just been unmounted with the panel, which drops
+    // focus on <body>. Hand it back to the trigger — unless the close was a click on
+    // something else that took focus, which is where the person meant to go.
+    if (wasOpen.current && !lb.open && search) {
+      const lost = !document.activeElement || document.activeElement === document.body
+      if (lost) anchorRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus()
+    }
+    wasOpen.current = lb.open
+  }, [lb.open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A new query is a new list: the keyboard starts again from its top.
+  useEffect(() => {
+    if (lb.open && search) lb.setActive(lb.firstPickable())
+  }, [search?.value]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div ref={anchorRef} className={cn('relative', className)}>
@@ -361,6 +489,7 @@ export function MultiListbox({
           labelledBy={labelledBy}
           activeId={lb.active}
           onActiveChange={lb.setActive}
+          search={search && { ...search, onKeyDown: lb.onKeyDown }}
         />
       )}
     </div>

@@ -1,3 +1,5 @@
+import { NO_LOCATION, type DeliveryPlaceKind } from './deprivation/types'
+
 /**
  * Filter options derived from the rows themselves, rather than from a list of
  * everything that could theoretically exist.
@@ -53,7 +55,51 @@ export function facetByMany<T>(
   return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
 }
 
-/** `Youth work (24)` — the label a filter pill shows. */
-export function facetLabel(option: FacetOption): string {
-  return `${option.label} (${option.count})`
+
+/** A Location option: a facet plus the kind of place it names, drawn beneath it. */
+export type LocationFacetOption = FacetOption & {
+  kind: Exclude<DeliveryPlaceKind, 'region'> | null
+}
+
+/**
+ * The Awards register's Location pill, from rows grouped on (location, kind).
+ *
+ * - A region-level match (`kind: 'region'`) is dropped: its label is a region name, and
+ *   the Region pill beside this one already offers it.
+ * - The NULL group becomes `NO_LOCATION`, pinned LAST, as "No location recorded" is on
+ *   the Region pill — it is not a place, it is the residue.
+ * - One name can arrive under two kinds (free text that happens to spell a district
+ *   whose own grants resolved). The filter matches on the name, so it is ONE option,
+ *   counted once for every grant it returns, and wears the kind most of them have.
+ */
+export function locationFacet(
+  rows: Array<{ value: string | null; kind: string | null; count: number }>,
+): LocationFacetOption[] {
+  const byName = new Map<string, { count: number; kinds: Map<string, number> }>()
+  let unlocated = 0
+  for (const r of rows) {
+    if (r.kind === 'region') continue
+    if (r.value === null || r.kind === null) {
+      if (r.kind === null) unlocated += r.count
+      continue
+    }
+    const entry = byName.get(r.value) ?? { count: 0, kinds: new Map<string, number>() }
+    entry.count += r.count
+    entry.kinds.set(r.kind, (entry.kinds.get(r.kind) ?? 0) + r.count)
+    byName.set(r.value, entry)
+  }
+  const named = [...byName.entries()]
+    .map(([value, { count, kinds }]) => ({
+      value,
+      label: value,
+      count,
+      kind: [...kinds.entries()].sort((a, b) => b[1] - a[1])[0]![0] as LocationFacetOption['kind'],
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+  return unlocated > 0
+    ? [
+        ...named,
+        { value: NO_LOCATION, label: 'No location recorded', count: unlocated, kind: null },
+      ]
+    : named
 }

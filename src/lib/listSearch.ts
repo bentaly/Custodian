@@ -172,6 +172,12 @@ export type AwardsSearch = {
    * bookmarked link for a region this foundation no longer funds.
    */
   region?: string[]
+  /**
+   * Places as the Location column prints them, `NO_LOCATION` among them. Unvalidated for
+   * the same reason as `region`, and more so: an unmatched location is the applicant's
+   * own words.
+   */
+  location?: string[]
   q?: string
   from?: string
   to?: string
@@ -187,6 +193,7 @@ export function parseAwardsSearch(search: Record<string, unknown>): AwardsSearch
     tag: textList(search.tag),
     status: oneOfList(AWARD_STATUSES, search.status),
     region: textList(search.region),
+    location: textList(search.location),
     q: text(search.q),
     from: isoDay(search.from),
     to: isoDay(search.to),

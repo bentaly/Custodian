@@ -19,7 +19,7 @@ import {
 import { BarMeter } from '../../components/BarMeter'
 import { ProgressBar } from '../../components/ProgressBar'
 import { listAwards, GRANT_STATUS_LABELS, AWARDS_DEFAULT_SORT } from '../../server/fns/applications'
-import { facetLabel } from '../../lib/facets'
+import { DELIVERY_PLACE_KIND_LABELS } from '../../lib/deprivation/types'
 import { C } from '../../components/ui/tokens'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { fmtDate, fmtExact, fmtRef } from '../../lib/format'
@@ -47,6 +47,7 @@ export const Route = createFileRoute('/_authenticated/awards/')({
     tag: search.tag,
     status: search.status,
     region: search.region,
+    location: search.location,
     q: search.q,
     from: search.from,
     to: search.to,
@@ -163,10 +164,10 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     // Two lines, and they are two different questions. The top is the SHARPEST thing the
     // resolver got — a district, else the matched area's own name (what a county-level
     // match carries), else the applicant's own words for a location that never resolved.
-    // The bottom is the region, which is the only one of the two you can filter by.
+    // The bottom is the region. Each line has its own pill (Location, Region).
     //
     // Printing just the region made every grantee of a regional funder read "North West",
-    // the one fact the reader already knew. Printing just the district left the Location
+    // the one fact the reader already knew. Printing just the district left the region
     // pill selecting on a value that appeared nowhere on the row. Both, and each explains
     // the other.
     //
@@ -425,10 +426,7 @@ function ShareLegend({ colour, amount, label }: { colour: string; amount: number
     <div className="flex min-w-0 items-center gap-1.5">
       <span className="size-2 shrink-0 rounded-swatch" style={{ backgroundColor: colour }} />
       <span className="truncate font-display text-body font-medium" style={{ color: C.faint }}>
-        <span style={{ color: C.ink }}>
-          {fmtExact(amount)}
-        </span>{' '}
-        {label}
+        <span style={{ color: C.ink }}>{fmtExact(amount)}</span> {label}
       </span>
     </div>
   )
@@ -437,7 +435,20 @@ function ShareLegend({ colour, amount, label }: { colour: string; amount: number
 function AwardsPage() {
   const navigate = Route.useNavigate()
   const search = Route.useSearch()
-  const { roundId, programmeId, tag, status, region, q, from, to, sortBy, sortDir, page } = search
+  const {
+    roundId,
+    programmeId,
+    tag,
+    status,
+    region,
+    location,
+    q,
+    from,
+    to,
+    sortBy,
+    sortDir,
+    page,
+  } = search
   const { items, total, pageSize, totals, facets } = Route.useLoaderData()
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
@@ -451,14 +462,7 @@ function AwardsPage() {
   const metaLine: React.ReactNode[] = [
     `${totals.count} award${totals.count !== 1 ? 's' : ''}`,
     ...(totals.count > 0
-      ? [
-          <>
-            {fmtExact(totals.totalAwarded)} awarded
-          </>,
-          <>
-            {fmtExact(totals.paidToDate)} paid
-          </>,
-        ]
+      ? [<>{fmtExact(totals.totalAwarded)} awarded</>, <>{fmtExact(totals.paidToDate)} paid</>]
       : []),
   ]
 
@@ -480,6 +484,10 @@ function AwardsPage() {
 
   function setRegion(values: string[] | undefined) {
     navigate({ search: (prev) => ({ ...prev, region: values, page: undefined }) })
+  }
+
+  function setLocation(values: string[] | undefined) {
+    navigate({ search: (prev) => ({ ...prev, location: values, page: undefined }) })
   }
 
   function setStatus(values: string[] | undefined) {
@@ -586,40 +594,60 @@ function AwardsPage() {
             label="Status"
             plural="statuses"
             value={status}
-            options={facets.statuses.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.statuses}
             onChange={setStatus}
           />
           <FilterPill
             label="Round"
             plural="rounds"
             value={roundId}
-            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.rounds}
             onChange={setRound}
           />
           <FilterPill
             label="Programme"
             plural="programmes"
             value={programmeId}
-            options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.programmes}
             onChange={setProgramme}
           />
           <FilterPill
             label="Theme"
             plural="themes"
             value={tag}
-            options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.themes}
             onChange={setTag}
           />
-          {/* Region, not the place name printed on the row: a district is very nearly a
-              primary key (ten grants, ten districts), so a pill of them would be one
-              option per award. The Location column shows both, which is what keeps this
-              pill legible — you can see on every row why it matched. */}
+          {/* One pill per line of the Location column: Region is the bottom line, Location
+              the top, so whatever a row prints, a pill offers — and you can see on every
+              row why it matched. Region first, because it contains the other.
+
+              Independent, like every pill: neither prunes the other, so London + Wirral is
+              an empty table rather than a pill quietly rewriting itself. Location is an
+              EXACT match on the printed name, which is why each option says what kind of
+              place it is — "Merseyside" (a county area) does not include the Wirral grants
+              that resolved to their district. A region-level match is left out of it, being
+              the Region pill's option already. It is the one searchable pill: a district is
+              very nearly a primary key, so this list is as long as the portfolio is wide. */}
+          <FilterPill
+            label="Region"
+            plural="regions"
+            value={region}
+            options={facets.regions}
+            onChange={setRegion}
+          />
           <FilterPill
             label="Location"
             plural="locations"
-            value={region}
-            options={facets.regions.map((f) => ({ value: f.value, label: facetLabel(f) }))}
-            onChange={setRegion}
+            searchable
+            value={location}
+            options={facets.locations.map((f) => ({
+              value: f.value,
+              label: f.label,
+              count: f.count,
+              description: f.kind ? DELIVERY_PLACE_KIND_LABELS[f.kind] : undefined,
+            }))}
+            onChange={setLocation}
           />
           <DateRangePicker
             value={{ from, to }}

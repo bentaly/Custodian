@@ -29,7 +29,6 @@ import {
   type TableColumn,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
-import { facetLabel } from '../../lib/facets'
 import { fmtDate, fmtRef } from '../../lib/format'
 import {
   parseReportsSearch,
@@ -560,21 +559,21 @@ function ReportsPage() {
             label="Round"
             plural="rounds"
             value={roundId}
-            options={facets.rounds.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.rounds}
             onChange={(v) => setFilter({ roundId: v })}
           />
           <FilterPill
             label="Programme"
             plural="programmes"
             value={programmeId}
-            options={facets.programmes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.programmes}
             onChange={setProgramme}
           />
           <FilterPill
             label="Theme"
             plural="themes"
             value={tag}
-            options={facets.themes.map((f) => ({ value: f.value, label: facetLabel(f) }))}
+            options={facets.themes}
             onChange={(v) => setFilter({ tag: v })}
           />
           {/* The window runs against the RECEIVED date, which an awaited report has not

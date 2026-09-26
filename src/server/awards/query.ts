@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
 import {
   applications,
   awardInstalments,
@@ -7,7 +7,7 @@ import {
   rounds,
   roundProgrammes,
 } from '../../../drizzle/schema'
-import { NO_REGION } from '../../lib/deprivation/types'
+import { NO_LOCATION, NO_REGION, type DeliveryPlaceKind } from '../../lib/deprivation/types'
 import type { getDb } from '../db'
 import { searchAny } from '../searchTerm'
 import { anyOf, anyOfOrNull, anyTag } from '../filterSql'
@@ -67,6 +67,20 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
   const paid = paidRollup(db)
   const amount = sql<number>`${awards.amountAwarded}::float8`
   const paidTotal = sql<number>`coalesce(${paid.paidTotal}, 0)`
+  // What the sharp label below names — `DeliveryPlaceKind`, whose header says why each
+  // exists. Read in the same order as `deliveryArea`'s coalesce, so the kind always
+  // describes the value that coalesce printed: a district wins, then the matched area
+  // (a police force area, or a region when that is all the resolver got), then a region
+  // with no matched area, then the applicant's own words. Blank free text is no location
+  // at all, which is how the column prints it.
+  const placeKind = sql<DeliveryPlaceKind | null>`case
+    when ${applications.deliveryLadName} is not null then 'district'
+    when ${applications.deprivationContext}->>'areaType' = 'region' then 'region'
+    when ${applications.deprivationContext}->>'areaType' = 'pfa' then 'county'
+    when ${applications.deprivationContext}->>'areaName' is not null then 'district'
+    when ${applications.deliveryRegion} is not null then 'region'
+    when nullif(btrim(${applications.deliveryArea}), '') is not null then 'unmatched'
+  end`
 
   return db
     .select({
@@ -103,7 +117,16 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
         ${applications.deliveryRegion},
         ${applications.deliveryArea}
       )`.as('delivery_area'),
-      // The coarse twin of the label above, and the value the Location pill filters on:
+      deliveryPlaceKind: placeKind.as('delivery_place_kind'),
+      // The value the Location pill filters on: the label above, EXCEPT where it names a
+      // region (the Region pill's job) or is blank. NULL on those, so "No location" asks
+      // for `deliveryPlaceKind is null` rather than for this column being NULL.
+      deliveryLocation: sql<string | null>`case when ${placeKind} <> 'region' then coalesce(
+        ${applications.deliveryLadName},
+        ${applications.deprivationContext}->>'areaName',
+        btrim(${applications.deliveryArea})
+      ) end`.as('delivery_location'),
+      // The coarse twin of the label above, and the value the Region pill filters on:
       // England's regions / "Wales", or the nation for Scotland & NI, which have no
       // sub-national region in our data. This IS `lib/deprivation/types`'
       // `deliveryRegionLabel` in SQL — Insights groups on that function and links here,
@@ -156,6 +179,16 @@ export function grantRows(db: Db, g: GrantsQuery) {
 }
 export type GrantRow = Awaited<ReturnType<typeof grantRows>>[number]
 
+function locationFilter(g: GrantsQuery, values: readonly string[] | undefined): SQL | undefined {
+  if (!values?.length) return undefined
+  const named = values.filter((v) => v !== NO_LOCATION)
+  const clauses = [
+    ...(named.length ? [inArray(g.deliveryLocation, named)] : []),
+    ...(values.includes(NO_LOCATION) ? [isNull(g.deliveryPlaceKind)] : []),
+  ]
+  return clauses.length === 1 ? clauses[0] : or(...clauses)
+}
+
 /**
  * The transient filters: the pills, the date window and the search box. Deliberately
  * NOT the round — that is the context this screen is read in, so it narrows the set the
@@ -168,6 +201,7 @@ export function filterWhere(
     tag?: readonly string[]
     status?: readonly string[]
     region?: readonly string[]
+    location?: readonly string[]
     from?: string
     to?: string
     q?: string
@@ -182,6 +216,11 @@ export function filterWhere(
     // value to compare against. The facet counts those under the same sentinel, and
     // ticked beside real regions it adds the unlocated grants to them.
     anyOfOrNull(g.deliveryRegion, f.region, NO_REGION),
+    // Independent of the region, like every pill: "London" + "Wirral" is a question
+    // with no answer and gets an empty table, rather than one pill quietly pruning the
+    // other. `NO_LOCATION` is the grants with no delivery area at all — keyed on the
+    // KIND being null, because `deliveryLocation` is also null on a region-only match.
+    locationFilter(g, f.location),
     f.from ? sql`${g.decisionDay} >= ${f.from}` : undefined,
     f.to ? sql`${g.decisionDay} <= ${f.to}` : undefined,
     // Organisation and the foundation's own reference, which is the row's subtext here

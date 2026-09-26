@@ -36,7 +36,7 @@ import {
   CompactMoney,
   type TableColumn,
 } from '../../components/ui'
-import { facetBy, facetByMany, facetLabel } from '../../lib/facets'
+import { facetBy, facetByMany } from '../../lib/facets'
 import { fmtDate, fmtDuration, fmtMoney, fmtRef } from '../../lib/format'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import { SCORE_BAND_OPTIONS, SCORE_BAND_VALUES, scoreBandFor } from '../../lib/scoreBands'
@@ -371,15 +371,15 @@ function SetUpAwards() {
   const programmeOptions = facetBy(candidates.items, (c) => ({
     value: c.programmeId,
     label: c.programmeName,
-  })).map((f) => ({ value: f.value, label: facetLabel(f) }))
+  }))
   const tagOptions = facetByMany(candidates.items, (c) =>
     c.tags.map((t) => ({ value: t, label: t })),
-  ).map((f) => ({ value: f.value, label: facetLabel(f) }))
+  )
 
   // Keyed on the name: `listAwards` rows carry the programme's name, not its id.
   const awardedProgrammeOptions = facetBy(awarded.items, (a) =>
     a.programmeName ? { value: a.programmeName, label: a.programmeName } : null,
-  ).map((f) => ({ value: f.value, label: facetLabel(f) }))
+  )
   const awardedRows = awarded.items.filter((a) => matchesFilter(awardedProgramme, a.programmeName))
   // The whole round, like the caption above — its own pill is below it. It used to be
   // totalled from the rows on screen, on the reasoning that a line above a table should

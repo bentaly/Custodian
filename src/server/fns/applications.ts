@@ -54,7 +54,13 @@ import { dueStatus, type ScheduleStatus } from '../../lib/schedule'
 import { reportLabel } from '../../lib/reportLabel'
 import { reportingTimeline } from '../../lib/reportTimeline'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import { facetBy, facetByMany, type FacetOption } from '../../lib/facets'
+import {
+  facetBy,
+  facetByMany,
+  locationFacet,
+  type FacetOption,
+  type LocationFacetOption,
+} from '../../lib/facets'
 import { paginate, PAGE_SIZE } from '../../lib/pagination'
 import { scoreBandFor } from '../../lib/scoreBands'
 import { sortRows } from '../../lib/sortRows'
@@ -659,6 +665,12 @@ export const listAwards = createServerFn({ method: 'GET' })
        * geography data — and an unknown value simply matches nothing.
        */
       region: z.array(z.string().min(1).max(100)).min(1).max(100).optional(),
+      /**
+       * Places as the Location column prints them (`NO_LOCATION` for none at all). Free
+       * text on purpose: the values are district and county names plus, for a location
+       * that never resolved, the applicant's own words — nothing to enumerate.
+       */
+      location: z.array(z.string().min(1).max(500)).min(1).max(500).optional(),
       /** Inclusive award-date window (`yyyy-mm-dd`), against the decision date. */
       from: z
         .string()
@@ -728,6 +740,7 @@ export type AwardsListInput = {
   q?: string
   status?: Array<'active' | 'completed' | 'cancelled'>
   region?: string[]
+  location?: string[]
   from?: string
   to?: string
   sortBy?: AwardSortKey
@@ -805,6 +818,7 @@ export async function awardsList(
     statusFacet,
     roundFacet,
     regionFacet,
+    locationFacetRows,
   ] = await db.batch([
     db
       .select()
@@ -876,6 +890,17 @@ export async function awardsList(
     // because "no programme" is a gap, whereas "no location recorded" is the pill a
     // grants officer is looking for. It becomes the `NO_REGION` option below.
     facetOn(g.deliveryRegion, g.deliveryRegion),
+    // The sharp twin, grouped with its KIND so each option can say what sort of place it
+    // is. `locationFacet` drops the region-level rows and turns the NULL group into
+    // `NO_LOCATION`.
+    db
+      .select({
+        value: g.deliveryLocation,
+        kind: g.deliveryPlaceKind,
+        count: sql<number>`(count(*))::int`,
+      })
+      .from(g)
+      .groupBy(g.deliveryLocation, g.deliveryPlaceKind),
   ])
 
   return {
@@ -896,6 +921,7 @@ export async function awardsList(
       ),
       rounds: sortFacet(namedFacet(roundFacet, 'Untitled round')),
       regions: regionFacet_(regionFacet),
+      locations: locationFacet(locationFacetRows),
     },
   }
 }
@@ -1040,6 +1066,7 @@ function emptyFacets() {
     statuses: [] as FacetOption[],
     rounds: [] as FacetOption[],
     regions: [] as FacetOption[],
+    locations: [] as LocationFacetOption[],
   }
 }
 
