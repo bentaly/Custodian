@@ -43,7 +43,7 @@ import {
   type RoundKey,
 } from './lib/data'
 import { loadSnapshot, recordedAt, warnIfStale, type ApplicationSnapshot } from './lib/snapshot'
-import { organisationProfileFor } from './lib/profiles'
+import { FORM_ANSWERS, organisationProfileFor } from './lib/profiles'
 import { demoRounds } from './lib/rounds'
 import { daysFromNow, requireDemoClient, runScript, step, done } from './lib/shared'
 
@@ -72,6 +72,13 @@ function buildPayload(app: DemoApplication, org: DemoOrg): Record<string, unknow
   }
   if (org.charityNumber) payload.charityNumber = org.charityNumber
   if (org.companyNumber) payload.companyNumber = org.companyNumber
+  // Every applicant answers both; see `FORM_ANSWERS` for why they are not in the fixture
+  // the recorded scores are hashed against.
+  const answers = FORM_ANSWERS[org.key]
+  if (answers) {
+    payload.organisationSummary = answers.summary
+    payload.unrestrictedReserves = answers.reserves
+  }
   if (!omit.has('deliveryArea')) payload.deliveryArea = org.area
   if (!omit.has('impact') && app.impact != null) payload.proposedImpactQuantity = app.impact
   if (!omit.has('budget')) {
@@ -128,6 +135,8 @@ async function replay(
     'budgetBreakdown',
     'budgetBreakdownLink',
     'proposedImpactQuantity',
+    'organisationSummary',
+    'unrestrictedReserves',
   ])
   const responses = Object.entries(payload)
     .filter(([k]) => !canonicalKeys.has(k))
@@ -145,6 +154,9 @@ async function replay(
     charityNumber: org.charityNumber,
     companyNumber: org.companyNumber,
     deliveryArea: (payload.deliveryArea as string | undefined) ?? null,
+    organisationSummary: (payload.organisationSummary as string | undefined) ?? null,
+    unrestrictedReserves:
+      payload.unrestrictedReserves != null ? String(payload.unrestrictedReserves) : null,
     bankName: org.bankName,
     bankAccountName: org.name,
     ...bankFields({ bankSortCode: org.sortCode, bankAccountNumber: org.accountNumber }),

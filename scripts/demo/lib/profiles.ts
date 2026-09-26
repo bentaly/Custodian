@@ -315,3 +315,145 @@ export function organisationProfileFor(org: DemoOrg): OrganisationProfile | null
     fetchedAt: daysFromNow(0).toISOString(),
   }
 }
+
+// ─── What the applicant's own form says about them ────────────────────────────
+//
+// Two canonical fields the form captures since 3 Sep (`organisationSummary`,
+// `unrestrictedReserves`), both tier `expected`: absent, every demo application listed
+// them under "Not captured", burying the gaps the dataset leaves on purpose (see the
+// README's "imperfections"). Organisation-level facts, so they live here rather than in
+// `applications.ts`, whose hash guards the recorded scores: those scores were given
+// without them, and stay as recorded.
+//
+// The summary DISPLACES the register's `activities` line on the Organisation panel (the
+// applicant's words are the current statement), which is the app's rule, not ours.
+// Reserves are sized off each profile's spend, deliberately uneven: about half under
+// three months, as small charities often are, so the reserve-months reading varies.
+
+export const FORM_ANSWERS: Record<string, { summary: string; reserves: number }> = {
+  riverbank: {
+    summary:
+      'We are a youth charity on the Fylde coast. Our youth workers run evening sessions, holiday clubs and street-based work with young people who do not use other services.',
+    reserves: 185_000,
+  },
+  northgate: {
+    summary:
+      'Northgate works with young people in north Middlesbrough, offering drop-in sessions and one to one support for those finding school or home life hard.',
+    reserves: 48_000,
+  },
+  lighthouse: {
+    summary:
+      'We run youth clubs and a family support service in Knowsley, and we have worked with the same estates for twenty years.',
+    reserves: 120_000,
+  },
+  streetwise: {
+    summary:
+      'Streetwise recruits and trains volunteer mentors and matches them with young people referred by schools and youth offending teams across Birmingham.',
+    reserves: 62_000,
+  },
+  cadence: {
+    summary:
+      'We give children in Bradford free instrumental lessons, a place in a band or choir, and an instrument to take home.',
+    reserves: 71_000,
+  },
+  fairstart: {
+    summary:
+      'Fair Start helps young people in Hull into work through careers coaching, short employability courses and placements with local firms.',
+    reserves: 104_000,
+  },
+  ropewalk: {
+    summary:
+      'The Ropewalk is a volunteer-led youth centre in Nottingham, open five evenings a week for sport, music and arts.',
+    reserves: 22_000,
+  },
+  warmer: {
+    summary:
+      'We are a community benefit society in Sunderland that installs insulation and runs energy advice sessions for households struggling with bills.',
+    reserves: 90_000,
+  },
+  threshold: {
+    summary:
+      'Threshold gives free housing advice across Rhondda Cynon Taf and represents tenants facing eviction or living in poor conditions.',
+    reserves: 95_000,
+  },
+  hearth: {
+    summary:
+      'The Hearth Project visits homes in Glasgow to give energy advice, fit small measures and help people apply for support with their bills.',
+    reserves: 58_000,
+  },
+  newbridge: {
+    summary:
+      'We are a small tenants support organisation in Belfast, helping residents groups organise and get repairs done.',
+    reserves: 18_000,
+  },
+  shelteredlives: {
+    summary:
+      'Sheltered Lives helps older people in Leeds stay safe and warm at home, with a handyperson service, warm home checks and a befriending scheme.',
+    reserves: 210_000,
+  },
+  coalfields: {
+    summary:
+      'We give energy, debt and benefits advice in the former mining villages around Rotherham, face to face and in community venues.',
+    reserves: 67_000,
+  },
+  chalkstreams: {
+    summary:
+      'We restore chalk streams in Norfolk, working with farmers and landowners and training volunteers to monitor river health.',
+    reserves: 240_000,
+  },
+  upperdales: {
+    summary:
+      'Upper Dales Rivers Trust improves the rivers of the Yorkshire Dales through habitat restoration, tree planting and a volunteer water quality network.',
+    reserves: 130_000,
+  },
+  wetland: {
+    summary:
+      'We manage and restore wetland sites near Great Yarmouth and run school visits and guided walks.',
+    reserves: 41_000,
+  },
+  greenway: {
+    summary:
+      'Greenway is a partnership of community groups improving rivers and green spaces in Stoke-on-Trent.',
+    reserves: 39_000,
+  },
+  peatland: {
+    summary:
+      'We restore damaged peat bogs across the Highlands with estates and crofting communities, and train local people in restoration work.',
+    reserves: 175_000,
+  },
+  riverkeepers: {
+    summary:
+      'Riverkeepers Cymru is run by volunteers who look after the Taff around Merthyr Tydfil, clearing litter, tackling invasive plants and reporting pollution.',
+    reserves: 26_000,
+  },
+  larder: {
+    summary:
+      'The Larder is a community food hub in Oldham with a low cost shop, cooking classes and advice on money and benefits.',
+    reserves: 64_000,
+  },
+  growing: {
+    summary:
+      'We are a community interest company running allotments and growing sessions in Walsall for families and people with mental health needs.',
+    reserves: 15_000,
+  },
+  mealsmove: {
+    summary:
+      'Meals on the Move delivers hot meals to older and isolated people in Torbay every day of the year, with a friendly check-in at the door.',
+    reserves: 82_000,
+  },
+  fenland: {
+    summary:
+      'We collect surplus food from supermarkets and growers and share it with community pantries and groups in north east Lincolnshire.',
+    reserves: 76_000,
+  },
+  breadoven: {
+    summary:
+      'The Bread Oven is a community bakery and cafe in Camborne where people facing barriers to work train and earn.',
+    reserves: 20_000,
+  },
+  secondharvest: {
+    summary:
+      'Second Harvest cooks surplus food into free community meals in Plymouth and runs cooking skills courses.',
+    reserves: 55_000,
+  },
+}
