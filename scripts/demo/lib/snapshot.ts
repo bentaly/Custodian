@@ -12,6 +12,18 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 export const SNAPSHOT_DIR = join(HERE, '..', 'snapshot')
 const SNAPSHOT_FILE = join(SNAPSHOT_DIR, 'pipeline.json')
 
+/**
+ * A recorded timestamp back to a Date. `demo:snapshot` reads the columns raw, and they are
+ * `timestamp without time zone` holding UTC, so the text carries no zone
+ * ("2026-08-15 22:02:56.941"). `new Date()` reads such a string as LOCAL time, which in
+ * summer put every replayed time an hour early, and each record-and-replay cycle moved it
+ * another hour. Read as the UTC it is, a replay writes back exactly what was recorded.
+ */
+export function recordedAt(text: string | null): Date | null {
+  if (!text) return null
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(text) ? text : `${text.replace(' ', 'T')}Z`)
+}
+
 export interface ApplicationSnapshot {
   dueDiligenceStatus: string
   dueDiligenceChecks: Array<{
@@ -26,6 +38,8 @@ export interface ApplicationSnapshot {
   custodianScoreDetail: Record<string, unknown> | null
   custodianScoredAt: string | null
   grantPurpose: string | null
+  /** Optional: snapshots recorded before themes were assigned per application lack it. */
+  themes?: string[] | null
   deprivationStatus: string
   deprivationContext: Record<string, unknown> | null
   deprivationResolvedAt: string | null

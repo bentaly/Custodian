@@ -20,7 +20,7 @@ import { saveReportIngest, processReportIngest } from '../../src/server/reportMa
 import { REPORTS } from './lib/reports'
 import { APPLICATIONS } from './lib/applications'
 import { ORG_BY_KEY, PROGRAMMES, contactEmail } from './lib/data'
-import { loadSnapshot, warnIfStale, type ReportSnapshot } from './lib/snapshot'
+import { loadSnapshot, recordedAt, warnIfStale, type ReportSnapshot } from './lib/snapshot'
 import { daysFromNow, requireDemoClient, runScript, step, done } from './lib/shared'
 
 const args = process.argv.slice(2)
@@ -108,7 +108,7 @@ async function replayReport(
     impactQuantityQuote: snap.impactQuantityQuote,
     impactUnitLabel: snap.impactUnitLabel,
     analysisDetail: snap.analysisDetail as never,
-    analysedAt: snap.analysedAt ? new Date(snap.analysedAt) : null,
+    analysedAt: recordedAt(snap.analysedAt),
     submittedAt,
     createdAt: submittedAt,
   })

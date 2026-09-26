@@ -42,7 +42,8 @@ import {
   type DemoOrg,
   type RoundKey,
 } from './lib/data'
-import { loadSnapshot, warnIfStale, type ApplicationSnapshot } from './lib/snapshot'
+import { loadSnapshot, recordedAt, warnIfStale, type ApplicationSnapshot } from './lib/snapshot'
+import { organisationProfileFor } from './lib/profiles'
 import { demoRounds } from './lib/rounds'
 import { daysFromNow, requireDemoClient, runScript, step, done } from './lib/shared'
 
@@ -158,15 +159,18 @@ async function replay(
     // ── the recorded assessment ──
     dueDiligenceStatus: snap.dueDiligenceStatus as 'clear',
     dueDiligenceChecks: snap.dueDiligenceChecks as never,
-    dueDiligenceCheckedAt: snap.dueDiligenceCheckedAt ? new Date(snap.dueDiligenceCheckedAt) : null,
+    dueDiligenceCheckedAt: recordedAt(snap.dueDiligenceCheckedAt),
     custodianScoreStatus: snap.custodianScoreStatus as 'scored',
     custodianScore: snap.custodianScore,
     custodianScoreDetail: snap.custodianScoreDetail as never,
-    custodianScoredAt: snap.custodianScoredAt ? new Date(snap.custodianScoredAt) : null,
+    custodianScoredAt: recordedAt(snap.custodianScoredAt),
     grantPurpose: snap.grantPurpose,
+    // Absent from a snapshot recorded before themes were picked per application; NULL is
+    // then "not assigned", which `scripts/assign-themes.ts` fills without a re-score.
+    themes: snap.themes ?? null,
     deprivationStatus: snap.deprivationStatus as 'resolved',
     deprivationContext: snap.deprivationContext as never,
-    deprivationResolvedAt: snap.deprivationResolvedAt ? new Date(snap.deprivationResolvedAt) : null,
+    deprivationResolvedAt: recordedAt(snap.deprivationResolvedAt),
     deliveryNation: snap.deliveryNation as 'england' | null,
     deliveryRegion: snap.deliveryRegion,
     deliveryLadCode: snap.deliveryLadCode,
@@ -330,6 +334,14 @@ runScript('demo:apply', async () => {
 
         if (applicationId) {
           await backdate(applicationId, ingestId, app.submittedDaysAgo)
+          // On BOTH paths, after the pipeline: a live screening writes the profile of the
+          // real charity behind the number, which must never reach the screen under a
+          // fictional name. See `lib/profiles.ts`. (A live SCORE has already read it by
+          // then — one more reason replay is the default.)
+          await getDb()
+            .update(applications)
+            .set({ organisationProfile: organisationProfileFor(org) })
+            .where(eq(applications.id, applicationId))
           const row = await getDb().query.applications.findFirst({
             where: eq(applications.id, applicationId),
             columns: {

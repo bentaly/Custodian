@@ -1,6 +1,6 @@
 {
-  "fixtureHash": "212567bda4e1a9d3",
-  "capturedAt": "2026-08-16T10:12:30.445Z",
+  "fixtureHash": "fbaa90c190c02a59",
+  "capturedAt": "2026-09-26T21:42:54.783Z",
   "applications": {
     "WF-2025-004": {
       "dueDiligenceStatus": "warning",
@@ -102,7 +102,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:02:56.941",
+      "dueDiligenceCheckedAt": "2026-08-15 22:02:56.941",
       "custodianScoreStatus": "scored",
       "custodianScore": 80,
       "custodianScoreDetail": {
@@ -141,8 +141,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:02:56.942",
+      "custodianScoredAt": "2026-08-15 22:02:56.942",
       "grantPurpose": "Riverbank Youth Trust will deploy two full-time detached youth workers on the Grange and Mereside estates in Blackpool, offering street-based outreach and a weekly training drop-in for young people not in education, employment or training, over two years.",
+      "themes": ["Young people", "Education", "Employment"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 1,
@@ -161,7 +162,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:04:05.94",
+      "deprivationResolvedAt": "2026-08-15 22:04:05.94",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E06000009",
@@ -208,7 +209,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:09:49.601",
+      "dueDiligenceCheckedAt": "2026-08-15 22:09:49.601",
       "custodianScoreStatus": "scored",
       "custodianScore": 77,
       "custodianScoreDetail": {
@@ -246,8 +247,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:09:49.604",
+      "custodianScoredAt": "2026-08-15 22:09:49.604",
       "grantPurpose": "Warmer Futures Cooperative will deliver fuel debt casework for low-income households in Sunderland, with three caseworkers resolving cases through supplier negotiation, benefit checks and advocacy over two years.",
+      "themes": ["Poverty", "Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 7,
@@ -266,7 +268,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:10:42.341",
+      "deprivationResolvedAt": "2026-08-15 22:10:42.341",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E06000063",
@@ -373,7 +375,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:14:44.017",
+      "dueDiligenceCheckedAt": "2026-08-15 22:14:44.017",
       "custodianScoreStatus": "scored",
       "custodianScore": 67,
       "custodianScoreDetail": {
@@ -412,8 +414,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:14:44.023",
+      "custodianScoredAt": "2026-08-15 22:14:44.023",
       "grantPurpose": "The Chalk Streams Partnership will remove 1.8km of embankment, re-meander the channel and reconnect 46 hectares of floodplain grazing marsh on the upper River Wensum in Norfolk.",
+      "themes": ["Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 5,
@@ -432,7 +435,7 @@
         "regionName": "East of England",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:15:45.822",
+      "deprivationResolvedAt": "2026-08-15 22:15:45.822",
       "deliveryNation": "england",
       "deliveryRegion": "East of England",
       "deliveryLadCode": "E07000148",
@@ -509,7 +512,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:04:07.9",
+      "dueDiligenceCheckedAt": "2026-08-15 22:04:07.9",
       "custodianScoreStatus": "scored",
       "custodianScore": 74,
       "custodianScoreDetail": {
@@ -548,8 +551,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:04:07.902",
+      "custodianScoredAt": "2026-08-15 22:04:07.902",
       "grantPurpose": "Northgate Young People's Project will provide named transition workers supporting care-experienced young people in Middlesbrough from college application through the end of their first year, over two years.",
+      "themes": ["Young people", "Education"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 1,
@@ -568,7 +572,7 @@
         "regionName": "North East",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:04:56.508",
+      "deprivationResolvedAt": "2026-08-15 22:04:56.508",
       "deliveryNation": "england",
       "deliveryRegion": "North East",
       "deliveryLadCode": "E06000002",
@@ -645,7 +649,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:18:51.707",
+      "dueDiligenceCheckedAt": "2026-08-15 22:18:51.707",
       "custodianScoreStatus": "scored",
       "custodianScore": 81,
       "custodianScoreDetail": {
@@ -683,8 +687,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:18:51.712",
+      "custodianScoredAt": "2026-08-15 22:18:51.712",
       "grantPurpose": "The Larder Collective will convert three existing food parcel sites into membership pantries in Oldham, offering low-cost weekly shopping chosen by members rather than packed parcels, over approximately two years.",
+      "themes": ["Food security", "Poverty"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -703,7 +708,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:19:43.746",
+      "deprivationResolvedAt": "2026-08-15 22:19:43.746",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E08000004",
@@ -780,7 +785,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:10:44.138",
+      "dueDiligenceCheckedAt": "2026-08-15 22:10:44.138",
       "custodianScoreStatus": "scored",
       "custodianScore": 77,
       "custodianScoreDetail": {
@@ -817,8 +822,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:10:44.146",
+      "custodianScoredAt": "2026-08-15 22:10:44.146",
       "grantPurpose": "Threshold Housing Advice will provide two housing advocates delivering damp-and-mould casework, HHSRS referrals and retaliatory-eviction representation for private tenants in Rhondda Cynon Taf over two years.",
+      "themes": ["Housing", "Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -837,7 +843,7 @@
         "regionName": "Wales",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:11:33.066",
+      "deprivationResolvedAt": "2026-08-15 22:11:33.066",
       "deliveryNation": "wales",
       "deliveryRegion": "Wales",
       "deliveryLadCode": "W06000016",
@@ -914,7 +920,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:15:47.655",
+      "dueDiligenceCheckedAt": "2026-08-15 22:15:47.655",
       "custodianScoreStatus": "scored",
       "custodianScore": 33,
       "custodianScoreDetail": {
@@ -955,8 +961,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:15:47.661",
+      "custodianScoredAt": "2026-08-15 22:15:47.661",
       "grantPurpose": "Upper Dales Rivers Trust will work with farmers in the River Swale catchment in Richmondshire to improve land management practices and carry out habitat improvement works at priority sites.",
+      "themes": ["Environment", "Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -975,7 +982,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:16:24.426",
+      "deprivationResolvedAt": "2026-08-15 22:16:24.426",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": null,
@@ -1022,7 +1029,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:19:46.486",
+      "dueDiligenceCheckedAt": "2026-08-15 22:19:46.486",
       "custodianScoreStatus": "scored",
       "custodianScore": 32,
       "custodianScoreDetail": {
@@ -1063,8 +1070,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:19:46.492",
+      "custodianScoredAt": "2026-08-15 22:19:46.492",
       "grantPurpose": "Growing Together Allotments CIC will develop two community growing sites with raised beds and a polytunnel in Walsall, running weekly sessions for local residents.",
+      "themes": ["Food security"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -1083,7 +1091,7 @@
         "regionName": "West Midlands",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:20:20.575",
+      "deprivationResolvedAt": "2026-08-15 22:20:20.575",
       "deliveryNation": "england",
       "deliveryRegion": "West Midlands",
       "deliveryLadCode": "E08000030",
@@ -1160,7 +1168,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:06:44.397",
+      "dueDiligenceCheckedAt": "2026-08-15 22:06:44.397",
       "custodianScoreStatus": "scored",
       "custodianScore": 30,
       "custodianScoreDetail": {
@@ -1201,8 +1209,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:06:44.402",
+      "custodianScoredAt": "2026-08-15 22:06:44.402",
       "grantPurpose": "The Lighthouse Youth Foundation will deliver sports, arts and personal development activities for young people across Knowsley through its existing venue network.",
+      "themes": ["Young people"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 7,
@@ -1221,7 +1230,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:07:21.945",
+      "deprivationResolvedAt": "2026-08-15 22:07:21.945",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E08000011",
@@ -1298,7 +1307,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:11:35.066",
+      "dueDiligenceCheckedAt": "2026-08-15 22:11:35.066",
       "custodianScoreStatus": "scored",
       "custodianScore": 28,
       "custodianScoreDetail": {
@@ -1338,8 +1347,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:11:35.071",
+      "custodianScoredAt": "2026-08-15 22:11:35.071",
       "grantPurpose": "The Hearth Project will distribute £49 fuel vouchers to 1,200 low-income households in Glasgow over one winter period, reached through referrals from partner agencies.",
+      "themes": ["Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -1358,7 +1368,7 @@
         "regionName": null,
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:12:12.752",
+      "deprivationResolvedAt": "2026-08-15 22:12:12.752",
       "deliveryNation": "scotland",
       "deliveryRegion": null,
       "deliveryLadCode": "S12000049",
@@ -1435,7 +1445,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:07:23.876",
+      "dueDiligenceCheckedAt": "2026-08-15 22:07:23.876",
       "custodianScoreStatus": "scored",
       "custodianScore": 73,
       "custodianScoreDetail": {
@@ -1473,8 +1483,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:07:23.884",
+      "custodianScoredAt": "2026-08-15 22:07:23.884",
       "grantPurpose": "Streetwise Mentoring will provide nine-month peer mentoring relationships to young people permanently excluded from mainstream school in Birmingham, matched with mentors who share similar backgrounds, delivered through four alternative provision settings.",
+      "themes": ["Young people", "Education", "Employment"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -1493,7 +1504,7 @@
         "regionName": "West Midlands",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:08:29.237",
+      "deprivationResolvedAt": "2026-08-15 22:08:29.237",
       "deliveryNation": "england",
       "deliveryRegion": "West Midlands",
       "deliveryLadCode": "E08000025",
@@ -1570,7 +1581,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:16:26.317",
+      "dueDiligenceCheckedAt": "2026-08-15 22:16:26.317",
       "custodianScoreStatus": "scored",
       "custodianScore": 72,
       "custodianScoreDetail": {
@@ -1610,8 +1621,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:16:26.323",
+      "custodianScoredAt": "2026-08-15 22:16:26.323",
       "grantPurpose": "Wetland Futures will install eleven adjustable sluices and two solar-powered pumps across 62 hectares of Broadland grazing marsh at Halvergate to restore winter water levels for breeding waders, with a three-year monitoring programme.",
+      "themes": ["Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -1630,7 +1642,7 @@
         "regionName": "East of England",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:17:22.499",
+      "deprivationResolvedAt": "2026-08-15 22:17:22.499",
       "deliveryNation": "england",
       "deliveryRegion": "East of England",
       "deliveryLadCode": "E07000145",
@@ -1707,7 +1719,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:12:14.611",
+      "dueDiligenceCheckedAt": "2026-08-15 22:12:14.611",
       "custodianScoreStatus": "scored",
       "custodianScore": 36,
       "custodianScoreDetail": {
@@ -1746,8 +1758,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:12:14.623",
+      "custodianScoredAt": "2026-08-15 22:12:14.623",
       "grantPurpose": "Newbridge Tenants' Support will employ a part-time adviser providing drop-in sessions at three community venues and a telephone line for private rented sector tenants in west Belfast over two years.",
+      "themes": ["Housing"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -1766,7 +1779,7 @@
         "regionName": null,
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:12:58.703",
+      "deprivationResolvedAt": "2026-08-15 22:12:58.703",
       "deliveryNation": "northern_ireland",
       "deliveryRegion": null,
       "deliveryLadCode": "N09000003",
@@ -1843,7 +1856,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:20:22.351",
+      "dueDiligenceCheckedAt": "2026-08-15 22:20:22.351",
       "custodianScoreStatus": "scored",
       "custodianScore": 57,
       "custodianScoreDetail": {
@@ -1883,8 +1896,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:20:22.356",
+      "custodianScoredAt": "2026-08-15 22:20:22.356",
       "grantPurpose": "Meals on the Move will deliver hot meals to housebound older people in Torquay and Paignton five days a week, funding a van replacement and a part-time kitchen coordinator to sustain the existing service.",
+      "themes": ["Food security", "Health"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 9,
@@ -1903,7 +1917,7 @@
         "regionName": "South West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:21:20.924",
+      "deprivationResolvedAt": "2026-08-15 22:21:20.924",
       "deliveryNation": "england",
       "deliveryRegion": "South West",
       "deliveryLadCode": "E06000027",
@@ -1980,7 +1994,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:08:31.154",
+      "dueDiligenceCheckedAt": "2026-08-15 22:08:31.154",
       "custodianScoreStatus": "scored",
       "custodianScore": 27,
       "custodianScoreDetail": {
@@ -2021,8 +2035,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:08:31.167",
+      "custodianScoredAt": "2026-08-15 22:08:31.167",
       "grantPurpose": "Cadence Music Education Trust will fit out a professional recording studio at its Bradford premises and run after-school sessions in music production, songwriting and performance for young people in inner-city Bradford.",
+      "themes": ["Young people", "Education"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -2041,7 +2056,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:09:06.52",
+      "deprivationResolvedAt": "2026-08-15 22:09:06.52",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E08000032",
@@ -2118,7 +2133,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:17:24.804",
+      "dueDiligenceCheckedAt": "2026-08-15 22:17:24.804",
       "custodianScoreStatus": "scored",
       "custodianScore": 24,
       "custodianScoreDetail": {
@@ -2159,8 +2174,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:17:24.809",
+      "custodianScoredAt": "2026-08-15 22:17:24.809",
       "grantPurpose": "Greenway Catchment Alliance will deliver community engagement, litter picks, and small-scale habitat improvements along the River Trent urban corridor in Stoke-on-Trent.",
+      "themes": ["Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -2179,7 +2195,7 @@
         "regionName": "West Midlands",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:17:56.394",
+      "deprivationResolvedAt": "2026-08-15 22:17:56.394",
       "deliveryNation": "england",
       "deliveryRegion": "West Midlands",
       "deliveryLadCode": "E06000021",
@@ -2256,7 +2272,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:13:01.632",
+      "dueDiligenceCheckedAt": "2026-08-15 22:13:01.632",
       "custodianScoreStatus": "scored",
       "custodianScore": 43,
       "custodianScoreDetail": {
@@ -2296,8 +2312,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:13:01.638",
+      "custodianScoredAt": "2026-08-15 22:13:01.638",
       "grantPurpose": "Sheltered Lives Trust will deliver an independent retrofit advice service for older owner-occupiers in Leeds, helping them identify suitable measures, available grants, and how to appoint contractors safely.",
+      "themes": ["Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -2316,7 +2333,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:13:47.091",
+      "deprivationResolvedAt": "2026-08-15 22:13:47.091",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E08000035",
@@ -2393,7 +2410,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:21:22.668",
+      "dueDiligenceCheckedAt": "2026-08-15 22:21:22.668",
       "custodianScoreStatus": "scored",
       "custodianScore": 41,
       "custodianScoreDetail": {
@@ -2432,8 +2449,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:21:22.673",
+      "custodianScoredAt": "2026-08-15 22:21:22.673",
       "grantPurpose": "Fenland Food Network will employ a full-time coordinator to map provision, share surplus and establish a joint referral system across fourteen food projects in Grimsby and Cleethorpes over two years.",
+      "themes": ["Food security"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -2452,7 +2470,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:22:01.978",
+      "deprivationResolvedAt": "2026-08-15 22:22:01.978",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E06000012",
@@ -2529,7 +2547,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:09:08.944",
+      "dueDiligenceCheckedAt": "2026-08-15 22:09:08.944",
       "custodianScoreStatus": "scored",
       "custodianScore": 39,
       "custodianScoreDetail": {
@@ -2570,8 +2588,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:09:08.95",
+      "custodianScoredAt": "2026-08-15 22:09:08.95",
       "grantPurpose": "The Ropewalk Youth Centre will extend its opening hours to include Saturday and Sunday afternoon sessions offering sport, cooking and informal support to young people in Nottingham.",
+      "themes": ["Young people"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 5,
@@ -2590,7 +2609,7 @@
         "regionName": "East Midlands",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:09:47.843",
+      "deprivationResolvedAt": "2026-08-15 22:09:47.843",
       "deliveryNation": "england",
       "deliveryRegion": "East Midlands",
       "deliveryLadCode": "E06000018",
@@ -2667,7 +2686,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:17:58.475",
+      "dueDiligenceCheckedAt": "2026-08-15 22:17:58.475",
       "custodianScoreStatus": "scored",
       "custodianScore": 48,
       "custodianScoreDetail": {
@@ -2706,8 +2725,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:17:58.479",
+      "custodianScoredAt": "2026-08-15 22:17:58.479",
       "grantPurpose": "The Peatland Restoration Collective will carry out ditch blocking and hagg reprofiling across 140 hectares of degraded blanket bog on two private estates in Caithness and Sutherland, in partnership with NatureScot Peatland ACTION.",
+      "themes": ["Environment", "Climate", "Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -2726,7 +2746,7 @@
         "regionName": null,
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:18:47.986",
+      "deprivationResolvedAt": "2026-08-15 22:18:47.986",
       "deliveryNation": "scotland",
       "deliveryRegion": null,
       "deliveryLadCode": "S12000050",
@@ -2803,7 +2823,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:13:49.368",
+      "dueDiligenceCheckedAt": "2026-08-15 22:13:49.368",
       "custodianScoreStatus": "scored",
       "custodianScore": 76,
       "custodianScoreDetail": {
@@ -2841,8 +2861,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:13:49.373",
+      "custodianScoredAt": "2026-08-15 22:13:49.373",
       "grantPurpose": "Coalfields Energy Advice will run a mobile energy advice service — income maximisation, tariff checks and retrofit referrals — across nine ex-mining villages in Rotherham for low-income residents who cannot travel, over two years.",
+      "themes": ["Poverty", "Housing", "Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 9,
@@ -2861,7 +2882,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:14:41.955",
+      "deprivationResolvedAt": "2026-08-15 22:14:41.955",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E08000018",
@@ -2878,7 +2899,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:22:03.985",
+      "dueDiligenceCheckedAt": "2026-08-15 22:22:03.985",
       "custodianScoreStatus": "scored",
       "custodianScore": 38,
       "custodianScoreDetail": {
@@ -2918,8 +2939,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:22:03.99",
+      "custodianScoredAt": "2026-08-15 22:22:03.99",
       "grantPurpose": "The Bread Oven Project will run a twelve-week baking course for unemployed adults in Camborne, leading to a formal qualification, delivered from their community bakery.",
+      "themes": ["Poverty"],
       "deprivationStatus": "pending",
       "deprivationContext": null,
       "deprivationResolvedAt": null,
@@ -3029,7 +3051,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:22:40.512",
+      "dueDiligenceCheckedAt": "2026-08-15 22:22:40.512",
       "custodianScoreStatus": "scored",
       "custodianScore": 80,
       "custodianScoreDetail": {
@@ -3067,8 +3089,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:22:40.514",
+      "custodianScoredAt": "2026-08-15 22:22:40.514",
       "grantPurpose": "Riverbank Youth Trust will extend its detached youth work to Central and Talbot wards in Blackpool over three years, running a third team four evenings a week to reach young people in the city's two highest-need wards.",
+      "themes": ["Young people", "Education", "Employment"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 1,
@@ -3087,7 +3110,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:23:51.523",
+      "deprivationResolvedAt": "2026-08-15 22:23:51.523",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E06000009",
@@ -3164,7 +3187,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:27:14.468",
+      "dueDiligenceCheckedAt": "2026-08-15 22:27:14.468",
       "custodianScoreStatus": "scored",
       "custodianScore": 78,
       "custodianScoreDetail": {
@@ -3202,8 +3225,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:27:14.472",
+      "custodianScoredAt": "2026-08-15 22:27:14.472",
       "grantPurpose": "Threshold Housing Advice will deploy two housing advocates to Merthyr Tydfil and Caerphilly to deliver casework including damp and mould inspections, HHSRS referrals, and tribunal representation for private rented sector tenants over two years.",
+      "themes": ["Housing", "Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -3222,7 +3246,7 @@
         "regionName": "Wales",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:28:03.734",
+      "deprivationResolvedAt": "2026-08-15 22:28:03.734",
       "deliveryNation": "wales",
       "deliveryRegion": "Wales",
       "deliveryLadCode": "W06000016",
@@ -3329,7 +3353,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:31:33.538",
+      "dueDiligenceCheckedAt": "2026-08-15 22:31:33.538",
       "custodianScoreStatus": "scored",
       "custodianScore": 70,
       "custodianScoreDetail": {
@@ -3367,8 +3391,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:31:33.543",
+      "custodianScoredAt": "2026-08-15 22:31:33.543",
       "grantPurpose": "The Chalk Streams Partnership will construct three phosphate-stripping wetlands on tributary inflows and reconnect 58 hectares of floodplain on the River Wensum, Norfolk, as the second phase of a catchment-scale river restoration programme.",
+      "themes": ["Environment", "Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 5,
@@ -3387,7 +3412,7 @@
         "regionName": "East of England",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:32:34.319",
+      "deprivationResolvedAt": "2026-08-15 22:32:34.319",
       "deliveryNation": "england",
       "deliveryRegion": "East of England",
       "deliveryLadCode": "E07000148",
@@ -3464,7 +3489,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:23:53.423",
+      "dueDiligenceCheckedAt": "2026-08-15 22:23:53.423",
       "custodianScoreStatus": "scored",
       "custodianScore": 67,
       "custodianScoreDetail": {
@@ -3504,8 +3529,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:23:53.426",
+      "custodianScoredAt": "2026-08-15 22:23:53.426",
       "grantPurpose": "Fair Start Careers will deliver six-week pre-employment academies for young people in Hull linked to offshore wind and port logistics employers, with twelve months of in-work support following placement, over three years.",
+      "themes": ["Young people", "Employment"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -3524,7 +3550,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:24:51.872",
+      "deprivationResolvedAt": "2026-08-15 22:24:51.872",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E06000010",
@@ -3601,7 +3627,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:35:09.459",
+      "dueDiligenceCheckedAt": "2026-08-15 22:35:09.459",
       "custodianScoreStatus": "scored",
       "custodianScore": 85,
       "custodianScoreDetail": {
@@ -3638,8 +3664,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:35:09.464",
+      "custodianScoredAt": "2026-08-15 22:35:09.464",
       "grantPurpose": "The Larder Collective will convert three food parcel sites into community pantries and establish a shared warehouse with chilled storage in Oldham, supported by a logistics coordinator, over two years.",
+      "themes": ["Food security", "Poverty"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -3658,7 +3685,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:35:53.884",
+      "deprivationResolvedAt": "2026-08-15 22:35:53.884",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E08000004",
@@ -3735,7 +3762,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:28:05.72",
+      "dueDiligenceCheckedAt": "2026-08-15 22:28:05.72",
       "custodianScoreStatus": "scored",
       "custodianScore": 65,
       "custodianScoreDetail": {
@@ -3774,8 +3801,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:28:05.725",
+      "custodianScoredAt": "2026-08-15 22:28:05.725",
       "grantPurpose": "The Hearth Project will replace its existing fuel voucher scheme with two qualified energy advisers delivering full casework — including benefit checks, supplier negotiation, debt write-off applications and Priority Services registration — for low-income households in Glasgow over two years.",
+      "themes": ["Poverty", "Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -3794,7 +3822,7 @@
         "regionName": null,
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:29:04.014",
+      "deprivationResolvedAt": "2026-08-15 22:29:04.014",
       "deliveryNation": "scotland",
       "deliveryRegion": null,
       "deliveryLadCode": "S12000049",
@@ -3871,7 +3899,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:32:36.27",
+      "dueDiligenceCheckedAt": "2026-08-15 22:32:36.27",
       "custodianScoreStatus": "scored",
       "custodianScore": 68,
       "custodianScoreDetail": {
@@ -3910,8 +3938,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:32:36.274",
+      "custodianScoredAt": "2026-08-15 22:32:36.274",
       "grantPurpose": "Riverkeepers Cymru will install two passive mine-water treatment systems and replant 8km of riparian habitat on the Taff headwaters above Merthyr Tydfil, in partnership with the Coal Authority, Natural Resources Wales and Merthyr Tydfil CBC, to restore water quality and fish populations degraded by historic coal mining.",
+      "themes": ["Environment", "Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 9,
@@ -3930,7 +3959,7 @@
         "regionName": "Wales",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:33:44.021",
+      "deprivationResolvedAt": "2026-08-15 22:33:44.021",
       "deliveryNation": "wales",
       "deliveryRegion": "Wales",
       "deliveryLadCode": "W06000024",
@@ -4007,7 +4036,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:24:53.81",
+      "dueDiligenceCheckedAt": "2026-08-15 22:24:53.81",
       "custodianScoreStatus": "scored",
       "custodianScore": 67,
       "custodianScoreDetail": {
@@ -4046,8 +4075,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:24:53.816",
+      "custodianScoredAt": "2026-08-15 22:24:53.816",
       "grantPurpose": "Cadence Music Education Trust will deliver weekly music mentoring by working musicians in three Bradford pupil referral units over three years, with progression routes into studio sessions and Bradford College music courses for disengaged young people.",
+      "themes": ["Young people", "Education"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -4066,7 +4096,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:25:48.079",
+      "deprivationResolvedAt": "2026-08-15 22:25:48.079",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E08000032",
@@ -4143,7 +4173,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:35:55.921",
+      "dueDiligenceCheckedAt": "2026-08-15 22:35:55.921",
       "custodianScoreStatus": "scored",
       "custodianScore": 72,
       "custodianScoreDetail": {
@@ -4182,8 +4212,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:35:55.925",
+      "custodianScoredAt": "2026-08-15 22:35:55.925",
       "grantPurpose": "Second Harvest Kitchens will fit out and operate a commercial community kitchen in Plymouth, cooking food surplus into frozen meals for distribution through fourteen partner projects, staffed by a chef, kitchen assistant, and rolling trainee cohort, over two years.",
+      "themes": ["Food security", "Poverty"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 4,
@@ -4202,7 +4233,7 @@
         "regionName": "South West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:36:45.143",
+      "deprivationResolvedAt": "2026-08-15 22:36:45.143",
       "deliveryNation": "england",
       "deliveryRegion": "South West",
       "deliveryLadCode": "E06000026",
@@ -4249,7 +4280,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:29:06.125",
+      "dueDiligenceCheckedAt": "2026-08-15 22:29:06.125",
       "custodianScoreStatus": "scored",
       "custodianScore": 82,
       "custodianScoreDetail": {
@@ -4287,8 +4318,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:29:06.13",
+      "custodianScoredAt": "2026-08-15 22:29:06.13",
       "grantPurpose": "Warmer Futures Cooperative will employ two additional caseworkers and a part-time supervisor to expand its fuel debt casework service for low-income households in Sunderland over two years.",
+      "themes": ["Poverty", "Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 7,
@@ -4307,7 +4339,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:30:02.694",
+      "deprivationResolvedAt": "2026-08-15 22:30:02.694",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E06000063",
@@ -4384,7 +4416,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:33:45.914",
+      "dueDiligenceCheckedAt": "2026-08-15 22:33:45.914",
       "custodianScoreStatus": "scored",
       "custodianScore": 69,
       "custodianScoreDetail": {
@@ -4423,8 +4455,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:33:45.921",
+      "custodianScoredAt": "2026-08-15 22:33:45.921",
       "grantPurpose": "The Peatland Restoration Collective will restore 210 hectares of eroding blanket bog in Strath Halladale, Highland, through ditch blocking, hagg reprofiling and bare-peat revegetation, with five-year dipwell and fixed-point photographic monitoring.",
+      "themes": ["Environment", "Climate", "Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -4443,7 +4476,7 @@
         "regionName": null,
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:34:36.54",
+      "deprivationResolvedAt": "2026-08-15 22:34:36.54",
       "deliveryNation": "scotland",
       "deliveryRegion": null,
       "deliveryLadCode": "S12000050",
@@ -4460,7 +4493,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:25:50.164",
+      "dueDiligenceCheckedAt": "2026-08-15 22:25:50.164",
       "custodianScoreStatus": "scored",
       "custodianScore": 30,
       "custodianScoreDetail": {
@@ -4500,8 +4533,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:25:50.169",
+      "custodianScoredAt": "2026-08-15 22:25:50.169",
       "grantPurpose": "The Lighthouse Youth Foundation will deliver a borough-wide programme of sports, arts and personal development activities for young people across Knowsley through its venue network.",
+      "themes": ["Young people"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 7,
@@ -4520,7 +4554,7 @@
         "regionName": "North West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:26:25.526",
+      "deprivationResolvedAt": "2026-08-15 22:26:25.526",
       "deliveryNation": "england",
       "deliveryRegion": "North West",
       "deliveryLadCode": "E08000011",
@@ -4597,7 +4631,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:36:47.16",
+      "dueDiligenceCheckedAt": "2026-08-15 22:36:47.16",
       "custodianScoreStatus": "scored",
       "custodianScore": 49,
       "custodianScoreDetail": {
@@ -4637,8 +4671,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:36:47.164",
+      "custodianScoredAt": "2026-08-15 22:36:47.164",
       "grantPurpose": "Fenland Food Network will employ a coordinator to establish a shared referral system and surplus-sharing rota across fourteen community food projects in Grimsby and Cleethorpes over two years.",
+      "themes": ["Food security", "Poverty"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 2,
@@ -4657,7 +4692,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:37:35.775",
+      "deprivationResolvedAt": "2026-08-15 22:37:35.775",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E06000012",
@@ -4734,7 +4769,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:30:04.704",
+      "dueDiligenceCheckedAt": "2026-08-15 22:30:04.704",
       "custodianScoreStatus": "scored",
       "custodianScore": 46,
       "custodianScoreDetail": {
@@ -4773,8 +4808,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:30:04.705",
+      "custodianScoredAt": "2026-08-15 22:30:04.705",
       "grantPurpose": "Newbridge Tenants' Support will run a two-year, full-time tenant advice service for private renters in west Belfast, delivering casework on disrepair, deposit disputes and notice-to-quit challenges through community venue drop-ins and a phone line.",
+      "themes": ["Housing"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -4793,7 +4829,7 @@
         "regionName": null,
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:30:52.558",
+      "deprivationResolvedAt": "2026-08-15 22:30:52.558",
       "deliveryNation": "northern_ireland",
       "deliveryRegion": null,
       "deliveryLadCode": "N09000003",
@@ -4870,7 +4906,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:34:39.096",
+      "dueDiligenceCheckedAt": "2026-08-15 22:34:39.096",
       "custodianScoreStatus": "scored",
       "custodianScore": 27,
       "custodianScoreDetail": {
@@ -4912,8 +4948,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:34:39.1",
+      "custodianScoredAt": "2026-08-15 22:34:39.1",
       "grantPurpose": "Upper Dales Rivers Trust will carry out farmer engagement and habitat improvement works in the Swale catchment, Richmondshire, to reduce diffuse pollution and improve river habitat, with sites to be identified during delivery.",
+      "themes": ["Environment", "Nature"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -4932,7 +4969,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:35:07.249",
+      "deprivationResolvedAt": "2026-08-15 22:35:07.249",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": null,
@@ -5009,7 +5046,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:26:27.304",
+      "dueDiligenceCheckedAt": "2026-08-15 22:26:27.304",
       "custodianScoreStatus": "scored",
       "custodianScore": 51,
       "custodianScoreDetail": {
@@ -5048,8 +5085,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:26:27.307",
+      "custodianScoredAt": "2026-08-15 22:26:27.307",
       "grantPurpose": "The Ropewalk Youth Centre will run staffed Saturday and Sunday afternoon sessions for young people in Nottingham over two years, offering sport, cooking, a recording studio, and one-to-one youth worker support.",
+      "themes": ["Young people"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 5,
@@ -5068,7 +5106,7 @@
         "regionName": "East Midlands",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:27:12.43",
+      "deprivationResolvedAt": "2026-08-15 22:27:12.43",
       "deliveryNation": "england",
       "deliveryRegion": "East Midlands",
       "deliveryLadCode": "E06000018",
@@ -5145,7 +5183,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:37:38.578",
+      "dueDiligenceCheckedAt": "2026-08-15 22:37:38.578",
       "custodianScoreStatus": "scored",
       "custodianScore": 38,
       "custodianScoreDetail": {
@@ -5184,8 +5222,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:37:38.583",
+      "custodianScoredAt": "2026-08-15 22:37:38.583",
       "grantPurpose": "The Bread Oven Project will expand its bakery training programme in Camborne from two to four cohorts per year by recruiting an additional tutor, aiming to serve more unemployed local residents.",
+      "themes": ["Food security", "Poverty"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 5,
@@ -5204,7 +5243,7 @@
         "regionName": "South West",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:38:19.054",
+      "deprivationResolvedAt": "2026-08-15 22:38:19.054",
       "deliveryNation": "england",
       "deliveryRegion": "South West",
       "deliveryLadCode": "E06000052",
@@ -5281,7 +5320,7 @@
           "source": "threesixtygiving"
         }
       ],
-      "dueDiligenceCheckedAt": "2026-08-15 23:30:54.322",
+      "dueDiligenceCheckedAt": "2026-08-15 22:30:54.322",
       "custodianScoreStatus": "scored",
       "custodianScore": 34,
       "custodianScoreDetail": {
@@ -5321,8 +5360,9 @@
           }
         }
       },
-      "custodianScoredAt": "2026-08-15 23:30:54.327",
+      "custodianScoredAt": "2026-08-15 22:30:54.327",
       "grantPurpose": "Sheltered Lives Trust will deliver an independent retrofit advice service for older owner-occupiers in Leeds who are considering energy efficiency improvements.",
+      "themes": ["Energy"],
       "deprivationStatus": "resolved",
       "deprivationContext": {
         "max": 10,
@@ -5341,7 +5381,7 @@
         "regionName": "Yorkshire and The Humber",
         "resolvedVia": "place"
       },
-      "deprivationResolvedAt": "2026-08-15 23:31:31.841",
+      "deprivationResolvedAt": "2026-08-15 22:31:31.841",
       "deliveryNation": "england",
       "deliveryRegion": "Yorkshire and The Humber",
       "deliveryLadCode": "E08000035",
@@ -5391,7 +5431,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:29:41.293"
+      "analysedAt": "2026-08-16 06:29:41.293"
     },
     "WF-2025-007": {
       "analysisStatus": "analysed",
@@ -5434,7 +5474,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:33:01.355"
+      "analysedAt": "2026-08-16 06:33:01.355"
     },
     "WF-2025-009": {
       "analysisStatus": "analysed",
@@ -5472,7 +5512,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:35:03.674"
+      "analysedAt": "2026-08-16 06:35:03.674"
     },
     "WF-2025-011": {
       "analysisStatus": "analysed",
@@ -5513,7 +5553,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:31:04.242"
+      "analysedAt": "2026-08-16 06:31:04.242"
     },
     "WF-2025-012": {
       "analysisStatus": "analysed",
@@ -5554,7 +5594,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:35:34.494"
+      "analysedAt": "2026-08-16 06:35:34.494"
     },
     "WF-2025-014": {
       "analysisStatus": "analysed",
@@ -5594,7 +5634,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:33:40.977"
+      "analysedAt": "2026-08-16 06:33:40.977"
     },
     "WF-2025-023": {
       "analysisStatus": "analysed",
@@ -5635,7 +5675,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:32:24.555"
+      "analysedAt": "2026-08-16 06:32:24.555"
     },
     "WF-2025-041": {
       "analysisStatus": "analysed",
@@ -5672,7 +5712,7 @@
         ],
         "model": "claude-sonnet-4-6"
       },
-      "analysedAt": "2026-08-16 07:34:21.07"
+      "analysedAt": "2026-08-16 06:34:21.07"
     }
   }
 }
