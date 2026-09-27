@@ -129,7 +129,11 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
   {
     key: 'organisationName',
     label: 'Organisation name',
-    tier: 'required',
+    // `expected`, not `required`: a submission that forgot to say who it is from lands as
+    // "Unnamed (ref …)" (`lib/organisationName.ts`) for a person to fill in.
+    tier: 'expected',
+    degrades: 'Without it the application is listed under its reference instead of a name.',
+    blocks: 'Needed before anything is sent to the applicant: every letter names them.',
     description: 'The legal or trading name of the applicant organisation.',
   },
   {
@@ -450,6 +454,19 @@ export function unmetOneOfGroups(
 ): CanonicalFieldKey[][] {
   const have = new Set(resolvedKeys)
   return groups.filter((group) => !group.some((k) => have.has(k)))
+}
+
+/**
+ * The `required` fields a set of resolved keys leaves out. The ingest pipeline holds on
+ * these; the admin app's Confirm must refuse on them too, and can no longer lean on
+ * `CreateApplicationSchema` to do it, because the schema has nothing left it insists on
+ * but the round-programme (the organisation name became optional when applications
+ * became editable). Without this, a mapping posted empty (the registry not yet loaded in
+ * the admin client) would validate and blank a live application.
+ */
+export function unmetRequired(resolvedKeys: Iterable<string>): CanonicalFieldKey[] {
+  const have = new Set(resolvedKeys)
+  return REQUIRED_CANONICAL_KEYS.filter((k) => !have.has(k))
 }
 
 /** Human phrasing for an unmet group: "a charity number or a company number". */

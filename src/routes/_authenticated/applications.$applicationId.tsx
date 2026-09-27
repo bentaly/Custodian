@@ -35,6 +35,7 @@ import {
 } from '../../components/applications/edit/FieldEditor'
 import { rescore } from '../../server/fns/applicationEdits'
 import { isEditableField, type EditableField } from '../../lib/applicationEdit'
+import { isUnnamedOrganisation } from '../../lib/organisationName'
 import { FirstYearDialog } from '../../components/FirstYearDialog'
 import { CommentsSection } from '../../components/CommentsSection'
 import { ProgressBar } from '../../components/ProgressBar'
@@ -535,6 +536,8 @@ function ApplicationDetail() {
   // indistinguishable from a question the foundation never asked — so the feature it
   // feeds silently doesn't run. Stating it is the difference between noticing in the
   // queue and noticing weeks later, if at all.
+  // "Unnamed (ref …)" is a stand-in, not a name: it counts as not captured.
+  const unnamed = isUnnamedOrganisation(application.organisationName)
   const gapValues = {
     charityNumber: application.charityNumber,
     companyNumber: application.companyNumber,
@@ -545,6 +548,7 @@ function ApplicationDetail() {
     budgetBreakdownLink: application.budgetBreakdownLink,
     proposedImpactQuantity: application.proposedImpactQuantity,
     amountRequested: application.amountRequested,
+    organisationName: unnamed ? null : application.organisationName,
     applicantEmail: application.applicantEmail,
     // From the server's unredacted row, so a trustee is not told the bank details are
     // missing merely because they are withheld from them.
@@ -563,7 +567,7 @@ function ApplicationDetail() {
   const canEdit = application.canEdit
   const edits = application.edits
   const editValues: Partial<Record<EditableField, string | null>> = {
-    organisationName: application.organisationName,
+    organisationName: unnamed ? null : application.organisationName,
     applicantEmail: application.applicantEmail,
     charityNumber: application.charityNumber,
     companyNumber: application.companyNumber,

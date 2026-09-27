@@ -18,6 +18,7 @@ import { resolveDeprivation } from '../deprivation/run'
 import { deliveryGeoFromResult } from '../../lib/deprivation/types'
 import type { CreateApplicationInput } from '../../lib/validators/application'
 import { bankFields } from './bank'
+import { isUnnamedOrganisation, unnamedOrganisation } from '../../lib/organisationName'
 
 /** Fetch a round programme with everything the create pipeline needs (round for
  *  the open-check at the call site, programme + client profile for scoring). */
@@ -142,7 +143,7 @@ export async function createApplicationFromCanonical(
           programmeDescription: programme.description,
           programmeThemes: programme.tags,
           grantDurationYears: roundProgramme.grantDurationYears,
-          organisationName: input.organisationName,
+          organisationName: input.organisationName ?? 'an organisation that did not give its name',
           organisationSummary: input.organisationSummary,
           amountRequested,
           unrestrictedReserves: input.unrestrictedReserves,
@@ -168,7 +169,7 @@ export async function createApplicationFromCanonical(
     id,
     roundProgrammeId: input.roundProgrammeId,
     externalApplicationId: input.externalApplicationId,
-    organisationName: input.organisationName,
+    organisationName: input.organisationName ?? unnamedOrganisation(input.externalApplicationId),
     organisationSummary: input.organisationSummary,
     applicantEmail: input.applicantEmail,
     charityNumber: input.charityNumber,
@@ -282,13 +283,17 @@ export async function updateApplicationFromCanonical(
   // change and re-score the application over a figure nobody touched.
   const sameNumber = (a: string | null | undefined, b: number | null | undefined) =>
     (a == null || a === '' ? null : Number(a)) === (b ?? null)
+  // The stand-in for a missing name is not a name: compare as though absent.
+  const existingName = isUnnamedOrganisation(existing.organisationName)
+    ? null
+    : existing.organisationName
 
   const dueDiligenceInputsChanged =
     !same(existing.charityNumber, input.charityNumber) ||
     !same(existing.companyNumber, input.companyNumber) ||
     // The name is screened too (does this number belong to the applicant?), so a
     // corrected name must re-run — otherwise a mapping fix leaves the old mismatch.
-    !same(existing.organisationName, input.organisationName) ||
+    !same(existingName, input.organisationName) ||
     !sameNumber(existing.amountRequested, input.amountRequested)
   const deprivationInputsChanged = !same(existing.deliveryArea, input.deliveryArea)
   // The score reads most of the application, so nearly anything a reviewer can change
@@ -296,7 +301,7 @@ export async function updateApplicationFromCanonical(
   const scoreInputsChanged =
     dueDiligenceInputsChanged ||
     deprivationInputsChanged ||
-    !same(existing.organisationName, input.organisationName) ||
+    !same(existingName, input.organisationName) ||
     !same(existing.organisationSummary, input.organisationSummary) ||
     !sameNumber(existing.unrestrictedReserves, input.unrestrictedReserves) ||
     !same(existing.budgetBreakdownLink, input.budgetBreakdownLink) ||
@@ -355,7 +360,7 @@ export async function updateApplicationFromCanonical(
           programmeDescription: programme.description,
           programmeThemes: programme.tags,
           grantDurationYears: roundProgramme.grantDurationYears,
-          organisationName: input.organisationName,
+          organisationName: input.organisationName ?? 'an organisation that did not give its name',
           organisationSummary: input.organisationSummary,
           amountRequested,
           unrestrictedReserves: input.unrestrictedReserves,
@@ -380,7 +385,7 @@ export async function updateApplicationFromCanonical(
     .update(applications)
     .set({
       externalApplicationId: input.externalApplicationId,
-      organisationName: input.organisationName,
+      organisationName: input.organisationName ?? unnamedOrganisation(input.externalApplicationId),
       organisationSummary: input.organisationSummary,
       applicantEmail: input.applicantEmail,
       charityNumber: input.charityNumber,

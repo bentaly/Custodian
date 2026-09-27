@@ -92,13 +92,15 @@ describe('diagnoseIngest', () => {
 
   it('names every required field that never resolved', () => {
     const row = cleanIngest()
-    delete row.resolved!['org']
+    delete row.resolved!['ref']
     delete row.resolved!['accNo']
+    delete row.resolved!['org']
     const blockers = diagnoseIngest(row, emptyIndex)
     const required = blockers.find((b) => b.code === 'required_unmapped')!
     expect(required.severity).toBe('blocking')
-    // The account number is no longer required: it lands as a gap on the application.
-    expect(required.fields!.map((f) => f.key).sort()).toEqual(['organisationName'])
+    // Neither the account number nor the organisation name is required any more: both
+    // land as gaps on the application.
+    expect(required.fields!.map((f) => f.key).sort()).toEqual(['externalApplicationId'])
   })
 
   it('does not hold a submission that carries no registration number', () => {
@@ -125,10 +127,10 @@ describe('diagnoseIngest', () => {
 
   it('does not report a missing required field twice as an invalid value', () => {
     const row = cleanIngest()
-    delete row.resolved!['org']
+    delete row.resolved!['ref']
     const blockers = diagnoseIngest(row, emptyIndex)
     expect(
-      blockers.filter((b) => b.fields?.some((f) => f.key === 'organisationName')),
+      blockers.filter((b) => b.fields?.some((f) => f.key === 'externalApplicationId')),
     ).toHaveLength(1)
   })
 

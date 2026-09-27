@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CreateApplicationSchema } from '../../lib/validators/application'
+import { unmetRequired } from '../../lib/fieldMapping'
 import {
   PROVIDED,
   buildCanonicalInput,
@@ -78,13 +79,21 @@ describe('confirming a corrected mapping', () => {
     // The degenerate case worth guarding: the canonical registry not yet loaded in the
     // admin client would post `{}`. Confirm must fail on the required fields, not write
     // NULLs over an application that already exists.
-    const empty = canonicalFor({})
-    expect(empty.success).toBe(false)
+    // The schema no longer insists on any mapped field (the organisation name became
+    // optional), so the refusal is `unmetRequired`, which `resolve.ts` applies to both
+    // Confirm branches.
+    expect(unmetRequired(Object.keys({}))).toEqual(['programmeName', 'externalApplicationId'])
   })
 
   it('refuses a mapping that drops a required field', () => {
+    const { externalApplicationId: _dropped, ...withoutRef } = AI_MAPPING
+    expect(unmetRequired(Object.keys(withoutRef))).toEqual(['externalApplicationId'])
+  })
+
+  it('accepts a mapping without the organisation name, which lands as Unnamed', () => {
     const { organisationName: _dropped, ...withoutName } = AI_MAPPING
-    expect(canonicalFor(withoutName).success).toBe(false)
+    expect(unmetRequired(Object.keys(withoutName))).toEqual([])
+    expect(canonicalFor(withoutName).success).toBe(true)
   })
 
   it('accepts a mapping without the amount or bank details, for a person to fill in', () => {

@@ -47,7 +47,8 @@ export const CreateApplicationSchema = z.object({
   // the field-mapping ingest path. Optional so direct (canonical) submissions
   // still validate without one.
   externalApplicationId: z.string().min(1).max(255).optional(),
-  organisationName: z.string().min(1).max(255),
+  // Optional: a submission without one lands as "Unnamed (ref …)". See lib/organisationName.
+  organisationName: z.string().min(1).max(255).optional(),
   // The applicant's own description of their organisation. Optional — not every
   // foundation asks. The cap is generous because this is prose an applicant wrote into
   // a free-text box, not a field with a shape: the longest on Arete's live form runs to

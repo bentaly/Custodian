@@ -48,11 +48,11 @@ describe('applyLookup', () => {
   })
 
   it('reports unresolved required fields when a mapping is missing', () => {
-    const mappings = FULL_MAPPINGS.filter((m) => m.canonicalField !== 'organisationName')
+    const mappings = FULL_MAPPINGS.filter((m) => m.canonicalField !== 'externalApplicationId')
     const r = applyLookup(FULL_PAYLOAD, mappings)
-    expect(r.unresolvedRequired).toEqual(['organisationName'])
+    expect(r.unresolvedRequired).toEqual(['externalApplicationId'])
     // the still-present payload key with no mapping becomes a leftover
-    expect(r.leftoverKeys).toContain('org')
+    expect(r.leftoverKeys).toContain('app_ref')
   })
 
   it('treats an exact canonical key as an identity match (no lookup row needed)', () => {
@@ -65,10 +65,10 @@ describe('applyLookup', () => {
   })
 
   it('does not resolve a mapped field whose value is empty, and does not leak it to responses', () => {
-    const r = applyLookup({ ...FULL_PAYLOAD, org: '' }, FULL_MAPPINGS)
-    expect(r.resolved.organisationName).toBeUndefined()
-    expect(r.unresolvedRequired).toContain('organisationName')
-    expect(r.leftoverKeys).not.toContain('org')
+    const r = applyLookup({ ...FULL_PAYLOAD, app_ref: '' }, FULL_MAPPINGS)
+    expect(r.resolved.externalApplicationId).toBeUndefined()
+    expect(r.unresolvedRequired).toContain('externalApplicationId')
+    expect(r.leftoverKeys).not.toContain('app_ref')
   })
 
   it('does not list optional fields as unresolved when absent', () => {

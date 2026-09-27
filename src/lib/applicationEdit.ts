@@ -28,6 +28,7 @@
 
 import { CANONICAL_FIELD_BY_KEY, toStringValue, type CanonicalFieldKey } from './fieldMapping'
 import type { CreateApplicationInput } from './validators/application'
+import { isUnnamedOrganisation } from './organisationName'
 
 /** The fields an admin may edit, in the order the edit surfaces offer them. */
 export const EDITABLE_FIELDS = [
@@ -124,7 +125,9 @@ export function canonicalFromApplication(app: {
   return {
     roundProgrammeId: app.roundProgrammeId,
     externalApplicationId: text(app.externalApplicationId),
-    organisationName: app.organisationName,
+    organisationName: isUnnamedOrganisation(app.organisationName)
+      ? undefined
+      : app.organisationName,
     organisationSummary: text(app.organisationSummary),
     applicantEmail: text(app.applicantEmail),
     charityNumber: text(app.charityNumber),

@@ -16,21 +16,19 @@ describe('canonical tiers', () => {
   it('holds a submission only over what an application cannot exist without', () => {
     // Since applications became editable, a gap a person can fill in on the
     // application lands rather than waiting in our queue. What is left required is what
-    // there is no application WITHOUT: somewhere to put it (the programme), a name to
-    // list it under, and the foundation's own reference, which is what stops a
-    // re-sent submission becoming a second application.
-    expect(REQUIRED_CANONICAL_KEYS).toEqual([
-      'programmeName',
-      'externalApplicationId',
-      'organisationName',
-    ])
+    // there is no application WITHOUT: somewhere to put it (the programme; without it a
+    // submission waits in its round's "needs a programme" banner) and the foundation's
+    // own reference, which stops a re-sent submission becoming a second application and
+    // names one that arrived without an organisation name ("Unnamed (ref …)").
+    expect(REQUIRED_CANONICAL_KEYS).toEqual(['programmeName', 'externalApplicationId'])
   })
 
   it('says what each former required field now holds up, so its absence is visible', () => {
     // Demoted from `required`, these must not become silent: each names the step that
-    // waits on it, which is what puts it in the "to fill in" panel at the top of the
-    // application rather than the quieter "Not captured" at the foot.
+    // waits on it (`fieldGaps().toFill`), which is what lists it on the application with
+    // a way to fill it in.
     for (const key of [
+      'organisationName',
       'applicantEmail',
       'amountRequested',
       'bankAccountName',

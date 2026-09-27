@@ -28,7 +28,12 @@ import {
   updateApplicationFromCanonical,
 } from '../applications/create'
 import { CreateApplicationSchema } from '../../lib/validators/application'
-import { describeOneOfGroup, unmetOneOfGroups } from '../../lib/fieldMapping'
+import {
+  CANONICAL_FIELD_BY_KEY,
+  describeOneOfGroup,
+  unmetOneOfGroups,
+  unmetRequired,
+} from '../../lib/fieldMapping'
 import type { ResolveInput } from '../../lib/validators/ingest'
 
 export type ResolveResult =
@@ -76,10 +81,18 @@ function oneOfIssues(input: ResolveInput): Array<{ field: string; message: strin
       .filter(([, value]) => value.trim())
       .map(([canonical]) => canonical),
   ]
-  return unmetOneOfGroups(chosen).map((group) => ({
-    field: group[0]!,
-    message: `Map a ${describeOneOfGroup(group)} — a submission needs at least one of them.`,
-  }))
+  return [
+    ...unmetOneOfGroups(chosen).map((group) => ({
+      field: group[0]!,
+      message: `Map a ${describeOneOfGroup(group)} — a submission needs at least one of them.`,
+    })),
+    // The required fields, checked here rather than left to the schema, which no longer
+    // insists on any of them. See `unmetRequired`.
+    ...unmetRequired(chosen).map((field) => ({
+      field,
+      message: `Map ${CANONICAL_FIELD_BY_KEY[field].label.toLowerCase()}: a submission cannot be promoted without it.`,
+    })),
+  ]
 }
 
 /** Persist reviewer-confirmed mappings to the foundation's lookup table. */
