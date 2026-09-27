@@ -443,7 +443,14 @@ export async function setApplicationThemes(params: {
  * the old one.
  */
 /** Re-runs allowed per application per day: enough to fix, re-run, spot one more thing. */
-export const RERUNS_PER_DAY = 3
+export const RERUNS_PER_DAY = 5
+
+/** Why a re-run is not on offer. Only `capped` is SHOWN (a disabled button saying why); the
+ *  rest hide the button, because there is nothing a person can do about them there. */
+export type RerunBlocker = {
+  code: 'unavailable' | 'voted' | 'unchanged' | 'capped'
+  message: string
+}
 
 /**
  * Why a re-run is not on offer right now, or null when it is. One statement of the rule
@@ -456,7 +463,7 @@ export const RERUNS_PER_DAY = 3
  *     without votes is still fine; nobody has decided anything on the strength of it.
  *   - At most RERUNS_PER_DAY a day, because each is a paid model call.
  */
-export async function rerunBlocker(applicationId: string): Promise<string | null> {
+export async function rerunBlocker(applicationId: string): Promise<RerunBlocker | null> {
   const db = getDb()
   const app = await db.query.applications.findFirst({
     where: eq(applications.id, applicationId),
@@ -468,10 +475,12 @@ export async function rerunBlocker(applicationId: string): Promise<string | null
     },
     with: { award: { columns: { id: true } } },
   })
-  if (!app) return 'Not found.'
-  if (app.award) return 'This application has been awarded.'
-  if (app.amountRequested === null) return 'Fill in the amount requested first.'
-  if (app.custodianScoreStatus === 'queued') return 'The assessment is already running.'
+  if (!app) return { code: 'unavailable', message: 'Not found.' }
+  if (app.award) return { code: 'unavailable', message: 'This application has been awarded.' }
+  if (app.amountRequested === null)
+    return { code: 'unavailable', message: 'Fill in the amount requested first.' }
+  if (app.custodianScoreStatus === 'queued')
+    return { code: 'unavailable', message: 'The assessment is already running.' }
   const [votes, changed, recent] = await Promise.all([
     db
       .select({ n: sql<number>`count(*)::int` })
@@ -503,13 +512,22 @@ export async function rerunBlocker(applicationId: string): Promise<string | null
       ),
   ])
   if ((votes[0]?.n ?? 0) > 0) {
-    return 'Trustees have voted on this assessment, so it is kept as they saw it.'
+    return {
+      code: 'voted',
+      message: 'Trustees have voted on this assessment, so it is kept as they saw it.',
+    }
   }
   if (app.custodianScoreStatus !== 'error' && (changed[0]?.n ?? 0) === 0) {
-    return 'Nothing the assessment reads has changed since it last ran.'
+    return {
+      code: 'unchanged',
+      message: 'Nothing the assessment reads has changed since it last ran.',
+    }
   }
   if ((recent[0]?.n ?? 0) >= RERUNS_PER_DAY) {
-    return `The assessment has been re-run ${RERUNS_PER_DAY} times today. Try again tomorrow.`
+    return {
+      code: 'capped',
+      message: `The assessment has been re-run ${RERUNS_PER_DAY} times in the last 24 hours, the most allowed. It can be re-run again tomorrow.`,
+    }
   }
   return null
 }
@@ -517,7 +535,7 @@ export async function rerunBlocker(applicationId: string): Promise<string | null
 /** Re-run the assessment because somebody asked, after editing. See `rerunBlocker`. */
 export async function rescoreApplication(applicationId: string, actor: Actor): Promise<void> {
   const blocker = await rerunBlocker(applicationId)
-  if (blocker) throw conflict(blocker)
+  if (blocker) throw conflict(blocker.message)
   await getDb()
     .update(applications)
     .set({ custodianScoreStatus: 'queued' })

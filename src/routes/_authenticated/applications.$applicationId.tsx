@@ -1227,11 +1227,13 @@ function ApplicationDetail() {
         <Panel label="AI assessment">
           {/* Re-run appears only once something the assessment reads has been edited
               since it ran (or it failed), never after a trustee has voted, and at most
-              three times a day: `rerunBlocker` is the rule, on the server. An edit never
-              re-runs it by itself, so a person can fix several things and then ask once. */}
+              five times in a day: `rerunBlocker` is the rule, on the server. An edit never
+              re-runs it by itself, so a person can fix several things and then ask once.
+              At the cap the button stays, disabled, saying why: vanishing would read as
+              the edit not having registered. */}
           <PanelTitle
             right={
-              canEdit && application.rerunBlocked === null ? (
+              !canEdit ? undefined : application.rerunBlocked === null ? (
                 <Button
                   size="sm"
                   disabled={rescoring}
@@ -1239,17 +1241,31 @@ function ApplicationDetail() {
                 >
                   {rescoring ? 'Starting…' : 'Re-run assessment'}
                 </Button>
+              ) : application.rerunBlocked.code === 'capped' ? (
+                <Tooltip
+                  label="Why re-running is unavailable"
+                  trigger={
+                    <Button size="sm" disabled>
+                      Re-run assessment
+                    </Button>
+                  }
+                >
+                  {application.rerunBlocked.message}
+                </Tooltip>
               ) : undefined
             }
           >
             AI Assessment
           </PanelTitle>
-          {canEdit && application.rerunBlocked === null && scored && (
-            <p className="-mt-2 mb-4 font-display text-label" style={{ color: C.sub }}>
-              The details have changed since this was assessed. Re-run it when you have finished
-              editing.
-            </p>
-          )}
+          {canEdit &&
+            scored &&
+            (application.rerunBlocked === null || application.rerunBlocked.code === 'capped') && (
+              <p className="-mt-2 mb-4 font-display text-label" style={{ color: C.sub }}>
+                {application.rerunBlocked === null
+                  ? 'The details have changed since this was assessed. Re-run it when you have finished editing.'
+                  : 'The details have changed since this was assessed. It has been re-run as often as allowed today; it can be re-run again tomorrow.'}
+              </p>
+            )}
 
           {scored ? (
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
@@ -1348,7 +1364,7 @@ function ApplicationDetail() {
             values={editValues}
             onSaved={onSaved}
             firstYear={
-              isShortlisted && application.firstYearSuggested !== null
+              application.firstYearSuggested !== null
                 ? {
                     label: fyLabel,
                     stated: application.firstYearIsSuggested ? null : firstYear,
@@ -1397,7 +1413,7 @@ function ApplicationDetail() {
                   ) : (
                     'not found in the submission'
                   )
-                ) : isShortlisted ? (
+                ) : isShortlisted || !application.firstYearIsSuggested ? (
                   // What it draws this year. Corrected through the card's own pencil,
                   // beside the ask it is a share of, rather than a link of its own.
                   `${fmtMoney(firstYear ?? 0)} in ${fyLabel}`

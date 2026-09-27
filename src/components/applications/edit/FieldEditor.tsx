@@ -87,16 +87,15 @@ export function FieldEditor({
   const [draft, setDraft] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f, initialText(f, values[f])])),
   )
-  const [yearDraft, setYearDraft] = useState(
-    firstYear?.stated != null ? String(firstYear.stated) : '',
-  )
+  // Starts at what is stated, or the suggestion when nobody has said, so the box always
+  // shows the figure the round budget is actually counting.
+  const yearInitial = firstYear ? String(firstYear.stated ?? Math.round(firstYear.suggested)) : ''
+  const [yearDraft, setYearDraft] = useState(yearInitial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const changed = fields.filter((f) => draft[f]!.trim() !== initialText(f, values[f]).trim())
-  const yearChanged =
-    firstYear !== undefined &&
-    yearDraft.trim() !== (firstYear.stated != null ? String(firstYear.stated) : '')
+  const yearChanged = firstYear !== undefined && yearDraft.trim() !== yearInitial
 
   async function save(e: FormEvent) {
     e.preventDefault()
@@ -115,10 +114,13 @@ export function FieldEditor({
           : { rerun: [], scoreQueued: false, scoreKept: false, appliedToOthers: 0 }
       if (yearChanged) {
         const text = yearDraft.trim().replace(/[£,\s]/g, '')
-        const amount = text === '' ? null : Number(text)
-        if (amount !== null && (!Number.isFinite(amount) || amount < 0)) {
+        const typed = text === '' ? null : Number(text)
+        if (typed !== null && (!Number.isFinite(typed) || typed < 0)) {
           throw new Error(`The ${firstYear!.label} figure must be a number, such as 12000.`)
         }
+        // Empty, or the suggestion itself, stores nothing: the suggestion then keeps
+        // following the amount if that changes later.
+        const amount = typed === Math.round(firstYear!.suggested) ? null : typed
         await setFirstYearAmount({ data: { id: applicationId, amount } })
       }
       await router.invalidate()
@@ -155,13 +157,13 @@ export function FieldEditor({
             id={`edit-${applicationId}-first-year`}
             value={yearDraft}
             inputMode="decimal"
-            placeholder={`${Math.round(firstYear.suggested)} (suggested)`}
+            placeholder={String(Math.round(firstYear.suggested))}
             onChange={(e) => setYearDraft(e.target.value)}
             disabled={busy}
           />
           <p className="font-display text-label" style={{ color: C.sub }}>
-            What this grant draws from the round&rsquo;s {firstYear.label} budget. Leave it empty to
-            use the suggestion, the ask divided by the grant&rsquo;s length.
+            How much of the ask is paid in {firstYear.label}, which is what it would draw from the
+            round&rsquo;s budget. Suggested: the ask divided by the grant&rsquo;s length.
           </p>
         </div>
       )}

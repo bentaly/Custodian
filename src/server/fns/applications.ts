@@ -315,7 +315,9 @@ export const getApplication = createServerFn({ method: 'GET' })
       /** An admin may change how this application reads, until a grant is awarded. */
       canEdit,
       /** Null when "Re-run the assessment" is on offer; otherwise why not. Admins only. */
-      rerunBlocked: canEdit ? await rerunBlocker(application.id) : 'Only an admin can re-run it.',
+      rerunBlocked: canEdit
+        ? await rerunBlocker(application.id)
+        : { code: 'unavailable' as const, message: 'Only an admin can re-run it.' },
       edits,
       submission,
       // Computed here, from the unredacted row, so a trustee is not told the bank
@@ -590,7 +592,14 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
       // `undefined` is "accept the suggestion" and stores NULL; an explicit number is an
       // override. Either way the figure the gate checks is the one the meter will show,
       // because both run it through `resolveFirstYearAmount`.
-      firstYear = data.firstYearAmount ?? null
+      // Not passed = keep whatever was already stated on the application (it can be set
+      // from the day it arrives), which is NULL, the suggestion, if nobody said.
+      firstYear =
+        data.firstYearAmount !== undefined
+          ? data.firstYearAmount
+          : app.firstYearAmount === null
+            ? null
+            : parseFloat(app.firstYearAmount)
       const drawdown = resolveFirstYearAmount({
         amountRequested: parseFloat(app.amountRequested),
         firstYearAmount: firstYear,
@@ -645,12 +654,13 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
         // Declining stamps the decision; moving back out of declined clears it, so
         // the activity feed doesn't keep reporting a decision that was undone.
         decisionAt: status === 'declined' ? new Date() : null,
-        // Written only on the shortlist path, and cleared on the way back out: a figure
-        // left behind by a shortlisting that was undone would silently become the
-        // drawdown if the application were shortlisted again later, under a round budget
-        // nobody had re-checked it against.
+        // Written on the shortlist path and otherwise LEFT ALONE. It used to be cleared on
+        // the way out of shortlisted, because a figure left behind would silently become
+        // the drawdown next time. It is no longer silent: the amount card shows it from
+        // the day the application arrives and it is edited there, so clearing it would
+        // throw away a figure somebody typed.
         firstYearAmount:
-          status === 'shortlisted' ? (firstYear === null ? null : String(firstYear)) : null,
+          status === 'shortlisted' ? (firstYear === null ? null : String(firstYear)) : undefined,
       })
       .where(eq(applications.id, id))
       .returning()
@@ -670,12 +680,12 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
   })
 
 /**
- * Correct how much of a shortlisted ask falls in this financial year.
+ * Say how much of an ask falls in the round's financial year.
  *
- * The same figure `updateApplicationStatus` captures when shortlisting, editable
- * afterwards — because the schedule is often discussed after the board has agreed in
- * principle, and re-shortlisting an application just to fix a number would write an audit
- * row saying a decision was made again.
+ * The same figure `updateApplicationStatus` captures when shortlisting, and editable from
+ * the day the application arrives (the amount card's own editor): the split is part of the
+ * ask, and is often known before anyone shortlists. It only DRAWS on the round budget once
+ * shortlisted; before that it is simply stated.
  *
  * Deliberately NOT gated on the round budget. This is a correction to what a grant was
  * always going to cost this year, not a new call on the budget, and refusing it would
@@ -710,11 +720,12 @@ export const setFirstYearAmount = createServerFn({ method: 'POST' })
         'This grant has been awarded, so its payment schedule now says what falls in each year.',
       )
     }
-    if (app.status !== 'shortlisted') {
-      throw conflict('Only a shortlisted application draws on a round budget.')
+    // Editable from the day the application arrives, not only once shortlisted: it is a
+    // statement about the ask ("£24,000 over two years, £12,000 of it this year"), and the
+    // person who knows it is usually the one reading the application first.
+    if (app.amountRequested === null) {
+      throw conflict('Fill in the amount requested first.')
     }
-    // Only a shortlisted application reaches here, and one cannot be shortlisted
-    // without an amount.
     const requested = decidedAmount(app.amountRequested)
     if (data.amount !== null && data.amount > requested) {
       throw conflict('That is more than the application is asking for.')
