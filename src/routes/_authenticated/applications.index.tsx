@@ -32,6 +32,7 @@ import {
 } from '../../lib/listSearch'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { fieldGaps } from '../../lib/fieldMapping/gaps'
+import { UnplacedBanner } from '../../components/applications/UnplacedBanner'
 import { DeclineLettersDialog } from '../../components/applications/DeclineLettersDialog'
 import {
   DataTable,
@@ -941,6 +942,13 @@ function ApplicationsList() {
           )}
         </div>
       </div>
+
+      {/* Submissions that arrived in this round without a programme we could place
+          them in. Above the card because it is about the ROUND, and it is the only
+          place in the app those submissions appear until someone places them. */}
+      {canSetStatus && selectedRound && (
+        <UnplacedBanner roundId={selectedRound.id} roundName={selectedRound.name} />
+      )}
 
       {/* Everything below the header is one card: what you are looking at
           (programme), what it costs (budget), how you narrow it (filters), the
