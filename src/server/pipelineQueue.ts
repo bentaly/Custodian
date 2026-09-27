@@ -61,6 +61,19 @@ export type PipelineMessage =
   // message above rather than one "finish this import" verb, so each retries on its
   // own: a Companies House outage must not send a hundred areas back to Google.
   | { kind: 'due_diligence'; applicationId: string }
+  // One application to fill in from its own answer to a question somebody has just
+  // pointed at on ANOTHER application ("also fill in the others"). Each is its own
+  // invocation because each re-derivation spends subrequests (the area lookup, the
+  // registers) and a handful together would pass the 50-subrequest cap. Carries the
+  // field and the question rather than a value: the handler reads the answer off this
+  // application's own submission, and does nothing if the field was filled meanwhile.
+  | {
+      kind: 'apply_answer'
+      applicationId: string
+      field: string
+      sourceKey: string
+      editedBy: string
+    }
 
 interface QueueBinding {
   send(body: unknown): Promise<void>

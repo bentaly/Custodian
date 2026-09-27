@@ -15,6 +15,7 @@ import { bearerAuthorised, unauthorised } from '../../server/internalAuth'
 import { processIngest } from '../../server/fieldMapping/ingest'
 import { processReportIngest } from '../../server/reportMapping/ingest'
 import { scoreApplication } from '../../server/applications/score'
+import { applyAnswer } from '../../server/applications/edit'
 import { sendStoredDeclineLetter } from '../../server/declineLetter'
 import { resolveApplicationDeprivation } from '../../server/applications/deprivation'
 import { screenApplication } from '../../server/applications/dueDiligence'
@@ -98,6 +99,12 @@ export const Route = createFileRoute('/api/internal/pipeline')({
               // and `no_registration` counts as screened: it is a verdict about there
               // being no number, not a run that has yet to happen.
               const result = await screenApplication(message.applicationId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'apply_answer': {
+              // A field filled in meanwhile, or an answer only a person can read, is a
+              // 200 with nothing done: retrying would refuse the same way.
+              const result = await applyAnswer(message)
               return json({ ok: true, result }, 200)
             }
             case 'portfolio_analysis': {

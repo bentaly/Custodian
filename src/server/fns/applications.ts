@@ -30,7 +30,11 @@ import {
   reports,
   clientProfiles,
   auditLog,
+  applicationEdits,
+  applicationIngests,
 } from '../../../drizzle/schema'
+import { orderedKeys } from '../fieldMapping/assemble'
+import { toStringValue } from '../../lib/fieldMapping'
 import { searchAny } from '../searchTerm'
 import { anyOf, anyTag } from '../filterSql'
 import { roundProgrammeSpend, roundProgrammeYear, spentThisYear } from '../applications/roundSpend'
@@ -246,8 +250,76 @@ export const getApplication = createServerFn({ method: 'GET' })
     })
     const committedThisYear = spentThisYear(spend.get(application.roundProgrammeId))
 
+    // ── Editing ──────────────────────────────────────────────────────────────
+    // Who changed what, oldest first: the screen marks each field's latest change and
+    // View Submission notes it beneath the answer it replaced.
+    const seesPayments = canSeePayments(user.role)
+    const [editRows, ingest] = await Promise.all([
+      getDb()
+        .select({
+          field: applicationEdits.field,
+          method: applicationEdits.method,
+          previousValue: applicationEdits.previousValue,
+          newValue: applicationEdits.newValue,
+          sourceKey: applicationEdits.sourceKey,
+          replacedSourceKey: applicationEdits.replacedSourceKey,
+          editorName: users.name,
+          createdAt: applicationEdits.createdAt,
+        })
+        .from(applicationEdits)
+        .leftJoin(users, eq(applicationEdits.editedBy, users.id))
+        .where(eq(applicationEdits.applicationId, application.id))
+        .orderBy(applicationEdits.createdAt),
+      getDb().query.applicationIngests.findFirst({
+        where: eq(applicationIngests.applicationId, application.id),
+        columns: { rawPayload: true, fieldOrder: true, resolved: true },
+      }),
+    ])
+    const isBank = (field: string | null | undefined) => !!field && field.startsWith('bank')
+    // A bank detail's old or new value is withheld exactly as the columns are.
+    const edits = editRows.map((e) =>
+      !seesPayments && isBank(e.field) ? { ...e, previousValue: null, newValue: null } : e,
+    )
+    // Answers that are, or ever were, bank details: never shown to a role that cannot
+    // see the payment details, whatever they are read as today.
+    const bankAnswers = new Set<string>([
+      ...Object.entries(ingest?.resolved ?? {})
+        .filter(([, canonical]) => isBank(canonical))
+        .map(([k]) => k),
+      ...editRows
+        .filter((e) => isBank(e.field))
+        .flatMap((e) => [e.sourceKey, e.replacedSourceKey])
+        .filter((k): k is string => !!k),
+    ])
+    /** The submission exactly as it arrived, in the applicant's order. Null when the
+     *  application did not come in through a form (an import, a seed). */
+    const submission = ingest
+      ? orderedKeys(ingest.rawPayload, ingest.fieldOrder)
+          .filter((label) => seesPayments || !bankAnswers.has(label))
+          .map((label) => ({
+            label,
+            value: toStringValue(ingest.rawPayload[label]),
+            canonical: ingest.resolved?.[label] ?? null,
+          }))
+          .filter((a) => a.value !== '')
+      : null
+
     return {
       ...application,
+      /** An admin may change how this application reads, until a grant is awarded. */
+      canEdit:
+        (user.role === 'admin' || user.role === 'superadmin') &&
+        application.status !== 'awarded' &&
+        !application.award,
+      edits,
+      submission,
+      // Computed here, from the unredacted row, so a trustee is not told the bank
+      // details are missing merely because they are withheld from them.
+      bankDetailsComplete: !!(
+        application.bankAccountName &&
+        application.bankAccountNumber &&
+        application.bankSortCode
+      ),
       // The applicant supplies these at submission, so they ride along on the row —
       // but they are the same account number and sort code Finance is gated on, and
       // `ApplicationFields` renders them on this screen. Withheld from roles that

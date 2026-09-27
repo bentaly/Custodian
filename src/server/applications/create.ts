@@ -266,7 +266,7 @@ export async function updateApplicationFromCanonical(
   const existing = await getDb().query.applications.findFirst({
     where: (a, { eq }) => eq(a.id, applicationId),
   })
-  if (!existing) return { application: null, rerun: [] as string[] }
+  if (!existing) return { application: null, rerun: [] as string[], scoreQueued: false }
 
   // Columns are nullable, the input's fields optional — treat those as equivalent.
   const same = (a: string | null | undefined, b: string | null | undefined) =>
