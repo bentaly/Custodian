@@ -26,6 +26,7 @@ export function EditableSlot({
   onSaved,
   hint,
   firstYear,
+  onChooseAnswer,
   children,
   className = '',
 }: {
@@ -38,6 +39,8 @@ export function EditableSlot({
   onSaved: (outcome: EditOutcome) => void
   hint?: string
   firstYear?: FirstYearEdit
+  /** Open the answer picker for a field; the card closes, since the picker saves it. */
+  onChooseAnswer?: (field: EditableField) => void
   children: ReactNode
   className?: string
 }) {
@@ -60,6 +63,14 @@ export function EditableSlot({
           values={values}
           hint={hint}
           firstYear={firstYear}
+          onChooseAnswer={
+            onChooseAnswer
+              ? (field) => {
+                  setEditing(false)
+                  onChooseAnswer(field)
+                }
+              : undefined
+          }
           onCancel={() => setEditing(false)}
           onDone={(outcome) => {
             setEditing(false)

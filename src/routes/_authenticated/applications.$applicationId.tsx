@@ -435,7 +435,8 @@ function ApplicationDetail() {
   // What the last edit did ("Saved. The AI assessment is being re-run."), shown above
   // the body until the next one or a reload.
   const [notice, setNotice] = useState<string | null>(null)
-  const [pickingAmount, setPickingAmount] = useState(false)
+  // The field the answer picker is open for, from any edit surface on the screen.
+  const [pickingField, setPickingField] = useState<EditableField | null>(null)
   // The fields a "Fill in" dialog is open for, from the Not captured panel.
   const [adding, setAdding] = useState<EditableField[] | null>(null)
   const [rescoring, setRescoring] = useState(false)
@@ -601,6 +602,9 @@ function ApplicationDetail() {
         ['organisationName', 'charityNumber', 'companyNumber', 'applicantEmail'].includes(e.field),
       )?.field ?? null
   const onSaved = (outcome: EditOutcome) => setNotice(describeOutcome(outcome))
+  // "Choose from their answers", offered under every field where the application came in
+  // through a form. Undefined without one: there are no answers to choose from.
+  const chooseAnswer = hasSubmission ? (field: EditableField) => setPickingField(field) : undefined
   const waiting = scoreStatus === 'waiting'
   // The purpose and themes are on their way (or waiting to be): the column stays, saying so,
   // rather than the panel jumping when the model answers.
@@ -1086,6 +1090,7 @@ function ApplicationDetail() {
                 fields={['organisationName', 'charityNumber', 'companyNumber', 'applicantEmail']}
                 values={editValues}
                 onSaved={onSaved}
+                onChooseAnswer={chooseAnswer}
                 hint="A changed charity or company number is screened against the register again when you save."
               >
                 <div className="rounded-card p-5" style={{ backgroundColor: C.wash }}>
@@ -1310,7 +1315,11 @@ function ApplicationDetail() {
                 it marks the finished application rather than a gappy one.
               </p>
               {canEdit && hasSubmission && (
-                <Button variant="secondary" size="sm" onClick={() => setPickingAmount(true)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPickingField('amountRequested')}
+                >
                   Fill in the amount
                 </Button>
               )}
@@ -1367,6 +1376,7 @@ function ApplicationDetail() {
             fields={['amountRequested']}
             values={editValues}
             onSaved={onSaved}
+            onChooseAnswer={chooseAnswer}
             firstYear={
               application.firstYearSuggested !== null
                 ? {
@@ -1409,7 +1419,9 @@ function ApplicationDetail() {
                       className="underline"
                       style={{ color: C.brand }}
                       onClick={() =>
-                        hasSubmission ? setPickingAmount(true) : setAdding(['amountRequested'])
+                        hasSubmission
+                          ? setPickingField('amountRequested')
+                          : setAdding(['amountRequested'])
                       }
                     >
                       {hasSubmission ? 'Choose from their answers' : 'Fill it in'}
@@ -1444,6 +1456,7 @@ function ApplicationDetail() {
             fields={['proposedImpactQuantity']}
             values={editValues}
             onSaved={onSaved}
+            onChooseAnswer={chooseAnswer}
           >
             <MiniKpi
               tint={KPI.area}
@@ -1496,6 +1509,7 @@ function ApplicationDetail() {
             fields={['unrestrictedReserves']}
             values={editValues}
             onSaved={onSaved}
+            onChooseAnswer={chooseAnswer}
           >
             <MiniKpi
               tint={KPI.reserves}
@@ -1531,6 +1545,7 @@ function ApplicationDetail() {
             fields={['deliveryArea']}
             values={editValues}
             onSaved={onSaved}
+            onChooseAnswer={chooseAnswer}
             hint="The area is looked up again when you save. A town, district or postcode works best."
           >
             <MiniKpi
@@ -1811,15 +1826,15 @@ function ApplicationDetail() {
         </Panel>
       </div>
 
-      {pickingAmount && (
+      {pickingField && (
         <AnswerPickerDialog
           open
-          onClose={() => setPickingAmount(false)}
+          onClose={() => setPickingField(null)}
           applicationId={application.id}
           organisationName={application.organisationName}
-          field="amountRequested"
+          field={pickingField}
           onSaved={onSaved}
-          onTypeInstead={() => setAdding(['amountRequested'])}
+          onTypeInstead={() => setAdding([pickingField])}
         />
       )}
       <Dialog
@@ -1834,6 +1849,14 @@ function ApplicationDetail() {
             applicationId={application.id}
             fields={adding}
             values={editValues}
+            onChooseAnswer={
+              chooseAnswer
+                ? (field) => {
+                    setAdding(null)
+                    chooseAnswer(field)
+                  }
+                : undefined
+            }
             onCancel={() => setAdding(null)}
             onDone={(outcome) => {
               setAdding(null)

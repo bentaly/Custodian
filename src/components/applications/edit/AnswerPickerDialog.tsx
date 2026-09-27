@@ -7,7 +7,11 @@ import {
   countOthersMissing,
   editApplicationFields,
 } from '../../../server/fns/applicationEdits'
-import { editableFieldLabel, type EditableField } from '../../../lib/applicationEdit'
+import {
+  editableFieldLabel,
+  isNumericField,
+  type EditableField,
+} from '../../../lib/applicationEdit'
 import type { EditOutcome } from './FieldEditor'
 
 // "Which answer is the amount requested?" The way to fill a field that teaches
@@ -170,7 +174,13 @@ export function AnswerPickerDialog({
                       id="answer-reading"
                       className="max-w-[200px]"
                       value={reading}
-                      placeholder={a.reading ? undefined : 'Type the figure'}
+                      placeholder={
+                        a.reading
+                          ? undefined
+                          : isNumericField(field)
+                            ? 'Type the figure'
+                            : 'Type it'
+                      }
                       onChange={(e) => setReading(e.target.value)}
                     />
                   </span>

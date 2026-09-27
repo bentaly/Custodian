@@ -72,6 +72,7 @@ export function FieldEditor({
   onCancel,
   hint,
   firstYear,
+  onChooseAnswer,
 }: {
   applicationId: string
   fields: EditableField[]
@@ -82,6 +83,12 @@ export function FieldEditor({
   /** A line under the inputs: why this matters, what saving will do. */
   hint?: string
   firstYear?: FirstYearEdit
+  /**
+   * Where the application came in through a form: read this field from one of the
+   * applicant's own answers instead of typing it. Offered under every field, because the
+   * applicant usually DID answer; we just did not know which answer it was.
+   */
+  onChooseAnswer?: (field: EditableField) => void
 }) {
   const router = useRouter()
   const [draft, setDraft] = useState<Record<string, string>>(() =>
@@ -147,6 +154,17 @@ export function FieldEditor({
               onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))}
               disabled={busy}
             />
+            {onChooseAnswer && (
+              <button
+                type="button"
+                className="self-start font-display text-label underline"
+                style={{ color: C.brand }}
+                onClick={() => onChooseAnswer(field)}
+                disabled={busy}
+              >
+                Choose from their answers
+              </button>
+            )}
           </div>
         )
       })}
