@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { parseApplicationsSearch } from '../../lib/listSearch'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
@@ -575,6 +575,18 @@ function ApplicationDetail() {
     bankSortCode: application.bankSortCode,
   }
   const hasSubmission = application.submission !== null
+  // A card's figure with its "Edited" mark beside it, where somebody changed it. Beside
+  // the FIGURE rather than on the line under it, because that line truncates and the
+  // mark was the part being cut off.
+  const withMark = (value: ReactNode, field: string): ReactNode =>
+    edits.some((e) => e.field === field) ? (
+      <span className="inline-flex items-baseline gap-2">
+        {value}
+        <EditedMark field={field} edits={edits} />
+      </span>
+    ) : (
+      value
+    )
   // The organisation card edits four facts together, so it wears one mark: the latest.
   const orgEditField =
     [...edits]
@@ -584,6 +596,9 @@ function ApplicationDetail() {
       )?.field ?? null
   const onSaved = (outcome: EditOutcome) => setNotice(describeOutcome(outcome))
   const waiting = scoreStatus === 'waiting'
+  // The purpose and themes are on their way (or waiting to be): the column stays, saying so,
+  // rather than the panel jumping when the model answers.
+  const purposeComing = !grantPurpose && (waiting || scoreStatus === 'queued')
   // An edit to something the assessment reads, made after it last ran: a decision was
   // under way, so it was left alone. Offer the re-run rather than doing it silently.
   const editedSinceScored =
@@ -960,7 +975,7 @@ function ApplicationDetail() {
             letter — shown as the grant screen's "Grant purpose". That one is prefilled
             from this one and then edited, so the two differ on most grants. */}
         {(grantPurpose ||
-          waiting ||
+          purposeComing ||
           canEdit ||
           orgProfile ||
           orgSummary ||
@@ -989,7 +1004,9 @@ function ApplicationDetail() {
                 The columns stack below `lg`, which puts the organisation back
                 underneath — the same order it had before, and the right one when there
                 is only one column's width to give it. */}
-            <div className={grantPurpose || waiting ? 'grid gap-6 lg:grid-cols-2 lg:gap-8' : ''}>
+            <div
+              className={grantPurpose || purposeComing ? 'grid gap-6 lg:grid-cols-2 lg:gap-8' : ''}
+            >
               {/* A column, so the caption can be pushed to the FOOT of it. The grant
                   purpose is capped at 40 words and the organisation card runs to five
                   rows, so the left column always bottoms out first and left a hole under
@@ -997,7 +1014,7 @@ function ApplicationDetail() {
                   two section labels on the same line, which centring the column would
                   have broken. Below `lg` the columns stack and `mt-auto` is inert, so
                   the caption goes back to hugging the sentence it qualifies. */}
-              {(grantPurpose || waiting) && (
+              {(grantPurpose || purposeComing) && (
                 <div className="flex flex-col">
                   <p
                     className="font-display text-label font-medium uppercase"
@@ -1025,8 +1042,9 @@ function ApplicationDetail() {
                       className="mt-2 border-l-3 pl-2 font-display text-body leading-normal"
                       style={{ color: C.sub, borderColor: C.line }}
                     >
-                      Written by the AI assessment, which is waiting for the amount requested. Until
-                      then,{' '}
+                      {waiting
+                        ? 'Written by the AI assessment, which is waiting for the amount requested. Until then, '
+                        : 'Being written by the AI assessment now; it usually takes under a minute. Meanwhile, '}
                       <button
                         type="button"
                         className="underline"
@@ -1059,12 +1077,14 @@ function ApplicationDetail() {
                       the whole point of giving it this much weight is that a reader can
                       trust what it says it is. The 40-word cap is also what keeps it to
                       a few lines — free text with a column to itself runs to a wall. */}
-                  <p
-                    className="mt-3 font-display text-label lg:mt-auto lg:pt-6"
-                    style={{ color: C.sub }}
-                  >
-                    Summarised from the application
-                  </p>
+                  {grantPurpose && (
+                    <p
+                      className="mt-3 font-display text-label lg:mt-auto lg:pt-6"
+                      style={{ color: C.sub }}
+                    >
+                      Summarised from the application
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1362,7 +1382,10 @@ function ApplicationDetail() {
                a headline that disagrees with the sum beneath it is read as an error in
                the application rather than in the formatting. It is also the number a
                grants officer quotes to a board. `sm` type fits seven figures. */
-              value={amountRequested === null ? '--' : fmtMoney(amountRequested)}
+              value={withMark(
+                amountRequested === null ? '--' : fmtMoney(amountRequested),
+                'amountRequested',
+              )}
               /* The annual figure, not just the length: "£35k / 3 years" left it open
                whether the ask was £35k a year. Falls back to the plain duration for a
                single-year grant, where there is nothing to mistake it for. */
@@ -1399,7 +1422,6 @@ function ApplicationDetail() {
                     {fmtPerYear(amountRequested, rp.grantDurationYears) ??
                       fmtDuration(rp.grantDurationYears) ??
                       'Duration not set'}{' '}
-                    <EditedMark field="amountRequested" edits={edits} />
                   </>
                 )
               }
@@ -1423,13 +1445,15 @@ function ApplicationDetail() {
               tint={KPI.area}
               icon={UserGroupIcon}
               label="Beneficiaries"
-              value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '--'}
+              value={withMark(
+                proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '--',
+                'proposedImpactQuantity',
+              )}
               sub={
                 <>
                   {proposedImpact != null
                     ? `${unitLabel.toLowerCase()}${costPerBeneficiary != null ? ` · ${fmtMoney(costPerBeneficiary)} each` : ''}`
                     : 'not stated'}{' '}
-                  <EditedMark field="proposedImpactQuantity" edits={edits} />
                 </>
               }
             />
@@ -1474,11 +1498,12 @@ function ApplicationDetail() {
               icon={SafeBoxIcon}
               label="Unrestricted reserves"
               value={
-                orgReserves != null ? (
-                  <CompactMoney amount={orgReserves} label="Exact reserves" />
-                ) : (
-                  '--'
-                )
+                orgReserves != null
+                  ? withMark(
+                      <CompactMoney amount={orgReserves} label="Exact reserves" />,
+                      'unrestrictedReserves',
+                    )
+                  : '--'
               }
               sub={
                 <>
@@ -1487,7 +1512,6 @@ function ApplicationDetail() {
                       ? `~${reserveMonths} months' spend`
                       : 'as stated'
                     : 'not captured'}{' '}
-                  <EditedMark field="unrestrictedReserves" edits={edits} />
                 </>
               }
             />
@@ -1509,7 +1533,10 @@ function ApplicationDetail() {
               tint={KPI.community}
               icon={UserGroup02Icon}
               label="Community context"
-              value={depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '--'}
+              value={withMark(
+                depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '--',
+                'deliveryArea',
+              )}
               sub={
                 <>
                   {depResolved
@@ -1517,7 +1544,6 @@ function ApplicationDetail() {
                     : application.deliveryArea
                       ? 'area not recognised'
                       : 'no delivery area'}{' '}
-                  <EditedMark field="deliveryArea" edits={edits} />
                 </>
               }
             />

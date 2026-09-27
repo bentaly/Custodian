@@ -204,6 +204,7 @@ Traps:
   **`themes`** is the application's subset of `programmes.tags`, and it is what EVERY theme
   column, pill and Insights "by theme" reads — never the programme's list. See custodianScore
 - **application_comments** / **application_votes** — discussion + trustee voting (majority gates awards)
+- **application_edits** — every change a person made to an application's fields. See "Editing an application"
 - **decline_letters** — one row per applicant told they were unsuccessful; unique on
   `application_id`, so nobody is ever told twice
 - **awards** → **award_instalments** + **report_schedule** — a grant minted from an awarded application
@@ -392,8 +393,9 @@ design rationale; this list is a map, not a summary.
   **NULL = not assigned yet** and screens show nothing ("Pending" in the list) — never a
   fallback to the programme's whole list, which is what the column replaced. Written only by a
   successful score, like `grantPurpose`, so a failed re-score keeps what is there. **Frozen at
-  assignment**: editing a programme's themes does not touch tagged applications. Nobody can
-  edit an application's themes. `scripts/assign-themes.ts` backfills NULL rows without
+  assignment**: editing a programme's themes does not touch tagged applications. An admin may
+  choose an application's themes by hand (from its programme's list only), which sets
+  `themes_set_by`, and from then on no score replaces them. `scripts/assign-themes.ts` backfills NULL rows without
   re-scoring (imported rows get the programme's whole list, no model call).
   **The score READS the other two derived features**, so it can never share their
   `Promise.all`: `create.ts` resolves due diligence + deprivation first, then scores. Run
@@ -565,14 +567,19 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
 Every field in `src/lib/fieldMapping/canonical.ts` carries a `tier` saying what its absence costs.
 A two-state model (required / optional) shipped a real bug, so the middle tiers are load-bearing.
 
-- **`required`** (8) — no application without it. Unresolved → the ingest holds at `needs_review`.
+- **`required`** (3: programme, organisation name, the foundation's reference) — no application
+  without it. Unresolved → the ingest holds at `needs_review`. It was 8 until applications became
+  editable (see below); amount, applicant email and the bank trio moved to `expected`.
 - **`one_of`** — a group in `REQUIRED_ONE_OF_GROUPS` of which at least one member must resolve.
   **The list is empty today** but the machinery stays wired; enforcement lives in BOTH `ingest.ts`
   (step 6) and `resolve.ts` (`oneOfIssues`) and the two must keep agreeing — a reviewer must not be
   able to wave through what the pipeline held.
 - **`expected`** — promotes without it, but a feature is degraded, so the field carries a `degrades`
   string **shown on the application** ("Not captured" panel). Pairs answering the same question go
-  in `EXPECTED_ONE_OF_GROUPS` and report only when neither arrived.
+  in `EXPECTED_ONE_OF_GROUPS` and report only when neither arrived. An `expected` field that a later
+  STEP needs carries `blocks` too (amount, email, bank details): those are `fieldGaps().toFill` and
+  sit in the "N things to fill in" panel at the TOP of the application instead. The bank trio is one
+  gap (`EXPECTED_ALL_OF_GROUPS`): two of three bank details pays nobody.
 - **`optional`** — promotes and nothing is degraded, so nothing is said anywhere. The line against
   `expected` is whether you can NAME what stops working. Today only `bankName`.
 - **A tier change alone is not enough**: `CreateApplicationSchema` gates the assembled application
@@ -581,6 +588,45 @@ A two-state model (required / optional) shipped a real bug, so the middle tiers 
 The principle, and the reason the whole thing exists: **a lost field must never be
 indistinguishable from a question the foundation never asked.** `fieldGaps()`
 (`src/lib/fieldMapping/gaps.ts`) turns the metadata into what the application screen renders.
+
+## Editing an application
+
+An admin can change how an application READS in Custodian (`lib/applicationEdit.ts` rules,
+`server/applications/edit.ts` IO, `server/fns/applicationEdits.ts`). Built 2026-09-27 so that a
+submission with a fillable gap lands on the Applications screen for the foundation to complete,
+rather than waiting in our admin queue.
+
+- **The row is the truth; the submission is never touched.** `application_ingests.raw_payload`
+  stays as received, and View Submission renders IT (not the columns), with a blue note under any
+  answer Custodian now reads differently. `application_edits` records every change: field, from,
+  to, who, and `method` (`typed` / `answer` / `applied` / `themes`). One `application_edited`
+  audit row per save, never quoting bank details.
+- **Not editable**: the foundation's reference (report auto-link + re-send dedupe key on it), the
+  programme (a move, not an edit; not built), the applicant's prose, anything derived (edit the
+  input and it re-runs), and **anything once awarded** (same line as the admin app's re-confirm).
+- **Two ways to fill a field.** Typing fixes this application only. Pointing at one of the
+  applicant's own answers ("Choose from their answers") can also teach the foundation's mapping
+  (`field_mappings`, unique per client/form/question, so re-teaching simply replaces) and fill in
+  the other applications that answered the same question. Those go one `apply_answer` queue
+  message each, because a handful of re-derivations inline passes the 50-subrequest cap, and only
+  where `strictReading` can read the answer without a person: "58k across the three years" is £58
+  to `coerceAmount`, so answers in words are left for a human.
+- **`amount_requested` is nullable.** An application without one lands, its assessment sits at
+  `waiting` (distinct from `pending`: something is coming, once somebody fills the amount in), and
+  it **cannot be shortlisted** (`updateApplicationStatus` refuses). That gate is what keeps a
+  missing amount out of every money figure, because they all count shortlisted or awarded rows;
+  `decidedAmount` reads the column on those paths only. The purpose and themes wait with the score
+  because one model call writes all three.
+- **The assessment re-runs (queued) on an edit before any decision, and is KEPT after one**
+  (shortlisted, declined, or any vote): a score moving under a board that has started deciding
+  reads as moving the goalposts. The screen offers "Re-run the assessment" instead.
+- **Themes chosen by hand** set `themes_set_by`, and no score ever overwrites them after that.
+- **Edit in place** (`components/applications/edit/`): at rest the screen is as it was; hover or
+  focus a card and a pencil appears in its corner; the card becomes its fields. One pencil per card.
+- **Unplaced submissions**: a held ingest whose ONLY blockers are programme codes, received while
+  a round was open, is listed in a banner above that round's Applications list with a Place button
+  (`server/fns/unplaced.ts`). Anything else wrong, or no round open when it arrived, stays in the
+  admin app.
 
 ## The admin app (`admin-app/`)
 

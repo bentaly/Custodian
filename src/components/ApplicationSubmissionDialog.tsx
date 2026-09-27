@@ -170,7 +170,9 @@ function AsReceived({
               style={i > 0 ? { borderColor: C.line } : undefined}
             >
               <dt className="mb-1.5 font-display text-label font-medium" style={{ color: C.sub }}>
-                {s.label}
+                {/* A payload that named a field by OUR key ("amountRequested") gets our
+                    label for it; a form's own question wording is shown as they wrote it. */}
+                {s.label === s.canonical ? fieldLabel(s.label) : s.label}
               </dt>
               <dd>
                 {shaped ? (
