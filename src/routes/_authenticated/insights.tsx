@@ -958,7 +958,10 @@ function InsightsPage() {
       }
     })
     .sort((a, b) => b.amount - a.amount)
-  const themedTotal = themes.reduce((s, t) => s + t.amount, 0)
+  // A theme's share is of the whole giving, not of the themes summed: a grant carries
+  // several themes, so summing the rows counts it once per theme and every share read
+  // as a fraction of a total several times the real one. Shares overlap and so do not
+  // add up to 100%, which is right for tags.
   // Themes are sorted by amount, so the first three are the ones carrying the giving;
   // a foundation with a dozen tags otherwise turns this panel into a long scroll beside
   // a short chart, and the tail is mostly 1–2% rows. The rest stay one click away.
@@ -1489,7 +1492,7 @@ function InsightsPage() {
               ) : (
                 <div className="flex flex-col gap-1">
                   {visibleThemes.map((t) => {
-                    const pct = themedTotal > 0 ? Math.round((t.amount / themedTotal) * 100) : 0
+                    const pct = committed > 0 ? Math.round((t.amount / committed) * 100) : 0
                     return (
                       // A white wrapper card holds the tinted headline and the line
                       // beneath it — which names the programmes the theme spans, so a
