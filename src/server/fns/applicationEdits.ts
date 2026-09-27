@@ -13,7 +13,7 @@ import { applicationIngests } from '../../../drizzle/schema'
 import { requireRole } from '../session'
 import { assertApplicationAccess } from '../scope'
 import { notFoundError } from '../../lib/errors'
-import { EDITABLE_FIELDS, strictReading } from '../../lib/applicationEdit'
+import { EDITABLE_FIELDS, rankAnswers, strictReading } from '../../lib/applicationEdit'
 import { BudgetLineSchema } from '../../lib/validators/application'
 import { toStringValue } from '../../lib/fieldMapping'
 import { orderedKeys } from '../fieldMapping/assemble'
@@ -100,18 +100,19 @@ export const answerCandidates = createServerFn({ method: 'GET' })
     await assertApplicationAccess(user, data.id)
     const ingest = await getDb().query.applicationIngests.findFirst({
       where: eq(applicationIngests.applicationId, data.id),
-      columns: { rawPayload: true, fieldOrder: true, resolved: true },
+      columns: { rawPayload: true, fieldOrder: true, resolved: true, proposed: true },
     })
     if (!ingest) return { hasSubmission: false, answers: [] }
     const used = new Set(Object.keys(ingest.resolved ?? {}))
-    const answers = orderedKeys(ingest.rawPayload, ingest.fieldOrder)
+    const unused = orderedKeys(ingest.rawPayload, ingest.fieldOrder)
       .filter((k) => !used.has(k))
-      .map((label) => ({
-        label,
-        value: toStringValue(ingest.rawPayload[label]),
-        reading: strictReading(data.field, ingest.rawPayload[label]),
-      }))
+      .map((label) => ({ label, value: toStringValue(ingest.rawPayload[label]) }))
       .filter((a) => a.value !== '')
+    // Likely first (the mapper's own guess), then answers shaped like the field.
+    const answers = rankAnswers(data.field, unused, ingest.proposed?.[data.field]).map((a) => ({
+      ...a,
+      reading: strictReading(data.field, ingest.rawPayload[a.label]),
+    }))
     return { hasSubmission: true, answers }
   })
 

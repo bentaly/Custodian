@@ -26,7 +26,7 @@ import { AreaInput } from './AreaInput'
 // regular expression. Only an answer that reads as a plain figure is prefilled, and
 // only those are carried to the other applications.
 
-type Answer = { label: string; value: string; reading: string | null }
+type Answer = { label: string; value: string; reading: string | null; likely: boolean }
 
 export function AnswerPickerDialog({
   open,
@@ -118,7 +118,7 @@ export function AnswerPickerDialog({
       busy={busy}
       size="md"
       title={`Which answer is the ${label.toLowerCase()}?`}
-      description={`${organisationName} · answers from their submission not already used for anything`}
+      description={`${organisationName} · their answers not already used for anything, the likeliest first`}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={busy}>
@@ -160,8 +160,20 @@ export function AnswerPickerDialog({
                 onChange={() => choose(a)}
               />
               <span className="flex min-w-0 flex-col gap-1">
-                <span className="font-display text-label" style={{ color: C.sub }}>
+                <span
+                  className="flex items-center gap-2 font-display text-label"
+                  style={{ color: C.sub }}
+                >
                   {a.label}
+                  {a.likely && (
+                    // The mapper's own best guess, from when the submission arrived.
+                    <span
+                      className="rounded-pill px-2 py-0.5 text-micro font-medium"
+                      style={{ backgroundColor: C.brandBg, color: C.brand }}
+                    >
+                      Likely
+                    </span>
+                  )}
                 </span>
                 <span className="break-words font-display text-body" style={{ color: C.ink }}>
                   {a.value}

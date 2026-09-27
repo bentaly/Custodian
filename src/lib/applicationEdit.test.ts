@@ -3,7 +3,9 @@ import {
   EDITABLE_FIELDS,
   canonicalFromApplication,
   fieldText,
+  looksLike,
   moveAnswer,
+  rankAnswers,
   setField,
   strictReading,
 } from './applicationEdit'
@@ -164,5 +166,44 @@ describe('moveAnswer', () => {
       label: 'Where will the project take place?',
       value: 'Liverpool City Region',
     })
+  })
+})
+
+describe('rankAnswers', () => {
+  const answers = [
+    { label: 'Where will the work happen?', value: 'the North' },
+    {
+      label: 'Tell us about the young people',
+      value:
+        'Drop-ins across two estates for 11 to 18 year olds, run on weekday evenings through the school year.',
+    },
+    { label: 'Funding sought this round', value: '58k across the three years' },
+    { label: 'Total project cost', value: '£74,200' },
+  ]
+
+  it("puts the mapper's own guess first and marks it likely", () => {
+    const r = rankAnswers('amountRequested', answers, {
+      sourceKey: 'Funding sought this round',
+      confidence: 0.6,
+    })
+    expect(r[0]).toMatchObject({ label: 'Funding sought this round', likely: true })
+    expect(r.filter((a) => a.likely)).toHaveLength(1)
+  })
+
+  it('then answers shaped like the field, in the order the applicant gave them', () => {
+    const r = rankAnswers('amountRequested', answers, null)
+    expect(r.map((a) => a.label)).toEqual([
+      'Funding sought this round',
+      'Total project cost',
+      'Where will the work happen?',
+      'Tell us about the young people',
+    ])
+    expect(r.some((a) => a.likely)).toBe(false)
+  })
+
+  it('reads a short place name as an area and a paragraph as not one', () => {
+    expect(looksLike('deliveryArea', 'the North')).toBe(true)
+    expect(looksLike('deliveryArea', answers[1]!.value)).toBe(false)
+    expect(looksLike('deliveryArea', '£74,200')).toBe(false)
   })
 })

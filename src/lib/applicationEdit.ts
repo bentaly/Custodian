@@ -94,6 +94,66 @@ export function strictReading(field: EditableField, raw: unknown): string | null
 }
 
 /**
+ * Does an answer LOOK like a value of this field? A cheap shape test, for putting the
+ * plausible answers first in the answer picker: on a 38-question form the amount is one
+ * answer among dozens of paragraphs. Never used to choose, only to order.
+ */
+export function looksLike(field: EditableField, raw: string): boolean {
+  const v = raw.trim()
+  if (!v) return false
+  switch (field) {
+    case 'amountRequested':
+    case 'unrestrictedReserves':
+    case 'proposedImpactQuantity':
+      // A figure somewhere in a short answer ("58k across three years" counts; a
+      // paragraph that mentions "two estates" does not).
+      return /\d/.test(v) && v.length <= 80
+    case 'applicantEmail':
+      return /\S+@\S+\.\S+/.test(v)
+    case 'bankSortCode':
+      return /^\d{2}[-\s]?\d{2}[-\s]?\d{2}$/.test(v)
+    case 'bankAccountNumber':
+      return /^\d{6,10}$/.test(v.replace(/\s/g, ''))
+    case 'charityNumber':
+    case 'companyNumber':
+      return /^[A-Z]{0,2}\d{5,8}(-\d+)?$/i.test(v.replace(/\s/g, ''))
+    case 'deliveryArea':
+      // A place is a few words, not a paragraph, and not a figure.
+      return v.length <= 60 && !/^[£\d,.\s]+$/.test(v)
+    case 'organisationName':
+    case 'bankName':
+    case 'bankAccountName':
+      return v.length <= 120 && !v.includes('\n')
+  }
+}
+
+export type RankedAnswer = { label: string; value: string; likely: boolean }
+
+/**
+ * The applicant's unused answers in the order the picker offers them:
+ *   1. the AI mapper's own best guess for this field, marked "likely" (it scored every
+ *      answer when the submission arrived, and stored its pick even when it was below
+ *      the confidence bar and so applied nothing),
+ *   2. answers shaped like the field (`looksLike`),
+ *   3. the rest.
+ * The applicant's order is kept within each group, so the list still reads like their
+ * form. `proposal` is `application_ingests.proposed[field]`.
+ */
+export function rankAnswers(
+  field: EditableField,
+  answers: Array<{ label: string; value: string }>,
+  proposal: { sourceKey: string | null; confidence: number } | null | undefined,
+): RankedAnswer[] {
+  const guess = proposal?.sourceKey && proposal.confidence > 0 ? proposal.sourceKey : null
+  const group = (a: { label: string; value: string }) =>
+    a.label === guess ? 0 : looksLike(field, a.value) ? 1 : 2
+  return answers
+    .map((a, i) => ({ ...a, likely: a.label === guess, g: group(a), i }))
+    .sort((x, y) => x.g - y.g || x.i - y.i)
+    .map(({ label, value, likely }) => ({ label, value, likely }))
+}
+
+/**
  * The application's current canonical values, as the input `updateApplicationFromCanonical`
  * takes. Built from the ROW, not re-derived from the ingest: the row is the truth, and
  * has been changed by paths the ingest never saw (a registration number supplied from
