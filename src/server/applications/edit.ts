@@ -38,7 +38,10 @@ import {
   type EditableField,
 } from '../../lib/applicationEdit'
 import { toStringValue } from '../../lib/fieldMapping'
-import { CreateApplicationSchema } from '../../lib/validators/application'
+import {
+  CreateApplicationSchema,
+  type CreateApplicationInput,
+} from '../../lib/validators/application'
 import { fetchRoundProgrammeForApplication, updateApplicationFromCanonical } from './create'
 import { scoreApplication } from './score'
 import { enqueue, enqueueMany, type PipelineMessage } from '../pipelineQueue'
@@ -389,6 +392,72 @@ export async function applyAnswer(message: {
     return { applied: false, reason: err instanceof Error ? err.message : 'refused' }
   }
   return { applied: true }
+}
+
+/**
+ * Replace an application's budget lines. The applicant's breakdown is often missing,
+ * mangled by a form (one text box of "Staff 12k, venue 3k…") or out of date by the time
+ * anyone reads it, and the person reading it can usually set it straight.
+ *
+ * The lines are the whole list, not a patch, as the round dialog's programme array is.
+ * Empty clears the breakdown. Each line's `details` (extra columns the foundation's form
+ * captured) travel with it untouched. The submission as received is untouched as ever:
+ * the edit row keeps the lines as they were, and View Submission shows those.
+ */
+export async function setBudgetLines(params: {
+  applicationId: string
+  lines: NonNullable<CreateApplicationInput['budgetBreakdown']>
+  actor: Actor
+}): Promise<EditResult> {
+  const { app } = await loadForEdit(params.applicationId)
+  const before = app.budgetBreakdown ?? null
+  const input = {
+    ...canonicalFromApplication(app),
+    budgetBreakdown: params.lines.length > 0 ? params.lines : undefined,
+  }
+  const parsed = CreateApplicationSchema.safeParse(input)
+  if (!parsed.success) {
+    throw conflict(`Budget: ${parsed.error.issues[0]!.message}`)
+  }
+  if (JSON.stringify(before ?? []) === JSON.stringify(params.lines)) {
+    return { rerun: [], scoreQueued: false, scoreKept: false, appliedToOthers: 0 }
+  }
+
+  const roundProgramme = await fetchRoundProgrammeForApplication(app.roundProgrammeId)
+  if (!roundProgramme) throw notFoundError()
+  const firstAssessment = app.custodianScoreStatus === 'waiting'
+  const { rerun, scoreQueued, scoreInputsChanged } = await updateApplicationFromCanonical(
+    roundProgramme,
+    params.applicationId,
+    parsed.data,
+    { score: firstAssessment ? 'queued' : 'keep' },
+  )
+  await getDb()
+    .insert(applicationEdits)
+    .values({
+      applicationId: params.applicationId,
+      field: 'budgetBreakdown',
+      method: 'typed',
+      previousValue: before && before.length > 0 ? JSON.stringify(before) : null,
+      newValue: params.lines.length > 0 ? JSON.stringify(params.lines) : null,
+      editedBy: params.actor.id,
+    })
+  if (scoreQueued) {
+    const applicationId = params.applicationId
+    await enqueue({ kind: 'score', applicationId }, () => scoreApplication(applicationId))
+  }
+  await recordAudit({
+    actorUserId: params.actor.id,
+    action: 'application_edited',
+    applicationId: params.applicationId,
+    metadata: { fields: ['budgetBreakdown'] },
+  })
+  return {
+    rerun,
+    scoreQueued,
+    scoreKept: !scoreQueued && scoreInputsChanged && app.amountRequested !== null,
+    appliedToOthers: 0,
+  }
 }
 
 /**

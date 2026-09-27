@@ -27,6 +27,7 @@ export function EditableSlot({
   hint,
   firstYear,
   onChooseAnswer,
+  editor,
   children,
   className = '',
 }: {
@@ -34,8 +35,13 @@ export function EditableSlot({
   /** Names the pencil for a screen reader: "Edit amount requested". */
   label: string
   applicationId: string
-  fields: EditableField[]
-  values: Partial<Record<EditableField, string | null>>
+  fields?: EditableField[]
+  values?: Partial<Record<EditableField, string | null>>
+  /**
+   * A card whose content is not a set of fields (the budget's lines) brings its own
+   * editor; it gets the same pencil, the same in-place swap and the same outcome.
+   */
+  editor?: (props: { done: (outcome: EditOutcome) => void; cancel: () => void }) => ReactNode
   onSaved: (outcome: EditOutcome) => void
   hint?: string
   firstYear?: FirstYearEdit
@@ -57,26 +63,36 @@ export function EditableSlot({
         <p className="mb-3 font-display text-body font-medium" style={{ color: C.ink }}>
           {label}
         </p>
-        <FieldEditor
-          applicationId={applicationId}
-          fields={fields}
-          values={values}
-          hint={hint}
-          firstYear={firstYear}
-          onChooseAnswer={
-            onChooseAnswer
-              ? (field) => {
-                  setEditing(false)
-                  onChooseAnswer(field)
-                }
-              : undefined
-          }
-          onCancel={() => setEditing(false)}
-          onDone={(outcome) => {
-            setEditing(false)
-            onSaved(outcome)
-          }}
-        />
+        {editor ? (
+          editor({
+            cancel: () => setEditing(false),
+            done: (outcome) => {
+              setEditing(false)
+              onSaved(outcome)
+            },
+          })
+        ) : (
+          <FieldEditor
+            applicationId={applicationId}
+            fields={fields ?? []}
+            values={values ?? {}}
+            hint={hint}
+            firstYear={firstYear}
+            onChooseAnswer={
+              onChooseAnswer
+                ? (field) => {
+                    setEditing(false)
+                    onChooseAnswer(field)
+                  }
+                : undefined
+            }
+            onCancel={() => setEditing(false)}
+            onDone={(outcome) => {
+              setEditing(false)
+              onSaved(outcome)
+            }}
+          />
+        )}
       </div>
     )
   }

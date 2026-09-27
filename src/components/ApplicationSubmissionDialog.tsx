@@ -8,7 +8,7 @@ import {
 } from './ApplicationFields'
 import { CANONICAL_FIELD_BY_KEY, type CanonicalFieldKey } from '../lib/fieldMapping'
 import { fmtDate } from '../lib/format'
-import type { EditRecord } from './applications/edit/EditedMark'
+import { budgetSummary, type EditRecord } from './applications/edit/EditedMark'
 
 // View Submission: what the applicant sent, exactly as it arrived.
 //
@@ -33,6 +33,7 @@ const fieldLabel = (key: string) =>
 
 function money(field: string, value: string | null): string | null {
   if (value == null) return null
+  if (field === 'budgetBreakdown') return budgetSummary(value)
   if (field === 'amountRequested' || field === 'unrestrictedReserves') {
     const n = Number(value)
     return Number.isFinite(n) ? `£${Math.round(n).toLocaleString('en-GB')}` : value
@@ -140,7 +141,10 @@ function AsReceived({
         ((x.sourceKey && labels.has(x.sourceKey)) ||
           (x.replacedSourceKey && labels.has(x.replacedSourceKey))),
     )
-    return !anchored
+    // A budget correction sits under the budget answer, where there is one.
+    const budgetAnswer =
+      e.field === 'budgetBreakdown' && submission.some((s) => s.canonical === 'budgetBreakdown')
+    return !anchored && !budgetAnswer
   })
 
   return (
@@ -159,8 +163,26 @@ function AsReceived({
           // A field that USED to be read from this answer and now reads something else.
           const replacedIn = edits.find((e) => e.replacedSourceKey === s.label)
           const replacedNow = replacedIn ? latestByField.get(replacedIn.field) : undefined
-          const shaped =
-            s.canonical === 'budgetBreakdown' || s.canonical === 'budgetBreakdownLink'
+          // The budget's lines are shown as lines. Once somebody has corrected them the
+          // columns hold the correction, so the ORIGINAL comes from the first edit's
+          // record of what was there, and the correction is noted beneath.
+          const budgetEdit =
+            s.canonical === 'budgetBreakdown' ? latestByField.get('budgetBreakdown') : undefined
+          const originalLines = budgetEdit
+            ? (() => {
+                const first = edits.find((e) => e.field === 'budgetBreakdown')
+                try {
+                  return first?.previousValue ? JSON.parse(first.previousValue) : null
+                } catch {
+                  return null
+                }
+              })()
+            : null
+          const shaped = budgetEdit
+            ? originalLines
+              ? ({ kind: 'budget', lines: originalLines } as const)
+              : null
+            : s.canonical === 'budgetBreakdown' || s.canonical === 'budgetBreakdownLink'
               ? answerFor(application, s.canonical, programmeName)
               : null
           return (
@@ -185,7 +207,12 @@ function AsReceived({
                     {s.value}
                   </p>
                 )}
-                {usedFor ? (
+                {budgetEdit ? (
+                  <Note tag="Changed">
+                    Custodian uses <b>{budgetSummary(budgetEdit.newValue) ?? 'no breakdown'}</b> ·{' '}
+                    {byline(budgetEdit)}
+                  </Note>
+                ) : usedFor ? (
                   <Note tag={usedFor.method === 'applied' ? 'Filled in' : 'Used as'}>
                     {fieldLabel(usedFor.field)},{' '}
                     <b>{money(usedFor.field, usedFor.newValue) ?? 'withheld'}</b> ·{' '}

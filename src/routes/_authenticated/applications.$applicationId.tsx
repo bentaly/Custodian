@@ -28,6 +28,7 @@ import { EditableSlot } from '../../components/applications/edit/EditableSlot'
 import { EditedMark } from '../../components/applications/edit/EditedMark'
 import { ThemesEditor } from '../../components/applications/edit/ThemesEditor'
 import { AnswerPickerDialog } from '../../components/applications/edit/AnswerPickerDialog'
+import { BudgetEditor } from '../../components/applications/edit/BudgetEditor'
 import {
   FieldEditor,
   describeOutcome,
@@ -1570,87 +1571,108 @@ function ApplicationDetail() {
         </div>
 
         {/* Application budget */}
-        <Panel label="Application budget">
-          <PanelTitle>Application budget</PanelTitle>
-          {budgetLines.length > 0 ? (
-            <>
-              <div className="mb-3 flex items-baseline justify-between">
-                <span
-                  className="font-display text-heading font-medium leading-none"
+        {/* The applicant's lines, correctable in place like every other card. */}
+        <EditableSlot
+          canEdit={canEdit}
+          label="Edit the application budget"
+          applicationId={application.id}
+          onSaved={onSaved}
+          editor={({ done, cancel }) => (
+            <BudgetEditor
+              applicationId={application.id}
+              lines={budgetLines}
+              onDone={done}
+              onCancel={cancel}
+            />
+          )}
+        >
+          <Panel label="Application budget">
+            <PanelTitle>
+              <span className="inline-flex items-baseline gap-2">
+                Application budget
+                <EditedMark field="budgetBreakdown" edits={edits} />
+              </span>
+            </PanelTitle>
+            {budgetLines.length > 0 ? (
+              <>
+                <div className="mb-3 flex items-baseline justify-between">
+                  <span
+                    className="font-display text-heading font-medium leading-none"
+                    style={{ color: C.ink }}
+                  >
+                    {fmtMoney(budgetTotal)}
+                  </span>
+                  <span className="font-display text-body" style={{ color: C.sub }}>
+                    {budgetLines.length} line{budgetLines.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <BarMeter
+                  bars={120}
+                  height={24}
+                  barWidth={3}
+                  className="mb-4 w-full"
+                  segments={budgetLines.map((l, i) => ({
+                    value: l.amount,
+                    colour: budgetColours[i]!,
+                  }))}
+                />
+                <div className="flex flex-col gap-2.5">
+                  {budgetLines.map((l, i) => {
+                    const pct = budgetTotal > 0 ? Math.round((l.amount / budgetTotal) * 100) : 0
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        <span
+                          className="size-2 shrink-0 rounded-swatch"
+                          style={{ backgroundColor: budgetColours[i] }}
+                        />
+                        <div
+                          className="min-w-0 flex-1 font-display text-body"
+                          style={{ color: C.ink }}
+                        >
+                          <TruncatedText text={l.item} label="Budget line" />
+                        </div>
+                        <span
+                          className="w-24 text-right font-display text-body font-medium tabular-nums"
+                          style={{ color: C.ink }}
+                        >
+                          {fmtMoney(l.amount)}
+                        </span>
+                        <span
+                          className="w-10 text-right font-display text-body tabular-nums"
+                          style={{ color: C.faint }}
+                        >
+                          {pct}%
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            ) : budgetLink ? null : (
+              <p className="font-display text-body" style={{ color: C.sub }}>
+                No budget breakdown was provided with this application.
+              </p>
+            )}
+            {budgetLink && (
+              <div className={budgetLines.length > 0 ? 'mt-3 border-t pt-3' : ''}>
+                <a
+                  href={budgetLink}
+                  target="_blank"
+                  // Applicant-supplied URL: never hand the opener to it.
+                  rel="noopener noreferrer"
+                  className="font-display text-body underline underline-offset-2"
                   style={{ color: C.ink }}
                 >
-                  {fmtMoney(budgetTotal)}
-                </span>
-                <span className="font-display text-body" style={{ color: C.sub }}>
-                  {budgetLines.length} line{budgetLines.length !== 1 ? 's' : ''}
-                </span>
+                  {budgetLinkName}
+                </a>
+                <p className="mt-1 font-display text-body" style={{ color: C.sub }}>
+                  The applicant supplied their budget as a document. It opens in a new tab and isn't
+                  read by Custodian, so it doesn't feed the breakdown or the score.
+                </p>
               </div>
-              <BarMeter
-                bars={120}
-                height={24}
-                barWidth={3}
-                className="mb-4 w-full"
-                segments={budgetLines.map((l, i) => ({
-                  value: l.amount,
-                  colour: budgetColours[i]!,
-                }))}
-              />
-              <div className="flex flex-col gap-2.5">
-                {budgetLines.map((l, i) => {
-                  const pct = budgetTotal > 0 ? Math.round((l.amount / budgetTotal) * 100) : 0
-                  return (
-                    <div key={i} className="flex items-center gap-3">
-                      <span
-                        className="size-2 shrink-0 rounded-swatch"
-                        style={{ backgroundColor: budgetColours[i] }}
-                      />
-                      <div
-                        className="min-w-0 flex-1 font-display text-body"
-                        style={{ color: C.ink }}
-                      >
-                        <TruncatedText text={l.item} label="Budget line" />
-                      </div>
-                      <span
-                        className="w-24 text-right font-display text-body font-medium tabular-nums"
-                        style={{ color: C.ink }}
-                      >
-                        {fmtMoney(l.amount)}
-                      </span>
-                      <span
-                        className="w-10 text-right font-display text-body tabular-nums"
-                        style={{ color: C.faint }}
-                      >
-                        {pct}%
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          ) : budgetLink ? null : (
-            <p className="font-display text-body" style={{ color: C.sub }}>
-              No budget breakdown was provided with this application.
-            </p>
-          )}
-          {budgetLink && (
-            <div className={budgetLines.length > 0 ? 'mt-3 border-t pt-3' : ''}>
-              <a
-                href={budgetLink}
-                target="_blank"
-                // Applicant-supplied URL: never hand the opener to it.
-                rel="noopener noreferrer"
-                className="font-display text-body underline underline-offset-2"
-                style={{ color: C.ink }}
-              >
-                {budgetLinkName}
-              </a>
-              <p className="mt-1 font-display text-body" style={{ color: C.sub }}>
-                The applicant supplied their budget as a document. It opens in a new tab and isn't
-                read by Custodian, so it doesn't feed the breakdown or the score.
-              </p>
-            </div>
-          )}
-        </Panel>
+            )}
+          </Panel>
+        </EditableSlot>
 
         {/* Due diligence checks */}
         <Panel>

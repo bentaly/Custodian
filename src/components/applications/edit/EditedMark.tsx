@@ -24,6 +24,19 @@ export function latestEdits(edits: EditRecord[]): Map<string, EditRecord> {
   return latest
 }
 
+/** A stored budget (JSON lines) as words: "3 lines totalling £47,700". */
+export function budgetSummary(json: string | null): string | null {
+  if (!json) return null
+  try {
+    const lines = JSON.parse(json) as Array<{ amount: number }>
+    if (!Array.isArray(lines) || lines.length === 0) return null
+    const total = lines.reduce((s, l) => s + (Number(l.amount) || 0), 0)
+    return `${lines.length} line${lines.length === 1 ? '' : 's'} totalling £${Math.round(total).toLocaleString('en-GB')}`
+  } catch {
+    return null
+  }
+}
+
 /** The FIRST change to a field holds what the application said before anyone touched it. */
 function firstEdit(edits: EditRecord[], field: string): EditRecord | undefined {
   return edits.find((e) => e.field === field)
@@ -41,6 +54,10 @@ function describe(edit: EditRecord, original: EditRecord | undefined): string {
           ? `${who} read this from the applicant's answer to "${edit.sourceKey}" on ${when}.`
           : `${who} changed this on ${when}.`
   if (edit.method === 'themes') return `${how} The AI assessment will not change them.`
+  if (edit.field === 'budgetBreakdown') {
+    const was = budgetSummary(original?.previousValue ?? null)
+    return was ? `${how} The submission had ${was}.` : `${how} The submission had no breakdown.`
+  }
   const before = original?.previousValue
   return before ? `${how} It was "${before}".` : `${how} The submission did not include it.`
 }

@@ -14,6 +14,7 @@ import { requireRole } from '../session'
 import { assertApplicationAccess } from '../scope'
 import { notFoundError } from '../../lib/errors'
 import { EDITABLE_FIELDS, strictReading } from '../../lib/applicationEdit'
+import { BudgetLineSchema } from '../../lib/validators/application'
 import { toStringValue } from '../../lib/fieldMapping'
 import { orderedKeys } from '../fieldMapping/assemble'
 import {
@@ -21,6 +22,7 @@ import {
   othersMissing,
   rescoreApplication,
   setApplicationThemes,
+  setBudgetLines,
 } from '../applications/edit'
 
 const FieldEnum = z.enum(EDITABLE_FIELDS)
@@ -53,6 +55,14 @@ export const editApplicationFields = createServerFn({ method: 'POST' })
       remember: data.remember,
       applyToOthers: data.applyToOthers,
     })
+  })
+
+export const setBudget = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.uuid(), lines: z.array(BudgetLineSchema).max(100) }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    await assertApplicationAccess(user, data.id)
+    return setBudgetLines({ applicationId: data.id, lines: data.lines, actor: { id: user.id } })
   })
 
 export const setThemes = createServerFn({ method: 'POST' })
