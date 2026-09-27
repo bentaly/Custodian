@@ -312,8 +312,11 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   **at shortlist there is no schedule to divide**: start date, instalment count and cadence are all
   set later in award set-up. Dividing the ask by `grant_duration_years` is the SUGGESTION and is
   right for an annual grant; £48,000 paid every four months over sixteen draws £36,000 in year one
-  against a suggested £24,000. NULL = the suggestion was accepted. **Cleared when an application
-  leaves `shortlisted`**, or a stale figure would silently become the drawdown next time.
+  against a suggested £24,000. NULL = the suggestion was accepted. **Editable from the day the
+  application arrives** (the amount card's editor, prefilled with the suggestion; typing the
+  suggestion back stores NULL) and **kept** on leaving the shortlist, since 2026-09-27. It used to
+  be cleared there, because a stale figure would silently become the drawdown next time; it is
+  shown on the card now, so no longer silent. Shortlisting without a figure keeps the stated one.
   `grant_duration_years` is a display hint, NOT an input to `buildSchedule` — do not treat it as one.
 - **Once an award exists none of that is read.** `roundProgrammeSpend`
   (`src/server/applications/roundSpend.ts`) reads the award's real instalments, and it is the
@@ -567,9 +570,13 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
 Every field in `src/lib/fieldMapping/canonical.ts` carries a `tier` saying what its absence costs.
 A two-state model (required / optional) shipped a real bug, so the middle tiers are load-bearing.
 
-- **`required`** (3: programme, organisation name, the foundation's reference) — no application
-  without it. Unresolved → the ingest holds at `needs_review`. It was 8 until applications became
-  editable (see below); amount, applicant email and the bank trio moved to `expected`.
+- **`required`** (2: programme, the foundation's reference) — no application without it.
+  Unresolved → the ingest holds at `needs_review`. It was 8 until applications became editable (see
+  below); amount, applicant email, the bank trio and the organisation name moved to `expected`. A
+  missing name lands as "Unnamed (ref …)" (`lib/organisationName.ts`; the column stays NOT NULL),
+  which is why the reference stays required. **The schema no longer insists on any mapped field**,
+  so the admin app's Confirm refuses a mapping missing a required one through `unmetRequired`,
+  not through `CreateApplicationSchema`: an empty grid must not blank a live application.
 - **`one_of`** — a group in `REQUIRED_ONE_OF_GROUPS` of which at least one member must resolve.
   **The list is empty today** but the machinery stays wired; enforcement lives in BOTH `ingest.ts`
   (step 6) and `resolve.ts` (`oneOfIssues`) and the two must keep agreeing — a reviewer must not be
@@ -623,13 +630,23 @@ rather than waiting in our admin queue.
   paid model call. A primary "Re-run assessment" appears on the AI panel once something it reads
   has changed since it ran; `rerunBlocker` (`server/applications/edit.ts`) is the rule for the
   button and the server alike: never after a trustee has voted (they voted on that one), at most
-  `RERUNS_PER_DAY` (3) per application, counted from `assessment_rerun` audit rows. The only
+  `RERUNS_PER_DAY` (5) per application in 24 hours, counted from `assessment_rerun` audit rows (at
+  the cap the button stays, disabled, with the reason). The only
   automatic run is the FIRST, when a `waiting` application gets its amount. The area lookup and
   register checks do re-run on edit: cheap, and a stale decile beside a corrected area is wrong.
 - **A held submission is reported to Sentry** (`Submission held for review`, one issue, reasons in
   the extras), since nothing on a foundation's screens says it arrived. Sentry's alert is the email.
-- **The first-year share** of a shortlisted ask is edited in the amount card's own editor, not
-  through a separate "estimated" link.
+- **The first-year share** is edited in the amount card's own editor, from arrival, not through a
+  separate "estimated" link.
+- **"Choose from their answers" is under every field** in every editor (not only the amount),
+  wherever the application came in through a form.
+- **The budget's lines are editable** (`setBudgetLines`, `BudgetEditor`), as a whole list, each
+  line's form `details` carried untouched. View Submission shows the lines as SENT, from the first
+  edit's `previous_value`, because the columns hold the correction.
+- **The delivery area suggests names** (`server/fns/areas.ts`, `AreaInput`): every district,
+  county (PFA) and English region in `deprivation_areas`, about 420, sent once and filtered in the
+  browser. Still free text: a town inside a district is a sharper answer when somebody knows it.
+  `deprivation_areas` carries no ward NAMES (codes only), which is why wards are not offered.
 - **Themes chosen by hand** set `themes_set_by`, and no score ever overwrites them after that.
 - **Edit in place** (`components/applications/edit/`): at rest the screen is as it was; hover or
   focus a card and a pencil appears in its corner; the card becomes its fields. One pencil per card.
