@@ -31,6 +31,7 @@ import {
   type SortDir,
 } from '../../lib/listSearch'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
+import { fieldGaps } from '../../lib/fieldMapping/gaps'
 import { DeclineLettersDialog } from '../../components/applications/DeclineLettersDialog'
 import {
   DataTable,
@@ -353,16 +354,19 @@ function AiScoreCell({
         <span className="font-display text-body font-medium" style={{ color: C.ink }}>
           {score}
         </span>
-      ) : (
-        status === 'queued' && (
-          // Only `queued` says this. `pending` means no score is coming (scoring is
-          // not configured), and a row that claims to be "scoring" forever is worse
-          // than one that admits it has no score.
-          <span className="font-display text-label" style={{ color: C.faint }}>
-            Scoring…
-          </span>
-        )
-      )}
+      ) : status === 'queued' ? (
+        // Only `queued` says this. `pending` means no score is coming (scoring is
+        // not configured), and a row that claims to be "scoring" forever is worse
+        // than one that admits it has no score.
+        <span className="font-display text-label" style={{ color: C.faint }}>
+          Scoring…
+        </span>
+      ) : status === 'waiting' ? (
+        // Held until somebody fills in the amount; the row's status says so.
+        <span className="font-display text-label" style={{ color: C.faint }}>
+          Waiting
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -560,11 +564,30 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     width: 'sm:w-[11%]',
     sortable: true,
     cell: (app) => {
+      // The same gaps the application's "to fill in" panel lists, counted so the list
+      // shows which applications still need somebody before they can move on.
+      const toFill = fieldGaps({
+        amountRequested: app.amountRequested,
+        applicantEmail: app.applicantEmail,
+        bankAccountName: app.bankAccountName,
+        bankAccountNumber: app.bankAccountNumber,
+        bankSortCode: app.bankSortCode,
+      }).toFill.length
       return (
-        <StatusPill
-          label={applicationStatusLabel(app.status)}
-          colour={STATUS_COLOUR[app.status] ?? C.sub}
-        />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusPill
+            label={applicationStatusLabel(app.status)}
+            colour={STATUS_COLOUR[app.status] ?? C.sub}
+          />
+          {toFill > 0 && app.status !== 'declined' && (
+            <span
+              className="whitespace-nowrap rounded-pill border px-2 py-0.5 font-display text-micro font-medium"
+              style={{ borderColor: withAlpha(C.warning, 0.4), color: C.warning }}
+            >
+              {toFill} to fill in
+            </span>
+          )}
+        </div>
       )
     },
   },

@@ -95,7 +95,7 @@ export function KeyValueCard({ rows }: { rows: FieldRow[] }) {
 // to — the budget, which has line items, and the budget document, which is a link
 // someone clicks. Rendering those as text would be a regression on what the four-card
 // version already did, so the kind travels with the value.
-type Answer =
+export type Answer =
   | { kind: 'text'; value: string; emphasis?: boolean }
   | { kind: 'budget'; lines: BudgetLine[] }
   | { kind: 'link'; href: string }
@@ -120,7 +120,7 @@ const FALLBACK_ORDER: CanonicalFieldKey[] = [
   'bankSortCode',
 ]
 
-function answerFor(
+export function answerFor(
   application: ApplicationFieldsData,
   canonical: string,
   programmeName?: string | null,
@@ -301,7 +301,7 @@ function BudgetAnswer({ lines }: { lines: BudgetLine[] }) {
   )
 }
 
-function AnswerBody({ answer }: { answer: Answer }) {
+export function AnswerBody({ answer }: { answer: Answer }) {
   if (answer.kind === 'budget') return <BudgetAnswer lines={answer.lines} />
   if (answer.kind === 'link') {
     return (

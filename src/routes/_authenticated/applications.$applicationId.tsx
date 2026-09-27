@@ -24,6 +24,18 @@ import {
   updateApplicationStatus,
 } from '../../server/fns/applications'
 import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmissionDialog'
+import { EditableSlot } from '../../components/applications/edit/EditableSlot'
+import { EditedMark } from '../../components/applications/edit/EditedMark'
+import { ThemesEditor } from '../../components/applications/edit/ThemesEditor'
+import { ToFillPanel } from '../../components/applications/edit/ToFillPanel'
+import { AnswerPickerDialog } from '../../components/applications/edit/AnswerPickerDialog'
+import {
+  FieldEditor,
+  describeOutcome,
+  type EditOutcome,
+} from '../../components/applications/edit/FieldEditor'
+import { rescore } from '../../server/fns/applicationEdits'
+import { isEditableField, type EditableField } from '../../lib/applicationEdit'
 import { FirstYearDialog } from '../../components/FirstYearDialog'
 import { CommentsSection } from '../../components/CommentsSection'
 import { ProgressBar } from '../../components/ProgressBar'
@@ -33,6 +45,7 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 import {
   BreadcrumbBar,
   Button,
+  Dialog,
   CompactMoney,
   DetailHeader,
   KPI_TINTS,
@@ -419,6 +432,13 @@ function ApplicationDetail() {
   const [submissionOpen, setSubmissionOpen] = useState(false)
   const [firstYearOpen, setFirstYearOpen] = useState(false)
   const [firstYearMode, setFirstYearMode] = useState<'shortlist' | 'edit'>('shortlist')
+  // What the last edit did ("Saved. The AI assessment is being re-run."), shown above
+  // the body until the next one or a reload.
+  const [notice, setNotice] = useState<string | null>(null)
+  const [pickingAmount, setPickingAmount] = useState(false)
+  // The fields a "Fill in" dialog is open for, from the Not captured panel.
+  const [adding, setAdding] = useState<EditableField[] | null>(null)
+  const [rescoring, setRescoring] = useState(false)
 
   const isShortlisted = application.status === 'shortlisted'
   const isDeclined = application.status === 'declined'
@@ -525,9 +545,57 @@ function ApplicationDetail() {
     budgetBreakdown: budgetLines,
     budgetBreakdownLink: application.budgetBreakdownLink,
     proposedImpactQuantity: application.proposedImpactQuantity,
+    amountRequested: application.amountRequested,
+    applicantEmail: application.applicantEmail,
+    // From the server's unredacted row, so a trustee is not told the bank details are
+    // missing merely because they are withheld from them.
+    bankAccountName: application.bankDetailsComplete ? 'held' : null,
+    bankAccountNumber: application.bankDetailsComplete ? 'held' : null,
+    bankSortCode: application.bankDetailsComplete ? 'held' : null,
   }
   const gaps = fieldGaps(gapValues)
   const noRegistrationNumber = missingRegistrationNumber(gapValues)
+
+  // ── Editing ────────────────────────────────────────────────────────────────
+  // What an edit surface starts from: the application's current values, by field.
+  const canEdit = application.canEdit
+  const edits = application.edits
+  const editValues: Partial<Record<EditableField, string | null>> = {
+    organisationName: application.organisationName,
+    applicantEmail: application.applicantEmail,
+    charityNumber: application.charityNumber,
+    companyNumber: application.companyNumber,
+    amountRequested: application.amountRequested,
+    proposedImpactQuantity: application.proposedImpactQuantity,
+    unrestrictedReserves: application.unrestrictedReserves,
+    deliveryArea: application.deliveryArea,
+    bankName: application.bankName,
+    bankAccountName: application.bankAccountName,
+    bankAccountNumber: application.bankAccountNumber,
+    bankSortCode: application.bankSortCode,
+  }
+  const hasSubmission = application.submission !== null
+  // The organisation card edits four facts together, so it wears one mark: the latest.
+  const orgEditField =
+    [...edits]
+      .reverse()
+      .find((e) =>
+        ['organisationName', 'charityNumber', 'companyNumber', 'applicantEmail'].includes(e.field),
+      )?.field ?? null
+  const onSaved = (outcome: EditOutcome) => setNotice(describeOutcome(outcome))
+  const waiting = scoreStatus === 'waiting'
+  // An edit to something the assessment reads, made after it last ran: a decision was
+  // under way, so it was left alone. Offer the re-run rather than doing it silently.
+  const editedSinceScored =
+    scored &&
+    application.custodianScoredAt != null &&
+    edits.some(
+      (e) =>
+        e.field !== 'themes' &&
+        !e.field.startsWith('bank') &&
+        e.field !== 'applicantEmail' &&
+        new Date(e.createdAt) > new Date(application.custodianScoredAt!),
+    )
 
   // ── What the register says the applicant IS ────────────────────────────────
   // Captured by `runDueDiligence` on the same calls the checks come from, so this
@@ -803,11 +871,14 @@ function ApplicationDetail() {
                     wears nothing, and stays the single tab stop it should be. */}
                 {!isDeclined &&
                   (() => {
+                    // No amount, no shortlisting: every figure the shortlist feeds would
+                    // read it as £0. Same tooltip treatment as a full budget.
+                    const noAmount = !isShortlisted && amountRequested === null
                     const shortlistButton = (
                       <HeaderButton
                         tone={isShortlisted ? 'plain' : 'primary'}
                         onClick={handleShortlist}
-                        disabled={shortlisting || isBudgetFull}
+                        disabled={shortlisting || isBudgetFull || noAmount}
                       >
                         {shortlisting
                           ? '…'
@@ -818,7 +889,11 @@ function ApplicationDetail() {
                               : 'Shortlist'}
                       </HeaderButton>
                     )
-                    return isBudgetFull ? (
+                    return noAmount ? (
+                      <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
+                        Fill in the amount requested first.
+                      </Tooltip>
+                    ) : isBudgetFull ? (
                       <Tooltip label="Why shortlisting is unavailable" trigger={shortlistButton}>
                         Budget committed. No funds remaining in this programme.
                       </Tooltip>
@@ -845,6 +920,35 @@ function ApplicationDetail() {
         </div>
       )}
 
+      {notice && (
+        <div
+          role="status"
+          className="flex items-start justify-between gap-3 rounded-chip border px-3 py-2 font-display text-body"
+          style={{ borderColor: C.brandBorder, backgroundColor: C.brandWash, color: C.ink }}
+        >
+          <span>{notice}</span>
+          <button
+            type="button"
+            className="shrink-0 font-display text-label underline"
+            style={{ color: C.sub }}
+            onClick={() => setNotice(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* What a later step is waiting on: the amount, the email, the bank details. */}
+      <ToFillPanel
+        gaps={gaps.toFill}
+        canEdit={canEdit}
+        hasSubmission={hasSubmission}
+        applicationId={application.id}
+        organisationName={application.organisationName}
+        values={editValues}
+        onSaved={onSaved}
+      />
+
       {/* Body */}
       <div className="flex flex-col gap-4">
         {/* What the money would fund — stated before anything we made of it. Its own
@@ -855,7 +959,12 @@ function ApplicationDetail() {
             the foundation agreed to fund, written at award set-up and printed on the
             letter — shown as the grant screen's "Grant purpose". That one is prefilled
             from this one and then edited, so the two differ on most grants. */}
-        {(grantPurpose || orgProfile || orgSummary || noRegistrationNumber) && (
+        {(grantPurpose ||
+          waiting ||
+          canEdit ||
+          orgProfile ||
+          orgSummary ||
+          noRegistrationNumber) && (
           <Panel label="grant purpose">
             {/* Two columns, not two stacked blocks. The ask and who is asking are read
                 together, and stacked they were read in sequence: the organisation
@@ -880,7 +989,7 @@ function ApplicationDetail() {
                 The columns stack below `lg`, which puts the organisation back
                 underneath — the same order it had before, and the right one when there
                 is only one column's width to give it. */}
-            <div className={grantPurpose ? 'grid gap-6 lg:grid-cols-2 lg:gap-8' : ''}>
+            <div className={grantPurpose || waiting ? 'grid gap-6 lg:grid-cols-2 lg:gap-8' : ''}>
               {/* A column, so the caption can be pushed to the FOOT of it. The grant
                   purpose is capped at 40 words and the organisation card runs to five
                   rows, so the left column always bottoms out first and left a hole under
@@ -888,7 +997,7 @@ function ApplicationDetail() {
                   two section labels on the same line, which centring the column would
                   have broken. Below `lg` the columns stack and `mt-auto` is inert, so
                   the caption goes back to hugging the sentence it qualifies. */}
-              {grantPurpose && (
+              {(grantPurpose || waiting) && (
                 <div className="flex flex-col">
                   <p
                     className="font-display text-label font-medium uppercase"
@@ -901,23 +1010,47 @@ function ApplicationDetail() {
                       is marked as the one the panel is about without reading as
                       system-endorsed — which matters here, because this text is written
                       by the scoring model rather than quoted from the applicant. */}
-                  <p
-                    className="mt-2 border-l-3 pl-2 font-display text-title leading-normal"
-                    style={{ color: C.ink, borderColor: C.brand }}
-                  >
-                    {grantPurpose}
-                  </p>
-                  {/* Beside the purpose because they come from the same reading of the
-                      application. No edit control: a grants officer cannot re-tag an
-                      application, which is the rule, not a missing feature. Nothing at
-                      all while unassigned rather than the programme's whole list. */}
-                  {themes && themes.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1" aria-label="Themes">
-                      {themes.map((t) => (
-                        <ThemePill key={t}>{t}</ThemePill>
-                      ))}
-                    </div>
+                  {grantPurpose ? (
+                    <p
+                      className="mt-2 border-l-3 pl-2 font-display text-title leading-normal"
+                      style={{ color: C.ink, borderColor: C.brand }}
+                    >
+                      {grantPurpose}
+                    </p>
+                  ) : (
+                    // The same model call writes the purpose, the themes and the score,
+                    // so while the assessment waits for the amount there is no purpose
+                    // yet. Said so, with the way to read the application meanwhile.
+                    <p
+                      className="mt-2 border-l-3 pl-2 font-display text-body leading-normal"
+                      style={{ color: C.sub, borderColor: C.line }}
+                    >
+                      Written by the AI assessment, which is waiting for the amount requested. Until
+                      then,{' '}
+                      <button
+                        type="button"
+                        className="underline"
+                        style={{ color: C.brand }}
+                        onClick={() => setSubmissionOpen(true)}
+                      >
+                        View Submission
+                      </button>{' '}
+                      has the application in their own words.
+                    </p>
                   )}
+                  {/* Beside the purpose because they come from the same reading of the
+                      application. An admin may choose them by hand (from the programme's
+                      list), and the assessment then keeps their choice. Nothing at all
+                      while unassigned and not editable, rather than the programme's whole
+                      list. */}
+                  <ThemesEditor
+                    applicationId={application.id}
+                    themes={themes}
+                    programmeThemes={programme.tags ?? []}
+                    canEdit={canEdit}
+                    edits={edits}
+                    waiting={waiting}
+                  />
                   {/* The one line of copy on this panel that has to be exactly right.
                       `grantPurpose` is written by the scoring model (see
                       `CustodianScoreOutputSchema` — one or two sentences, 40 words, no
@@ -943,29 +1076,39 @@ function ApplicationDetail() {
                   the applicant's own words where the form asked for them. So the
                   provenance sits per block: a byline on the description, and the register
                   credited under the facts, which remain entirely its. */}
-              <div className="rounded-card p-5" style={{ backgroundColor: C.wash }}>
-                {/* The chevron rides the heading rather than sitting under the text.
+              <EditableSlot
+                canEdit={canEdit}
+                label="Edit the organisation's details"
+                applicationId={application.id}
+                fields={['organisationName', 'charityNumber', 'companyNumber', 'applicantEmail']}
+                values={editValues}
+                onSaved={onSaved}
+                hint="A changed charity or company number is screened against the register again when you save."
+              >
+                <div className="rounded-card p-5" style={{ backgroundColor: C.wash }}>
+                  {/* The chevron rides the heading rather than sitting under the text.
                     A full-width disclosure button below the paragraph costs a whole row
                     of height on a card whose argument is that it fits BESIDE the grant
                     purpose; here it costs nothing, and it reads as "there is more of
                     this section" at the moment the eye arrives at the section. It is
                     rendered only when the description is actually clipped. */}
-                <div className="flex items-center gap-1.5">
-                  <HugeiconsIcon icon={Building02Icon} size={14} color={C.sub} />
-                  <p
-                    className="font-display text-label font-medium uppercase"
-                    style={{ color: C.sub, letterSpacing: '0.06em' }}
-                  >
-                    The organisation
-                  </p>
-                  {activities.clipped && (
-                    <ClampToggle
-                      open={activities.open}
-                      onToggle={activities.toggle}
-                      label="Read the full description"
-                    />
-                  )}
-                  {/* Provenance reads as a byline, so it belongs on the heading row
+                  <div className="flex items-center gap-1.5">
+                    <HugeiconsIcon icon={Building02Icon} size={14} color={C.sub} />
+                    <p
+                      className="font-display text-label font-medium uppercase"
+                      style={{ color: C.sub, letterSpacing: '0.06em' }}
+                    >
+                      The organisation
+                    </p>
+                    {orgEditField && <EditedMark field={orgEditField} edits={edits} />}
+                    {activities.clipped && (
+                      <ClampToggle
+                        open={activities.open}
+                        onToggle={activities.toggle}
+                        label="Read the full description"
+                      />
+                    )}
+                    {/* Provenance reads as a byline, so it belongs on the heading row
                       rather than on a line of its own at the foot of the card: it fills
                       the empty right half of a row that already exists, and gives the
                       card back the line it was spending.
@@ -977,102 +1120,106 @@ function ApplicationDetail() {
                       paragraph the applicant wrote is the exact confusion the tint exists
                       to prevent. The register keeps its credit on the facts below, which
                       are still entirely its. */}
-                  {(orgSummary || orgProfile) && (
+                    {(orgSummary || orgProfile) && (
+                      <p
+                        className="ml-auto font-display text-micro uppercase"
+                        style={{ color: C.faint }}
+                      >
+                        {orgSummary ? (
+                          'From the application'
+                        ) : (
+                          <>
+                            <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> ·
+                            read {fmtDate(orgProfile!.fetchedAt)}
+                          </>
+                        )}
+                      </p>
+                    )}
+                  </div>
+
+                  {orgSummary || orgProfile?.activities ? (
+                    // The applicant's own description where the form asked for one, and
+                    // the charity's own description from its annual return otherwise —
+                    // neither ours nor a model's either way, which is why this needs no
+                    // hedge where the grant purpose beside it does. Length is uncontrolled
+                    // (one sentence for a village hall, three thousand characters from an
+                    // applicant with a lot to say), so it is clamped on DISPLAY rather than
+                    // on write: truncating either before storing it would lose it for good.
+                    // The chevron that opens it is up on the heading row, and appears only
+                    // when there is something behind the fold.
                     <p
-                      className="ml-auto font-display text-micro uppercase"
-                      style={{ color: C.faint }}
+                      ref={activities.ref}
+                      className={`mt-2 font-display text-body leading-relaxed ${activities.className ?? ''}`}
+                      style={{ color: C.ink }}
                     >
-                      {orgSummary ? (
-                        'From the application'
-                      ) : (
-                        <>
-                          <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> ·
-                          read {fmtDate(orgProfile!.fetchedAt)}
-                        </>
-                      )}
+                      {orgSummary ?? orgProfile!.activities}
+                    </p>
+                  ) : (
+                    <p className="mt-2 font-display text-body" style={{ color: C.sub }}>
+                      {orgProfile ? 'The register holds no activity summary.' : orgAbsence}
                     </p>
                   )}
-                </div>
 
-                {orgSummary || orgProfile?.activities ? (
-                  // The applicant's own description where the form asked for one, and
-                  // the charity's own description from its annual return otherwise —
-                  // neither ours nor a model's either way, which is why this needs no
-                  // hedge where the grant purpose beside it does. Length is uncontrolled
-                  // (one sentence for a village hall, three thousand characters from an
-                  // applicant with a lot to say), so it is clamped on DISPLAY rather than
-                  // on write: truncating either before storing it would lose it for good.
-                  // The chevron that opens it is up on the heading row, and appears only
-                  // when there is something behind the fold.
-                  <p
-                    ref={activities.ref}
-                    className={`mt-2 font-display text-body leading-relaxed ${activities.className ?? ''}`}
-                    style={{ color: C.ink }}
-                  >
-                    {orgSummary ?? orgProfile!.activities}
-                  </p>
-                ) : (
-                  <p className="mt-2 font-display text-body" style={{ color: C.sub }}>
-                    {orgProfile ? 'The register holds no activity summary.' : orgAbsence}
-                  </p>
-                )}
-
-                {orgProfile && (
-                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
-                    <Fact
-                      label="Income (last FY)"
-                      value={
-                        orgIncome != null ? (
-                          <CompactMoney amount={orgIncome} label="Exact income" />
-                        ) : null
-                      }
-                      empty={noRegistrationNumber ? 'no charity number' : 'not captured'}
-                      note={orgPeriodEnd ? `year to ${orgPeriodEnd}` : null}
-                    />
-                    {/* The one cell in here the register cannot fill: no Charity
+                  {orgProfile && (
+                    <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                      <Fact
+                        label="Income (last FY)"
+                        value={
+                          orgIncome != null ? (
+                            <CompactMoney amount={orgIncome} label="Exact income" />
+                          ) : null
+                        }
+                        empty={noRegistrationNumber ? 'no charity number' : 'not captured'}
+                        note={orgPeriodEnd ? `year to ${orgPeriodEnd}` : null}
+                      />
+                      {/* The one cell in here the register cannot fill: no Charity
                         Commission endpoint publishes reserves at all (verified against
                         the live API — see `OrganisationProfile.unrestrictedReserves`), so
                         the application form is the only source, and the note says so
                         rather than letting the figure borrow the card's register credit.
                         Empty still says which question went unanswered rather than
                         showing a dash, which would read as a charity that holds none. */}
-                    <Fact
-                      label="Unrestricted reserves"
-                      value={
-                        orgReserves != null ? (
-                          <CompactMoney amount={orgReserves} label="Exact reserves" />
-                        ) : null
-                      }
-                      empty="not captured"
-                      note={
-                        // Months of cover is the more useful half, so it leads; where it
-                        // cannot be worked out (no register spend to divide by) the
-                        // provenance stands alone rather than the cell going bare.
-                        [
-                          reserveMonths != null ? `~${reserveMonths} months' spend` : null,
-                          reservesFromApplication ? 'stated on the form' : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') || null
-                      }
-                    />
-                    {orgRegistered && <Fact label="Registered" value={orgRegistered} />}
-                    {orgPeople && <Fact label="People" value={orgPeople} />}
-                  </dl>
-                )}
+                      <Fact
+                        label="Unrestricted reserves"
+                        value={
+                          orgReserves != null ? (
+                            <CompactMoney amount={orgReserves} label="Exact reserves" />
+                          ) : null
+                        }
+                        empty="not captured"
+                        note={
+                          // Months of cover is the more useful half, so it leads; where it
+                          // cannot be worked out (no register spend to divide by) the
+                          // provenance stands alone rather than the cell going bare.
+                          [
+                            reserveMonths != null ? `~${reserveMonths} months' spend` : null,
+                            reservesFromApplication ? 'stated on the form' : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || null
+                        }
+                      />
+                      {orgRegistered && <Fact label="Registered" value={orgRegistered} />}
+                      {orgPeople && <Fact label="People" value={orgPeople} />}
+                    </dl>
+                  )}
 
-                {/* The register's credit, when the byline above is already spent naming
+                  {/* The register's credit, when the byline above is already spent naming
                     the applicant as the source of the description. One line per source,
                     each sitting with what it actually produced — and nothing printed
                     twice, which is why this is conditional rather than always on. */}
-                {orgSummary && orgProfile && (
-                  <p className="mt-3 font-display text-micro uppercase" style={{ color: C.faint }}>
-                    Facts from the{' '}
-                    <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> · read{' '}
-                    {fmtDate(orgProfile.fetchedAt)}
-                  </p>
-                )}
-              </div>
+                  {orgSummary && orgProfile && (
+                    <p
+                      className="mt-3 font-display text-micro uppercase"
+                      style={{ color: C.faint }}
+                    >
+                      Facts from the{' '}
+                      <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> · read{' '}
+                      {fmtDate(orgProfile.fetchedAt)}
+                    </p>
+                  )}
+                </div>
+              </EditableSlot>
             </div>
           </Panel>
         )}
@@ -1111,6 +1258,20 @@ function ApplicationDetail() {
                 })}
               </div>
             </div>
+          ) : waiting ? (
+            // Held on purpose until the amount is in, so it marks the finished
+            // application rather than a gappy one.
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="font-display text-body" style={{ color: C.sub }}>
+                Waiting for the amount requested. The assessment runs as soon as it is filled in, so
+                it marks the finished application rather than a gappy one.
+              </p>
+              {canEdit && hasSubmission && (
+                <Button variant="secondary" size="sm" onClick={() => setPickingAmount(true)}>
+                  Fill in the amount
+                </Button>
+              )}
+            </div>
           ) : (
             <p className="font-display text-body" style={{ color: C.sub }}>
               {scoreStatus === 'error'
@@ -1119,6 +1280,29 @@ function ApplicationDetail() {
                   ? 'AI is currently scoring this application. It usually takes under a minute. Reload to see the result.'
                   : 'This application has not been scored yet.'}
             </p>
+          )}
+
+          {/* A decision was under way when somebody edited, so the assessment was left as
+              the board saw it. Offered, never done silently. */}
+          {canEdit && (editedSinceScored || scoreStatus === 'error') && (
+            <div
+              className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-chip px-3 py-2.5"
+              style={{ backgroundColor: C.wash }}
+            >
+              <p className="font-display text-label" style={{ color: C.body }}>
+                {scoreStatus === 'error'
+                  ? 'The last assessment failed.'
+                  : 'The details have changed since this was assessed. It was left as it is because a decision is already under way.'}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={rescoring}
+                onClick={() => act(setRescoring, () => rescore({ data: { id: application.id } }))}
+              >
+                {rescoring ? 'Starting…' : 'Re-run the assessment'}
+              </Button>
+            </div>
           )}
 
           {scored && scoreDetail.flags.length > 0 && (
@@ -1156,71 +1340,100 @@ function ApplicationDetail() {
 
         {/* KPI cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <MiniKpi
-            tint={KPI.amount}
-            icon={Coins01Icon}
-            label="Amount requested"
-            /* Stated in full, never compacted. This is the one figure on the screen the
+          <EditableSlot
+            canEdit={canEdit}
+            label="Edit the amount requested"
+            applicationId={application.id}
+            fields={['amountRequested']}
+            values={editValues}
+            onSaved={onSaved}
+            hint={
+              isShortlisted
+                ? 'The AI assessment is left as it is once shortlisted. What falls in this year is edited separately.'
+                : undefined
+            }
+          >
+            <MiniKpi
+              tint={KPI.amount}
+              icon={Coins01Icon}
+              label="Amount requested"
+              /* Stated in full, never compacted. This is the one figure on the screen the
                card's own subline does arithmetic on ("£2,420 per year for 2 years"), and
                a headline that disagrees with the sum beneath it is read as an error in
                the application rather than in the formatting. It is also the number a
                grants officer quotes to a board. `sm` type fits seven figures. */
-            value={amountRequested === null ? '--' : fmtMoney(amountRequested)}
-            /* The annual figure, not just the length: "£35k / 3 years" left it open
+              value={amountRequested === null ? '--' : fmtMoney(amountRequested)}
+              /* The annual figure, not just the length: "£35k / 3 years" left it open
                whether the ask was £35k a year. Falls back to the plain duration for a
                single-year grant, where there is nothing to mistake it for. */
-            /* Once it is SHORTLISTED the subline changes job. Up to then the question is
+              /* Once it is SHORTLISTED the subline changes job. Up to then the question is
                "how big is this ask", and the annual figure answers it. From then on the
                ask is drawing on a round budget that counts this year's cash, so the
                subline states what it draws and offers the correction — the figure in the
                meter has to be editable from the screen the meter is about, and this is
                the only place on it that already talks about this money. */
-            sub={
-              amountRequested === null ? (
-                'not found in the submission'
-              ) : isShortlisted ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <span>
-                    {fmtMoney(firstYear ?? 0)} in {fyLabel}
+              sub={
+                amountRequested === null ? (
+                  'not found in the submission'
+                ) : isShortlisted ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>
+                      {fmtMoney(firstYear ?? 0)} in {fyLabel}
+                    </span>
+                    {canSetStatus && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFirstYearMode('edit')
+                          setFirstYearOpen(true)
+                        }}
+                        className="underline"
+                        style={{ color: C.brand }}
+                      >
+                        {application.firstYearIsSuggested ? 'estimated' : 'edit'}
+                      </button>
+                    )}
                   </span>
-                  {canSetStatus && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFirstYearMode('edit')
-                        setFirstYearOpen(true)
-                      }}
-                      className="underline"
-                      style={{ color: C.brand }}
-                    >
-                      {application.firstYearIsSuggested ? 'estimated' : 'edit'}
-                    </button>
-                  )}
-                </span>
-              ) : (
-                (fmtPerYear(amountRequested, rp.grantDurationYears) ??
-                fmtDuration(rp.grantDurationYears) ??
-                'Duration not set')
-              )
-            }
-          />
+                ) : (
+                  <>
+                    {fmtPerYear(amountRequested, rp.grantDurationYears) ??
+                      fmtDuration(rp.grantDurationYears) ??
+                      'Duration not set'}{' '}
+                    <EditedMark field="amountRequested" edits={edits} />
+                  </>
+                )
+              }
+            />
+          </EditableSlot>
           {/* Beneficiaries and cost-per-beneficiary are one card, not two: the second
               is the first divided into the amount already in the card beside it, so as
               separate cards it read as a new fact when it is the same one restated.
               Programme lost its card entirely — it is the FIRST item in the header
               subline above, so nothing is lost, and the two slots it and the cost card
               freed are what the finances now occupy. */}
-          <MiniKpi
-            tint={KPI.area}
-            icon={UserGroupIcon}
-            label="Beneficiaries"
-            value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '--'}
-            sub={
-              proposedImpact != null
-                ? `${unitLabel.toLowerCase()}${costPerBeneficiary != null ? ` · ${fmtMoney(costPerBeneficiary)} each` : ''}`
-                : 'not stated'
-            }
-          />
+          <EditableSlot
+            canEdit={canEdit}
+            label={`Edit the ${unitLabel.toLowerCase()} proposed`}
+            applicationId={application.id}
+            fields={['proposedImpactQuantity']}
+            values={editValues}
+            onSaved={onSaved}
+          >
+            <MiniKpi
+              tint={KPI.area}
+              icon={UserGroupIcon}
+              label="Beneficiaries"
+              value={proposedImpact != null ? `~${proposedImpact.toLocaleString('en-GB')}` : '--'}
+              sub={
+                <>
+                  {proposedImpact != null
+                    ? `${unitLabel.toLowerCase()}${costPerBeneficiary != null ? ` · ${fmtMoney(costPerBeneficiary)} each` : ''}`
+                    : 'not stated'}{' '}
+                  <EditedMark field="proposedImpactQuantity" edits={edits} />
+                </>
+              }
+            />
+          </EditableSlot>
           {/* The applicant's own scale, next to what they are asking for — the pair a
               grants officer reads together to judge whether the ask is proportionate.
               `cc_grant_vs_income` already screens exactly this ratio; the difference is
@@ -1248,37 +1461,67 @@ function ApplicationDetail() {
               every application until the form question became a canonical field, and it
               is still shown when empty so a foundation that doesn't ask can see what
               asking would buy them. */}
-          <MiniKpi
-            tint={KPI.reserves}
-            icon={SafeBoxIcon}
-            label="Unrestricted reserves"
-            value={
-              orgReserves != null ? (
-                <CompactMoney amount={orgReserves} label="Exact reserves" />
-              ) : (
-                '--'
-              )
-            }
-            sub={
-              orgReserves != null
-                ? reserveMonths != null
-                  ? `~${reserveMonths} months' spend`
-                  : 'as stated'
-                : 'not captured'
-            }
-          />
-          {/* The deprivation panel that used to sit in the sidebar. */}
-          <MiniKpi
-            tint={KPI.community}
-            icon={UserGroup02Icon}
-            label="Community context"
-            value={depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '--'}
-            sub={
-              depResolved
-                ? [deprivation.vintage, region].filter(Boolean).join(' · ')
-                : 'no delivery area'
-            }
-          />
+          <EditableSlot
+            canEdit={canEdit}
+            label="Edit unrestricted reserves"
+            applicationId={application.id}
+            fields={['unrestrictedReserves']}
+            values={editValues}
+            onSaved={onSaved}
+          >
+            <MiniKpi
+              tint={KPI.reserves}
+              icon={SafeBoxIcon}
+              label="Unrestricted reserves"
+              value={
+                orgReserves != null ? (
+                  <CompactMoney amount={orgReserves} label="Exact reserves" />
+                ) : (
+                  '--'
+                )
+              }
+              sub={
+                <>
+                  {orgReserves != null
+                    ? reserveMonths != null
+                      ? `~${reserveMonths} months' spend`
+                      : 'as stated'
+                    : 'not captured'}{' '}
+                  <EditedMark field="unrestrictedReserves" edits={edits} />
+                </>
+              }
+            />
+          </EditableSlot>
+          {/* The deprivation panel that used to sit in the sidebar. Edited through the
+              delivery area it is measured from: a vague area ("the North") is the most
+              common reason there is no decile, and the person reading usually knows
+              where the work actually happens. */}
+          <EditableSlot
+            canEdit={canEdit}
+            label="Edit the delivery area"
+            applicationId={application.id}
+            fields={['deliveryArea']}
+            values={editValues}
+            onSaved={onSaved}
+            hint="The area is looked up again when you save. A town, district or postcode works best."
+          >
+            <MiniKpi
+              tint={KPI.community}
+              icon={UserGroup02Icon}
+              label="Community context"
+              value={depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '--'}
+              sub={
+                <>
+                  {depResolved
+                    ? [deprivation.vintage, region].filter(Boolean).join(' · ')
+                    : application.deliveryArea
+                      ? 'area not recognised'
+                      : 'no delivery area'}{' '}
+                  <EditedMark field="deliveryArea" edits={edits} />
+                </>
+              }
+            />
+          </EditableSlot>
         </div>
 
         {/* Application budget */}
@@ -1470,28 +1713,46 @@ function ApplicationDetail() {
               {[
                 ...[...gaps.oneOf, ...gaps.expectedGroups].map((g) => ({
                   key: g.keys.join('-'),
+                  keys: g.keys as string[],
                   label: g.label.replace(/^./, (ch) => ch.toUpperCase()),
                   degrades: g.degrades,
                 })),
                 ...gaps.expected.map((g) => ({
                   key: g.key,
+                  keys: [g.key] as string[],
                   label: g.label,
                   degrades: g.degrades,
                 })),
-              ].map((g) => (
-                <div
-                  key={g.key}
-                  className="rounded-chip px-3 py-2.5"
-                  style={{ backgroundColor: C.wash }}
-                >
-                  <div className="font-display text-body" style={{ color: C.ink }}>
-                    {g.label}
+              ].map((g) => {
+                // Offered only where every field of the gap is one a person can
+                // fill: the budget is the applicant's own breakdown, not ours to write.
+                const fillable = canEdit && g.keys.every(isEditableField)
+                return (
+                  <div
+                    key={g.key}
+                    className="flex items-start justify-between gap-3 rounded-chip px-3 py-2.5"
+                    style={{ backgroundColor: C.wash }}
+                  >
+                    <div className="min-w-0">
+                      <div className="font-display text-body" style={{ color: C.ink }}>
+                        {g.label}
+                      </div>
+                      <div className="mt-0.5 font-display text-label" style={{ color: C.sub }}>
+                        {g.degrades}
+                      </div>
+                    </div>
+                    {fillable && (
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => setAdding(g.keys.filter(isEditableField))}
+                      >
+                        Add
+                      </Button>
+                    )}
                   </div>
-                  <div className="mt-0.5 font-display text-label" style={{ color: C.sub }}>
-                    {g.degrades}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
             <Button
               variant="text"
@@ -1509,6 +1770,38 @@ function ApplicationDetail() {
           <CommentsSection applicationId={application.id} userId={user.id} userRole={user.role} />
         </Panel>
       </div>
+
+      {pickingAmount && (
+        <AnswerPickerDialog
+          open
+          onClose={() => setPickingAmount(false)}
+          applicationId={application.id}
+          organisationName={application.organisationName}
+          field="amountRequested"
+          onSaved={onSaved}
+          onTypeInstead={() => setAdding(['amountRequested'])}
+        />
+      )}
+      <Dialog
+        open={adding !== null}
+        onClose={() => setAdding(null)}
+        title="Fill in"
+        description={application.organisationName}
+        size="sm"
+      >
+        {adding && (
+          <FieldEditor
+            applicationId={application.id}
+            fields={adding}
+            values={editValues}
+            onCancel={() => setAdding(null)}
+            onDone={(outcome) => {
+              setAdding(null)
+              onSaved(outcome)
+            }}
+          />
+        )}
+      </Dialog>
 
       {/* Only with an amount: there is no year's share of an ask nobody has stated, and
           Shortlist is unavailable until there is one. */}
