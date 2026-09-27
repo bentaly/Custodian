@@ -13,6 +13,7 @@ import {
   type EditableField,
 } from '../../../lib/applicationEdit'
 import type { EditOutcome } from './FieldEditor'
+import { AreaInput } from './AreaInput'
 
 // "Which answer is the amount requested?" The way to fill a field that teaches
 // something. The applicant almost always DID answer the question; we just did not know
@@ -170,19 +171,27 @@ export function AnswerPickerDialog({
                     <Label htmlFor="answer-reading" className="mb-0 shrink-0">
                       Read as
                     </Label>
-                    <Input
-                      id="answer-reading"
-                      className="max-w-[200px]"
-                      value={reading}
-                      placeholder={
-                        a.reading
-                          ? undefined
-                          : isNumericField(field)
-                            ? 'Type the figure'
-                            : 'Type it'
-                      }
-                      onChange={(e) => setReading(e.target.value)}
-                    />
+                    {field === 'deliveryArea' ? (
+                      // "the North" is an answer and not a place: the suggestions are how
+                      // a person turns it into one the lookup can measure.
+                      <div className="w-full max-w-[320px]">
+                        <AreaInput id="answer-reading" value={reading} onChange={setReading} />
+                      </div>
+                    ) : (
+                      <Input
+                        id="answer-reading"
+                        className="max-w-[200px]"
+                        value={reading}
+                        placeholder={
+                          a.reading
+                            ? undefined
+                            : isNumericField(field)
+                              ? 'Type the figure'
+                              : 'Type it'
+                        }
+                        onChange={(e) => setReading(e.target.value)}
+                      />
+                    )}
                   </span>
                 )}
               </span>

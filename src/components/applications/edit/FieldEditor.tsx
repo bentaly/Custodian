@@ -4,6 +4,7 @@ import { Button, Input, Label } from '../../ui'
 import { C } from '../../ui/tokens'
 import { editApplicationFields } from '../../../server/fns/applicationEdits'
 import { setFirstYearAmount } from '../../../server/fns/applications'
+import { AreaInput } from './AreaInput'
 import {
   editableFieldLabel,
   isNumericField,
@@ -146,14 +147,23 @@ export function FieldEditor({
         return (
           <div key={field} className="flex flex-col gap-1.5">
             <Label htmlFor={id}>{editableFieldLabel(field)}</Label>
-            <Input
-              id={id}
-              value={draft[field]}
-              inputMode={isNumericField(field) ? 'decimal' : undefined}
-              placeholder="--"
-              onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))}
-              disabled={busy}
-            />
+            {field === 'deliveryArea' ? (
+              <AreaInput
+                id={id}
+                value={draft[field]!}
+                onChange={(v) => setDraft((d) => ({ ...d, [field]: v }))}
+                disabled={busy}
+              />
+            ) : (
+              <Input
+                id={id}
+                value={draft[field]}
+                inputMode={isNumericField(field) ? 'decimal' : undefined}
+                placeholder="--"
+                onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))}
+                disabled={busy}
+              />
+            )}
             {onChooseAnswer && (
               <button
                 type="button"
