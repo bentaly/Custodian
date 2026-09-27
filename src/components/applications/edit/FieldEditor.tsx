@@ -3,6 +3,7 @@ import { useRouter } from '@tanstack/react-router'
 import { Button, Input, Label } from '../../ui'
 import { C } from '../../ui/tokens'
 import { editApplicationFields } from '../../../server/fns/applicationEdits'
+import { setFirstYearAmount } from '../../../server/fns/applications'
 import {
   editableFieldLabel,
   isNumericField,
@@ -26,10 +27,10 @@ export function describeOutcome(o: EditOutcome): string {
   const parts: string[] = ['Saved.']
   if (o.rerun.includes('the deprivation lookup')) parts.push('The area has been looked up again.')
   if (o.rerun.includes('due diligence')) parts.push('The register checks have been re-run.')
-  if (o.scoreQueued) parts.push('The AI assessment is being re-run.')
+  if (o.scoreQueued) parts.push('The AI assessment is running now.')
   else if (o.scoreKept)
     parts.push(
-      'The AI assessment was left as it is, because a decision is already under way. Re-run it from the assessment panel if you want it to reflect this.',
+      'Re-run the AI assessment when you have finished editing, if you want it to reflect this.',
     )
   if (o.appliedToOthers > 0)
     parts.push(
@@ -48,6 +49,21 @@ function initialText(field: EditableField, value: string | null | undefined): st
   return value
 }
 
+/**
+ * The share of a shortlisted ask that falls in the round's financial year, edited beside
+ * the ask itself: it is a figure ABOUT the amount, and the card that shows both is the
+ * one place a person looks for either. Written through `setFirstYearAmount`, which keeps
+ * its own rules (shortlisted only, never more than the ask); empty resets it to the
+ * suggestion.
+ */
+export type FirstYearEdit = {
+  /** "2026/27" */
+  label: string
+  /** What is stored, or null when the suggestion stands. */
+  stated: number | null
+  suggested: number
+}
+
 export function FieldEditor({
   applicationId,
   fields,
@@ -55,6 +71,7 @@ export function FieldEditor({
   onDone,
   onCancel,
   hint,
+  firstYear,
 }: {
   applicationId: string
   fields: EditableField[]
@@ -64,28 +81,46 @@ export function FieldEditor({
   onCancel: () => void
   /** A line under the inputs: why this matters, what saving will do. */
   hint?: string
+  firstYear?: FirstYearEdit
 }) {
   const router = useRouter()
   const [draft, setDraft] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f, initialText(f, values[f])])),
   )
+  const [yearDraft, setYearDraft] = useState(
+    firstYear?.stated != null ? String(firstYear.stated) : '',
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const changed = fields.filter((f) => draft[f]!.trim() !== initialText(f, values[f]).trim())
+  const yearChanged =
+    firstYear !== undefined &&
+    yearDraft.trim() !== (firstYear.stated != null ? String(firstYear.stated) : '')
 
   async function save(e: FormEvent) {
     e.preventDefault()
-    if (changed.length === 0) return onCancel()
+    if (changed.length === 0 && !yearChanged) return onCancel()
     setBusy(true)
     setError(null)
     try {
-      const outcome = await editApplicationFields({
-        data: {
-          id: applicationId,
-          changes: changed.map((field) => ({ field, value: draft[field]!.trim() || null })),
-        },
-      })
+      const outcome: EditOutcome =
+        changed.length > 0
+          ? await editApplicationFields({
+              data: {
+                id: applicationId,
+                changes: changed.map((field) => ({ field, value: draft[field]!.trim() || null })),
+              },
+            })
+          : { rerun: [], scoreQueued: false, scoreKept: false, appliedToOthers: 0 }
+      if (yearChanged) {
+        const text = yearDraft.trim().replace(/[£,\s]/g, '')
+        const amount = text === '' ? null : Number(text)
+        if (amount !== null && (!Number.isFinite(amount) || amount < 0)) {
+          throw new Error(`The ${firstYear!.label} figure must be a number, such as 12000.`)
+        }
+        await setFirstYearAmount({ data: { id: applicationId, amount } })
+      }
       await router.invalidate()
       onDone(outcome)
     } catch (err) {
@@ -113,6 +148,23 @@ export function FieldEditor({
           </div>
         )
       })}
+      {firstYear && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`edit-${applicationId}-first-year`}>In {firstYear.label}</Label>
+          <Input
+            id={`edit-${applicationId}-first-year`}
+            value={yearDraft}
+            inputMode="decimal"
+            placeholder={`${Math.round(firstYear.suggested)} (suggested)`}
+            onChange={(e) => setYearDraft(e.target.value)}
+            disabled={busy}
+          />
+          <p className="font-display text-label" style={{ color: C.sub }}>
+            What this grant draws from the round&rsquo;s {firstYear.label} budget. Leave it empty to
+            use the suggestion, the ask divided by the grant&rsquo;s length.
+          </p>
+        </div>
+      )}
       {hint && (
         <p className="font-display text-label" style={{ color: C.sub }}>
           {hint}
@@ -127,7 +179,7 @@ export function FieldEditor({
         <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={busy || changed.length === 0}>
+        <Button type="submit" size="sm" disabled={busy || (changed.length === 0 && !yearChanged)}>
           {busy ? 'Saving…' : 'Save'}
         </Button>
       </div>

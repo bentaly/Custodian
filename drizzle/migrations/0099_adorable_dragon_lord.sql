@@ -1,0 +1,1 @@
+ALTER TYPE "public"."audit_action" ADD VALUE 'assessment_rerun' BEFORE 'application_awarded';

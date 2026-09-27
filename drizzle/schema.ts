@@ -1630,6 +1630,7 @@ export const importBatches = pgTable(
 // aren't "someone did something" moments. New action types are added to the enum.
 export const auditActionEnum = pgEnum('audit_action', [
   'application_edited',
+  'assessment_rerun',
   'application_awarded',
   'application_declined',
   'application_shortlisted',

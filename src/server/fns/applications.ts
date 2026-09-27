@@ -35,6 +35,7 @@ import {
 } from '../../../drizzle/schema'
 import { orderedKeys } from '../fieldMapping/assemble'
 import { toStringValue } from '../../lib/fieldMapping'
+import { rerunBlocker } from '../applications/edit'
 import { searchAny } from '../searchTerm'
 import { anyOf, anyTag } from '../filterSql'
 import { roundProgrammeSpend, roundProgrammeYear, spentThisYear } from '../applications/roundSpend'
@@ -304,13 +305,17 @@ export const getApplication = createServerFn({ method: 'GET' })
           .filter((a) => a.value !== '')
       : null
 
+    const canEdit =
+      (user.role === 'admin' || user.role === 'superadmin') &&
+      application.status !== 'awarded' &&
+      !application.award
+
     return {
       ...application,
       /** An admin may change how this application reads, until a grant is awarded. */
-      canEdit:
-        (user.role === 'admin' || user.role === 'superadmin') &&
-        application.status !== 'awarded' &&
-        !application.award,
+      canEdit,
+      /** Null when "Re-run the assessment" is on offer; otherwise why not. Admins only. */
+      rerunBlocked: canEdit ? await rerunBlocker(application.id) : 'Only an admin can re-run it.',
       edits,
       submission,
       // Computed here, from the unredacted row, so a trustee is not told the bank

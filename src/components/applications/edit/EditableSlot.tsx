@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PencilEdit01Icon } from '@hugeicons/core-free-icons'
 import { C } from '../../ui/tokens'
-import { FieldEditor, type EditOutcome } from './FieldEditor'
+import { FieldEditor, type EditOutcome, type FirstYearEdit } from './FieldEditor'
 import type { EditableField } from '../../../lib/applicationEdit'
 
 // Edit in place. At rest the card is exactly what it always was: no pencil, nothing to
@@ -25,6 +25,7 @@ export function EditableSlot({
   values,
   onSaved,
   hint,
+  firstYear,
   children,
   className = '',
 }: {
@@ -36,6 +37,7 @@ export function EditableSlot({
   values: Partial<Record<EditableField, string | null>>
   onSaved: (outcome: EditOutcome) => void
   hint?: string
+  firstYear?: FirstYearEdit
   children: ReactNode
   className?: string
 }) {
@@ -57,6 +59,7 @@ export function EditableSlot({
           fields={fields}
           values={values}
           hint={hint}
+          firstYear={firstYear}
           onCancel={() => setEditing(false)}
           onDone={(outcome) => {
             setEditing(false)

@@ -72,7 +72,7 @@ export const rescore = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const user = await requireRole('superadmin', 'admin')
     await assertApplicationAccess(user, data.id)
-    await rescoreApplication(data.id)
+    await rescoreApplication(data.id, { id: user.id })
     return { ok: true }
   })
 

@@ -51,6 +51,7 @@ import {
 import { CreateApplicationSchema } from '../../lib/validators/application'
 import { scoreApplication } from '../applications/score'
 import { enqueue } from '../pipelineQueue'
+import { captureFault } from '../faults'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
 
@@ -280,6 +281,22 @@ export async function processIngest(
       .update(applicationIngests)
       .set(finalise(null))
       .where(eq(applicationIngests.id, ingestId))
+    // A held submission is invisible to the foundation until somebody acts: nothing on
+    // any screen of theirs says it arrived, unless its only problem is the programme
+    // (the Applications banner). So we are told, through Sentry, whose alert rule is the
+    // email. One constant message, so every hold groups into one issue with the reason
+    // in its extras rather than a new issue per submission.
+    captureFault(new Error('Submission held for review'), {
+      ingestId,
+      clientId,
+      unresolvedRequired,
+      programmeRouted: roundProgrammeId !== null,
+      programmeWritten: resolvedProgrammeName,
+      invalid:
+        validInput && !validInput.success
+          ? validInput.error.issues.map((i) => i.path.join('.'))
+          : [],
+    })
   }
 
   // Ask for the score only once the application and its ingest row are committed, so

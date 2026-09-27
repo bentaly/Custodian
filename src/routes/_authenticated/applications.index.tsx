@@ -31,7 +31,6 @@ import {
   type SortDir,
 } from '../../lib/listSearch'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
-import { fieldGaps } from '../../lib/fieldMapping/gaps'
 import { UnplacedBanner } from '../../components/applications/UnplacedBanner'
 import { DeclineLettersDialog } from '../../components/applications/DeclineLettersDialog'
 import {
@@ -565,27 +564,21 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     width: 'sm:w-[11%]',
     sortable: true,
     cell: (app) => {
-      // The same gaps the application's "to fill in" panel lists, counted so the list
-      // shows which applications still need somebody before they can move on.
-      const toFill = fieldGaps({
-        amountRequested: app.amountRequested,
-        applicantEmail: app.applicantEmail,
-        bankAccountName: app.bankAccountName,
-        bankAccountNumber: app.bankAccountNumber,
-        bankSortCode: app.bankSortCode,
-      }).toFill.length
+      // Only the amount is called out on the row: without it the application can be
+      // neither assessed nor shortlisted, so it is stuck until somebody fills it in. A
+      // missing email or bank details holds up nothing a list reader is deciding.
       return (
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusPill
             label={applicationStatusLabel(app.status)}
             colour={STATUS_COLOUR[app.status] ?? C.sub}
           />
-          {toFill > 0 && app.status !== 'declined' && (
+          {app.amountRequested === null && app.status !== 'declined' && (
             <span
               className="whitespace-nowrap rounded-pill border px-2 py-0.5 font-display text-micro font-medium"
               style={{ borderColor: withAlpha(C.warning, 0.4), color: C.warning }}
             >
-              {toFill} to fill in
+              No amount yet
             </span>
           )}
         </div>

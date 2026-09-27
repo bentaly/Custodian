@@ -266,7 +266,13 @@ export async function updateApplicationFromCanonical(
   const existing = await getDb().query.applications.findFirst({
     where: (a, { eq }) => eq(a.id, applicationId),
   })
-  if (!existing) return { application: null, rerun: [] as string[], scoreQueued: false }
+  if (!existing)
+    return {
+      application: null,
+      rerun: [] as string[],
+      scoreQueued: false,
+      scoreInputsChanged: false,
+    }
 
   // Columns are nullable, the input's fields optional — treat those as equivalent.
   const same = (a: string | null | undefined, b: string | null | undefined) =>
@@ -451,5 +457,5 @@ export async function updateApplicationFromCanonical(
 
   /** True when the row was set to `queued` and the caller must enqueue the score. */
   const scoreQueued = scoreAction === 'queued'
-  return { application, rerun, scoreQueued }
+  return { application, rerun, scoreQueued, scoreInputsChanged }
 }

@@ -6,11 +6,13 @@
 // `application_edits`, and re-derives whatever read the changed fields through
 // `updateApplicationFromCanonical`, the same engine the admin app's Confirm uses.
 //
-// The assessment is the one derived feature with a policy of its own. Before anyone
-// has decided anything it is re-run (queued, so the person saving is not kept waiting
-// a minute); once the application has been shortlisted, declined or voted on it is
-// left alone, because a score that moves under a board that has started deciding reads
-// as moving the goalposts. The screen offers a deliberate re-score instead.
+// The assessment is the one derived feature with a policy of its own: an edit never
+// re-runs it. People fix several things in a row and each run is a paid model call, so
+// the screen offers "Re-run the assessment" once something it reads has changed, and
+// `rerunBlocker` limits that (not after a trustee has voted, three a day). The one
+// automatic run is the first, when an application waiting for its amount gets one.
+// The area lookup and the register checks still re-run on every edit that changes
+// their inputs: they are cheap, and a stale decile beside a corrected area is wrong.
 
 import { and, eq, isNull, ne, sql } from 'drizzle-orm'
 import { getDb } from '../db'
@@ -19,6 +21,7 @@ import {
   applicationIngests,
   applicationVotes,
   applications,
+  auditLog,
   fieldMappings,
   programmes,
   roundProgrammes,
@@ -82,16 +85,6 @@ async function loadForEdit(applicationId: string) {
     where: eq(applicationIngests.applicationId, applicationId),
   })
   return { app, ingest: ingest ?? null }
-}
-
-/** Has anyone started deciding? Then the assessment stays as the board saw it. */
-async function decisionUnderWay(app: { id: string; status: string }): Promise<boolean> {
-  if (app.status !== 'for_review') return true
-  const [row] = await getDb()
-    .select({ n: sql<number>`count(*)::int` })
-    .from(applicationVotes)
-    .where(eq(applicationVotes.applicationId, app.id))
-  return (row?.n ?? 0) > 0
 }
 
 /**
@@ -217,13 +210,19 @@ export async function editApplication(params: {
   const roundProgramme = await fetchRoundProgrammeForApplication(app.roundProgrammeId)
   if (!roundProgramme) throw notFoundError()
 
-  const keep = await decisionUnderWay(app)
-  const { rerun, scoreQueued } = await updateApplicationFromCanonical(
+  // An edit never re-runs an assessment by itself: a person usually fixes several things
+  // in a row, and each re-run is a paid model call. They press Re-run when they are done
+  // (`rescoreApplication`). The one exception is the FIRST assessment of an application
+  // that was waiting for its amount, which was only ever waiting for this.
+  const firstAssessment = app.custodianScoreStatus === 'waiting'
+  const { rerun, scoreQueued, scoreInputsChanged } = await updateApplicationFromCanonical(
     roundProgramme,
     applicationId,
     parsed.data,
-    { score: keep ? 'keep' : 'queued' },
+    { score: firstAssessment ? 'queued' : 'keep' },
   )
+  // Something the assessment reads changed and it was not re-run: the screen says so.
+  const keep = !scoreQueued && scoreInputsChanged && app.amountRequested !== null
 
   // The record of the change and the ingest's mapping are one fact, so one batch. The
   // row itself was written by `updateApplicationFromCanonical` above, which owns that
@@ -443,20 +442,86 @@ export async function setApplicationThemes(params: {
  * under way; this is how somebody asks for it anyway, knowing the board may have read
  * the old one.
  */
-export async function rescoreApplication(applicationId: string): Promise<void> {
-  const app = await getDb().query.applications.findFirst({
+/** Re-runs allowed per application per day: enough to fix, re-run, spot one more thing. */
+export const RERUNS_PER_DAY = 3
+
+/**
+ * Why a re-run is not on offer right now, or null when it is. One statement of the rule
+ * for the button (`getApplication`) and the boundary (`rescoreApplication`).
+ *
+ *   - Only after an edit to something the assessment reads, made since it last ran (or
+ *     after a failed run). A re-run of an unchanged application buys the same answer.
+ *   - Never once a trustee has voted: the vote was cast on that assessment, and one
+ *     that changes under a vote reads as moving the goalposts. Shortlisted or declined
+ *     without votes is still fine; nobody has decided anything on the strength of it.
+ *   - At most RERUNS_PER_DAY a day, because each is a paid model call.
+ */
+export async function rerunBlocker(applicationId: string): Promise<string | null> {
+  const db = getDb()
+  const app = await db.query.applications.findFirst({
     where: eq(applications.id, applicationId),
-    columns: { amountRequested: true, status: true },
+    columns: {
+      amountRequested: true,
+      status: true,
+      custodianScoreStatus: true,
+      custodianScoredAt: true,
+    },
     with: { award: { columns: { id: true } } },
   })
-  if (!app) throw notFoundError()
-  if (app.award) throw conflict('This application has been awarded.')
-  if (app.amountRequested === null) {
-    throw conflict('Fill in the amount requested first. The assessment is judged on it.')
+  if (!app) return 'Not found.'
+  if (app.award) return 'This application has been awarded.'
+  if (app.amountRequested === null) return 'Fill in the amount requested first.'
+  if (app.custodianScoreStatus === 'queued') return 'The assessment is already running.'
+  const [votes, changed, recent] = await Promise.all([
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(applicationVotes)
+      .where(eq(applicationVotes.applicationId, applicationId)),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(applicationEdits)
+      .where(
+        and(
+          eq(applicationEdits.applicationId, applicationId),
+          // What the assessment never reads: the bank details, the email, the themes.
+          sql`${applicationEdits.field} not like 'bank%'`,
+          sql`${applicationEdits.field} not in ('applicantEmail', 'themes')`,
+          app.custodianScoredAt
+            ? sql`${applicationEdits.createdAt} > ${app.custodianScoredAt}`
+            : sql`true`,
+        ),
+      ),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.applicationId, applicationId),
+          eq(auditLog.action, 'assessment_rerun'),
+          sql`${auditLog.createdAt} > now() - interval '1 day'`,
+        ),
+      ),
+  ])
+  if ((votes[0]?.n ?? 0) > 0) {
+    return 'Trustees have voted on this assessment, so it is kept as they saw it.'
   }
+  if (app.custodianScoreStatus !== 'error' && (changed[0]?.n ?? 0) === 0) {
+    return 'Nothing the assessment reads has changed since it last ran.'
+  }
+  if ((recent[0]?.n ?? 0) >= RERUNS_PER_DAY) {
+    return `The assessment has been re-run ${RERUNS_PER_DAY} times today. Try again tomorrow.`
+  }
+  return null
+}
+
+/** Re-run the assessment because somebody asked, after editing. See `rerunBlocker`. */
+export async function rescoreApplication(applicationId: string, actor: Actor): Promise<void> {
+  const blocker = await rerunBlocker(applicationId)
+  if (blocker) throw conflict(blocker)
   await getDb()
     .update(applications)
     .set({ custodianScoreStatus: 'queued' })
     .where(eq(applications.id, applicationId))
+  await recordAudit({ actorUserId: actor.id, action: 'assessment_rerun', applicationId })
   await enqueue({ kind: 'score', applicationId }, () => scoreApplication(applicationId))
 }

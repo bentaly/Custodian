@@ -577,9 +577,11 @@ A two-state model (required / optional) shipped a real bug, so the middle tiers 
 - **`expected`** — promotes without it, but a feature is degraded, so the field carries a `degrades`
   string **shown on the application** ("Not captured" panel). Pairs answering the same question go
   in `EXPECTED_ONE_OF_GROUPS` and report only when neither arrived. An `expected` field that a later
-  STEP needs carries `blocks` too (amount, email, bank details): those are `fieldGaps().toFill` and
-  sit in the "N things to fill in" panel at the TOP of the application instead. The bank trio is one
-  gap (`EXPECTED_ALL_OF_GROUPS`): two of three bank details pays nobody.
+  STEP needs carries `blocks` too (amount, email, bank details): those are `fieldGaps().toFill`,
+  listed under "Not captured" with an Add button, except the amount, which its own card and the
+  AI panel handle. There was a "things to fill in" panel at the top; it shouted about gaps the
+  foot of the page already states, and went. The bank trio is one gap (`EXPECTED_ALL_OF_GROUPS`):
+  two of three bank details pays nobody.
 - **`optional`** — promotes and nothing is degraded, so nothing is said anywhere. The line against
   `expected` is whether you can NAME what stops working. Today only `bankName`.
 - **A tier change alone is not enough**: `CreateApplicationSchema` gates the assembled application
@@ -617,9 +619,17 @@ rather than waiting in our admin queue.
   missing amount out of every money figure, because they all count shortlisted or awarded rows;
   `decidedAmount` reads the column on those paths only. The purpose and themes wait with the score
   because one model call writes all three.
-- **The assessment re-runs (queued) on an edit before any decision, and is KEPT after one**
-  (shortlisted, declined, or any vote): a score moving under a board that has started deciding
-  reads as moving the goalposts. The screen offers "Re-run the assessment" instead.
+- **An edit never re-runs the assessment**: people fix several things in a row and each run is a
+  paid model call. A primary "Re-run assessment" appears on the AI panel once something it reads
+  has changed since it ran; `rerunBlocker` (`server/applications/edit.ts`) is the rule for the
+  button and the server alike: never after a trustee has voted (they voted on that one), at most
+  `RERUNS_PER_DAY` (3) per application, counted from `assessment_rerun` audit rows. The only
+  automatic run is the FIRST, when a `waiting` application gets its amount. The area lookup and
+  register checks do re-run on edit: cheap, and a stale decile beside a corrected area is wrong.
+- **A held submission is reported to Sentry** (`Submission held for review`, one issue, reasons in
+  the extras), since nothing on a foundation's screens says it arrived. Sentry's alert is the email.
+- **The first-year share** of a shortlisted ask is edited in the amount card's own editor, not
+  through a separate "estimated" link.
 - **Themes chosen by hand** set `themes_set_by`, and no score ever overwrites them after that.
 - **Edit in place** (`components/applications/edit/`): at rest the screen is as it was; hover or
   focus a card and a pencil appears in its corner; the card becomes its fields. One pencil per card.

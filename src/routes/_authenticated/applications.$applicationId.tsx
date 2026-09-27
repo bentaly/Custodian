@@ -27,7 +27,6 @@ import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmiss
 import { EditableSlot } from '../../components/applications/edit/EditableSlot'
 import { EditedMark } from '../../components/applications/edit/EditedMark'
 import { ThemesEditor } from '../../components/applications/edit/ThemesEditor'
-import { ToFillPanel } from '../../components/applications/edit/ToFillPanel'
 import { AnswerPickerDialog } from '../../components/applications/edit/AnswerPickerDialog'
 import {
   FieldEditor,
@@ -555,6 +554,9 @@ function ApplicationDetail() {
   }
   const gaps = fieldGaps(gapValues)
   const noRegistrationNumber = missingRegistrationNumber(gapValues)
+  // Gaps that hold up a later step, minus the amount (which has its own card, and which
+  // the assessment says it is waiting for). Listed under "Not captured".
+  const laterGaps = gaps.toFill.filter((g) => !g.keys.includes('amountRequested'))
 
   // ── Editing ────────────────────────────────────────────────────────────────
   // What an edit surface starts from: the application's current values, by field.
@@ -599,18 +601,6 @@ function ApplicationDetail() {
   // The purpose and themes are on their way (or waiting to be): the column stays, saying so,
   // rather than the panel jumping when the model answers.
   const purposeComing = !grantPurpose && (waiting || scoreStatus === 'queued')
-  // An edit to something the assessment reads, made after it last ran: a decision was
-  // under way, so it was left alone. Offer the re-run rather than doing it silently.
-  const editedSinceScored =
-    scored &&
-    application.custodianScoredAt != null &&
-    edits.some(
-      (e) =>
-        e.field !== 'themes' &&
-        !e.field.startsWith('bank') &&
-        e.field !== 'applicantEmail' &&
-        new Date(e.createdAt) > new Date(application.custodianScoredAt!),
-    )
 
   // ── What the register says the applicant IS ────────────────────────────────
   // Captured by `runDueDiligence` on the same calls the checks come from, so this
@@ -953,17 +943,6 @@ function ApplicationDetail() {
         </div>
       )}
 
-      {/* What a later step is waiting on: the amount, the email, the bank details. */}
-      <ToFillPanel
-        gaps={gaps.toFill}
-        canEdit={canEdit}
-        hasSubmission={hasSubmission}
-        applicationId={application.id}
-        organisationName={application.organisationName}
-        values={editValues}
-        onSaved={onSaved}
-      />
-
       {/* Body */}
       <div className="flex flex-col gap-4">
         {/* What the money would fund — stated before anything we made of it. Its own
@@ -1246,7 +1225,31 @@ function ApplicationDetail() {
 
         {/* AI Assessment */}
         <Panel label="AI assessment">
-          <PanelTitle>AI Assessment</PanelTitle>
+          {/* Re-run appears only once something the assessment reads has been edited
+              since it ran (or it failed), never after a trustee has voted, and at most
+              three times a day: `rerunBlocker` is the rule, on the server. An edit never
+              re-runs it by itself, so a person can fix several things and then ask once. */}
+          <PanelTitle
+            right={
+              canEdit && application.rerunBlocked === null ? (
+                <Button
+                  size="sm"
+                  disabled={rescoring}
+                  onClick={() => act(setRescoring, () => rescore({ data: { id: application.id } }))}
+                >
+                  {rescoring ? 'Starting…' : 'Re-run assessment'}
+                </Button>
+              ) : undefined
+            }
+          >
+            AI Assessment
+          </PanelTitle>
+          {canEdit && application.rerunBlocked === null && scored && (
+            <p className="-mt-2 mb-4 font-display text-label" style={{ color: C.sub }}>
+              The details have changed since this was assessed. Re-run it when you have finished
+              editing.
+            </p>
+          )}
 
           {scored ? (
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
@@ -1302,29 +1305,6 @@ function ApplicationDetail() {
             </p>
           )}
 
-          {/* A decision was under way when somebody edited, so the assessment was left as
-              the board saw it. Offered, never done silently. */}
-          {canEdit && (editedSinceScored || scoreStatus === 'error') && (
-            <div
-              className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-chip px-3 py-2.5"
-              style={{ backgroundColor: C.wash }}
-            >
-              <p className="font-display text-label" style={{ color: C.body }}>
-                {scoreStatus === 'error'
-                  ? 'The last assessment failed.'
-                  : 'The details have changed since this was assessed. It was left as it is because a decision is already under way.'}
-              </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={rescoring}
-                onClick={() => act(setRescoring, () => rescore({ data: { id: application.id } }))}
-              >
-                {rescoring ? 'Starting…' : 'Re-run the assessment'}
-              </Button>
-            </div>
-          )}
-
           {scored && scoreDetail.flags.length > 0 && (
             <>
               <ul className="mt-4 flex flex-col gap-1.5">
@@ -1367,9 +1347,13 @@ function ApplicationDetail() {
             fields={['amountRequested']}
             values={editValues}
             onSaved={onSaved}
-            hint={
-              isShortlisted
-                ? 'The AI assessment is left as it is once shortlisted. What falls in this year is edited separately.'
+            firstYear={
+              isShortlisted && application.firstYearSuggested !== null
+                ? {
+                    label: fyLabel,
+                    stated: application.firstYearIsSuggested ? null : firstYear,
+                    suggested: application.firstYearSuggested,
+                  }
                 : undefined
             }
           >
@@ -1397,26 +1381,26 @@ function ApplicationDetail() {
                the only place on it that already talks about this money. */
               sub={
                 amountRequested === null ? (
-                  'not found in the submission'
+                  canEdit ? (
+                    // The one gap on this screen with a way to fill it on its own card:
+                    // the assessment and shortlisting both wait on it.
+                    <button
+                      type="button"
+                      className="underline"
+                      style={{ color: C.brand }}
+                      onClick={() =>
+                        hasSubmission ? setPickingAmount(true) : setAdding(['amountRequested'])
+                      }
+                    >
+                      {hasSubmission ? 'Choose from their answers' : 'Fill it in'}
+                    </button>
+                  ) : (
+                    'not found in the submission'
+                  )
                 ) : isShortlisted ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span>
-                      {fmtMoney(firstYear ?? 0)} in {fyLabel}
-                    </span>
-                    {canSetStatus && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFirstYearMode('edit')
-                          setFirstYearOpen(true)
-                        }}
-                        className="underline"
-                        style={{ color: C.brand }}
-                      >
-                        {application.firstYearIsSuggested ? 'estimated' : 'edit'}
-                      </button>
-                    )}
-                  </span>
+                  // What it draws this year. Corrected through the card's own pencil,
+                  // beside the ask it is a share of, rather than a link of its own.
+                  `${fmtMoney(firstYear ?? 0)} in ${fyLabel}`
                 ) : (
                   <>
                     {fmtPerYear(amountRequested, rp.grantDurationYears) ??
@@ -1728,7 +1712,7 @@ function ApplicationDetail() {
         </Panel>
 
         {/* Not captured — the one place a silently-lost field becomes visible. */}
-        {gaps.any && (
+        {(gaps.any || laterGaps.length > 0) && (
           <Panel label="Not captured">
             <PanelTitle>Not captured</PanelTitle>
             <p className="mb-2.5 font-display text-body" style={{ color: C.sub }}>
@@ -1737,6 +1721,16 @@ function ApplicationDetail() {
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {[
+                // The email and bank details hold up a LATER step (writing to the
+                // applicant, paying a grant), not reading the application, so they sit
+                // here with everything else that did not arrive rather than at the top.
+                // The amount is the exception and is on its own card and the assessment.
+                ...laterGaps.map((g) => ({
+                  key: g.keys.join('-'),
+                  keys: g.keys as string[],
+                  label: g.label,
+                  degrades: g.blocks,
+                })),
                 ...[...gaps.oneOf, ...gaps.expectedGroups].map((g) => ({
                   key: g.keys.join('-'),
                   keys: g.keys as string[],

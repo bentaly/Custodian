@@ -47,6 +47,10 @@ export type AuditAction =
   // detail lives in `application_edits`, and this row is what puts the change in the
   // trail beside the decisions made from it. One row per save, not per field.
   | 'application_edited'
+  // An admin asked for the AI assessment to be run again after editing. Recorded because
+  // each is a paid model call and they are limited per day (`RERUNS_PER_DAY`), which is
+  // counted from these rows, and because a score changing is worth being able to trace.
+  | 'assessment_rerun'
 
   // ── Money ────────────────────────────────────────────────────────────────
   // The account a grant is paid into was changed by hand on the payment panel. The one
@@ -201,6 +205,7 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   application_registration_set: 'decisions',
   application_vote_recorded_by_admin: 'decisions',
   application_edited: 'decisions',
+  assessment_rerun: 'decisions',
   grant_bank_details_changed: 'money',
   grant_payment_recorded: 'money',
   grant_payment_reversed: 'money',
@@ -247,6 +252,7 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   application_registration_set: 'added a registration number and screened',
   application_vote_recorded_by_admin: "recorded a trustee's vote on",
   application_edited: 'edited the application from',
+  assessment_rerun: 're-ran the AI assessment of',
   grant_bank_details_changed: 'changed the payment account for',
   grant_payment_recorded: 'recorded a payment to',
   grant_payment_reversed: 'reversed a recorded payment to',
@@ -279,6 +285,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   application_registration_set: 'Registration number set',
   application_vote_recorded_by_admin: 'Vote recorded by admin',
   application_edited: 'Application edited',
+  assessment_rerun: 'AI assessment re-run',
   grant_bank_details_changed: 'Payment account changed',
   grant_payment_recorded: 'Payment recorded',
   grant_payment_reversed: 'Payment reversed',
