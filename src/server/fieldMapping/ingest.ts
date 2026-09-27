@@ -51,7 +51,7 @@ import {
 import { CreateApplicationSchema } from '../../lib/validators/application'
 import { scoreApplication } from '../applications/score'
 import { enqueue } from '../pipelineQueue'
-import { captureFault } from '../faults'
+import { reportFault } from '../faults'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
 
@@ -286,7 +286,7 @@ export async function processIngest(
     // (the Applications banner). So we are told, through Sentry, whose alert rule is the
     // email. One constant message, so every hold groups into one issue with the reason
     // in its extras rather than a new issue per submission.
-    captureFault(new Error('Submission held for review'), {
+    reportFault('ingest-held', new Error('Submission held for review'), {
       ingestId,
       clientId,
       unresolvedRequired,
