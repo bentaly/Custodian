@@ -48,11 +48,11 @@ describe('applyLookup', () => {
   })
 
   it('reports unresolved required fields when a mapping is missing', () => {
-    const mappings = FULL_MAPPINGS.filter((m) => m.canonicalField !== 'bankSortCode')
+    const mappings = FULL_MAPPINGS.filter((m) => m.canonicalField !== 'organisationName')
     const r = applyLookup(FULL_PAYLOAD, mappings)
-    expect(r.unresolvedRequired).toEqual(['bankSortCode'])
+    expect(r.unresolvedRequired).toEqual(['organisationName'])
     // the still-present payload key with no mapping becomes a leftover
-    expect(r.leftoverKeys).toContain('sort')
+    expect(r.leftoverKeys).toContain('org')
   })
 
   it('treats an exact canonical key as an identity match (no lookup row needed)', () => {

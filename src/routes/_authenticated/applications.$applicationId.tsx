@@ -441,7 +441,8 @@ function ApplicationDetail() {
   // round budget counts what has to be paid this year, not the whole commitment, so what
   // this application adds is its first year's share and not its full ask.
   const committedThisYear = application.roundProgrammeCommittedThisYear
-  const amountRequested = parseFloat(application.amountRequested)
+  const amountRequested =
+    application.amountRequested === null ? null : parseFloat(application.amountRequested)
   const firstYear = application.firstYearAmount
   const fyLabel = application.roundFinancialYear.label
   const budgetRemaining = budget === null ? null : budget - committedThisYear
@@ -453,7 +454,7 @@ function ApplicationDetail() {
     application.enforceRoundBudget &&
     !isShortlisted &&
     budget !== null &&
-    committedThisYear + firstYear > budget
+    committedThisYear + (firstYear ?? 0) > budget
 
   const scoreStatus = application.custodianScoreStatus ?? 'pending'
   const score = application.custodianScore
@@ -486,7 +487,7 @@ function ApplicationDetail() {
   const region = deliveryAreaLabel(application)
 
   const budgetLines = (application.budgetBreakdown as BudgetLine[] | null) ?? []
-  const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || amountRequested
+  const budgetTotal = budgetLines.reduce((s, l) => s + l.amount, 0) || (amountRequested ?? 0)
   // One colour per line rather than a five-entry list cycled — the swatch is the only
   // thing tying a legend row to its segment in the bar, so two lines sharing one broke
   // the reading of any budget with six lines in it.
@@ -507,7 +508,9 @@ function ApplicationDetail() {
       ? parseFloat(application.proposedImpactQuantity)
       : null
   const costPerBeneficiary =
-    proposedImpact && proposedImpact > 0 ? amountRequested / proposedImpact : null
+    proposedImpact && proposedImpact > 0 && amountRequested != null
+      ? amountRequested / proposedImpact
+      : null
 
   // What this submission never captured. A field that didn't map leaves a null column,
   // indistinguishable from a question the foundation never asked — so the feature it
@@ -1162,7 +1165,7 @@ function ApplicationDetail() {
                a headline that disagrees with the sum beneath it is read as an error in
                the application rather than in the formatting. It is also the number a
                grants officer quotes to a board. `sm` type fits seven figures. */
-            value={fmtMoney(amountRequested)}
+            value={amountRequested === null ? '--' : fmtMoney(amountRequested)}
             /* The annual figure, not just the length: "£35k / 3 years" left it open
                whether the ask was £35k a year. Falls back to the plain duration for a
                single-year grant, where there is nothing to mistake it for. */
@@ -1173,10 +1176,12 @@ function ApplicationDetail() {
                meter has to be editable from the screen the meter is about, and this is
                the only place on it that already talks about this money. */
             sub={
-              isShortlisted ? (
+              amountRequested === null ? (
+                'not found in the submission'
+              ) : isShortlisted ? (
                 <span className="inline-flex items-center gap-1.5">
                   <span>
-                    {fmtMoney(firstYear)} in {fyLabel}
+                    {fmtMoney(firstYear ?? 0)} in {fyLabel}
                   </span>
                   {canSetStatus && (
                     <button
@@ -1505,20 +1510,24 @@ function ApplicationDetail() {
         </Panel>
       </div>
 
-      <FirstYearDialog
-        open={firstYearOpen}
-        onClose={() => setFirstYearOpen(false)}
-        onConfirm={firstYearMode === 'shortlist' ? confirmShortlist : saveFirstYear}
-        mode={firstYearMode}
-        organisationName={application.organisationName}
-        amountRequested={amountRequested}
-        suggested={application.firstYearSuggested}
-        current={firstYear}
-        durationYears={rp.grantDurationYears}
-        financialYearLabel={fyLabel}
-        budgetRemaining={budgetRemaining}
-        enforced={application.enforceRoundBudget}
-      />
+      {/* Only with an amount: there is no year's share of an ask nobody has stated, and
+          Shortlist is unavailable until there is one. */}
+      {amountRequested !== null && (
+        <FirstYearDialog
+          open={firstYearOpen}
+          onClose={() => setFirstYearOpen(false)}
+          onConfirm={firstYearMode === 'shortlist' ? confirmShortlist : saveFirstYear}
+          mode={firstYearMode}
+          organisationName={application.organisationName}
+          amountRequested={amountRequested}
+          suggested={application.firstYearSuggested ?? 0}
+          current={firstYear ?? 0}
+          durationYears={rp.grantDurationYears}
+          financialYearLabel={fyLabel}
+          budgetRemaining={budgetRemaining}
+          enforced={application.enforceRoundBudget}
+        />
+      )}
 
       <ApplicationSubmissionDialog
         application={application}

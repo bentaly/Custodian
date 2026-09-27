@@ -21,6 +21,7 @@ import { C, bandForScore } from '../ui/tokens'
 import { majorityOf } from '../../lib/voting'
 import { withAlpha } from '../BarMeter'
 import { CommentsDialog } from './CommentsDialog'
+import { decidedAmount } from '../../lib/amountRequested'
 
 /**
  * One member of the voting board: every current trustee, plus any admin the foundation
@@ -42,7 +43,7 @@ const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<
 export type VoteCardApplication = {
   id: string
   organisationName: string
-  amountRequested: string
+  amountRequested: string | null
   externalApplicationId: string | null
   charityNumber: string | null
   companyNumber: string | null
@@ -445,7 +446,7 @@ export function VoteCard({
   const detail = app.custodianScoreDetail
   const scored = app.custodianScoreStatus === 'scored' && app.custodianScore !== null
   const programme = app.roundProgramme?.programme
-  const amount = parseFloat(app.amountRequested)
+  const amount = decidedAmount(app.amountRequested)
   const years = app.roundProgramme?.grantDurationYears ?? null
   // Resolved server-side (stated, else the ask divided by the duration) so the card and
   // the budget meter above it cannot apply different rules to the same grant.

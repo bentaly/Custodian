@@ -83,8 +83,18 @@ describe('confirming a corrected mapping', () => {
   })
 
   it('refuses a mapping that drops a required field', () => {
-    const { bankSortCode: _dropped, ...withoutSortCode } = AI_MAPPING
-    expect(canonicalFor(withoutSortCode).success).toBe(false)
+    const { organisationName: _dropped, ...withoutName } = AI_MAPPING
+    expect(canonicalFor(withoutName).success).toBe(false)
+  })
+
+  it('accepts a mapping without the amount or bank details, for a person to fill in', () => {
+    // These were required until applications became editable. An application without
+    // them now exists and says what it is missing; `amountRequested` null is what holds
+    // its assessment and its shortlisting.
+    const { amountRequested: _a, bankSortCode: _s, bankAccountNumber: _n, ...partial } = AI_MAPPING
+    const parsed = canonicalFor(partial)
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && parsed.data.amountRequested).toBeUndefined()
   })
 })
 

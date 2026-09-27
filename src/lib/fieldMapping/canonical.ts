@@ -95,6 +95,14 @@ export interface CanonicalField {
    * never reach an application in the first place.
    */
   degrades?: string
+  /**
+   * For `expected` fields a later STEP cannot happen without: the step, phrased as a
+   * sentence. These are the gaps the application screen lists at the top as things to
+   * fill in, rather than under "Not captured" at the foot. Until applications became
+   * editable these fields were `required` and a submission missing one never reached
+   * the foundation at all; now it lands and a person completes it.
+   */
+  blocks?: string
   /** Optional transform from the raw (string) payload value to canonical form. */
   coerce?: (raw: string) => string
 }
@@ -151,7 +159,9 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
   {
     key: 'applicantEmail',
     label: 'Applicant email',
-    tier: 'required',
+    tier: 'expected',
+    degrades: 'Without it there is no address to write to about this application.',
+    blocks: 'Needed to email the applicant, including a decline letter.',
     description:
       "The applicant's contact EMAIL ADDRESS of the person or organisation submitting the application. " +
       'Map a field containing a single email address (e.g. "Contact email", "Applicant email", "Your email"). ' +
@@ -161,7 +171,13 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
   {
     key: 'amountRequested',
     label: 'Amount requested',
-    tier: 'required',
+    // `expected`, not `required`, since applications became editable: a form whose
+    // amount question we have not learned yet lands, and whoever opens it points at the
+    // answer (teaching the mapping for every submission after it). It is the one gap
+    // that holds the AI assessment, which is judged on the ask.
+    tier: 'expected',
+    degrades: 'Without it the application cannot be assessed or shortlisted.',
+    blocks: 'Needed before this can be assessed or shortlisted.',
     description: 'The grant amount requested, in GBP, as a monetary value.',
     coerce: coerceAmount,
   },
@@ -206,21 +222,31 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'Do NOT map the account holder name; that is `bankAccountName`.',
   },
   {
+    // The three payment fields are `expected` and reported as ONE gap (see
+    // EXPECTED_ALL_OF_GROUPS). They were `required`, which held every submission from
+    // a form that collects bank details only once a grant is made, for details most
+    // applicants never need because most are declined.
     key: 'bankAccountName',
     label: 'Bank account name',
-    tier: 'required',
+    tier: 'expected',
+    degrades: 'Without it a grant cannot be paid.',
+    blocks: 'Needed before a grant can be paid.',
     description: 'The account holder name on the bank account.',
   },
   {
     key: 'bankAccountNumber',
     label: 'Bank account number',
-    tier: 'required',
+    tier: 'expected',
+    degrades: 'Without it a grant cannot be paid.',
+    blocks: 'Needed before a grant can be paid.',
     description: 'The bank account number (typically 8 digits in the UK).',
   },
   {
     key: 'bankSortCode',
     label: 'Bank sort code',
-    tier: 'required',
+    tier: 'expected',
+    degrades: 'Without it a grant cannot be paid.',
+    blocks: 'Needed before a grant can be paid.',
     description: 'The UK sort code (6 digits, often formatted nn-nn-nn).',
   },
   {
@@ -370,10 +396,31 @@ export const EXPECTED_ONE_OF_GROUPS: Array<{
   },
 ]
 
+/**
+ * `expected` fields that are only useful TOGETHER, reported as one gap when any member
+ * is missing. The opposite of EXPECTED_ONE_OF_GROUPS: an account number without a sort
+ * code pays nobody, so "two of three bank details" is still "no bank details", and
+ * three separate lines saying so would bury everything else in the panel.
+ */
+export const EXPECTED_ALL_OF_GROUPS: Array<{
+  keys: CanonicalFieldKey[]
+  label: string
+  degrades: string
+  blocks: string
+}> = [
+  {
+    keys: ['bankAccountName', 'bankAccountNumber', 'bankSortCode'],
+    label: 'Bank details',
+    degrades: 'Without them a grant cannot be paid.',
+    blocks: 'Needed before a grant can be paid. They can also be added later in Finance.',
+  },
+]
+
 /** Keys reported via a group, so `fieldGaps` doesn't also report them individually. */
-export const EXPECTED_GROUPED_KEYS: Set<CanonicalFieldKey> = new Set(
-  EXPECTED_ONE_OF_GROUPS.flatMap((g) => g.keys),
-)
+export const EXPECTED_GROUPED_KEYS: Set<CanonicalFieldKey> = new Set([
+  ...EXPECTED_ONE_OF_GROUPS.flatMap((g) => g.keys),
+  ...EXPECTED_ALL_OF_GROUPS.flatMap((g) => g.keys),
+])
 
 /**
  * Fields whose absence degrades a feature but must not block a submission. Surfaced on

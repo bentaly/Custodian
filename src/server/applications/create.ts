@@ -125,13 +125,16 @@ export async function createApplicationFromCanonical(
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
       organisationName: input.organisationName,
-      amountRequested: input.amountRequested,
+      amountRequested: input.amountRequested ?? 0,
     }),
     resolveDeprivation(input.deliveryArea),
   ])
 
+  // No amount, no assessment: it would be marked on an ask that is about to be filled
+  // in. The row is written at `waiting` and the edit path queues it once it is.
+  const amountRequested = input.amountRequested
   const custodian =
-    scoreMode === 'inline'
+    scoreMode === 'inline' && amountRequested != null
       ? await runCustodianScore({
           missionStatement: programme.client.profile?.missionStatement,
           programmeName: programme.name,
@@ -141,7 +144,7 @@ export async function createApplicationFromCanonical(
           grantDurationYears: roundProgramme.grantDurationYears,
           organisationName: input.organisationName,
           organisationSummary: input.organisationSummary,
-          amountRequested: input.amountRequested,
+          amountRequested,
           unrestrictedReserves: input.unrestrictedReserves,
           budgetBreakdown: input.budgetBreakdown,
           budgetBreakdownLink: input.budgetBreakdownLink,
@@ -174,7 +177,7 @@ export async function createApplicationFromCanonical(
     bankName: input.bankName,
     bankAccountName: input.bankAccountName,
     ...bankFields(input),
-    amountRequested: String(input.amountRequested),
+    amountRequested: input.amountRequested != null ? String(input.amountRequested) : null,
     unrestrictedReserves:
       input.unrestrictedReserves != null ? String(input.unrestrictedReserves) : null,
     proposedImpactQuantity:
@@ -187,7 +190,8 @@ export async function createApplicationFromCanonical(
     dueDiligenceChecks: dueDiligence.checks,
     dueDiligenceCheckedAt: new Date(dueDiligence.checkedAt),
     organisationProfile: dueDiligence.profile,
-    custodianScoreStatus: custodian?.status ?? ('queued' as const),
+    custodianScoreStatus:
+      custodian?.status ?? (amountRequested == null ? ('waiting' as const) : ('queued' as const)),
     custodianScore: custodian?.score ?? null,
     custodianScoreDetail: custodian?.detail ?? null,
     grantPurpose: custodian?.grantPurpose ?? null,
@@ -238,12 +242,26 @@ export async function createApplicationFromCanonical(
  * unconditionally would burn an AI call on every confirm and replace a Custodian score
  * for a submission nobody edited. All three degrade gracefully, so a failure leaves a
  * status rather than blocking the confirm.
+ *
+ * It is also the engine behind editing an application in the app (`./edit.ts`), which
+ * is why the score has three modes:
+ *   inline — score now, in this request. The admin app's Confirm: someone is watching
+ *            and there is no post-response deadline.
+ *   queued — mark it `queued` and let the caller enqueue the score. The in-app edit:
+ *            a person saving one field should not wait a minute for the model.
+ *   keep   — leave the assessment exactly as it is. An edit made after a decision
+ *            (a vote, a shortlisting): a score that moves under a board that has
+ *            started deciding reads as moving the goalposts, so it is re-run only when
+ *            somebody asks.
+ * Whatever the mode, an application with no amount goes to `waiting`.
  */
 export async function updateApplicationFromCanonical(
   roundProgramme: RoundProgrammeForApplication,
   applicationId: string,
   input: CreateApplicationInput,
+  opts: { score?: 'inline' | 'queued' | 'keep' } = {},
 ) {
+  const scoreMode = opts.score ?? 'inline'
   const programme = roundProgramme.programme
   const existing = await getDb().query.applications.findFirst({
     where: (a, { eq }) => eq(a.id, applicationId),
@@ -265,7 +283,7 @@ export async function updateApplicationFromCanonical(
     // The name is screened too (does this number belong to the applicant?), so a
     // corrected name must re-run — otherwise a mapping fix leaves the old mismatch.
     !same(existing.organisationName, input.organisationName) ||
-    Number(existing.amountRequested) !== input.amountRequested
+    !sameNumber(existing.amountRequested, input.amountRequested)
   const deprivationInputsChanged = !same(existing.deliveryArea, input.deliveryArea)
   // The score reads most of the application, so nearly anything a reviewer can change
   // here can move it — except the bank details, which it is never shown.
@@ -289,7 +307,7 @@ export async function updateApplicationFromCanonical(
           charityNumber: input.charityNumber,
           companyNumber: input.companyNumber,
           organisationName: input.organisationName,
-          amountRequested: input.amountRequested,
+          amountRequested: input.amountRequested ?? 0,
         })
       : null,
     deprivationInputsChanged ? resolveDeprivation(input.deliveryArea) : null,
@@ -305,31 +323,49 @@ export async function updateApplicationFromCanonical(
   // though it had never been screened. The register profile is read off the fresh RESULT
   // when due diligence re-ran — including when that result carries no profile, which is
   // an answer ("nothing to screen against"), not a reason to fall back to a stale one.
-  const custodian = scoreInputsChanged
-    ? await runCustodianScore({
-        missionStatement: programme.client.profile?.missionStatement,
-        programmeName: programme.name,
-        programmeGoal: programme.goal,
-        programmeDescription: programme.description,
-        programmeThemes: programme.tags,
-        grantDurationYears: roundProgramme.grantDurationYears,
-        organisationName: input.organisationName,
-        organisationSummary: input.organisationSummary,
-        amountRequested: input.amountRequested,
-        unrestrictedReserves: input.unrestrictedReserves,
-        budgetBreakdown: input.budgetBreakdown,
-        budgetBreakdownLink: input.budgetBreakdownLink,
-        deliveryArea: input.deliveryArea,
-        deprivation: deprivation ?? existing.deprivationContext,
-        proposedImpactQuantity: input.proposedImpactQuantity,
-        impactUnit: programme.impactUnit,
-        impactUnitLabel: programme.impactUnitLabel,
-        charityNumber: input.charityNumber,
-        companyNumber: input.companyNumber,
-        organisationProfile: dueDiligence ? dueDiligence.profile : existing.organisationProfile,
-        responses: input.responses,
-      })
-    : null
+  //
+  // What happens to the assessment. No amount parks it at `waiting` whatever the mode;
+  // an application that WAS waiting and now has its amount is scored even though
+  // nothing else changed, because the amount is all it was waiting for.
+  const amountRequested = input.amountRequested
+  const scoreDue =
+    amountRequested != null &&
+    scoreMode !== 'keep' &&
+    (scoreInputsChanged || existing.custodianScoreStatus === 'waiting')
+  const scoreAction: 'waiting' | 'inline' | 'queued' | null =
+    amountRequested == null
+      ? 'waiting'
+      : scoreDue
+        ? scoreMode === 'queued'
+          ? 'queued'
+          : 'inline'
+        : null
+  const custodian =
+    scoreAction === 'inline' && amountRequested != null
+      ? await runCustodianScore({
+          missionStatement: programme.client.profile?.missionStatement,
+          programmeName: programme.name,
+          programmeGoal: programme.goal,
+          programmeDescription: programme.description,
+          programmeThemes: programme.tags,
+          grantDurationYears: roundProgramme.grantDurationYears,
+          organisationName: input.organisationName,
+          organisationSummary: input.organisationSummary,
+          amountRequested,
+          unrestrictedReserves: input.unrestrictedReserves,
+          budgetBreakdown: input.budgetBreakdown,
+          budgetBreakdownLink: input.budgetBreakdownLink,
+          deliveryArea: input.deliveryArea,
+          deprivation: deprivation ?? existing.deprivationContext,
+          proposedImpactQuantity: input.proposedImpactQuantity,
+          impactUnit: programme.impactUnit,
+          impactUnitLabel: programme.impactUnitLabel,
+          charityNumber: input.charityNumber,
+          companyNumber: input.companyNumber,
+          organisationProfile: dueDiligence ? dueDiligence.profile : existing.organisationProfile,
+          responses: input.responses,
+        })
+      : null
 
   const deprivationGeo = deprivation ? deliveryGeoFromResult(deprivation) : null
   const deprivationAttempted = deprivation ? deprivation.status !== 'pending' : false
@@ -347,7 +383,7 @@ export async function updateApplicationFromCanonical(
       bankName: input.bankName,
       bankAccountName: input.bankAccountName,
       ...bankFields(input),
-      amountRequested: String(input.amountRequested),
+      amountRequested: input.amountRequested != null ? String(input.amountRequested) : null,
       unrestrictedReserves:
         input.unrestrictedReserves != null ? String(input.unrestrictedReserves) : null,
       proposedImpactQuantity:
@@ -378,10 +414,15 @@ export async function updateApplicationFromCanonical(
             // error detail, but must not blank a purpose an admin may already have read
             // on the shortlist — or worse, be about to award from.
             ...(custodian.grantPurpose ? { grantPurpose: custodian.grantPurpose } : {}),
-            // Same rule for themes: a failed re-run keeps the ones already assigned.
-            ...(custodian.themes ? { themes: custodian.themes } : {}),
+            // Same rule for themes: a failed re-run keeps the ones already assigned, and
+            // a person's choice is never replaced by the model's.
+            ...(custodian.themes && !existing.themesSetBy ? { themes: custodian.themes } : {}),
           }
-        : {}),
+        : scoreAction === 'waiting'
+          ? { custodianScoreStatus: 'waiting' as const }
+          : scoreAction === 'queued'
+            ? { custodianScoreStatus: 'queued' as const }
+            : {}),
       ...(deprivation && deprivationGeo
         ? {
             deprivationStatus: deprivation.status,
@@ -408,5 +449,7 @@ export async function updateApplicationFromCanonical(
     deprivation ? 'the deprivation lookup' : null,
   ].filter((x): x is string => x !== null)
 
-  return { application, rerun }
+  /** True when the row was set to `queued` and the caller must enqueue the score. */
+  const scoreQueued = scoreAction === 'queued'
+  return { application, rerun, scoreQueued }
 }

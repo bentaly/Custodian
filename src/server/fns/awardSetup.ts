@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
+import { decidedAmount } from '../../lib/amountRequested'
 import {
   applicationVotes,
   applications,
@@ -126,7 +127,7 @@ export async function awardCandidatesData(
         id: a.id,
         organisationName: a.organisationName,
         applicantEmail: a.applicantEmail,
-        amountRequested: parseFloat(a.amountRequested),
+        amountRequested: decidedAmount(a.amountRequested),
         externalApplicationId: a.externalApplicationId,
         deliveryArea: deliveryAreaLabel(a),
         charityNumber: a.charityNumber,

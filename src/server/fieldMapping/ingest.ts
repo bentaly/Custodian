@@ -283,8 +283,10 @@ export async function processIngest(
   }
 
   // Ask for the score only once the application and its ingest row are committed, so
-  // a message can never point at a row that does not exist yet.
-  if (applicationId) {
+  // a message can never point at a row that does not exist yet. Not at all when the
+  // amount is missing: the row was written at `waiting`, and filling the amount in on
+  // the application is what queues it.
+  if (applicationId && validInput?.success && validInput.data.amountRequested != null) {
     const promotedId = applicationId
     await enqueue({ kind: 'score', applicationId: promotedId }, () => scoreApplication(promotedId))
   }

@@ -54,8 +54,10 @@ export const CreateApplicationSchema = z.object({
   // 3,500 characters, and truncating one at the door would lose the tail of an answer
   // with nothing to say it had been cut.
   organisationSummary: z.string().min(1).max(20_000).optional(),
-  // The applicant's contact email — required on every application.
-  applicantEmail: z.string().email().max(255),
+  // The applicant's contact email. Optional since applications became editable: a
+  // submission without one lands and says so, and an admin adds it. Without it the
+  // decline letter has nowhere to go and "Email applicant" is hidden.
+  applicantEmail: z.string().email().max(255).optional(),
   // Both optional — an applicant may hold a charity number, a company number,
   // or both. Due diligence routing keys off whichever are present.
   charityNumber: z.string().max(50).optional(),
@@ -68,10 +70,16 @@ export const CreateApplicationSchema = z.object({
   // however the tier was set — the tier decides whether the mapper waits for a field,
   // this decides whether the assembled application is allowed to exist without one.
   bankName: z.string().max(255).optional(),
-  bankAccountName: z.string().min(1).max(255),
-  bankAccountNumber: z.string().min(1).max(50),
-  bankSortCode: z.string().min(1).max(20),
-  amountRequested: z.number().positive(),
+  // The payment details are only needed once there is something to pay, and most
+  // applicants are declined. A submission without them lands with the gap flagged;
+  // `createAwards` is where their absence finally matters.
+  bankAccountName: z.string().min(1).max(255).optional(),
+  bankAccountNumber: z.string().min(1).max(50).optional(),
+  bankSortCode: z.string().min(1).max(20).optional(),
+  // Optional so a submission that did not state an amount still lands, for a person to
+  // fill in. It then waits for the amount before it is assessed or can be shortlisted
+  // (see `applications.amount_requested`).
+  amountRequested: z.number().positive().optional(),
   // Unrestricted reserves as stated by the applicant, in pounds. Optional — not every
   // foundation asks, and no register publishes it. Non-negative: `buildCanonicalInput`
   // already refuses a negative figure rather than storing it, and this is the boundary

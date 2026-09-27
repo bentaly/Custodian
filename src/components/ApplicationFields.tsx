@@ -35,7 +35,7 @@ export type ApplicationFieldsData = {
   charityNumber?: string | null
   companyNumber?: string | null
   deliveryArea?: string | null
-  amountRequested: string
+  amountRequested: string | null
   unrestrictedReserves?: string | null
   proposedImpactQuantity?: string | null
   budgetBreakdown?: BudgetLine[] | null

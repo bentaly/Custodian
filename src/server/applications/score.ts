@@ -60,6 +60,18 @@ export async function scoreApplication(
     }
   }
 
+  // Nothing to assess against yet: the amount is what the proportionality and budget
+  // criteria are judged on, and a score of the application without it would be marked
+  // against something that is about to change. Parked at `waiting`, which the edit
+  // path turns back into `queued` once somebody fills it in.
+  if (application.amountRequested === null) {
+    await db
+      .update(applications)
+      .set({ custodianScoreStatus: 'waiting' })
+      .where(eq(applications.id, applicationId))
+    return { ok: true, status: 'waiting', score: null }
+  }
+
   const roundProgramme = await fetchRoundProgrammeForApplication(application.roundProgrammeId)
   if (!roundProgramme) return { ok: false, reason: 'round_programme_missing' }
   const programme = roundProgramme.programme
@@ -82,7 +94,7 @@ export async function scoreApplication(
     grantDurationYears: roundProgramme.grantDurationYears,
     organisationName: application.organisationName,
     organisationSummary: application.organisationSummary,
-    amountRequested: Number(application.amountRequested),
+    amountRequested: Number(application.amountRequested), // non-null: guarded above
     unrestrictedReserves:
       application.unrestrictedReserves != null ? Number(application.unrestrictedReserves) : null,
     budgetBreakdown: application.budgetBreakdown,
@@ -109,8 +121,9 @@ export async function scoreApplication(
       custodianScoreDetail: custodian.detail,
       grantPurpose: custodian.grantPurpose,
       // Only when the run produced them — a forced re-score that fails must not blank
-      // themes that every list and filter is already reading.
-      ...(custodian.themes ? { themes: custodian.themes } : {}),
+      // themes that every list and filter is already reading — and never over themes a
+      // person chose, which outrank the model's.
+      ...(custodian.themes && !application.themesSetBy ? { themes: custodian.themes } : {}),
       custodianScoredAt: new Date(custodian.scoredAt),
     })
     .where(eq(applications.id, applicationId))

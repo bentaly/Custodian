@@ -18,11 +18,25 @@ import {
   CANONICAL_FIELDS,
   CANONICAL_FIELD_BY_KEY,
   REQUIRED_ONE_OF_GROUPS,
+  EXPECTED_ALL_OF_GROUPS,
   EXPECTED_ONE_OF_GROUPS,
   EXPECTED_GROUPED_KEYS,
   describeOneOfGroup,
   type CanonicalFieldKey,
 } from './canonical'
+
+/**
+ * A gap that holds up a later step (see `CanonicalField.blocks`): the amount, the
+ * applicant's email, the bank details. Listed at the top of the application as things
+ * to fill in, where the rest of `FieldGaps` is the quieter "Not captured" panel.
+ */
+export interface GapToFill {
+  /** The fields that fill it: one, or the whole bank-details group. */
+  keys: CanonicalFieldKey[]
+  label: string
+  /** The step that waits on it, as a sentence. */
+  blocks: string
+}
 
 export interface FieldGap {
   key: CanonicalFieldKey
@@ -57,8 +71,15 @@ export interface FieldGaps {
    * the registration pair reports through `expectedGroups` now.
    */
   oneOf: OneOfGap[]
-  /** True when anything at all is missing — the cheap check for "render the panel". */
+  /** True when anything above is missing — the cheap check for "render the panel". */
   any: boolean
+  /**
+   * The gaps that hold up a step, in the order a person meets them (amount, then the
+   * email, then bank details). Deliberately NOT counted in `any`: these have their own
+   * panel at the top of the application, and repeating them under "Not captured" would
+   * say the same thing twice on one screen.
+   */
+  toFill: GapToFill[]
 }
 
 /** Empty string, empty array and null all count as "not captured". */
@@ -70,15 +91,28 @@ function isPresent(value: unknown): boolean {
 }
 
 export function fieldGaps(values: Partial<Record<CanonicalFieldKey, unknown>>): FieldGaps {
-  const expected: FieldGap[] = CANONICAL_FIELDS.filter(
+  const missingUngrouped = CANONICAL_FIELDS.filter(
     (f) => f.tier === 'expected' && !EXPECTED_GROUPED_KEYS.has(f.key) && !isPresent(values[f.key]),
-  ).map((f) => ({
-    key: f.key,
-    label: f.label,
-    // Every `expected` field carries `degrades` in the registry; the fallback keeps
-    // this total rather than rendering an empty line if one is ever added without it.
-    degrades: f.degrades ?? 'Some of this application is missing as a result.',
-  }))
+  )
+  const toFill: GapToFill[] = [
+    ...missingUngrouped
+      .filter((f) => f.blocks)
+      .map((f) => ({ keys: [f.key], label: f.label, blocks: f.blocks! })),
+    ...EXPECTED_ALL_OF_GROUPS.filter((g) => g.keys.some((k) => !isPresent(values[k]))).map((g) => ({
+      keys: g.keys,
+      label: g.label,
+      blocks: g.blocks,
+    })),
+  ]
+  const expected: FieldGap[] = missingUngrouped
+    .filter((f) => !f.blocks)
+    .map((f) => ({
+      key: f.key,
+      label: f.label,
+      // Every `expected` field carries `degrades` in the registry; the fallback keeps
+      // this total rather than rendering an empty line if one is ever added without it.
+      degrades: f.degrades ?? 'Some of this application is missing as a result.',
+    }))
 
   const expectedGroups: OneOfGap[] = EXPECTED_ONE_OF_GROUPS.filter(
     (group) => !group.keys.some((k) => isPresent(values[k])),
@@ -102,6 +136,7 @@ export function fieldGaps(values: Partial<Record<CanonicalFieldKey, unknown>>): 
     expectedGroups,
     oneOf,
     any: expected.length > 0 || expectedGroups.length > 0 || oneOf.length > 0,
+    toFill,
   }
 }
 

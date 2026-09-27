@@ -13,20 +13,33 @@ import {
 import { fieldGaps, missingRegistrationNumber } from './gaps'
 
 describe('canonical tiers', () => {
-  it('keeps the eight hard-required fields required', () => {
-    // Guards the refactor from boolean → tier: these are the fields without which an
-    // application cannot exist, and silently demoting one would let a submission
-    // through with no payable account or no programme.
+  it('holds a submission only over what an application cannot exist without', () => {
+    // Since applications became editable, a gap a person can fill in on the
+    // application lands rather than waiting in our queue. What is left required is what
+    // there is no application WITHOUT: somewhere to put it (the programme), a name to
+    // list it under, and the foundation's own reference, which is what stops a
+    // re-sent submission becoming a second application.
     expect(REQUIRED_CANONICAL_KEYS).toEqual([
       'programmeName',
       'externalApplicationId',
       'organisationName',
+    ])
+  })
+
+  it('says what each former required field now holds up, so its absence is visible', () => {
+    // Demoted from `required`, these must not become silent: each names the step that
+    // waits on it, which is what puts it in the "to fill in" panel at the top of the
+    // application rather than the quieter "Not captured" at the foot.
+    for (const key of [
       'applicantEmail',
       'amountRequested',
       'bankAccountName',
       'bankAccountNumber',
       'bankSortCode',
-    ])
+    ] as const) {
+      expect(CANONICAL_FIELD_BY_KEY[key].tier).toBe('expected')
+      expect(CANONICAL_FIELD_BY_KEY[key].blocks).toBeTruthy()
+    }
   })
 
   it('does not require the bank name', () => {

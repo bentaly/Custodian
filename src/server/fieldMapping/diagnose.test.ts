@@ -92,15 +92,13 @@ describe('diagnoseIngest', () => {
 
   it('names every required field that never resolved', () => {
     const row = cleanIngest()
+    delete row.resolved!['org']
     delete row.resolved!['accNo']
-    delete row.resolved!['email']
     const blockers = diagnoseIngest(row, emptyIndex)
     const required = blockers.find((b) => b.code === 'required_unmapped')!
     expect(required.severity).toBe('blocking')
-    expect(required.fields!.map((f) => f.key).sort()).toEqual([
-      'applicantEmail',
-      'bankAccountNumber',
-    ])
+    // The account number is no longer required: it lands as a gap on the application.
+    expect(required.fields!.map((f) => f.key).sort()).toEqual(['organisationName'])
   })
 
   it('does not hold a submission that carries no registration number', () => {
@@ -127,11 +125,19 @@ describe('diagnoseIngest', () => {
 
   it('does not report a missing required field twice as an invalid value', () => {
     const row = cleanIngest()
+    delete row.resolved!['org']
+    const blockers = diagnoseIngest(row, emptyIndex)
+    expect(
+      blockers.filter((b) => b.fields?.some((f) => f.key === 'organisationName')),
+    ).toHaveLength(1)
+  })
+
+  it('does not hold a submission over a missing amount', () => {
+    // It lands on the application instead, where a person points at the answer.
+    const row = cleanIngest()
     delete row.resolved!['amount']
     const blockers = diagnoseIngest(row, emptyIndex)
-    expect(blockers.filter((b) => b.fields?.some((f) => f.key === 'amountRequested'))).toHaveLength(
-      1,
-    )
+    expect(blockers.filter((b) => b.severity === 'blocking')).toHaveLength(0)
   })
 
   it('routes on a trimmed name, so a stored trailing space is not a mismatch', () => {

@@ -100,6 +100,11 @@ export const custodianScoreStatusEnum = pgEnum('custodian_score_status', [
   'queued',
   'scored',
   'error',
+  // Held back on purpose: the application arrived without something the assessment
+  // needs (today, the amount requested), so scoring it now would mark a gappy
+  // application that is about to be completed. Distinct from `pending`, which says
+  // no score is coming at all. Filling the gap in moves it to `queued`.
+  'waiting',
 ])
 
 // How a submitted grant report was tied to its grant.
@@ -512,7 +517,12 @@ export const applications = pgTable(
     // spreads the numbers and this together so no write can update one and not the
     // other. NULL means never computed — a row that predates the column.
     bankCheckStatus: text('bank_check_status'),
-    amountRequested: numeric('amount_requested').notNull(),
+    // NULL = the submission did not say, or said it in an answer we could not read as a
+    // figure. The application still lands so a person can fill it in (see
+    // `server/applications/edit.ts`), but it can be neither assessed nor shortlisted
+    // until they do, which is what keeps a missing amount out of every money figure:
+    // those all count shortlisted or awarded applications.
+    amountRequested: numeric('amount_requested'),
     // How much of `amountRequested` falls in the financial year the round is funded
     // from — the figure that draws down `round_programmes.budget`, which counts THIS
     // YEAR'S CASH rather than the whole commitment (see `src/lib/multiYear.ts`).
@@ -620,10 +630,16 @@ export const applications = pgTable(
     // screens say nothing rather than falling back to the programme's whole list, which
     // would read as the model having chosen every theme. Frozen at assignment: editing a
     // programme's themes later does not touch applications already tagged. Only a
-    // successful (re-)score rewrites it, and nobody can edit it from the application.
+    // successful (re-)score rewrites it, unless a person has chosen them (below).
     // An imported grant takes the Themes column of the workbook, or all its programme's
     // themes when that cell is blank.
     themes: jsonb('themes').$type<string[]>(),
+    // Set when an admin picked the themes by hand. From then on a (re-)score leaves
+    // `themes` alone: a person's choice outranks the model's, and fixing the delivery
+    // area must not quietly undo a theme somebody changed. NULL = the model's (or the
+    // import's) themes, which a score may still replace.
+    themesSetBy: text('themes_set_by').references(() => users.id, { onDelete: 'set null' }),
+    themesSetAt: timestamp('themes_set_at'),
     // Deprivation context derived from `deliveryArea`. `deprivationStatus` is the
     // denormalised outcome for cheap list reads; `deprivationContext` holds the full
     // result (decile range, nation, vintage, matched area — or the reason it could not
@@ -1613,6 +1629,7 @@ export const importBatches = pgTable(
 // (scoring, due diligence) — those are derivable from their own timestamped rows and
 // aren't "someone did something" moments. New action types are added to the enum.
 export const auditActionEnum = pgEnum('audit_action', [
+  'application_edited',
   'application_awarded',
   'application_declined',
   'application_shortlisted',
@@ -1641,6 +1658,47 @@ export const auditActionEnum = pgEnum('audit_action', [
   'member_removed',
   'invitation_revoked',
 ])
+
+/**
+ * One row per change a person made to an application's fields in Custodian.
+ *
+ * The application row holds the CURRENT value; the submission as received stays in
+ * `application_ingests.raw_payload`, untouched. This is the bridge between the two:
+ * what was changed, from what, by whom, and how. It is what lets the application
+ * screen mark a field "Edited" and lets View Submission say, beneath the answer an
+ * applicant actually gave, what Custodian now reads instead.
+ *
+ * `method` is the distinction that matters:
+ *   typed   - a person typed the value. Teaches nothing.
+ *   answer  - a person pointed at one of the applicant's own answers (`source_key`),
+ *             and may also have taught the foundation's mapping, so the next
+ *             submission reads that answer the same way.
+ *   applied - the same answer, carried to this application by somebody fixing
+ *             ANOTHER one ("also fill in the others"). Kept apart from `answer` so
+ *             nobody reads it as a person having looked at this application.
+ *   themes  - the themes were chosen by hand (`field` = 'themes', values as JSON).
+ *
+ * `replaced_source_key` is the answer the field was read from BEFORE this change, if
+ * any, so View Submission can put the note under the answer that stopped being used.
+ */
+export const applicationEdits = pgTable(
+  'application_edits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    applicationId: uuid('application_id')
+      .notNull()
+      .references(() => applications.id, { onDelete: 'cascade' }),
+    field: text('field').notNull(),
+    method: text('method').$type<'typed' | 'answer' | 'applied' | 'themes'>().notNull(),
+    previousValue: text('previous_value'),
+    newValue: text('new_value'),
+    sourceKey: text('source_key'),
+    replacedSourceKey: text('replaced_source_key'),
+    editedBy: text('edited_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('application_edits_application_idx').on(t.applicationId, t.createdAt)],
+)
 
 export const auditLog = pgTable(
   'audit_log',
@@ -2081,6 +2139,7 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
   }),
   comments: many(applicationComments),
   votes: many(applicationVotes),
+  edits: many(applicationEdits),
   // 1:1 in practice (one award per application), modelled as a to-one relation.
   award: one(awards, { fields: [applications.id], references: [awards.applicationId] }),
   // 1:1 (unique applicationId) — present only once the applicant has been told no.
@@ -2088,6 +2147,14 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
     fields: [applications.id],
     references: [declineLetters.applicationId],
   }),
+}))
+
+export const applicationEditsRelations = relations(applicationEdits, ({ one }) => ({
+  application: one(applications, {
+    fields: [applicationEdits.applicationId],
+    references: [applications.id],
+  }),
+  editor: one(users, { fields: [applicationEdits.editedBy], references: [users.id] }),
 }))
 
 export const awardsRelations = relations(awards, ({ one, many }) => ({

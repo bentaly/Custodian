@@ -17,6 +17,7 @@ import {
   type SQLWrapper,
 } from 'drizzle-orm'
 import { getDb } from '../db'
+import { decidedAmount } from '../../lib/amountRequested'
 import {
   applications,
   roundProgrammes,
@@ -266,18 +267,27 @@ export const getApplication = createServerFn({ method: 'GET' })
       roundProgrammeCommittedThisYear: committedThisYear,
       /** The financial year that budget belongs to, for the screen's wording. */
       roundFinancialYear: fy,
-      /** What this ask draws from the round this year: stated if anyone said, else suggested. */
-      firstYearAmount: resolveFirstYearAmount({
-        amountRequested: parseFloat(application.amountRequested),
-        firstYearAmount:
-          application.firstYearAmount === null ? null : parseFloat(application.firstYearAmount),
-        grantDurationYears: application.roundProgramme.grantDurationYears,
-      }),
+      /** What this ask draws from the round this year: stated if anyone said, else suggested.
+       *  Null while the amount itself is missing: there is nothing to divide. */
+      firstYearAmount:
+        application.amountRequested === null
+          ? null
+          : resolveFirstYearAmount({
+              amountRequested: parseFloat(application.amountRequested),
+              firstYearAmount:
+                application.firstYearAmount === null
+                  ? null
+                  : parseFloat(application.firstYearAmount),
+              grantDurationYears: application.roundProgramme.grantDurationYears,
+            }),
       /** The suggestion, always — so the dialog can offer "reset to suggested". */
-      firstYearSuggested: suggestFirstYearAmount(
-        parseFloat(application.amountRequested),
-        application.roundProgramme.grantDurationYears,
-      ),
+      firstYearSuggested:
+        application.amountRequested === null
+          ? null
+          : suggestFirstYearAmount(
+              parseFloat(application.amountRequested),
+              application.roundProgramme.grantDurationYears,
+            ),
       /** True while nobody has overridden the suggestion. */
       firstYearIsSuggested: application.firstYearAmount === null,
       // A foundation with no profile row has never opened the setting, so it gets the
@@ -491,6 +501,14 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
         with: { roundProgramme: { with: { programme: { columns: { clientId: true } } } } },
       })
       if (!app) throw notFoundError()
+      // The gate that keeps a missing amount out of every money figure in the app: the
+      // shortlist meter, round spend, award set-up and Finance all count shortlisted or
+      // awarded applications, and each of them would read a missing amount as £0.
+      if (app.amountRequested === null) {
+        throw conflict(
+          'This application has no amount requested yet. Fill it in on the application first.',
+        )
+      }
 
       // `undefined` is "accept the suggestion" and stores NULL; an explicit number is an
       // override. Either way the figure the gate checks is the one the meter will show,
@@ -618,7 +636,9 @@ export const setFirstYearAmount = createServerFn({ method: 'POST' })
     if (app.status !== 'shortlisted') {
       throw conflict('Only a shortlisted application draws on a round budget.')
     }
-    const requested = parseFloat(app.amountRequested)
+    // Only a shortlisted application reaches here, and one cannot be shortlisted
+    // without an amount.
+    const requested = decidedAmount(app.amountRequested)
     if (data.amount !== null && data.amount > requested) {
       throw conflict('That is more than the application is asking for.')
     }
@@ -1290,7 +1310,7 @@ export const getAward = createServerFn({ method: 'GET' })
       impact,
       application: {
         id: app.id,
-        amountRequested: parseFloat(app.amountRequested),
+        amountRequested: decidedAmount(app.amountRequested),
         // The applicant's own sentence, shown only where the award recorded none
         // (awards minted before `awards.purpose` existed) — as the report screen does.
         grantPurpose: app.grantPurpose,

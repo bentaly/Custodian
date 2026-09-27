@@ -12,8 +12,8 @@ import { bankStatus } from '../../lib/bankVerification'
  * code still changes what the check says about the account number beside it.
  */
 export function bankFields(input: {
-  bankSortCode: string | null | undefined
-  bankAccountNumber: string | null | undefined
+  bankSortCode?: string | null | undefined
+  bankAccountNumber?: string | null | undefined
 }) {
   const bankSortCode = input.bankSortCode ?? null
   const bankAccountNumber = input.bankAccountNumber ?? null

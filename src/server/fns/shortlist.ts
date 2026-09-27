@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
+import { decidedAmount } from '../../lib/amountRequested'
 import {
   applicationComments,
   applicationVotes,
@@ -180,7 +181,7 @@ export async function shortlistData(
         // see its whole size, and the board reading the budget meter must see what it
         // costs this year, and neither figure substitutes for the other.
         firstYearAmount: resolveFirstYearAmount({
-          amountRequested: parseFloat(a.amountRequested),
+          amountRequested: decidedAmount(a.amountRequested),
           firstYearAmount: a.firstYearAmount === null ? null : parseFloat(a.firstYearAmount),
           grantDurationYears: a.roundProgramme.grantDurationYears,
         }),

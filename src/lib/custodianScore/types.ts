@@ -43,8 +43,12 @@ export interface CriterionScore {
  *             will never happen.
  *   scored  — assessment completed successfully
  *   error   — scoring was attempted but failed (API/validation error)
+ *   waiting — held back until a person fills in what the assessment needs (the
+ *             amount requested). Neither "coming" nor "never": the application screen
+ *             says what it is waiting for. The same call writes the grant purpose and
+ *             themes, so those wait with it.
  */
-export type CustodianScoreStatus = 'pending' | 'queued' | 'scored' | 'error'
+export type CustodianScoreStatus = 'pending' | 'queued' | 'scored' | 'error' | 'waiting'
 
 /**
  * The detail blob persisted alongside the denormalised composite score. The

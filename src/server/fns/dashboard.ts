@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { and, eq, ne, count, inArray, sql, isNotNull, desc } from 'drizzle-orm'
 import { getDb } from '../db'
+import { decidedAmount } from '../../lib/amountRequested'
 import {
   applications,
   rounds,
@@ -676,7 +677,7 @@ export async function dashboardData(
     .map((r) => ({
       id: r.id,
       organisationName: r.organisationName,
-      amountRequested: parseFloat(r.amountRequested),
+      amountRequested: decidedAmount(r.amountRequested),
       score: r.score,
       yesVotes: Number(r.yesVotes),
       iVoted: Number(r.myVote) > 0,
