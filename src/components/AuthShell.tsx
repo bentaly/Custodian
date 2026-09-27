@@ -238,128 +238,138 @@ export function AuthShell({ children }: { children: ReactNode }) {
           first bite out of the spacing; the ring & the three cards are more copy than
           a 740px-tall laptop viewport holds, so past that it scrolls rather than being
           squeezed into illegibility. Stacked: full width, flowing with the page. */}
-      <aside className="relative m-4 flex shrink-0 flex-col rounded-card border border-grey-100 bg-brand/5 p-8 lg:w-[63%] lg:px-10 xl:w-[65%] xl:px-12 lg:max-w-[1100px] lg:overflow-y-auto">
-        {/* Stacked, the form above has already shown the wordmark. */}
-        <div className="hidden lg:block">
-          <Wordmark />
-        </div>
-
-        {/* The one deliberate exception to the type ramp. The comp sets this at a flat
-            40px, which is right at the width it was drawn to — but the panel is a
-            percentage of the viewport, so it must also survive a 1024px display & a
-            short one. It therefore scales fluidly & tops out at the comp's 40px,
-            which no fixed ramp step could do. */}
-        <h2
-          className="font-display mb-8 max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-5 compact:mb-6 compact:mt-2 compact:text-[clamp(26px,2.3vw,34px)]"
-          style={{ letterSpacing: '-0.02em', textWrap: 'pretty' }}
-        >
-          The entire grant lifecycle for the whole foundation team.
-        </h2>
-
-        {/* The ring sits behind the stages & is centred on the whole block, so the
-            top & bottom chips ride its arc exactly as they do in the comp. The side
-            columns take the slack: the middle track is narrower than the ring, so the
-            left & right chips overlap it rather than clearing it.
-
-            The middle track is what sets how far the four side chips sit off the hub,
-            and it is tuned so that gap MATCHES the one the top & bottom chips have —
-            0.55fr put their inner edges flush against the pale disc while Applications
-            & Reporting cleared it by ~34px, which read as the ring being squeezed from
-            the sides. The dashed orbit still passes behind all six, as in the comp; it
-            is the hub the chips are spaced off.
-
-            `my-auto` gives the ring the slack: the heading holds the top, the cards &
-            the invite-only line hold the bottom, and the ring is centred in whatever
-            is left rather than hugging the heading with all the empty space beneath
-            it. Auto margins collapse to nothing once the panel overflows, so the
-            compact case just stacks — which is why the FLOOR on that gap is a fixed
-            margin on the heading & on the cards below, not more padding here. Tune
-            those two margins to change how much air the ring has; on a `compact`
-            viewport they are the ONLY thing holding it off the heading & the cards,
-            because the auto margins have already collapsed to nothing.
-
-            `items-center` because a grid row stretches by default, & the two chips
-            facing each other across the ring never carry the same number of lines —
-            stretched, the shorter one grows to its neighbour's height & reads as a
-            card padded out for no reason. Each chip is now its own height, & the pair
-            balances on the row's midline, which is where the ring's symmetry puts
-            them. */}
-        <div className="mx-auto my-auto w-full max-w-[800px] py-4 compact:py-0">
-          <div className="relative">
-            <OrbitRing />
-            <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.9fr)_1fr] md:items-center md:gap-x-3 md:gap-y-10 compact:gap-y-4">
-              {STAGES.map((stage) => (
-                <li
-                  key={stage.title}
-                  className={cn(
-                    'flex items-center gap-2 rounded-control border border-grey-50/70 bg-white/10 py-2 pl-2 pr-3 backdrop-blur-[8px]',
-                    stage.place,
-                  )}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-white text-brand">
-                    <HugeiconsIcon icon={stage.icon} className="h-4 w-4" strokeWidth={1.75} />
-                  </span>
-                  <div>
-                    <span className="text-title font-medium text-grey-900">{stage.title}</span>
-                    <p
-                      className="mt-1 text-label leading-[1.4] text-grey-500"
-                      style={{ textWrap: 'pretty' }}
-                    >
-                      {stage.body}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+      {/* The card is now a static, clipped frame: `overflow-hidden` here (not on the
+          scroll container below) is what keeps the native scrollbar off the rounded
+          corner & border. Without it, the browser draws the scrollbar flush against
+          this element's own right edge — which, when this element is ALSO the card,
+          means the scrollbar sits right on the border, reading as a stray bar wedged
+          between the panel & the sign-in form. Padding + `overflow-y-auto` move to
+          the inner wrapper instead, so the scrollbar renders inset within the
+          padding rather than on the card's edge. */}
+      <aside className="relative m-4 flex shrink-0 flex-col overflow-hidden rounded-card border border-grey-100 bg-brand/5 lg:w-[63%] xl:w-[65%] lg:max-w-[1100px]">
+        <div className="flex flex-1 flex-col p-8 lg:overflow-y-auto lg:px-10 xl:px-12">
+          {/* Stacked, the form above has already shown the wordmark. */}
+          <div className="hidden lg:block">
+            <Wordmark />
           </div>
-        </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-3 compact:mt-7 compact:gap-3">
-          {NOTES.map((note) => (
-            <div
-              key={note.title}
-              className="flex flex-col gap-3 rounded-control border border-grey-200 bg-grey-50 p-4 compact:p-3"
-            >
-              {/* Icon & title on one row: the tile is a label for the claim, not a
-                  thing in its own right, & stacking them left a 40px square sitting
-                  alone above a heading in every card. */}
-              <div className="flex items-center gap-3">
-                <span
-                  aria-hidden
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-grey-100 text-grey-700"
-                >
-                  <HugeiconsIcon icon={note.icon} className="h-5 w-5" strokeWidth={1.5} />
-                </span>
-                <p className="text-title font-medium text-grey-900">{note.title}</p>
-              </div>
-              <p className="text-label leading-[1.5] text-grey-700" style={{ textWrap: 'pretty' }}>
-                {note.body}
-              </p>
+          {/* The one deliberate exception to the type ramp. The comp sets this at a flat
+              40px, which is right at the width it was drawn to — but the panel is a
+              percentage of the viewport, so it must also survive a 1024px display & a
+              short one. It therefore scales fluidly & tops out at the comp's 40px,
+              which no fixed ramp step could do. */}
+          <h2
+            className="font-display mb-8 max-w-[21ch] text-[clamp(28px,2.6vw,40px)] font-semibold leading-[1.2] text-grey-900 lg:mt-5 compact:mb-6 compact:mt-2 compact:text-[clamp(26px,2.3vw,34px)]"
+            style={{ letterSpacing: '-0.02em', textWrap: 'pretty' }}
+          >
+            The entire grant lifecycle for the whole foundation team.
+          </h2>
+
+          {/* The ring sits behind the stages & is centred on the whole block, so the
+              top & bottom chips ride its arc exactly as they do in the comp. The side
+              columns take the slack: the middle track is narrower than the ring, so the
+              left & right chips overlap it rather than clearing it.
+
+              The middle track is what sets how far the four side chips sit off the hub,
+              and it is tuned so that gap MATCHES the one the top & bottom chips have —
+              0.55fr put their inner edges flush against the pale disc while Applications
+              & Reporting cleared it by ~34px, which read as the ring being squeezed from
+              the sides. The dashed orbit still passes behind all six, as in the comp; it
+              is the hub the chips are spaced off.
+
+              `my-auto` gives the ring the slack: the heading holds the top, the cards &
+              the invite-only line hold the bottom, and the ring is centred in whatever
+              is left rather than hugging the heading with all the empty space beneath
+              it. Auto margins collapse to nothing once the panel overflows, so the
+              compact case just stacks — which is why the FLOOR on that gap is a fixed
+              margin on the heading & on the cards below, not more padding here. Tune
+              those two margins to change how much air the ring has; on a `compact`
+              viewport they are the ONLY thing holding it off the heading & the cards,
+              because the auto margins have already collapsed to nothing.
+
+              `items-center` because a grid row stretches by default, & the two chips
+              facing each other across the ring never carry the same number of lines —
+              stretched, the shorter one grows to its neighbour's height & reads as a
+              card padded out for no reason. Each chip is now its own height, & the pair
+              balances on the row's midline, which is where the ring's symmetry puts
+              them. */}
+          <div className="mx-auto my-auto w-full max-w-[800px] py-4 compact:py-0">
+            <div className="relative">
+              <OrbitRing />
+              <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,0.9fr)_1fr] md:items-center md:gap-x-3 md:gap-y-10 compact:gap-y-4">
+                {STAGES.map((stage) => (
+                  <li
+                    key={stage.title}
+                    className={cn(
+                      'flex items-center gap-2 rounded-control border border-grey-50/70 bg-white/10 py-2 pl-2 pr-3 backdrop-blur-[8px]',
+                      stage.place,
+                    )}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-white text-brand">
+                      <HugeiconsIcon icon={stage.icon} className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                    <div>
+                      <span className="text-title font-medium text-grey-900">{stage.title}</span>
+                      <p
+                        className="mt-1 text-label leading-[1.4] text-grey-500"
+                        style={{ textWrap: 'pretty' }}
+                      >
+                        {stage.body}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
-          ))}
-        </div>
+          </div>
 
-        {/* The two ways out of the only dead end on the page.
-            This sentence is the sole line addressed to someone who CANNOT sign in, and
-            until now it told them so and stopped — an invite-only product whose
-            signed-out page has no answer for "then how do I get one?". So the links go
-            here rather than in a corner: whoever has just read that they need an
-            invitation is exactly the person who wants to read more or ask for one, and
-            they are already looking at this line. */}
-        <div className="pt-5 text-center compact:pt-1">
-          <p className="text-body text-grey-500">
-            Custodian is invite-only. Your administrator can send you an invitation.
-          </p>
-          <div className="mt-2 flex items-center justify-center gap-3 text-body">
-            <TextLink to="/about">Learn more</TextLink>
-            <span aria-hidden className="text-grey-300">
-              ·
-            </span>
-            <ExternalTextLink
-              href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}&body=${encodeURIComponent(INTEREST_BODY)}`}
-            >
-              Register interest
-            </ExternalTextLink>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3 compact:mt-7 compact:gap-3">
+            {NOTES.map((note) => (
+              <div
+                key={note.title}
+                className="flex flex-col gap-3 rounded-control border border-grey-200 bg-grey-50 p-4 compact:p-3"
+              >
+                {/* Icon & title on one row: the tile is a label for the claim, not a
+                    thing in its own right, & stacking them left a 40px square sitting
+                    alone above a heading in every card. */}
+                <div className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-grey-100 text-grey-700"
+                  >
+                    <HugeiconsIcon icon={note.icon} className="h-5 w-5" strokeWidth={1.5} />
+                  </span>
+                  <p className="text-title font-medium text-grey-900">{note.title}</p>
+                </div>
+                <p className="text-label leading-[1.5] text-grey-700" style={{ textWrap: 'pretty' }}>
+                  {note.body}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* The two ways out of the only dead end on the page.
+              This sentence is the sole line addressed to someone who CANNOT sign in, and
+              until now it told them so and stopped — an invite-only product whose
+              signed-out page has no answer for "then how do I get one?". So the links go
+              here rather than in a corner: whoever has just read that they need an
+              invitation is exactly the person who wants to read more or ask for one, and
+              they are already looking at this line. */}
+          <div className="pt-5 text-center compact:pt-1">
+            <p className="text-body text-grey-500">
+              Custodian is invite-only. Your administrator can send you an invitation.
+            </p>
+            <div className="mt-2 flex items-center justify-center gap-3 text-body">
+              <TextLink to="/about">Learn more</TextLink>
+              <span aria-hidden className="text-grey-300">
+                ·
+              </span>
+              <ExternalTextLink
+                href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}&body=${encodeURIComponent(INTEREST_BODY)}`}
+              >
+                Register interest
+              </ExternalTextLink>
+            </div>
           </div>
         </div>
       </aside>
