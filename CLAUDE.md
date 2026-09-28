@@ -561,6 +561,21 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
 - **`POST /api/submit-report`** is the report-side twin: same auth + 202 + background pipeline, own
   canonical registry (`src/lib/fieldMapping/reportCanonical.ts`) and holding table. Auto-links to a
   grant only on an exact `externalApplicationId` match; heuristics are suggestions only.
+  **A report holds for ONE reason: no grant.** Organisation name and impact summary are optional
+  (the name falls back to the grant's applicant), so a report with a matched grant always lands;
+  missing fields only drive the AI mapping fallback and show as `info` blockers. A held report is
+  attached **in the app** (Reports → "N reports need a grant", admin-only, `fns/heldReports.ts`)
+  from the ranked candidates or any grant, or set aside as "Not one of ours". Sentry is told only
+  when a report is held (`report-held`, one issue per ingest). Rows held for anything else stay
+  in the admin app.
+- **Reports are correctable after they land** (`src/server/reports/correct.ts`), admin-only and
+  never on imported rows: **move** to another grant or milestone (the milestone left is un-ticked
+  unless another report answers it, the one joined is ticked, both awards recomputed), **correct
+  the impact figure** (`impactQuantitySource = 'edited'`, which a re-analysis never overwrites),
+  and **re-run the analysis** — offered only after a move newer than the last analysis, or after
+  an error, and capped at `REPORT_RERUNS_PER_DAY` (5) via `report_analysis_rerun` audit rows.
+  Analysis is `queued` and runs on the queue (`kind: 'report_analysis'`) for attached reports;
+  `queued` renders as "Running".
 - **Legacy**: budget links captured during the Make period are dead URLs (Typeform's Responses API
   returns a bearer-authed path; the raw webhook returns the openable one). If another platform
   hands back an unreachable URL, re-derive that from the stored payload — never store it as a column.
