@@ -96,7 +96,7 @@ export async function editLockReason(app: {
     .from(applicationVotes)
     .where(eq(applicationVotes.applicationId, app.id))
   if ((row?.n ?? 0) > 0) {
-    return 'Trustees have voted on this application, so its details can no longer be edited. They voted on it as it reads now.'
+    return 'Trustees have voted on this application, so its details can no longer be edited.'
   }
   return null
 }
@@ -139,6 +139,11 @@ export async function editApplication(params: {
     if (!isEditableField(c.field)) throw conflict(`${c.field} cannot be edited.`)
   }
 
+  // Taken BEFORE anything is written, on the same clock the assessment stamps
+  // `custodian_scored_at` with. The database's own now() is a different clock, and an edit
+  // it stamped could land a few milliseconds AFTER the assessment it triggered had
+  // started, reading as a change made since, and offering a pointless Re-run.
+  const editedAt = new Date()
   const { app, ingest } = await loadForEdit(applicationId)
   const payload = ingest?.rawPayload ?? {}
   const order = ingest ? orderedKeys(payload, ingest.fieldOrder) : []
@@ -219,6 +224,7 @@ export async function editApplication(params: {
       replacedSourceKey:
         replacedSourceKey && replacedSourceKey !== change.sourceKey ? replacedSourceKey : null,
       editedBy: actor.id,
+      createdAt: editedAt,
     })
   }
 
@@ -434,6 +440,7 @@ export async function setBudgetLines(params: {
   lines: NonNullable<CreateApplicationInput['budgetBreakdown']>
   actor: Actor
 }): Promise<EditResult> {
+  const editedAt = new Date() // see `editApplication`
   const { app } = await loadForEdit(params.applicationId)
   const before = app.budgetBreakdown ?? null
   const input = {
@@ -466,6 +473,7 @@ export async function setBudgetLines(params: {
       previousValue: before && before.length > 0 ? JSON.stringify(before) : null,
       newValue: params.lines.length > 0 ? JSON.stringify(params.lines) : null,
       editedBy: params.actor.id,
+      createdAt: editedAt,
     })
   if (scoreQueued) {
     const applicationId = params.applicationId
@@ -494,6 +502,7 @@ export async function setApplicationThemes(params: {
   themes: string[]
   actor: Actor
 }): Promise<{ themes: string[] }> {
+  const editedAt = new Date() // see `editApplication`
   const { app } = await loadForEdit(params.applicationId)
   const rp = await getDb().query.roundProgrammes.findFirst({
     where: eq(roundProgrammes.id, app.roundProgrammeId),
@@ -520,6 +529,7 @@ export async function setApplicationThemes(params: {
       previousValue: app.themes ? JSON.stringify(app.themes) : null,
       newValue: JSON.stringify(ordered),
       editedBy: params.actor.id,
+      createdAt: editedAt,
     }),
   ])
   await recordAudit({

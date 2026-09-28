@@ -483,10 +483,18 @@ function ApplicationDetail() {
   const score = application.custodianScore
   const scoreDetail = application.custodianScoreDetail as CustodianScoreDetail | null
   const scored = scoreStatus === 'scored' && score != null && scoreDetail != null
-  const grantPurpose = application.grantPurpose?.trim() || null
-  // Picked by the same model call as the purpose (or taken from an import), and read-only
-  // here on purpose — see `applications.themes`. Null is "not assigned yet".
-  const themes = application.themes
+  // Not while the assessment is WAITING (the amount was cleared): what is on the row then is
+  // the previous run's reading of an application that has since changed, and showing it
+  // under "waiting for the amount" presents an old verdict as the current one.
+  const grantPurpose =
+    application.custodianScoreStatus === 'waiting' ? null : application.grantPurpose?.trim() || null
+  // Picked by the same model call as the purpose (or taken from an import), or chosen by
+  // an admin (`themes_set_by`). Null is "not assigned yet". Hidden while waiting for the
+  // same reason as the purpose, unless a PERSON chose them, which stand regardless.
+  const themes =
+    application.custodianScoreStatus === 'waiting' && !application.themesSetBy
+      ? null
+      : application.themes
 
   // The model can return a dozen flags, and a wall of red under the score buries the
   // score. Two is enough to say "there are concerns here"; the rest are one click away.
@@ -1541,11 +1549,29 @@ function ApplicationDetail() {
               }
               sub={
                 <>
-                  {orgReserves != null
-                    ? reserveMonths != null
-                      ? `~${reserveMonths} months' spend`
-                      : 'as stated'
-                    : 'not captured'}{' '}
+                  {orgReserves != null ? (
+                    reserveMonths != null && orgSpend != null ? (
+                      // The two figures come from different places and different dates
+                      // (the form now, the register's last filed year), and the divisor
+                      // is TOTAL spending because the register does not split out
+                      // unrestricted. A bare "~3 months" hides all of that.
+                      <Tooltip
+                        label="How months of spend is worked out"
+                        trigger={`~${reserveMonths} months' spend`}
+                      >
+                        {fmtMoney(orgReserves)} unrestricted reserves
+                        {reservesFromApplication ? ' (stated on the form)' : ''}, against{' '}
+                        {fmtMoney(orgSpend)} total spending
+                        {orgPeriodEnd ? ` in the year to ${orgPeriodEnd}` : ''} (Charity Commission
+                        register). Total spending includes restricted funds, so this errs on the low
+                        side.
+                      </Tooltip>
+                    ) : (
+                      'as stated'
+                    )
+                  ) : (
+                    'not captured'
+                  )}{' '}
                 </>
               }
             />

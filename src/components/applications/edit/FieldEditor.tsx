@@ -27,7 +27,7 @@ export type EditOutcome = {
 export function describeOutcome(o: EditOutcome): string {
   const parts: string[] = ['Saved.']
   if (o.rerun.includes('the deprivation lookup')) parts.push('The area has been looked up again.')
-  if (o.rerun.includes('due diligence')) parts.push('The register checks have been re-run.')
+  if (o.rerun.includes('due diligence')) parts.push('The due diligence checks have been re-run.')
   if (o.scoreQueued) parts.push('The AI assessment is running now.')
   else if (o.scoreKept)
     parts.push(
