@@ -447,10 +447,11 @@ export async function updateApplicationFromCanonical(
             custodianScore: custodian.score,
             custodianScoreDetail: custodian.detail,
             custodianScoredAt: new Date(custodian.scoredAt),
-            // Only when the re-run produced one. A failed score sets the status and the
+            // From a SUCCESSFUL run, even when its answer is none (the application does not say
+            // clearly what the money is for). A failed score sets the status and the
             // error detail, but must not blank a purpose an admin may already have read
             // on the shortlist — or worse, be about to award from.
-            ...(custodian.grantPurpose ? { grantPurpose: custodian.grantPurpose } : {}),
+            ...(custodian.status === 'scored' ? { grantPurpose: custodian.grantPurpose } : {}),
             // Same rule for themes: a failed re-run keeps the ones already assigned, and
             // a person's choice is never replaced by the model's.
             ...(custodian.themes && !existing.themesSetBy ? { themes: custodian.themes } : {}),

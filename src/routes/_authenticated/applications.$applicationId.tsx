@@ -638,6 +638,9 @@ function ApplicationDetail() {
   // The purpose and themes are on their way (or waiting to be): the column stays, saying so,
   // rather than the panel jumping when the model answers.
   const purposeComing = !grantPurpose && (waiting || scoreStatus === 'queued')
+  // Assessed, and the model found no clear activity to state: it returns no purpose rather
+  // than a hedged one, and the screen says so in our own words.
+  const purposeUnclear = !grantPurpose && scoreStatus === 'scored'
 
   // ── What the register says the applicant IS ────────────────────────────────
   // Captured by `runDueDiligence` on the same calls the checks come from, so this
@@ -1000,6 +1003,7 @@ function ApplicationDetail() {
             from this one and then edited, so the two differ on most grants. */}
         {(grantPurpose ||
           purposeComing ||
+          purposeUnclear ||
           canEdit ||
           orgProfile ||
           orgSummary ||
@@ -1029,7 +1033,11 @@ function ApplicationDetail() {
                 underneath — the same order it had before, and the right one when there
                 is only one column's width to give it. */}
             <div
-              className={grantPurpose || purposeComing ? 'grid gap-6 lg:grid-cols-2 lg:gap-8' : ''}
+              className={
+                grantPurpose || purposeComing || purposeUnclear
+                  ? 'grid gap-6 lg:grid-cols-2 lg:gap-8'
+                  : ''
+              }
             >
               {/* A column, so the caption can be pushed to the FOOT of it. The grant
                   purpose is capped at 40 words and the organisation card runs to five
@@ -1038,7 +1046,7 @@ function ApplicationDetail() {
                   two section labels on the same line, which centring the column would
                   have broken. Below `lg` the columns stack and `mt-auto` is inert, so
                   the caption goes back to hugging the sentence it qualifies. */}
-              {(grantPurpose || purposeComing) && (
+              {(grantPurpose || purposeComing || purposeUnclear) && (
                 <div className="flex flex-col">
                   <p
                     className="font-display text-label font-medium uppercase"
@@ -1057,6 +1065,14 @@ function ApplicationDetail() {
                       style={{ color: C.ink, borderColor: C.brand }}
                     >
                       {grantPurpose}
+                    </p>
+                  ) : purposeUnclear ? (
+                    <p
+                      className="mt-2 border-l-3 pl-2 font-display text-body leading-normal"
+                      style={{ color: C.sub, borderColor: C.line }}
+                    >
+                      The application does not say clearly what the money is for. See the AI
+                      assessment below.
                     </p>
                   ) : (
                     // The same model call writes the purpose, the themes and the score,
