@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import { decidedAmount } from '../../lib/amountRequested'
+import { isUnnamedOrganisation } from '../../lib/organisationName'
 import {
   applicationVotes,
   applications,
@@ -394,6 +395,18 @@ export const createAwards = createServerFn({ method: 'POST' })
           applicationId: grant.applicationId,
           organisationName: name,
           error: 'This application already has an award.',
+        })
+        continue
+      }
+      // The award letter names the grantee in its first line, and "Unnamed (ref …)" is a
+      // stand-in, not a name. Adding the name stays possible after votes for this reason
+      // (`editLockReason`).
+      if (isUnnamedOrganisation(name)) {
+        results.push({
+          applicationId: grant.applicationId,
+          organisationName: name,
+          error:
+            'This application has no organisation name. Add it on the application, then set up the award.',
         })
         continue
       }

@@ -12,6 +12,8 @@
 // again next year. The address is what a person reads, so the address is what is
 // deduplicated.
 
+import { isUnnamedOrganisation } from '../organisationName'
+
 /** One application that has been declined, as the batch sees it. */
 export type DeclineCandidate = {
   applicationId: string
@@ -35,6 +37,12 @@ export type DeclinePlan<T extends DeclineCandidate> = {
   toNotify: T[]
   /** Has a letter of its own already — including one that failed to send. */
   alreadyNotified: T[]
+  /**
+   * Declined, but still "Unnamed (ref …)": the submission gave no name and none could be
+   * found on the register. A letter would open "Dear Unnamed (ref WF-123)", so none is
+   * written until somebody adds the name on the application.
+   */
+  unnamed: T[]
   /** Declined, but there is no address on the application to write to. */
   unreachable: T[]
   /** This address has had a decline letter before, through another application. */
@@ -83,6 +91,7 @@ export function planDeclineBatch<T extends DeclineCandidate>({
   const plan: DeclinePlan<T> = {
     toNotify: [],
     alreadyNotified: [],
+    unnamed: [],
     unreachable: [],
     addressAlreadyWritten: [],
     duplicateInBatch: [],
@@ -95,6 +104,10 @@ export function planDeclineBatch<T extends DeclineCandidate>({
       // Its address is spoken for from here on, so a SECOND application from the same
       // organisation in this round is a duplicate rather than a new letter.
       if (candidate.applicantEmail) claimed.add(normaliseEmail(candidate.applicantEmail))
+      continue
+    }
+    if (isUnnamedOrganisation(candidate.organisationName)) {
+      plan.unnamed.push(candidate)
       continue
     }
     if (!candidate.applicantEmail) {

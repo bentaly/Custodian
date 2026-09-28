@@ -384,7 +384,11 @@ export const sendDeclineLetters = createServerFn({ method: 'POST' })
 
     const toWrite = plan.toNotify
     const skipped =
-      plan.alreadyNotified.length + plan.addressAlreadyWritten.length + plan.duplicateInBatch.length
+      plan.alreadyNotified.length +
+      plan.addressAlreadyWritten.length +
+      plan.duplicateInBatch.length +
+      // Not written at all until they have a name: see `DeclinePlan.unnamed`.
+      plan.unnamed.length
     if (toWrite.length === 0) {
       return { sent: 0, withoutEmail: plan.unreachable.length, skipped }
     }

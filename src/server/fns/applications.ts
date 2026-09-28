@@ -35,7 +35,7 @@ import {
 } from '../../../drizzle/schema'
 import { orderedKeys } from '../fieldMapping/assemble'
 import { toStringValue } from '../../lib/fieldMapping'
-import { editLockReason, rerunBlocker } from '../applications/edit'
+import { editLockReason, namingIsAllowed, rerunBlocker } from '../applications/edit'
 import { recordRegisterName } from '../applications/create'
 import { isUnnamedOrganisation, tidyRegisteredName } from '../../lib/organisationName'
 import { searchAny } from '../searchTerm'
@@ -318,6 +318,8 @@ export const getApplication = createServerFn({ method: 'GET' })
       canEdit,
       /** Why an admin cannot edit it, or null. Shown on a greyed pencil, never enforced here. */
       editLocked,
+      /** The vote lock's one exception: naming an application that arrived without a name. */
+      canNameOrganisation: isAdmin && namingIsAllowed(application),
       /** Null when "Re-run the assessment" is on offer; otherwise why not. Admins only. */
       rerunBlocked: canEdit
         ? await rerunBlocker(application.id)

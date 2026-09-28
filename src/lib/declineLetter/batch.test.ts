@@ -108,3 +108,19 @@ describe('planDeclineBatch', () => {
     expect(plan.unreachable).toHaveLength(2)
   })
 })
+
+describe('planDeclineBatch: unnamed applications', () => {
+  it('writes no letter to an application still named "Unnamed (ref …)"', () => {
+    // The letter would open "Dear Unnamed (ref WF-123)". It waits until somebody adds
+    // the name, and the dialog says so, the way it names applicants with no email.
+    const plan = planDeclineBatch({
+      candidates: [
+        candidate({ applicationId: 'a', organisationName: 'Unnamed (ref WF-123)' }),
+        candidate({ applicationId: 'b', applicantEmail: 'other@example.org' }),
+      ],
+      previouslyWritten: [],
+    })
+    expect(plan.unnamed.map((c) => c.applicationId)).toEqual(['a'])
+    expect(plan.toNotify.map((c) => c.applicationId)).toEqual(['b'])
+  })
+})

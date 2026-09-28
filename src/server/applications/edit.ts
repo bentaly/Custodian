@@ -38,6 +38,7 @@ import {
   type EditableField,
 } from '../../lib/applicationEdit'
 import { toStringValue } from '../../lib/fieldMapping'
+import { isUnnamedOrganisation } from '../../lib/organisationName'
 import {
   CreateApplicationSchema,
   type CreateApplicationInput,
@@ -101,14 +102,28 @@ export async function editLockReason(app: {
   return null
 }
 
-async function loadForEdit(applicationId: string) {
+/**
+ * The one edit the vote lock allows: giving a name to an application that arrived without
+ * one ("Unnamed (ref …)"). It changes nothing the board decided on, and without it an
+ * unnamed application could be voted through and then never awarded, since the award
+ * letter needs a name (`createAwards` refuses the stand-in). The award lock still holds.
+ */
+export function namingIsAllowed(app: {
+  organisationName: string
+  status: string
+  award?: { id: string } | null
+}): boolean {
+  return isUnnamedOrganisation(app.organisationName) && !app.award && app.status !== 'awarded'
+}
+
+async function loadForEdit(applicationId: string, opts: { namingOnly?: boolean } = {}) {
   const app = await getDb().query.applications.findFirst({
     where: eq(applications.id, applicationId),
     with: { award: { columns: { id: true } } },
   })
   if (!app) throw notFoundError()
   const locked = await editLockReason(app)
-  if (locked) throw conflict(locked)
+  if (locked && !(opts.namingOnly && namingIsAllowed(app))) throw conflict(locked)
   const ingest = await getDb().query.applicationIngests.findFirst({
     where: eq(applicationIngests.applicationId, applicationId),
   })
@@ -144,7 +159,9 @@ export async function editApplication(params: {
   // it stamped could land a few milliseconds AFTER the assessment it triggered had
   // started, reading as a change made since, and offering a pointless Re-run.
   const editedAt = new Date()
-  const { app, ingest } = await loadForEdit(applicationId)
+  const { app, ingest } = await loadForEdit(applicationId, {
+    namingOnly: changes.every((c) => c.field === 'organisationName'),
+  })
   const payload = ingest?.rawPayload ?? {}
   const order = ingest ? orderedKeys(payload, ingest.fieldOrder) : []
   // The ingest's mapping, `sourceKey -> canonical`, kept in step with the row.

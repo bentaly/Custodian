@@ -74,15 +74,21 @@ export function DeclineLettersDialog({
 
   // The same rule the server applies when it writes (`planDeclineBatch`), so the count
   // on the button is the count that actually goes out.
-  const { toNotify, alreadyNotified, unreachable, addressAlreadyWritten, duplicateInBatch } =
-    useMemo(
-      () =>
-        planDeclineBatch({
-          candidates: batch?.recipients ?? [],
-          previouslyWritten: batch?.previouslyWritten ?? [],
-        }),
-      [batch],
-    )
+  const {
+    toNotify,
+    alreadyNotified,
+    unnamed,
+    unreachable,
+    addressAlreadyWritten,
+    duplicateInBatch,
+  } = useMemo(
+    () =>
+      planDeclineBatch({
+        candidates: batch?.recipients ?? [],
+        previouslyWritten: batch?.previouslyWritten ?? [],
+      }),
+    [batch],
+  )
 
   const settings = batch?.settings ?? null
 
@@ -248,6 +254,19 @@ export function DeclineLettersDialog({
               . No decision has been recorded, so {batch.stillInReview === 1 ? 'it is' : 'they are'}{' '}
               not in this batch. Decline {batch.stillInReview === 1 ? 'it' : 'them'} first if you
               mean to tell {batch.stillInReview === 1 ? 'them' : 'them'} too.
+            </Note>
+          )}
+
+          {unnamed.length > 0 && (
+            <Note tone="warning">
+              <strong style={{ color: C.ink }}>
+                {unnamed.length === 1
+                  ? '1 application has no organisation name'
+                  : `${unnamed.length} applications have no organisation name`}
+              </strong>
+              : {unnamed.map((r) => r.organisationName).join(', ')}. No letter is written to them,
+              since it would open with that reference. Add the name on the application, then send
+              again.
             </Note>
           )}
 

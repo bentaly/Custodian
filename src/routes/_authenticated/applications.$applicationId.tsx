@@ -1888,7 +1888,12 @@ function ApplicationDetail() {
               ].map((g) => {
                 // Offered only where every field of the gap is one a person can
                 // fill: the budget is the applicant's own breakdown, not ours to write.
-                const fillable = canEdit && g.keys.every(isEditableField)
+                // Naming an unnamed application is allowed even once trustees have voted
+                // (`namingIsAllowed`), or it could never be awarded.
+                const namingOnly = g.keys.length === 1 && g.keys[0] === 'organisationName'
+                const fillable =
+                  (canEdit || (namingOnly && application.canNameOrganisation)) &&
+                  g.keys.every(isEditableField)
                 const isBudgetGap = g.keys.includes('budgetBreakdown')
                 return (
                   <div
