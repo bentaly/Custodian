@@ -851,6 +851,7 @@ export const getReport = createServerFn({ method: 'GET' })
         ? {
             id: s.id,
             submittedAt: s.submittedAt.toISOString(),
+            scheduleId: s.scheduleId,
             matchMethod: s.matchMethod,
             externalApplicationId: s.externalApplicationId,
             charityNumber: s.charityNumber,

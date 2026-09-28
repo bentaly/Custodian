@@ -35,6 +35,7 @@ import {
   type EditOutcome,
 } from '../../components/applications/edit/FieldEditor'
 import { rescore } from '../../server/fns/applicationEdits'
+import { RefreshLink } from '../../components/RefreshLink'
 import { isEditableField, type EditableField } from '../../lib/applicationEdit'
 import { isUnnamedOrganisation } from '../../lib/organisationName'
 import { FirstYearDialog } from '../../components/FirstYearDialog'
@@ -2031,34 +2032,5 @@ function ApplicationDetail() {
         onClose={() => setSubmissionOpen(false)}
       />
     </div>
-  )
-}
-
-/**
- * "Refresh", beside a message saying the AI assessment is running. Nothing tells the page
- * when the model finishes (there is no push, and polling was ruled out for the free
- * tiers), so the person asks: this re-runs the page's loader, which reloads the
- * application's data in place, not the whole page.
- */
-function RefreshLink() {
-  const router = useRouter()
-  const [busy, setBusy] = useState(false)
-  return (
-    <button
-      type="button"
-      className="font-display underline disabled:opacity-50"
-      style={{ color: C.brand }}
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true)
-        try {
-          await router.invalidate()
-        } finally {
-          setBusy(false)
-        }
-      }}
-    >
-      {busy ? 'Refreshing…' : 'Refresh'}
-    </button>
   )
 }

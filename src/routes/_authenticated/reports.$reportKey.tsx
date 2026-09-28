@@ -4,7 +4,11 @@ import { parseReportsSearch } from '../../lib/listSearch'
 import { useState } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
 import { ReportFields } from '../../components/ReportFields'
-import { File01Icon, Mail01Icon } from '@hugeicons/core-free-icons'
+import { File01Icon, Mail01Icon, PencilEdit01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { RefreshLink } from '../../components/RefreshLink'
+import { MoveReportDialog } from '../../components/reports/MoveReportDialog'
+import { rerunReportAnalysisFn, setReportImpactFn } from '../../server/fns/reportCorrections'
 import {
   AlignmentCards,
   AlignmentSummary,
@@ -24,6 +28,7 @@ import {
   Dialog,
   Dot,
   EmptyState,
+  Input,
   Panel,
   RelatedLink,
   ThemePills,
@@ -78,6 +83,26 @@ function ReportDetail() {
   const s = report.submission
   const [submissionOpen, setSubmissionOpen] = useState(false)
   const [reviewing, setReviewing] = useState(false)
+  // Corrections (admins, on a report that arrived rather than one the import recorded).
+  const canCorrect = report.canCorrect
+  const [moving, setMoving] = useState(false)
+  const [editingImpact, setEditingImpact] = useState(false)
+  const [rerunning, setRerunning] = useState(false)
+  const [correctionError, setCorrectionError] = useState<string | null>(null)
+
+  async function rerun() {
+    if (!s) return
+    setRerunning(true)
+    setCorrectionError(null)
+    try {
+      await rerunReportAnalysisFn({ data: { reportId: s.id } })
+      await router.invalidate()
+    } catch (err) {
+      setCorrectionError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setRerunning(false)
+    }
+  }
   const canReview = user.role === 'admin' || user.role === 'superadmin'
   const isReviewed = Boolean(s?.reviewedAt)
 
@@ -211,6 +236,12 @@ function ReportDetail() {
                 View Report
               </Button>
             )}
+            {/* For a report attached to the wrong grant, or ticking the wrong milestone. */}
+            {s && canCorrect && (
+              <Button variant="secondary" onClick={() => setMoving(true)}>
+                Move report
+              </Button>
+            )}
             {s &&
               canReview &&
               (() => {
@@ -260,10 +291,60 @@ function ReportDetail() {
             </EmptyState>
           ) : (
             <>
+              {correctionError && (
+                <p className="font-display text-label" style={{ color: C.danger }} role="alert">
+                  {correctionError}
+                </p>
+              )}
               <ReportAnalysisCard
                 status={s.analysisStatus as ReportAnalysisStatus}
                 analysis={analysis}
                 analysedAt={s.analysedAt}
+                runningAction={<RefreshLink />}
+                // Re-run is offered after the report MOVES (the analysis compared it with
+                // the grant it was on) or after a failed run, at most five a day: see
+                // `reportRerunBlocker`. At the cap it stays, disabled, saying why.
+                headerAction={
+                  !canCorrect ? undefined : report.rerunBlocked === null ? (
+                    <Button size="sm" disabled={rerunning} onClick={rerun}>
+                      {rerunning ? 'Starting…' : 'Re-run analysis'}
+                    </Button>
+                  ) : report.rerunBlocked.code === 'capped' ? (
+                    <Tooltip
+                      label="Why re-running is unavailable"
+                      trigger={
+                        <Button size="sm" disabled>
+                          Re-run analysis
+                        </Button>
+                      }
+                    >
+                      {report.rerunBlocked.message}
+                    </Tooltip>
+                  ) : undefined
+                }
+                impactAction={
+                  canCorrect && !editingImpact ? (
+                    <button
+                      type="button"
+                      aria-label="Correct the impact figure"
+                      onClick={() => setEditingImpact(true)}
+                      className="inline-flex size-7 items-center justify-center rounded-chip border bg-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 sm:absolute sm:-left-9 sm:top-0"
+                      style={{ borderColor: C.line, color: C.body }}
+                    >
+                      <HugeiconsIcon icon={PencilEdit01Icon} size={14} strokeWidth={1.8} />
+                    </button>
+                  ) : undefined
+                }
+                impactEditor={
+                  editingImpact ? (
+                    <ImpactEditor
+                      reportId={s.id}
+                      current={impactQuantity}
+                      unit={s.impactUnitLabel ?? report.impactUnitLabel}
+                      onDone={() => setEditingImpact(false)}
+                    />
+                  ) : undefined
+                }
                 impact={{
                   title: report.label,
                   context:
@@ -291,6 +372,17 @@ function ReportDetail() {
           <TimelineCard report={report} />
         </div>
       </div>
+
+      {s && canCorrect && (
+        <MoveReportDialog
+          open={moving}
+          onClose={() => setMoving(false)}
+          reportId={s.id}
+          organisationName={report.organisationName}
+          currentAwardId={report.grant.id}
+          currentScheduleId={s.scheduleId}
+        />
+      )}
 
       {s && (
         <Dialog
@@ -450,5 +542,85 @@ function TimelineCard({ report }: { report: ReportData }) {
         </p>
       )}
     </Panel>
+  )
+}
+
+/**
+ * Correct the report's impact figure in place: the one number from a report that
+ * Insights totals, read by the model from prose and so sometimes missing or wrong. Saved
+ * as corrected by hand, which no re-run of the analysis replaces. Empty means "this
+ * report evidences no figure", which is a statement too.
+ */
+function ImpactEditor({
+  reportId,
+  current,
+  unit,
+  onDone,
+}: {
+  reportId: string
+  current: number | null
+  unit: string | null
+  onDone: () => void
+}) {
+  const router = useRouter()
+  const [value, setValue] = useState(current != null ? String(current) : '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    const text = value.trim().replace(/[,\s]/g, '')
+    const quantity = text === '' ? null : Number(text)
+    if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) {
+      setError('The figure must be a number, such as 120.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await setReportImpactFn({ data: { reportId, quantity } })
+      await router.invalidate()
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 font-display sm:items-end">
+      <div className="flex items-center gap-2">
+        <Input
+          aria-label="Impact figure"
+          className="w-32"
+          inputMode="decimal"
+          value={value}
+          placeholder="--"
+          onChange={(e) => setValue(e.target.value)}
+          disabled={busy}
+        />
+        {unit && (
+          <span className="text-label" style={{ color: C.sub }}>
+            {unit.charAt(0).toLowerCase() + unit.slice(1)}
+          </span>
+        )}
+      </div>
+      <p className="text-label" style={{ color: C.sub }}>
+        Leave empty if this report evidences no figure.
+      </p>
+      {error && (
+        <p className="text-label" style={{ color: C.danger }} role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button variant="secondary" size="sm" onClick={onDone} disabled={busy}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={save} disabled={busy}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+    </div>
   )
 }

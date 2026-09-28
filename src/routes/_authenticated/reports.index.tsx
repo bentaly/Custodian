@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { HeldReportsPanel } from '../../components/reports/HeldReportsPanel'
 import {
   listReports,
   markReportsReviewed,
@@ -512,6 +513,11 @@ function ReportsPage() {
           of the row order. The panel is about reports that have NOT arrived, so it is a
           different question from the table rather than a header for it — and, being
           above the card, no control in the card narrows it. */}
+      {/* Reports that arrived without a reference matching one of the foundation's
+          grants, for an admin to attach. Above everything else on the screen: until
+          they are attached they are in no list below and tick nothing. */}
+      {canReview && <HeldReportsPanel />}
+
       <ReportsDue
         horizons={horizons}
         onOpen={(key) => navigate({ to: '/reports/$reportKey', params: { reportKey: key } })}

@@ -24,7 +24,7 @@ import { C, bandForScore } from './ui/tokens'
 import { fmtDate } from '../lib/format'
 import { fmtQuantity } from '../lib/reportTimeline'
 
-export type ReportAnalysisStatus = 'pending' | 'analysed' | 'error'
+export type ReportAnalysisStatus = 'pending' | 'analysed' | 'error' | 'queued'
 
 export interface ReportAnalysisData {
   aiSummary: string | null
@@ -81,7 +81,11 @@ function ScoreChip({ children, colour = C.brand }: { children: ReactNode; colour
 
 /** Whether the report says what its impact figure was read from. */
 function impactSourcePhrase(source: string | null) {
-  return source === 'reported' ? 'stated by the charity' : 'read from the narrative'
+  return source === 'reported'
+    ? 'stated by the charity'
+    : source === 'edited'
+      ? 'corrected by hand'
+      : 'read from the narrative'
 }
 
 /**
@@ -93,10 +97,22 @@ export function ReportAnalysisCard({
   analysis,
   analysedAt,
   impact,
+  headerAction,
+  runningAction,
+  impactEditor,
+  impactAction,
 }: {
   status: ReportAnalysisStatus
   analysis: ReportAnalysisData | null
   analysedAt: string | null
+  /** Beside the status in the card's head: "Re-run analysis", for an admin. */
+  headerAction?: ReactNode
+  /** After "the analysis is running": a Refresh link. */
+  runningAction?: ReactNode
+  /** Replaces the figure while an admin corrects it. */
+  impactEditor?: ReactNode
+  /** Beside the figure: the pencil that opens `impactEditor`. */
+  impactAction?: ReactNode
   impact: {
     /** What the report is: "Interim report". */
     title: string
@@ -124,17 +140,22 @@ export function ReportAnalysisCard({
           <CardHead
             title="Report analysis"
             right={
-              <span
-                className="shrink-0 whitespace-nowrap font-display text-body"
-                style={{ color: status === 'error' ? C.danger : C.sub }}
-              >
-                {analysed
-                  ? analysedAt
-                    ? `Analysed on ${fmtDate(analysedAt)}`
-                    : null
-                  : status === 'error'
-                    ? 'Analysis failed'
-                    : 'Not analysed'}
+              <span className="flex shrink-0 items-center gap-3">
+                <span
+                  className="whitespace-nowrap font-display text-body"
+                  style={{ color: status === 'error' ? C.danger : C.sub }}
+                >
+                  {analysed
+                    ? analysedAt
+                      ? `Analysed on ${fmtDate(analysedAt)}`
+                      : null
+                    : status === 'error'
+                      ? 'Analysis failed'
+                      : status === 'queued'
+                        ? 'Running'
+                        : 'Not analysed'}
+                </span>
+                {headerAction}
               </span>
             }
           />
@@ -143,7 +164,10 @@ export function ReportAnalysisCard({
             <p className="font-display text-body" style={{ color: C.sub }}>
               {status === 'error'
                 ? 'The analysis of this report failed. What the grantee sent is still there to read.'
-                : 'This report has not been analysed yet.'}
+                : status === 'queued'
+                  ? 'The analysis is running; it usually takes under a minute.'
+                  : 'This report has not been analysed yet.'}
+              {status === 'queued' && runningAction && <> {runningAction}</>}
             </p>
           ) : (
             <div className="flex flex-col gap-4">
@@ -203,8 +227,11 @@ export function ReportAnalysisCard({
               </p>
             )}
           </div>
-          {impact.quantity != null ? (
-            <div className="flex flex-col gap-1 font-display sm:items-end sm:text-right">
+          {impactEditor ? (
+            impactEditor
+          ) : impact.quantity != null ? (
+            <div className="group relative flex flex-col gap-1 font-display sm:items-end sm:text-right">
+              {impactAction}
               <p className="flex flex-wrap items-baseline gap-x-1.5 font-medium sm:justify-end">
                 <span className="text-heading leading-none tabular-nums" style={{ color: C.ink }}>
                   {fmtQuantity(impact.quantity)}
@@ -225,8 +252,9 @@ export function ReportAnalysisCard({
               )}
             </div>
           ) : (
-            <p className="font-display text-label" style={{ color: C.sub }}>
+            <p className="flex items-center gap-2 font-display text-label" style={{ color: C.sub }}>
               {analysed ? 'No quantity evidenced in this report' : 'No impact figure yet'}
+              {impactAction}
             </p>
           )}
         </div>
