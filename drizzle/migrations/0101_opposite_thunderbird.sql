@@ -1,0 +1,1 @@
+ALTER TYPE "public"."report_match_method" ADD VALUE 'charity_number';

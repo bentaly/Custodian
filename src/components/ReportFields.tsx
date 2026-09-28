@@ -8,7 +8,7 @@ import { fmtDate } from '../lib/format'
 
 export type ReportFieldsData = {
   submittedAt: string
-  matchMethod: 'external_id' | 'manual' | 'import'
+  matchMethod: 'external_id' | 'manual' | 'import' | 'charity_number'
   externalApplicationId?: string | null
   charityNumber?: string | null
   companyNumber?: string | null
@@ -35,6 +35,7 @@ const MATCH_LABELS: Record<ReportFieldsData['matchMethod'], string> = {
   external_id: 'Automatic (application reference)',
   manual: 'Manual (review queue)',
   import: 'Imported',
+  charity_number: 'Automatic (charity number)',
 }
 
 function fmtAmount(v: string | null | undefined) {

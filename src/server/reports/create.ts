@@ -40,7 +40,7 @@ export type GrantForReport = NonNullable<Awaited<ReturnType<typeof fetchGrantFor
 export async function createReportSubmissionFromCanonical(
   grant: GrantForReport,
   input: CreateReportSubmissionInput,
-  matchMethod: 'external_id' | 'manual' | 'import',
+  matchMethod: 'external_id' | 'manual' | 'import' | 'charity_number',
   opts: { analysis?: 'inline' | 'queued' } = {},
 ) {
   const programme = grant.application?.roundProgramme?.programme ?? null

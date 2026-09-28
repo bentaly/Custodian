@@ -11,7 +11,8 @@
 //                         promote (create submission + tick milestone + AI
 //                         analysis) or hold with ranked grant candidates.
 //
-// Matching is deliberately binary at this layer: the external ID either
+// Matching is deliberately binary at this layer: the external ID (or, failing it,
+// the charity number, see match.ts) either
 // identifies exactly one grant or the report is held. The heuristic candidates
 // stored on held rows are advisory — a human confirms one in the review queue.
 
@@ -34,7 +35,11 @@ import {
   reportResolvedMapFor,
   type ReportResolved,
 } from './assemble'
-import { computeGrantCandidates, findGrantByExternalApplicationId } from './match'
+import {
+  computeGrantCandidates,
+  findGrantByCharityNumber,
+  findGrantByExternalApplicationId,
+} from './match'
 import { createReportSubmissionFromCanonical, fetchGrantForReport } from '../reports/create'
 import { CreateReportSubmissionSchema } from '../../lib/validators/report'
 import { reportFault } from '../faults'
@@ -132,13 +137,24 @@ export async function processReportIngest(
     unresolvedRequired = REQUIRED_REPORT_CANONICAL_KEYS.filter((k) => !resolved[k])
   }
 
-  // 4. Grant matching — the only automated path is an exact external-ID match to
-  //    exactly one grant. Anything else holds the report with ranked candidates.
+  // 4. Grant matching. Two automated paths, both exact: the foundation's reference to
+  //    exactly one grant, and failing that (no reference, or one we do not know) the
+  //    charity number to the one grant still waiting on a report. A reference that
+  //    names SEVERAL grants is a conflict to look at, not a gap to fill, so it does
+  //    not fall through. Anything else holds the report with ranked candidates.
   const externalId = resolved.externalApplicationId?.value ?? null
   let grantId: string | null = null
+  let matchMethod: 'external_id' | 'charity_number' = 'external_id'
+  let ambiguousReference = false
   if (externalId) {
     const match = await findGrantByExternalApplicationId(clientId, externalId)
     if (match.kind === 'matched') grantId = match.awardId
+    ambiguousReference = match.kind === 'ambiguous'
+  }
+  const charityNumber = resolved.charityNumber?.value ?? null
+  if (!grantId && !ambiguousReference && charityNumber) {
+    grantId = await findGrantByCharityNumber(clientId, charityNumber, resolved.programmeName?.value)
+    if (grantId) matchMethod = 'charity_number'
   }
 
   // 5. Assemble + validate.
@@ -163,7 +179,7 @@ export async function processReportIngest(
   if (status !== 'needs_review' && parsed.success && grantId) {
     const grant = await fetchGrantForReport(grantId)
     if (grant) {
-      const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'external_id')
+      const created = await createReportSubmissionFromCanonical(grant, parsed.data, matchMethod)
       reportId = created.submission?.id ?? null
     }
   }

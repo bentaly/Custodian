@@ -112,11 +112,15 @@ export const custodianScoreStatusEnum = pgEnum('custodian_score_status', [
 //                 an application with a grant; linked automatically.
 //   manual      — an admin picked the grant in the review queue (report arrived
 //                 without a usable ID; heuristic candidates only ever suggest).
+//   charity_number — no usable reference, but the charity number matched exactly one
+//                 grant still waiting on a report (or one in the programme the report
+//                 named); linked automatically. See `findGrantByCharityNumber`.
 //   import      — created by the historical data-import flow (client-supplied link).
 export const reportMatchMethodEnum = pgEnum('report_match_method', [
   'external_id',
   'manual',
   'import',
+  'charity_number',
 ])
 
 // State of the AI analysis of a submitted grant report (summary, alignment against

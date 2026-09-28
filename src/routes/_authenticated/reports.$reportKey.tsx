@@ -328,7 +328,7 @@ function ReportDetail() {
                       type="button"
                       aria-label="Correct the impact figure"
                       onClick={() => setEditingImpact(true)}
-                      className="inline-flex size-7 items-center justify-center rounded-chip border bg-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 sm:absolute sm:-left-9 sm:top-0"
+                      className="absolute right-2.5 top-2.5 z-20 inline-flex size-7 items-center justify-center rounded-chip border bg-white opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
                       style={{ borderColor: C.line, color: C.body }}
                     >
                       <HugeiconsIcon icon={PencilEdit01Icon} size={14} strokeWidth={1.8} />
@@ -587,8 +587,16 @@ function ImpactEditor({
     }
   }
 
+  // The same editing card as an application's fields: white with a brand edge, so the
+  // (grey) field reads as a field rather than disappearing into the grey figure panel.
   return (
-    <div className="flex flex-col gap-2 font-display sm:items-end">
+    <div
+      className="flex flex-col gap-2 rounded-pill border bg-white p-4 font-display"
+      style={{ borderColor: C.brandBorder, boxShadow: `0 0 0 3px ${C.brandBg}` }}
+    >
+      <p className="mb-1 text-body font-medium" style={{ color: C.ink }}>
+        Correct the impact figure
+      </p>
       <div className="flex items-center gap-2">
         <Input
           aria-label="Impact figure"
@@ -613,7 +621,7 @@ function ImpactEditor({
           {error}
         </p>
       )}
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
         <Button variant="secondary" size="sm" onClick={onDone} disabled={busy}>
           Cancel
         </Button>

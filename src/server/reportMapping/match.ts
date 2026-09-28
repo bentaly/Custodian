@@ -7,15 +7,31 @@
 //   that grant; anything else (no ID, unknown ID, or — pathologically — the same
 //   ID on several awards) is held for review.
 //
+//   findGrantByCharityNumber — the second automated link, for a report with no
+//   usable reference. A registered charity number is an identifier, not free text,
+//   so it may link on its own, but only where the answer is not a guess: exactly
+//   one of the charity's live grants is still waiting on a report, or the report
+//   names a programme and exactly one of those waiting grants is in it. Several
+//   grants waiting and nothing to choose between them holds the report, however
+//   likely one of them looks. "Two awards" versus "two periodic reports on one
+//   grant" (below) is not the question here: the grant is settled first, and the
+//   report takes that grant's earliest open milestone.
+//
 //   computeGrantCandidates — advisory heuristics for the review queue. Charity
 //   number, normalised organisation name, programme, amount and award-date fit
-//   RANK the client's awards so the reviewer confirms in one click, but they
-//   never auto-link: real data (Arete's Typeform exports) shows name+amount
+//   RANK the client's awards so the reviewer confirms in one click, but on
+//   their own (names, amounts, years) they never auto-link: real data (Arete's Typeform exports) shows name+amount
 //   cannot distinguish "two awards" from "two periodic reports on one grant".
 
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, ne, sql } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applications, awards } from '../../../drizzle/schema'
+import {
+  applications,
+  awards,
+  programmes,
+  reportSchedule,
+  roundProgrammes,
+} from '../../../drizzle/schema'
 
 export interface GrantCandidate {
   awardId: string
@@ -46,6 +62,63 @@ export async function findGrantByExternalApplicationId(
   if (rows.length === 1) return { kind: 'matched', awardId: rows[0]!.awardId }
   if (rows.length > 1) return { kind: 'ambiguous', grantIds: rows.map((r) => r.awardId) }
   return { kind: 'none' }
+}
+
+export interface WaitingGrant {
+  awardId: string
+  programmeName: string | null
+}
+
+/**
+ * The rule behind `findGrantByCharityNumber`, given the charity's live grants that
+ * still have an open reporting milestone. Returns the one grant the report can only
+ * belong to, or null to hold it for a person.
+ */
+export function pickWaitingGrant(
+  waiting: WaitingGrant[],
+  programmeName: string | null | undefined,
+): string | null {
+  const ids = [...new Set(waiting.map((g) => g.awardId))]
+  if (ids.length === 1) return ids[0]!
+  const wanted = programmeName?.trim().toLowerCase()
+  if (!wanted || ids.length === 0) return null
+  const inProgramme = [
+    ...new Set(
+      waiting.filter((g) => g.programmeName?.trim().toLowerCase() === wanted).map((g) => g.awardId),
+    ),
+  ]
+  return inProgramme.length === 1 ? inProgramme[0]! : null
+}
+
+/**
+ * Exact charity number → the one live grant still waiting on a report. Cancelled
+ * grants are owed nothing, and a grant with every milestone answered is not waiting,
+ * so neither can take a report automatically; a person can still attach one there.
+ */
+export async function findGrantByCharityNumber(
+  clientId: string,
+  charityNumber: string,
+  programmeName?: string | null,
+): Promise<string | null> {
+  const wanted = normaliseCharityNumber(charityNumber)
+  if (!wanted) return null
+  const rows = await getDb()
+    .selectDistinct({ awardId: awards.id, programmeName: programmes.name })
+    .from(awards)
+    .innerJoin(applications, eq(awards.applicationId, applications.id))
+    .innerJoin(reportSchedule, eq(reportSchedule.awardId, awards.id))
+    .leftJoin(roundProgrammes, eq(applications.roundProgrammeId, roundProgrammes.id))
+    .leftJoin(programmes, eq(roundProgrammes.programmeId, programmes.id))
+    .where(
+      and(
+        eq(awards.clientId, clientId),
+        ne(awards.status, 'cancelled'),
+        isNull(reportSchedule.submittedDate),
+        // The same normalisation as `normaliseCharityNumber`, in SQL.
+        sql`regexp_replace(lower(${applications.charityNumber}), '[^a-z0-9]', '', 'g') = ${wanted}`,
+      ),
+    )
+  return pickWaitingGrant(rows, programmeName)
 }
 
 /** Lowercase, strip punctuation, drop legal suffixes — "The Inclusive Hub CIC"

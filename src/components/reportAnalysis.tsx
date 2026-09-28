@@ -109,9 +109,9 @@ export function ReportAnalysisCard({
   headerAction?: ReactNode
   /** After "the analysis is running": a Refresh link. */
   runningAction?: ReactNode
-  /** Replaces the figure while an admin corrects it. */
+  /** Replaces the figure's panel while an admin corrects it. */
   impactEditor?: ReactNode
-  /** Beside the figure: the pencil that opens `impactEditor`. */
+  /** In the figure panel's top-right corner, on hover: the pencil that opens `impactEditor`. */
   impactAction?: ReactNode
   impact: {
     /** What the report is: "Interim report". */
@@ -213,51 +213,55 @@ export function ReportAnalysisCard({
         {/* One row: what the report is on the left, its figure on the right — the figure
             with its unit, and the comparison on its own line beneath rather than strung
             after the unit with a dot. Stacks when there is no room for both. */}
-        <div
-          className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-control p-3"
-          style={{ backgroundColor: C.wash }}
-        >
-          <div className="flex min-w-0 flex-col gap-1 font-display">
-            <p className="text-body font-medium" style={{ color: C.ink }}>
-              {impact.title}
-            </p>
-            {impact.context && (
-              <p className="text-label" style={{ color: C.sub }}>
-                {impact.context}
+        {impactEditor ? (
+          impactEditor
+        ) : (
+          <div
+            className={`group relative flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-control p-3 ${impactAction ? 'pr-12' : ''}`}
+            style={{ backgroundColor: C.wash }}
+          >
+            {impactAction}
+            <div className="flex min-w-0 flex-col gap-1 font-display">
+              <p className="text-body font-medium" style={{ color: C.ink }}>
+                {impact.title}
               </p>
-            )}
-          </div>
-          {impactEditor ? (
-            impactEditor
-          ) : impact.quantity != null ? (
-            <div className="group relative flex flex-col gap-1 font-display sm:items-end sm:text-right">
-              {impactAction}
-              <p className="flex flex-wrap items-baseline gap-x-1.5 font-medium sm:justify-end">
-                <span className="text-heading leading-none tabular-nums" style={{ color: C.ink }}>
-                  {fmtQuantity(impact.quantity)}
-                </span>
-                {impact.unit && (
-                  <span className="text-label" style={{ color: C.sub }}>
-                    {lowerFirst(impact.unit)}
-                  </span>
-                )}
-              </p>
-              {impact.comparison && (
-                <p
-                  className="text-label font-medium"
-                  style={{ color: impact.comparison.ahead ? C.brand : C.sub }}
-                >
-                  {upperFirst(impact.comparison.text)}
+              {impact.context && (
+                <p className="text-label" style={{ color: C.sub }}>
+                  {impact.context}
                 </p>
               )}
             </div>
-          ) : (
-            <p className="flex items-center gap-2 font-display text-label" style={{ color: C.sub }}>
-              {analysed ? 'No quantity evidenced in this report' : 'No impact figure yet'}
-              {impactAction}
-            </p>
-          )}
-        </div>
+            {impact.quantity != null ? (
+              <div className="flex flex-col gap-1 font-display sm:items-end sm:text-right">
+                <p className="flex flex-wrap items-baseline gap-x-1.5 font-medium sm:justify-end">
+                  <span className="text-heading leading-none tabular-nums" style={{ color: C.ink }}>
+                    {fmtQuantity(impact.quantity)}
+                  </span>
+                  {impact.unit && (
+                    <span className="text-label" style={{ color: C.sub }}>
+                      {lowerFirst(impact.unit)}
+                    </span>
+                  )}
+                </p>
+                {impact.comparison && (
+                  <p
+                    className="text-label font-medium"
+                    style={{ color: impact.comparison.ahead ? C.brand : C.sub }}
+                  >
+                    {upperFirst(impact.comparison.text)}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p
+                className="flex items-center gap-2 font-display text-label"
+                style={{ color: C.sub }}
+              >
+                {analysed ? 'No quantity evidenced in this report' : 'No impact figure yet'}
+              </p>
+            )}
+          </div>
+        )}
       </Boundary>
     </div>
   )
