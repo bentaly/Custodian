@@ -514,8 +514,8 @@ export async function setApplicationThemes(params: {
 /** Re-runs allowed per application per day: enough to fix, re-run, spot one more thing. */
 export const RERUNS_PER_DAY = 5
 
-/** Why a re-run is not on offer. Only `capped` is SHOWN (a disabled button saying why); the
- *  rest hide the button, because there is nothing a person can do about them there. */
+/** Why a re-run is not on offer. `capped` and `voted` are SHOWN (a disabled button saying why,
+ *  after an edit); the rest hide the button, as there is nothing to say about them there. */
 export type RerunBlocker = {
   code: 'unavailable' | 'voted' | 'unchanged' | 'capped'
   message: string
@@ -564,9 +564,15 @@ export async function rerunBlocker(applicationId: string): Promise<RerunBlocker 
           // What the assessment never reads: the bank details, the email, the themes.
           sql`${applicationEdits.field} not like 'bank%'`,
           sql`${applicationEdits.field} not in ('applicantEmail', 'themes')`,
-          app.custodianScoredAt
-            ? sql`${applicationEdits.createdAt} > ${app.custodianScoredAt}`
-            : sql`true`,
+          // Compared IN the database, column against column. Passing the scored-at time in
+          // as a parameter round-trips it through a JS Date, which the driver serialised
+          // in the machine's local zone: on a laptop in British Summer Time every edit
+          // made within the hour after an assessment read as older than it, and the
+          // button never appeared. Workers run in UTC, which would only have hidden it.
+          sql`${applicationEdits.createdAt} > coalesce(
+            (select ${applications.custodianScoredAt} from ${applications}
+              where ${applications.id} = ${applicationId}),
+            '-infinity'::timestamp)`,
         ),
       ),
     db
@@ -580,16 +586,20 @@ export async function rerunBlocker(applicationId: string): Promise<RerunBlocker 
         ),
       ),
   ])
-  if ((votes[0]?.n ?? 0) > 0) {
-    return {
-      code: 'voted',
-      message: 'Trustees have voted on this assessment, so it is kept as they saw it.',
-    }
-  }
+  // `unchanged` is checked FIRST so that `voted` only ever means "you edited, and it
+  // still cannot be re-run": that one is shown (a disabled button saying why), and shown
+  // on every voted application nobody has touched it would be noise.
   if (app.custodianScoreStatus !== 'error' && (changed[0]?.n ?? 0) === 0) {
     return {
       code: 'unchanged',
       message: 'Nothing the assessment reads has changed since it last ran.',
+    }
+  }
+  if ((votes[0]?.n ?? 0) > 0) {
+    return {
+      code: 'voted',
+      message:
+        'Trustees have voted on this assessment, so it stays as they saw it. Your changes are saved; the assessment is not re-run.',
     }
   }
   if ((recent[0]?.n ?? 0) >= RERUNS_PER_DAY) {

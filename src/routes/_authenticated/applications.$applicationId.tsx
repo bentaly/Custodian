@@ -583,6 +583,12 @@ function ApplicationDetail() {
     bankSortCode: application.bankSortCode,
   }
   const hasSubmission = application.submission !== null
+  // A reason Re-run is unavailable that is worth SAYING: the cap, or a vote already cast.
+  const shownBlocker =
+    application.rerunBlocked &&
+    (application.rerunBlocked.code === 'capped' || application.rerunBlocked.code === 'voted')
+      ? application.rerunBlocked
+      : null
   // A card's figure with its "Edited" mark beside it, where somebody changed it. Beside
   // the FIGURE rather than on the line under it, because that line truncates and the
   // mark was the part being cut off.
@@ -1251,7 +1257,7 @@ function ApplicationDetail() {
                 >
                   {rescoring ? 'Starting…' : 'Re-run assessment'}
                 </Button>
-              ) : application.rerunBlocked.code === 'capped' ? (
+              ) : shownBlocker ? (
                 <Tooltip
                   label="Why re-running is unavailable"
                   trigger={
@@ -1267,15 +1273,13 @@ function ApplicationDetail() {
           >
             AI Assessment
           </PanelTitle>
-          {canEdit &&
-            scored &&
-            (application.rerunBlocked === null || application.rerunBlocked.code === 'capped') && (
-              <p className="-mt-2 mb-4 font-display text-label" style={{ color: C.sub }}>
-                {application.rerunBlocked === null
-                  ? 'The details have changed since this was assessed. Re-run it when you have finished editing.'
-                  : 'The details have changed since this was assessed. It has been re-run as often as allowed today; it can be re-run again tomorrow.'}
-              </p>
-            )}
+          {canEdit && scored && (application.rerunBlocked === null || shownBlocker) && (
+            <p className="-mt-2 mb-4 font-display text-label" style={{ color: C.sub }}>
+              {application.rerunBlocked === null
+                ? 'The details have changed since this was assessed. Re-run it when you have finished editing.'
+                : `The details have changed since this was assessed. ${application.rerunBlocked.message}`}
+            </p>
+          )}
 
           {scored ? (
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
