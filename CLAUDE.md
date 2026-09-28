@@ -612,7 +612,10 @@ rather than waiting in our admin queue.
   audit row per save, never quoting bank details.
 - **Not editable**: the foundation's reference (report auto-link + re-send dedupe key on it), the
   programme (a move, not an edit; not built), the applicant's prose, anything derived (edit the
-  input and it re-runs), and **anything once awarded** (same line as the admin app's re-confirm).
+  input and it re-runs), and **anything once a trustee has voted** (they voted on the application
+  as it read then) **or it is awarded** (same line as the admin app's re-confirm). `editLockReason`
+  is the rule for the screen and every write; an admin sees the pencil greyed with the reason,
+  never a pencil that silently vanished.
 - **Two ways to fill a field.** Typing fixes this application only. Pointing at one of the
   applicant's own answers ("Choose from their answers") can also teach the foundation's mapping
   (`field_mappings`, unique per client/form/question, so re-teaching simply replaces) and fill in
