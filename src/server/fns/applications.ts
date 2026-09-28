@@ -36,6 +36,8 @@ import {
 import { orderedKeys } from '../fieldMapping/assemble'
 import { toStringValue } from '../../lib/fieldMapping'
 import { editLockReason, rerunBlocker } from '../applications/edit'
+import { recordRegisterName } from '../applications/create'
+import { isUnnamedOrganisation, tidyRegisteredName } from '../../lib/organisationName'
 import { searchAny } from '../searchTerm'
 import { anyOf, anyTag } from '../filterSql'
 import { roundProgrammeSpend, roundProgrammeYear, spentThisYear } from '../applications/roundSpend'
@@ -427,17 +429,25 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
       )
     }
 
+    const unnamed = isUnnamedOrganisation(application.organisationName)
     const result = await runDueDiligence({
       charityNumber,
       companyNumber,
-      organisationName: application.organisationName,
+      // The stand-in is not a name to check against the register.
+      organisationName: unnamed ? null : application.organisationName,
       amountRequested: Number(application.amountRequested),
     })
+    // An application that arrived without a name takes the register's, now there is one.
+    const registerName =
+      unnamed && result.profile?.registeredName
+        ? tidyRegisteredName(result.profile.registeredName)
+        : null
 
     const [updated] = await getDb()
       .update(applications)
       .set({
         ...(supplied ? { charityNumber, companyNumber } : {}),
+        ...(registerName ? { organisationName: registerName } : {}),
         dueDiligenceStatus: result.status,
         dueDiligenceChecks: result.checks,
         dueDiligenceCheckedAt: new Date(result.checkedAt),
@@ -445,6 +455,7 @@ export const rerunDueDiligence = createServerFn({ method: 'POST' })
       })
       .where(eq(applications.id, data.id))
       .returning()
+    if (registerName) await recordRegisterName(data.id, registerName)
 
     // Supplying a registration number against an existing grant is a judgement a person
     // made about who they are funding, so it belongs in the feed, not just in a column.

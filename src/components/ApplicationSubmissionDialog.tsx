@@ -43,6 +43,8 @@ function money(field: string, value: string | null): string | null {
 
 /** "Alex Taylor, 26 Sep 2026" */
 function byline(e: EditRecord): string {
+  if (e.method === 'register')
+    return `from the Charity Commission register, ${fmtDate(new Date(e.createdAt))}`
   return `${e.editorName ?? 'Someone'}, ${fmtDate(new Date(e.createdAt))}`
 }
 

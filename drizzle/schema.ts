@@ -1678,6 +1678,8 @@ export const auditActionEnum = pgEnum('audit_action', [
  *             ANOTHER one ("also fill in the others"). Kept apart from `answer` so
  *             nobody reads it as a person having looked at this application.
  *   themes  - the themes were chosen by hand (`field` = 'themes', values as JSON).
+ *   register - no person: the submission gave no organisation name and the charity
+ *             register supplied it (`edited_by` is empty).
  *
  * `replaced_source_key` is the answer the field was read from BEFORE this change, if
  * any, so View Submission can put the note under the answer that stopped being used.
@@ -1690,7 +1692,9 @@ export const applicationEdits = pgTable(
       .notNull()
       .references(() => applications.id, { onDelete: 'cascade' }),
     field: text('field').notNull(),
-    method: text('method').$type<'typed' | 'answer' | 'applied' | 'themes'>().notNull(),
+    method: text('method')
+      .$type<'typed' | 'answer' | 'applied' | 'themes' | 'register'>()
+      .notNull(),
     previousValue: text('previous_value'),
     newValue: text('new_value'),
     sourceKey: text('source_key'),

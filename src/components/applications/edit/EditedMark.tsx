@@ -45,6 +45,9 @@ function firstEdit(edits: EditRecord[], field: string): EditRecord | undefined {
 function describe(edit: EditRecord, original: EditRecord | undefined): string {
   const who = edit.editorName ?? 'Someone'
   const when = fmtDate(new Date(edit.createdAt))
+  if (edit.method === 'register') {
+    return `The application did not give a name, so this is the charity's name as registered with the Charity Commission (filled in on ${when}).`
+  }
   const how =
     edit.method === 'themes'
       ? `${who} chose these themes on ${when}.`

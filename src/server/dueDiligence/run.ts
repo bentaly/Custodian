@@ -140,6 +140,7 @@ export async function runDueDiligence(
           profile = {
             source: 'charity_commission',
             activities: overview?.activities ?? null,
+            registeredName: charity.name ?? null,
             // The details call and the overview agree on the money in every sample, but
             // the details call is the one that must have answered for us to be here.
             latestIncome: charity.latestIncome ?? overview?.latestIncome ?? null,

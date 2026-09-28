@@ -110,6 +110,13 @@ export interface OrganisationProfile {
    * Cancer Research UK's runs to a paragraph. Clamp on display, never on write.
    */
   activities: string | null
+  /**
+   * The charity's registered name, as the register holds it (usually in capitals).
+   * Used for one thing: naming an application that arrived WITHOUT a name
+   * (`lib/organisationName.ts`), so it reads as the charity rather than "Unnamed (ref …)".
+   * Optional because profiles read before it was captured do not have it.
+   */
+  registeredName?: string | null
   /** Total income for the latest filed accounting period. */
   latestIncome: number | null
   latestExpenditure: number | null

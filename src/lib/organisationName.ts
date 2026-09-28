@@ -19,3 +19,62 @@ export function unnamedOrganisation(reference: string | null | undefined): strin
 export function isUnnamedOrganisation(name: string | null | undefined): boolean {
   return !!name && name.startsWith(PREFIX) && name.endsWith(')')
 }
+
+/** Kept in capitals when a register name is tidied: they are initials, not words. */
+const KEEP_CAPS = new Set([
+  'UK',
+  'CIC',
+  'CIO',
+  'NHS',
+  'YMCA',
+  'YWCA',
+  'RNLI',
+  'NSPCC',
+  'RSPCA',
+  'RSPB',
+  'RNIB',
+  'CVS',
+  'PCC',
+  'PTA',
+  'PTFA',
+  'SEN',
+  'SEND',
+  'LGBT',
+  'LGBTQ',
+  'BME',
+  'BAME',
+  'II',
+  'III',
+])
+const LOWER = new Set(['of', 'and', 'the', 'for', 'in', 'on', 'at', 'to', 'a', 'an', 'with'])
+
+/**
+ * A registered name as it should read on screen. The Charity Commission holds names in
+ * capitals ("THE HARBOUR LIGHTS YOUTH TRUST"), which would shout from every list; a name
+ * already in mixed case is taken as somebody's deliberate spelling and left alone.
+ */
+export function tidyRegisteredName(name: string): string {
+  const trimmed = name.trim().replace(/\s+/g, ' ')
+  if (trimmed !== trimmed.toUpperCase()) return trimmed
+  return trimmed
+    .split(' ')
+    .map((word, i) => {
+      const bare = word.replace(/[^A-Z]/g, '')
+      if (KEEP_CAPS.has(bare)) return word
+      const lower = word.toLowerCase()
+      if (i > 0 && LOWER.has(lower)) return lower
+      // Each part of a hyphenated word on its own: "STOCKTON-ON-TEES" -> "Stockton-on-Tees".
+      return lower
+        .split('-')
+        .map((part, j) =>
+          j > 0 && LOWER.has(part)
+            ? part
+            : part.replace(
+                /(^|[(/])([a-z])/g,
+                (_, sep: string, ch: string) => sep + ch.toUpperCase(),
+              ),
+        )
+        .join('-')
+    })
+    .join(' ')
+}

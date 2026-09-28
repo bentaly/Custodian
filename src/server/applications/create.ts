@@ -11,14 +11,24 @@
 import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { getDb } from '../db'
-import { applications, programmes, roundProgrammes, rounds } from '../../../drizzle/schema'
+import {
+  applicationEdits,
+  applications,
+  programmes,
+  roundProgrammes,
+  rounds,
+} from '../../../drizzle/schema'
 import { runDueDiligence } from '../dueDiligence/run'
 import { runCustodianScore } from '../custodianScore/run'
 import { resolveDeprivation } from '../deprivation/run'
 import { deliveryGeoFromResult } from '../../lib/deprivation/types'
 import type { CreateApplicationInput } from '../../lib/validators/application'
 import { bankFields } from './bank'
-import { isUnnamedOrganisation, unnamedOrganisation } from '../../lib/organisationName'
+import {
+  isUnnamedOrganisation,
+  tidyRegisteredName,
+  unnamedOrganisation,
+} from '../../lib/organisationName'
 
 /** Fetch a round programme with everything the create pipeline needs (round for
  *  the open-check at the call site, programme + client profile for scoring). */
@@ -134,6 +144,12 @@ export async function createApplicationFromCanonical(
   // No amount, no assessment: it would be marked on an ask that is about to be filled
   // in. The row is written at `waiting` and the edit path queues it once it is.
   const amountRequested = input.amountRequested
+  // No name on the submission, but the charity register knows who this is: use its name
+  // (tidied out of capitals) rather than "Unnamed (ref …)", and record where it came from.
+  const registerName =
+    !input.organisationName && dueDiligence.profile?.registeredName
+      ? tidyRegisteredName(dueDiligence.profile.registeredName)
+      : null
   const custodian =
     scoreMode === 'inline' && amountRequested != null
       ? await runCustodianScore({
@@ -143,7 +159,8 @@ export async function createApplicationFromCanonical(
           programmeDescription: programme.description,
           programmeThemes: programme.tags,
           grantDurationYears: roundProgramme.grantDurationYears,
-          organisationName: input.organisationName ?? 'an organisation that did not give its name',
+          organisationName:
+            input.organisationName ?? registerName ?? 'an organisation that did not give its name',
           organisationSummary: input.organisationSummary,
           amountRequested,
           unrestrictedReserves: input.unrestrictedReserves,
@@ -169,7 +186,8 @@ export async function createApplicationFromCanonical(
     id,
     roundProgrammeId: input.roundProgrammeId,
     externalApplicationId: input.externalApplicationId,
-    organisationName: input.organisationName ?? unnamedOrganisation(input.externalApplicationId),
+    organisationName:
+      input.organisationName ?? registerName ?? unnamedOrganisation(input.externalApplicationId),
     organisationSummary: input.organisationSummary,
     applicantEmail: input.applicantEmail,
     charityNumber: input.charityNumber,
@@ -224,6 +242,7 @@ export async function createApplicationFromCanonical(
     where: (a, { eq }) => eq(a.id, id),
   })
 
+  if (registerName) await recordRegisterName(id, registerName)
   return { application, dueDiligence, custodian }
 }
 
@@ -339,6 +358,11 @@ export async function updateApplicationFromCanonical(
   // an application that WAS waiting and now has its amount is scored even though
   // nothing else changed, because the amount is all it was waiting for.
   const amountRequested = input.amountRequested
+  // Same as on create: still no name of its own, but the register (freshly screened, or as
+  // screened before) knows one. Only while the application is still unnamed.
+  const registered = (dueDiligence ? dueDiligence.profile : existing.organisationProfile)
+    ?.registeredName
+  const registerName = !input.organisationName && registered ? tidyRegisteredName(registered) : null
   const scoreDue =
     amountRequested != null &&
     scoreMode !== 'keep' &&
@@ -360,7 +384,8 @@ export async function updateApplicationFromCanonical(
           programmeDescription: programme.description,
           programmeThemes: programme.tags,
           grantDurationYears: roundProgramme.grantDurationYears,
-          organisationName: input.organisationName ?? 'an organisation that did not give its name',
+          organisationName:
+            input.organisationName ?? registerName ?? 'an organisation that did not give its name',
           organisationSummary: input.organisationSummary,
           amountRequested,
           unrestrictedReserves: input.unrestrictedReserves,
@@ -385,7 +410,8 @@ export async function updateApplicationFromCanonical(
     .update(applications)
     .set({
       externalApplicationId: input.externalApplicationId,
-      organisationName: input.organisationName ?? unnamedOrganisation(input.externalApplicationId),
+      organisationName:
+        input.organisationName ?? registerName ?? unnamedOrganisation(input.externalApplicationId),
       organisationSummary: input.organisationSummary,
       applicantEmail: input.applicantEmail,
       charityNumber: input.charityNumber,
@@ -461,6 +487,25 @@ export async function updateApplicationFromCanonical(
   ].filter((x): x is string => x !== null)
 
   /** True when the row was set to `queued` and the caller must enqueue the score. */
+  if (registerName && isUnnamedOrganisation(existing.organisationName)) {
+    await recordRegisterName(applicationId, registerName)
+  }
   const scoreQueued = scoreAction === 'queued'
   return { application, rerun, scoreQueued, scoreInputsChanged }
+}
+
+/**
+ * Say where an application's name came from when the submission gave none and the
+ * charity register supplied it. No person made this change, so `edited_by` is empty, and
+ * the application's Edited mark reads "filled in from the Charity Commission register".
+ */
+export async function recordRegisterName(applicationId: string, name: string) {
+  await getDb().insert(applicationEdits).values({
+    applicationId,
+    field: 'organisationName',
+    method: 'register',
+    previousValue: null,
+    newValue: name,
+    editedBy: null,
+  })
 }
