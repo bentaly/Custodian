@@ -173,6 +173,18 @@ export async function editApplication(params: {
       }
     }
 
+    // A shortlisted application must keep an amount: the shortlist meter, round spend and
+    // award set-up all read it, and would read a missing one as £0. It can be changed,
+    // not removed; to remove it, take the application off the shortlist first.
+    if (
+      change.field === 'amountRequested' &&
+      !(change.value ?? '').trim() &&
+      app.status === 'shortlisted'
+    ) {
+      throw conflict(
+        'A shortlisted application needs an amount. Change it, or remove the application from the shortlist first.',
+      )
+    }
     const set = setField(input, change.field, change.value)
     if (!set.ok) throw conflict(set.message)
     input = set.input
