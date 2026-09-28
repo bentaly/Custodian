@@ -26,6 +26,9 @@ export type PipelineMessage =
   | { kind: 'ingest'; ingestId: string }
   | { kind: 'report_ingest'; ingestId: string }
   | { kind: 'score'; applicationId: string }
+  // One report's AI analysis, queued rather than run inside a person's request (a report
+  // attached from the Reports screen, or re-run). See `reports/analyse.ts`.
+  | { kind: 'report_analysis'; reportId: string }
   // One stored decline letter, to be emailed. The letter is already rendered and
   // committed before this message exists, so a retry re-sends the same bytes rather
   // than re-deriving them from a template that may have moved on.

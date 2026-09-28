@@ -22,7 +22,7 @@ export type ReportFieldsData = {
   deliveryArea?: string | null
   grantTitle?: string | null
   grantPurpose?: string | null
-  impactSummary: string
+  impactSummary: string | null
   challenges?: string | null
   lessons?: string | null
   caseStudies?: string | null

@@ -26,7 +26,8 @@ export interface ReportAnalysisInput {
   } | null
   report: {
     organisationName: string
-    impactSummary: string
+    // Null when the report arrived without one; the rest of it is still read.
+    impactSummary: string | null
     grantPurpose?: string | null
     grantTitle?: string | null
     challenges?: string | null

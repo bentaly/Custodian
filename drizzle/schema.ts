@@ -128,6 +128,9 @@ export const reportAnalysisStatusEnum = pgEnum('report_analysis_status', [
   'pending',
   'analysed',
   'error',
+  // Asked for and on its way (the queue), as `custodian_score_status` does: a report
+  // attached from the Reports screen, or re-run, is analysed off the request.
+  'queued',
 ])
 
 // State of an incoming application payload as it moves through field mapping.
@@ -1496,7 +1499,10 @@ export const reports = pgTable(
     contactPhone: text('contact_phone'),
     grantTitle: text('grant_title'),
     grantPurpose: text('grant_purpose'),
-    impactSummary: text('impact_summary').notNull(),
+    // Nullable: a report that arrives without a summary still lands and is attached to its
+    // grant; the analysis reads everything else the grantee sent. Was NOT NULL until
+    // reports could be placed from the Reports screen (2026-09-29).
+    impactSummary: text('impact_summary'),
     challenges: text('challenges'),
     lessons: text('lessons'),
     caseStudies: text('case_studies'),
@@ -1630,6 +1636,10 @@ export const importBatches = pgTable(
 // aren't "someone did something" moments. New action types are added to the enum.
 export const auditActionEnum = pgEnum('audit_action', [
   'application_edited',
+  'report_attached',
+  'report_moved',
+  'report_impact_changed',
+  'report_analysis_rerun',
   'assessment_rerun',
   'application_awarded',
   'application_declined',

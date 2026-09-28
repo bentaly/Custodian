@@ -37,6 +37,7 @@ import {
 import { computeGrantCandidates, findGrantByExternalApplicationId } from './match'
 import { createReportSubmissionFromCanonical, fetchGrantForReport } from '../reports/create'
 import { CreateReportSubmissionSchema } from '../../lib/validators/report'
+import { reportFault } from '../faults'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
 const REPORT_KEY_SET = new Set<string>(REPORT_CANONICAL_KEYS)
@@ -146,13 +147,14 @@ export async function processReportIngest(
   const candidate = buildReportCanonicalInput(resolved, responses)
   const parsed = CreateReportSubmissionSchema.safeParse(candidate)
 
-  // 6. Decide status. Both gates must pass: fields resolved+valid AND a grant.
+  // 6. Decide status. Two gates: the values read (`parsed`) AND a grant. A required
+  //    field the mappers could not find no longer holds a report (the name comes from
+  //    the grant, the analysis reads the rest), and a report with no grant match waits
+  //    on the Reports screen for the foundation to pick one (`fns/heldReports.ts`).
+  //    `unresolvedRequired` still drives the AI fallback above.
+  void unresolvedRequired
   const status: ReportIngestStatus =
-    unresolvedRequired.length === 0 && parsed.success && grantId
-      ? aiUsed
-        ? 'ai_proposed'
-        : 'complete'
-      : 'needs_review'
+    parsed.success && grantId ? (aiUsed ? 'ai_proposed' : 'complete') : 'needs_review'
 
   // 7. Promote, or hold with advisory candidates for the review queue.
   let reportId: string | null = null
@@ -187,6 +189,18 @@ export async function processReportIngest(
       resolvedAt: finalStatus === 'needs_review' ? null : new Date(),
     })
     .where(eq(reportIngests.id, ingestId))
+
+  // Held for US (values that cannot be read), as opposed to waiting for the foundation
+  // to pick a grant, which is routine and shown on their Reports screen. Only the
+  // first is worth an email; fingerprinted per report so each is a new Sentry issue.
+  if (finalStatus === 'needs_review' && !parsed.success) {
+    reportFault(
+      'report-held',
+      new Error('Submission held for review (report)'),
+      { ingestId, clientId, invalid: parsed.error.issues.map((i) => i.path.join('.')) },
+      ['report-held', ingestId],
+    )
+  }
 
   return { ok: true, status: finalStatus, reportId }
 }

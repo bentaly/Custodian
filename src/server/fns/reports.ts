@@ -1,5 +1,6 @@
 import { notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
+import { reportRerunBlocker } from '../reports/correct'
 import { and, eq, inArray, isNull, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db'
@@ -665,9 +666,9 @@ export const markReportsReviewed = createServerFn({ method: 'POST' })
 
     // Sign-off is the last thing a grant can be waiting on, so a batch of them can
     // finish several. Two round trips however many, unlike the single path's loop.
-    await recomputeAwardStatuses(
-      [...new Set(targets.map((t) => t.awardId).filter((id): id is string => Boolean(id)))],
-    )
+    await recomputeAwardStatuses([
+      ...new Set(targets.map((t) => t.awardId).filter((id): id is string => Boolean(id))),
+    ])
     return { reviewed: targets.length }
   })
 
@@ -798,7 +799,15 @@ export const getReport = createServerFn({ method: 'GET' })
         ? { min: dep.min, max: dep.max }
         : null
 
+    // Corrections (move, impact figure, re-run) are an admin's, as every change to a
+    // report is. An imported report has nothing behind it to correct.
+    const canCorrect =
+      (user.role === 'admin' || user.role === 'superadmin') && !!s && s.importBatchId === null
+
     return {
+      canCorrect,
+      /** Null when "Re-run analysis" is on offer; otherwise why not. */
+      rerunBlocked: canCorrect && s ? await reportRerunBlocker(s.id) : null,
       label: reportLabel(milestone?.label, (s?.importBatchId ?? null) !== null),
       dueDate: milestone?.dueDate ?? null,
       status: (s?.reviewedAt

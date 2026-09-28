@@ -16,6 +16,7 @@ import { processIngest } from '../../server/fieldMapping/ingest'
 import { processReportIngest } from '../../server/reportMapping/ingest'
 import { scoreApplication } from '../../server/applications/score'
 import { applyAnswer } from '../../server/applications/edit'
+import { analyseReport } from '../../server/reports/analyse'
 import { sendStoredDeclineLetter } from '../../server/declineLetter'
 import { resolveApplicationDeprivation } from '../../server/applications/deprivation'
 import { screenApplication } from '../../server/applications/dueDiligence'
@@ -99,6 +100,12 @@ export const Route = createFileRoute('/api/internal/pipeline')({
               // and `no_registration` counts as screened: it is a verdict about there
               // being no number, not a run that has yet to happen.
               const result = await screenApplication(message.applicationId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'report_analysis': {
+              // A report no longer `queued` (already analysed by an earlier delivery)
+              // answers 200 without a second model call.
+              const result = await analyseReport(message.reportId)
               return json({ ok: true, result }, 200)
             }
             case 'apply_answer': {

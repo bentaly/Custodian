@@ -8,8 +8,11 @@ import { z } from 'zod'
 // submission actually needs.
 export const CreateReportSubmissionSchema = z.object({
   externalApplicationId: z.string().optional(),
-  organisationName: z.string().min(1),
-  impactSummary: z.string().min(1),
+  // Both optional since reports could be attached from the Reports screen: the name is
+  // taken from the grant when the report does not give one, and the analysis reads
+  // everything else the grantee sent. Neither holds a report any more.
+  organisationName: z.string().min(1).optional(),
+  impactSummary: z.string().min(1).optional(),
   charityNumber: z.string().optional(),
   companyNumber: z.string().optional(),
   programmeName: z.string().optional(),

@@ -52,6 +52,20 @@ export type AuditAction =
   // counted from these rows, and because a score changing is worth being able to trace.
   | 'assessment_rerun'
 
+  // ── Reports ──────────────────────────────────────────────────────────────
+  // A report that arrived without a reference we could match was attached to its grant
+  // by a person on the Reports screen. Recorded because it is a judgement about which
+  // grant a grantee was reporting on, and it ticks that grant's milestone.
+  | 'report_attached'
+  // A report was moved to a different grant or reporting milestone: the automatic tick
+  // of the earliest open milestone, or the attach, was wrong.
+  | 'report_moved'
+  // The report's impact figure was corrected by hand. Insights reads it, so who changed
+  // the number the portfolio totals are built from belongs in the trail.
+  | 'report_impact_changed'
+  // The report's AI analysis was asked for again (a paid model call, limited per day).
+  | 'report_analysis_rerun'
+
   // ── Money ────────────────────────────────────────────────────────────────
   // The account a grant is paid into was changed by hand on the payment panel. The one
   // edit in the app that moves money somewhere else, so it is a fact about the grant
@@ -206,6 +220,10 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   application_vote_recorded_by_admin: 'decisions',
   application_edited: 'decisions',
   assessment_rerun: 'decisions',
+  report_attached: 'reporting',
+  report_moved: 'reporting',
+  report_impact_changed: 'reporting',
+  report_analysis_rerun: 'reporting',
   grant_bank_details_changed: 'money',
   grant_payment_recorded: 'money',
   grant_payment_reversed: 'money',
@@ -253,6 +271,10 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   application_vote_recorded_by_admin: "recorded a trustee's vote on",
   application_edited: 'edited the application from',
   assessment_rerun: 're-ran the AI assessment of',
+  report_attached: 'attached a report to the grant for',
+  report_moved: 'moved a report for',
+  report_impact_changed: 'corrected the impact figure on a report from',
+  report_analysis_rerun: 're-ran the AI analysis of a report from',
   grant_bank_details_changed: 'changed the payment account for',
   grant_payment_recorded: 'recorded a payment to',
   grant_payment_reversed: 'reversed a recorded payment to',
@@ -286,6 +308,10 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   application_vote_recorded_by_admin: 'Vote recorded by admin',
   application_edited: 'Application edited',
   assessment_rerun: 'AI assessment re-run',
+  report_attached: 'Report attached to grant',
+  report_moved: 'Report moved',
+  report_impact_changed: 'Report impact figure corrected',
+  report_analysis_rerun: 'Report analysis re-run',
   grant_bank_details_changed: 'Payment account changed',
   grant_payment_recorded: 'Payment recorded',
   grant_payment_reversed: 'Payment reversed',

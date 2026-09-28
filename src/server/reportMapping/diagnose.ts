@@ -95,7 +95,8 @@ export function diagnoseReportIngest(
 
   const blockers: IngestBlocker[] = []
   const mapping: Record<string, string> = {}
-  for (const [sourceKey, canonical] of Object.entries(row.resolved ?? {})) mapping[canonical] = sourceKey
+  for (const [sourceKey, canonical] of Object.entries(row.resolved ?? {}))
+    mapping[canonical] = sourceKey
   const resolved = resolvedFromReportMapping(row.rawPayload, mapping)
 
   if (row.status === 'ai_proposed') {
@@ -113,12 +114,16 @@ export function diagnoseReportIngest(
 
   const missingRequired = REQUIRED_REPORT_CANONICAL_KEYS.filter((k) => !resolved[k])
   if (missingRequired.length > 0) {
+    // Information, not a hold, since reports could be attached from the Reports screen:
+    // the organisation's name comes from the grant, and the analysis reads everything
+    // else the grantee sent. The reference only ever mattered for the automatic match,
+    // and without it the report simply waits for somebody to pick its grant.
     blockers.push({
       code: 'required_unmapped',
-      severity: 'blocking',
-      title: `${missingRequired.length} required field${missingRequired.length === 1 ? '' : 's'} could not be matched`,
+      severity: 'info',
+      title: `${missingRequired.length} field${missingRequired.length === 1 ? '' : 's'} not found in the report`,
       detail:
-        'The foundation’s report lookup table, the built-in dictionary and the AI fallback all failed to find these in the payload.',
+        'The foundation’s report lookup table, the built-in dictionary and the AI fallback all failed to find these in the payload. The report lands without them.',
       fix: 'Pick the right incoming field for each below, ticking “lookup” to teach the foundation’s report-field table.',
       fields: missingRequired.map((k) => ({ key: k, label: labelFor(k) })),
     })
@@ -153,7 +158,9 @@ export function diagnoseReportIngest(
   }
 
   const responses = computeReportResponses(row.rawPayload, resolved)
-  const parsed = CreateReportSubmissionSchema.safeParse(buildReportCanonicalInput(resolved, responses))
+  const parsed = CreateReportSubmissionSchema.safeParse(
+    buildReportCanonicalInput(resolved, responses),
+  )
   if (!parsed.success) {
     const missingSet = new Set<string>(missingRequired)
     const issues = parsed.error.issues
