@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { parseApplicationsSearch } from '../../lib/listSearch'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
@@ -435,7 +435,9 @@ function ApplicationDetail() {
   const [firstYearMode, setFirstYearMode] = useState<'shortlist' | 'edit'>('shortlist')
   // What the last edit did ("Saved. The AI assessment is being re-run."), shown above
   // the body until the next one or a reload.
-  const [notice, setNotice] = useState<string | null>(null)
+  // What the last edit did ("Saved. The AI assessment is running now."), shown above the
+  // body until the next one or a reload. `refresh` offers the Refresh link beside it.
+  const [notice, setNotice] = useState<{ text: string; refresh: boolean } | null>(null)
   // The field the answer picker is open for, from any edit surface on the screen.
   const [pickingField, setPickingField] = useState<EditableField | null>(null)
   // The fields a "Fill in" dialog is open for, from the Not captured panel.
@@ -622,7 +624,13 @@ function ApplicationDetail() {
       .find((e) =>
         ['organisationName', 'charityNumber', 'companyNumber', 'applicantEmail'].includes(e.field),
       )?.field ?? null
-  const onSaved = (outcome: EditOutcome) => setNotice(describeOutcome(outcome))
+  // "The AI assessment is running now. Refresh" has done its job once a refresh shows it
+  // finished: take it away rather than leave it claiming something still running.
+  useEffect(() => {
+    if (notice?.refresh && scoreStatus !== 'queued') setNotice(null)
+  }, [notice, scoreStatus])
+  const onSaved = (outcome: EditOutcome) =>
+    setNotice({ text: describeOutcome(outcome), refresh: outcome.scoreQueued })
   // "Choose from their answers", offered under every field where the application came in
   // through a form. Undefined without one: there are no answers to choose from.
   const chooseAnswer = hasSubmission ? (field: EditableField) => setPickingField(field) : undefined
@@ -960,7 +968,15 @@ function ApplicationDetail() {
           className="flex items-start justify-between gap-3 rounded-chip border px-3 py-2 font-display text-body"
           style={{ borderColor: C.brandBorder, backgroundColor: C.brandWash, color: C.ink }}
         >
-          <span>{notice}</span>
+          <span>
+            {notice.text}
+            {notice.refresh && (
+              <>
+                {' '}
+                <RefreshLink />
+              </>
+            )}
+          </span>
           <button
             type="button"
             className="shrink-0 font-display text-label underline"
@@ -1269,7 +1285,14 @@ function ApplicationDetail() {
                 <Button
                   size="sm"
                   disabled={rescoring}
-                  onClick={() => act(setRescoring, () => rescore({ data: { id: application.id } }))}
+                  onClick={() =>
+                    act(setRescoring, async () => {
+                      await rescore({ data: { id: application.id } })
+                      // Reload first, so the page already reads `queued` when the notice lands.
+                      await router.invalidate()
+                      setNotice({ text: 'The AI assessment is running now.', refresh: true })
+                    })
+                  }
                 >
                   {rescoring ? 'Starting…' : 'Re-run assessment'}
                 </Button>
@@ -1350,8 +1373,14 @@ function ApplicationDetail() {
               {scoreStatus === 'error'
                 ? 'Scoring failed. Try re-scoring.'
                 : scoreStatus === 'queued'
-                  ? 'AI is currently scoring this application. It usually takes under a minute. Reload to see the result.'
+                  ? 'AI is currently scoring this application. It usually takes under a minute.'
                   : 'This application has not been scored yet.'}
+              {scoreStatus === 'queued' && (
+                <>
+                  {' '}
+                  <RefreshLink />
+                </>
+              )}
             </p>
           )}
 
@@ -1981,5 +2010,34 @@ function ApplicationDetail() {
         onClose={() => setSubmissionOpen(false)}
       />
     </div>
+  )
+}
+
+/**
+ * "Refresh", beside a message saying the AI assessment is running. Nothing tells the page
+ * when the model finishes (there is no push, and polling was ruled out for the free
+ * tiers), so the person asks: this re-runs the page's loader, which reloads the
+ * application's data in place, not the whole page.
+ */
+function RefreshLink() {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  return (
+    <button
+      type="button"
+      className="font-display underline disabled:opacity-50"
+      style={{ color: C.brand }}
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true)
+        try {
+          await router.invalidate()
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      {busy ? 'Refreshing…' : 'Refresh'}
+    </button>
   )
 }
