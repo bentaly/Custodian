@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PencilEdit01Icon } from '@hugeicons/core-free-icons'
-import { Button, Checkbox, ThemePill } from '../../ui'
+import { Button, Checkbox, ThemePill, Tooltip } from '../../ui'
 import { C } from '../../ui/tokens'
 import { setThemes } from '../../../server/fns/applicationEdits'
 import { EditedMark, type EditRecord } from './EditedMark'
@@ -22,6 +22,7 @@ export function ThemesEditor({
   canEdit,
   edits,
   waiting,
+  lockedReason,
 }: {
   applicationId: string
   themes: string[] | null
@@ -30,6 +31,8 @@ export function ThemesEditor({
   edits: EditRecord[]
   /** The assessment has not run yet, so the AI has not picked any. */
   waiting: boolean
+  /** Why an admin may no longer edit (votes cast, awarded): a greyed pencil says so. */
+  lockedReason?: string | null
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -80,6 +83,30 @@ export function ThemesEditor({
             <HugeiconsIcon icon={PencilEdit01Icon} size={12} strokeWidth={1.8} />
           </button>
         )}
+        {!canEdit &&
+          lockedReason &&
+          programmeThemes.length > 0 && (
+            // Same pencil, greyed, saying why, as on every other card.
+            <span className="ml-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              <Tooltip
+                control
+                label="Edit themes"
+                trigger={
+                  <button
+                    type="button"
+                    aria-label="Edit themes (not available)"
+                    aria-disabled="true"
+                    className="inline-flex size-6 cursor-not-allowed items-center justify-center rounded-chip border bg-white"
+                    style={{ borderColor: C.line, color: C.faint }}
+                  >
+                    <HugeiconsIcon icon={PencilEdit01Icon} size={12} strokeWidth={1.8} />
+                  </button>
+                }
+              >
+                {lockedReason}
+              </Tooltip>
+            </span>
+          )}
       </div>
 
       {open && (

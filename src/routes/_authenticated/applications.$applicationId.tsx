@@ -77,7 +77,7 @@ import {
 import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
 import { useRemembered } from '../../lib/useRemembered'
 import type { DeprivationContext } from '../../lib/deprivation/types'
-import { deliveryAreaLabel } from '../../lib/deprivation/types'
+import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/types'
 import type { OrganisationProfile } from '../../lib/dueDiligence'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
@@ -440,6 +440,7 @@ function ApplicationDetail() {
   const [pickingField, setPickingField] = useState<EditableField | null>(null)
   // The fields a "Fill in" dialog is open for, from the Not captured panel.
   const [adding, setAdding] = useState<EditableField[] | null>(null)
+  const [addingBudget, setAddingBudget] = useState(false)
   const [rescoring, setRescoring] = useState(false)
 
   const isShortlisted = application.status === 'shortlisted'
@@ -544,7 +545,12 @@ function ApplicationDetail() {
     charityNumber: application.charityNumber,
     companyNumber: application.companyNumber,
     deliveryArea: application.deliveryArea,
-    organisationSummary: application.organisationSummary,
+    // The register's own description of the charity answers the same question well enough,
+    // and it is what the organisation card shows in its place: no complaint when it is there.
+    organisationSummary:
+      application.organisationSummary ??
+      (application.organisationProfile as OrganisationProfile | null)?.activities ??
+      null,
     unrestrictedReserves: application.unrestrictedReserves,
     budgetBreakdown: budgetLines,
     budgetBreakdownLink: application.budgetBreakdownLink,
@@ -1060,6 +1066,7 @@ function ApplicationDetail() {
                     themes={themes}
                     programmeThemes={programme.tags ?? []}
                     canEdit={canEdit}
+                    lockedReason={application.editLocked}
                     edits={edits}
                     waiting={waiting}
                   />
@@ -1092,6 +1099,7 @@ function ApplicationDetail() {
                   credited under the facts, which remain entirely its. */}
               <EditableSlot
                 canEdit={canEdit}
+                lockedReason={application.editLocked}
                 label="Edit the organisation's details"
                 applicationId={application.id}
                 fields={['organisationName', 'charityNumber', 'companyNumber', 'applicantEmail']}
@@ -1376,6 +1384,7 @@ function ApplicationDetail() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <EditableSlot
             canEdit={canEdit}
+            lockedReason={application.editLocked}
             label="Edit the amount requested"
             applicationId={application.id}
             fields={['amountRequested']}
@@ -1456,6 +1465,7 @@ function ApplicationDetail() {
               freed are what the finances now occupy. */}
           <EditableSlot
             canEdit={canEdit}
+            lockedReason={application.editLocked}
             label={`Edit the ${unitLabel.toLowerCase()} proposed`}
             applicationId={application.id}
             fields={['proposedImpactQuantity']}
@@ -1509,6 +1519,7 @@ function ApplicationDetail() {
               asking would buy them. */}
           <EditableSlot
             canEdit={canEdit}
+            lockedReason={application.editLocked}
             label="Edit unrestricted reserves"
             applicationId={application.id}
             fields={['unrestrictedReserves']}
@@ -1545,6 +1556,7 @@ function ApplicationDetail() {
               where the work actually happens. */}
           <EditableSlot
             canEdit={canEdit}
+            lockedReason={application.editLocked}
             label="Edit the delivery area"
             applicationId={application.id}
             fields={['deliveryArea']}
@@ -1557,10 +1569,7 @@ function ApplicationDetail() {
               tint={KPI.community}
               icon={UserGroup02Icon}
               label="Community context"
-              value={withMark(
-                depResolved ? `Decile ${deprivation.min}–${deprivation.max}` : '--',
-                'deliveryArea',
-              )}
+              value={withMark(depResolved ? formatDecileRange(deprivation) : '--', 'deliveryArea')}
               sub={
                 <>
                   {depResolved
@@ -1578,6 +1587,7 @@ function ApplicationDetail() {
         {/* The applicant's lines, correctable in place like every other card. */}
         <EditableSlot
           canEdit={canEdit}
+          lockedReason={application.editLocked}
           label="Edit the application budget"
           applicationId={application.id}
           onSaved={onSaved}
@@ -1808,6 +1818,7 @@ function ApplicationDetail() {
                 // Offered only where every field of the gap is one a person can
                 // fill: the budget is the applicant's own breakdown, not ours to write.
                 const fillable = canEdit && g.keys.every(isEditableField)
+                const isBudgetGap = g.keys.includes('budgetBreakdown')
                 return (
                   <div
                     key={g.key}
@@ -1822,11 +1833,18 @@ function ApplicationDetail() {
                         {g.degrades}
                       </div>
                     </div>
-                    {fillable && (
+                    {(fillable || (isBudgetGap && canEdit)) && (
                       <Button
                         variant="secondary"
                         size="xs"
-                        onClick={() => setAdding(g.keys.filter(isEditableField))}
+                        onClick={() =>
+                          // The budget is lines, not fields: its Add opens the same line
+                          // editor the Application budget card does, in a dialog like
+                          // every other Add here.
+                          isBudgetGap
+                            ? setAddingBudget(true)
+                            : setAdding(g.keys.filter(isEditableField))
+                        }
                       >
                         Add
                       </Button>
@@ -1863,6 +1881,25 @@ function ApplicationDetail() {
           onTypeInstead={() => setAdding([pickingField])}
         />
       )}
+      <Dialog
+        open={addingBudget}
+        onClose={() => setAddingBudget(false)}
+        title="Add the budget"
+        description={application.organisationName}
+        size="lg"
+      >
+        {addingBudget && (
+          <BudgetEditor
+            applicationId={application.id}
+            lines={budgetLines}
+            onCancel={() => setAddingBudget(false)}
+            onDone={(outcome) => {
+              setAddingBudget(false)
+              onSaved(outcome)
+            }}
+          />
+        )}
+      </Dialog>
       <Dialog
         open={adding !== null}
         onClose={() => setAdding(null)}

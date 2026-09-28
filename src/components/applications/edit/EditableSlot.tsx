@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PencilEdit01Icon } from '@hugeicons/core-free-icons'
 import { C } from '../../ui/tokens'
+import { Tooltip } from '../../ui'
 import { FieldEditor, type EditOutcome, type FirstYearEdit } from './FieldEditor'
 import type { EditableField } from '../../../lib/applicationEdit'
 
@@ -28,10 +29,13 @@ export function EditableSlot({
   firstYear,
   onChooseAnswer,
   editor,
+  lockedReason,
   children,
   className = '',
 }: {
   canEdit: boolean
+  /** Why an admin may no longer edit this (votes cast, awarded): shown on a greyed pencil. */
+  lockedReason?: string | null
   /** Names the pencil for a screen reader: "Edit amount requested". */
   label: string
   applicationId: string
@@ -52,6 +56,35 @@ export function EditableSlot({
 }) {
   const [editing, setEditing] = useState(false)
 
+  // An admin who COULD edit this but may not any more (votes cast, or awarded) gets the
+  // same pencil in the same place, greyed, saying why. A pencil that silently stopped
+  // appearing would read as the feature being broken. Everyone else sees nothing.
+  if (!canEdit && lockedReason) {
+    return (
+      <div className={`group relative ${className}`}>
+        {children}
+        <div className="absolute right-2.5 top-2.5 z-20 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+          <Tooltip
+            control
+            label={label}
+            trigger={
+              <button
+                type="button"
+                aria-label={`${label} (not available)`}
+                aria-disabled="true"
+                className="inline-flex size-7 cursor-not-allowed items-center justify-center rounded-chip border bg-white"
+                style={{ borderColor: C.line, color: C.faint }}
+              >
+                <HugeiconsIcon icon={PencilEdit01Icon} size={14} strokeWidth={1.8} />
+              </button>
+            }
+          >
+            {lockedReason}
+          </Tooltip>
+        </div>
+      </div>
+    )
+  }
   if (!canEdit) return <>{children}</>
 
   if (editing) {

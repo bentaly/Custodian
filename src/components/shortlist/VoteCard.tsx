@@ -12,7 +12,7 @@ import {
 import { castVote } from '../../server/fns/comments'
 import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/custodianScore'
 import type { DeprivationResult } from '../../lib/deprivation/types'
-import { deliveryAreaLabel } from '../../lib/deprivation/types'
+import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { Avatar, ErrorNote, TextLink, initials } from '../ui'
@@ -494,7 +494,9 @@ export function VoteCard({
       ? { value: impact.toLocaleString('en-GB'), label: unitLabel.toLowerCase() }
       : null,
     costPerUnit !== null ? { value: fmtMoney(costPerUnit), label: 'each' } : null,
-    deprivation ? { value: `IMD decile ${deprivation.min}–${deprivation.max}`, label: '' } : null,
+    deprivation
+      ? { value: `IMD ${formatDecileRange(deprivation).toLowerCase()}`, label: '' }
+      : null,
   ].filter((m) => m !== null)
 
   async function handleVote(vote: 'yes' | 'no', onBehalfOf?: string) {

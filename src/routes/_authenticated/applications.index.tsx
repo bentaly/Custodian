@@ -563,27 +563,14 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     header: 'Status',
     width: 'sm:w-[11%]',
     sortable: true,
-    cell: (app) => {
-      // Only the amount is called out on the row: without it the application can be
-      // neither assessed nor shortlisted, so it is stuck until somebody fills it in. A
-      // missing email or bank details holds up nothing a list reader is deciding.
-      return (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StatusPill
-            label={applicationStatusLabel(app.status)}
-            colour={STATUS_COLOUR[app.status] ?? C.sub}
-          />
-          {app.amountRequested === null && app.status !== 'declined' && (
-            <span
-              className="whitespace-nowrap rounded-pill border px-2 py-0.5 font-display text-micro font-medium"
-              style={{ borderColor: withAlpha(C.warning, 0.4), color: C.warning }}
-            >
-              No amount yet
-            </span>
-          )}
-        </div>
-      )
-    },
+    // Just the status. A missing amount already shows as "--" in the Amount column and
+    // "Waiting" under AI score; a third mark for the same fact was one too many.
+    cell: (app) => (
+      <StatusPill
+        label={applicationStatusLabel(app.status)}
+        colour={STATUS_COLOUR[app.status] ?? C.sub}
+      />
+    ),
   },
   {
     id: 'score',

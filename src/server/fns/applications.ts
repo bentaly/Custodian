@@ -35,7 +35,7 @@ import {
 } from '../../../drizzle/schema'
 import { orderedKeys } from '../fieldMapping/assemble'
 import { toStringValue } from '../../lib/fieldMapping'
-import { rerunBlocker } from '../applications/edit'
+import { editLockReason, rerunBlocker } from '../applications/edit'
 import { searchAny } from '../searchTerm'
 import { anyOf, anyTag } from '../filterSql'
 import { roundProgrammeSpend, roundProgrammeYear, spentThisYear } from '../applications/roundSpend'
@@ -305,15 +305,17 @@ export const getApplication = createServerFn({ method: 'GET' })
           .filter((a) => a.value !== '')
       : null
 
-    const canEdit =
-      (user.role === 'admin' || user.role === 'superadmin') &&
-      application.status !== 'awarded' &&
-      !application.award
+    const isAdmin = user.role === 'admin' || user.role === 'superadmin'
+    // Why an admin cannot edit it (votes cast, or awarded), for the greyed pencil's tooltip.
+    const editLocked = isAdmin ? await editLockReason(application) : null
+    const canEdit = isAdmin && editLocked === null
 
     return {
       ...application,
       /** An admin may change how this application reads, until a grant is awarded. */
       canEdit,
+      /** Why an admin cannot edit it, or null. Shown on a greyed pencil, never enforced here. */
+      editLocked,
       /** Null when "Re-run the assessment" is on offer; otherwise why not. Admins only. */
       rerunBlocked: canEdit
         ? await rerunBlocker(application.id)

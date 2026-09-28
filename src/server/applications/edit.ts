@@ -73,17 +73,42 @@ export interface EditResult {
 
 type Actor = { id: string }
 
+/**
+ * Why this application can no longer be edited, or null. One statement of the rule for
+ * the screen (a greyed pencil with this as its tooltip) and the boundary (`loadForEdit`).
+ *
+ *   - Once a trustee has voted: they voted on the application as it read then, and
+ *     changing it under them (and under the trustees still to vote) would mean the board
+ *     decided on different applications. Deliberately earlier than money.
+ *   - Once awarded: the award letter was written from these figures, the same line the
+ *     admin app's re-confirm draws.
+ */
+export async function editLockReason(app: {
+  id: string
+  status: string
+  award?: { id: string } | null
+}): Promise<string | null> {
+  if (app.award || app.status === 'awarded') {
+    return 'This application has been awarded, so its details can no longer be edited.'
+  }
+  const [row] = await getDb()
+    .select({ n: sql<number>`count(*)::int` })
+    .from(applicationVotes)
+    .where(eq(applicationVotes.applicationId, app.id))
+  if ((row?.n ?? 0) > 0) {
+    return 'Trustees have voted on this application, so its details can no longer be edited. They voted on it as it reads now.'
+  }
+  return null
+}
+
 async function loadForEdit(applicationId: string) {
   const app = await getDb().query.applications.findFirst({
     where: eq(applications.id, applicationId),
     with: { award: { columns: { id: true } } },
   })
   if (!app) throw notFoundError()
-  // The line is money, as it is for the admin app's re-confirm: once a grant exists
-  // the award letter has been written from these figures.
-  if (app.award || app.status === 'awarded') {
-    throw conflict('This application has been awarded, so its details can no longer be edited.')
-  }
+  const locked = await editLockReason(app)
+  if (locked) throw conflict(locked)
   const ingest = await getDb().query.applicationIngests.findFirst({
     where: eq(applicationIngests.applicationId, applicationId),
   })
