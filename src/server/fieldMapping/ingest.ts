@@ -283,20 +283,26 @@ export async function processIngest(
       .where(eq(applicationIngests.id, ingestId))
     // A held submission is invisible to the foundation until somebody acts: nothing on
     // any screen of theirs says it arrived, unless its only problem is the programme
-    // (the Applications banner). So we are told, through Sentry, whose alert rule is the
-    // email. One constant message, so every hold groups into one issue with the reason
-    // in its extras rather than a new issue per submission.
-    reportFault('ingest-held', new Error('Submission held for review'), {
-      ingestId,
-      clientId,
-      unresolvedRequired,
-      programmeRouted: roundProgrammeId !== null,
-      programmeWritten: resolvedProgrammeName,
-      invalid:
-        validInput && !validInput.success
-          ? validInput.error.issues.map((i) => i.path.join('.'))
-          : [],
-    })
+    // (the Applications banner). So we are told, through Sentry, whose alert is the
+    // email. Fingerprinted per SUBMISSION, so each hold is a new issue: Sentry's alert
+    // builder fires on a new issue, not on each event, and one shared issue would email
+    // for the first hold and never again.
+    reportFault(
+      'ingest-held',
+      new Error('Submission held for review'),
+      {
+        ingestId,
+        clientId,
+        unresolvedRequired,
+        programmeRouted: roundProgrammeId !== null,
+        programmeWritten: resolvedProgrammeName,
+        invalid:
+          validInput && !validInput.success
+            ? validInput.error.issues.map((i) => i.path.join('.'))
+            : [],
+      },
+      ['submission-held', ingestId],
+    )
   }
 
   // Ask for the score only once the application and its ingest row are committed, so

@@ -19,9 +19,20 @@ import { captureException } from '@sentry/cloudflare'
  * is enabled in wrangler.toml, so the console line guarantees the failure is
  * recorded somewhere regardless of how that resolves.
  */
-export function reportFault(label: string, err: unknown, extra?: Record<string, unknown>): void {
+export function reportFault(
+  label: string,
+  err: unknown,
+  extra?: Record<string, unknown>,
+  /**
+   * Sentry groups events into issues by stack trace, so every call from one place is ONE
+   * issue. Pass a fingerprint to split them instead: Sentry's alert builder fires on a
+   * NEW issue, not on each event, so something that must notify every time (a held
+   * submission) needs an issue of its own each time.
+   */
+  fingerprint?: string[],
+): void {
   console.error(`[${label}] failed:`, err, extra ?? '')
-  captureFault(err, extra)
+  captureFault(err, extra, fingerprint)
 }
 
 /**
@@ -30,9 +41,18 @@ export function reportFault(label: string, err: unknown, extra?: Record<string, 
  * failed:` line is named in CLAUDE.md and wrangler.toml as the way to find a dead
  * pipeline in Workers Logs.
  */
-export function captureFault(err: unknown, extra?: Record<string, unknown>): void {
+export function captureFault(
+  err: unknown,
+  extra?: Record<string, unknown>,
+  fingerprint?: string[],
+): void {
   try {
-    captureException(err, extra ? { extra } : undefined)
+    captureException(
+      err,
+      extra || fingerprint
+        ? { ...(extra ? { extra } : {}), ...(fingerprint ? { fingerprint } : {}) }
+        : undefined,
+    )
   } catch {
     // No Sentry client bound (local dev, or the two-instance case above). The caller's
     // console line is the durable record either way.

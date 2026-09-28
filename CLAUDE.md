@@ -637,8 +637,11 @@ rather than waiting in our admin queue.
   the cap the button stays, disabled, with the reason). The only
   automatic run is the FIRST, when a `waiting` application gets its amount. The area lookup and
   register checks do re-run on edit: cheap, and a stale decile beside a corrected area is wrong.
-- **A held submission is reported to Sentry** (`Submission held for review`, one issue, reasons in
-  the extras), since nothing on a foundation's screens says it arrived. Sentry's alert is the email.
+- **A held submission is reported to Sentry** (`Submission held for review`, reasons in the
+  extras), since nothing on a foundation's screens says it arrived. **Fingerprinted per
+  submission**, so each hold is its own issue: Sentry's alert builder fires on a NEW issue, not
+  on each event, and the alert rule ("a new issue is created" + message contains "Submission
+  held") is the email.
 - **The first-year share** is edited in the amount card's own editor, from arrival, not through a
   separate "estimated" link.
 - **"Choose from their answers" is under every field** in every editor (not only the amount),
