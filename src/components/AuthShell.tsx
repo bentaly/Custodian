@@ -137,6 +137,41 @@ Please let me know the best next step.
 Many thanks,
 `
 
+/**
+ * The two ways out of the only dead end on the page.
+ *
+ * This sentence is the sole line addressed to someone who CANNOT sign in, and it once
+ * told them so and stopped: an invite-only product whose signed-out page has no answer
+ * for "then how do I get one?". So the links sit right under it: whoever has just read
+ * that they need an invitation is exactly the person who wants to read more or ask for
+ * one.
+ *
+ * It lives under the sign-in form rather than at the foot of the brand panel, where it
+ * sat below six stages and three cards and was usually the last thing on a scrolling
+ * panel. Only sign-in renders it: sign-up and no-access already say "invite-only" in
+ * their own copy, each worded for the person who is on that screen.
+ */
+export function InviteOnlyNote() {
+  return (
+    <div className="mt-8 text-center">
+      <p className="text-body text-grey-500">
+        Custodian is invite-only. Your administrator can send you an invitation.
+      </p>
+      <div className="mt-2 flex items-center justify-center gap-3 text-body">
+        <TextLink to="/about">Learn more</TextLink>
+        <span aria-hidden className="text-grey-300">
+          ·
+        </span>
+        <ExternalTextLink
+          href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}&body=${encodeURIComponent(INTEREST_BODY)}`}
+        >
+          Register interest
+        </ExternalTextLink>
+      </div>
+    </div>
+  )
+}
+
 function Wordmark({ size = 'lg' }: { size?: 'lg' | 'sm' }) {
   return (
     <div className="flex items-center gap-2">
@@ -268,8 +303,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
             the sides. The dashed orbit still passes behind all six, as in the comp; it
             is the hub the chips are spaced off.
 
-            `my-auto` gives the ring the slack: the heading holds the top, the cards &
-            the invite-only line hold the bottom, and the ring is centred in whatever
+            `my-auto` gives the ring the slack: the heading holds the top, the cards
+            hold the bottom, and the ring is centred in whatever
             is left rather than hugging the heading with all the empty space beneath
             it. Auto margins collapse to nothing once the panel overflows, so the
             compact case just stacks — which is why the FLOOR on that gap is a fixed
@@ -339,29 +374,6 @@ export function AuthShell({ children }: { children: ReactNode }) {
           ))}
         </div>
 
-        {/* The two ways out of the only dead end on the page.
-            This sentence is the sole line addressed to someone who CANNOT sign in, and
-            until now it told them so and stopped — an invite-only product whose
-            signed-out page has no answer for "then how do I get one?". So the links go
-            here rather than in a corner: whoever has just read that they need an
-            invitation is exactly the person who wants to read more or ask for one, and
-            they are already looking at this line. */}
-        <div className="pt-5 text-center compact:pt-1">
-          <p className="text-body text-grey-500">
-            Custodian is invite-only. Your administrator can send you an invitation.
-          </p>
-          <div className="mt-2 flex items-center justify-center gap-3 text-body">
-            <TextLink to="/about">Learn more</TextLink>
-            <span aria-hidden className="text-grey-300">
-              ·
-            </span>
-            <ExternalTextLink
-              href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}&body=${encodeURIComponent(INTEREST_BODY)}`}
-            >
-              Register interest
-            </ExternalTextLink>
-          </div>
-        </div>
       </aside>
     </div>
   )

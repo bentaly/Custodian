@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { authClient } from '../lib/auth-client'
 import { invalidateCurrentUser } from '../lib/currentUser'
 import { DEFAULT_LANDING, oauthCallback, safeReturnPath, signInPath } from '../lib/signInRedirect'
-import { AuthShell } from '../components/AuthShell'
+import { AuthShell, InviteOnlyNote } from '../components/AuthShell'
 import { CodeInput } from '../components/ui/CodeInput'
 import { Button, Label, Tabs } from '../components/ui'
 import {
@@ -349,6 +349,10 @@ function SignInPage() {
           </BackLink>
         </form>
       )}
+
+      {/* Only on the two entry forms: the verify & reset steps are for someone who
+          already has an account. */}
+      {(mode === 'password' || mode === 'code-request') && <InviteOnlyNote />}
     </AuthShell>
   )
 }
