@@ -621,6 +621,18 @@ function ApplicationDetail() {
     bankSortCode: application.bankSortCode,
   }
   const hasSubmission = application.submission !== null
+  // An answer the submission gave for a field the application has no value for: SENT,
+  // but it could not be read (an amount of "£2,500-5,000", an email typed in words).
+  // Said as such, because "not captured" alone reads as a question never asked, which
+  // is the lost-field bug this whole panel exists to prevent. Quoted short.
+  const unreadAnswer = (keys: string[]): string | null => {
+    const answer = application.submission?.find(
+      (a) => a.canonical !== null && keys.includes(a.canonical),
+    )?.value
+    if (!answer) return null
+    const oneLine = answer.replace(/\s+/g, ' ').trim()
+    return oneLine.length > 60 ? `${oneLine.slice(0, 57)}…` : oneLine
+  }
   // A reason Re-run is unavailable that is worth SAYING: the cap, or a vote already cast.
   const shownBlocker =
     application.rerunBlocked &&
@@ -1532,6 +1544,8 @@ function ApplicationDetail() {
                     >
                       {hasSubmission ? 'Choose from their answers' : 'Fill it in'}
                     </button>
+                  ) : unreadAnswer(['amountRequested']) ? (
+                    `could not read “${unreadAnswer(['amountRequested'])}”`
                   ) : (
                     'not found in the submission'
                   )
@@ -1958,8 +1972,9 @@ function ApplicationDetail() {
           <Panel label="Not captured">
             <PanelTitle>Not captured</PanelTitle>
             <p className="mb-2.5 font-display text-body" style={{ color: C.sub }}>
-              This submission didn't include the following, so the features that use them are
-              unavailable on this application.
+              This submission didn't include the following, or included them in a form that
+              couldn't be read, so the features that use them are unavailable on this
+              application.
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {[
@@ -1995,6 +2010,7 @@ function ApplicationDetail() {
                   (canEdit || (namingOnly && application.canNameOrganisation)) &&
                   g.keys.every(isEditableField)
                 const isBudgetGap = g.keys.includes('budgetBreakdown')
+                const unread = unreadAnswer(g.keys)
                 return (
                   <div
                     key={g.key}
@@ -2005,6 +2021,14 @@ function ApplicationDetail() {
                       <div className="font-display text-body" style={{ color: C.ink }}>
                         {g.label}
                       </div>
+                      {unread && (
+                        <div
+                          className="mt-0.5 font-display text-label"
+                          style={{ color: C.warning }}
+                        >
+                          They answered “{unread}”, which couldn't be read.
+                        </div>
+                      )}
                       <div className="mt-0.5 font-display text-label" style={{ color: C.sub }}>
                         {g.degrades}
                       </div>

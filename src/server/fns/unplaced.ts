@@ -8,6 +8,7 @@
 // placing it would only fail on the next problem. And the round is inferred from when
 // it arrived, so one that came in while no round was open stays in the admin app too.
 
+import { referenceTaken } from '../ingestDedupe'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
@@ -18,12 +19,11 @@ import { assertClientAccess } from '../scope'
 import { conflict, notFoundError } from '../../lib/errors'
 import { diagnoseIngests } from '../fieldMapping/diagnose'
 import {
-  buildCanonicalInput,
+  assembleApplication,
   buildSubmittedFields,
   computeResponses,
   resolvedFromMapping,
 } from '../fieldMapping/assemble'
-import { CreateApplicationSchema } from '../../lib/validators/application'
 import { toStringValue } from '../../lib/fieldMapping'
 import { SUGGEST_THRESHOLD, similarity } from '../../lib/dataImport/match'
 import {
@@ -135,17 +135,22 @@ export const placeSubmission = createServerFn({ method: 'POST' })
       ingest.providedValues ?? {},
     )
     const responses = computeResponses(ingest.rawPayload, resolved, ingest.fieldOrder)
-    const parsed = CreateApplicationSchema.safeParse(
-      buildCanonicalInput(
-        rp.id,
-        resolved,
-        responses,
-        buildSubmittedFields(ingest.rawPayload, resolved, ingest.fieldOrder),
-      ),
+    const { parsed } = assembleApplication(
+      rp.id,
+      resolved,
+      responses,
+      buildSubmittedFields(ingest.rawPayload, resolved, ingest.fieldOrder),
     )
     if (!parsed.success) {
       throw conflict(
         'This submission has another problem besides its programme, so it cannot be placed here. The Custodian team has it in their queue.',
+      )
+    }
+    const reference = parsed.data.externalApplicationId
+    const clash = reference ? await referenceTaken(ingest.clientId, reference) : null
+    if (clash) {
+      throw conflict(
+        `${clash.organisationName} already has the reference ${reference}, so this cannot be placed as a new application. The Custodian team has it in their queue.`,
       )
     }
 

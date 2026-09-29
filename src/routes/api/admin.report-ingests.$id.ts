@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { getDb } from '../../server/db'
 import { reportSchedule, reportIngests, reports } from '../../../drizzle/schema'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
@@ -37,17 +38,28 @@ export const Route = createFileRoute('/api/admin/report-ingests/$id')({
           awardId = submission?.awardId ?? null
         }
 
-        // FK order: the ingest references the submission, so it goes first.
-        await getDb().delete(reportIngests).where(eq(reportIngests.id, params.id))
-        if (ingest.reportId) {
-          await getDb().delete(reports).where(eq(reports.id, ingest.reportId))
-        }
+        // One batch, in FK order (the ingest references the submission, so it goes
+        // first). The milestone is un-ticked only when no OTHER report still answers it:
+        // the tick is this report's doing only if it is the one holding it.
+        const db = getDb()
+        const statements: BatchItem<'pg'>[] = [
+          db.delete(reportIngests).where(eq(reportIngests.id, params.id)),
+        ]
         if (milestoneId) {
-          await getDb()
-            .update(reportSchedule)
-            .set({ submittedDate: null })
-            .where(eq(reportSchedule.id, milestoneId))
+          statements.push(
+            db
+              .update(reportSchedule)
+              .set({ submittedDate: null })
+              .where(
+                and(
+                  eq(reportSchedule.id, milestoneId),
+                  sql`not exists (select 1 from ${reports} where ${reports.scheduleId} = ${milestoneId} and ${reports.id} <> ${ingest.reportId})`,
+                ),
+              ),
+          )
         }
+        if (ingest.reportId) statements.push(db.delete(reports).where(eq(reports.id, ingest.reportId)))
+        await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
         if (awardId) await recomputeAwardStatus(awardId)
         return adminJson({ ok: true }, 200)
       },

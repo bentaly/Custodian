@@ -685,11 +685,11 @@ function IngestCard({
               onClick={reprocess}
               error={reprocessMsg?.error}
               notice={reprocessMsg?.notice}
-              disabled={row.status !== 'received'}
+              disabled={!(row.status === 'received' || (row.status === 'needs_review' && !row.applicationId))}
               description={
-                row.status === 'received'
+                row.status === 'received' || (row.status === 'needs_review' && !row.applicationId)
                   ? 'Runs the whole pipeline again from the raw payload, inline, and reports the outcome here. Use after fixing something outside this app — reopening a round, adding a lookup, restoring an API key.'
-                  : 'Only available while a submission is still stuck at “received”. This one has already been through the pipeline — to re-apply a corrected mapping use Confirm, or Edit & resend to put fresh data through.'
+                  : 'This one already has an application — to re-apply a corrected mapping use Confirm, or Edit & resend to put fresh data through.'
               }
             />
             <Action

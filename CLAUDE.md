@@ -137,8 +137,11 @@ Traps:
 - **Two suites, and `pnpm test` is only one of them.** `pnpm test` is offline and gates
   CI; `pnpm test:tenancy` runs `src/**/*.itest.ts` against a real database and is run by
   hand. The second is where anything that WRITES is proven: `tenancy.itest.ts` (no
-  foundation sees another's rows) and `dataImport.itest.ts` (the onboarding import, which
-  is the only code in the app that deletes a foundation's rows). Both build and tear down
+  foundation sees another's rows), `dataImport.itest.ts` (the onboarding import, which
+  is the only code in the app that deletes a foundation's rows) and `ingest.itest.ts` (both
+  submission pipelines end to end: promotion, holds, re-sends, reference clashes, unreadable
+  values, report linking by reference and charity number, move and send-back). It removes
+  the AI, Google and register keys from its own process, so it spends nothing. Both build and tear down
   their own tenant. A server fn is driven there by mocking `@tanstack/react-start`'s
   `createServerFn` down to its validator, which is how a fn with no extracted
   `(db, scope, …)` half is still testable.
@@ -607,11 +610,26 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
   you set an address and nothing else, so the credential travels in the PATH. That is a second
   `api_keys.kind` (`webhook`, prefix `cust_wh_…`), and `resolveToken` makes the kind part of the
   LOOKUP so a leaked webhook URL can never be replayed as a Bearer header. Answers **200**, not
-  202 — Typeform's delivery log is read by a person.
+  202 — Typeform's delivery log is read by a person. **One token, two addresses**
+  (2026-09-29): `/api/webhooks/typeform-report/<token>` is the report twin, and Settings → API
+  keys shows both when a webhook token is made. Before it, a report form had no direct way in,
+  and pasting the only address into one turned every report into an application.
 - **Envelopes are flattened at the decode boundary** (`src/lib/submissionEnvelope`), by SHAPE not
   by route, so nothing downstream knows they exist. Three keys are synthesised because a form
   cannot supply them (`Submission ID`, `Form name`, `Submitted at`) but they do NOT count toward
-  "did anything arrive" — an answerless Typeform test delivery must 400.
+  "did anything arrive" — an answerless Typeform test delivery must 400. It did not until
+  2026-09-29: an envelope that flattened to nothing fell back to ITSELF and was saved with
+  `event_id` / `form_response` as its answers. `isEnvelope` tells "an empty envelope" from "not
+  an envelope"; `submissionPayload.test.ts` pins it.
+- **A re-sent submission creates nothing** (`src/server/ingestDedupe.ts`, 2026-09-29). An EXACT
+  re-send (same foundation, jsonb-equal payload, so key order does not matter) is closed with a
+  note naming the earlier row, and deliberately does NOT point at its application or report:
+  the admin app's Delete removes what a row points at. The same application REFERENCE with
+  different answers is held (`reference_taken`) and refused at Confirm and at Place, because a
+  correction and a clash look alike; reports are exempt, since every report on a grant carries
+  its reference. "Earlier" is decided in SQL by `(created_at, id)`, so two copies processed at
+  once agree which one wins (`ingest.itest.ts` races them). Before this a platform retry made a
+  second application, and a re-sent report ticked the NEXT milestone as well.
 - **Every body is capped at `MAX_SUBMISSION_BYTES` (1 MB)** in `parseSubmissionPayload`, the single
   decode boundary all endpoints share. Over it is **413**, deliberately distinct from the 400 for
   a body that decoded to no fields. `Content-Length` is where it is really enforced.
@@ -692,6 +710,18 @@ The principle, and the reason the whole thing exists: **a lost field must never 
 indistinguishable from a question the foundation never asked.** `fieldGaps()`
 (`src/lib/fieldMapping/gaps.ts`) turns the metadata into what the application screen renders.
 
+**A value that cannot be read never holds an application, and is never guessed at**
+(2026-09-29, the "degrade, don't block" change parked on 2026-08-25). `assembleApplication`
+(`server/fieldMapping/assemble.ts`) leaves an `expected` or `optional` value that fails
+validation OFF the application instead of holding the submission; only a `required` field
+still holds. The answer stays in the submission and in `submittedFields`, which is how the
+application screen says "They answered “…”, which couldn't be read" rather than "not captured"
+(the lost-field bug again if the two were worded alike). The readers are strict for the same
+reason: `coerceAmount` and `coerceCount` read an answer only when it holds exactly ONE number
+(a written scale like "£15k" is read; a range, several numbers, a share or words are not). The
+old amount reader deleted every non-digit and stored "£2,500-5,000 per year" as £25,005,000,
+and an unread amount came out as `Number('')`, i.e. £0. Pinned in `canonical.test.ts`.
+
 ## Editing an application
 
 An admin can change how an application READS in Custodian (`lib/applicationEdit.ts` rules,
@@ -763,6 +793,17 @@ submissions, provision foundations, teach field mappings, send test data. Nav is
 Queues / Configuration / Testing — with a count per queue. Shared pieces in `src/ui.tsx`;
 `src/queues.ts` holds one shared fetch feeding both the sidebar counts and Overview.
 
+- **Reprocess takes a HELD row with no application or report yet**, not just a crashed one, for
+  both queues (the report one is `admin.report-ingests.$id.reprocess.ts`, 2026-09-29; reports had
+  none). The blockers had long said "reopen the round, then Reprocess" to a button that refused.
+  The row is reset to `received` by a conditional update first, so two presses cannot both run it.
+- **Reports waiting for a grant are the FOUNDATION's** since they attach them on their Reports
+  screen: the report queue lists them as "With the foundation" and they are not in our counts.
+- **Delete refuses an application trustees have voted or commented on** (the decision record
+  cascades), and a report's delete un-ticks its milestone only if no other report answers it.
+- **Test data**: one Raw JSON tool with presets for every outcome (each load mints a fresh
+  reference, so sending the same body twice is how the re-send rule is tested), plus the
+  application form with the due diligence cases. The 7stars replica and the report form went.
 - **Blockers** (`src/server/fieldMapping/diagnose.ts` + its report twin) re-derive why a row is
   held from what IS stored, rather than storing a column — so the answer can never go stale
   against the registry, and rows held before it existed explain themselves too. Blockers are
@@ -772,6 +813,13 @@ Queues / Configuration / Testing — with a count per queue. Shared pieces in `s
   changed. A `complete` ingest can be re-confirmed. **The gate is money: once a grant has been
   awarded the mapping is frozen** (`already_awarded`), since the award letter was written from
   those figures. An invalid or empty mapping is refused rather than partially applied.
+  **Since applications became editable it is gated on the foundation too** (2026-09-29): an
+  UNCHANGED mapping rewrites nothing (the confirm and lookups are recorded, the application is
+  left alone), and a CHANGED one is refused (`locked`) once the application is voted on,
+  awarded, or edited in Custodian, because it rewrites every mapped field from the submission
+  and would silently undo the foundation's corrections. "Unchanged" compares the maps as sets:
+  compared as JSON text they never matched (jsonb reorders keys), so until this every confirm
+  rewrote the application and re-ran its checks.
 - **`rerunDueDiligence` takes optional `charityNumber` / `companyNumber`** and writes them first —
   the only way out of the one dead end due diligence has (both columns NULL reads the same nothing
   however often it is pressed). Allowed after an award on purpose. Writes an

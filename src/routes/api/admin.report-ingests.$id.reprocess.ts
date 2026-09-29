@@ -1,10 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { and, eq, isNull } from 'drizzle-orm'
 import { getDb } from '../../server/db'
-import { applicationIngests } from '../../../drizzle/schema'
-import { processIngest } from '../../server/fieldMapping/ingest'
+import { reportIngests } from '../../../drizzle/schema'
+import { processReportIngest } from '../../server/reportMapping/ingest'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 
+// Re-run the report pipeline over a report ingest: the twin of
+// `admin.ingests.$id.reprocess.ts`, which says why each rule is what it is. Reports had
+// no reprocess at all, so a report whose pipeline crashed could only be resolved by hand.
+//
+// (Application version's notes follow.)
 // Re-run the mapping pipeline over an ingest whose background run never finished.
 //
 // `/api/apply` answers 202 and hands the pipeline to `runInBackground`. If that run
@@ -22,7 +27,7 @@ import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/h
 // Reprocess") while this endpoint refused anything past `received`. Such a row is put
 // back to `received` first, by a conditional update, so two presses cannot both run it
 // and a row that has since been resolved is left alone.
-export const Route = createFileRoute('/api/admin/ingests/$id/reprocess')({
+export const Route = createFileRoute('/api/admin/report-ingests/$id/reprocess')({
   server: {
     handlers: {
       OPTIONS: async () => adminOptions(),
@@ -30,27 +35,27 @@ export const Route = createFileRoute('/api/admin/ingests/$id/reprocess')({
         const denied = requireAdminToken(request)
         if (denied) return denied
 
-        const ingest = await getDb().query.applicationIngests.findFirst({
-          where: eq(applicationIngests.id, params.id),
-          columns: { id: true, status: true, applicationId: true },
+        const ingest = await getDb().query.reportIngests.findFirst({
+          where: eq(reportIngests.id, params.id),
+          columns: { id: true, status: true, reportId: true },
         })
         if (!ingest) return adminJson({ error: 'Not found' }, 404)
 
         if (ingest.status === 'needs_review') {
           const [reset] = await getDb()
-            .update(applicationIngests)
-            .set({ status: 'received', proposed: null, resolved: null, roundProgrammeId: null })
+            .update(reportIngests)
+            .set({ status: 'received', proposed: null, resolved: null, matchCandidates: null })
             .where(
               and(
-                eq(applicationIngests.id, params.id),
-                eq(applicationIngests.status, 'needs_review'),
-                isNull(applicationIngests.applicationId),
+                eq(reportIngests.id, params.id),
+                eq(reportIngests.status, 'needs_review'),
+                isNull(reportIngests.reportId),
               ),
             )
-            .returning({ id: applicationIngests.id })
+            .returning({ id: reportIngests.id })
           if (!reset) {
             return adminJson(
-              { error: 'This submission already has an application. Use Confirm to correct it.' },
+              { error: 'This report is already attached to a grant.' },
               409,
             )
           }
@@ -59,23 +64,23 @@ export const Route = createFileRoute('/api/admin/ingests/$id/reprocess')({
           // but say so plainly rather than returning a silent no-op that reads as success.
           return adminJson(
             {
-              error: `This submission has already been filed (${ingest.status}). Use Confirm to correct its mapping.`,
+              error: `This submission has already been filed (${ingest.status}). It has already been through the pipeline.`,
             },
             409,
           )
         }
 
         try {
-          const result = await processIngest(params.id)
+          const result = await processReportIngest(params.id)
           if (!result.ok) return adminJson({ error: `Could not reprocess: ${result.error}` }, 409)
           return adminJson(
-            { ok: true, status: result.status, applicationId: result.applicationId },
+            { ok: true, status: result.status, reportId: result.reportId },
             200,
           )
         } catch (err) {
           // The row stays at `received`, so this is retryable — surface why it failed
           // so an admin can tell a transient blip from a payload that will never map.
-          console.error(`[admin] reprocess ${params.id} failed:`, err)
+          console.error(`[admin] report reprocess ${params.id} failed:`, err)
           return adminJson(
             {
               error:

@@ -113,16 +113,25 @@ describe('diagnoseIngest', () => {
     expect(codes(diagnoseIngest(row, emptyIndex))).not.toContain('one_of_unmet')
   })
 
-  it('surfaces a value that maps but fails validation', () => {
+  it('surfaces a REQUIRED value that maps but fails validation', () => {
     // The case with no visible symptom before: the mapping grid is complete, so the
     // row looked ready to promote while sitting in needs_review forever.
     const row = cleanIngest()
-    row.rawPayload['amount'] = 'about fifteen thousand pounds'
+    row.rawPayload['ref'] = 'R'.repeat(300)
     const blockers = diagnoseIngest(row, emptyIndex)
     const invalid = blockers.find((b) => b.code === 'invalid_value')!
     expect(invalid).toBeDefined()
-    expect(invalid.fields!.map((f) => f.key)).toContain('amountRequested')
+    expect(invalid.fields!.map((f) => f.key)).toContain('externalApplicationId')
     expect(invalid.fields![0]!.message).toBeTruthy()
+  })
+
+  it('does not hold a submission over an unreadable optional value', () => {
+    // Since 2026-09-29 such a value is left off the application and stated there
+    // (`assembleApplication`), so it is no reason to hold and must not be shown as one.
+    const row = cleanIngest()
+    row.rawPayload['amount'] = 'about fifteen thousand pounds'
+    const blockers = diagnoseIngest(row, emptyIndex)
+    expect(blockers.find((b) => b.code === 'invalid_value')).toBeUndefined()
   })
 
   it('does not report a missing required field twice as an invalid value', () => {

@@ -195,6 +195,7 @@ export type BlockerCode =
   | 'required_unmapped'
   | 'one_of_unmet'
   | 'invalid_value'
+  | 'reference_taken'
   | 'grant_unmatched'
 
 export interface Blocker {

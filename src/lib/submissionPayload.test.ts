@@ -126,3 +126,37 @@ describe('parseSubmissionPayload — size', () => {
     expect(await payloadOf(post(JSON.stringify(big), 'application/json'))).toEqual(big)
   })
 })
+
+describe('parseSubmissionPayload — platform envelopes', () => {
+  const typeform = (answers: unknown[]) =>
+    JSON.stringify({
+      event_id: 'evt_1',
+      event_type: 'form_response',
+      form_response: {
+        token: 'resp_1',
+        submitted_at: '2026-09-29T10:00:00Z',
+        definition: { title: 'Grant report', fields: [{ id: 'q1', title: 'Charity number' }] },
+        answers,
+      },
+    })
+
+  it('flattens a Typeform envelope to its questions', async () => {
+    const req = post(
+      typeform([{ type: 'text', text: '1123456', field: { id: 'q1', type: 'short_text' } }]),
+      'application/json',
+    )
+    expect(await payloadOf(req)).toMatchObject({
+      'Charity number': '1123456',
+      'Submission ID': 'resp_1',
+    })
+  })
+
+  it("refuses Typeform's answerless test delivery rather than saving the envelope", async () => {
+    // Regression: the empty envelope used to fall back to itself and be accepted,
+    // with `event_id` and `form_response` saved as though they were answers.
+    expect(await parseSubmissionPayload(post(typeform([]), 'application/json'))).toEqual({
+      ok: false,
+      reason: 'unusable',
+    })
+  })
+})

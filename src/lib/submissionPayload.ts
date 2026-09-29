@@ -37,7 +37,7 @@
  * nothing further in sees that envelopes exist.
  */
 
-import { readEnvelope } from './submissionEnvelope'
+import { isEnvelope, readEnvelope } from './submissionEnvelope'
 
 /**
  * The largest submission we will read.
@@ -79,9 +79,18 @@ function declaredTooLarge(request: Request): boolean {
   return Number.isFinite(declared) && declared > MAX_SUBMISSION_BYTES
 }
 
-/** Unwrap a recognised platform envelope; pass an ordinary flat payload through. */
+/**
+ * Unwrap a recognised platform envelope; pass an ordinary flat payload through.
+ *
+ * A body that IS an envelope but flattens to nothing (Typeform's answerless "test"
+ * delivery) is empty, not an ordinary payload: falling back to the raw envelope here
+ * accepted it with a success and saved `event_id` / `form_response` as though they
+ * were answers. It returns `{}`, which `asBody` refuses.
+ */
 function unwrap(payload: Record<string, unknown>): Record<string, unknown> {
-  return readEnvelope(payload)?.payload ?? payload
+  const envelope = readEnvelope(payload)
+  if (envelope) return envelope.payload
+  return isEnvelope(payload) ? {} : payload
 }
 
 export async function parseSubmissionPayload(request: Request): Promise<SubmissionBody> {

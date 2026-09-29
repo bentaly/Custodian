@@ -44,10 +44,21 @@ function maskKey(kind: KeyKind, last4: string) {
 // box, and it takes an address. So the reveal shows the whole address, not the token:
 // the alternative is telling somebody to assemble a URL by hand from a secret they can
 // only see once. Built from the live origin so staging and local dev are right too.
-function webhookUrl(token: string) {
+//
+// One token, TWO addresses: the token says which foundation, the address says whether
+// the form is an application form or a report form. Both are shown at once because the
+// token is shown once; a foundation with both forms uses one token for each or both.
+function webhookUrls(token: string) {
   const origin = typeof window === 'undefined' ? '' : window.location.origin
-  return `${origin}/api/webhooks/typeform/${token}`
+  return {
+    application: `${origin}/api/webhooks/typeform/${token}`,
+    report: `${origin}/api/webhooks/typeform-report/${token}`,
+  }
 }
+
+type Revealed =
+  | { kind: 'secret'; key: string }
+  | { kind: 'webhook'; application: string; report: string }
 
 function ApiKeys() {
   const router = useRouter()
@@ -61,8 +72,8 @@ function ApiKeys() {
   const [creating, setCreating] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [newSecret, setNewSecret] = useState<{ value: string; kind: KeyKind } | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [newSecret, setNewSecret] = useState<Revealed | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -71,10 +82,11 @@ function ApiKeys() {
     setCreating(true)
     try {
       const created = await createApiKey({ data: { name, kind } })
-      setNewSecret({
-        value: kind === 'webhook' ? webhookUrl(created.key) : created.key,
-        kind,
-      })
+      setNewSecret(
+        kind === 'webhook'
+          ? { kind: 'webhook', ...webhookUrls(created.key) }
+          : { kind: 'secret', key: created.key },
+      )
       setName('')
       router.invalidate()
     } catch (err) {
@@ -97,11 +109,10 @@ function ApiKeys() {
     }
   }
 
-  async function copyKey() {
-    if (!newSecret) return
-    await navigator.clipboard.writeText(newSecret.value)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  async function copy(value: string) {
+    await navigator.clipboard.writeText(value)
+    setCopied(value)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   const keyColumns: TableColumn<ApiKeyRow>[] = [
@@ -192,23 +203,33 @@ function ApiKeys() {
               ? "Webhook address created. Copy it now. You won't be able to see it again."
               : "Key created. Copy it now. You won't be able to see it again."}
           </p>
-          {newSecret.kind === 'webhook' && (
-            <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
-              Paste it into your form's webhook settings. In Typeform, Connect → Webhooks → Add a
-              webhook. The address contains the key, so treat it like one.
-            </p>
+          {newSecret.kind === 'webhook' ? (
+            <>
+              <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
+                Paste the address for the kind of form into that form's webhook settings. In
+                Typeform, Connect → Webhooks → Add a webhook. Both addresses contain the key, so
+                treat them like one.
+              </p>
+              <RevealedValue
+                label="For an application form"
+                value={newSecret.application}
+                copied={copied === newSecret.application}
+                onCopy={copy}
+              />
+              <RevealedValue
+                label="For a grant report form"
+                value={newSecret.report}
+                copied={copied === newSecret.report}
+                onCopy={copy}
+              />
+            </>
+          ) : (
+            <RevealedValue
+              value={newSecret.key}
+              copied={copied === newSecret.key}
+              onCopy={copy}
+            />
           )}
-          <div className="mt-2 flex items-center gap-2">
-            <code
-              className="flex-1 overflow-x-auto rounded-chip border bg-white px-3 py-2 font-mono text-label"
-              style={{ borderColor: C.brandBorder, color: C.ink }}
-            >
-              {newSecret.value}
-            </code>
-            <Button size="sm" onClick={copyKey}>
-              {copied ? 'Copied' : 'Copy'}
-            </Button>
-          </div>
         </div>
       )}
 
@@ -278,5 +299,38 @@ function ApiKeys() {
         </Panel>
       )}
     </SettingsPage>
+  )
+}
+
+function RevealedValue({
+  label,
+  value,
+  copied,
+  onCopy,
+}: {
+  label?: string
+  value: string
+  copied: boolean
+  onCopy: (value: string) => void
+}) {
+  return (
+    <div className="mt-3 flex flex-col gap-1">
+      {label && (
+        <p className="font-display text-label font-medium" style={{ color: C.ink }}>
+          {label}
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <code
+          className="flex-1 overflow-x-auto rounded-chip border bg-white px-3 py-2 font-mono text-label"
+          style={{ borderColor: C.brandBorder, color: C.ink }}
+        >
+          {value}
+        </code>
+        <Button size="sm" onClick={() => onCopy(value)}>
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </div>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 // ─── Testing ─────────────────────────────────────────────────────────────────
 //
-// The four test submitters used to sit in the top nav as peers of the review queue,
+// The test submitters used to sit in the top nav as peers of the review queue,
 // which made an operational tool look like it was mostly a test harness, and gave no
 // clue that they all hit the same two endpoints. They are one section now, with the
 // API key lifted out of each of them: the key was a separate box on three screens,
@@ -9,36 +9,24 @@
 
 import { useState } from 'react'
 import { Submitter } from './Submitter'
-import { Submitter7Stars } from './Submitter7Stars'
-import { SubmitterReport } from './SubmitterReport'
 import { SubmitterJson } from './SubmitterJson'
 import { DEFAULT_APPLY_API_KEY, useApplyApiKey } from './api'
 import { Callout, Card, Page, SectionHeading, inputClass } from './ui'
 
-type Tab = 'json' | 'form' | '7stars' | 'report'
+type Tab = 'json' | 'form'
 
 const TABS: Array<{ key: Tab; label: string; blurb: string }> = [
   {
     key: 'json',
     label: 'Raw JSON',
     blurb:
-      'Post any body you like to either endpoint. Presets reproduce each way a submission can end up held, so you can practise clearing them.',
+      'Post any body you like to either endpoint. Presets cover each way an application or a grant report can land, be held or be absorbed, including a raw Typeform envelope.',
   },
   {
     key: 'form',
     label: 'Application form',
     blurb:
       'A generic application form built from the selected programme’s own questions, with quick-fill presets for each due diligence outcome.',
-  },
-  {
-    key: '7stars',
-    label: '7stars form',
-    blurb: 'A replica of a real foundation’s form, field names and all — the mapper’s hard case.',
-  },
-  {
-    key: 'report',
-    label: 'Grant report',
-    blurb: 'Posts to /api/submit-report, exercising the grant-matching side of the pipeline.',
   },
 ]
 
@@ -89,8 +77,8 @@ export function TestSubmissions() {
           {!apiKey && (
             <div className="mt-3">
               <Callout tone="warn">
-                Without a key every submission below comes back 401. The key is shared by all four
-                tabs and by Edit &amp; resend in the queues.
+                Without a key every submission below comes back 401. The key is shared by both tabs
+                and by Edit &amp; resend in the queues.
               </Callout>
             </div>
           )}
@@ -116,8 +104,6 @@ export function TestSubmissions() {
 
       {tab === 'json' && <SubmitterJson />}
       {tab === 'form' && <Submitter />}
-      {tab === '7stars' && <Submitter7Stars />}
-      {tab === 'report' && <SubmitterReport />}
     </Page>
   )
 }

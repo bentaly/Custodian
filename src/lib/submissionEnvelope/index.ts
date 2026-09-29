@@ -37,9 +37,9 @@ export type ReadEnvelopeResult = {
  * Recognise and flatten a platform envelope, or null if the body is not one.
  *
  * Returns null for an envelope we recognise but cannot flatten to anything (a
- * Typeform response with no answers at all). The caller then treats the body as
- * an ordinary flat payload, and it fails the usual "must contain fields" check —
- * an empty submission is refused with a 400 rather than accepted as an empty one.
+ * Typeform response with no answers at all), and for a body that is no envelope.
+ * The decoder tells the two apart with `isEnvelope`, so the first is refused as
+ * empty (400) rather than passed through as though it were a flat payload.
  */
 export function readEnvelope(body: Record<string, unknown>): ReadEnvelopeResult | null {
   for (const reader of READERS) {
@@ -48,4 +48,9 @@ export function readEnvelope(body: Record<string, unknown>): ReadEnvelopeResult 
     return payload ? { platform: reader.platform, payload } : null
   }
   return null
+}
+
+/** True if `body` is any recognised platform envelope, whether or not it has answers. */
+export function isEnvelope(body: Record<string, unknown>): boolean {
+  return READERS.some((reader) => reader.matches(body))
 }

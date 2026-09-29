@@ -107,9 +107,36 @@ export interface CanonicalField {
   coerce?: (raw: string) => string
 }
 
-/** Strip currency symbols, thousands separators and spaces, leaving a numeric string. */
+/**
+ * Read an amount of money (or a quantity) from an answer, as a numeric string, or ''
+ * when the answer does not hold exactly one number. See the comment inside.
+ */
 export function coerceAmount(raw: string): string {
-  return raw.replace(/[^0-9.]/g, '')
+  // Exactly ONE number, or nothing. This used to delete every character that was not a
+  // digit or a dot, which read "£2,500-5,000 per year" as £25,005,000 and "3 staff at
+  // £20k" as £320, stored without a word: these figures drive the budget meters and the
+  // assessment. Nothing read is better than a wrong figure, because nothing is flagged
+  // on the application ("sent, but could not be read") and a person types it in.
+  const numbers = [...raw.matchAll(/\d[\d,]*(?:\.\d+)?/g)]
+  if (numbers.length !== 1) return ''
+  const match = numbers[0]!
+  const token = match[0].replace(/,+$/, '')
+  // Commas only as thousands separators: "25,000" yes, "25,00" no.
+  if (token.includes(',') && !/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(token)) return ''
+  const after = raw.slice(match.index! + token.length)
+  // A share is not an amount.
+  if (/^\s*(%|per\s*cent\b|percent\b)/i.test(after)) return ''
+  // A written scale is read, because "£15k" is how people write money.
+  const scale = /^\s*(k|thousand|m|mn|million|bn|billion)\b/i.exec(after)?.[1]?.toLowerCase()
+  const factor = !scale
+    ? 1
+    : scale === 'k' || scale === 'thousand'
+      ? 1_000
+      : scale === 'bn' || scale === 'billion'
+        ? 1_000_000_000
+        : 1_000_000
+  const n = Number(token.replace(/,/g, '')) * factor
+  return Number.isFinite(n) ? String(Math.round(n * 100) / 100) : ''
 }
 
 export const CANONICAL_FIELDS: CanonicalField[] = [

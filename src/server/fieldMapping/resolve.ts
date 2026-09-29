@@ -10,9 +10,16 @@
 // no second application is created, but the reviewer's mapping is still applied to the
 // existing one, because a confirm is also where a wrong AI mapping gets corrected.
 
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { getDb } from '../db'
-import { applicationIngests, awards, fieldMappings } from '../../../drizzle/schema'
+import {
+  applicationEdits,
+  applicationIngests,
+  applications,
+  awards,
+  fieldMappings,
+} from '../../../drizzle/schema'
+import { editLockReason } from '../applications/edit'
 import {
   buildCanonicalInput,
   buildSubmittedFields,
@@ -35,6 +42,7 @@ import {
   unmetRequired,
 } from '../../lib/fieldMapping'
 import type { ResolveInput } from '../../lib/validators/ingest'
+import { referenceTaken } from '../ingestDedupe'
 
 export type ResolveResult =
   | {
@@ -47,6 +55,8 @@ export type ResolveResult =
         | 'round_programme_missing'
     }
   | { ok: false; error: 'invalid'; fields: Array<{ field: string; message: string }> }
+  /** The application now belongs to the foundation's own screens; says why, for a person. */
+  | { ok: false; error: 'locked'; message: string }
   | {
       ok: true
       applicationId: string
@@ -93,6 +103,33 @@ function oneOfIssues(input: ResolveInput): Array<{ field: string; message: strin
       message: `Map ${CANONICAL_FIELD_BY_KEY[field].label.toLowerCase()}: a submission cannot be promoted without it.`,
     })),
   ]
+}
+
+/**
+ * A reference already carried by a DIFFERENT application of this foundation, as an
+ * issue on the reference field. The pipeline holds such a submission; a reviewer must
+ * not be able to create the duplicate by pressing Confirm. See `ingestDedupe.ts`.
+ */
+async function referenceIssue(
+  clientId: string,
+  reference: string | undefined,
+  ownApplicationId: string | null,
+): Promise<Array<{ field: string; message: string }>> {
+  if (!reference) return []
+  const taken = await referenceTaken(clientId, reference)
+  if (!taken || taken.applicationId === ownApplicationId) return []
+  return [
+    {
+      field: 'externalApplicationId',
+      message: `${taken.organisationName} already has the reference ${reference}. Correct that application in Custodian, or use Edit & resend with a reference of its own.`,
+    },
+  ]
+}
+
+/** Two string maps with the same pairs, whatever order their keys are in. */
+function samePairs(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every((k) => b[k] === a[k])
 }
 
 /** Persist reviewer-confirmed mappings to the foundation's lookup table. */
@@ -176,6 +213,13 @@ export async function resolveIngest(
         ? []
         : confirmed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message }))),
       ...oneOfIssues(input),
+      ...(confirmed.success
+        ? await referenceIssue(
+            ingest.clientId,
+            confirmed.data.externalApplicationId,
+            ingest.applicationId,
+          )
+        : []),
     ]
     // Refused rather than partially applied. This also guards the degenerate case of a
     // mapping arriving empty (the canonical registry not yet loaded in the client): it
@@ -187,21 +231,53 @@ export async function resolveIngest(
     const roundProgramme = await fetchRoundProgrammeForApplication(roundProgrammeId)
     if (!roundProgramme) return { ok: false, error: 'round_programme_missing' }
 
-    await persistLookups(ingest.clientId, input, actor)
-    const { rerun } = await updateApplicationFromCanonical(
-      roundProgramme,
-      ingest.applicationId,
-      confirmed.data,
-    )
-
     const confirmedMap = resolvedMapFor(confirmedResolved)
     const confirmedValues = providedValuesFor(input.values)
     // Typed values count as a change in their own right: they leave `resolved` alone
     // (they have no source key to key it on), so comparing the maps only would report
     // "the mapping was unchanged" for a confirm that just rewrote the delivery area.
+    //
+    // Compared as SETS of pairs, not as JSON text. The stored maps come back from jsonb,
+    // which reorders keys, so a text comparison never matched and every confirm counted
+    // as a change: it rewrote the application and re-ran its checks for nothing.
     const updated =
-      JSON.stringify(confirmedMap) !== JSON.stringify(ingest.resolved ?? {}) ||
-      JSON.stringify(confirmedValues) !== JSON.stringify(ingest.providedValues ?? {})
+      !samePairs(confirmedMap, ingest.resolved ?? {}) ||
+      !samePairs(confirmedValues, ingest.providedValues ?? {})
+
+    // The application may have moved on since it was created: the foundation can edit
+    // it in Custodian (2026-09-27), and trustees vote on it. Re-applying the mapping
+    // writes EVERY mapped field from the submission, so it would silently undo their
+    // corrections, or change an application under a board that has started deciding.
+    //   - An unchanged mapping rewrites nothing: the confirm is recorded and the
+    //     lookups taught, and the application is left exactly as it is.
+    //   - A changed one is refused once the application is voted on, awarded, or
+    //     edited in Custodian, saying where the fix belongs instead.
+    if (updated) {
+      const app = await getDb().query.applications.findFirst({
+        where: eq(applications.id, ingest.applicationId),
+        columns: { id: true, status: true },
+        with: { award: { columns: { id: true } } },
+      })
+      const lock = app ? await editLockReason(app) : null
+      if (lock) return { ok: false, error: 'locked', message: lock }
+      const [edited] = await getDb()
+        .select({ n: sql<number>`count(*)::int` })
+        .from(applicationEdits)
+        .where(eq(applicationEdits.applicationId, ingest.applicationId))
+      if ((edited?.n ?? 0) > 0) {
+        return {
+          ok: false,
+          error: 'locked',
+          message:
+            'The foundation has edited this application in Custodian since it arrived, and re-applying the mapping would overwrite their changes. Make the correction on the application instead.',
+        }
+      }
+    }
+
+    await persistLookups(ingest.clientId, input, actor)
+    const { rerun } = updated
+      ? await updateApplicationFromCanonical(roundProgramme, ingest.applicationId, confirmed.data)
+      : { rerun: [] as string[] }
 
     await getDb()
       .update(applicationIngests)
@@ -250,6 +326,9 @@ export async function resolveIngest(
       ? []
       : parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message }))),
     ...oneOfIssues(input),
+    ...(parsed.success
+      ? await referenceIssue(ingest.clientId, parsed.data.externalApplicationId, null)
+      : []),
   ]
   if (!parsed.success || issues.length > 0) {
     return { ok: false, error: 'invalid', fields: issues }

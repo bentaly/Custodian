@@ -4,6 +4,7 @@
 // turn a resolved canonical map + raw payload into a CreateApplicationInput
 // candidate (validated by the caller) plus the leftover `responses`.
 
+import { CreateApplicationSchema } from '../../lib/validators/application'
 import {
   CANONICAL_FIELD_BY_KEY,
   CANONICAL_KEYS,
@@ -108,17 +109,18 @@ export function buildCanonicalInput(
   submittedFields?: Array<{ label: string; canonical: string | null }>,
 ) {
   const get = (k: CanonicalFieldKey) => resolved[k]?.value
-  const amountRaw = get('amountRequested')
-  const amount =
-    amountRaw != null
-      ? Number(CANONICAL_FIELD_BY_KEY.amountRequested.coerce!(amountRaw))
-      : undefined
+  // A reading of '' is "could not read", and must stay undefined. `Number('')` is 0, so
+  // passing it through turned an unreadable ask into £0 (then refused, holding the whole
+  // submission) and an unreadable reserves or impact answer into a stored 0.
+  const numberOf = (k: CanonicalFieldKey) => {
+    const raw = get(k)
+    if (raw == null) return undefined
+    const read = CANONICAL_FIELD_BY_KEY[k].coerce!(raw)
+    return read === '' ? undefined : Number(read)
+  }
+  const amount = numberOf('amountRequested')
 
-  const impactRaw = get('proposedImpactQuantity')
-  const impactCoerced =
-    impactRaw != null
-      ? Number(CANONICAL_FIELD_BY_KEY.proposedImpactQuantity.coerce!(impactRaw))
-      : undefined
+  const impactCoerced = numberOf('proposedImpactQuantity')
   // Only pass a finite, non-negative number through; a garbled value stays unmapped.
   const proposedImpactQuantity =
     impactCoerced != null && Number.isFinite(impactCoerced) && impactCoerced >= 0
@@ -131,11 +133,7 @@ export function buildCanonicalInput(
   // as NaN. A negative figure is refused too — a charity in deficit exists, but so does
   // a form where somebody typed a minus into the wrong box, and the column is read as
   // "what they hold".
-  const reservesRaw = get('unrestrictedReserves')
-  const reservesCoerced =
-    reservesRaw != null
-      ? Number(CANONICAL_FIELD_BY_KEY.unrestrictedReserves.coerce!(reservesRaw))
-      : undefined
+  const reservesCoerced = numberOf('unrestrictedReserves')
   const unrestrictedReserves =
     reservesCoerced != null && Number.isFinite(reservesCoerced) && reservesCoerced >= 0
       ? reservesCoerced
@@ -230,4 +228,47 @@ export function resolvedMapFor(resolved: Resolved): Record<string, string> {
     if (r && r.sourceKey !== PROVIDED) m[r.sourceKey] = canonical
   }
   return m
+}
+
+/**
+ * Assemble and validate an application, landing it WITHOUT any optional or expected
+ * value that fails validation rather than holding the whole submission for it.
+ *
+ * Until 2026-09-29 one bad value anywhere held everything: a delivery area answered in
+ * 863 characters, a sort code with a note after it, an email typed as "grants at …".
+ * That was right while only we could fix a submission, and wrong once the foundation
+ * could (applications are editable in Custodian). Now such a value is left off the
+ * application, the answer stays in the submission, and the application screen's "Not
+ * captured" panel says it was SENT but could not be read, which is a different thing
+ * from never asked and is worded differently.
+ *
+ * A REQUIRED field failing still fails: without the programme or the reference there is
+ * no application to land. `unreadable` names what was left off.
+ */
+export function assembleApplication(
+  roundProgrammeId: string,
+  resolved: Resolved,
+  responses: Array<{ label: string; value: string }>,
+  submittedFields?: Array<{ label: string; canonical: string | null }>,
+): {
+  parsed: ReturnType<typeof CreateApplicationSchema.safeParse>
+  unreadable: CanonicalFieldKey[]
+} {
+  const candidate: Record<string, unknown> = buildCanonicalInput(
+    roundProgrammeId,
+    resolved,
+    responses,
+    submittedFields,
+  )
+  const first = CreateApplicationSchema.safeParse(candidate)
+  if (first.success) return { parsed: first, unreadable: [] }
+
+  const failing = [...new Set(first.error.issues.map((i) => String(i.path[0] ?? '')))]
+  const droppable = failing.filter(
+    (k): k is CanonicalFieldKey =>
+      CANONICAL_KEY_SET.has(k) && CANONICAL_FIELD_BY_KEY[k as CanonicalFieldKey].tier !== 'required',
+  )
+  if (droppable.length !== failing.length) return { parsed: first, unreadable: [] }
+  for (const k of droppable) candidate[k] = undefined
+  return { parsed: CreateApplicationSchema.safeParse(candidate), unreadable: droppable }
 }

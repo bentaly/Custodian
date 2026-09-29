@@ -29,9 +29,10 @@ const PRESETS: Preset[] = [
   {
     label: 'Clean application (canonical names)',
     endpoint: '/api/apply',
-    expect: 'Maps by exact match and promotes straight to an application.',
+    expect:
+      'Maps by exact match and promotes straight to an application. Press Send twice without reloading the preset and the second is absorbed as an exact re-send; change an answer and send again and it is held on the reference.',
     body: {
-      externalApplicationId: 'JSON-001',
+      externalApplicationId: '{{ref}}',
       programmeName: '{{programme}}',
       organisationName: 'Test Charity Organisation',
       applicantEmail: 'grants@example.org',
@@ -54,7 +55,7 @@ const PRESETS: Preset[] = [
     expect:
       'Nothing matches by exact name, so the lookup table, the built-in dictionary and finally the AI fallback all get a turn. Watch what it guesses.',
     body: {
-      'Your reference': 'JSON-002',
+      'Your reference': '{{ref}}',
       'Which programme are you applying to?': '{{programme}}',
       'Name of your organisation': 'Test Charity Organisation',
       'Contact email address': 'grants@example.org',
@@ -72,9 +73,9 @@ const PRESETS: Preset[] = [
     label: 'No charity or company number',
     endpoint: '/api/apply',
     expect:
-      'Held on the one-of rule: with neither number there is no register to screen against, so due diligence could never run.',
+      'Lands. Due diligence reads “no registration” (there is nothing to screen), and the application says so under Not captured.',
     body: {
-      externalApplicationId: 'JSON-003',
+      externalApplicationId: '{{ref}}',
       programmeName: '{{programme}}',
       organisationName: 'Unregistered Community Group',
       applicantEmail: 'hello@example.org',
@@ -89,9 +90,9 @@ const PRESETS: Preset[] = [
     label: 'Amount that will not parse',
     endpoint: '/api/apply',
     expect:
-      'Every field maps, so the grid looks complete — but validation rejects the amount and it is held. This is the case the old queue could not explain at all.',
+      'Lands without an amount: Not captured says one was sent but could not be read, the assessment waits for it, and it cannot be shortlisted until an admin fills it in.',
     body: {
-      externalApplicationId: 'JSON-004',
+      externalApplicationId: '{{ref}}',
       programmeName: '{{programme}}',
       organisationName: 'Test Charity Organisation',
       applicantEmail: 'grants@example.org',
@@ -106,9 +107,10 @@ const PRESETS: Preset[] = [
   {
     label: 'Programme that does not exist',
     endpoint: '/api/apply',
-    expect: 'Nothing to file it under, so it lands in Out of round.',
+    expect:
+      'Nothing to file it under, so it is held out of round. If a round was open when it arrived, the foundation can place it from the banner on Applications.',
     body: {
-      externalApplicationId: 'JSON-005',
+      externalApplicationId: '{{ref}}',
       programmeName: 'A Programme Nobody Runs',
       organisationName: 'Test Charity Organisation',
       applicantEmail: 'grants@example.org',
@@ -124,9 +126,9 @@ const PRESETS: Preset[] = [
     label: 'Report with a matching reference',
     endpoint: '/api/submit-report',
     expect:
-      'Auto-links only if a grant carries this exact application reference — change it to one you have awarded.',
+      'Auto-links when a grant carries this exact application reference (WF-2025-004 is Riverbank on staging’s Wrenfield; change it for another foundation). Sending it twice is absorbed as a re-send.',
     body: {
-      externalApplicationId: 'JSON-001',
+      externalApplicationId: '{{ref}}',
       organisationName: 'Test Charity Organisation',
       impactSummary:
         'We ran 24 sessions over six months and supported 130 young carers, exceeding our target of 100.',
@@ -141,12 +143,65 @@ const PRESETS: Preset[] = [
     label: 'Report with no reference',
     endpoint: '/api/submit-report',
     expect:
-      'Cannot auto-link, so it is held with ranked (heuristic) grant suggestions for you to confirm.',
+      'No reference and no charity number, so it cannot link itself. It waits on the foundation’s Reports screen (“1 report needs a grant”), with ranked suggestions.',
     body: {
       organisationName: 'Test Charity Organisation',
       impactSummary: 'A short summary of what the grant achieved.',
       beneficiaryCount: 42,
       contactEmail: 'grants@example.org',
+    },
+  },
+  {
+    label: 'Report linked by charity number',
+    endpoint: '/api/submit-report',
+    expect:
+      'No reference, but the charity number matches a grantee with exactly one grant waiting on a report (202918 is Riverbank on staging’s Wrenfield), so it links itself: “Automatic (charity number)”.',
+    body: {
+      'Charity number': '202918',
+      'How has our funding made a difference?':
+        'Over the year the team worked with 92 young people; 58 moved into education, training or work.',
+      'How many young people have you supported to date?': '92',
+    },
+  },
+  {
+    label: 'Report with an unreadable figure',
+    endpoint: '/api/submit-report',
+    expect:
+      'Lands, but “about 60-70” is not one whole number, so no figure is taken from it: the report screen shows their answer beside the figure and the analysis reads one from the narrative.',
+    body: {
+      externalApplicationId: 'WF-2025-004',
+      impactSummary: 'A busy term. We think we reached about 60-70 young people across both sites.',
+      'How many young people have you supported to date?': 'about 60-70',
+    },
+  },
+  {
+    label: 'Typeform envelope',
+    endpoint: '/api/apply',
+    expect:
+      'A raw Typeform webhook body, as Make would forward it. Flattened by shape at the door, so it maps like any other submission: the hidden fields carry the reference and programme.',
+    body: {
+      event_id: 'evt_{{ref}}',
+      event_type: 'form_response',
+      form_response: {
+        token: '{{ref}}',
+        submitted_at: '2026-09-29T10:00:00Z',
+        hidden: { reference: '{{ref}}', programme: '{{programme}}' },
+        definition: {
+          title: 'Grant application',
+          fields: [
+            { id: 'q1', title: 'Organisation name', type: 'short_text' },
+            { id: 'q2', title: 'Charity number', type: 'short_text' },
+            { id: 'q3', title: 'How much are you asking for?', type: 'number' },
+            { id: 'q4', title: 'Contact email', type: 'email' },
+          ],
+        },
+        answers: [
+          { type: 'text', text: 'Typeform Test Trust', field: { id: 'q1', type: 'short_text' } },
+          { type: 'text', text: '219279', field: { id: 'q2', type: 'short_text' } },
+          { type: 'number', number: 12000, field: { id: 'q3', type: 'number' } },
+          { type: 'email', email: 'grants@example.org', field: { id: 'q4', type: 'email' } },
+        ],
+      },
     },
   },
 ]
@@ -217,9 +272,14 @@ export function SubmitterJson() {
   }, [text])
 
   function loadPreset(preset: Preset) {
+    // A fresh reference per load, so a preset sent after another is a new submission
+    // rather than an exact re-send (which is absorbed without creating anything).
+    const ref = `TEST-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
     const json = JSON.stringify(preset.body, null, 2)
       .split('{{programme}}')
       .join(programme || '{{programme}}')
+      .split('{{ref}}')
+      .join(ref)
     setText(json)
     setEndpoint(preset.endpoint)
     setActivePreset(preset)
@@ -244,7 +304,7 @@ export function SubmitterJson() {
   return (
     <div className="space-y-5">
       <Card className="p-4">
-        <SectionHeading hint="Each of these produces a specific outcome in the queues. Presets marked with a programme use whichever one you pick below.">
+        <SectionHeading hint="Each of these produces a specific outcome. Loading a preset gives it a fresh reference, so it is a new submission; sending the same body twice tests the re-send rule.">
           Presets
         </SectionHeading>
         <div className="flex flex-wrap gap-1.5">

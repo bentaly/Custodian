@@ -43,6 +43,7 @@ import {
 import { createReportSubmissionFromCanonical, fetchGrantForReport } from '../reports/create'
 import { CreateReportSubmissionSchema } from '../../lib/validators/report'
 import { reportFault } from '../faults'
+import { earlierIdenticalReport, resentNote } from '../ingestDedupe'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
 const REPORT_KEY_SET = new Set<string>(REPORT_CANONICAL_KEYS)
@@ -82,6 +83,17 @@ export async function processReportIngest(
   if (ingest.status !== 'received') return { ok: false, error: 'not_received' }
 
   const { clientId, rawPayload: payload } = ingest
+
+  // 0. An exact re-send creates nothing: without this a retried report became a second
+  //    report and ticked the NEXT reporting milestone too. See `ingestDedupe.ts`.
+  const earlier = await earlierIdenticalReport(ingest)
+  if (earlier) {
+    await getDb()
+      .update(reportIngests)
+      .set({ status: 'complete', note: resentNote(earlier), resolvedAt: new Date() })
+      .where(eq(reportIngests.id, ingestId))
+    return { ok: true, status: 'complete', reportId: null }
+  }
 
   // 1. Lookup-table match (report vocabulary only).
   const mappings = await getDb().query.fieldMappings.findMany({

@@ -60,10 +60,10 @@ export function ReportQueue({
     [
       {
         key: 'need-grant',
-        label: 'Needs a grant',
+        label: 'With the foundation',
         rows: buckets.reportsNeedGrant,
         blurb:
-          'These mapped fine but could not be linked to a grant automatically. Pick the grant each belongs to — suggestions are ranked, but they are heuristics, so check them.',
+          'Neither the application reference nor the charity number pointed to one grant. The foundation attaches these on their own Reports screen, so they are not counted as ours. You can still attach one here if they ask for help.',
       },
       {
         key: 'held',
@@ -75,8 +75,7 @@ export function ReportQueue({
         key: 'stalled',
         label: 'Stalled',
         rows: buckets.reportsStalled,
-        blurb:
-          'The background pipeline crashed on these. Unlike applications there is no reprocess endpoint for reports — resolve them by hand below.',
+        blurb: 'The background pipeline crashed on these. Reprocess runs it again, inline.',
       },
       {
         key: 'confirm',
@@ -110,7 +109,7 @@ export function ReportQueue({
   return (
     <Page
       title="Grant reports"
-      intro="Reports sent in by grantees. A report only files itself when its application reference matches exactly one grant — everything else waits here."
+      intro="Reports sent in by grantees. A report files itself when its application reference matches one grant, or its charity number matches the one grant waiting on a report. Those that do neither wait with the foundation, on their Reports screen."
       actions={
         <Button onClick={reload} busy={loading} busyLabel="Refreshing">
           Refresh
@@ -289,6 +288,34 @@ function ReportCard({
   const organisation = resolvedValue(row, 'organisationName')
   const stalled = row.blockers.some((b) => b.code === 'pipeline_stalled')
   const headline = row.blockers.find((b) => b.severity === 'blocking') ?? row.blockers[0]
+
+  const [reprocessing, setReprocessing] = useState(false)
+  const [reprocessMsg, setReprocessMsg] = useState<{ error?: string; notice?: string } | null>(null)
+  const canReprocess = !row.reportId && (row.status === 'received' || row.status === 'needs_review')
+
+  // Run the pipeline again, inline: for a crashed run, or after fixing what held it (a
+  // lookup added, a grant's reference corrected). The server refuses a report already
+  // attached, and resets a held row first so two presses cannot both run it.
+  async function reprocess() {
+    setReprocessing(true)
+    setReprocessMsg(null)
+    try {
+      const result = await adminPost<{ status: string; reportId: string | null }>(
+        `/api/admin/report-ingests/${row.id}/reprocess`,
+        {},
+      )
+      setReprocessMsg({
+        notice: result.reportId
+          ? `Reprocessed — attached to a grant (${result.status}).`
+          : 'Reprocessed — it still cannot be filed automatically. The reasons are above.',
+      })
+      onChanged()
+    } catch (e) {
+      setReprocessMsg({ error: (e as Error).message })
+    } finally {
+      setReprocessing(false)
+    }
+  }
 
   async function remove() {
     const msg =
@@ -566,6 +593,17 @@ function ReportCard({
                     ? 'Saves any ticked lookups and marks this done.'
                     : 'Creates the report submission against the grant chosen above, ticks its earliest open reporting milestone, and runs the AI analysis. Visible to the foundation immediately.'
                 }
+              />
+            )}
+            {canReprocess && (
+              <Action
+                label="Reprocess"
+                busy={reprocessing}
+                busyLabel="Reprocessing"
+                onClick={reprocess}
+                error={reprocessMsg?.error}
+                notice={reprocessMsg?.notice}
+                description="Runs the whole report pipeline again from the raw payload, inline, and reports the outcome here. Use for a crashed run, or after fixing what held it."
               />
             )}
             <Action

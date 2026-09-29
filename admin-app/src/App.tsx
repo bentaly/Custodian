@@ -101,7 +101,7 @@ export default function App() {
     buckets.awaitingConfirmation.length
   const reportsWaiting =
     buckets.reportsStalled.length +
-    buckets.reportsNeedGrant.length +
+    // Not `reportsNeedGrant`: those are the foundation's, attached on their Reports screen.
     buckets.reportsNeedsMapping.length +
     buckets.reportsAwaitingConfirmation.length
 

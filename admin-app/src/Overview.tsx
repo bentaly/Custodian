@@ -83,10 +83,10 @@ function cardsFor(b: Buckets): BucketCard[] {
     {
       key: 'need-grant',
       count: b.reportsNeedGrant.length,
-      label: 'Reports needing a grant',
+      label: 'Reports waiting on the foundation',
       meaning:
-        'A report is auto-linked only on an exact application-reference match. Everything else waits for a human to pick the grant — attaching one to the wrong grant ticks the wrong milestone.',
-      tone: 'warn',
+        'Neither the application reference nor the charity number pointed to one grant. The foundation sees these on their Reports screen and attaches them there, so nothing is needed from us unless they ask.',
+      tone: 'info',
       to: { view: 'reports', focus: 'need-grant' },
     },
     {

@@ -33,7 +33,11 @@ export interface Buckets {
   awaitingConfirmation: IngestRow[]
   reportsStalled: ReportIngestRow[]
   reportsProcessing: ReportIngestRow[]
-  /** Held for want of a grant to attach to — the common report case, by design. */
+  /**
+   * Held for want of a grant to attach to. The FOUNDATION's work since 2026-09-28: their
+   * Reports screen lists these ("N reports need a grant") and they attach them there.
+   * Shown here so we can see them and help, but not counted as ours.
+   */
   reportsNeedGrant: ReportIngestRow[]
   reportsNeedsMapping: ReportIngestRow[]
   reportsAwaitingConfirmation: ReportIngestRow[]
@@ -80,7 +84,6 @@ export function attentionCount(b: Buckets): number {
     b.needsMapping.length +
     b.awaitingConfirmation.length +
     b.reportsStalled.length +
-    b.reportsNeedGrant.length +
     b.reportsNeedsMapping.length +
     b.reportsAwaitingConfirmation.length
   )

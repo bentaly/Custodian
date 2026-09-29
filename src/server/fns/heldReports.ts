@@ -159,26 +159,59 @@ export const attachHeldReport = createServerFn({ method: 'POST' })
       )
     }
 
-    const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'manual', {
-      analysis: 'queued',
-      receivedAt: ingest.createdAt,
-    })
-    const reportId = created.submission?.id
+    // Claim the row BEFORE creating the report. Two presses, or an admin here and us in
+    // the admin app at once, would otherwise both pass the check above and create two
+    // reports, the second ticking the next milestone. Only one conditional update can
+    // win; the loser is told it has been attached. If creating the report then fails,
+    // the claim is released so the report is back in the list rather than lost.
+    const [claimed] = await getDb()
+      .update(reportIngests)
+      .set({ status: 'complete', resolvedAt: new Date(), resolvedBy: user.email })
+      .where(
+        and(
+          eq(reportIngests.id, ingest.id),
+          eq(reportIngests.status, 'needs_review'),
+          isNull(reportIngests.reportId),
+        ),
+      )
+      .returning({ id: reportIngests.id })
+    if (!claimed) throw conflict('This report has already been attached.')
+
+    let reportId: string | undefined
+    let milestone: string | null = null
+    try {
+      const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'manual', {
+        analysis: 'queued',
+        receivedAt: ingest.createdAt,
+      })
+      reportId = created.submission?.id
+      milestone = created.milestone?.label ?? null
+    } finally {
+      if (!reportId) {
+        await getDb()
+          .update(reportIngests)
+          .set({ status: 'needs_review', resolvedAt: null, resolvedBy: null })
+          .where(eq(reportIngests.id, ingest.id))
+      }
+    }
     if (!reportId) throw conflict('The report could not be attached. Try again.')
+    const attachedId = reportId
     await getDb()
       .update(reportIngests)
-      .set({ status: 'complete', reportId, resolvedAt: new Date(), resolvedBy: user.email })
+      .set({ reportId: attachedId })
       .where(eq(reportIngests.id, ingest.id))
-    await enqueue({ kind: 'report_analysis', reportId }, () => analyseReport(reportId))
+    await enqueue({ kind: 'report_analysis', reportId: attachedId }, () =>
+      analyseReport(attachedId),
+    )
     await recordAudit({
       actorUserId: user.id,
       action: 'report_attached',
       ...(grant.applicationId
         ? { applicationId: grant.applicationId }
         : { clientId: grant.clientId }),
-      metadata: { reportId, milestone: created.milestone?.label ?? null },
+      metadata: { reportId: attachedId, milestone },
     })
-    return { reportId }
+    return { reportId: attachedId }
   })
 
 /**

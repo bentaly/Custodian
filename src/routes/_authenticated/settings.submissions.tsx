@@ -158,13 +158,24 @@ function Submissions() {
           style={{ color: C.body }}
         >
           <p>
-            If your applications already come in through a form builder, you do not need to build
-            any of the above. Generate a webhook address on{' '}
+            If your applications or grant reports already come in through a form builder, you do
+            not need to build any of the above. Generate a webhook on{' '}
             <span className="font-medium text-grey-900">API keys</span> (choosing{' '}
-            <span className="font-medium text-grey-900">A form platform</span>) and paste it into
-            the form's webhook settings. In Typeform that is{' '}
+            <span className="font-medium text-grey-900">A form platform</span>). You get two
+            addresses: one for an <span className="font-medium text-grey-900">application form</span>{' '}
+            and one for a <span className="font-medium text-grey-900">grant report form</span>.
+            Paste the right one into that form's webhook settings. In Typeform that is{' '}
             <span className="font-medium text-grey-900">Connect → Webhooks → Add a webhook</span>.
-            Nothing else to configure, and no field mapping to do up front.
+            Nothing else to configure, and no field mapping to do up front. The two differ only in
+            what they create, so an application form on the report address would file its
+            applications as reports: check which one you pasted.
+          </p>
+          <p>
+            A report form should carry your application reference so each report finds its grant
+            by itself. Typeform can do this with a{' '}
+            <span className="font-medium text-grey-900">hidden field</span> filled in from the link
+            you send each grantee. Without it we match on the charity number, and a report neither
+            can place waits on the Reports screen for you to choose its grant.
           </p>
           <p>
             We read the platform's own payload and treat each question as one of your field names,

@@ -35,8 +35,8 @@ import {
   unmetOneOfGroups,
   type CanonicalFieldKey,
 } from '../../lib/fieldMapping'
-import { buildCanonicalInput, computeResponses, resolvedFromMapping } from './assemble'
-import { CreateApplicationSchema } from '../../lib/validators/application'
+import { assembleApplication, computeResponses, resolvedFromMapping } from './assemble'
+import { referenceKey, takenReferences } from '../ingestDedupe'
 
 /** A submission is judged stuck once the background pipeline has had this long. */
 export const STUCK_AFTER_MS = 5 * 60 * 1000
@@ -52,6 +52,8 @@ export type IngestBlockerCode =
   | 'required_unmapped'
   | 'one_of_unmet'
   | 'invalid_value'
+  // The foundation already has an application with this reference. See `ingestDedupe.ts`.
+  | 'reference_taken'
   // Reports only (see server/reportMapping/diagnose.ts): held for want of a grant
   // to attach to. Lives in this union so the admin app has one blocker type.
   | 'grant_unmatched'
@@ -82,6 +84,12 @@ export interface DiagnosableIngest {
   createdAt: Date | string
 }
 
+/** The reference a held row carries, read through its stored mapping. */
+function referenceOf(row: DiagnosableIngest): string | null {
+  const resolved = resolvedFromMapping(row.rawPayload, mappingFromResolved(row.resolved))
+  return resolved.externalApplicationId?.value?.trim() || null
+}
+
 /** `sourceKey → canonicalField` (as stored) inverted to `canonicalField → sourceKey`. */
 function mappingFromResolved(resolved: Record<string, string> | null): Record<string, string> {
   const m: Record<string, string> = {}
@@ -105,6 +113,8 @@ interface ProgrammeIndex {
   known: Map<string, Set<string>>
   /** clientId → lowercased programme names currently in an open round. */
   open: Map<string, Set<string>>
+  /** clientId → reference key → the application already carrying it. */
+  references?: Map<string, Map<string, { applicationId: string; organisationName: string }>>
 }
 
 /** The form both sides of a programme-name comparison are reduced to. Mirrors
@@ -169,7 +179,18 @@ export async function diagnoseIngests(
 ): Promise<Map<string, IngestBlocker[]>> {
   // Only rows that could name a programme they never routed to need the index.
   const clientIds = [...new Set(rows.filter((r) => !r.roundProgrammeId).map((r) => r.clientId))]
-  const index = await loadProgrammeIndex(clientIds)
+  // Held rows' references, to say when one is already taken: one query for the page.
+  const refs = rows
+    .filter((r) => r.status === 'needs_review')
+    .flatMap((r) => {
+      const reference = referenceOf(r)
+      return reference ? [{ clientId: r.clientId, reference }] : []
+    })
+  const [index, references] = await Promise.all([
+    loadProgrammeIndex(clientIds),
+    takenReferences(refs),
+  ])
+  index.references = references
   return new Map(rows.map((row) => [row.id, diagnoseIngest(row, index)]))
 }
 
@@ -338,13 +359,15 @@ export function diagnoseIngest(row: DiagnosableIngest, index: ProgrammeIndex): I
   //    row sits in `needs_review` with nothing to explain it. Issues on fields already
   //    reported as unmapped are dropped — they'd just say "required" twice — as is
   //    anything rooted at the placeholder round programme.
+  //    Assembled the way the pipeline assembles it, leniently: a value it would leave off
+  //    the application (and state there) is no reason to hold, so it is not reported as
+  //    one. What is left is a failure on a field the application cannot exist without.
   const responses = computeResponses(row.rawPayload, resolved)
-  const candidate = buildCanonicalInput(
+  const { parsed } = assembleApplication(
     row.roundProgrammeId ?? PLACEHOLDER_ROUND_PROGRAMME_ID,
     resolved,
     responses,
   )
-  const parsed = CreateApplicationSchema.safeParse(candidate)
   if (!parsed.success) {
     const missingSet = new Set<string>(missingRequired)
     const issues = parsed.error.issues
@@ -365,6 +388,23 @@ export function diagnoseIngest(row: DiagnosableIngest, index: ProgrammeIndex): I
         })),
       })
     }
+  }
+
+  // 5. The reference is already an application's. Re-derived like everything else here,
+  //    so a row stops saying it once that application is deleted or its reference fixed.
+  const reference = resolved.externalApplicationId?.value?.trim()
+  const taken = reference
+    ? index.references?.get(row.clientId)?.get(referenceKey(reference))
+    : undefined
+  if (reference && taken) {
+    blockers.push({
+      code: 'reference_taken',
+      severity: 'blocking',
+      title: `An application with reference “${reference}” already exists`,
+      detail: `${taken.organisationName} already carries this reference, and this submission's answers differ from it (an exact re-send is absorbed without asking). So it is either a correction sent as a new submission, or the foundation reusing a reference. A second application would list the applicant twice, and grant reports link by this reference, so neither could be told apart.`,
+      fix: 'If it is a correction, make the change on the existing application in Custodian and Dismiss this one. If it really is a different application, use Edit & resend with a reference of its own.',
+      fields: [{ key: 'externalApplicationId', label: labelFor('externalApplicationId') }],
+    })
   }
 
   // A held row with nothing above to explain it means the pipeline's view and this

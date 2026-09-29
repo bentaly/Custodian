@@ -45,6 +45,7 @@ export const Route = createFileRoute('/api/admin/ingests/$id/resolve')({
               },
               409,
             )
+          if (result.error === 'locked') return adminJson({ error: result.message }, 409)
           if (result.error === 'processing')
             return adminJson({ error: 'Still processing — try again shortly' }, 409)
           if (result.error === 'invalid')

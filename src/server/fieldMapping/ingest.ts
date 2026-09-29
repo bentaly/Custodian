@@ -38,7 +38,7 @@ import {
 } from '../../lib/fieldMapping'
 import { runFieldMapping, type FieldMappingAssessor } from './run'
 import {
-  buildCanonicalInput,
+  assembleApplication,
   buildSubmittedFields,
   computeResponses,
   resolvedMapFor,
@@ -52,6 +52,7 @@ import { CreateApplicationSchema } from '../../lib/validators/application'
 import { scoreApplication } from '../applications/score'
 import { enqueue } from '../pipelineQueue'
 import { reportFault } from '../faults'
+import { earlierIdenticalApplication, referenceTaken, resentNote } from '../ingestDedupe'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
 
@@ -110,6 +111,16 @@ export async function processIngest(
   if (ingest.status !== 'received') return { ok: false, error: 'not_received' }
 
   const { clientId, rawPayload: payload, fieldOrder } = ingest
+
+  // 0. An exact re-send of an earlier submission creates nothing. See `ingestDedupe.ts`.
+  const earlier = await earlierIdenticalApplication(ingest)
+  if (earlier) {
+    await getDb()
+      .update(applicationIngests)
+      .set({ status: 'complete', note: resentNote(earlier), resolvedAt: new Date() })
+      .where(eq(applicationIngests.id, ingestId))
+    return { ok: true, status: 'complete', applicationId: null }
+  }
 
   // 1. Lookup-table match.
   const mappings = await getDb().query.fieldMappings.findMany({
@@ -236,13 +247,20 @@ export async function processIngest(
   let validInput: ReturnType<typeof CreateApplicationSchema.safeParse> | null = null
 
   if (unresolvedRequired.length === 0 && unmetGroups.length === 0 && roundProgrammeId) {
-    validInput = CreateApplicationSchema.safeParse(
-      buildCanonicalInput(roundProgrammeId, resolved, responses, submittedFields),
-    )
+    // Lenient: an unreadable optional or expected value is left off the application
+    // (and stated on it) rather than holding the submission. See `assembleApplication`.
+    validInput = assembleApplication(roundProgrammeId, resolved, responses, submittedFields).parsed
     status = validInput.success ? (aiUsed ? 'ai_proposed' : 'complete') : 'needs_review'
   } else {
     status = 'needs_review'
   }
+
+  // The same reference as an application the foundation already has, with different
+  // answers (an exact copy was absorbed at step 0): a correction or a clash, and not
+  // ours to guess. Held, and explained by the `reference_taken` blocker.
+  const reference = resolved.externalApplicationId?.value ?? null
+  const clash = status !== 'needs_review' && reference ? await referenceTaken(clientId, reference) : null
+  if (clash) status = 'needs_review'
 
   // 7. Promote (create the application, with due diligence + deprivation) or hold.
   //
@@ -295,6 +313,7 @@ export async function processIngest(
         clientId,
         unresolvedRequired,
         programmeRouted: roundProgrammeId !== null,
+        referenceTaken: clash?.applicationId ?? null,
         programmeWritten: resolvedProgrammeName,
         invalid:
           validInput && !validInput.success

@@ -1,12 +1,21 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../../server/db'
-import { applicationIngests, applications, awards } from '../../../drizzle/schema'
+import {
+  applicationComments,
+  applicationIngests,
+  applicationVotes,
+  applications,
+  awards,
+} from '../../../drizzle/schema'
 import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
 
 // Delete a submission outright: the ingest row and, when one was created from it,
-// the application too (comments and votes cascade). Refused when a grant has been
-// awarded against the application — that is no longer disposable test data.
+// the application too. Refused when a grant has been awarded against the application,
+// or when trustees have voted or commented on it: votes and comments cascade on delete
+// and they are the record of a decision (the same reason removing a member archives
+// rather than deletes). Past that point it is a live foundation's work, not disposable
+// test data, and the foundation declines it in Custodian instead.
 export const Route = createFileRoute('/api/admin/ingests/$id')({
   server: {
     handlers: {
@@ -29,6 +38,25 @@ export const Route = createFileRoute('/api/admin/ingests/$id')({
           if (grant) {
             return adminJson(
               { error: 'Application has an awarded grant and cannot be deleted' },
+              409,
+            )
+          }
+          const [vote, comment] = await Promise.all([
+            getDb().query.applicationVotes.findFirst({
+              where: eq(applicationVotes.applicationId, ingest.applicationId),
+              columns: { id: true },
+            }),
+            getDb().query.applicationComments.findFirst({
+              where: eq(applicationComments.applicationId, ingest.applicationId),
+              columns: { id: true },
+            }),
+          ])
+          if (vote || comment) {
+            return adminJson(
+              {
+                error:
+                  'Trustees have voted or commented on this application, so deleting it would delete their decision record. Decline it in Custodian instead.',
+              },
               409,
             )
           }
