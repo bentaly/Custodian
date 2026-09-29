@@ -559,8 +559,12 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
 - Missing/invalid/revoked key → 401. Rate-limited two ways (`src/server/rateLimit.ts`): per-IP
   before auth, per-client after. Degrades open.
 - **`POST /api/submit-report`** is the report-side twin: same auth + 202 + background pipeline, own
-  canonical registry (`src/lib/fieldMapping/reportCanonical.ts`) and holding table. Auto-links to a
-  grant only on an exact `externalApplicationId` match; heuristics are suggestions only.
+  canonical registry (`src/lib/fieldMapping/reportCanonical.ts`) and holding table. Auto-links on
+  an exact `externalApplicationId` match, or failing that (2026-09-29) on an exact **charity
+  number** where the answer is not a guess: exactly one of that charity's live grants still has an
+  open milestone, or the report names a programme and exactly one of those is in it
+  (`pickWaitingGrant`, `reportMapping/match.ts`; `match_method = 'charity_number'`). A reference
+  naming several grants never falls through to it. Names, amounts and years are suggestions only.
   **A report holds for ONE reason: no grant.** Organisation name and impact summary are optional
   (the name falls back to the grant's applicant), so a report with a matched grant always lands;
   missing fields only drive the AI mapping fallback and show as `info` blockers. A held report is

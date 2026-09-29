@@ -103,8 +103,8 @@ export function HeldReportsPanel() {
         </p>
         {n > 0 && (
           <p className="font-display text-label" style={{ color: C.sub }}>
-            They arrived without a reference that matched one of your grants. Choose the grant each
-            is about; until then it ticks no reporting milestone.
+            Neither their reference nor their charity number pointed to a single grant. Choose the
+            grant each is about; until then it ticks no reporting milestone.
           </p>
         )}
         {attached.length > 0 && (
