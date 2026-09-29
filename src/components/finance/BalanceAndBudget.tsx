@@ -178,7 +178,7 @@ function lineHint(line: SummaryLine, data: Data): string {
 
 /** Which figures a line can have at all. */
 const HAS = {
-  core: { actual: true, projected: true, stillToPay: false },
+  core: { actual: true, projected: false, stillToPay: true },
   prior: { actual: true, projected: false, stillToPay: true },
   current: { actual: true, projected: true, stillToPay: true },
   contingency: { actual: false, projected: true, stillToPay: false },

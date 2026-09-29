@@ -21,9 +21,11 @@ import { costEntries, round2, type CostLineInput } from './coreCosts'
  *
  * - **Actual**: money gone. A grant instalment PAID inside the year (cancelled grants
  *   included — the money left), or a core cost scheduled on or before today.
- * - **Projected**: money planned but not yet committed. Core costs still to come, round
- *   budget not yet awarded, and the contingency.
- * - **Still to pay**: grants awarded and not yet paid, due by the year end.
+ * - **Projected**: money planned but not yet committed. Round budget not yet awarded, and
+ *   the contingency.
+ * - **Still to pay**: money owed by the year end. Grants awarded and not yet paid, and core
+ *   costs scheduled after today (fixed costs, moved here from Projected on 2026-09-29).
+ *   A core cost is still a PLAN, not a ledger: Custodian never sees the rent go out.
  *
  * An earlier cut had "Awarded" (paid + unpaid together) beside a "Deducted from balance"
  * column, and nobody could see why a programme with £26,000 awarded deducted nothing: it
@@ -188,7 +190,9 @@ export function buildBalanceSummary(input: BalanceSummaryInput): BalanceSummary 
         f.actual += e.amount
         if (afterReading(e.date)) coreSince += e.amount
       } else {
-        f.projected += e.amount
+        // A scheduled core cost is a fixed cost the foundation has planned to pay, not an
+        // estimate, so it is owed rather than projected (agreed 2026-09-29).
+        f.stillToPay += e.amount
       }
     }
     return {

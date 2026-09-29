@@ -110,16 +110,17 @@ describe('buildBalanceSummary', () => {
     expect(prior.stillToPay).toBe(prior.children.reduce((n, c) => n + c.stillToPay, 0))
   })
 
-  it('places core costs by schedule: actual to date, projected after', () => {
+  it('places core costs by schedule: actual to date, still to pay after', () => {
     const s = buildBalanceSummary(
       base({ costLines: [{ label: 'Rent', amount: 24_000, frequency: 'monthly', dueDate: null }] }),
     )
     // April–August have ended by 12 September; a month's share falls at the month end.
+    // What is still to come is a fixed cost, so it is owed rather than projected.
     expect(s.lines[0]).toMatchObject({
       kind: 'core',
       actual: 10_000,
-      projected: 14_000,
-      stillToPay: 0,
+      projected: 0,
+      stillToPay: 14_000,
     })
     // The 31 August share was scheduled before the 1 September reading: inside the balance.
     expect(s.sinceBalance!.core).toBe(0)
