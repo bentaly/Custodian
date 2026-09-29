@@ -38,10 +38,6 @@ export function buildReportCanonicalInput(
   responses: Array<{ label: string; value: string }>,
 ) {
   const get = (k: ReportCanonicalFieldKey) => resolved[k]?.value
-  const amountRaw = get('amountAwarded')
-  const amount = amountRaw
-    ? Number(REPORT_CANONICAL_FIELD_BY_KEY.amountAwarded.coerce!(amountRaw))
-    : undefined
   const countRaw = get('beneficiaryCount')
   const countCoerced = countRaw
     ? REPORT_CANONICAL_FIELD_BY_KEY.beneficiaryCount.coerce!(countRaw)
@@ -55,9 +51,6 @@ export function buildReportCanonicalInput(
     charityNumber: get('charityNumber'),
     companyNumber: get('companyNumber'),
     programmeName: get('programmeName'),
-    amountAwarded:
-      amount !== undefined && Number.isFinite(amount) && amount > 0 ? amount : undefined,
-    awardDate: get('awardDate'),
     awardEndDate: get('awardEndDate'),
     contactName: get('contactName'),
     contactEmail: get('contactEmail'),
@@ -69,7 +62,11 @@ export function buildReportCanonicalInput(
     caseStudies: get('caseStudies'),
     testimonials: get('testimonials'),
     otherComments: get('otherComments'),
-    beneficiaryCount: count !== undefined && Number.isFinite(count) ? count : undefined,
+    // A figure that cannot be read as a whole number of people is left out rather than
+    // holding the report: the analysis reads a figure from the narrative, the report
+    // screen shows the grantee's own answer beside it, and an admin can correct it.
+    beneficiaryCount:
+      count !== undefined && Number.isInteger(count) && count >= 0 ? count : undefined,
     deliveryArea: get('deliveryArea'),
     responses,
   }

@@ -1436,6 +1436,10 @@ export const reportIngests = pgTable(
       .notNull()
       .references(() => clients.id, { onDelete: 'cascade' }),
     rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+    // The sender's key order, captured at the decode boundary because jsonb does not
+    // keep it (see `application_ingests.field_order`). View Report lists the answers in
+    // this order. NULL for reports received before it existed: their stored order.
+    fieldOrder: jsonb('field_order').$type<string[]>(),
     status: ingestStatusEnum('status').notNull().default('needs_review'),
     // AI proposals for unresolved required fields: canonicalField → { sourceKey, confidence }.
     proposed:
@@ -1443,7 +1447,7 @@ export const reportIngests = pgTable(
     // The final mapping applied: sourceKey → canonicalField.
     resolved: jsonb('resolved').$type<Record<string, string>>(),
     // Ranked grant suggestions computed by the matching heuristics (charity number,
-    // normalised organisation name, programme, amount, award-date fit). Heuristics
+    // normalised organisation name, programme). Heuristics
     // NEVER auto-link — an admin confirms one of these in the review queue. Kept on
     // the row so a future client-facing match UI can render the same suggestions.
     matchCandidates:
@@ -1644,6 +1648,7 @@ export const auditActionEnum = pgEnum('audit_action', [
   'report_moved',
   'report_impact_changed',
   'report_analysis_rerun',
+  'report_returned',
   'assessment_rerun',
   'application_awarded',
   'application_declined',

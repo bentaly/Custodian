@@ -161,6 +161,7 @@ export const attachHeldReport = createServerFn({ method: 'POST' })
 
     const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'manual', {
       analysis: 'queued',
+      receivedAt: ingest.createdAt,
     })
     const reportId = created.submission?.id
     if (!reportId) throw conflict('The report could not be attached. Try again.')

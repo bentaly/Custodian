@@ -22,8 +22,6 @@ export type ReportCanonicalFieldKey =
   | 'charityNumber'
   | 'companyNumber'
   | 'programmeName'
-  | 'amountAwarded'
-  | 'awardDate'
   | 'awardEndDate'
   | 'contactName'
   | 'contactEmail'
@@ -100,23 +98,6 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
     description:
       'The programme or funding stream the grant was awarded from (e.g. "Funding stream the grant ' +
       'was awarded from").',
-  },
-  {
-    key: 'amountAwarded',
-    label: 'Amount awarded',
-    required: false,
-    description:
-      'The grant amount as stated on the report, in GBP, e.g. "Funding award amount", "How much ' +
-      'funding have you received to date?". Used to cross-check the matched grant.',
-    coerce: coerceAmount,
-  },
-  {
-    key: 'awardDate',
-    label: 'Award / start date',
-    required: false,
-    description:
-      'When the funding was awarded or commenced, e.g. "Date of funding award", "When did our ' +
-      'partnership start?".',
   },
   {
     key: 'awardEndDate',

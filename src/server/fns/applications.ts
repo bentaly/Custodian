@@ -1,3 +1,4 @@
+import { reportsAsSent } from '../reports/asSent'
 import { conflict, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
@@ -1263,6 +1264,8 @@ export const getAward = createServerFn({ method: 'GET' })
       }))
 
     const scheduleById = new Map(award.schedule.map((m) => [m.id, m]))
+    // What each report's grantee sent, for the "Grant report" dialog: one query for all.
+    const asSent = await reportsAsSent(award.reports)
     const reportViews = [...award.reports]
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())
       .map((r) => ({
@@ -1285,7 +1288,9 @@ export const getAward = createServerFn({ method: 'GET' })
         applicationAlignment: r.applicationAlignment,
         programmeAlignment: r.programmeAlignment,
         impactQuantity: r.impactQuantity,
+        impactQuantitySource: r.impactQuantitySource,
         impactUnitLabel: r.impactUnitLabel,
+        asSent: asSent.get(r.id) ?? null,
         // The report exactly as the grantee sent it, for the "Grant report" dialog the
         // View submissions card opens — the same fields, in the same order, as the
         // report screen's own View Report (`ReportFields`). Reading one is a glance at
@@ -1299,9 +1304,7 @@ export const getAward = createServerFn({ method: 'GET' })
           contactName: r.contactName,
           contactEmail: r.contactEmail,
           contactPhone: r.contactPhone,
-          amountAwarded: r.amountAwarded,
           beneficiaryCount: r.beneficiaryCount,
-          awardDate: r.awardDate,
           awardEndDate: r.awardEndDate,
           deliveryArea: r.deliveryArea,
           grantTitle: r.grantTitle,

@@ -10,7 +10,7 @@ import { awards, reportSchedule, reports } from '../../../drizzle/schema'
 import { requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { notFoundError } from '../../lib/errors'
-import { moveReport, rerunReportAnalysis, setReportImpact } from '../reports/correct'
+import { moveReport, rerunReportAnalysis, returnReport, setReportImpact } from '../reports/correct'
 import { grantChoices } from './heldReports'
 
 async function assertReportAccess(user: { role: string; clientId: string | null }, id: string) {
@@ -91,5 +91,15 @@ export const rerunReportAnalysisFn = createServerFn({ method: 'POST' })
     const user = await requireRole('superadmin', 'admin')
     await assertReportAccess(user, data.reportId)
     await rerunReportAnalysis(data.reportId, { id: user.id })
+    return { ok: true }
+  })
+
+/** "Wrong grant?" → send it back: the report returns to the reports that need a grant. */
+export const returnReportFn = createServerFn({ method: 'POST' })
+  .validator(z.object({ reportId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    await assertReportAccess(user, data.reportId)
+    await returnReport({ reportId: data.reportId, actor: { id: user.id } })
     return { ok: true }
   })

@@ -13,7 +13,7 @@
 import { and, eq, ne, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { getDb } from '../db'
-import { auditLog, awards, reportSchedule, reports } from '../../../drizzle/schema'
+import { auditLog, awards, reportIngests, reportSchedule, reports } from '../../../drizzle/schema'
 import { conflict, notFoundError } from '../../lib/errors'
 import { recomputeAwardStatus } from '../awards/status'
 import { recordAudit } from '../audit'
@@ -232,4 +232,59 @@ export async function rerunReportAnalysis(reportId: string, actor: Actor): Promi
     metadata: { reportId },
   })
   await enqueue({ kind: 'report_analysis', reportId }, () => analyseReport(reportId))
+}
+
+/**
+ * Take a report off a grant it does not belong to and return it to the reports that
+ * need one, where it is placed like any other. The report row goes (its analysis
+ * compared it with the wrong grant, and the stored submission is what gets placed
+ * again); the milestone it answered is un-ticked unless another report answers it,
+ * and the grant's status is recomputed. Only a report that arrived as a submission
+ * can go back, since only that has a submission to go back to.
+ */
+export async function returnReport(params: { reportId: string; actor: Actor }): Promise<void> {
+  const db = getDb()
+  const report = await loadReport(params.reportId)
+  const ingest = await db.query.reportIngests.findFirst({
+    where: eq(reportIngests.reportId, report.id),
+    columns: { id: true },
+  })
+  if (!ingest) throw conflict('This report did not arrive as a submission, so it cannot go back.')
+
+  const statements: BatchItem<'pg'>[] = [
+    db
+      .update(reportIngests)
+      .set({
+        status: 'needs_review',
+        reportId: null,
+        resolvedAt: null,
+        resolvedBy: null,
+        note: null,
+      })
+      .where(eq(reportIngests.id, ingest.id)),
+  ]
+  if (report.scheduleId) {
+    statements.push(
+      db
+        .update(reportSchedule)
+        .set({ submittedDate: null })
+        .where(
+          and(
+            eq(reportSchedule.id, report.scheduleId),
+            sql`not exists (select 1 from ${reports} where ${reports.scheduleId} = ${report.scheduleId} and ${reports.id} <> ${report.id})`,
+          ),
+        ),
+    )
+  }
+  statements.push(db.delete(reports).where(eq(reports.id, report.id)))
+  await db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
+
+  await recomputeAwardStatus(report.awardId)
+  const applicationId = await applicationOf(report.awardId)
+  await recordAudit({
+    actorUserId: params.actor.id,
+    action: 'report_returned',
+    ...(applicationId ? { applicationId } : { clientId: report.clientId }),
+    metadata: { ingestId: ingest.id, fromAwardId: report.awardId },
+  })
 }

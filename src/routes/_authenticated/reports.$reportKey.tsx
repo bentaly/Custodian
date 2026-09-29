@@ -1,14 +1,19 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { orNotFound } from '../../lib/loader'
 import { parseReportsSearch } from '../../lib/listSearch'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getReport, markReportReviewed, type ReportRowStatus } from '../../server/fns/reports'
-import { ReportFields } from '../../components/ReportFields'
+import { ReportSubmissionDialog } from '../../components/ReportSubmissionDialog'
 import { File01Icon, Mail01Icon, PencilEdit01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { RefreshLink } from '../../components/RefreshLink'
-import { MoveReportDialog } from '../../components/reports/MoveReportDialog'
-import { rerunReportAnalysisFn, setReportImpactFn } from '../../server/fns/reportCorrections'
+import { WrongGrantDialog } from '../../components/reports/WrongGrantDialog'
+import {
+  grantMilestones,
+  moveReportFn,
+  rerunReportAnalysisFn,
+  setReportImpactFn,
+} from '../../server/fns/reportCorrections'
 import {
   AlignmentCards,
   AlignmentSummary,
@@ -25,12 +30,13 @@ import {
   ClampToggle,
   DetailHeader,
   DetailRow,
-  Dialog,
   Dot,
   EmptyState,
   Input,
+  Label,
   Panel,
   RelatedLink,
+  Select,
   ThemePills,
   Timeline,
   Tooltip,
@@ -236,12 +242,6 @@ function ReportDetail() {
                 View Report
               </Button>
             )}
-            {/* For a report attached to the wrong grant, or ticking the wrong milestone. */}
-            {s && canCorrect && (
-              <Button variant="secondary" onClick={() => setMoving(true)}>
-                Move report
-              </Button>
-            )}
             {s &&
               canReview &&
               (() => {
@@ -326,7 +326,7 @@ function ReportDetail() {
                   canCorrect && !editingImpact ? (
                     <button
                       type="button"
-                      aria-label="Correct the impact figure"
+                      aria-label="Edit the milestone and impact figure"
                       onClick={() => setEditingImpact(true)}
                       className="absolute right-2.5 top-2.5 z-20 inline-flex size-7 items-center justify-center rounded-chip border bg-white opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
                       style={{ borderColor: C.line, color: C.body }}
@@ -337,8 +337,10 @@ function ReportDetail() {
                 }
                 impactEditor={
                   editingImpact ? (
-                    <ImpactEditor
+                    <ReportPanelEditor
                       reportId={s.id}
+                      awardId={report.grant.id}
+                      scheduleId={s.scheduleId}
                       current={impactQuantity}
                       unit={s.impactUnitLabel ?? report.impactUnitLabel}
                       onDone={() => setEditingImpact(false)}
@@ -352,6 +354,7 @@ function ReportDetail() {
                   quantity: impactQuantity,
                   unit: s.impactUnitLabel ?? report.impactUnitLabel,
                   comparison,
+                  unread: report.asSent?.unreadFigure?.answer ?? null,
                 }}
               />
               {analysed && (
@@ -367,33 +370,40 @@ function ReportDetail() {
 
         <div className="flex min-w-0 flex-col gap-4">
           <PurposeCard grant={report.grant} />
-          <GrantDetailsCard report={report} />
+          <GrantDetailsCard
+            report={report}
+            onWrongGrant={s && canCorrect ? () => setMoving(true) : undefined}
+          />
           {analysed && <AlignmentSummary analysis={analysis} />}
           <TimelineCard report={report} />
         </div>
       </div>
 
       {s && canCorrect && (
-        <MoveReportDialog
+        <WrongGrantDialog
           open={moving}
           onClose={() => setMoving(false)}
           reportId={s.id}
           organisationName={report.organisationName}
           currentAwardId={report.grant.id}
-          currentScheduleId={s.scheduleId}
+          milestoneLabel={s.scheduleId ? report.label : null}
+          canSendBack={report.asSent !== null}
         />
       )}
 
       {s && (
-        <Dialog
+        <ReportSubmissionDialog
           open={submissionOpen}
           onClose={() => setSubmissionOpen(false)}
-          title="Grant report"
           description={`${report.organisationName} · ${report.label}`}
-          size="lg"
-        >
-          <ReportFields report={s} />
-        </Dialog>
+          fields={s}
+          asSent={report.asSent}
+          figure={{
+            quantity: impactQuantity,
+            source: s.impactQuantitySource,
+            unit: s.impactUnitLabel ?? report.impactUnitLabel,
+          }}
+        />
       )}
     </div>
   )
@@ -433,14 +443,36 @@ function PurposeCard({ grant }: { grant: ReportData['grant'] }) {
   )
 }
 
-function GrantDetailsCard({ report }: { report: ReportData }) {
+function GrantDetailsCard({
+  report,
+  onWrongGrant,
+}: {
+  report: ReportData
+  /** An admin's way out when the report is on a grant it is not about. */
+  onWrongGrant?: () => void
+}) {
   const { grant, themes } = report
   const years = grant.durationYears
   const dash = <span style={{ color: C.faint }}>--</span>
 
   return (
     <Panel label="Grant details" className="flex flex-col gap-4">
-      <CardTitle>Grant details</CardTitle>
+      <CardTitle
+        right={
+          onWrongGrant ? (
+            <button
+              type="button"
+              onClick={onWrongGrant}
+              className="font-display text-label font-medium underline-offset-2 hover:underline"
+              style={{ color: C.brand }}
+            >
+              Wrong grant?
+            </button>
+          ) : undefined
+        }
+      >
+        Grant details
+      </CardTitle>
       <dl className="flex flex-col gap-4">
         <DetailRow label="Award">
           {fmtMoney(Number(grant.amountAwarded))}
@@ -546,26 +578,48 @@ function TimelineCard({ report }: { report: ReportData }) {
 }
 
 /**
- * Correct the report's impact figure in place: the one number from a report that
- * Insights totals, read by the model from prose and so sometimes missing or wrong. Saved
- * as corrected by hand, which no re-run of the analysis replaces. Empty means "this
- * report evidences no figure", which is a statement too.
+ * The figure panel's editor: which milestone this report answers, and its impact
+ * figure. One pencil for the panel, because the panel shows both (the milestone on the
+ * left, the figure on the right), as an application's cards open all they show.
+ *
+ * The milestone list is this grant's only; a report on the wrong grant is "Wrong
+ * grant?" on the Grant details card. The figure is the one number from a report that
+ * Insights totals, read by the model from prose and so sometimes missing or wrong;
+ * saved as corrected by hand, which no re-run replaces. Empty means "this report
+ * evidences no figure", which is a statement too. Only what changed is saved.
  */
-function ImpactEditor({
+function ReportPanelEditor({
   reportId,
+  awardId,
+  scheduleId,
   current,
   unit,
   onDone,
 }: {
   reportId: string
+  awardId: string
+  scheduleId: string | null
   current: number | null
   unit: string | null
   onDone: () => void
 }) {
   const router = useRouter()
   const [value, setValue] = useState(current != null ? String(current) : '')
+  const [milestone, setMilestone] = useState(scheduleId ?? 'none')
+  const [milestones, setMilestones] = useState<Array<{
+    id: string
+    label: string
+    dueDate: string
+    taken: boolean
+  }> | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    grantMilestones({ data: { reportId, awardId } })
+      .then(setMilestones)
+      .catch(() => setMilestones([]))
+  }, [reportId, awardId])
 
   async function save() {
     const text = value.trim().replace(/[,\s]/g, '')
@@ -574,10 +628,16 @@ function ImpactEditor({
       setError('The figure must be a number, such as 120.')
       return
     }
+    const nextSchedule = milestone === 'none' ? null : milestone
     setBusy(true)
     setError(null)
     try {
-      await setReportImpactFn({ data: { reportId, quantity } })
+      if (nextSchedule !== scheduleId) {
+        await moveReportFn({ data: { reportId, awardId, scheduleId: nextSchedule } })
+      }
+      if (quantity !== current) {
+        await setReportImpactFn({ data: { reportId, quantity } })
+      }
       await router.invalidate()
       onDone()
     } catch (err) {
@@ -587,35 +647,59 @@ function ImpactEditor({
     }
   }
 
+  const options = [
+    ...(milestones ?? [])
+      .filter((m) => !m.taken)
+      .map((m) => ({ value: m.id, label: `${m.label} · due ${fmtDate(m.dueDate)}` })),
+    { value: 'none', label: 'No milestone (an extra report)' },
+  ]
+
   // The same editing card as an application's fields: white with a brand edge, so the
-  // (grey) field reads as a field rather than disappearing into the grey figure panel.
+  // (grey) fields read as fields rather than disappearing into the grey figure panel.
   return (
     <div
-      className="flex flex-col gap-2 rounded-pill border bg-white p-4 font-display"
+      className="flex flex-col gap-4 rounded-pill border bg-white p-4 font-display"
       style={{ borderColor: C.brandBorder, boxShadow: `0 0 0 3px ${C.brandBg}` }}
     >
-      <p className="mb-1 text-body font-medium" style={{ color: C.ink }}>
-        Correct the impact figure
+      <p className="text-body font-medium" style={{ color: C.ink }}>
+        Milestone and impact figure
       </p>
-      <div className="flex items-center gap-2">
-        <Input
-          aria-label="Impact figure"
-          className="w-32"
-          inputMode="decimal"
-          value={value}
-          placeholder="--"
-          onChange={(e) => setValue(e.target.value)}
-          disabled={busy}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="report-milestone">Reporting milestone</Label>
+        <Select
+          id="report-milestone"
+          value={milestone}
+          options={options}
+          onChange={(v: string) => setMilestone(v)}
+          disabled={busy || milestones === null}
         />
-        {unit && (
-          <span className="text-label" style={{ color: C.sub }}>
-            {unit.charAt(0).toLowerCase() + unit.slice(1)}
-          </span>
-        )}
+        <p className="text-label" style={{ color: C.sub }}>
+          Milestones another report already answers are not offered. The one this report leaves is
+          marked outstanding again.
+        </p>
       </div>
-      <p className="text-label" style={{ color: C.sub }}>
-        Leave empty if this report evidences no figure.
-      </p>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="report-figure">Impact figure</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="report-figure"
+            className="w-40"
+            inputMode="decimal"
+            value={value}
+            placeholder="--"
+            onChange={(e) => setValue(e.target.value)}
+            disabled={busy}
+          />
+          {unit && (
+            <span className="text-label" style={{ color: C.sub }}>
+              {unit.charAt(0).toLowerCase() + unit.slice(1)}
+            </span>
+          )}
+        </div>
+        <p className="text-label" style={{ color: C.sub }}>
+          Leave empty if this report evidences no figure.
+        </p>
+      </div>
       {error && (
         <p className="text-label" style={{ color: C.danger }} role="alert">
           {error}

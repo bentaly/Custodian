@@ -18,7 +18,7 @@
 //   report takes that grant's earliest open milestone.
 //
 //   computeGrantCandidates — advisory heuristics for the review queue. Charity
-//   number, normalised organisation name, programme, amount and award-date fit
+//   number, normalised organisation name and programme
 //   RANK the client's awards so the reviewer confirms in one click, but on
 //   their own (names, amounts, years) they never auto-link: real data (Arete's Typeform exports) shows name+amount
 //   cannot distinguish "two awards" from "two periodic reports on one grant".
@@ -152,8 +152,6 @@ export interface CandidateHints {
   charityNumber?: string | null
   organisationName?: string | null
   programmeName?: string | null
-  amountAwarded?: number | null
-  awardDate?: string | null
 }
 
 /** Rank the client's awards as candidates for a held report. Advisory only. */
@@ -161,7 +159,7 @@ export async function computeGrantCandidates(
   clientId: string,
   hints: CandidateHints,
 ): Promise<GrantCandidate[]> {
-  // Every award the foundation has ever made is scored, so this asks for the four
+  // Every award the foundation has ever made is scored, so this asks for the few
   // fields the scoring below reads and nothing else. Left as `SELECT *` it pulled each
   // award's whole application — five jsonb columns of responses, AI analysis and budget
   // lines — on every single report submission. That is tens of MB for a foundation with
@@ -169,7 +167,7 @@ export async function computeGrantCandidates(
   // would leave an ingest stuck at `received` with no one watching.
   const clientAwards = await getDb().query.awards.findMany({
     where: eq(awards.clientId, clientId),
-    columns: { id: true, amountAwarded: true, decisionAt: true },
+    columns: { id: true },
     with: {
       application: {
         columns: { charityNumber: true, organisationName: true },
@@ -186,7 +184,6 @@ export async function computeGrantCandidates(
   const hintCharity = hints.charityNumber ? normaliseCharityNumber(hints.charityNumber) : ''
   const hintOrg = hints.organisationName ? normaliseOrgName(hints.organisationName) : ''
   const hintProgramme = hints.programmeName?.trim().toLowerCase() ?? ''
-  const hintYear = hints.awardDate?.match(/\b(20\d\d)\b/)?.[1] ?? ''
 
   const candidates: GrantCandidate[] = []
   for (const g of clientAwards) {
@@ -216,17 +213,6 @@ export async function computeGrantCandidates(
     if (hintProgramme && programmeName && programmeName.toLowerCase() === hintProgramme) {
       score += 8
       reasons.push('Programme matches')
-    }
-    if (hints.amountAwarded && Number(g.amountAwarded) > 0) {
-      const diff = Math.abs(hints.amountAwarded - Number(g.amountAwarded)) / Number(g.amountAwarded)
-      if (diff <= 0.15) {
-        score += 8
-        reasons.push('Amount matches grant')
-      }
-    }
-    if (hintYear && g.decisionAt && String(g.decisionAt.getFullYear()) === hintYear) {
-      score += 4
-      reasons.push('Award year matches')
     }
 
     if (score >= 12) candidates.push({ awardId: g.id, score, reasons })

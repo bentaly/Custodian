@@ -122,6 +122,8 @@ export function ReportAnalysisCard({
     unit: string | null
     /** Set against the proposal — see `againstProposal`. */
     comparison: { text: string; ahead: boolean } | null
+    /** Their answer to the figure question, when it could not be read as a number. */
+    unread?: string | null
   }
 }) {
   const a = analysis
@@ -228,6 +230,11 @@ export function ReportAnalysisCard({
               {impact.context && (
                 <p className="text-label" style={{ color: C.sub }}>
                   {impact.context}
+                </p>
+              )}
+              {impact.unread && (
+                <p className="text-label" style={{ color: C.warning }}>
+                  They wrote “{impact.unread}” for the figure, which could not be read as a number.
                 </p>
               )}
             </div>

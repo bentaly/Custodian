@@ -33,7 +33,6 @@ export type ReportText = {
   caseStudies?: string | null
   testimonials?: string | null
   otherComments?: string | null
-  amountAwarded?: number | null
   beneficiaryCount?: number | null
   deliveryArea?: string | null
   responses: Array<{ label: string; value: string }>
@@ -75,7 +74,6 @@ export function analysisInputFor(grant: GrantForReport, report: ReportText): Rep
       caseStudies: report.caseStudies,
       testimonials: report.testimonials,
       otherComments: report.otherComments,
-      amountAwarded: report.amountAwarded ?? null,
       beneficiaryCount: report.beneficiaryCount ?? null,
       deliveryArea: report.deliveryArea ?? null,
       responses: report.responses,
@@ -160,7 +158,6 @@ export async function analyseReport(
       caseStudies: report.caseStudies,
       testimonials: report.testimonials,
       otherComments: report.otherComments,
-      amountAwarded: report.amountAwarded != null ? Number(report.amountAwarded) : null,
       beneficiaryCount: report.beneficiaryCount,
       deliveryArea: report.deliveryArea,
       responses: report.responses ?? [],

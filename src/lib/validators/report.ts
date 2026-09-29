@@ -16,8 +16,6 @@ export const CreateReportSubmissionSchema = z.object({
   charityNumber: z.string().optional(),
   companyNumber: z.string().optional(),
   programmeName: z.string().optional(),
-  amountAwarded: z.number().positive().optional(),
-  awardDate: z.string().optional(),
   awardEndDate: z.string().optional(),
   contactName: z.string().optional(),
   contactEmail: z.string().optional(),

@@ -41,8 +41,17 @@ export async function createReportSubmissionFromCanonical(
   grant: GrantForReport,
   input: CreateReportSubmissionInput,
   matchMethod: 'external_id' | 'manual' | 'import' | 'charity_number',
-  opts: { analysis?: 'inline' | 'queued' } = {},
+  opts: {
+    analysis?: 'inline' | 'queued'
+    /**
+     * When the submission ARRIVED. A report held for a grant and attached days later
+     * was still received the day it came in, and that is the date its milestone is
+     * ticked with and the date every screen shows. Defaults to now.
+     */
+    receivedAt?: Date
+  } = {},
 ) {
+  const receivedAt = opts.receivedAt ?? new Date()
   const programme = grant.application?.roundProgramme?.programme ?? null
   const unitLabel = impactUnitLabel(programme?.impactUnit, programme?.impactUnitLabel)
   // A report that did not say who it is from is from the grantee it is attached to.
@@ -63,7 +72,6 @@ export async function createReportSubmissionFromCanonical(
             caseStudies: input.caseStudies,
             testimonials: input.testimonials,
             otherComments: input.otherComments,
-            amountAwarded: input.amountAwarded ?? null,
             beneficiaryCount: input.beneficiaryCount ?? null,
             deliveryArea: input.deliveryArea ?? null,
             responses: input.responses,
@@ -87,13 +95,12 @@ export async function createReportSubmissionFromCanonical(
       awardId: grant.id,
       scheduleId: milestone?.id ?? null,
       matchMethod,
+      submittedAt: receivedAt,
       externalApplicationId: input.externalApplicationId,
       organisationName,
       charityNumber: input.charityNumber,
       companyNumber: input.companyNumber,
       programmeName: input.programmeName,
-      amountAwarded: input.amountAwarded != null ? String(input.amountAwarded) : null,
-      awardDate: input.awardDate,
       awardEndDate: input.awardEndDate,
       contactName: input.contactName,
       contactEmail: input.contactEmail,
@@ -121,7 +128,7 @@ export async function createReportSubmissionFromCanonical(
   if (milestone) {
     await getDb()
       .update(reportSchedule)
-      .set({ submittedDate: new Date().toISOString().slice(0, 10) })
+      .set({ submittedDate: receivedAt.toISOString().slice(0, 10) })
       .where(eq(reportSchedule.id, milestone.id))
   }
 

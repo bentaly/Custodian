@@ -106,7 +106,9 @@ export async function resolveReportIngest(
 
   const grant = await fetchGrantForReport(input.awardId)
   if (!grant) return { ok: false, error: 'grant_not_found' }
-  const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'manual')
+  const created = await createReportSubmissionFromCanonical(grant, parsed.data, 'manual', {
+    receivedAt: ingest.createdAt,
+  })
   const reportId = created.submission?.id
   if (!reportId) return { ok: false, error: 'grant_not_found' }
 

@@ -15,9 +15,7 @@ export type ReportFieldsData = {
   contactName?: string | null
   contactEmail?: string | null
   contactPhone?: string | null
-  amountAwarded?: string | null
   beneficiaryCount?: number | null
-  awardDate?: string | null
   awardEndDate?: string | null
   deliveryArea?: string | null
   grantTitle?: string | null
@@ -31,15 +29,11 @@ export type ReportFieldsData = {
   responses?: Array<{ label: string; value: string }> | null
 }
 
-const MATCH_LABELS: Record<ReportFieldsData['matchMethod'], string> = {
+export const MATCH_LABELS: Record<ReportFieldsData['matchMethod'], string> = {
   external_id: 'Automatic (application reference)',
-  manual: 'Manual (review queue)',
+  manual: 'Chosen by hand',
   import: 'Imported',
   charity_number: 'Automatic (charity number)',
-}
-
-function fmtAmount(v: string | null | undefined) {
-  return v != null && v !== '' ? `£${Math.round(parseFloat(v)).toLocaleString('en-GB')}` : null
 }
 
 export function ReportFields({ report }: { report: ReportFieldsData }) {
@@ -49,13 +43,11 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
     { label: 'Application ref', value: report.externalApplicationId ?? null },
     { label: 'Charity number', value: report.charityNumber ?? null },
     { label: 'Company number', value: report.companyNumber ?? null },
-    { label: 'Amount stated', value: fmtAmount(report.amountAwarded) },
     {
       label: 'Beneficiaries stated',
       value:
         report.beneficiaryCount != null ? report.beneficiaryCount.toLocaleString('en-GB') : null,
     },
-    { label: 'Award date stated', value: report.awardDate ?? null },
     { label: 'Award end stated', value: report.awardEndDate ?? null },
     { label: 'Delivery area', value: report.deliveryArea ?? null },
   ].filter((r) => r.value)

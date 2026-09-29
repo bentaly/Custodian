@@ -48,7 +48,7 @@ function byline(e: EditRecord): string {
   return `${e.editorName ?? 'Someone'}, ${fmtDate(new Date(e.createdAt))}`
 }
 
-function Note({ tag, children }: { tag: string; children: React.ReactNode }) {
+export function Note({ tag, children }: { tag: string; children: React.ReactNode }) {
   return (
     <div
       className="mt-2 flex items-start gap-2 rounded-chip px-2.5 py-2 font-display text-label"

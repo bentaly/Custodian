@@ -59,6 +59,8 @@ export async function saveReportIngest(params: {
     .values({
       clientId: params.clientId,
       rawPayload: params.payload,
+      // Read here, before jsonb reorders it, so View Report can list the answers as sent.
+      fieldOrder: Object.keys(params.payload),
       status: 'received',
     })
     .returning({ id: reportIngests.id })
@@ -179,7 +181,9 @@ export async function processReportIngest(
   if (status !== 'needs_review' && parsed.success && grantId) {
     const grant = await fetchGrantForReport(grantId)
     if (grant) {
-      const created = await createReportSubmissionFromCanonical(grant, parsed.data, matchMethod)
+      const created = await createReportSubmissionFromCanonical(grant, parsed.data, matchMethod, {
+        receivedAt: ingest.createdAt,
+      })
       reportId = created.submission?.id ?? null
     }
   }
@@ -188,8 +192,6 @@ export async function processReportIngest(
       charityNumber: resolved.charityNumber?.value,
       organisationName: resolved.organisationName?.value,
       programmeName: resolved.programmeName?.value,
-      amountAwarded: parsed.success ? (parsed.data.amountAwarded ?? null) : null,
-      awardDate: resolved.awardDate?.value,
     })
   }
 

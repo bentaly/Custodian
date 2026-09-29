@@ -6,7 +6,7 @@ import { getAward, GRANT_STATUS_LABELS } from '../../server/fns/applications'
 import { resendAwardLetter } from '../../server/fns/awardSetup'
 import { AwardLetterPreview } from '../../components/AwardLetterPreview'
 import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmissionDialog'
-import { ReportFields } from '../../components/ReportFields'
+import { ReportSubmissionDialog } from '../../components/ReportSubmissionDialog'
 import { AwardSchedule } from '../../components/awards/AwardSchedule'
 import { Donut } from '../../components/charts/Donut'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
@@ -411,9 +411,7 @@ function PaymentsCard({ award }: { award: AwardData }) {
                   <span className="flex items-center" style={{ color: C.sub }}>
                     <Dot />
                     {r.count} instalment{r.count === 1 ? '' : 's'}
-                    {r.unscheduled > 0 && (
-                      <>, plus {fmtExact(r.unscheduled)} not scheduled</>
-                    )}
+                    {r.unscheduled > 0 && <>, plus {fmtExact(r.unscheduled)} not scheduled</>}
                   </span>
                 )}
               </span>
@@ -786,15 +784,18 @@ function SubmissionsCard({ award }: { award: AwardData }) {
         onClose={() => setReading(null)}
       />
       {reading && reading !== 'application' && (
-        <Dialog
+        <ReportSubmissionDialog
           open
           onClose={() => setReading(null)}
-          title="Grant report"
           description={`${award.organisationName} · ${reading.label}`}
-          size="lg"
-        >
-          <ReportFields report={reading.fields} />
-        </Dialog>
+          fields={reading.fields}
+          asSent={reading.asSent}
+          figure={{
+            quantity: reading.impactQuantity != null ? Number(reading.impactQuantity) : null,
+            source: reading.impactQuantitySource,
+            unit: reading.impactUnitLabel,
+          }}
+        />
       )}
     </Panel>
   )

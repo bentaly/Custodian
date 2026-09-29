@@ -35,7 +35,6 @@ export interface ReportAnalysisInput {
     caseStudies?: string | null
     testimonials?: string | null
     otherComments?: string | null
-    amountAwarded?: number | null
     beneficiaryCount?: number | null
     deliveryArea?: string | null
     responses: Array<{ label: string; value: string }>
@@ -116,7 +115,6 @@ export function buildUserPrompt(input: ReportAnalysisInput): string {
       kv('Case studies', input.report.caseStudies),
       kv('Testimonials', input.report.testimonials),
       kv('Other comments', input.report.otherComments),
-      kv('Amount received (as stated by charity)', input.report.amountAwarded),
       kv('Beneficiary count (as stated by charity)', input.report.beneficiaryCount),
       kv('Delivery area', input.report.deliveryArea),
       responsesBlock(input.report.responses),

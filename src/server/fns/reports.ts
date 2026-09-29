@@ -1,6 +1,7 @@
 import { notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { reportRerunBlocker } from '../reports/correct'
+import { reportsAsSent } from '../reports/asSent'
 import { and, eq, inArray, isNull, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db'
@@ -808,6 +809,8 @@ export const getReport = createServerFn({ method: 'GET' })
       canCorrect,
       /** Null when "Re-run analysis" is on offer; otherwise why not. */
       rerunBlocked: canCorrect && s ? await reportRerunBlocker(s.id) : null,
+      /** The report as the grantee sent it (View Report); null for an imported figure. */
+      asSent: s ? ((await reportsAsSent([s])).get(s.id) ?? null) : null,
       label: reportLabel(milestone?.label, (s?.importBatchId ?? null) !== null),
       dueDate: milestone?.dueDate ?? null,
       status: (s?.reviewedAt
@@ -857,8 +860,6 @@ export const getReport = createServerFn({ method: 'GET' })
             charityNumber: s.charityNumber,
             companyNumber: s.companyNumber,
             programmeName: s.programmeName,
-            amountAwarded: s.amountAwarded,
-            awardDate: s.awardDate,
             awardEndDate: s.awardEndDate,
             contactName: s.contactName,
             contactEmail: s.contactEmail,

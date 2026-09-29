@@ -566,20 +566,35 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
   (`pickWaitingGrant`, `reportMapping/match.ts`; `match_method = 'charity_number'`). A reference
   naming several grants never falls through to it. Names, amounts and years are suggestions only.
   **A report holds for ONE reason: no grant.** Organisation name and impact summary are optional
-  (the name falls back to the grant's applicant), so a report with a matched grant always lands;
-  missing fields only drive the AI mapping fallback and show as `info` blockers. A held report is
-  attached **in the app** (Reports → "N reports need a grant", admin-only, `fns/heldReports.ts`)
-  from the ranked candidates or any grant, or set aside as "Not one of ours". Sentry is told only
-  when a report is held (`report-held`, one issue per ingest). Rows held for anything else stay
-  in the admin app.
+  (the name falls back to the grant's applicant), and a figure that is not a whole number is left
+  out rather than holding the report (the screen shows their answer beside the panel, and View
+  Report notes it), so a report with a grant always lands. Missing fields only drive the AI mapping
+  fallback. A held report is attached **in the app** (Reports → "N reports need a grant",
+  admin-only, `fns/heldReports.ts`) from the ranked candidates or any grant, or set aside as "Not
+  one of ours". It is dated the day it ARRIVED (`receivedAt` = the ingest's `created_at`), not the
+  day it was attached. Sentry hears only of a report whose values could not be read at all
+  (`report-held`, one issue per ingest), which now should not happen.
+  **Amount awarded and award date are no longer report fields** (2026-09-29): they were only loose
+  ranking hints ("£26,000" may be an instalment, a year or the whole grant). An answer to either
+  lands among the grantee's answers. The `reports.amount_awarded` / `award_date` columns are
+  unwritten and unread, to be dropped in a later push.
 - **Reports are correctable after they land** (`src/server/reports/correct.ts`), admin-only and
-  never on imported rows: **move** to another grant or milestone (the milestone left is un-ticked
-  unless another report answers it, the one joined is ticked, both awards recomputed), **correct
-  the impact figure** (`impactQuantitySource = 'edited'`, which a re-analysis never overwrites),
-  and **re-run the analysis** — offered only after a move newer than the last analysis, or after
-  an error, and capped at `REPORT_RERUNS_PER_DAY` (5) via `report_analysis_rerun` audit rows.
-  Analysis is `queued` and runs on the queue (`kind: 'report_analysis'`) for attached reports;
-  `queued` renders as "Running".
+  never on imported rows. **One pencil on the figure panel** edits the milestone (this grant's
+  only) and the impact figure (`impactQuantitySource = 'edited'`, which no re-analysis
+  overwrites). **"Wrong grant?" on Grant details** (`WrongGrantDialog`) offers two ways out:
+  move it to the right grant (`moveReport`), or send it back to the reports that need a grant
+  (`returnReport`: the report row is deleted and its ingest reset to `needs_review`; only a report
+  that arrived as a submission can go back). Wrong grants are rare by design, since automatic
+  matching is exact; this is mostly for a human who picked wrongly. Either way the milestone left
+  is un-ticked unless another report answers it. **Re-run the analysis** is offered only after a
+  move newer than the last analysis, or after an error, capped at `REPORT_RERUNS_PER_DAY` (5) via
+  `report_analysis_rerun` audit rows. Analysis runs on the queue (`kind: 'report_analysis'`) for
+  attached reports; `queued` renders as "Running" with a Refresh link.
+- **View Report is the report as SENT** (`ReportSubmissionDialog`, `server/reports/asSent.ts`),
+  the twin of an application's View Submission: every answer in the grantee's wording and order
+  (`report_ingests.field_order`, captured at save because jsonb reorders), with a blue note under
+  the figure answer when Custodian reads it differently. Derived on read, not indexed at promotion,
+  because a report's columns are never edited. A report with no ingest falls back to `ReportFields`.
 - **Legacy**: budget links captured during the Make period are dead URLs (Typeform's Responses API
   returns a bearer-authed path; the raw webhook returns the openable one). If another platform
   hands back an unreachable URL, re-derive that from the stored payload — never store it as a column.

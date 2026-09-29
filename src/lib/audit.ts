@@ -65,6 +65,8 @@ export type AuditAction =
   | 'report_impact_changed'
   // The report's AI analysis was asked for again (a paid model call, limited per day).
   | 'report_analysis_rerun'
+  // A report was taken off its grant and returned to the reports that need one.
+  | 'report_returned'
 
   // ── Money ────────────────────────────────────────────────────────────────
   // The account a grant is paid into was changed by hand on the payment panel. The one
@@ -224,6 +226,7 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   report_moved: 'reporting',
   report_impact_changed: 'reporting',
   report_analysis_rerun: 'reporting',
+  report_returned: 'reporting',
   grant_bank_details_changed: 'money',
   grant_payment_recorded: 'money',
   grant_payment_reversed: 'money',
@@ -275,6 +278,7 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   report_moved: 'moved a report for',
   report_impact_changed: 'corrected the impact figure on a report from',
   report_analysis_rerun: 're-ran the AI analysis of a report from',
+  report_returned: 'took a report off the wrong grant for',
   grant_bank_details_changed: 'changed the payment account for',
   grant_payment_recorded: 'recorded a payment to',
   grant_payment_reversed: 'reversed a recorded payment to',
@@ -312,6 +316,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   report_moved: 'Report moved',
   report_impact_changed: 'Report impact figure corrected',
   report_analysis_rerun: 'Report analysis re-run',
+  report_returned: 'Report taken off a grant',
   grant_bank_details_changed: 'Payment account changed',
   grant_payment_recorded: 'Payment recorded',
   grant_payment_reversed: 'Payment reversed',
