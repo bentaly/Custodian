@@ -4,7 +4,7 @@
 
 import { KeyValueCard, Section, type FieldRow } from './ApplicationFields'
 import { C } from './ui/tokens'
-import { fmtDate } from '../lib/format'
+import { fmtDate, humaniseKey } from '../lib/format'
 
 export type ReportFieldsData = {
   submittedAt: string
@@ -109,7 +109,7 @@ export function ReportFields({ report }: { report: ReportFieldsData }) {
             {responses.map((r, i) => (
               <div key={i}>
                 <dt className="mb-1 font-display text-label font-medium" style={{ color: C.sub }}>
-                  {r.label}
+                  {humaniseKey(r.label)}
                 </dt>
                 <dd
                   className="whitespace-pre-wrap font-display text-body leading-relaxed"

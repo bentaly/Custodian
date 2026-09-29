@@ -63,15 +63,22 @@ export function WrongGrantDialog({
   const [scheduleId, setScheduleId] = useState<string>('none')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // A list that failed to load must not look like a list with nothing in it.
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setChoice('move')
     setAwardId('')
     setError(null)
+    setLoadError(null)
+    setGrants(null)
     reportGrantChoices({ data: { reportId } })
       .then((g) => setGrants(g.filter((x) => x.awardId !== currentAwardId)))
-      .catch(() => setGrants([]))
+      .catch(() => {
+        setGrants([])
+        setLoadError('The grants could not be loaded. Close this and try again.')
+      })
   }, [open, reportId, currentAwardId])
 
   useEffect(() => {
@@ -83,7 +90,10 @@ export function WrongGrantDialog({
         // Start from the new grant's earliest milestone nobody has answered.
         setScheduleId(m.find((x) => !x.taken)?.id ?? 'none')
       })
-      .catch(() => setMilestones([]))
+      .catch(() => {
+        setMilestones([])
+        setLoadError("That grant's milestones could not be loaded. Close this and try again.")
+      })
   }, [open, reportId, awardId])
 
   async function save() {
@@ -161,7 +171,13 @@ export function WrongGrantDialog({
                 <Select
                   id="wrong-grant-grant"
                   value={awardId}
-                  placeholder="Choose a grant"
+                  placeholder={
+                    grants === null
+                      ? 'Loading grants…'
+                      : grants.length === 0 && !loadError
+                        ? 'No other grants to move it to'
+                        : 'Choose a grant'
+                  }
                   options={(grants ?? []).map((g) => ({ value: g.awardId, label: grantLabel(g) }))}
                   onChange={(v: string) => setAwardId(v)}
                   disabled={grants === null}
@@ -191,9 +207,9 @@ export function WrongGrantDialog({
           />
         )}
       </div>
-      {error && (
+      {(loadError || error) && (
         <p className="mt-3 font-display text-label" style={{ color: C.danger }} role="alert">
-          {error}
+          {loadError ?? error}
         </p>
       )}
     </Dialog>

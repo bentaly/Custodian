@@ -24,8 +24,9 @@ export const Route = createFileRoute('/_authenticated/settings/submissions')({
 // from the mapper's source of truth means this page cannot drift out of date — which
 // matters more now that this page IS the spec a foundation builds their form against.
 //
-// The report registry is still two-tier (`required: boolean`), so it is normalised into
-// the same three-tier shape for display rather than each registry growing its own table.
+// The report registry's `required` only steers the AI fallback now: a report is held for
+// one reason, having no grant, so no report field is shown as Required. Each is shown as
+// `expected`, with what it costs to leave out where that can be named.
 type Field = {
   key: string
   label: string
@@ -69,13 +70,14 @@ const ENDPOINTS = {
   reports: {
     path: '/api/submit-report',
     blurb:
-      'Post a grant report. Reports link to a grant automatically when your application reference matches one we already hold; anything else waits in the Reports queue for an admin.',
+      'Post a grant report. It links to its grant automatically when your application reference matches one we hold, or failing that when its charity number matches a charity with exactly one grant waiting on a report. Anything else waits on the Reports screen for an admin to choose its grant. Every field is optional.',
     fields: REPORT_CANONICAL_FIELDS.map(
       (f): Field => ({
         key: f.key,
         label: f.label,
-        tier: f.required ? 'required' : 'expected',
+        tier: 'expected',
         description: f.description,
+        degrades: f.degrades,
       }),
     ),
   },

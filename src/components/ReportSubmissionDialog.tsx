@@ -3,7 +3,7 @@ import { C } from './ui/tokens'
 import { Note } from './ApplicationSubmissionDialog'
 import { ReportFields, type ReportFieldsData } from './ReportFields'
 import { REPORT_CANONICAL_FIELD_BY_KEY } from '../lib/fieldMapping'
-import { fmtDate } from '../lib/format'
+import { fmtDate, humaniseKey } from '../lib/format'
 import type { ReportAsSent } from '../server/reports/asSent'
 
 // View Report: what the grantee sent, exactly as it arrived. The twin of an
@@ -22,7 +22,8 @@ const MATCHED_HOW: Record<ReportFieldsData['matchMethod'], string> = {
 }
 
 const fieldLabel = (key: string) =>
-  REPORT_CANONICAL_FIELD_BY_KEY[key as keyof typeof REPORT_CANONICAL_FIELD_BY_KEY]?.label ?? key
+  REPORT_CANONICAL_FIELD_BY_KEY[key as keyof typeof REPORT_CANONICAL_FIELD_BY_KEY]?.label ??
+  humaniseKey(key)
 
 export function ReportSubmissionDialog({
   open,
@@ -83,7 +84,7 @@ export function ReportSubmissionDialog({
                 <dt className="mb-1.5 font-display text-label font-medium" style={{ color: C.sub }}>
                   {/* A payload that named a field by OUR key ("impactSummary") gets our
                       label for it; a form's own question is shown as they wrote it. */}
-                  {a.label === a.canonical ? fieldLabel(a.label) : a.label}
+                  {a.label === a.canonical ? fieldLabel(a.label) : humaniseKey(a.label)}
                 </dt>
                 <dd>
                   <p

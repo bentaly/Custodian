@@ -40,12 +40,18 @@ export interface ReportCanonicalField {
   key: ReportCanonicalFieldKey
   /** Human label shown in the review UI. */
   label: string
-  /** Required fields must be resolved before promotion; otherwise → needs_review. */
+  /**
+   * The fields the AI fallback hunts for when the rules and dictionary miss them. No
+   * longer a gate: a report is held only when it has no grant (see `ingest.ts`), so the
+   * Submission guide shows no report field as Required.
+   */
   required: boolean
   /** Guidance for the AI fallback and reviewers on what this field holds. */
   description: string
   /** Optional transform from the raw (string) payload value to canonical form. */
   coerce?: (raw: string) => string
+  /** What a foundation loses by not sending it, for the Submission guide. */
+  degrades?: string
 }
 
 /** Keep only digits, for count-like fields ("~130 young people" → "130"). */
@@ -63,6 +69,9 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
       "The foundation's own reference or ID for the ORIGINAL APPLICATION this report is about " +
       '(NOT our internal ID, and not a reference for the report itself). Used to link the report ' +
       'to its grant. Often sent as a hidden form field.',
+    degrades:
+      'we try the charity number instead, and a report neither can place waits on the Reports ' +
+      'screen for an admin to choose its grant.',
   },
   {
     key: 'organisationName',
@@ -78,12 +87,15 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
       'The main narrative of what difference the funding made, e.g. "How has our funding made a ' +
       'difference?", "Grant impact summary", "Impact on young people supported". The core content ' +
       'of the report.',
+    degrades: 'the analysis has only the rest of the report to go on.',
   },
   {
     key: 'charityNumber',
     label: 'Charity number',
     required: false,
     description: 'Registered charity number (Charity Commission E&W, or OSCR with an SC prefix).',
+    degrades:
+      'a report without your application reference cannot be linked to its grant automatically.',
   },
   {
     key: 'companyNumber',
@@ -178,6 +190,7 @@ export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
       "A grant's reports replace each other rather than adding up, so the latest report's count " +
       'is the one that stands. e.g. "Number of beneficiaries", "How many people have you supported ' +
       'to date?". Map only fields whose value is a count, not a narrative.',
+    degrades: 'the figure is read from the report itself, where it states one.',
     coerce: coerceCount,
   },
   {

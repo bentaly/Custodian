@@ -248,7 +248,8 @@ export function fmtExact(n: number): string {
  * refuse rather than silently rounded up to `9729.56`.
  */
 export function penceInput(value: number | string): string {
-  if (typeof value === 'string') return /^-?\d+\.\d$/.test(value.trim()) ? `${value.trim()}0` : value
+  if (typeof value === 'string')
+    return /^-?\d+\.\d$/.test(value.trim()) ? `${value.trim()}0` : value
   if (!Number.isFinite(value)) return ''
   return Math.abs(value - Math.round(value)) < 0.005 ? String(Math.round(value)) : value.toFixed(2)
 }
@@ -294,4 +295,30 @@ export function fmtPerYear(amount: number, years: number | null | undefined): st
  */
 export function fmtList(items: string[]): string {
   return new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' }).format(items)
+}
+
+/**
+ * A field name sent as a code key ("contactName", "award_date", "externalApplicationID")
+ * in sentence case for a person to read: "Contact name", "Award date", "External
+ * application ID". Anything that already reads as words (it has a space) is the
+ * sender's own question wording and is returned as it came.
+ */
+export function humaniseKey(key: string): string {
+  const trimmed = key.trim()
+  if (!trimmed || /\s/.test(trimmed)) return key
+  const words = trimmed
+    .replace(/[_-]+/g, ' ')
+    // Split lower→Upper ("contactName") and an acronym before a word ("IDNumber").
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .trim()
+    .split(/\s+/)
+  return words
+    .map((w, i) => {
+      // Acronyms keep their capitals: "ID", "URL".
+      if (w.length > 1 && w === w.toUpperCase()) return w
+      const lower = w.toLowerCase()
+      return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
 }

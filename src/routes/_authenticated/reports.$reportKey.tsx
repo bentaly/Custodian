@@ -341,6 +341,11 @@ function ReportDetail() {
                       reportId={s.id}
                       awardId={report.grant.id}
                       scheduleId={s.scheduleId}
+                      scheduleLabel={
+                        s.scheduleId
+                          ? `${report.label}${report.dueDate ? ` · due ${fmtDate(report.dueDate)}` : ''}`
+                          : null
+                      }
                       current={impactQuantity}
                       unit={s.impactUnitLabel ?? report.impactUnitLabel}
                       onDone={() => setEditingImpact(false)}
@@ -592,6 +597,7 @@ function ReportPanelEditor({
   reportId,
   awardId,
   scheduleId,
+  scheduleLabel,
   current,
   unit,
   onDone,
@@ -599,6 +605,8 @@ function ReportPanelEditor({
   reportId: string
   awardId: string
   scheduleId: string | null
+  /** The milestone it answers now, so the field shows it before the list arrives. */
+  scheduleLabel: string | null
   current: number | null
   unit: string | null
   onDone: () => void
@@ -618,7 +626,10 @@ function ReportPanelEditor({
   useEffect(() => {
     grantMilestones({ data: { reportId, awardId } })
       .then(setMilestones)
-      .catch(() => setMilestones([]))
+      .catch(() => {
+        setMilestones([])
+        setError('The milestones could not be loaded. Cancel and try again.')
+      })
   }, [reportId, awardId])
 
   async function save() {
@@ -647,10 +658,18 @@ function ReportPanelEditor({
     }
   }
 
+  const listed = (milestones ?? [])
+    .filter((m) => !m.taken)
+    .map((m) => ({ value: m.id, label: `${m.label} · due ${fmtDate(m.dueDate)}` }))
+  // The current milestone is always an option, loaded or not, so the field never opens
+  // blank on the value it already has.
+  const currentOption =
+    scheduleId && scheduleLabel && !listed.some((o) => o.value === scheduleId)
+      ? [{ value: scheduleId, label: scheduleLabel }]
+      : []
   const options = [
-    ...(milestones ?? [])
-      .filter((m) => !m.taken)
-      .map((m) => ({ value: m.id, label: `${m.label} · due ${fmtDate(m.dueDate)}` })),
+    ...currentOption,
+    ...listed,
     { value: 'none', label: 'No milestone (an extra report)' },
   ]
 
@@ -671,7 +690,7 @@ function ReportPanelEditor({
           value={milestone}
           options={options}
           onChange={(v: string) => setMilestone(v)}
-          disabled={busy || milestones === null}
+          disabled={busy}
         />
         <p className="text-label" style={{ color: C.sub }}>
           Milestones another report already answers are not offered. The one this report leaves is

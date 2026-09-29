@@ -1,5 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { compactExact, fmtCompact, fmtDate, fmtDateTime, fmtPerYear, isoValue } from './format'
+import {
+  compactExact,
+  fmtCompact,
+  fmtDate,
+  fmtDateTime,
+  fmtPerYear,
+  humaniseKey,
+  isoValue,
+} from './format'
 
 /**
  * These run in NEW YORK, and that is the whole point.
@@ -137,5 +145,29 @@ describe('fmtPerYear', () => {
     expect(fmtPerYear(35_000, 1)).toBeNull()
     expect(fmtPerYear(35_000, null)).toBeNull()
     expect(fmtPerYear(0, 3)).toBeNull()
+  })
+})
+
+describe('humaniseKey', () => {
+  it('sentence-cases a camelCase key', () => {
+    expect(humaniseKey('contactName')).toBe('Contact name')
+    expect(humaniseKey('beneficiaryCount')).toBe('Beneficiary count')
+  })
+  it('sentence-cases snake and kebab case', () => {
+    expect(humaniseKey('award_date')).toBe('Award date')
+    expect(humaniseKey('delivery-area')).toBe('Delivery area')
+  })
+  it('keeps an acronym in capitals', () => {
+    expect(humaniseKey('externalApplicationID')).toBe('External application ID')
+    expect(humaniseKey('IDNumber')).toBe('ID number')
+  })
+  it('capitalises a bare lower-case word', () => {
+    expect(humaniseKey('email')).toBe('Email')
+  })
+  it('leaves question wording and already-cased words alone', () => {
+    expect(humaniseKey('How many people have you supported?')).toBe(
+      'How many people have you supported?',
+    )
+    expect(humaniseKey('Postcode')).toBe('Postcode')
   })
 })

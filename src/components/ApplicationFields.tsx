@@ -24,6 +24,7 @@
 import { budgetTotal, formatPounds, type BudgetLine } from '../lib/budget'
 import { CANONICAL_FIELD_BY_KEY, type CanonicalFieldKey } from '../lib/fieldMapping'
 import { C } from './ui/tokens'
+import { humaniseKey } from '../lib/format'
 
 // Accepts any application-shaped row; fields are optional so callers can pass
 // whatever their query returned.
@@ -355,7 +356,7 @@ export function ApplicationFields({
           style={i > 0 ? { borderColor: C.line } : undefined}
         >
           <dt className="mb-1.5 font-display text-label font-medium" style={{ color: C.sub }}>
-            {e.label}
+            {humaniseKey(e.label)}
           </dt>
           <dd>
             <AnswerBody answer={e.answer} />
