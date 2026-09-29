@@ -566,8 +566,9 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
   (`pickWaitingGrant`, `reportMapping/match.ts`; `match_method = 'charity_number'`). A reference
   naming several grants never falls through to it. Names, amounts and years are suggestions only.
   **A report holds for ONE reason: no grant.** Organisation name and impact summary are optional
-  (the name falls back to the grant's applicant), and a figure that is not a whole number is left
-  out rather than holding the report (the screen shows their answer beside the panel, and View
+  (the name falls back to the grant's applicant), and a figure answer that is not plainly ONE whole number
+  (`coerceCount`: "1.2k", "60-70", "12.5", "45%", "not counted yet") is left out rather than
+  guessed at or holding the report (the screen shows their answer beside the panel, and View
   Report notes it), so a report with a grant always lands. Missing fields only drive the AI mapping
   fallback. A held report is attached **in the app** (Reports → "N reports need a grant",
   admin-only, `fns/heldReports.ts`) from the ranked candidates or any grant, or set aside as "Not

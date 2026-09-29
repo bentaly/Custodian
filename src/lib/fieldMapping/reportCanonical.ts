@@ -54,10 +54,28 @@ export interface ReportCanonicalField {
   degrades?: string
 }
 
-/** Keep only digits, for count-like fields ("~130 young people" → "130"). */
+/**
+ * Read a count ("~130 young people" → "130", "2,500 households" → "2500"), or nothing.
+ *
+ * The answer must hold exactly ONE whole number. Anything else reads as nothing rather
+ * than a guess, because this figure is summed into Insights as fact: taking the first
+ * run of digits read "1.2k" as 1, "60-70" as 60 and "12.5" as 12. An unread answer is
+ * not lost: the report lands, its screen shows what they wrote beside the figure, the
+ * analysis looks for a figure in the narrative, and an admin can type the right one.
+ */
 export function coerceCount(raw: string): string {
-  const match = raw.replace(/,/g, '').match(/\d+/)
-  return match ? match[0] : ''
+  const numbers = [...raw.matchAll(/\d[\d,]*(?:\.\d+)?/g)]
+  if (numbers.length !== 1) return ''
+  const [match] = numbers
+  const token = match![0].replace(/,+$/, '')
+  // A decimal is not a count of people.
+  if (token.includes('.')) return ''
+  // Commas only as thousands separators: "2,500" yes, "25,00" no.
+  if (token.includes(',') && !/^\d{1,3}(,\d{3})+$/.test(token)) return ''
+  // "1k", "3 m", "45%": a scale or a share, not a count.
+  const after = raw.slice(match!.index! + token.length)
+  if (/^\s*(k|m|bn|%|per\s*cent|percent)\b/i.test(after) || /^\s*%/.test(after)) return ''
+  return token.replace(/,/g, '')
 }
 
 export const REPORT_CANONICAL_FIELDS: ReportCanonicalField[] = [
