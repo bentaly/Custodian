@@ -516,9 +516,9 @@ design rationale; this list is a map, not a summary.
   **The Summary tab is `src/lib/balanceSummary.ts`** (agreed with a foundation 2026-09-13): core
   costs, prior-year grants and this year's grants (split by the ROUND's year, each broken down by
   programme), and a contingency (`annual_budgets.contingency_percent`, a % of the programme lines
-  only). Columns are **Actual** (paid, or core costs scheduled to date) / **Projected** (core costs to
-  come, round budget not yet awarded, contingency) / **Still to pay** (awarded, unpaid, due by the
-  year end). An "Awarded" column (paid + unpaid together) hid why a paid grant deducted nothing.
+  only). Columns are **Actual** (paid, or core costs scheduled to date) / **Projected** (round budget not
+  yet awarded, contingency) / **Still to pay** (awarded and unpaid grants due by the year end,
+  plus core costs scheduled after today: fixed costs, moved here from Projected on 2026-09-29). An "Awarded" column (paid + unpaid together) hid why a paid grant deducted nothing.
   Round budget is HELD — budget less `roundProgrammeSpend`'s awarded figure — while its round is
   upcoming, open, or closed with applications undecided, and released once all are decided.
   Available = balance − projected − still to pay − Actual money gone after the reading; minus the
