@@ -863,8 +863,8 @@ export const fieldMappings = pgTable(
     canonicalField: text('canonical_field').notNull(),
     // Which form's canonical vocabulary this mapping targets: 'application' or
     // 'report'. The same sourceKey can legitimately map differently per form —
-    // e.g. "Funding amount" is amountRequested on an application but
-    // amountAwarded on a report.
+    // e.g. "Contact name" is an applicant on an application but the person
+    // submitting on a report.
     formType: text('form_type').notNull().default('application'),
     // Email of the admin who confirmed the mapping (from the admin app). Nullable
     // for seeded/system mappings.
@@ -1497,10 +1497,6 @@ export const reports = pgTable(
     charityNumber: text('charity_number'),
     companyNumber: text('company_number'),
     programmeName: text('programme_name'),
-    // Amount as stated on the report — kept for cross-checking against the grant's
-    // amountAwarded (a mismatch is a wrong-link signal), not a source of truth.
-    amountAwarded: numeric('amount_awarded'),
-    awardDate: text('award_date'),
     awardEndDate: text('award_end_date'),
     contactName: text('contact_name'),
     contactEmail: text('contact_email'),

@@ -577,8 +577,8 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
   (`report-held`, one issue per ingest), which now should not happen.
   **Amount awarded and award date are no longer report fields** (2026-09-29): they were only loose
   ranking hints ("£26,000" may be an instalment, a year or the whole grant). An answer to either
-  lands among the grantee's answers. The `reports.amount_awarded` / `award_date` columns are
-  unwritten and unread, to be dropped in a later push.
+  lands among the grantee's answers. The `reports.amount_awarded` / `award_date` columns were
+  dropped in `0103`, a push after the one that stopped using them.
 - **Reports are correctable after they land** (`src/server/reports/correct.ts`), admin-only and
   never on imported rows. **One pencil on the figure panel** edits the milestone (this grant's
   only) and the impact figure (`impactQuantitySource = 'edited'`, which no re-analysis
