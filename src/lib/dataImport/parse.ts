@@ -79,7 +79,7 @@ export type ReportRow = {
 
 // ─── Cell coercion ──────────────────────────────────────────────────────────
 
-function asText(value: unknown): string | null {
+export function asText(value: unknown): string | null {
   if (value == null) return null
   if (typeof value === 'string') {
     const t = value.trim()

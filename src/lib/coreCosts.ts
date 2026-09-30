@@ -8,8 +8,16 @@ import { penceInput } from './format'
  * A programme line's cash is derived from the instalment dates of real grants. A
  * non-grant line (rent, staff, a legal fee) has nothing behind it but the figure the
  * foundation typed, so the only honest way to place it in time is to ask how it is paid:
- * **monthly** or **one-off**. That one answer is what lets Finance show cash flow across
- * the year instead of a single annual lump.
+ * **monthly**, **quarterly** or **one-off**. That one answer is what lets Finance show
+ * cash flow across the year instead of a single annual lump.
+ *
+ * ## Income is placed the same way
+ *
+ * An income line (`lineKind` = `income`: investment income, a pledge) goes through the
+ * same `costEntries`, and the month-end rule is conservative for it too: income counted
+ * late understates spare cash, counted early overstates it. Quarterly was added for
+ * income, since investment income usually arrives that way, and is offered on costs as
+ * well because nothing about it is income-shaped.
  *
  * ## `amount` is always the year
  *
@@ -31,17 +39,39 @@ import { penceInput } from './format'
  * `buildSchedule` uses for instalments, so twelve shares always sum to the year.
  */
 
-export type CostFrequency = 'monthly' | 'one_off'
+export type CostFrequency = 'monthly' | 'quarterly' | 'one_off'
 
 export const COST_FREQUENCIES: { value: CostFrequency; label: string }[] = [
   { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
   { value: 'one_off', label: 'One-off' },
 ]
 
 /** NULL, or anything unrecognised, is monthly. See the column comment in the schema. */
 export function resolveFrequency(f: string | null | undefined): CostFrequency {
-  return f === 'one_off' ? 'one_off' : 'monthly'
+  return f === 'one_off' || f === 'quarterly' ? f : 'monthly'
 }
+
+/**
+ * What a budget line is: a programme's grant budget, a cost, or income.
+ *
+ * `annual_budget_lines.kind` is nullable (rows written before income existed, and by any
+ * code older than the column), and NULL reads the way every such row always meant it:
+ * a programme line is a grant, anything else a cost. Income is never inferred — it is
+ * only ever a line somebody added under Income.
+ */
+export type BudgetLineKind = 'grant' | 'cost' | 'income'
+
+export function lineKind(line: {
+  programmeId: string | null
+  kind?: string | null
+}): BudgetLineKind {
+  if (line.programmeId) return 'grant'
+  return line.kind === 'income' ? 'income' : 'cost'
+}
+
+/** The label an income line falls back to when none was stored. */
+export const INCOME_LABEL = 'Income'
 
 export type YearMonth = {
   /** `yyyy-mm` */
@@ -67,12 +97,49 @@ export function monthsOfYear(fy: { start: string; end: string }): YearMonth[] {
   return out
 }
 
+/**
+ * The month ends a monthly or quarterly line pays on this year.
+ *
+ * `from` is the line's start date (`due_date` on a repeating line, 2026-09-30): a cost or
+ * income that begins part-way through the year, like a new post or a new pledge, pays
+ * from the month it starts in. Blank, or before the year, is the whole year. A quarterly
+ * line pays every third month COUNTING FROM ITS START, the last month taking what is left:
+ * from April that is June, September, December and March; from October, December and
+ * March.
+ */
+export function paymentMonths(
+  frequency: CostFrequency,
+  fy: { start: string; end: string },
+  from: string | null | undefined,
+): YearMonth[] {
+  const months = monthsOfYear(fy).filter((m) => !from || m.end >= from)
+  if (frequency !== 'quarterly') return months
+  return months.filter((_, i) => i % 3 === 2 || i === months.length - 1)
+}
+
+/**
+ * How many payments a line makes this year: what a typed per-month or per-quarter figure
+ * is multiplied by to store the year's figure, and divided by to show it again. One for a
+ * one-off. Never 0, so a start date after the year end cannot divide by nothing.
+ */
+export function periodsIn(
+  frequency: CostFrequency,
+  fy: { start: string; end: string },
+  from: string | null | undefined,
+): number {
+  if (frequency === 'one_off') return 1
+  return Math.max(1, paymentMonths(frequency, fy, from).length)
+}
+
 export type CostLineInput = {
   label: string | null
   /** The year's figure. */
   amount: number
   frequency: string | null
+  /** A one-off's date, or the date a monthly or quarterly line STARTS (NULL = the year's start). */
   dueDate: string | null
+  /** Income lines: Fixed (TRUE) or Expected. Ignored on a cost line. */
+  fixed?: boolean | null
 }
 
 export type CostEntry = { date: string; amount: number }
@@ -91,11 +158,17 @@ export function costEntries(line: CostLineInput, fy: { start: string; end: strin
     return [{ date: d < fy.start ? fy.start : d > fy.end ? fy.end : d, amount: pence / 100 }]
   }
 
-  const months = monthsOfYear(fy)
-  const each = Math.floor(pence / months.length)
-  return months.map((m, i) => ({
-    date: m.end,
-    amount: (i === months.length - 1 ? pence - each * (months.length - 1) : each) / 100,
+  // A quarter's share falls at the END of its third month, for the same reason a month's
+  // falls at the month end: late is the conservative side for money out, and for money
+  // in too, since income counted early is spare cash the account does not have yet.
+  const ends = paymentMonths(resolveFrequency(line.frequency), fy, line.dueDate).map((m) => m.end)
+  // A start date after the year end leaves no month to pay in (the save refuses one), so
+  // the year's figure falls on the year end rather than vanishing from every total.
+  if (ends.length === 0) return [{ date: fy.end, amount: pence / 100 }]
+  const each = Math.floor(pence / ends.length)
+  return ends.map((date, i) => ({
+    date,
+    amount: (i === ends.length - 1 ? pence - each * (ends.length - 1) : each) / 100,
   }))
 }
 
@@ -106,6 +179,8 @@ export type CoreCostLine = {
   amount: number
   /** Monthly lines only. */
   perMonth: number | null
+  /** Quarterly lines only. */
+  perQuarter: number | null
   /** One-off lines only. */
   dueDate: string | null
   /** Scheduled on or before `on` — what the plan says has gone, not a record that it did. */
@@ -120,6 +195,8 @@ export type CoreCostRollup = {
   toCome: number
   /** Sum of the monthly lines' monthly shares. */
   perMonth: number
+  /** Sum of the quarterly lines' quarterly shares. */
+  perQuarter: number
   /** Sum of the one-off lines. */
   oneOff: number
 }
@@ -130,7 +207,6 @@ export function scheduleCoreCosts(
   fy: { start: string; end: string },
   on: string,
 ): CoreCostRollup {
-  const monthCount = monthsOfYear(fy).length || 12
   const out: CoreCostLine[] = lines.map((line) => {
     const frequency = resolveFrequency(line.frequency)
     const entries = costEntries(line, fy)
@@ -139,8 +215,11 @@ export function scheduleCoreCosts(
       name: line.label?.trim() || CORE_COSTS_LABEL,
       frequency,
       amount: line.amount,
-      perMonth: frequency === 'monthly' ? line.amount / monthCount : null,
-      dueDate: frequency === 'one_off' ? (entries[0]?.date ?? line.dueDate) : null,
+      // Per payment, over the payments this line actually makes: a £12,000 post from
+      // October is £2,000 a month, not £1,000.
+      perMonth: frequency === 'monthly' ? line.amount / Math.max(1, entries.length) : null,
+      perQuarter: frequency === 'quarterly' ? line.amount / Math.max(1, entries.length) : null,
+      dueDate: frequency === 'one_off' ? (entries[0]?.date ?? line.dueDate) : line.dueDate,
       toDate: round2(toDate),
       toCome: round2(line.amount - toDate),
     }
@@ -152,6 +231,7 @@ export function scheduleCoreCosts(
     toDate: sum((l) => l.toDate),
     toCome: sum((l) => l.toCome),
     perMonth: sum((l) => l.perMonth ?? 0),
+    perQuarter: sum((l) => l.perQuarter ?? 0),
     oneOff: sum((l) => (l.frequency === 'one_off' ? l.amount : 0)),
   }
 }
@@ -164,6 +244,7 @@ export function round2(n: number): number {
 /** A budget line as a save receives it, before anything is stored. */
 export type SavedLineTiming = {
   programmeId: string | null
+  kind?: string | null
   label: string | null
   amount: number
   frequency?: string | null
@@ -175,8 +256,9 @@ export type SavedLineTiming = {
  *
  * A programme line stores none — its cash comes from its grants' instalments. A cost line
  * always stores a frequency, never NULL, so "never chosen" and "monthly" cannot drift
- * apart on new rows; and a date only when it is one-off, so a date left behind by a line
- * switched to monthly is dropped rather than kept to mislead whoever reads the row next.
+ * apart on new rows. Its date is the day a one-off falls, or the day a monthly or
+ * quarterly line starts: one column, one meaning ("this line's date"), and blank is
+ * allowed on a repeating line, where it means the start of the year.
  */
 export function storedTiming(line: SavedLineTiming): {
   frequency: CostFrequency | null
@@ -184,7 +266,7 @@ export function storedTiming(line: SavedLineTiming): {
 } {
   if (line.programmeId) return { frequency: null, dueDate: null }
   const frequency = resolveFrequency(line.frequency)
-  return { frequency, dueDate: frequency === 'one_off' ? line.dueDate || null : null }
+  return { frequency, dueDate: line.dueDate || null }
 }
 
 /**
@@ -192,8 +274,9 @@ export function storedTiming(line: SavedLineTiming): {
  *
  * The single statement of the rule, used by the Settings screen to disable Save and by
  * `saveAnnualBudget` to refuse, so the button and the boundary cannot disagree. Only a
- * one-off cost WITH an amount is checked — it needs a date, inside the year. A zero line
- * is not saved at all, so its date is nobody's business.
+ * line WITH an amount is checked: a one-off needs a date inside the year, and a repeating
+ * line's start date, if it has one, must be inside the year too. A zero line is not saved
+ * at all, so its date is nobody's business.
  */
 export function costTimingProblem(
   lines: SavedLineTiming[],
@@ -202,8 +285,15 @@ export function costTimingProblem(
   for (const l of lines) {
     if (l.programmeId || !(l.amount > 0)) continue
     const { frequency, dueDate } = storedTiming(l)
-    if (frequency !== 'one_off') continue
-    const name = l.label?.trim() || 'The one-off cost'
+    const noun = lineKind(l) === 'income' ? 'income' : 'cost'
+    if (frequency !== 'one_off') {
+      if (dueDate && (dueDate < fy.start || dueDate > fy.end)) {
+        const name = l.label?.trim() || `The ${frequency} ${noun}`
+        return `${name} starts outside this financial year.`
+      }
+      continue
+    }
+    const name = l.label?.trim() || `The one-off ${noun}`
     if (!dueDate) return `${name} needs a date.`
     if (dueDate < fy.start || dueDate > fy.end) {
       return `${name} is dated outside this financial year.`
@@ -213,31 +303,32 @@ export function costTimingProblem(
 }
 
 /**
- * A saved cost line's amount as the Settings form shows it: per month for a monthly
- * line, as stored for a one-off.
+ * A saved cost or income line's amount as the Settings form shows it: per month for a
+ * monthly line, per quarter for a quarterly one, as stored for a one-off. `periods` is
+ * how many payments the line makes this year (`periodsIn`), which a start date shortens.
  *
- * A monthly line also hands back the stored year as `loadedAnnual`. A year shown per
+ * A periodic line also hands back the stored year as `loadedAnnual`. A year shown per
  * month is rounded to the penny (£50,000 is £4,166.67), and twelve of those is
  * £50,000.04 — so until somebody edits the field, the stored year is what gets saved.
  */
 export function formAmount(
   annual: number,
   frequency: CostFrequency,
-  months: number,
+  periods: number,
 ): { typed: string; loadedAnnual: number | null } {
-  if (frequency !== 'monthly') return { typed: penceInput(annual), loadedAnnual: null }
-  return { typed: penceInput(round2(annual / months)), loadedAnnual: annual }
+  if (frequency === 'one_off') return { typed: penceInput(annual), loadedAnnual: null }
+  return { typed: penceInput(round2(annual / periods)), loadedAnnual: annual }
 }
 
-/** The year's figure from what a cost line's form fields hold. Blank or negative is 0. */
+/** The year's figure from what a line's form fields hold. Blank or negative is 0. */
 export function annualFromForm(
   typed: string,
   frequency: CostFrequency,
-  months: number,
+  periods: number,
   loadedAnnual: number | null,
 ): number {
   const n = parseFloat(typed)
   const figure = Number.isFinite(n) && n > 0 ? n : 0
-  if (frequency !== 'monthly') return figure
-  return loadedAnnual ?? round2(figure * months)
+  if (frequency === 'one_off') return figure
+  return loadedAnnual ?? round2(figure * periods)
 }

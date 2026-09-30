@@ -216,8 +216,14 @@ Traps:
 - **api_keys** — per-client secret keys gating `/api/apply`
 - **import_batches** — onboarding data import, makes it reversible
 - **annual_budgets** + **annual_budget_lines** — a year's grant-making plan; a line's NULL
-  `programme_id` is core costs, which carry a `frequency` (monthly, or one-off on `due_date`) while
-  `amount` stays the YEAR's figure on every line. **Stated, not derived from `round_programmes.budget`** — a
+  `programme_id` is a cost or income line (`kind`), which carries a `frequency` (monthly,
+  quarterly, or one-off on `due_date`) while `amount` stays the YEAR's figure on every line.
+  On a monthly or quarterly line `due_date` is the day it STARTS (NULL = the year's start):
+  one column, "this line's date". A later start shortens the payments (`periodsIn`), so the
+  typed per-month figure stays put and the year's figure shrinks.
+  **`kind` is nullable and read through `lineKind`** (NULL = `grant` with a programme, else
+  `cost`), so rows older than income and code older than the column both still mean what they
+  meant; `0104` backfills it. `fixed` is income's Fixed/Expected flag. **Stated, not derived from `round_programmes.budget`** — a
   foundation may hold money back from rounds, and the reconciliation between the two is the point
 - **bank_balance_readings** — append-only ledger of the grant account's balance, each with the date
   it was TRUE (not when it was typed). Never updated; a correction is a new row
@@ -523,7 +529,21 @@ design rationale; this list is a map, not a summary.
   upcoming, open, or closed with applications undecided, and released once all are decided.
   Available = balance − projected − still to pay − Actual money gone after the reading; minus the
   round projection and contingency that is the cash flow's headroom, off the same instalment
-  rows, and a test pins it
+  rows, and a test pins it.
+  **Income is a third kind of budget line** (2026-09-30, Notion "Finance balance screen: adding
+  income streams"): money IN, placed by the same `costEntries`, never part of "Total annual
+  budget" or `summary.total` (both stay money OUT), and never a negative cost (every total and
+  the amount validator assume positive spend). **Two Available figures**: `available` adds
+  **Fixed** income dated after the reading, `availableWithExpected` adds **Expected** on top, so
+  a foundation never commits grants against money that may not land. Income dated on or before
+  the reading is already in the balance and is never added again. The cash flow counts ALL
+  income, so its headroom pins against `availableWithExpected`.
+  **Upload a budget** (`src/lib/budgetUpload`, `components/settings/BudgetUploadDialog`):
+  a per-client .xlsx template prefilled with the year, read in the browser, programmes matched
+  like the onboarding import, and the result put in the form as UNSAVED changes, replacing its
+  lines. No server fn of its own (`saveAnnualBudget` is the boundary) and no AI: the Type
+  column classifies, and an untyped row that is not a programme's exact name is asked about.
+  The review states whether cost and income amounts are per year or per payment, flippably
 - **grantCreditors** — the year-end SORP creditors file (Finance → Balance & budget → Grant
   creditors): unpaid at a past year end, due within one year / after more than one year.
   "Unpaid at" reads `paidDate <= yearEnd`, so a payment made since still counts as owed;

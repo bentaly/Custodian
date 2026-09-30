@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { costEntries, monthsOfYear, resolveFrequency, scheduleCoreCosts } from './coreCosts'
+import {
+  costEntries,
+  lineKind,
+  monthsOfYear,
+  resolveFrequency,
+  scheduleCoreCosts,
+} from './coreCosts'
 import { financialYear } from './financialYear'
 
 const FY = financialYear(3, new Date('2026-09-12T12:00:00Z')) // 1 Apr 2026 – 31 Mar 2027
@@ -107,5 +113,97 @@ describe('scheduleCoreCosts', () => {
     const r = scheduleCoreCosts(lines, FY, FY.end)
     expect(r.toCome).toBe(0)
     expect(r.toDate).toBe(31_200)
+  })
+})
+
+describe('quarterly lines', () => {
+  it('fall at each quarter end, the remainder on the last', () => {
+    const entries = costEntries(
+      { label: 'Dividends', amount: 10_000.01, frequency: 'quarterly', dueDate: null },
+      FY,
+    )
+    expect(entries.map((e) => e.date)).toEqual([
+      '2026-06-30',
+      '2026-09-30',
+      '2026-12-31',
+      '2027-03-31',
+    ])
+    expect(entries.map((e) => e.amount)).toEqual([2_500, 2_500, 2_500, 2_500.01])
+  })
+
+  it('are read back as quarterly, and roll up a per-quarter figure', () => {
+    expect(resolveFrequency('quarterly')).toBe('quarterly')
+    const rollup = scheduleCoreCosts(
+      [{ label: 'Dividends', amount: 16_000, frequency: 'quarterly', dueDate: null }],
+      FY,
+      '2026-09-30',
+    )
+    expect(rollup.perQuarter).toBe(4_000)
+    expect(rollup.perMonth).toBe(0)
+    expect(rollup.toDate).toBe(8_000)
+  })
+})
+
+describe('lineKind', () => {
+  it('reads a NULL kind the way every row before income meant it', () => {
+    expect(lineKind({ programmeId: 'p', kind: null })).toBe('grant')
+    expect(lineKind({ programmeId: null, kind: null })).toBe('cost')
+    expect(lineKind({ programmeId: null, kind: 'income' })).toBe('income')
+  })
+
+  it('never lets a programme line be income, whatever a stale payload says', () => {
+    expect(lineKind({ programmeId: 'p', kind: 'income' })).toBe('grant')
+  })
+})
+
+describe('a repeating line with a start date', () => {
+  it('pays monthly from the month it starts, the year figure spread over those months', () => {
+    const entries = costEntries(
+      { label: 'New post', amount: 12_000, frequency: 'monthly', dueDate: '2026-10-15' },
+      FY,
+    )
+    // Starts mid-October: October's month end is after it, so October is paid.
+    expect(entries.map((e) => e.date)).toEqual([
+      '2026-10-31',
+      '2026-11-30',
+      '2026-12-31',
+      '2027-01-31',
+      '2027-02-28',
+      '2027-03-31',
+    ])
+    expect(entries.every((e) => e.amount === 2_000)).toBe(true)
+  })
+
+  it('pays quarterly every third month counting from its start', () => {
+    const entries = costEntries(
+      { label: 'Pledge', amount: 10_000, frequency: 'quarterly', dueDate: '2026-10-01' },
+      FY,
+    )
+    expect(entries.map((e) => [e.date, e.amount])).toEqual([
+      ['2026-12-31', 5_000],
+      ['2027-03-31', 5_000],
+    ])
+  })
+
+  it('reads a start on or before the year start as the whole year', () => {
+    const whole = costEntries(
+      { label: 'Rent', amount: 12_000, frequency: 'monthly', dueDate: null },
+      FY,
+    )
+    const early = costEntries(
+      { label: 'Rent', amount: 12_000, frequency: 'monthly', dueDate: '2025-01-01' },
+      FY,
+    )
+    expect(early).toEqual(whole)
+  })
+
+  it('states the per-month figure over the payments it makes, not twelve', () => {
+    const rollup = scheduleCoreCosts(
+      [{ label: 'New post', amount: 12_000, frequency: 'monthly', dueDate: '2026-10-01' }],
+      FY,
+      '2026-09-30',
+    )
+    expect(rollup.perMonth).toBe(2_000)
+    expect(rollup.toDate).toBe(0)
   })
 })

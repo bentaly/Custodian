@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { annualFromForm, costTimingProblem, formAmount, storedTiming } from './coreCosts'
+import { annualFromForm, costTimingProblem, formAmount, periodsIn, storedTiming } from './coreCosts'
 import { financialYear } from './financialYear'
 
 /**
@@ -33,11 +33,12 @@ describe('storedTiming', () => {
     expect(storedTiming(cost({ frequency: undefined }))).toMatchObject({ frequency: 'monthly' })
   })
 
-  it('drops a date left behind by a line switched to monthly', () => {
-    expect(storedTiming(cost({ frequency: 'monthly', dueDate: '2026-12-01' }))).toEqual({
+  it("keeps a monthly line's date as the day it STARTS, and blank as the year's start", () => {
+    expect(storedTiming(cost({ frequency: 'monthly', dueDate: '2026-10-01' }))).toEqual({
       frequency: 'monthly',
-      dueDate: null,
+      dueDate: '2026-10-01',
     })
+    expect(storedTiming(cost({ frequency: 'quarterly', dueDate: '' })).dueDate).toBeNull()
   })
 
   it('keeps a one-off date, and stores a blank one as NULL', () => {
@@ -58,6 +59,19 @@ describe('costTimingProblem', () => {
     expect(costTimingProblem([cost({ dueDate: '', label: '  ' })], FY)).toBe(
       'The one-off cost needs a date.',
     )
+  })
+
+  it('names an unlabelled one-off INCOME line as income', () => {
+    expect(costTimingProblem([cost({ kind: 'income', dueDate: null, label: '' })], FY)).toBe(
+      'The one-off income needs a date.',
+    )
+  })
+
+  it('refuses a repeating line that starts outside the year, and allows one with no start', () => {
+    expect(costTimingProblem([cost({ frequency: 'monthly', dueDate: '2027-05-01' })], FY)).toBe(
+      'Audit starts outside this financial year.',
+    )
+    expect(costTimingProblem([cost({ frequency: 'quarterly', dueDate: null })], FY)).toBeNull()
   })
 
   it('refuses a one-off dated outside the year, and accepts both boundary days', () => {
@@ -88,6 +102,18 @@ describe('formAmount / annualFromForm', () => {
     expect(annualFromForm(shown.typed, 'monthly', 12, shown.loadedAnnual)).toBe(50_000)
     // Once edited, the typed monthly figure is the truth — and twelve of it is the year.
     expect(annualFromForm('4166.67', 'monthly', 12, null)).toBe(50_000.04)
+  })
+
+  it('shows a quarterly line per quarter and saves the year', () => {
+    expect(formAmount(16_000, 'quarterly', 4)).toEqual({ typed: '4000', loadedAnnual: 16_000 })
+    expect(annualFromForm('4000', 'quarterly', 4, null)).toBe(16_000)
+  })
+
+  it('counts only the payments from a start date: £2,000 a month from October is £12,000', () => {
+    const periods = periodsIn('monthly', FY, '2026-10-01')
+    expect(periods).toBe(6)
+    expect(annualFromForm('2000', 'monthly', periods, null)).toBe(12_000)
+    expect(formAmount(12_000, 'monthly', periods).typed).toBe('2000')
   })
 
   it('passes a one-off through untouched', () => {

@@ -31,6 +31,8 @@ const line = (over: Partial<BudgetRow>): BudgetRow => ({
   amount: '0',
   frequency: null,
   dueDate: null,
+  kind: null,
+  fixed: null,
   contingencyPercent: null,
   ...over,
 })
@@ -149,5 +151,33 @@ describe('assemble', () => {
 
     const nothing = run({ balanceRows: [], budgetRows: [], instalmentRows: [], roundRows: [] })
     expect(nothing.empty).toBe(true)
+  })
+
+  it('sends an income row to the income line and the cash flow, never to core costs', () => {
+    const d = run({
+      budgetRows: [
+        ...BUDGET,
+        line({
+          lineId: 'i',
+          kind: 'income',
+          fixed: true,
+          label: 'Dividends',
+          amount: '12000',
+          frequency: 'quarterly',
+          contingencyPercent: '5',
+        }),
+      ],
+    })
+    expect(d.hasIncome).toBe(true)
+    expect(d.summary.lines.find((l) => l.kind === 'core')!.children.map((c) => c.name)).toEqual([
+      'Audit',
+      'Rent',
+    ])
+    expect(d.summary.lines.find((l) => l.kind === 'income')!.children).toMatchObject([
+      { name: 'Dividends', fixed: true },
+    ])
+    // After the 1 September reading: September, December, March at £3,000 each.
+    expect(d.cashFlow.sinceBalance!.income).toBe(9_000)
+    expect(d.summary.available).toBe(d.cashFlow.headroom! - 60_000 - 5_000)
   })
 })

@@ -1282,9 +1282,28 @@ export const annualBudgetLines = pgTable(
     // NULL on a programme line, whose cash comes from real instalment dates. A non-grant
     // line reads NULL as `monthly`, so a row written by code older than this column
     // spreads evenly rather than landing in one lump.
-    frequency: text('frequency').$type<'monthly' | 'one_off'>(),
+    frequency: text('frequency').$type<'monthly' | 'quarterly' | 'one_off'>(),
     /** `yyyy-mm-dd` a one-off cost falls on. Required for `one_off`, NULL otherwise. */
     dueDate: text('due_date'),
+    // What kind of line this is: `grant` (a programme's budget), `cost` (money out that
+    // is not a grant) or `income` (money IN: investment income, a pledge, a donation).
+    //
+    // Income needs a type rather than a sign: every total, the Settings check and the
+    // save all treat a line with no programme as money out, and the amount validator
+    // refuses negatives. `amount` stays positive on every kind.
+    //
+    // Nullable so code older than this column can still insert, and read through
+    // `lineKind` (`src/lib/coreCosts.ts`): NULL is `grant` with a programme, else `cost`,
+    // which is exactly what every row meant before income existed. Migration 0104
+    // backfills the rows already there.
+    kind: text('kind').$type<'grant' | 'cost' | 'income'>(),
+    // Income only, for now: TRUE is **Fixed** income (a signed pledge, a set dividend),
+    // FALSE or NULL is **Expected**. Finance shows two Available figures: the first counts
+    // Fixed income only, the second adds Expected on top, so nobody has to rely on money
+    // that has not arrived (agreed with Alex 2026-09-30). Named for the line rather than
+    // for income because the same Fixed flag is proposed for cost lines (rent, payroll)
+    // and has not been decided; today a cost line ignores it.
+    fixed: boolean('fixed'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [

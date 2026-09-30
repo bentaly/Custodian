@@ -1,4 +1,9 @@
-import { Calendar03Icon, CoinsPoundIcon, CreditCardIcon } from '@hugeicons/core-free-icons'
+import {
+  Calendar03Icon,
+  CoinsPoundIcon,
+  CreditCardIcon,
+  MoneyReceive02Icon,
+} from '@hugeicons/core-free-icons'
 import type { BalanceAndBudget as Data } from '../../server/finance/budget'
 import type { SummaryLine, SummaryLineKind } from '../../lib/balanceSummary'
 import { MONTH_NAMES } from '../../lib/financialYear'
@@ -42,6 +47,15 @@ import {
  * No balance drops the cards and the footer's arithmetic, since both mean nothing without
  * one; the three columns still stand. No budget drops core costs and contingency; grants
  * and round budgets still show.
+ *
+ * ## Income (Notion: "Finance balance screen: adding income streams", 2026-09-30)
+ *
+ * The budget's income lines are the one line that is money IN. They read Actual and
+ * Projected, never Still to pay, sit below the Total (which stays money out), and the
+ * footer adds them back on the way to Available. There are TWO Available figures when
+ * any Expected income is still to come: **Available balance** counts Fixed income only,
+ * and **Available including projected income** adds the Expected on top. Income that
+ * may never land never raises the first. No income lines, and the screen is as it was.
  */
 
 export type BalanceView = 'summary' | 'cashflow'
@@ -56,6 +70,10 @@ export function BalanceAndBudget({
   onViewChange: (view: BalanceView) => void
 }) {
   const { balance, summary, financialYear: fy } = data
+  const fixedToCome = summary.income?.fixedToCome ?? 0
+  const expectedToCome = summary.income?.expectedToCome ?? 0
+  // The second Available figure only when it would differ from the first.
+  const withExpected = expectedToCome > 0
 
   if (data.empty) {
     return (
@@ -74,9 +92,13 @@ export function BalanceAndBudget({
       {balance &&
         summary.available !== null &&
         summary.deducted !== null && (
-          // Three cards that read as a sum: balance − projected spend = available. Projected
-          // spend is what the summary's footer takes off the balance, so the table checks it.
-          <div className="grid gap-3 sm:grid-cols-3">
+          // Cards that read as a sum: balance − projected spend (+ fixed income) = available,
+          // then + expected income for the second figure. Projected spend is what the
+          // summary's footer takes off the balance, so the table checks it. Tints go by
+          // place in the row, whichever cards are showing.
+          <div
+            className={`grid gap-3 ${withExpected ? 'sm:grid-cols-2 xl:grid-cols-4' : 'sm:grid-cols-3'}`}
+          >
             <MiniKpi
               tint={KPI_TINTS.violet}
               icon={CreditCardIcon}
@@ -108,8 +130,22 @@ export function BalanceAndBudget({
               label="Available balance"
               value={fmtExact(summary.available)}
               valueColour={summary.available < 0 ? C.danger : undefined}
-              sub="Balance less projected spend"
+              sub={
+                fixedToCome > 0
+                  ? `Less projected spend, plus ${fmtExact(fixedToCome)} fixed income`
+                  : 'Balance less projected spend'
+              }
             />
+            {withExpected && summary.availableWithExpected !== null && (
+              <MiniKpi
+                tint={KPI_TINTS.pink}
+                icon={MoneyReceive02Icon}
+                label="Available including projected income"
+                value={fmtExact(summary.availableWithExpected)}
+                valueColour={summary.availableWithExpected < 0 ? C.danger : undefined}
+                sub={`Plus ${fmtExact(expectedToCome)} expected income`}
+              />
+            )}
           </div>
         )}
 
@@ -158,6 +194,8 @@ function lineName(kind: SummaryLineKind, fyLabel: string): string {
       return `${fyLabel} grant spend`
     case 'contingency':
       return 'Contingency'
+    case 'income':
+      return 'Income'
   }
 }
 
@@ -173,6 +211,8 @@ function lineHint(line: SummaryLine, data: Data): string {
       return data.summary.contingency
         ? `${data.summary.contingency.percent}% of the ${fmtExact(data.summary.grantBudget)} grant budget`
         : ''
+    case 'income':
+      return 'Money in: arrived to date, and still to come. Not part of the total above'
   }
 }
 
@@ -182,6 +222,7 @@ const HAS = {
   prior: { actual: true, projected: false, stillToPay: true },
   current: { actual: true, projected: true, stillToPay: true },
   contingency: { actual: false, projected: true, stillToPay: false },
+  income: { actual: true, projected: true, stillToPay: false },
 } as const
 
 function Summary({ data }: { data: Data }) {
@@ -215,8 +256,12 @@ function Summary({ data }: { data: Data }) {
       key: child.key,
       data: {
         name: child.name,
-        // Core-cost lines are not programmes and have no colour of their own.
-        colour: line.kind === 'core' ? undefined : resolveProgrammeColour(child.colour, i),
+        hint: line.kind === 'income' ? (child.fixed ? 'Fixed' : 'Expected') : undefined,
+        // Core-cost and income lines are not programmes and have no colour of their own.
+        colour:
+          line.kind === 'core' || line.kind === 'income'
+            ? undefined
+            : resolveProgrammeColour(child.colour, i),
         over: child.over,
         ...figures(line.kind, child),
       },
@@ -247,11 +292,13 @@ function Summary({ data }: { data: Data }) {
   const footLast = 'px-3 py-3 text-left tabular-nums whitespace-nowrap'
   const footLabel = 'py-3 pl-8 pr-3 text-left'
   const since = summary.sinceBalance
+  const income = summary.income
   const footer = (
     <>
       <tr className="border-t font-medium" style={{ borderColor: C.line, color: C.ink }}>
         <th scope="row" className={`${footLabel} font-medium`}>
-          Total
+          {/* Income is a line in the table but never in this sum, so say which total it is. */}
+          {summary.income ? 'Total money out' : 'Total'}
         </th>
         <td className={footCell}>{fmtExact(summary.total.actual)}</td>
         <td className={footCell}>{fmtExact(summary.total.projected)}</td>
@@ -283,6 +330,14 @@ function Summary({ data }: { data: Data }) {
               <td className={footLast}>{fmtExact(since.total)}</td>
             </tr>
           )}
+          {income && (income.fixedToCome ?? 0) > 0 && (
+            <tr className="border-t" style={{ borderColor: C.line, color: C.sub }}>
+              <th scope="row" colSpan={3} className={`${footLabel} font-normal`}>
+                Plus fixed income after {fmtDate(balance.asAtDate)}
+              </th>
+              <td className={footLast}>{fmtExact(income.fixedToCome ?? 0)}</td>
+            </tr>
+          )}
           <tr className="border-t font-medium" style={{ borderColor: C.line, color: C.ink }}>
             <th scope="row" colSpan={3} className={`${footLabel} font-medium`}>
               Available balance
@@ -294,6 +349,31 @@ function Summary({ data }: { data: Data }) {
               {fmtExact(summary.available)}
             </td>
           </tr>
+          {/* Expected income never reaches the figure above: it may not land. It gets a
+              second figure of its own, so it is still in view. */}
+          {income && (income.expectedToCome ?? 0) > 0 && summary.availableWithExpected !== null && (
+            <>
+              <tr className="border-t" style={{ borderColor: C.line, color: C.sub }}>
+                <th scope="row" colSpan={3} className={`${footLabel} font-normal`}>
+                  Plus expected income after {fmtDate(balance.asAtDate)}
+                </th>
+                <td className={footLast}>{fmtExact(income.expectedToCome ?? 0)}</td>
+              </tr>
+              <tr className="border-t font-medium" style={{ borderColor: C.line, color: C.ink }}>
+                <th scope="row" colSpan={3} className={`${footLabel} font-medium`}>
+                  Available including projected income
+                </th>
+                <td
+                  className={footLast}
+                  style={{
+                    color: summary.availableWithExpected < 0 ? C.danger : C.success,
+                  }}
+                >
+                  {fmtExact(summary.availableWithExpected)}
+                </td>
+              </tr>
+            </>
+          )}
         </>
       )}
     </>
@@ -367,7 +447,7 @@ function monthLabel(key: string): string {
  * same instalment rows (`buildCashFlow`, `buildBalanceSummary`).
  */
 function CashFlowTable({ data }: { data: Data }) {
-  const { cashFlow, balance, hasCoreCosts, financialYear: fy } = data
+  const { cashFlow, balance, hasCoreCosts, hasIncome, financialYear: fy } = data
   const { months } = cashFlow
   const current = months.find((m) => m.current)
   const cell = 'px-2 py-2 text-left'
@@ -396,6 +476,11 @@ function CashFlowTable({ data }: { data: Data }) {
               {hasCoreCosts && (
                 <th scope="col" className={`${cell} hidden font-medium sm:table-cell`}>
                   Total out
+                </th>
+              )}
+              {hasIncome && (
+                <th scope="col" className={`${cell} font-medium`}>
+                  Income
                 </th>
               )}
               {balance && (
@@ -438,6 +523,11 @@ function CashFlowTable({ data }: { data: Data }) {
                     {fmtExact(m.total)}
                   </td>
                 )}
+                {hasIncome && (
+                  <td className={cell} style={{ color: m.income > 0 ? C.success : undefined }}>
+                    {fmtExact(m.income)}
+                  </td>
+                )}
                 {balance && (
                   <td
                     className={cell}
@@ -456,14 +546,20 @@ function CashFlowTable({ data }: { data: Data }) {
           Grant payments are instalments paid in the month, or due and not yet paid
           {current ? `. Anything overdue is counted in ${monthLabel(current.key)}` : ''}.
           {hasCoreCosts &&
-            ' Core costs follow your annual budget: monthly lines at each month end, one-offs on their date. They are your plan, not a record of what was paid.'}
+            ' Core costs follow your annual budget: monthly lines at each month end, quarterly at the end of each quarter (both from their start date, where they have one), one-offs on their date. They are your plan, not a record of what was paid.'}
+          {hasIncome &&
+            ' Income is placed the same way, and is your plan too: nothing here records what actually arrived.'}
         </p>
         {balance && (
           <p>
             The balance is projected from the reading: less grant payments made since{' '}
             {fmtDate(balance.asAtDate)}, every unpaid instalment due by {fmtDate(fy.end)}
-            {hasCoreCosts ? ', and core costs scheduled after the reading' : ''}. Projected round
-            budgets and contingency are not money leaving, so they are on the Summary tab only.
+            {hasCoreCosts ? ', and core costs scheduled after the reading' : ''}
+            {hasIncome
+              ? ', plus all income due after the reading, Fixed and Expected alike. The Summary tab counts Expected income separately'
+              : ''}
+            . Projected round budgets and contingency are not money leaving, so they are on the
+            Summary tab only.
           </p>
         )}
       </div>

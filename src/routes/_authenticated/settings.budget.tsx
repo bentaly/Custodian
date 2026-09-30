@@ -6,7 +6,11 @@ import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
   Cancel01Icon,
+  Upload04Icon,
 } from '@hugeicons/core-free-icons'
+import { BudgetUploadDialog } from '../../components/settings/BudgetUploadDialog'
+import type { Translation } from '../../lib/budgetUpload/translate'
+import type { TemplateLine } from '../../lib/budgetUpload/workbook'
 import {
   getAnnualBudgetSettings,
   saveAnnualBudget,
@@ -31,11 +35,13 @@ import { MONTH_NAMES, financialYear, financialYearRange } from '../../lib/financ
 import { CORE_COSTS_LABEL, rollUpBudget } from '../../lib/annualBudget'
 import {
   COST_FREQUENCIES,
+  INCOME_LABEL,
   annualFromForm,
   costTimingProblem,
   formAmount,
-  monthsOfYear,
+  periodsIn,
   scheduleCoreCosts,
+  type BudgetLineKind,
   type CostFrequency,
 } from '../../lib/coreCosts'
 import { todayIso } from '../../lib/schedule'
@@ -75,6 +81,14 @@ import { resolveProgrammeColour } from '../../lib/programmeColours'
  * names, which the browser draws as a dropdown arrow — and that read as a closed set of
  * options, the opposite of what it was for. The placeholder gives examples instead.
  *
+ * ## Income is a third kind of line
+ *
+ * Money IN (investment income, a pledge): the same row as a cost, plus whether it is
+ * **Fixed** (a signed pledge, a set dividend) or **Expected**. Finance counts only Fixed
+ * income in its Available balance and shows a second figure with Expected added on top
+ * (agreed with Alex 2026-09-30). It is never part of "Total annual budget", which is
+ * what the foundation plans to SPEND, nor of the grant budget contingency is taken from.
+ *
  * ## Nothing here is required
  *
  * A foundation that never opens this screen simply has no budget, and the Finance panel
@@ -108,6 +122,10 @@ export const Route = createFileRoute('/_authenticated/settings/budget')({
 type Row = {
   key: string
   programmeId: string | null
+  /** `grant` for a programme row; a non-grant row is a `cost` or `income`. */
+  kind: BudgetLineKind
+  /** Income rows only: Fixed (counts toward Available balance) or Expected. */
+  fixed: boolean
   label: string
   colour: string | null
   /**
@@ -126,9 +144,9 @@ type Row = {
    * a number still on screen.
    */
   promised: string
-  /** Cost lines only. */
+  /** Cost and income lines only. */
   frequency: CostFrequency
-  /** Cost lines only: a one-off's `yyyy-mm-dd`, or '' until picked. */
+  /** Cost and income lines only: a one-off's `yyyy-mm-dd`, or '' until picked. */
   dueDate: string
   /**
    * A monthly line's stored YEAR figure, kept until its per-month field is edited.
@@ -149,9 +167,11 @@ type Row = {
 const BUDGET_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_9rem_2.25rem]'
 
 let coreKey = 0
-const newCoreRow = (label: string = CORE_COSTS_LABEL): Row => ({
-  key: `core-${coreKey++}`,
+const newCoreRow = (label: string = CORE_COSTS_LABEL, kind: BudgetLineKind = 'cost'): Row => ({
+  key: `${kind}-${coreKey++}`,
   programmeId: null,
+  kind,
+  fixed: false,
   promised: '',
   label,
   colour: null,
@@ -180,7 +200,9 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const navigate = Route.useNavigate()
   const offset = data.yearOffset
   const currentYearLabel = financialYear(data.financialYearEndMonth).label
-  const monthCount = monthsOfYear(data.financialYear).length
+  /** How many payments a cost or income row makes this year, from its start date if set. */
+  const periodsOf = (r: { frequency: CostFrequency; dueDate: string }) =>
+    periodsIn(r.frequency, data.financialYear, r.dueDate || null)
 
   /**
    * Step or jump to another financial year.
@@ -198,7 +220,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const initialRows = useMemo<Row[]>(() => {
     const saved = new Map(data.lines.filter((l) => l.programmeId).map((l) => [l.programmeId!, l]))
     const programmeRows: Row[] = data.programmes.map((p) => ({
-      ...newCoreRow(p.name),
+      ...newCoreRow(p.name, 'grant'),
       key: p.id,
       programmeId: p.id,
       colour: p.colour,
@@ -208,21 +230,33 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           ? penceInput(saved.get(p.id)!.carriedCommitment!)
           : '',
     }))
-    const coreRows: Row[] = data.lines
-      .filter((l) => !l.programmeId)
-      .map((l) => {
-        const frequency = l.frequency ?? 'monthly'
-        const { typed, loadedAnnual } = formAmount(l.amount, frequency, monthCount)
-        return {
-          ...newCoreRow(l.label ?? CORE_COSTS_LABEL),
-          frequency,
-          dueDate: l.dueDate ?? '',
-          amount: typed,
-          loadedAnnual,
-        }
-      })
-    return [...programmeRows, ...(coreRows.length > 0 ? coreRows : [newCoreRow()])]
-  }, [data, monthCount])
+    const timedRows = (kind: 'cost' | 'income'): Row[] =>
+      data.lines
+        .filter((l) => l.kind === kind)
+        .map((l) => {
+          const frequency = l.frequency ?? 'monthly'
+          const { typed, loadedAnnual } = formAmount(
+            l.amount,
+            frequency,
+            periodsIn(frequency, data.financialYear, l.dueDate),
+          )
+          return {
+            ...newCoreRow(l.label ?? (kind === 'income' ? INCOME_LABEL : CORE_COSTS_LABEL), kind),
+            fixed: l.fixed,
+            frequency,
+            dueDate: l.dueDate ?? '',
+            amount: typed,
+            loadedAnnual,
+          }
+        })
+    const coreRows = timedRows('cost')
+    // Income starts empty: unlike core costs, plenty of foundations have none to plan.
+    return [
+      ...programmeRows,
+      ...(coreRows.length > 0 ? coreRows : [newCoreRow()]),
+      ...timedRows('income'),
+    ]
+  }, [data])
 
   const [rows, setRows] = useState<Row[]>(initialRows)
   // As typed. Blank and 0 both mean "no contingency" and save as NULL.
@@ -232,6 +266,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const [endMonth, setEndMonth] = useState(data.financialYearEndMonth)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
   // Cash already owed this year against grants decided in earlier years, per programme.
@@ -249,7 +284,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     annualFromForm(
       r.amount,
       r.programmeId ? 'one_off' : r.frequency,
-      monthCount,
+      r.programmeId ? 1 : periodsOf(r),
       r.programmeId ? null : r.loadedAnnual,
     )
   /** The typed override, or null when the derived figure was accepted. */
@@ -277,6 +312,8 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         .filter((r) => amount(r) > 0)
         .map((r) => [
           r.programmeId,
+          r.kind,
+          r.kind === 'income' ? r.fixed : null,
           r.programmeId ? null : r.label.trim() || CORE_COSTS_LABEL,
           amount(r),
           // The override is part of what a save writes, so editing it alone has to enable
@@ -284,7 +321,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           // as the raw field, so typing the derived figure back in still reads as clean.
           promisedOverride(r),
           r.programmeId ? null : r.frequency,
-          !r.programmeId && r.frequency === 'one_off' ? r.dueDate || null : null,
+          !r.programmeId ? r.dueDate || null : null,
         ]),
     )
   // After a save, `router.invalidate()` reloads the budget and `initialRows` recomputes to
@@ -308,6 +345,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const timingProblem = costTimingProblem(
     rows.map((r) => ({
       programmeId: r.programmeId,
+      kind: r.kind,
       label: r.label,
       amount: amount(r),
       frequency: r.frequency,
@@ -316,33 +354,97 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     data.financialYear,
   )
 
-  const programmeRows = rows.filter((r) => r.programmeId)
-  const costRows = rows.filter((r) => !r.programmeId)
-  const total = rows.reduce((s, r) => s + amount(r), 0)
+  const programmeRows = rows.filter((r) => r.kind === 'grant')
+  const costRows = rows.filter((r) => r.kind === 'cost')
+  const incomeRows = rows.filter((r) => r.kind === 'income')
+  // Money OUT only: income is not part of what the foundation plans to spend.
+  const total = rows.filter((r) => r.kind !== 'income').reduce((s, r) => s + amount(r), 0)
   const coreCosts = costRows.reduce((s, r) => s + amount(r), 0)
+  const incomeTotal = incomeRows.reduce((s, r) => s + amount(r), 0)
+  const fixedIncome = incomeRows.filter((r) => r.fixed).reduce((s, r) => s + amount(r), 0)
   const grantMaking = total - coreCosts
   // Set aside out of the grant budget, not added to the total — the same sum Finance
   // deducts (`buildBalanceSummary`).
   const contingencyAmount =
     contingencyPercent !== null ? Math.round(grantMaking * contingencyPercent) / 100 : 0
   const allocatedInRounds = data.roundAllocations.reduce((s, a) => s + a.allocated, 0)
+  // The same comparison per programme, so a gap can be traced to the programme it is in
+  // rather than added up by hand from the Rounds screen.
+  const allocatedByProgramme = useMemo(
+    () => new Map(data.roundAllocations.map((a) => [a.programmeId, a.allocated])),
+    [data.roundAllocations],
+  )
   // Prior commitments across every programme line — the stated figure where there is one,
   // else the one derived from the instalment dates.
   const promisedTotal = programmeRows.reduce((s, r) => s + promisedOf(r), 0)
   // The same function Finance places them with, so "£2,100 a month" here is the figure
   // the cash flow there is built from.
-  const costPlan = scheduleCoreCosts(
-    costRows
-      .filter((r) => amount(r) > 0)
-      .map((r) => ({
-        label: r.label,
-        amount: amount(r),
-        frequency: r.frequency,
-        dueDate: r.dueDate || null,
-      })),
-    data.financialYear,
-    todayIso(),
-  )
+  const plan = (rs: Row[]) =>
+    scheduleCoreCosts(
+      rs
+        .filter((r) => amount(r) > 0)
+        .map((r) => ({
+          label: r.label,
+          amount: amount(r),
+          frequency: r.frequency,
+          dueDate: r.dueDate || null,
+        })),
+      data.financialYear,
+      todayIso(),
+    )
+  const costPlan = plan(costRows)
+  const incomePlan = plan(incomeRows)
+
+  /**
+   * Put an uploaded budget into the form, as unsaved changes. It REPLACES the lines, as a
+   * save does: a programme the file leaves out is left unbudgeted, and the cost and income
+   * lines are the file's. Prior commitment overrides and contingency are not in the file,
+   * so they stay as they are.
+   */
+  const applyUpload = (t: Translation) => {
+    setRows((rs) => {
+      const programmes = rs
+        .filter((r) => r.kind === 'grant')
+        .map((r) => {
+          const figure = t.programmeAmounts.get(r.programmeId!)
+          return { ...r, amount: figure !== undefined ? penceInput(figure) : '' }
+        })
+      const timed = t.lines.map((l): Row => {
+        const { typed, loadedAnnual } = formAmount(
+          l.amount,
+          l.frequency,
+          periodsIn(l.frequency, data.financialYear, l.dueDate),
+        )
+        return {
+          ...newCoreRow(l.label, l.kind),
+          fixed: l.fixed,
+          frequency: l.frequency,
+          dueDate: l.dueDate ?? '',
+          amount: typed,
+          loadedAnnual,
+        }
+      })
+      const costs = timed.filter((r) => r.kind === 'cost')
+      return [
+        ...programmes,
+        ...(costs.length > 0 ? costs : [newCoreRow()]),
+        ...timed.filter((r) => r.kind === 'income'),
+      ]
+    })
+    setSaved(false)
+  }
+
+  /** The form as it stands, for the template to be prefilled with. */
+  const templateLines: TemplateLine[] = rows
+    .filter((r) => amount(r) > 0)
+    .map((r) => ({
+      name: r.label.trim() || (r.kind === 'income' ? INCOME_LABEL : CORE_COSTS_LABEL),
+      type: r.kind === 'grant' ? 'programme' : r.kind,
+      amount: amount(r),
+      frequency: r.kind === 'grant' ? null : r.frequency,
+      dueDate: r.kind !== 'grant' ? r.dueDate || null : null,
+      fixed: r.kind === 'income' && r.fixed,
+    }))
 
   const patch = (key: string, next: Partial<Row>) => {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...next } : r)))
@@ -384,11 +486,15 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             .filter((r) => amount(r) > 0)
             .map((r) => ({
               programmeId: r.programmeId,
-              label: r.programmeId ? null : r.label.trim() || CORE_COSTS_LABEL,
+              kind: r.kind,
+              fixed: r.kind === 'income' ? r.fixed : undefined,
+              label: r.programmeId
+                ? null
+                : r.label.trim() || (r.kind === 'income' ? INCOME_LABEL : CORE_COSTS_LABEL),
               amount: amount(r),
               carriedCommitment: promisedOverride(r),
               frequency: r.programmeId ? null : r.frequency,
-              dueDate: !r.programmeId && r.frequency === 'one_off' ? r.dueDate || null : null,
+              dueDate: !r.programmeId ? r.dueDate || null : null,
             })),
         },
       })
@@ -406,7 +512,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   // disagree about what a budget line means.
   const preview = rollUpBudget(
     rows
-      .filter((r) => amount(r) > 0)
+      .filter((r) => r.kind !== 'income' && amount(r) > 0)
       .map((r) => ({
         programmeId: r.programmeId,
         label: r.label,
@@ -415,12 +521,17 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     [],
   )
 
-  const costSummary = [
-    costPlan.perMonth > 0 && `${fmtMoney(costPlan.perMonth)} a month`,
-    costPlan.oneOff > 0 && `${fmtMoney(costPlan.oneOff)} one-off`,
-  ]
-    .filter(Boolean)
-    .join(' + ')
+  const planSummary = (p: typeof costPlan) =>
+    [
+      p.perMonth > 0 && `${fmtMoney(p.perMonth)} a month`,
+      p.perQuarter > 0 && `${fmtMoney(p.perQuarter)} a quarter`,
+      p.oneOff > 0 && `${fmtMoney(p.oneOff)} one-off`,
+    ]
+      .filter(Boolean)
+      .join(' + ')
+  const costSummary = planSummary(costPlan)
+  const incomeSummary = planSummary(incomePlan)
+  const savedCount = rows.filter((r) => amount(r) > 0).length
 
   return (
     <SettingsPage
@@ -505,6 +616,15 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
               : `You are setting next year's budget before it starts. Nothing reports against it until ${data.financialYear.label} begins.`}
           </p>
         )}
+        {/* A budget that already lives in a spreadsheet should not have to be retyped. The
+            dialog fills the form below; saving is still this screen's Save. */}
+        <div className="mb-4 flex flex-wrap items-center gap-2 font-display text-label">
+          <span style={{ color: C.faint }}>Already have this year&rsquo;s budget in Excel?</span>
+          <Button variant="text" size="xs" icon={Upload04Icon} onClick={() => setUploading(true)}>
+            Upload a budget
+          </Button>
+        </div>
+
         {/* Two money fields on a row need naming, and the names belong over the columns
             rather than inside each field: repeated per row they would be twenty labels
             saying the same two things. Hidden below `sm`, where the fields stack and each
@@ -518,6 +638,8 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         <div className="flex flex-col gap-3">
           {programmeRows.map((row, i) => {
             const derived = promisedByProgramme.get(row.programmeId!) ?? 0
+            const inRounds = allocatedByProgramme.get(row.programmeId!) ?? 0
+            const budgeted = amount(row)
             return (
               // Centred, not end-aligned like the column labels above: the name is one line
               // beside a taller field, and end-aligning dropped it to the field's bottom edge.
@@ -533,6 +655,25 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                       {row.label}
                     </span>
                   </div>
+                  {/* This programme's half of the Check panel's reconciliation. Advice, not
+                      a gate: a budget above its rounds is often money held back on purpose,
+                      so only rounds allocating MORE than the budget is drawn as a warning. */}
+                  {(inRounds > 0 || budgeted > 0) && (
+                    <p
+                      className="mt-0.5 pl-4 font-display text-label"
+                      style={{ color: inRounds > budgeted ? C.danger : C.faint }}
+                    >
+                      {inRounds === 0
+                        ? `Not in any ${data.financialYear.label} round yet`
+                        : budgeted === 0
+                          ? `${fmtMoney(inRounds)} in ${data.financialYear.label} rounds, not budgeted`
+                          : inRounds > budgeted
+                            ? `${fmtMoney(inRounds)} in rounds, ${fmtMoney(inRounds - budgeted)} over`
+                            : inRounds === budgeted
+                              ? `${fmtMoney(inRounds)} in rounds, fully allocated`
+                              : `${fmtMoney(inRounds)} in rounds, ${fmtMoney(budgeted - inRounds)} not in a round`}
+                    </p>
+                  )}
                 </div>
 
                 <MoneyInput
@@ -587,69 +728,14 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           </div>
           <div className="flex flex-col gap-3">
             {costRows.map((row) => (
-              <div key={row.key} className={`${BUDGET_GRID} items-start`}>
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <Input
-                    value={row.label}
-                    aria-label="Name of this cost line"
-                    placeholder="Core costs, Staff, Misc.…"
-                    maxLength={80}
-                    onChange={(e) => patch(row.key, { label: e.target.value })}
-                  />
-                  {row.frequency === 'one_off' ? (
-                    <DateField
-                      size="sm"
-                      value={row.dueDate}
-                      min={data.financialYear.start}
-                      max={data.financialYear.end}
-                      placeholder="When is it paid?"
-                      aria-label={`Date ${row.label || 'this cost'} is paid`}
-                      onChange={(v) => patch(row.key, { dueDate: v })}
-                    />
-                  ) : (
-                    amount(row) > 0 && (
-                      <p className="font-display text-label" style={{ color: C.faint }}>
-                        {fmtMoney(amount(row))} over the year
-                      </p>
-                    )
-                  )}
-                </div>
-
-                <MoneyInput
-                  value={row.amount}
-                  label={
-                    row.frequency === 'monthly'
-                      ? `Monthly amount for ${row.label || 'this line'}`
-                      : `Amount for ${row.label || 'this line'}`
-                  }
-                  suffix={row.frequency === 'monthly' ? '/month' : undefined}
-                  placeholder="0"
-                  // Editing the figure drops the loaded year — from here on the typed
-                  // monthly figure is the truth.
-                  onChange={(v) => patch(row.key, { amount: v, loadedAnnual: null })}
-                />
-
-                {/* Switching keeps the typed figure rather than converting it: somebody who
-                    typed 2,000 and then says "monthly" means £2,000 a month. The caption
-                    under the name shows the year it now comes to. */}
-                <Select
-                  aria-label={`How often ${row.label || 'this cost'} is paid`}
-                  value={row.frequency}
-                  options={COST_FREQUENCIES}
-                  onChange={(v) =>
-                    patch(row.key, { frequency: v as CostFrequency, loadedAnnual: null })
-                  }
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
-                  aria-label={`Remove ${row.label || 'this line'}`}
-                  className="mt-2 flex shrink-0 rounded-full p-1 text-danger transition-opacity hover:opacity-70"
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} size={20} color="currentColor" />
-                </button>
-              </div>
+              <TimedLineRow
+                key={row.key}
+                row={row}
+                annual={amount(row)}
+                financialYear={data.financialYear}
+                onPatch={(next) => patch(row.key, next)}
+                onRemove={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
+              />
             ))}
           </div>
 
@@ -661,6 +747,50 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           >
             <HugeiconsIcon icon={Add01Icon} size={16} color="currentColor" />
             Add a cost line
+          </Button>
+        </div>
+
+        {/* Money IN. The same row as a cost, plus Fixed or Expected, because Finance only
+            lets Fixed income raise the Available balance. Never part of the total. */}
+        <div className="mt-6 border-t pt-4" style={{ borderColor: C.line }}>
+          <h3 className="font-display text-body font-medium" style={{ color: C.ink }}>
+            Income
+          </h3>
+          <p className="mt-0.5 mb-3 font-display text-label" style={{ color: C.faint }}>
+            Money coming in this year, such as investment income or a pledge. Fixed income (a signed
+            pledge, a set dividend) counts towards your available balance on Finance. Expected
+            income is shown beside it, but never relied on.
+          </p>
+          {incomeRows.length > 0 && (
+            <>
+              <div className={`${BUDGET_GRID} hidden items-end sm:grid`}>
+                <span />
+                <ColumnLabel>Amount</ColumnLabel>
+                <ColumnLabel>How often</ColumnLabel>
+                <span />
+              </div>
+              <div className="flex flex-col gap-3">
+                {incomeRows.map((row) => (
+                  <TimedLineRow
+                    key={row.key}
+                    row={row}
+                    annual={amount(row)}
+                    financialYear={data.financialYear}
+                    onPatch={(next) => patch(row.key, next)}
+                    onRemove={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+          <Button
+            variant="text"
+            size="sm"
+            className="mt-3"
+            onClick={() => setRows((rs) => [...rs, newCoreRow('', 'income')])}
+          >
+            <HugeiconsIcon icon={Add01Icon} size={16} color="currentColor" />
+            Add an income line
           </Button>
         </div>
 
@@ -723,6 +853,31 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           )}
           <CheckRow label="Core and other costs" value={fmtMoney(coreCosts)} sub={costSummary} />
           <CheckRow label="Total annual budget" value={fmtMoney(total)} strong />
+          {/* Income below the total, never in it: the budget is what is planned to be
+              spent, and the net is the one figure that sets the two against each other. */}
+          {incomeTotal > 0 && (
+            <>
+              <CheckRow
+                label="Income this year"
+                value={fmtMoney(incomeTotal)}
+                sub={[
+                  incomeSummary,
+                  fixedIncome > 0 && fixedIncome < incomeTotal
+                    ? `${fmtMoney(fixedIncome)} fixed`
+                    : fixedIncome > 0
+                      ? 'all fixed'
+                      : 'none fixed',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              />
+              <CheckRow
+                label="Net, budget less income"
+                value={fmtMoney(total - incomeTotal)}
+                strong
+              />
+            </>
+          )}
         </dl>
 
         {/* The check that cannot exist without an annual figure to check against. */}
@@ -730,10 +885,10 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           <Reconciliation grantMaking={grantMaking} allocated={allocatedInRounds} />
         </div>
 
-        {preview.lines.length > 0 && (
+        {savedCount > 0 && (
           <p className="mt-3 font-display text-label" style={{ color: C.faint }}>
-            {preview.lines.length} line{preview.lines.length === 1 ? '' : 's'} will be saved. Lines
-            left blank are not saved.
+            {savedCount} line{savedCount === 1 ? '' : 's'} will be saved. Lines left blank are not
+            saved.
           </p>
         )}
 
@@ -777,7 +932,162 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           a breadcrumb and the browser's back button all still walked away with an
           afternoon's typing. */}
       <UnsavedChangesGuard dirty={dirty} what={`the ${data.financialYear.label} budget`} />
+      <BudgetUploadDialog
+        open={uploading}
+        onClose={() => setUploading(false)}
+        onApply={applyUpload}
+        clientId={data.clientId}
+        foundationName={data.foundationName}
+        financialYear={data.financialYear}
+        programmes={data.programmes.map((p) => ({ id: p.id, name: p.name }))}
+        currentLines={templateLines}
+      />
     </SettingsPage>
+  )
+}
+
+const FIXED_OPTIONS = [
+  { value: 'fixed', label: 'Fixed' },
+  { value: 'expected', label: 'Expected' },
+]
+
+/**
+ * One cost or income line: its name, and a date under it for a one-off; the amount (per
+ * month or per quarter where it repeats); how often; and a remove button. An income line
+ * also says whether it is Fixed or Expected, under the name beside the date, since the
+ * grid's columns are shared with the cost list above it.
+ */
+function TimedLineRow({
+  row,
+  annual,
+  financialYear,
+  onPatch,
+  onRemove,
+}: {
+  row: Row
+  /** The year's figure the row comes to. */
+  annual: number
+  financialYear: { start: string; end: string }
+  onPatch: (next: Partial<Row>) => void
+  onRemove: () => void
+}) {
+  const income = row.kind === 'income'
+  const payments = periodsIn(row.frequency, financialYear, row.dueDate || null)
+  const noun = income ? 'this income' : 'this cost'
+  const name = row.label || noun
+  return (
+    <div className={`${BUDGET_GRID} items-start`}>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Input
+          value={row.label}
+          aria-label={income ? 'Name of this income line' : 'Name of this cost line'}
+          placeholder={
+            income ? 'Investment income, Pledge, Donation…' : 'Core costs, Staff, Misc.…'
+          }
+          maxLength={80}
+          onChange={(e) => onPatch({ label: e.target.value })}
+        />
+        {income && (
+          <div className="w-full sm:w-40">
+            <Select
+              aria-label={`Is ${name} fixed or expected?`}
+              value={row.fixed ? 'fixed' : 'expected'}
+              options={FIXED_OPTIONS}
+              onChange={(v) => onPatch({ fixed: v === 'fixed' })}
+            />
+          </div>
+        )}
+        {row.frequency === 'one_off' ? (
+          <DateField
+            size="sm"
+            value={row.dueDate}
+            min={financialYear.start}
+            max={financialYear.end}
+            placeholder={income ? 'When does it arrive?' : 'When is it paid?'}
+            aria-label={income ? `Date ${name} arrives` : `Date ${name} is paid`}
+            onChange={(v) => onPatch({ dueDate: v })}
+          />
+        ) : (
+          <>
+            {/* When a repeating line STARTS, for a post or a pledge that begins part-way
+                through the year. Optional: blank is the start of the year. The typed
+                figure stays per month (or quarter), so a later start makes the year's
+                figure smaller rather than the monthly one bigger. */}
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <DateField
+                  size="sm"
+                  value={row.dueDate}
+                  min={financialYear.start}
+                  max={financialYear.end}
+                  placeholder="From the start of the year"
+                  aria-label={`Date ${name} starts`}
+                  onChange={(v) => onPatch({ dueDate: v, loadedAnnual: null })}
+                />
+              </div>
+              {row.dueDate && (
+                <Button
+                  variant="text"
+                  size="xs"
+                  onClick={() => onPatch({ dueDate: '', loadedAnnual: null })}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            {annual > 0 && (
+              <p className="font-display text-label" style={{ color: C.faint }}>
+                {row.dueDate && row.dueDate > financialYear.start
+                  ? `${fmtMoney(annual)} this year, ${payments} ${row.frequency === 'quarterly' ? 'quarter' : 'month'}${payments === 1 ? '' : 's'} from ${fmtDate(row.dueDate)}`
+                  : `${fmtMoney(annual)} over the year`}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      <MoneyInput
+        value={row.amount}
+        label={
+          row.frequency === 'monthly'
+            ? `Monthly amount for ${name}`
+            : row.frequency === 'quarterly'
+              ? `Quarterly amount for ${name}`
+              : `Amount for ${name}`
+        }
+        suffix={
+          row.frequency === 'monthly'
+            ? '/month'
+            : row.frequency === 'quarterly'
+              ? '/quarter'
+              : undefined
+        }
+        placeholder="0"
+        // Editing the figure drops the loaded year — from here on the typed per-period
+        // figure is the truth.
+        onChange={(v) => onPatch({ amount: v, loadedAnnual: null })}
+      />
+
+      {/* Switching keeps the typed figure rather than converting it: somebody who typed
+          2,000 and then says "monthly" means £2,000 a month. The caption under the name
+          shows the year it now comes to. */}
+      <Select
+        aria-label={income ? `How often ${name} arrives` : `How often ${name} is paid`}
+        value={row.frequency}
+        options={COST_FREQUENCIES}
+        // The date stays: a one-off's day becomes a repeating line's start, and back.
+        onChange={(v) => onPatch({ frequency: v as CostFrequency, loadedAnnual: null })}
+      />
+
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${name}`}
+        className="mt-2 flex shrink-0 rounded-full p-1 text-danger transition-opacity hover:opacity-70"
+      >
+        <HugeiconsIcon icon={Cancel01Icon} size={20} color="currentColor" />
+      </button>
+    </div>
   )
 }
 

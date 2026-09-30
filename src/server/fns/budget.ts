@@ -11,6 +11,7 @@ import {
   awards,
   bankBalanceReadings,
   clientProfiles,
+  clients,
   programmes,
   roundProgrammes,
   rounds,
@@ -27,7 +28,14 @@ import {
   shiftFinancialYear,
 } from '../../lib/financialYear'
 import { todayIso } from '../../lib/schedule'
-import { costTimingProblem, resolveFrequency, storedTiming } from '../../lib/coreCosts'
+import {
+  INCOME_LABEL,
+  costTimingProblem,
+  lineKind,
+  resolveFrequency,
+  storedTiming,
+} from '../../lib/coreCosts'
+import { CORE_COSTS_LABEL } from '../../lib/annualBudget'
 
 /**
  * The annual budget and the bank balance: reading, and the two writes.
@@ -121,7 +129,7 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
     const offset = data?.yearOffset ?? 0
     const fy = offset === 0 ? financialYear(endMonth) : shiftFinancialYear(endMonth, offset)
 
-    const [budgetRows, programmeRows, allocationRows, promisedRows] = await db.batch([
+    const [budgetRows, programmeRows, allocationRows, promisedRows, clientRows] = await db.batch([
       db
         .select({
           id: annualBudgets.id,
@@ -133,6 +141,8 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           carriedCommitment: annualBudgetLines.carriedCommitment,
           frequency: annualBudgetLines.frequency,
           dueDate: annualBudgetLines.dueDate,
+          kind: annualBudgetLines.kind,
+          fixed: annualBudgetLines.fixed,
           contingencyPercent: annualBudgets.contingencyPercent,
           updatedAt: annualBudgets.updatedAt,
           updatedBy: users.name,
@@ -217,10 +227,16 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           ),
         )
         .groupBy(roundProgrammes.programmeId),
+
+      // The foundation's name, for the title of the budget upload template.
+      db.select({ name: clients.name }).from(clients).where(eq(clients.id, clientId)),
     ])
 
     const existing = budgetRows[0]
     return {
+      /** Stamped into the budget upload template, so a file for another tenant is refused. */
+      clientId,
+      foundationName: clientRows[0]?.name ?? 'Your foundation',
       financialYear: fy,
       financialYearEndMonth: endMonth,
       yearOffset: offset,
@@ -236,6 +252,8 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
         .filter((r) => r.lineId)
         .map((r) => ({
           programmeId: r.programmeId,
+          kind: lineKind(r),
+          fixed: r.fixed === true,
           label: r.lineLabel,
           amount: parseFloat(r.amount ?? '0'),
           // NULL = the finance lead accepted the derived figure. Kept distinct from a
@@ -288,6 +306,12 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
           z.object({
             /** NULL for a non-grant line (core costs), which carries its own label. */
             programmeId: z.uuid().nullable(),
+            // Only read on a non-grant line: `income` is money in, anything else a cost. A
+            // programme line is a grant whatever this says (`lineKind`), so a stale
+            // payload cannot turn a programme's budget into income.
+            kind: z.enum(['grant', 'cost', 'income']).optional(),
+            // Income lines only: Fixed (counts toward Available balance) or Expected.
+            fixed: z.boolean().optional(),
             label: z.string().max(80).nullable(),
             amount: MONEY,
             // What this programme already owes this year from grants decided earlier.
@@ -297,7 +321,7 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
             // Non-grant lines only: how the year's `amount` falls through the year. A
             // programme line's cash comes from its grants' instalments, so both are
             // dropped there, the same way `carriedCommitment` is dropped on a cost line.
-            frequency: z.enum(['monthly', 'one_off']).nullable().optional(),
+            frequency: z.enum(['monthly', 'quarterly', 'one_off']).nullable().optional(),
             dueDate: z.string().regex(ISO_DAY).nullable().optional(),
           }),
         )
@@ -339,7 +363,9 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
     const previous = await db
       .select({
         id: annualBudgets.id,
-        total: sql<string>`coalesce(sum(${annualBudgetLines.amount}), 0)`,
+        // The budget's total is money OUT, as on the Settings screen: income is not part
+        // of what the foundation plans to spend.
+        total: sql<string>`coalesce(sum(${annualBudgetLines.amount}) filter (where ${annualBudgetLines.kind} is distinct from 'income'), 0)`,
       })
       .from(annualBudgets)
       .leftJoin(annualBudgetLines, eq(annualBudgetLines.budgetId, annualBudgets.id))
@@ -417,7 +443,13 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
     const rows = lines.map((l) => ({
       budgetId,
       programmeId: l.programmeId,
-      label: l.programmeId ? null : l.label?.trim() || 'Core costs',
+      kind: lineKind(l),
+      // Stored on income only. A cost line's Fixed flag is proposed but not decided, so
+      // nothing is written there yet rather than a value no screen reads.
+      fixed: lineKind(l) === 'income' ? l.fixed === true : null,
+      label: l.programmeId
+        ? null
+        : l.label?.trim() || (lineKind(l) === 'income' ? INCOME_LABEL : CORE_COSTS_LABEL),
       amount: l.amount.toFixed(2),
       // Only a programme line can carry one: a core-costs line has no grants behind it,
       // so there is nothing to derive and nothing to override. Dropped rather than
@@ -437,7 +469,9 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
       db.insert(annualBudgetLines).values(rows),
     ])
 
-    const total = rows.reduce((s, r) => s + parseFloat(r.amount), 0)
+    const total = rows
+      .filter((r) => r.kind !== 'income')
+      .reduce((s, r) => s + parseFloat(r.amount), 0)
     await recordAudit({
       clientId,
       actorUserId: user.id,

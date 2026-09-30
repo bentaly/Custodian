@@ -13,6 +13,11 @@ import { costEntries, monthsOfYear, round2, type CostLineInput } from './coreCos
  *   would show an outflow that never happened.
  * - **Core costs** — the non-grant budget lines, placed by `costEntries`.
  *
+ * And one inflow: **income** — the budget's income lines, placed by the same
+ * `costEntries` and ADDED to the balance. Only what lands after the reading is added:
+ * income dated on or before it is already in the balance, and counting it again is the
+ * one way this table could overstate the account.
+ *
  * Undated ("TBC") instalments are not in it, for the same reason they are not in
  * `dueByYearEnd`: there is no month to put them in.
  *
@@ -45,7 +50,10 @@ export type CashFlowMonth = {
   /** The part of `grants` that is overdue and has been drawn into this (the current) month. */
   overdue: number
   core: number
+  /** Money out: grants plus core costs. */
   total: number
+  /** Money in: the budget's income lines placed in this month. */
+  income: number
   /** The whole month is behind today. */
   past: boolean
   current: boolean
@@ -56,17 +64,18 @@ export type CashFlowMonth = {
 export type CashFlow = {
   months: CashFlowMonth[]
   /**
-   * What stands between the reading and the year end, as three parts. NULL with no
-   * reading. `balance − paidGrants − dueGrants − core = headroom`.
+   * What stands between the reading and the year end, as four parts. NULL with no
+   * reading. `balance − paidGrants − dueGrants − core + income = headroom`.
    */
-  sinceBalance: { paidGrants: number; dueGrants: number; core: number } | null
+  sinceBalance: { paidGrants: number; dueGrants: number; core: number; income: number } | null
   headroom: number | null
 }
 
-type Outflow = {
+type Entry = {
   date: string
+  /** Positive for money out AND in; `kind` says which way it moves the balance. */
   amount: number
-  kind: 'grant' | 'core'
+  kind: 'grant' | 'core' | 'income'
   paid: boolean
   overdue: boolean
 }
@@ -77,10 +86,11 @@ export function buildCashFlow(input: {
   balance: { amount: number; asAtDate: string } | null
   instalments: InstalmentDay[]
   costLines: CostLineInput[]
+  incomeLines?: CostLineInput[]
 }): CashFlow {
   const { fy, today, balance } = input
 
-  const outflows: Outflow[] = [
+  const entries: Entry[] = [
     ...input.instalments.map((i) => {
       const overdue = !i.paid && i.day < today
       return {
@@ -99,47 +109,61 @@ export function buildCashFlow(input: {
         overdue: false,
       })),
     ),
+    ...(input.incomeLines ?? []).flatMap((line) =>
+      costEntries(line, fy).map((e) => ({
+        ...e,
+        kind: 'income' as const,
+        paid: false,
+        overdue: false,
+      })),
+    ),
   ].filter((o) => Number.isFinite(o.amount) && o.amount !== 0)
 
   /**
    * Still to come out of the balance. An unpaid instalment always is — it cannot be in a
    * balance whatever the reading's date. Anything else is, if it falls after the reading.
    */
-  const afterReading = (o: Outflow) =>
+  const afterReading = (o: Entry) =>
     balance !== null && ((o.kind === 'grant' && !o.paid) || o.date > balance.asAtDate)
 
-  const sum = (os: Outflow[]) => round2(os.reduce((s, o) => s + o.amount, 0))
+  const sum = (os: Entry[]) => round2(os.reduce((s, o) => s + o.amount, 0))
+  /** What a set of entries does to the balance: money out down, income up. */
+  const net = (os: Entry[]) =>
+    round2(os.reduce((s, o) => s + (o.kind === 'income' ? -o.amount : o.amount), 0))
 
   const months = monthsOfYear(fy).map((m): CashFlowMonth => {
-    const inMonth = outflows.filter((o) => o.date >= m.start && o.date <= m.end)
+    const inMonth = entries.filter((o) => o.date >= m.start && o.date <= m.end)
     const grants = sum(inMonth.filter((o) => o.kind === 'grant'))
     const core = sum(inMonth.filter((o) => o.kind === 'core'))
+    const income = sum(inMonth.filter((o) => o.kind === 'income'))
     return {
       ...m,
       grants,
       overdue: sum(inMonth.filter((o) => o.overdue)),
       core,
       total: round2(grants + core),
+      income,
       past: m.end < today,
       current: m.start <= today && today <= m.end,
       closing:
         balance && m.end >= balance.asAtDate
-          ? round2(balance.amount - sum(outflows.filter((o) => afterReading(o) && o.date <= m.end)))
+          ? round2(balance.amount - net(entries.filter((o) => afterReading(o) && o.date <= m.end)))
           : null,
     }
   })
 
   if (!balance) return { months, sinceBalance: null, headroom: null }
 
-  const toCome = outflows.filter((o) => afterReading(o) && o.date <= fy.end)
+  const toCome = entries.filter((o) => afterReading(o) && o.date <= fy.end)
   const sinceBalance = {
     paidGrants: sum(toCome.filter((o) => o.kind === 'grant' && o.paid)),
     dueGrants: sum(toCome.filter((o) => o.kind === 'grant' && !o.paid)),
     core: sum(toCome.filter((o) => o.kind === 'core')),
+    income: sum(toCome.filter((o) => o.kind === 'income')),
   }
   return {
     months,
     sinceBalance,
-    headroom: round2(balance.amount - sum(toCome)),
+    headroom: round2(balance.amount - net(toCome)),
   }
 }

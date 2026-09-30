@@ -729,6 +729,13 @@
       "when": 1790721199495,
       "tag": "0103_early_edwin_jarvis",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1790786613213,
+      "tag": "0104_mixed_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

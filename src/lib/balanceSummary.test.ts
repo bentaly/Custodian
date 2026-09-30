@@ -193,4 +193,99 @@ describe('buildBalanceSummary', () => {
     expect(s.sinceBalance).toEqual({ grants: 2_000, core: 4_000, total: 6_000 })
     expect(s.available).toBe(flow.headroom! - 50_000 - 5_000)
   })
+
+  describe('income', () => {
+    // Read 1 August, today 12 September. Quarterly lines land at the end of June,
+    // September, December and March: June is inside the balance and has arrived (Actual);
+    // September, December and March are after the reading and still to come (Projected).
+    const reading = { amount: 100_000, asAtDate: '2026-08-01' }
+    const pledge = {
+      label: 'Pledge',
+      amount: 8_000,
+      frequency: 'quarterly',
+      dueDate: null,
+      fixed: true,
+    }
+    const appeal = {
+      label: 'Appeal',
+      amount: 4_000,
+      frequency: 'one_off',
+      dueDate: '2027-01-15',
+      fixed: false,
+    }
+
+    it('is a line of its own, with Actual and Projected, and never in the total out', () => {
+      const s = buildBalanceSummary(
+        base({
+          balance: reading,
+          instalments: [inst({ amount: 10_000 })],
+          incomeLines: [pledge, appeal],
+        }),
+      )
+      const income = s.lines.at(-1)!
+      expect(income).toMatchObject({
+        kind: 'income',
+        actual: 2_000,
+        projected: 10_000,
+        stillToPay: 0,
+      })
+      expect(income.children.map((c) => [c.name, c.fixed])).toEqual([
+        ['Appeal', false],
+        ['Pledge', true],
+      ])
+      expect(s.total).toEqual({ actual: 0, projected: 0, stillToPay: 10_000 })
+    })
+
+    it('adds Fixed income to Available, and Expected only to the second figure', () => {
+      const s = buildBalanceSummary(
+        base({
+          balance: reading,
+          instalments: [inst({ amount: 10_000 })],
+          incomeLines: [pledge, appeal],
+        }),
+      )
+      // Pledge after the reading: September, December, March = £6,000. June is in the
+      // balance already and must not be counted twice.
+      expect(s.income).toEqual({
+        actual: 2_000,
+        projected: 10_000,
+        fixedToCome: 6_000,
+        expectedToCome: 4_000,
+      })
+      expect(s.beforeIncome).toBe(90_000)
+      expect(s.available).toBe(96_000)
+      expect(s.availableWithExpected).toBe(100_000)
+    })
+
+    it('reads exactly as before with no income lines', () => {
+      const s = buildBalanceSummary(base({ instalments: [inst({ amount: 10_000 })] }))
+      expect(s.income).toBeNull()
+      expect(s.available).toBe(s.beforeIncome)
+      expect(s.availableWithExpected).toBe(s.available)
+      expect(s.lines.some((l) => l.kind === 'income')).toBe(false)
+    })
+
+    it('agrees with the cash flow headroom, which counts every income line', () => {
+      const input = base({
+        balance: reading,
+        costLines: [{ label: 'Rent', amount: 24_000, frequency: 'monthly', dueDate: null }],
+        instalments: [
+          inst({ paid: true, day: '2026-08-20', amount: 2_000 }),
+          inst({ paid: false, day: '2026-11-01', amount: 30_000 }),
+        ],
+        incomeLines: [pledge, appeal],
+        roundProgrammes: [rp({ budget: 50_000 })],
+      })
+      const s = buildBalanceSummary(input)
+      const flow = buildCashFlow({
+        fy: FY,
+        today: TODAY,
+        balance: input.balance,
+        instalments: input.instalments.map((i) => ({ day: i.day, paid: i.paid, amount: i.amount })),
+        costLines: input.costLines,
+        incomeLines: input.incomeLines,
+      })
+      expect(s.availableWithExpected).toBe(flow.headroom! - 50_000)
+    })
+  })
 })

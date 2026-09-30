@@ -1,5 +1,5 @@
 import { CORE_COSTS_LABEL } from './annualBudget'
-import { costEntries, round2, type CostLineInput } from './coreCosts'
+import { INCOME_LABEL, costEntries, round2, type CostLineInput } from './coreCosts'
 
 /**
  * The Balance & budget summary: what this financial year has spent, plans to, and still
@@ -13,6 +13,11 @@ import { costEntries, round2, type CostLineInput } from './coreCosts'
  * - **This year's grant spend**: this year's instalments on grants from this year's rounds,
  *   plus what is still projected out of this year's round budgets.
  * - **Contingency**: a percentage of the grant budget (the programme lines).
+ * - **Income**: the budget's income lines, placed by `costEntries` like core costs. The
+ *   one line that is money IN. Actual is what the plan says has arrived by today,
+ *   Projected what is still to come; Still to pay does not apply. It is in `lines`, last,
+ *   and deliberately NOT in `total`, which stays money out so the footer can be checked
+ *   by subtraction: money out, money in, and the net.
  *
  * Grant lines break down by programme and core costs by their own labels. A parent is the
  * sum of its children and nothing else, so a breakdown cannot drift from its headline.
@@ -33,7 +38,20 @@ import { costEntries, round2, type CostLineInput } from './coreCosts'
  *
  * ## Available balance
  *
- * `available = balance − projected − still to pay − since balance`.
+ * `available = balance − projected − still to pay − since balance + income to come`.
+ *
+ * "Income to come" is every income entry dated AFTER the reading: what the plan says has
+ * arrived since then (Actual, not yet in the balance) plus what is still Projected.
+ * Income dated on or before the reading is already in the balance and is not added
+ * again.
+ *
+ * ## Two Available figures (agreed with Alex 2026-09-30)
+ *
+ * `available` adds **Fixed** income only (a signed pledge, a set dividend);
+ * `availableWithExpected` adds **Expected** income on top. Income that may never land
+ * must not raise the figure a foundation commits grants against, and the second figure
+ * sits beside it so the expected money is still in view. With no income lines they are
+ * the same number.
  *
  * The last term is money that is Actual but NOT inside the balance, because it went after
  * the day the balance was read: grant payments made after the reading, and core costs
@@ -75,9 +93,11 @@ export type SummaryChild = SummaryFigures & {
    * prior-year instalments too, because the programme budget total covers them.
    */
   over: number
+  /** Income lines only: Fixed or Expected. */
+  fixed?: boolean
 }
 
-export type SummaryLineKind = 'core' | 'prior' | 'current' | 'contingency'
+export type SummaryLineKind = 'core' | 'prior' | 'current' | 'contingency' | 'income'
 
 export type SummaryLine = SummaryFigures & {
   kind: SummaryLineKind
@@ -86,7 +106,20 @@ export type SummaryLine = SummaryFigures & {
 
 export type BalanceSummary = {
   lines: SummaryLine[]
+  /** Money OUT: every line but income. */
   total: SummaryFigures
+  /**
+   * Money IN: the income line's figures, plus `sinceBalance` — income dated after the
+   * reading and so not inside it. `toCome` is what Available adds. NULL with no income.
+   */
+  income: {
+    actual: number
+    projected: number
+    /** Fixed income dated after the reading. NULL without a reading. */
+    fixedToCome: number | null
+    /** Expected income dated after the reading. NULL without a reading. */
+    expectedToCome: number | null
+  } | null
   /**
    * Actual money that went AFTER the balance was read, so is not inside it: grant payments
    * and scheduled core costs. NULL without a reading.
@@ -94,8 +127,12 @@ export type BalanceSummary = {
   sinceBalance: { grants: number; core: number; total: number } | null
   /** Everything still to come out of the balance. NULL without a reading. */
   deducted: number | null
-  /** NULL without a balance reading. */
+  /** Balance less `deducted`, before income. NULL without a reading. */
+  beforeIncome: number | null
+  /** Balance less everything to come out, plus FIXED income to come. NULL without a reading. */
   available: number | null
+  /** `available` plus EXPECTED income to come. NULL without a reading. */
+  availableWithExpected: number | null
   /** The sum of the programme lines: what contingency is a percentage of. */
   grantBudget: number
   contingency: { percent: number; amount: number } | null
@@ -131,6 +168,8 @@ export type BalanceSummaryInput = {
   today: string
   balance: { amount: number; asAtDate: string } | null
   costLines: CostLineInput[]
+  /** Income lines from the budget. Optional: a budget with none reads exactly as before. */
+  incomeLines?: CostLineInput[]
   /**
    * Paid rows (cancelled grants included: the money left) and unpaid rows (cancelled
    * excluded, dated, due by the year end), exactly as the cash flow reads them.
@@ -264,6 +303,28 @@ export function buildBalanceSummary(input: BalanceSummaryInput): BalanceSummary 
       ? { percent, amount: round2((grantBudget * percent) / 100) }
       : null
 
+  // ── Income, per line as stored ─────────────────────────────────────────────
+  // Arrived by today is Actual, still to come Projected: the same split core costs make,
+  // except that income is never "owed". What lands after the reading is added back.
+  const incomeAfterReading = { fixed: 0, expected: 0 }
+  const income: SummaryChild[] = (input.incomeLines ?? []).map((l, i) => {
+    const f = zero()
+    const fixed = l.fixed === true
+    for (const e of costEntries(l, fy)) {
+      if (e.date <= today) f.actual += e.amount
+      else f.projected += e.amount
+      if (afterReading(e.date)) incomeAfterReading[fixed ? 'fixed' : 'expected'] += e.amount
+    }
+    return {
+      key: `income-${i}`,
+      name: l.label?.trim() || INCOME_LABEL,
+      colour: null,
+      over: 0,
+      fixed,
+      ...f,
+    }
+  })
+
   const lines = [
     line('core', core),
     line('prior', children('prior')),
@@ -280,9 +341,13 @@ export function buildBalanceSummary(input: BalanceSummaryInput): BalanceSummary 
     })
   }
 
+  // Summed BEFORE the income line joins, so `total` stays money out.
   const sum = zero()
   for (const l of lines) add(sum, l)
   const total = rounded(sum)
+
+  const incomeLine = line('income', income)
+  if (incomeLine) lines.push(incomeLine)
 
   const sinceBalance = balance
     ? {
@@ -294,13 +359,27 @@ export function buildBalanceSummary(input: BalanceSummaryInput): BalanceSummary 
   const deducted = sinceBalance
     ? round2(total.projected + total.stillToPay + sinceBalance.total)
     : null
+  const beforeIncome = balance && deducted !== null ? round2(balance.amount - deducted) : null
+  const fixedToCome = balance ? round2(incomeAfterReading.fixed) : null
+  const expectedToCome = balance ? round2(incomeAfterReading.expected) : null
+  const available = beforeIncome !== null ? round2(beforeIncome + (fixedToCome ?? 0)) : null
 
   return {
     lines,
     total,
+    income: incomeLine
+      ? {
+          actual: incomeLine.actual,
+          projected: incomeLine.projected,
+          fixedToCome,
+          expectedToCome,
+        }
+      : null,
     sinceBalance,
     deducted,
-    available: balance && deducted !== null ? round2(balance.amount - deducted) : null,
+    beforeIncome,
+    available,
+    availableWithExpected: available !== null ? round2(available + (expectedToCome ?? 0)) : null,
     grantBudget,
     contingency,
   }

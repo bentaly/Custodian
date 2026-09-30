@@ -73,7 +73,12 @@ describe('buildCashFlow', () => {
       ],
       costLines: [rent], // £1,000 at each month end; July to March after the 15 July reading = 9
     })
-    expect(cf.sinceBalance).toEqual({ paidGrants: 10_000, dueGrants: 32_000, core: 9_000 })
+    expect(cf.sinceBalance).toEqual({
+      paidGrants: 10_000,
+      dueGrants: 32_000,
+      core: 9_000,
+      income: 0,
+    })
     expect(cf.headroom).toBe(200_000 - 10_000 - 32_000 - 9_000)
   })
 
@@ -111,5 +116,53 @@ describe('buildCashFlow', () => {
       costLines: [],
     })
     expect(cf.headroom).toBe(-15_000)
+  })
+
+  describe('income', () => {
+    // £4,000 a quarter, landing at the end of June, September, December and March.
+    const dividends = {
+      label: 'Dividends',
+      amount: 16_000,
+      frequency: 'quarterly',
+      dueDate: null,
+      fixed: true,
+    }
+
+    it('places quarterly income at each quarter end and shows it in its own column', () => {
+      const cf = buildCashFlow({
+        fy: FY,
+        today: TODAY,
+        balance: null,
+        instalments: [],
+        costLines: [],
+        incomeLines: [dividends],
+      })
+      expect(cf.months.filter((m) => m.income > 0).map((m) => m.key)).toEqual([
+        '2026-06',
+        '2026-09',
+        '2026-12',
+        '2027-03',
+      ])
+      // Money in is never money out.
+      expect(month(cf, '2026-06')).toMatchObject({ income: 4_000, total: 0 })
+    })
+
+    it('adds only income dated AFTER the reading: what came before is in the balance', () => {
+      const cf = buildCashFlow({
+        fy: FY,
+        today: TODAY,
+        // Read on 1 August: June's £4,000 is already in it; September, December and
+        // March are still to come.
+        balance: { amount: 50_000, asAtDate: '2026-08-01' },
+        instalments: [due('2026-10-01', 20_000)],
+        costLines: [],
+        incomeLines: [dividends],
+      })
+      expect(cf.sinceBalance).toEqual({ paidGrants: 0, dueGrants: 20_000, core: 0, income: 12_000 })
+      expect(cf.headroom).toBe(50_000 - 20_000 + 12_000)
+      expect(month(cf, '2026-09').closing).toBe(54_000)
+      expect(month(cf, '2026-10').closing).toBe(34_000)
+      expect(cf.months.at(-1)!.closing).toBe(cf.headroom)
+    })
   })
 })

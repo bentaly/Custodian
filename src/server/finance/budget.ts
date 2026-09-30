@@ -16,6 +16,7 @@ import { DEFAULT_FY_END_MONTH, financialYear, type FinancialYear } from '../../l
 import { buildCashFlow, type CashFlow } from '../../lib/cashFlow'
 import { buildBalanceSummary, type BalanceSummary } from '../../lib/balanceSummary'
 import { getRoundStatus } from '../../lib/roundStatus'
+import { lineKind } from '../../lib/coreCosts'
 import { addMonthsIso, todayIso } from '../../lib/schedule'
 import { roundProgrammeSpend } from '../applications/roundSpend'
 
@@ -80,6 +81,8 @@ export type BalanceAndBudget = {
   cashFlow: CashFlow
   /** Whether the annual budget has core-cost lines, which the cash flow gives a column. */
   hasCoreCosts: boolean
+  /** Whether it has income lines, which the cash flow and the cards give their own place. */
+  hasIncome: boolean
   /** True when there is nothing to show at all. */
   empty: boolean
 }
@@ -202,6 +205,8 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
         amount: annualBudgetLines.amount,
         frequency: annualBudgetLines.frequency,
         dueDate: annualBudgetLines.dueDate,
+        kind: annualBudgetLines.kind,
+        fixed: annualBudgetLines.fixed,
         contingencyPercent: annualBudgets.contingencyPercent,
       })
       .from(annualBudgets)
@@ -342,14 +347,15 @@ export function assemble(input: {
   // — but a row written before that, or by anything else, must not draw an empty budget.
   const lines = input.budgetRows.filter((r) => r.lineId)
   const hasBudget = lines.length > 0
-  const costLines = lines
-    .filter((r) => !r.programmeId)
-    .map((r) => ({
-      label: r.label,
-      amount: num(r.amount),
-      frequency: r.frequency,
-      dueDate: r.dueDate,
-    }))
+  const timed = (r: (typeof lines)[number]) => ({
+    label: r.label,
+    amount: num(r.amount),
+    frequency: r.frequency,
+    dueDate: r.dueDate,
+    fixed: r.fixed,
+  })
+  const costLines = lines.filter((r) => lineKind(r) === 'cost').map(timed)
+  const incomeLines = lines.filter((r) => lineKind(r) === 'income').map(timed)
 
   const instalments = input.instalmentRows.map((r) => ({
     programmeId: r.programmeId,
@@ -367,6 +373,7 @@ export function assemble(input: {
     today,
     balance: balanceAt,
     costLines,
+    incomeLines,
     instalments,
     roundProgrammes: input.roundRows.map((r) => ({
       programmeId: r.programmeId,
@@ -392,6 +399,7 @@ export function assemble(input: {
     balance: balanceAt,
     instalments: instalments.map((i) => ({ day: i.day, paid: i.paid, amount: i.amount })),
     costLines,
+    incomeLines,
   })
 
   return {
@@ -400,6 +408,7 @@ export function assemble(input: {
     summary,
     cashFlow,
     hasCoreCosts: costLines.length > 0,
+    hasIncome: incomeLines.length > 0,
     empty: !balance && !hasBudget && summary.lines.length === 0,
   }
 }
