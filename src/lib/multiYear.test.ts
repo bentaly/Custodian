@@ -78,6 +78,24 @@ describe('carriedCommitmentForYear', () => {
     expect(carriedCommitmentForYear([{ dueDate: '2026-03-01', amount: 30_000 }], FY)).toBe(30_000)
   })
 
+  it('counts instalments PAID inside the year, cancelled or not, and none paid outside it', () => {
+    // Arete, 2026-09-30: £10,170 paid this year and £9,729.50 still to pay on earlier
+    // rounds' grants. Counting only the unpaid half read £9,729.50 in Settings against
+    // Finance's £19,899.50, and shrank with every payment made.
+    expect(
+      carriedCommitmentForYear(
+        [
+          { dueDate: '2026-07-07', paidDate: '2026-07-07', amount: 10_170 },
+          { dueDate: '2026-12-05', amount: 9_729.5 },
+          { dueDate: '2026-05-01', paidDate: '2026-05-01', amount: 500, awardStatus: 'cancelled' },
+          { dueDate: '2026-02-01', paidDate: '2026-02-01', amount: 7_000 },
+          { dueDate: '2027-05-01', paidDate: '2027-05-01', amount: 7_000 },
+        ],
+        FY,
+      ),
+    ).toBe(20_399.5)
+  })
+
   it('counts undated instalments', () => {
     // Money with no date is still owed. Dropping it would make a foundation that has not
     // scheduled a grant look like it had nothing to pay.

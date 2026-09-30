@@ -688,7 +688,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                     as one more thing to fill in. */}
                 <MoneyInput
                   value={row.promised}
-                  label={`Prior commitments to be paid this year for ${row.label}`}
+                  label={`Prior commitments paid or due this year for ${row.label}`}
                   placeholder={derived > 0 ? penceInput(derived) : '0'}
                   onChange={(v) => patch(row.key, { promised: v })}
                 />
@@ -842,7 +842,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             value={fmtMoney(grantMaking)}
           />
           <CheckRow
-            label={`Prior grant commitments to be paid in ${data.financialYear.label}`}
+            label={`Prior grant commitments paid or due in ${data.financialYear.label}`}
             value={fmtMoney(promisedTotal)}
           />
           {contingencyPercent !== null && (

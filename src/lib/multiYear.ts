@@ -87,36 +87,42 @@ export function isSuggestedFirstYear(firstYearAmount: number | string | null): b
 export type InstalmentForYear = {
   /** `yyyy-mm-dd`, or null for a "TBC" instalment with no date to place it by. */
   dueDate: string | null
+  /** `yyyy-mm-dd` once paid, else null. Absent reads as unpaid. */
+  paidDate?: string | null
   amount: number
-  /** Cancelled awards are excluded by the caller's query; kept here so tests can prove it. */
+  /** Cancelled awards' UNPAID instalments are excluded; kept here so tests can prove it. */
   awardStatus?: string
 }
 
 /**
- * Cash owed in a financial year against grants already decided.
+ * This year's cash on grants already decided: paid in the year, or still to pay by its end.
  *
- * **There is deliberately no lower bound on the due date.** An instalment that fell due
- * last March and has not been paid is still money that has to leave the account this
- * year, and excluding it would understate exactly the figure this exists to state. The
- * Finance panel's `dueByYearEnd` bucket is bounded the same way for the same reason
- * (`src/server/finance/budget.ts`), and the two must keep agreeing: this is that figure,
- * grouped by programme.
+ * **Paid inside the year counts** (cancelled grants included: the money left). The
+ * figure is what a programme's budget has to cover before any of this year's rounds,
+ * and it must not shrink as the payment run goes out. It counted unpaid only until
+ * 2026-09-30, and read £9,729.50 where Finance's prior-year line read £19,899.50.
  *
- * **Undated instalments count in.** Money with no date is still owed, and the
- * alternative — dropping it — would make a foundation that has not scheduled a grant
- * look like it had nothing to pay. The Finance panel keeps them in their own `undated`
- * bucket because that screen can afford a third number; this one cannot.
+ * **No lower bound on an unpaid due date.** An instalment that fell due last March and
+ * has not been paid is still money that has to leave the account this year, and
+ * excluding it would understate exactly the figure this exists to state.
  *
- * Callers pass only UNPAID instalments of NON-CANCELLED awards. Paid money has already
- * left and the bank balance reflects it; a cancelled grant has nothing left to pay.
+ * **Undated unpaid instalments count in.** Money with no date is still owed, and
+ * dropping it would make a foundation that has not scheduled a grant look like it had
+ * nothing to pay. (No path writes one any more.)
+ *
+ * A cancelled grant's UNPAID instalments are out: there is nothing left to pay.
+ * `getAnnualBudgetSettings` is this rule in SQL, grouped by programme.
  */
 export function carriedCommitmentForYear(
   instalments: InstalmentForYear[],
   fy: { start: string; end: string },
 ): number {
   return instalments
-    .filter((i) => i.awardStatus !== 'cancelled')
-    .filter((i) => i.dueDate === null || i.dueDate <= fy.end)
+    .filter((i) =>
+      i.paidDate
+        ? i.paidDate >= fy.start && i.paidDate <= fy.end
+        : i.awardStatus !== 'cancelled' && (i.dueDate === null || i.dueDate <= fy.end),
+    )
     .reduce((sum, i) => sum + (Number.isFinite(i.amount) ? i.amount : 0), 0)
 }
 

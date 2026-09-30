@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, eq, isNull, ne, sql } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm'
 import { forbidden, badRequest } from '../../lib/errors'
 import { getDb } from '../db'
 import {
@@ -193,16 +193,24 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
         )
         .groupBy(roundProgrammes.programmeId),
 
-      // Cash this year owes against grants decided BEFORE this year's rounds — the
-      // "already promised" half of the pair. Derived from instalment dates Custodian
-      // already holds, which is why nothing has to be typed for it to be right.
+      // This year's cash on grants from EARLIER years' rounds: the "already promised"
+      // half of the pair, and the figure Finance → Balance & budget draws as its
+      // "Prior-year committed grants" line (`budgetPanelQueries`). The two must agree to
+      // the penny, so this is the same rows:
       //
-      // Bounded only at the top (`<= fy.end`), deliberately: an instalment that fell due
-      // last March and has not been paid is still money leaving the account this year,
-      // and a lower bound would understate exactly the figure this exists to state. The
-      // Finance panel's `dueByYearEnd` bucket is bounded the same way and the two have to
-      // agree — this is that figure, grouped by programme. Undated instalments count in
-      // for the same reason (see `carriedCommitmentForYear`).
+      // - **Paid inside the year**, cancelled grants included (the money left). It used
+      //   to count only what was still UNPAID, so the figure shrank with every payment
+      //   and read £9,729.50 against Finance's £19,899.50 for Arete (2026-09-30). A
+      //   programme's budget total covers its prior commitments whichever side of a
+      //   payment run it is read on; `rollUpCash`'s `free = budget - promised` is that.
+      // - **Unpaid and due by the year end**, cancelled excluded. No lower bound: an
+      //   instalment that fell due last year and was never paid still leaves this year.
+      //   Undated ones count here (see `carriedCommitmentForYear`); none exist today.
+      //
+      // Split by the ROUND's year, exactly as Finance splits it. It was the award's
+      // decision date, which disagrees for a round closing in one year and decided in
+      // the next. What this year's own rounds commit is `allocated` above, so counting
+      // it here too would charge the same grant twice on one screen.
       //
       // Scoped on `awards.client_id` directly, like every other money query here.
       db
@@ -214,16 +222,28 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
         .innerJoin(awards, eq(awards.id, awardInstalments.awardId))
         .innerJoin(applications, eq(applications.id, awards.applicationId))
         .innerJoin(roundProgrammes, eq(roundProgrammes.id, applications.roundProgrammeId))
+        .innerJoin(rounds, eq(rounds.id, roundProgrammes.roundId))
         .where(
           and(
             eq(awards.clientId, clientId),
-            ne(awards.status, 'cancelled'),
-            isNull(awardInstalments.paidDate),
-            sql`(${awardInstalments.dueDate} is null or ${awardInstalments.dueDate} <= ${fy.end})`,
-            // Grants decided in an EARLIER year. What this year's own rounds have
-            // committed is the `allocated` figure above and the shortlist's own meters;
-            // counting it here as well would charge the same grant twice on one screen.
-            sql`${awards.decisionAt} < ${fy.start}::date`,
+            sql`coalesce(
+              ${rounds.financialYearStart}::date,
+              ${rounds.closedAt}::date,
+              ${rounds.openedAt}::date,
+              ${todayIso()}::date
+            ) < ${fy.start}::date`,
+            or(
+              and(
+                isNotNull(awardInstalments.paidDate),
+                gte(awardInstalments.paidDate, fy.start),
+                lte(awardInstalments.paidDate, fy.end),
+              ),
+              and(
+                isNull(awardInstalments.paidDate),
+                ne(awards.status, 'cancelled'),
+                sql`(${awardInstalments.dueDate} is null or ${awardInstalments.dueDate} <= ${fy.end})`,
+              ),
+            ),
           ),
         )
         .groupBy(roundProgrammes.programmeId),
@@ -310,7 +330,7 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
             // programme line is a grant whatever this says (`lineKind`), so a stale
             // payload cannot turn a programme's budget into income.
             kind: z.enum(['grant', 'cost', 'income']).optional(),
-            // Income lines only: Fixed (counts toward Available balance) or Expected.
+            // Income lines only: Fixed (counts toward Available balance) or Projected.
             fixed: z.boolean().optional(),
             label: z.string().max(80).nullable(),
             amount: MONEY,
