@@ -504,37 +504,43 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     header: 'Amount',
     width: 'sm:w-[14%]',
     sortable: true,
-    // The whole ask, then what it comes to a year, as the Amount requested card on the
+    // The whole amount, then what it comes to a year, as the Amount requested card on the
     // application screen states it: "£35,000" alone leaves it open whether that is the
-    // grant or one year of it. A single-year ask has no second line, since the two
+    // grant or one year of it. A single-year grant has no second line, since the two
     // figures would be the same one twice.
+    //
+    // Where an officer proposed a different amount, that leads (it is what the board is
+    // weighing) with the ask beside it in small grey, and the per-year line follows the
+    // proposal. Read-only here; it is changed on the shortlist or the application.
     cell: (app) => {
+      const proposed = isAmended(app) ? parseFloat(app.amountAmended!) : null
       const perYear = fmtPerYear(
-        parseFloat(app.amountRequested ?? '0') || 0,
+        proposed ?? (parseFloat(app.amountRequested ?? '0') || 0),
         app.roundProgramme?.grantDurationYears,
       )
-      const proposed = isAmended(app) ? parseFloat(app.amountAmended!) : null
       return (
         <div className="flex flex-col">
-          <span
-            className="font-display text-body font-medium tabular-nums"
-            style={{ color: C.ink }}
-          >
-            {fmtAmount(app.amountRequested)}
-          </span>
-          {/* A proposal takes the second line when there is one: it is the figure the
-              board is weighing, and the per-year split is on the application. Read-only
-              here; it is changed on the shortlist or the application. */}
-          {proposed !== null ? (
-            <span className="font-display text-label tabular-nums" style={{ color: C.brand }}>
-              Proposed {fmtMoney(proposed)}
+          <span className="flex flex-wrap items-baseline gap-x-1.5">
+            <span
+              className="font-display text-body font-medium tabular-nums"
+              style={{ color: C.ink }}
+            >
+              {proposed !== null ? fmtMoney(proposed) : fmtAmount(app.amountRequested)}
             </span>
-          ) : (
-            perYear && (
-              <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
-                {perYear}
+            {proposed !== null && (
+              <span
+                className="font-display text-label tabular-nums"
+                style={{ color: C.faint }}
+                title="Amount requested"
+              >
+                {fmtAmount(app.amountRequested)}
               </span>
-            )
+            )}
+          </span>
+          {perYear && (
+            <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
+              {perYear}
+            </span>
           )}
         </div>
       )
