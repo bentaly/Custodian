@@ -510,7 +510,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     // figures would be the same one twice.
     //
     // Where an officer proposed a different amount, that leads (it is what the board is
-    // weighing), marked "updated" with the ask on hover, and the per-year line follows the
+    // weighing), marked "amended" with the ask on hover, and the per-year line follows the
     // proposal. Read-only here; it is changed on the shortlist or the application.
     cell: (app) => {
       const proposed = isAmended(app) ? parseFloat(app.amountAmended!) : null
@@ -532,7 +532,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
               <Tooltip
                 label="Amount requested"
                 triggerClassName="rounded-chip font-display text-label focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
-                trigger={<span style={{ color: C.faint }}>updated</span>}
+                trigger={<span style={{ color: C.faint }}>amended</span>}
               >
                 {fmtAmount(app.amountRequested)} requested
               </Tooltip>
