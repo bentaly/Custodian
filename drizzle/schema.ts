@@ -536,7 +536,7 @@ export const applications = pgTable(
     //
     // NULL means "use the suggestion" (the ask divided by the round-programme's
     // `grantDurationYears`), the same convention as `client_profiles
-    // .award_letter_template` and `annual_budget_lines.carried_commitment`: a stored
+    // .award_letter_template`: a stored
     // value is a decision somebody made and always wins, and nothing has to be
     // backfilled for the suggestion to be right about the ordinary annual case.
     //
@@ -1260,14 +1260,10 @@ export const annualBudgetLines = pgTable(
     /** Only read for non-grant lines; a programme line is named by the programme. */
     label: text('label'),
     amount: numeric('amount').notNull(),
-    // UNUSED since 2026-09-30, to be dropped in a later push (expand/contract).
-    //
-    // It was a typed override of this programme's prior commitments, on the reading that
-    // `amount` covered them too ("free to give" = amount - carried). The budget line is
-    // now for NEW grants only, and prior commitments are always derived from instalments
-    // (`carriedCommitmentForYear`) and added to it in Settings' Summary panel. Nothing
-    // reads it and saves write NULL.
-    carriedCommitment: numeric('carried_commitment'),
+    // There was a `carried_commitment` column here, a typed override of the programme's
+    // prior commitments, on the reading that `amount` covered them too. Dropped in 0105
+    // (2026-09-30): the line is for NEW grants only, and prior commitments are always
+    // derived from instalments (`carriedCommitmentForYear`).
     // When a NON-GRANT line's money leaves the account: `monthly` (rent, payroll — an
     // equal share at each month end) or `one_off` (a legal fee — the whole amount on
     // `due_date`). `amount` stays the YEAR's figure either way, so every total and

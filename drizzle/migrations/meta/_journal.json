@@ -736,6 +736,13 @@
       "when": 1790786613213,
       "tag": "0104_mixed_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1790806528219,
+      "tag": "0105_careful_living_lightning",
+      "breakpoints": true
     }
   ]
 }

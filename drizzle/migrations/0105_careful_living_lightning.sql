@@ -1,0 +1,1 @@
+ALTER TABLE "annual_budget_lines" DROP COLUMN "carried_commitment";

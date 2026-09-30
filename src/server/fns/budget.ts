@@ -460,11 +460,6 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
         ? null
         : l.label?.trim() || (lineKind(l) === 'income' ? INCOME_LABEL : CORE_COSTS_LABEL),
       amount: l.amount.toFixed(2),
-      // No longer written (2026-09-30): the budget is for NEW grants, and prior
-      // commitments are derived from instalments, never typed. A save replaces the lines,
-      // so an old override is cleared the next time a year is saved. The column goes in a
-      // later push, once no deployed code reads it.
-      carriedCommitment: null,
       // Nothing on a programme line; a frequency on a cost line, and a date only if one-off.
       ...storedTiming(l),
     }))

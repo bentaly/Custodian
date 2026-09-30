@@ -313,8 +313,7 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   is a fact and is derived. It used to be the reverse reading (the line covered prior commitments
   too, with a typed override beside it), and Arete read it the new way: their Long-term local
   partnerships showed £19,899.50 over, exactly its prior-year instalments.
-  `annual_budget_lines.carried_commitment` (that override) is unread and written NULL; drop it
-  in a later push.
+  That override, `annual_budget_lines.carried_commitment`, was dropped in `0105`.
 - **The shortlist dialog only opens when `enforce_round_budget` is ON.** With the budget as a
   target — the default — an estimate that is slightly out makes the meter slightly approximate and
   blocks nobody, so asking would be a question for our benefit. With the ceiling on, the figure
