@@ -522,7 +522,7 @@ design rationale; this list is a map, not a summary.
   **The Summary tab is `src/lib/balanceSummary.ts`** (agreed with a foundation 2026-09-13): core
   costs, prior-year grants and this year's grants (split by the ROUND's year, each broken down by
   programme), and a contingency (`annual_budgets.contingency_percent`, a % of the programme lines
-  only). Columns are **Actual** (paid, or core costs scheduled to date) / **Projected** (round budget not
+  only). The model's figures are **Actual** (paid, or core costs scheduled to date) / **Projected** (round budget not
   yet awarded, contingency) / **Still to pay** (awarded and unpaid grants due by the year end,
   plus core costs scheduled after today: fixed costs, moved here from Projected on 2026-09-29). An "Awarded" column (paid + unpaid together) hid why a paid grant deducted nothing.
   Round budget is HELD — budget less `roundProgrammeSpend`'s awarded figure — while its round is
@@ -533,11 +533,24 @@ design rationale; this list is a map, not a summary.
   **Income is a third kind of budget line** (2026-09-30, Notion "Finance balance screen: adding
   income streams"): money IN, placed by the same `costEntries`, never part of "Total annual
   budget" or `summary.total` (both stay money OUT), and never a negative cost (every total and
-  the amount validator assume positive spend). **Two Available figures**: `available` adds
-  **Fixed** income dated after the reading, `availableWithExpected` adds **Expected** on top, so
-  a foundation never commits grants against money that may not land. Income dated on or before
-  the reading is already in the balance and is never added again. The cash flow counts ALL
-  income, so its headroom pins against `availableWithExpected`.
+  the amount validator assume positive spend). Each income line is **Fixed** or **Projected**
+  (`fixed`): `available` adds Fixed income dated after the reading, and `availableWithProjected`
+  (stated on the card, never folded in) adds the rest, so a foundation never commits grants
+  against money that may not land. Income dated on or before the reading is already in the
+  balance and is never added again. The cash flow counts ALL income, so its headroom pins
+  against `availableWithProjected`.
+  **The four headline cards** (2026-09-30, always all four, `HeadlineCards`): Balance,
+  Available balance at the year end, Income total, Expenditure total. Available's own
+  "£X Fixed | £Y Projected" line gives two ALTERNATIVES (Fixed income only, then Projected
+  income too), not parts that sum to it as the totals' do. The totals are the WHOLE year
+  split by CERTAINTY, "£X Fixed | £Y Projected" (spend: Fixed = Actual + Still to pay), where the
+  Summary table's To date / To come columns split by TIME. The Summary has FOUR columns
+  (Alex, 2026-09-30): Fixed | Projected | To date | To come ("To pay" read wrong on Income, whose
+  money is still to come IN), the year split both ways, each pair
+  summing to the line's year (`fourWay`); `balanceSummary.ts` still models actual / projected
+  / still to pay underneath. "Actual" was dropped because it read as "certain" beside Fixed. Available is
+  not Balance + Income − Expenditure to the penny (the totals include money already inside the
+  balance); the Summary footer is the line-by-line arithmetic.
   **Upload a budget** (`src/lib/budgetUpload`, `components/settings/BudgetUploadDialog`):
   a per-client .xlsx template prefilled with the year, read in the browser, programmes matched
   like the onboarding import, and the result put in the form as UNSAVED changes, replacing its

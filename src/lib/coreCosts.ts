@@ -138,7 +138,7 @@ export type CostLineInput = {
   frequency: string | null
   /** A one-off's date, or the date a monthly or quarterly line STARTS (NULL = the year's start). */
   dueDate: string | null
-  /** Income lines: Fixed (TRUE) or Expected. Ignored on a cost line. */
+  /** Income lines: Fixed (TRUE) or Projected. Ignored on a cost line. */
   fixed?: boolean | null
 }
 

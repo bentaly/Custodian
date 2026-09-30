@@ -1298,8 +1298,8 @@ export const annualBudgetLines = pgTable(
     // backfills the rows already there.
     kind: text('kind').$type<'grant' | 'cost' | 'income'>(),
     // Income only, for now: TRUE is **Fixed** income (a signed pledge, a set dividend),
-    // FALSE or NULL is **Expected**. Finance shows two Available figures: the first counts
-    // Fixed income only, the second adds Expected on top, so nobody has to rely on money
+    // FALSE or NULL is **Projected**. Finance's Available balance counts Fixed income only
+    // and states Projected income beside it, so nobody has to rely on money
     // that has not arrived (agreed with Alex 2026-09-30). Named for the line rather than
     // for income because the same Fixed flag is proposed for cost lines (rent, payroll)
     // and has not been decided; today a cost line ignores it.

@@ -236,7 +236,7 @@ describe('buildBalanceSummary', () => {
       expect(s.total).toEqual({ actual: 0, projected: 0, stillToPay: 10_000 })
     })
 
-    it('adds Fixed income to Available, and Expected only to the second figure', () => {
+    it('adds Fixed income to Available, and Projected only to the second figure', () => {
       const s = buildBalanceSummary(
         base({
           balance: reading,
@@ -249,19 +249,22 @@ describe('buildBalanceSummary', () => {
       expect(s.income).toEqual({
         actual: 2_000,
         projected: 10_000,
+        // The certainty split, over the whole year: Pledge is Fixed, Appeal is not.
+        fixedTotal: 8_000,
+        projectedTotal: 4_000,
         fixedToCome: 6_000,
-        expectedToCome: 4_000,
+        projectedToCome: 4_000,
       })
       expect(s.beforeIncome).toBe(90_000)
       expect(s.available).toBe(96_000)
-      expect(s.availableWithExpected).toBe(100_000)
+      expect(s.availableWithProjected).toBe(100_000)
     })
 
     it('reads exactly as before with no income lines', () => {
       const s = buildBalanceSummary(base({ instalments: [inst({ amount: 10_000 })] }))
       expect(s.income).toBeNull()
       expect(s.available).toBe(s.beforeIncome)
-      expect(s.availableWithExpected).toBe(s.available)
+      expect(s.availableWithProjected).toBe(s.available)
       expect(s.lines.some((l) => l.kind === 'income')).toBe(false)
     })
 
@@ -285,7 +288,7 @@ describe('buildBalanceSummary', () => {
         costLines: input.costLines,
         incomeLines: input.incomeLines,
       })
-      expect(s.availableWithExpected).toBe(flow.headroom! - 50_000)
+      expect(s.availableWithProjected).toBe(flow.headroom! - 50_000)
     })
   })
 })

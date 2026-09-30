@@ -101,7 +101,7 @@ const COLUMN: Record<BudgetColumnKey, Column> = {
     header: 'Date',
     width: 16,
     format: 'dd/mm/yyyy',
-    help: 'For a one-off, the day it is paid or arrives. For a monthly or quarterly line, the day it starts, if part-way through the year (blank = from the start of the year). Inside the financial year either way.',
+    help: 'For a one-off, the day it is paid or arrives. For a monthly or quarterly line, the day it starts, if part-way through the year (blank = from the start of the financial year). Inside the financial year either way.',
     aliases: ['due date', 'date paid', 'payment date', 'start date', 'from', 'starts'],
   },
   fixed: {
@@ -109,7 +109,7 @@ const COLUMN: Record<BudgetColumnKey, Column> = {
     header: 'Fixed income',
     width: 16,
     options: ['Yes', 'No'],
-    help: 'Yes for a signed pledge or a set dividend: it counts towards your available balance on Finance. No (or blank) for income you expect but cannot rely on.',
+    help: 'Yes for a signed pledge or a set dividend: it counts towards your available balance on Finance. No (or blank) for projected income you cannot rely on yet.',
     aliases: ['fixed', 'fixed?', 'confirmed'],
   },
 }

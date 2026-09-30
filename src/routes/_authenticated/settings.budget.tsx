@@ -84,8 +84,8 @@ import { resolveProgrammeColour } from '../../lib/programmeColours'
  * ## Income is a third kind of line
  *
  * Money IN (investment income, a pledge): the same row as a cost, plus whether it is
- * **Fixed** (a signed pledge, a set dividend) or **Expected**. Finance counts only Fixed
- * income in its Available balance and shows a second figure with Expected added on top
+ * **Fixed** (a signed pledge, a set dividend) or **Projected**. Finance counts only Fixed
+ * income in its Available balance and states the figure with Projected added on top
  * (agreed with Alex 2026-09-30). It is never part of "Total annual budget", which is
  * what the foundation plans to SPEND, nor of the grant budget contingency is taken from.
  *
@@ -124,7 +124,7 @@ type Row = {
   programmeId: string | null
   /** `grant` for a programme row; a non-grant row is a `cost` or `income`. */
   kind: BudgetLineKind
-  /** Income rows only: Fixed (counts toward Available balance) or Expected. */
+  /** Income rows only: Fixed (counts toward Available balance) or Projected. */
   fixed: boolean
   label: string
   colour: string | null
@@ -750,7 +750,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           </Button>
         </div>
 
-        {/* Money IN. The same row as a cost, plus Fixed or Expected, because Finance only
+        {/* Money IN. The same row as a cost, plus Fixed or Projected, because Finance only
             lets Fixed income raise the Available balance. Never part of the total. */}
         <div className="mt-6 border-t pt-4" style={{ borderColor: C.line }}>
           <h3 className="font-display text-body font-medium" style={{ color: C.ink }}>
@@ -758,7 +758,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           </h3>
           <p className="mt-0.5 mb-3 font-display text-label" style={{ color: C.faint }}>
             Money coming in this year, such as investment income or a pledge. Fixed income (a signed
-            pledge, a set dividend) counts towards your available balance on Finance. Expected
+            pledge, a set dividend) counts towards your available balance on Finance. Projected
             income is shown beside it, but never relied on.
           </p>
           {incomeRows.length > 0 && (
@@ -948,13 +948,13 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
 
 const FIXED_OPTIONS = [
   { value: 'fixed', label: 'Fixed' },
-  { value: 'expected', label: 'Expected' },
+  { value: 'projected', label: 'Projected' },
 ]
 
 /**
  * One cost or income line: its name, and a date under it for a one-off; the amount (per
  * month or per quarter where it repeats); how often; and a remove button. An income line
- * also says whether it is Fixed or Expected, under the name beside the date, since the
+ * also says whether it is Fixed or Projected, under the name beside the date, since the
  * grid's columns are shared with the cost list above it.
  */
 function TimedLineRow({
@@ -990,8 +990,8 @@ function TimedLineRow({
         {income && (
           <div className="w-full sm:w-40">
             <Select
-              aria-label={`Is ${name} fixed or expected?`}
-              value={row.fixed ? 'fixed' : 'expected'}
+              aria-label={`Is ${name} fixed or projected?`}
+              value={row.fixed ? 'fixed' : 'projected'}
               options={FIXED_OPTIONS}
               onChange={(v) => onPatch({ fixed: v === 'fixed' })}
             />
@@ -1020,7 +1020,7 @@ function TimedLineRow({
                   value={row.dueDate}
                   min={financialYear.start}
                   max={financialYear.end}
-                  placeholder="From the start of the year"
+                  placeholder="From the start of the financial year"
                   aria-label={`Date ${name} starts`}
                   onChange={(v) => onPatch({ dueDate: v, loadedAnnual: null })}
                 />
