@@ -502,7 +502,9 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
   {
     id: 'amount',
     header: 'Amount',
-    width: 'sm:w-[14%]',
+    // Wide enough for "£20,000 £26,000 requested" and the per-year line to sit on one
+    // line each; taken from Theme, which truncates with the rest on hover anyway.
+    width: 'sm:w-[20%]',
     sortable: true,
     // The whole amount, then what it comes to a year, as the Amount requested card on the
     // application screen states it: "£35,000" alone leaves it open whether that is the
@@ -520,7 +522,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       )
       return (
         <div className="flex flex-col">
-          <span className="flex flex-wrap items-baseline gap-x-1.5">
+          <span className="flex items-baseline gap-x-1.5 whitespace-nowrap">
             <span
               className="font-display text-body font-medium tabular-nums"
               style={{ color: C.ink }}
@@ -528,17 +530,16 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
               {proposed !== null ? fmtMoney(proposed) : fmtAmount(app.amountRequested)}
             </span>
             {proposed !== null && (
-              <span
-                className="font-display text-label tabular-nums"
-                style={{ color: C.faint }}
-                title="Amount requested"
-              >
-                {fmtAmount(app.amountRequested)}
+              <span className="font-display text-body tabular-nums" style={{ color: C.faint }}>
+                {fmtAmount(app.amountRequested)} requested
               </span>
             )}
           </span>
           {perYear && (
-            <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
+            <span
+              className="whitespace-nowrap font-display text-label tabular-nums"
+              style={{ color: C.sub }}
+            >
               {perYear}
             </span>
           )}
@@ -550,7 +551,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     id: 'theme',
     hideBelow: 'xl',
     header: 'Theme',
-    width: 'sm:w-[15%]',
+    width: 'sm:w-[11%]',
     // Every theme, clipped to the column, with the rest on hover — not "Environment +2",
     // which threw away the names at widths where they fitted and left "+2" meaning
     // nothing in particular. See `ui/TruncatedText`.
