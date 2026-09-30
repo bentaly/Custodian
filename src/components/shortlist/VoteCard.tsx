@@ -620,15 +620,15 @@ export function VoteCard({
                   ? `${fmtMoney(amount)} ${
                       years && years > 1 ? `over ${years} years` : 'total commitment'
                     }`
-                  : (fmtPerYear(amount, years) ?? (amended ? 'proposed' : 'requested'))}
+                  : (fmtPerYear(amount, years) ?? (amended ? null : 'requested'))}
+                {/* The ask, on the same line and only where the proposal differs from it:
+                    an unamended card reads exactly as it always has. Bracketed after a
+                    term or yearly figure; alone on a single-year grant, which has neither. */}
+                {amended &&
+                  (multiYear || fmtPerYear(amount, years)
+                    ? ` (${fmtMoney(requested)} requested)`
+                    : `${fmtMoney(requested)} requested`)}
               </div>
-              {/* The ask, only where the proposal differs from it: an unamended card reads
-                  exactly as it always has. */}
-              {amended && (
-                <div className="mt-1 font-display text-label" style={{ color: C.faint }}>
-                  Requested {fmtMoney(requested)}
-                </div>
-              )}
             </div>
           </div>
 
