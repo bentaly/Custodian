@@ -23,7 +23,6 @@ import { majorityOf } from '../../lib/voting'
 import { withAlpha } from '../BarMeter'
 import { CommentsDialog } from './CommentsDialog'
 import { decidedAmount } from '../../lib/amountRequested'
-import { amendmentDelta } from '../../lib/amendedAmount'
 import { setAmendedAmount } from '../../server/fns/applications'
 import { AmountDialog } from '../AmountDialog'
 
@@ -623,19 +622,11 @@ export function VoteCard({
                     }`
                   : (fmtPerYear(amount, years) ?? (amended ? 'proposed' : 'requested'))}
               </div>
-              {/* The ask, and how far the proposal is from it, only where they differ: an
-                  unamended card reads exactly as it always has. */}
+              {/* The ask, only where the proposal differs from it: an unamended card reads
+                  exactly as it always has. */}
               {amended && (
-                <div className="mt-1 flex items-center justify-end gap-1.5">
-                  <span className="font-display text-label" style={{ color: C.faint }}>
-                    Requested {fmtMoney(requested)}
-                  </span>
-                  <span
-                    className="whitespace-nowrap rounded-pill px-2 font-display text-micro font-medium leading-5"
-                    style={{ backgroundColor: C.wash, color: C.sub }}
-                  >
-                    {amendmentDelta(amount, requested)}
-                  </span>
+                <div className="mt-1 font-display text-label" style={{ color: C.faint }}>
+                  Requested {fmtMoney(requested)}
                 </div>
               )}
             </div>
