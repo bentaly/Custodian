@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import {
   compactExact,
+  fmtPerYearShort,
   fmtCompact,
   fmtDate,
   fmtDateTime,
@@ -169,5 +170,14 @@ describe('humaniseKey', () => {
       'How many people have you supported?',
     )
     expect(humaniseKey('Postcode')).toBe('Postcode')
+  })
+})
+
+describe('fmtPerYearShort', () => {
+  it('states the yearly figure compactly, with the term kept together', () => {
+    expect(fmtPerYearShort(41_000, 3)).toBe('£13,666.66/year (3\u00a0years)')
+  })
+  it('says nothing for a single-year grant', () => {
+    expect(fmtPerYearShort(41_000, 1)).toBeNull()
   })
 })

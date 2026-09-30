@@ -58,7 +58,7 @@ import {
   fmtDate,
   fmtList,
   fmtMoney,
-  fmtPerYear,
+  fmtPerYearShort,
   fmtRef,
 } from '../../lib/format'
 import { isAmended } from '../../lib/amountRequested'
@@ -510,11 +510,11 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
     // figures would be the same one twice.
     //
     // Where an officer proposed a different amount, that leads (it is what the board is
-    // weighing) with the ask beside it in small grey, and the per-year line follows the
+    // weighing), marked "updated" with the ask on hover, and the per-year line follows the
     // proposal. Read-only here; it is changed on the shortlist or the application.
     cell: (app) => {
       const proposed = isAmended(app) ? parseFloat(app.amountAmended!) : null
-      const perYear = fmtPerYear(
+      const perYear = fmtPerYearShort(
         proposed ?? (parseFloat(app.amountRequested ?? '0') || 0),
         app.roundProgramme?.grantDurationYears,
       )
@@ -527,10 +527,15 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
             >
               {proposed !== null ? fmtMoney(proposed) : fmtAmount(app.amountRequested)}
             </span>
+            {/* The ask is one hover away rather than a second figure in a narrow column. */}
             {proposed !== null && (
-              <span className="font-display text-label tabular-nums" style={{ color: C.faint }}>
+              <Tooltip
+                label="Amount requested"
+                triggerClassName="rounded-chip font-display text-label focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+                trigger={<span style={{ color: C.faint }}>updated</span>}
+              >
                 {fmtAmount(app.amountRequested)} requested
-              </span>
+              </Tooltip>
             )}
           </span>
           {perYear && (

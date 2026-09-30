@@ -288,6 +288,15 @@ export function fmtPerYear(amount: number, years: number | null | undefined): st
 }
 
 /**
+ * As `fmtPerYear`, compact for a table cell: "£13,666.66/year (3 years)". The space inside
+ * the brackets is non-breaking, so a narrow cell wraps "(3 years)" as one piece.
+ */
+export function fmtPerYearShort(amount: number, years: number | null | undefined): string | null {
+  const long = fmtPerYear(amount, years)
+  return long === null ? null : long.replace(/ per year for (\d+) years$/, '/year ($1\u00a0years)')
+}
+
+/**
  * Names in a sentence: "Sarah", "Sarah and James", "Sarah, James and Aisha".
  *
  * `Intl.ListFormat` rather than a join, so the last separator is the word and not a
