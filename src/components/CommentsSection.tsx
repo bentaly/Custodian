@@ -42,10 +42,17 @@ export function CommentsSection({
   applicationId,
   userId,
   userRole,
+  reloadKey = 0,
 }: {
   applicationId: string
   userId: string
   userRole: string
+  /**
+   * Bumped by the screen when something ELSE posted to this thread (a proposed amount
+   * posts its own comment). The list fetches for itself, so the route's loader
+   * refreshing does not reach it.
+   */
+  reloadKey?: number
 }) {
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,6 +86,11 @@ export function CommentsSection({
     setLoading(true)
     load()
   }, [load])
+
+  // Quietly, without the "Loading…" state: the thread is already on screen.
+  useEffect(() => {
+    if (reloadKey > 0) load()
+  }, [reloadKey, load])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
