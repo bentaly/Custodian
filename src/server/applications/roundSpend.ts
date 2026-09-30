@@ -33,9 +33,8 @@ import { roundFinancialYear } from '../../lib/roundYear'
  * year's share and nothing needs estimating — so `applications.first_year_amount` stops
  * being read the moment an award exists. A shortlisted application has no schedule yet,
  * so it contributes its stated-or-suggested figure, of the amount the foundation PROPOSES
- * to award (`applications.amount_amended`, else the ask). The same applications are also
- * costed at exactly what they asked for (`requested*`), for the shortlist to state beside
- * the proposal; only the proposal is metered, because it is what would be awarded.
+ * to award (`applications.amount_amended`, else the ask), because that is what would be
+ * awarded.
  *
  * Three edges are deliberate:
  *
@@ -86,12 +85,6 @@ export type RoundProgrammeSpend = {
   proposedThisYear: number
   /** The full value of those proposals — shown beside the drawdown so a board sees both. */
   proposedFull: number
-  /** The same applications had each been funded at exactly what it asked for. Stated
-   *  beside the proposal, never metered: equal to `proposedThisYear` until somebody
-   *  amends an amount, which is how an unamended shortlist reads exactly as it did. */
-  requestedThisYear: number
-  /** The whole of those asks. */
-  requestedFull: number
 }
 
 const num = (v: string | number | null | undefined): number =>
@@ -241,8 +234,6 @@ export async function roundProgrammeSpend(
       awardedFull: 0,
       proposedThisYear: 0,
       proposedFull: 0,
-      requestedThisYear: 0,
-      requestedFull: 0,
     }
     out.set(id, fresh)
     return fresh
@@ -266,23 +257,16 @@ export async function roundProgrammeSpend(
     }
     for (const r of proposedRows) {
       const target = row(r.roundProgrammeId)
-      const requested = num(r.amountRequested)
       const proposed = effectiveAmount(r) ?? 0
       const stated = r.firstYearAmount === null ? null : num(r.firstYearAmount)
-      // The first-year share is resolved against whichever amount is being costed, so a
-      // stated share can never exceed the grant it is a share of on either basis.
+      // Resolved against the proposal, so a stated share never exceeds the grant it is a
+      // share of.
       target.proposedThisYear += resolveFirstYearAmount({
         amountRequested: proposed,
         firstYearAmount: stated,
         grantDurationYears: r.grantDurationYears,
       })
       target.proposedFull += proposed
-      target.requestedThisYear += resolveFirstYearAmount({
-        amountRequested: requested,
-        firstYearAmount: stated,
-        grantDurationYears: r.grantDurationYears,
-      })
-      target.requestedFull += requested
     }
   }
   return out

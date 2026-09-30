@@ -246,10 +246,6 @@ export async function shortlistData(
               committedFull: s?.awardedFull ?? 0,
               /** The whole value of what this shortlist would commit, for context. */
               proposedFull: s?.proposedFull ?? 0,
-              /** This year's cash had every shortlisted application been funded as asked. */
-              requested: s?.requestedThisYear ?? 0,
-              /** The whole of those asks. */
-              requestedFull: s?.requestedFull ?? 0,
             },
           ]
         }),
