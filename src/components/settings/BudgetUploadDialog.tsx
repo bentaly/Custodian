@@ -448,9 +448,8 @@ export function BudgetUploadDialog(props: Props) {
               </p>
               <p className="text-label" style={{ color: C.sub }}>
                 This replaces what is on the form now: a programme not in the file is left
-                unbudgeted, and every cost and income line is replaced by the file&rsquo;s. Prior
-                commitment figures and the contingency stay as they are. Nothing is saved until you
-                press Save budget.
+                unbudgeted, and every cost and income line is replaced by the file&rsquo;s. The
+                contingency stays as it is. Nothing is saved until you press Save budget.
               </p>
             </section>
           )}

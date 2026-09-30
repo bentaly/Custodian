@@ -305,9 +305,16 @@ cash** is the part falling due before the year end. `src/lib/multiYear.ts` is th
 rule; every figure in the round chain is cash, and the accounts total is the one exception.
 
 - **`round_programmes.budget` is cash.** A round is an allocation out of one year's capacity.
-- **`annual_budget_lines.carried_commitment`** is the "already promised" override. NULL means use
-  the figure DERIVED from instalment dates — the normal case, and the whole point. A budget is a
-  decision and is stated; money already promised under signed agreements is a fact and is derived.
+- **An annual budget's programme line is for NEW grants only** (2026-09-30). Prior commitments
+  (this year's instalments on earlier years' grants) are never part of it: they are DERIVED from
+  instalment dates, shown only as a total in Settings' Summary panel (added into "Total expenditure for the
+  year") and as Finance's "Prior-year committed grants" line, and never count toward a
+  programme's over-budget warning. A budget is a decision and is stated; money already promised
+  is a fact and is derived. It used to be the reverse reading (the line covered prior commitments
+  too, with a typed override beside it), and Arete read it the new way: their Long-term local
+  partnerships showed £19,899.50 over, exactly its prior-year instalments.
+  `annual_budget_lines.carried_commitment` (that override) is unread and written NULL; drop it
+  in a later push.
 - **The shortlist dialog only opens when `enforce_round_budget` is ON.** With the budget as a
   target — the default — an estimate that is slightly out makes the meter slightly approximate and
   blocks nobody, so asking would be a question for our benefit. With the ceiling on, the figure

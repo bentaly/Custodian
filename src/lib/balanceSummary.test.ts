@@ -141,7 +141,7 @@ describe('buildBalanceSummary', () => {
     expect(s.lines.at(-1)).toMatchObject({ kind: 'contingency', projected: 20_000, actual: 0 })
   })
 
-  it('flags a programme whose year passes its budget line, earlier grants included', () => {
+  it("flags a programme whose new grants pass its budget line, never its earlier years' grants", () => {
     const s = buildBalanceSummary(
       base({
         instalments: [
@@ -153,7 +153,21 @@ describe('buildBalanceSummary', () => {
       }),
     )
     const warm = s.lines.find((l) => l.kind === 'current')!.children[0]!
-    expect(warm.over).toBe(30_000 + 60_000 + 30_000 - 100_000)
+    // 60,000 awarded + 30,000 still held = 90,000 of a 100,000 budget: not over. The 30,000
+    // of prior-year instalments is its own line and does not count against the budget.
+    expect(warm.over).toBe(0)
+  })
+
+  it('flags an overspend from this year alone', () => {
+    const s = buildBalanceSummary(
+      base({
+        instalments: [inst({ prior: true, amount: 50_000 }), inst({ amount: 80_000 })],
+        roundProgrammes: [rp({ budget: 40_000, awardedThisYear: 10_000 })],
+        programmeBudgets: new Map([['warm', 100_000]]),
+      }),
+    )
+    const warm = s.lines.find((l) => l.kind === 'current')!.children[0]!
+    expect(warm.over).toBe(80_000 + 30_000 - 100_000)
   })
 
   it('still states what is owed without a balance, but no available figure', () => {

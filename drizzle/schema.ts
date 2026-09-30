@@ -1260,18 +1260,13 @@ export const annualBudgetLines = pgTable(
     /** Only read for non-grant lines; a programme line is named by the programme. */
     label: text('label'),
     amount: numeric('amount').notNull(),
-    // Cash this programme already owes in this financial year against grants decided
-    // BEFORE it — the "already promised" half of the pair the screen shows beside
-    // "free to give" (`amount - carriedCommitment`).
+    // UNUSED since 2026-09-30, to be dropped in a later push (expand/contract).
     //
-    // NULL means "use the derived figure", which is computed from the instalment dates
-    // Custodian already holds for every live grant (`carriedCommitmentForYear`). A
-    // stored value is an override a finance lead typed because they know better — they
-    // are holding a contingency back, or treating one grant's future instalments
-    // differently — and that policy call is theirs, not ours to compute away.
-    //
-    // Only meaningful on a programme line. A core-costs line (NULL `programme_id`) has
-    // no grants behind it, so nothing would derive and the read side ignores it.
+    // It was a typed override of this programme's prior commitments, on the reading that
+    // `amount` covered them too ("free to give" = amount - carried). The budget line is
+    // now for NEW grants only, and prior commitments are always derived from instalments
+    // (`carriedCommitmentForYear`) and added to it in Settings' Summary panel. Nothing
+    // reads it and saves write NULL.
     carriedCommitment: numeric('carried_commitment'),
     // When a NON-GRANT line's money leaves the account: `monthly` (rent, payroll — an
     // equal share at each month end) or `one_off` (a legal fee — the whole amount on

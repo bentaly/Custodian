@@ -93,8 +93,11 @@ export type SummaryChild = SummaryFigures & {
   name: string
   colour: string | null
   /**
-   * How far this programme's year has gone past its annual budget line, or 0. Counts
-   * prior-year instalments too, because the programme budget total covers them.
+   * How far this programme's grants from THIS year's rounds have gone past its annual
+   * budget line, or 0. The line is a budget for NEW grants (Ben, 2026-09-30): prior-year
+   * instalments are their own line item and never count against it. Until then they did,
+   * and Arete's Long-term local partnerships read £19,899.50 over a budget its rounds
+   * matched to the penny, the £19,899.50 being exactly its prior-year instalments.
    */
   over: number
   /** Income lines only: Fixed, or Projected when FALSE. */
@@ -295,9 +298,7 @@ export function buildBalanceSummary(input: BalanceSummaryInput): BalanceSummary 
       let over = 0
       const budget = input.programmeBudgets.get(id)
       if (cohort === 'current' && budget !== undefined) {
-        const prior = byProgramme.prior.get(id)
-        const spend =
-          f.actual + f.projected + f.stillToPay + (prior ? prior.actual + prior.stillToPay : 0)
+        const spend = f.actual + f.projected + f.stillToPay
         over = spend - budget > 0.005 ? round2(spend - budget) : 0
       }
       return { key: id, name: p.name, colour: p.colour, over, ...f }

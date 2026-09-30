@@ -133,17 +133,6 @@ type Row = {
    * `amount()` in the component turns it into the year's figure, which is what is saved.
    */
   amount: string
-  /**
-   * What this programme already owes this year from grants decided in earlier years.
-   *
-   * Empty string means "the derived figure is right" and stores NULL — which is the
-   * normal case, because the figure is computed from instalment dates Custodian already
-   * holds. A typed value is an override: a foundation holding a contingency back, or
-   * treating one grant's future instalments differently. Always shown beside the derived
-   * figure rather than replacing it, so an override reads as a deliberate choice against
-   * a number still on screen.
-   */
-  promised: string
   /** Cost and income lines only. */
   frequency: CostFrequency
   /** Cost and income lines only: a one-off's `yyyy-mm-dd`, or '' until picked. */
@@ -172,7 +161,6 @@ const newCoreRow = (label: string = CORE_COSTS_LABEL, kind: BudgetLineKind = 'co
   programmeId: null,
   kind,
   fixed: false,
-  promised: '',
   label,
   colour: null,
   amount: '',
@@ -225,10 +213,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
       programmeId: p.id,
       colour: p.colour,
       amount: saved.has(p.id) ? penceInput(saved.get(p.id)!.amount) : '',
-      promised:
-        saved.get(p.id)?.carriedCommitment != null
-          ? penceInput(saved.get(p.id)!.carriedCommitment!)
-          : '',
     }))
     const timedRows = (kind: 'cost' | 'income'): Row[] =>
       data.lines
@@ -269,8 +253,14 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
-  // Cash already owed this year against grants decided in earlier years, per programme.
-  // Derived server-side from instalment dates, so it needs no input to be right.
+  // Cash this year owes on grants from earlier years' rounds, every programme together.
+  // A FACT derived from instalment dates, not a figure anybody types: the budget lines
+  // above are for NEW grants only (Ben, 2026-09-30), and this is added to them only in
+  // the Summary panel, where the year is totalled. Finance draws it as its own line,
+  // Prior-year committed grants, from the same instalments.
+  const promisedTotal = data.promisedFromEarlierYears.reduce((s, p) => s + p.promised, 0)
+  // The same figure per programme, shown on each row as READ-ONLY text beside the budget:
+  // useful to see while setting a programme's new-grants figure, but not part of it.
   const promisedByProgramme = useMemo(
     () => new Map(data.promisedFromEarlierYears.map((p) => [p.programmeId, p.promised])),
     [data.promisedFromEarlierYears],
@@ -287,15 +277,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
       r.programmeId ? 1 : periodsOf(r),
       r.programmeId ? null : r.loadedAnnual,
     )
-  /** The typed override, or null when the derived figure was accepted. */
-  const promisedOverride = (r: Row): number | null => {
-    if (!r.programmeId || r.promised.trim() === '') return null
-    const n = parseFloat(r.promised)
-    return Number.isFinite(n) && n >= 0 ? n : null
-  }
-  /** The figure in use for a row: the override if there is one, else the derived one. */
-  const promisedOf = (r: Row): number =>
-    promisedOverride(r) ?? (r.programmeId ? (promisedByProgramme.get(r.programmeId) ?? 0) : 0)
   /**
    * What a row set would actually SAVE, as a comparable string.
    *
@@ -316,10 +297,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
           r.kind === 'income' ? r.fixed : null,
           r.programmeId ? null : r.label.trim() || CORE_COSTS_LABEL,
           amount(r),
-          // The override is part of what a save writes, so editing it alone has to enable
-          // Save. Compared as the payload value (null for "derived figure is right"), not
-          // as the raw field, so typing the derived figure back in still reads as clean.
-          promisedOverride(r),
           r.programmeId ? null : r.frequency,
           !r.programmeId ? r.dueDate || null : null,
         ]),
@@ -363,6 +340,10 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   const incomeTotal = incomeRows.reduce((s, r) => s + amount(r), 0)
   const fixedIncome = incomeRows.filter((r) => r.fixed).reduce((s, r) => s + amount(r), 0)
   const grantMaking = total - coreCosts
+  // What the year has to pay for: new grants, earlier years' grants still drawing this
+  // year, and core costs. `total` stays the sum of the LINES, which is what is saved and
+  // audited; prior commitments are derived, so they join only this on-screen total.
+  const yearTotal = total + promisedTotal
   // Set aside out of the grant budget, not added to the total — the same sum Finance
   // deducts (`buildBalanceSummary`).
   const contingencyAmount =
@@ -374,9 +355,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     () => new Map(data.roundAllocations.map((a) => [a.programmeId, a.allocated])),
     [data.roundAllocations],
   )
-  // Prior commitments across every programme line — the stated figure where there is one,
-  // else the one derived from the instalment dates.
-  const promisedTotal = programmeRows.reduce((s, r) => s + promisedOf(r), 0)
   // The same function Finance places them with, so "£2,100 a month" here is the figure
   // the cash flow there is built from.
   const plan = (rs: Row[]) =>
@@ -393,13 +371,11 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
       todayIso(),
     )
   const costPlan = plan(costRows)
-  const incomePlan = plan(incomeRows)
 
   /**
    * Put an uploaded budget into the form, as unsaved changes. It REPLACES the lines, as a
    * save does: a programme the file leaves out is left unbudgeted, and the cost and income
-   * lines are the file's. Prior commitment overrides and contingency are not in the file,
-   * so they stay as they are.
+   * lines are the file's. The contingency is not in the file, so it stays as it is.
    */
   const applyUpload = (t: Translation) => {
     setRows((rs) => {
@@ -492,7 +468,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                 ? null
                 : r.label.trim() || (r.kind === 'income' ? INCOME_LABEL : CORE_COSTS_LABEL),
               amount: amount(r),
-              carriedCommitment: promisedOverride(r),
               frequency: r.programmeId ? null : r.frequency,
               dueDate: !r.programmeId ? r.dueDate || null : null,
             })),
@@ -530,7 +505,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
       .filter(Boolean)
       .join(' + ')
   const costSummary = planSummary(costPlan)
-  const incomeSummary = planSummary(incomePlan)
   const savedCount = rows.filter((r) => amount(r) > 0).length
 
   return (
@@ -631,13 +605,12 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             one's own accessible label is what reads. */}
         <div className={`${BUDGET_GRID} hidden items-end sm:grid`}>
           <span />
-          <ColumnLabel>Programme budget total</ColumnLabel>
-          <ColumnLabel>Prior commitment total</ColumnLabel>
+          <ColumnLabel>New grants budget</ColumnLabel>
+          <ColumnLabel>Prior commitments</ColumnLabel>
           <span />
         </div>
         <div className="flex flex-col gap-3">
           {programmeRows.map((row, i) => {
-            const derived = promisedByProgramme.get(row.programmeId!) ?? 0
             const inRounds = allocatedByProgramme.get(row.programmeId!) ?? 0
             const budgeted = amount(row)
             return (
@@ -655,7 +628,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                       {row.label}
                     </span>
                   </div>
-                  {/* This programme's half of the Check panel's reconciliation. Advice, not
+                  {/* This programme's half of the Summary panel's reconciliation. Advice, not
                       a gate: a budget above its rounds is often money held back on purpose,
                       so only rounds allocating MORE than the budget is drawn as a warning. */}
                   {(inRounds > 0 || budgeted > 0) && (
@@ -678,22 +651,25 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
 
                 <MoneyInput
                   value={row.amount}
-                  label={`Programme budget total for ${row.label}`}
+                  label={`New grants budget for ${row.label}`}
                   placeholder="Not budgeted"
                   onChange={(v) => patch(row.key, { amount: v })}
                 />
 
-                {/* Empty is not zero: it means "your figure is right", and the derived one
-                    shows as the placeholder so the field reads as pre-answered rather than
-                    as one more thing to fill in. */}
-                <MoneyInput
-                  value={row.promised}
-                  label={`Prior commitments paid or due this year for ${row.label}`}
-                  placeholder={derived > 0 ? penceInput(derived) : '0'}
-                  onChange={(v) => patch(row.key, { promised: v })}
-                />
+                {/* READ-ONLY since 2026-09-30. It was an input, and beside the budget it
+                    read as a second pot to fill: Arete read the budget as new grants only
+                    while the code counted their prior grants against it. The budget IS for
+                    new grants now; this is the derived figure, for information, and only
+                    the Summary panel adds it in. Plain text, so it cannot look typeable. */}
+                <p
+                  className="px-1 font-display text-body tabular-nums"
+                  style={{ color: C.sub }}
+                  aria-label={`Prior commitments paid or due this year for ${row.label}`}
+                >
+                  {fmtMoney(promisedByProgramme.get(row.programmeId!) ?? 0)}
+                </p>
 
-                {/* A programme row is not the foundation's to delete here — it is deleted by
+                {/* A programme row is not the foundation's to delete here: it is deleted by
                     archiving the programme, and an empty amount already says "nothing this
                     year". The slot stays so the columns line up with the cost lines. */}
                 <span />
@@ -831,19 +807,20 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         </div>
       </Panel>
 
-      <Panel label="Check">
-        <PanelTitle>Check</PanelTitle>
+      <Panel label="Summary">
+        <PanelTitle>Summary</PanelTitle>
         <dl className="flex flex-col gap-2">
-          {/* The grant-making figure split into the two things it is actually made of. One
-              line reading "Grant-making budget" hid that part of it is already spoken for
-              before a single round opens. */}
+          {/* The year's grant money in its two parts: new grants (the budget typed above)
+              and what earlier years' grants still draw this year (derived, never typed).
+              Both are added into the total, because both leave the account this year. */}
           <CheckRow
-            label={`Available grant-making budget for ${data.financialYear.label}`}
+            label={`New grants budget for ${data.financialYear.label}`}
             value={fmtMoney(grantMaking)}
           />
           <CheckRow
             label={`Prior grant commitments paid or due in ${data.financialYear.label}`}
             value={fmtMoney(promisedTotal)}
+            sub="from earlier years' grants"
           />
           {contingencyPercent !== null && (
             <CheckRow
@@ -852,7 +829,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             />
           )}
           <CheckRow label="Core and other costs" value={fmtMoney(coreCosts)} sub={costSummary} />
-          <CheckRow label="Total annual budget" value={fmtMoney(total)} strong />
+          <CheckRow label="Total expenditure for the year" value={fmtMoney(yearTotal)} strong />
           {/* Income below the total, never in it: the budget is what is planned to be
               spent, and the net is the one figure that sets the two against each other. */}
           {incomeTotal > 0 && (
@@ -860,20 +837,15 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
               <CheckRow
                 label="Income this year"
                 value={fmtMoney(incomeTotal)}
-                sub={[
-                  incomeSummary,
-                  fixedIncome > 0 && fixedIncome < incomeTotal
-                    ? `${fmtMoney(fixedIncome)} fixed`
-                    : fixedIncome > 0
-                      ? 'all fixed'
-                      : 'none fixed',
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+                // Split by certainty, the same "Fixed | Projected" pattern as Finance's
+                // cards, and the two parts sum to the figure beside them. It used to add a
+                // "£30,000 fixed" after a timing split ("£200 a month + £50,000 one-off"),
+                // which counted the same pledge twice and read as £30,000 left out.
+                sub={`${fmtMoney(fixedIncome)} Fixed + ${fmtMoney(incomeTotal - fixedIncome)} Projected`}
               />
               <CheckRow
-                label="Net, budget less income"
-                value={fmtMoney(total - incomeTotal)}
+                label="Net (total less income)"
+                value={fmtMoney(yearTotal - incomeTotal)}
                 strong
               />
             </>

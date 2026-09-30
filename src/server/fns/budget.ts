@@ -138,7 +138,6 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           programmeId: annualBudgetLines.programmeId,
           lineLabel: annualBudgetLines.label,
           amount: annualBudgetLines.amount,
-          carriedCommitment: annualBudgetLines.carriedCommitment,
           frequency: annualBudgetLines.frequency,
           dueDate: annualBudgetLines.dueDate,
           kind: annualBudgetLines.kind,
@@ -193,16 +192,15 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
         )
         .groupBy(roundProgrammes.programmeId),
 
-      // This year's cash on grants from EARLIER years' rounds: the "already promised"
-      // half of the pair, and the figure Finance → Balance & budget draws as its
+      // This year's cash on grants from EARLIER years' rounds: the Summary panel's "Prior
+      // grant commitments" row, added to the new-grants budget there, and the figure
+      // Finance → Balance & budget draws as its
       // "Prior-year committed grants" line (`budgetPanelQueries`). The two must agree to
       // the penny, so this is the same rows:
       //
       // - **Paid inside the year**, cancelled grants included (the money left). It used
       //   to count only what was still UNPAID, so the figure shrank with every payment
-      //   and read £9,729.50 against Finance's £19,899.50 for Arete (2026-09-30). A
-      //   programme's budget total covers its prior commitments whichever side of a
-      //   payment run it is read on; `rollUpCash`'s `free = budget - promised` is that.
+      //   and read £9,729.50 against Finance's £19,899.50 for Arete (2026-09-30).
       // - **Unpaid and due by the year end**, cancelled excluded. No lower bound: an
       //   instalment that fell due last year and was never paid still leaves this year.
       //   Undated ones count here (see `carriedCommitmentForYear`); none exist today.
@@ -276,11 +274,6 @@ export const getAnnualBudgetSettings = createServerFn({ method: 'GET' })
           fixed: r.fixed === true,
           label: r.lineLabel,
           amount: parseFloat(r.amount ?? '0'),
-          // NULL = the finance lead accepted the derived figure. Kept distinct from a
-          // stored number equal to it: "I agreed with you" is not the same fact as "I
-          // decided this", and only the second should keep its value when the grants
-          // behind the derived one change.
-          carriedCommitment: r.carriedCommitment === null ? null : parseFloat(r.carriedCommitment),
           frequency: r.programmeId ? null : resolveFrequency(r.frequency),
           dueDate: r.dueDate,
         })),
@@ -334,13 +327,9 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
             fixed: z.boolean().optional(),
             label: z.string().max(80).nullable(),
             amount: MONEY,
-            // What this programme already owes this year from grants decided earlier.
-            // NULL (or omitted) means "the derived figure is right", which is the normal
-            // case and stores nothing; a number is an override a finance lead typed.
-            carriedCommitment: MONEY.nullable().optional(),
             // Non-grant lines only: how the year's `amount` falls through the year. A
             // programme line's cash comes from its grants' instalments, so both are
-            // dropped there, the same way `carriedCommitment` is dropped on a cost line.
+            // dropped there.
             frequency: z.enum(['monthly', 'quarterly', 'one_off']).nullable().optional(),
             dueDate: z.string().regex(ISO_DAY).nullable().optional(),
           }),
@@ -471,12 +460,11 @@ export const saveAnnualBudget = createServerFn({ method: 'POST' })
         ? null
         : l.label?.trim() || (lineKind(l) === 'income' ? INCOME_LABEL : CORE_COSTS_LABEL),
       amount: l.amount.toFixed(2),
-      // Only a programme line can carry one: a core-costs line has no grants behind it,
-      // so there is nothing to derive and nothing to override. Dropped rather than
-      // refused — the screen never offers the field there, so a value arriving on one is
-      // a stale payload, not something worth failing a whole budget save over.
-      carriedCommitment:
-        l.programmeId && l.carriedCommitment != null ? l.carriedCommitment.toFixed(2) : null,
+      // No longer written (2026-09-30): the budget is for NEW grants, and prior
+      // commitments are derived from instalments, never typed. A save replaces the lines,
+      // so an old override is cleared the next time a year is saved. The column goes in a
+      // later push, once no deployed code reads it.
+      carriedCommitment: null,
       // Nothing on a programme line; a frequency on a cost line, and a date only if one-off.
       ...storedTiming(l),
     }))

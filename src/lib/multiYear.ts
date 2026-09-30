@@ -14,7 +14,7 @@
  * giving capacity and a round of three-year grants would otherwise be able to commit
  * three times what it was given.
  *
- * Every figure in the chain — the annual "free to give", a round's budget, a shortlist's
+ * Every figure in the chain — the annual new-grants budget, a round's budget, a shortlist's
  * drawdown — is this year's cash. The one exception is the accounts total at the year
  * end, which stays on commitment and is the figure the examiner sees.
  *
@@ -27,8 +27,7 @@
  * every four months over sixteen months draws £36,000 in its first year against a
  * suggestion of £24,000, a quarter of the grant missing from a budget meter. No formula
  * fixes that, because the schedule genuinely does not exist yet. So the suggestion is
- * offered and the person shortlisting can correct it, the same way the annual carried
- * figure below is offered and can be overridden.
+ * offered and the person shortlisting can correct it.
  *
  * **Once the award exists, neither of these is read**: the award's own instalment dates
  * are the answer, and `roundProgrammeSpend` uses them. The stated figure is a stand-in
@@ -98,8 +97,9 @@ export type InstalmentForYear = {
  * This year's cash on grants already decided: paid in the year, or still to pay by its end.
  *
  * **Paid inside the year counts** (cancelled grants included: the money left). The
- * figure is what a programme's budget has to cover before any of this year's rounds,
- * and it must not shrink as the payment run goes out. It counted unpaid only until
+ * figure is what earlier years' grants draw from this year, added to the NEW-grants
+ * budget in Settings' Summary panel (the budget line covers new grants only since
+ * 2026-09-30), and it must not shrink as the payment run goes out. It counted unpaid only until
  * 2026-09-30, and read £9,729.50 where Finance's prior-year line read £19,899.50.
  *
  * **No lower bound on an unpaid due date.** An instalment that fell due last March and
@@ -124,93 +124,4 @@ export function carriedCommitmentForYear(
         : i.awardStatus !== 'cancelled' && (i.dueDate === null || i.dueDate <= fy.end),
     )
     .reduce((sum, i) => sum + (Number.isFinite(i.amount) ? i.amount : 0), 0)
-}
-
-export type ProgrammeCashLine = {
-  programmeId: string
-  name: string
-  colour: string | null
-  /** The year's allocation for this programme, from `annual_budget_lines.amount`. */
-  budget: number
-  /** Cash owed this year from grants decided before, as derived from instalment dates. */
-  promisedDerived: number
-  /** What a finance lead stated instead, or null if they accepted the derived figure. */
-  promisedStated: number | null
-  /** The figure in use: stated if there is one, else derived. */
-  promised: number
-  /** `budget - promised`, floored at 0 — what is free to give across this year's rounds. */
-  free: number
-  /** What this year's rounds have allocated out of `free`. */
-  allocated: number
-  /** `free - allocated`. Negative means the rounds have promised more than is free. */
-  unallocated: number
-  /** True when `promisedStated` differs from `promisedDerived` — the screen says so. */
-  overridden: boolean
-}
-
-/**
- * The cash view of a year's budget, per programme.
- *
- * The counterpart of `rollUpBudget` (`src/lib/annualBudget.ts`), which is the commitment
- * view and is unchanged. Both are drawn, side by side, and where they disagree the
- * screen says so rather than reconciling them away — a foundation holding a buffer back,
- * or one that has committed more in total than this year's cash covers, should see
- * exactly that and say whether it is deliberate.
- *
- * Core-costs lines (no `programmeId`) are not included: they have no grants behind them,
- * so there is nothing to carry forward and no round to allocate to. They stay in the
- * commitment view, which is where a foundation budgets them.
- */
-export function rollUpCash(
-  lines: {
-    programmeId: string | null
-    amount: number
-    carriedCommitment: number | null
-  }[],
-  programmes: Map<string, { name: string; colour: string | null }>,
-  promisedByProgramme: Map<string, number>,
-  allocatedByProgramme: Map<string, number>,
-): {
-  lines: ProgrammeCashLine[]
-  budget: number
-  promised: number
-  free: number
-  allocated: number
-} {
-  const out: ProgrammeCashLine[] = []
-
-  for (const line of lines) {
-    if (!line.programmeId) continue
-    const meta = programmes.get(line.programmeId)
-    const derived = promisedByProgramme.get(line.programmeId) ?? 0
-    const stated = line.carriedCommitment
-    const promised = stated ?? derived
-    const free = Math.max(0, line.amount - promised)
-    const allocated = allocatedByProgramme.get(line.programmeId) ?? 0
-    out.push({
-      programmeId: line.programmeId,
-      name: meta?.name ?? 'Programme',
-      colour: meta?.colour ?? null,
-      budget: line.amount,
-      promisedDerived: derived,
-      promisedStated: stated,
-      promised,
-      free,
-      allocated,
-      unallocated: free - allocated,
-      // Compared with a tolerance rather than `!==`: both sides arrive as numerics
-      // parsed out of Postgres, and a stated figure that equals the derived one to the
-      // penny must not light up a "buffer applied" note.
-      overridden: stated !== null && Math.abs(stated - derived) >= 0.005,
-    })
-  }
-
-  const sum = (pick: (l: ProgrammeCashLine) => number) => out.reduce((s, l) => s + pick(l), 0)
-  return {
-    lines: out,
-    budget: sum((l) => l.budget),
-    promised: sum((l) => l.promised),
-    free: sum((l) => l.free),
-    allocated: sum((l) => l.allocated),
-  }
 }
