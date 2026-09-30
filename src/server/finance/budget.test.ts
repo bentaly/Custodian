@@ -146,12 +146,13 @@ describe('budgetPanelQueries', () => {
     expect(sql).toContain('limit')
   })
 
-  it('finds the budget by date containment rather than by a recomputed year', () => {
-    const { params } = rendered[1]!
-    // Today, twice — start <= today <= end — so a budget saved under a previous
-    // year-end setting is still found under its own stored dates.
-    const today = new Date().toISOString().slice(0, 10)
-    expect(params.filter((p) => p === today)).toHaveLength(2)
+  it("finds the budget on the year's start, as Settings does, never by containment", () => {
+    const { sql, params } = rendered[1]!
+    // Containment (start <= today <= end) matched BOTH budgets once a foundation changed
+    // its year end, and summed their lines. See the query's comment.
+    expect(sql).toContain('"financial_year_start" =')
+    expect(sql).not.toContain('"financial_year_end"')
+    expect(params).toContain(FY.start)
   })
 })
 

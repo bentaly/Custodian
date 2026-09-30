@@ -194,9 +194,14 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
       .limit(1),
 
     // ── The plan: this year's budget and its lines ───────────────────────────
-    // Located by date containment rather than by recomputing the year from the profile,
-    // so a budget set under a previous year-end setting is still found under its own
-    // dates instead of quietly disappearing.
+    // Matched on the year's START, exactly as Settings → Annual budget loads it, so the
+    // two screens always read the same budget. It was found by date containment
+    // (start <= today <= end), meant to keep a budget set under a previous year-end
+    // setting in view; but when a foundation changes its year end, the old budget and
+    // the new one BOTH contain today, and the lines of the two were summed. Arete moved
+    // from March to December on 2026-09-30 and Finance counted core costs twice plus a
+    // Staff line from a budget Settings could no longer reach. A budget under the old
+    // year shape is now out of view on both screens alike.
     db
       .select({
         lineId: annualBudgetLines.id,
@@ -212,11 +217,7 @@ export function budgetPanelQueries(db: Db, clientId: string, fy: FinancialYear) 
       .from(annualBudgets)
       .leftJoin(annualBudgetLines, eq(annualBudgetLines.budgetId, annualBudgets.id))
       .where(
-        and(
-          eq(annualBudgets.clientId, clientId),
-          sql`${annualBudgets.financialYearStart} <= ${today}`,
-          sql`${annualBudgets.financialYearEnd} >= ${today}`,
-        ),
+        and(eq(annualBudgets.clientId, clientId), eq(annualBudgets.financialYearStart, fy.start)),
       )
       .orderBy(annualBudgetLines.createdAt),
 
