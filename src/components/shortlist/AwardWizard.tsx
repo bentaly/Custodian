@@ -271,7 +271,9 @@ export function AwardWizard({
       candidates.map((c) => [
         c.id,
         {
-          amount: penceInput(c.amountRequested),
+          // The amount proposed at the shortlist, which is what the board voted on; the
+          // ask where nobody proposed another.
+          amount: penceInput(c.proposedAmount),
           // Pre-filled from the application's grant purpose, then edited freely: what
           // ends up here is what the grantee's letter says, so the admin gets the last
           // word. The edit stays on the award — the application keeps the AI's wording.
@@ -889,6 +891,13 @@ export function AwardWizard({
                           style={{ color: C.ink }}
                         />
                       </div>
+                      {/* The ask, where the figure above started from something else, so the
+                          gap between the two is on screen while the award is being made. */}
+                      {Math.abs(c.proposedAmount - c.amountRequested) >= 0.005 && (
+                        <span className="font-display text-label" style={{ color: C.sub }}>
+                          Requested {fmtMoney(c.amountRequested)}
+                        </span>
+                      )}
                       {g.purpose.trim() ? (
                         <StatePill tone="ready">Ready</StatePill>
                       ) : (

@@ -548,6 +548,23 @@ export const applications = pgTable(
     // exists this column stops being read: the award's real instalments are the answer
     // (`roundProgrammeSpend`).
     firstYearAmount: numeric('first_year_amount'),
+    // The amount the foundation proposes to AWARD, where that differs from what was asked
+    // for. Set by an admin at the shortlist, often after the board has discussed it; it
+    // may be above or below the ask (foundations do fund more than was requested).
+    //
+    // NULL means "the amount requested", the same convention as `firstYearAmount`: nothing
+    // to backfill, and an application nobody has amended reads exactly as it always did.
+    // Every figure that counts SHORTLISTED money (the shortlist meter, the budget ceiling,
+    // the award wizard's pre-fill) reads `effectiveAmount` (`src/lib/amountRequested.ts`);
+    // anything labelled an "ask" or "requested" stays on `amountRequested`. Named
+    // "amended" rather than "proposed" because the spend code already uses "proposed" for
+    // shortlisted-but-not-awarded money. Stops being read once an award exists, exactly
+    // as `firstYearAmount` does: `awards.amount_awarded` is the record from then on.
+    amountAmended: numeric('amount_amended'),
+    // When `amountAmended` was last written, including a reset to NULL. Read only to tell
+    // the board which votes were cast on a different figure (`application_votes.updated_at`
+    // before this). Votes are never reset by a change: they stand, and the card says so.
+    amountAmendedAt: timestamp('amount_amended_at'),
     // Unrestricted reserves as STATED BY THE APPLICANT, in pounds. The Charity
     // Commission publishes no reserves figure at all (verified against the live API —
     // see `OrganisationProfile.unrestrictedReserves`, which shares the name and is
@@ -1027,6 +1044,10 @@ export const applicationVotes = pgTable(
       onDelete: 'set null',
     }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
+    // When the vote was last CAST, which is not `createdAt` once somebody changes their
+    // mind (the upsert in `castVote` keeps the row). Compared with
+    // `applications.amount_amended_at` to say which votes predate the amount on screen.
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (t) => [unique('application_votes_uniq').on(t.applicationId, t.userId)],
 )
@@ -1683,6 +1704,7 @@ export const auditActionEnum = pgEnum('audit_action', [
   'member_vote_changed',
   'member_removed',
   'invitation_revoked',
+  'application_amount_proposed',
 ])
 
 /**

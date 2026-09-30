@@ -173,7 +173,9 @@ export const castVote = createServerFn({ method: 'POST' })
       })
       .onConflictDoUpdate({
         target: [applicationVotes.applicationId, applicationVotes.userId],
-        set: { vote: data.vote, recordedByUserId },
+        // `updatedAt` is when the vote was last CAST, which the shortlist compares with
+        // `amount_amended_at` to say whose vote predates the figure now on screen.
+        set: { vote: data.vote, recordedByUserId, updatedAt: new Date() },
       })
 
     // Only the proxy case is logged. Anybody voting as themselves is already fully

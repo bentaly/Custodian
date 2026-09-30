@@ -27,6 +27,11 @@ export type SpendRow = {
   committedFull: number
   /** The full multi-year value of what this shortlist would commit. Stated, never metered. */
   proposedFull: number
+  /** This year's cash had every shortlisted application been funded exactly as asked.
+   *  Equal to `proposed` until an officer proposes a different amount. Never metered. */
+  requested: number
+  /** The whole of those asks. */
+  requestedFull: number
 }
 
 /**
@@ -57,6 +62,13 @@ export function ProposedSpend({
   // shortlist the two bases are identical and saying so twice would be noise, so the
   // whole second column appears only when there is something for it to say.
   const multiYear = Math.abs(totalFull - total) >= 0.005
+  // The same shortlist, funded exactly as asked. The bar and the total stay on the
+  // proposed amounts, which are what would be awarded and what the ceiling enforces; this
+  // is said beside them, and only once some amount has been changed, so a shortlist with
+  // no proposals reads exactly as it did.
+  const totalRequested = rows.reduce((s, r) => s + r.requested, 0)
+  const requestedDiff = total - totalRequested
+  const amended = Math.abs(requestedDiff) >= 0.005
   // Collapsed the card is still allowed to state the total: this is the one figure a
   // board says out loud, and a summary you have to re-open to read is not a summary.
   // The rows are HIDDEN rather than unmounted so Download PDF (window.print) still puts
@@ -287,6 +299,20 @@ export function ProposedSpend({
             )}
           </span>
         </div>
+        {amended && (
+          <div className="-mt-2 flex items-center justify-between gap-3">
+            <span className="font-display text-label" style={{ color: C.faint }}>
+              If funded as requested
+            </span>
+            <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
+              {fmtMoney(totalRequested)}{' '}
+              <span style={{ color: C.faint }}>
+                (the proposals are {fmtMoney(Math.abs(requestedDiff))}{' '}
+                {requestedDiff < 0 ? 'lower' : 'higher'})
+              </span>
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

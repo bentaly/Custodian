@@ -10,6 +10,7 @@ import type { getDb } from '../db'
 import type { FinancialYear } from '../../lib/financialYear'
 import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
 import { resolveFirstYearAmount } from '../../lib/multiYear'
+import { effectiveAmount } from '../../lib/amountRequested'
 import { roundFinancialYear } from '../../lib/roundYear'
 
 /**
@@ -31,7 +32,10 @@ import { roundFinancialYear } from '../../lib/roundYear'
  * An application that has been awarded has a schedule, with dates. That schedule IS this
  * year's share and nothing needs estimating — so `applications.first_year_amount` stops
  * being read the moment an award exists. A shortlisted application has no schedule yet,
- * so it contributes its stated-or-suggested figure.
+ * so it contributes its stated-or-suggested figure, of the amount the foundation PROPOSES
+ * to award (`applications.amount_amended`, else the ask). The same applications are also
+ * costed at exactly what they asked for (`requested*`), for the shortlist to state beside
+ * the proposal; only the proposal is metered, because it is what would be awarded.
  *
  * Three edges are deliberate:
  *
@@ -77,10 +81,17 @@ export type RoundProgrammeSpend = {
   awardedThisYear: number
   /** The full committed value of those grants — shown for context, never metered. */
   awardedFull: number
-  /** This year's cash from applications currently shortlisted and not yet awarded. */
+  /** This year's cash from applications currently shortlisted and not yet awarded, at
+   *  the amount the foundation PROPOSES (`effectiveAmount`). This is what is metered. */
   proposedThisYear: number
-  /** The full value of those asks — shown beside the drawdown so a board sees both. */
+  /** The full value of those proposals — shown beside the drawdown so a board sees both. */
   proposedFull: number
+  /** The same applications had each been funded at exactly what it asked for. Stated
+   *  beside the proposal, never metered: equal to `proposedThisYear` until somebody
+   *  amends an amount, which is how an unamended shortlist reads exactly as it did. */
+  requestedThisYear: number
+  /** The whole of those asks. */
+  requestedFull: number
 }
 
 const num = (v: string | number | null | undefined): number =>
@@ -149,6 +160,7 @@ function proposedQuery(db: Db, roundProgrammeIds: string[], excludeApplicationId
     .select({
       roundProgrammeId: applications.roundProgrammeId,
       amountRequested: applications.amountRequested,
+      amountAmended: applications.amountAmended,
       firstYearAmount: applications.firstYearAmount,
       grantDurationYears: roundProgrammes.grantDurationYears,
     })
@@ -229,6 +241,8 @@ export async function roundProgrammeSpend(
       awardedFull: 0,
       proposedThisYear: 0,
       proposedFull: 0,
+      requestedThisYear: 0,
+      requestedFull: 0,
     }
     out.set(id, fresh)
     return fresh
@@ -253,12 +267,22 @@ export async function roundProgrammeSpend(
     for (const r of proposedRows) {
       const target = row(r.roundProgrammeId)
       const requested = num(r.amountRequested)
+      const proposed = effectiveAmount(r) ?? 0
+      const stated = r.firstYearAmount === null ? null : num(r.firstYearAmount)
+      // The first-year share is resolved against whichever amount is being costed, so a
+      // stated share can never exceed the grant it is a share of on either basis.
       target.proposedThisYear += resolveFirstYearAmount({
-        amountRequested: requested,
-        firstYearAmount: r.firstYearAmount === null ? null : num(r.firstYearAmount),
+        amountRequested: proposed,
+        firstYearAmount: stated,
         grantDurationYears: r.grantDurationYears,
       })
-      target.proposedFull += requested
+      target.proposedFull += proposed
+      target.requestedThisYear += resolveFirstYearAmount({
+        amountRequested: requested,
+        firstYearAmount: stated,
+        grantDurationYears: r.grantDurationYears,
+      })
+      target.requestedFull += requested
     }
   }
   return out

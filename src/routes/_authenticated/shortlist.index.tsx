@@ -68,7 +68,8 @@ function ShortlistPage() {
   const { roundId, programmeId, page } = Route.useSearch()
   const { shortlist, rounds } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
-  const { items, voters, allowAdminVoting, budgets, financialYear } = shortlist
+  const { items, voters, allowAdminVoting, enforceRoundBudget, budgets, financialYear } = shortlist
+  const budgetByRp = new Map(budgets.map((b) => [b.roundProgrammeId, b]))
 
   // While the print dialogue is open every card is rendered, not just this page: a board
   // pack that silently stopped at the tenth application would be worse than no pack.
@@ -199,6 +200,17 @@ function ShortlistPage() {
                   userRole={user.role}
                   iVote={holdsAVote(user)}
                   allowAdminVoting={allowAdminVoting}
+                  amountContext={{
+                    financialYearLabel: financialYear?.label ?? 'this year',
+                    enforced: enforceRoundBudget,
+                    // What the round has left for THIS application: its budget, less
+                    // everything else awarded or shortlisted against it this year.
+                    budgetRemaining: (() => {
+                      const b = budgetByRp.get(app.roundProgrammeId)
+                      if (!b || b.budget === null) return null
+                      return b.budget - b.committed - b.proposed + app.firstYearAmount
+                    })(),
+                  }}
                 />
               ))}
             </div>

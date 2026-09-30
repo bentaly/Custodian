@@ -51,6 +51,10 @@ export type AuditAction =
   // each is a paid model call and they are limited per day (`RERUNS_PER_DAY`), which is
   // counted from these rows, and because a score changing is worth being able to trace.
   | 'assessment_rerun'
+  // An admin proposed awarding a different amount from the one requested, or took a
+  // proposal back. Metadata `{ from, to, requested }`, where `to` null is "back to the
+  // amount requested". In the feed: it changes what the board is voting on.
+  | 'application_amount_proposed'
 
   // ── Reports ──────────────────────────────────────────────────────────────
   // A report that arrived without a reference we could match was attached to its grant
@@ -180,6 +184,7 @@ export const FEED_ACTIONS = [
   'application_commented',
   'application_registration_set',
   'application_vote_recorded_by_admin',
+  'application_amount_proposed',
   'grant_bank_details_changed',
   'grant_payment_recorded',
   'grant_payment_reversed',
@@ -222,6 +227,7 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   application_vote_recorded_by_admin: 'decisions',
   application_edited: 'decisions',
   assessment_rerun: 'decisions',
+  application_amount_proposed: 'decisions',
   report_attached: 'reporting',
   report_moved: 'reporting',
   report_impact_changed: 'reporting',
@@ -274,6 +280,7 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   application_vote_recorded_by_admin: "recorded a trustee's vote on",
   application_edited: 'edited the application from',
   assessment_rerun: 're-ran the AI assessment of',
+  application_amount_proposed: 'proposed a different amount for',
   report_attached: 'attached a report to the grant for',
   report_moved: 'moved a report for',
   report_impact_changed: 'corrected the impact figure on a report from',
@@ -312,6 +319,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   application_vote_recorded_by_admin: 'Vote recorded by admin',
   application_edited: 'Application edited',
   assessment_rerun: 'AI assessment re-run',
+  application_amount_proposed: 'Amount proposed',
   report_attached: 'Report attached to grant',
   report_moved: 'Report moved',
   report_impact_changed: 'Report impact figure corrected',
@@ -421,6 +429,20 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
       parts.push(
         vote === 'yes' ? 'Approved' : vote === 'no' ? 'Declined' : null,
         on ? `on behalf of ${on}` : null,
+      )
+      break
+    }
+
+    case 'application_amount_proposed': {
+      // Pounds as numbers; `to` null is "back to the amount requested".
+      const pounds = (key: string) => {
+        const v = metadata?.[key]
+        return typeof v === 'number' ? `£${v.toLocaleString('en-GB')}` : null
+      }
+      const requested = pounds('requested')
+      parts.push(
+        change(pounds('from') ?? requested, pounds('to') ?? requested),
+        requested ? `requested ${requested}` : null,
       )
       break
     }

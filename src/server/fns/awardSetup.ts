@@ -3,7 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
-import { decidedAmount } from '../../lib/amountRequested'
+import { decidedAmount, effectiveAmount } from '../../lib/amountRequested'
 import { isUnnamedOrganisation } from '../../lib/organisationName'
 import {
   applicationVotes,
@@ -129,6 +129,9 @@ export async function awardCandidatesData(
         organisationName: a.organisationName,
         applicantEmail: a.applicantEmail,
         amountRequested: decidedAmount(a.amountRequested),
+        // What the award is pre-filled with: the amount an officer proposed at the
+        // shortlist, else the ask. The wizard states the ask beside it when they differ.
+        proposedAmount: effectiveAmount(a) ?? 0,
         externalApplicationId: a.externalApplicationId,
         deliveryArea: deliveryAreaLabel(a),
         charityNumber: a.charityNumber,
@@ -159,6 +162,8 @@ export type AwardCandidate = {
   organisationName: string
   applicantEmail: string | null
   amountRequested: number
+  /** The proposal where one was made, else the ask (`effectiveAmount`). */
+  proposedAmount: number
   externalApplicationId: string | null
   deliveryArea: string | null
   charityNumber: string | null

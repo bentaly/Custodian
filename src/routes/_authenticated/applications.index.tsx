@@ -52,7 +52,16 @@ import {
   TruncatedList,
   type TableColumn,
 } from '../../components/ui'
-import { fmtAmount, fmtCompact, fmtDate, fmtList, fmtPerYear, fmtRef } from '../../lib/format'
+import {
+  fmtAmount,
+  fmtCompact,
+  fmtDate,
+  fmtList,
+  fmtMoney,
+  fmtPerYear,
+  fmtRef,
+} from '../../lib/format'
+import { isAmended } from '../../lib/amountRequested'
 import { deliveryAreaLabel } from '../../lib/deprivation/types'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import { SCORE_BAND_OPTIONS } from '../../lib/scoreBands'
@@ -504,6 +513,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
         parseFloat(app.amountRequested ?? '0') || 0,
         app.roundProgramme?.grantDurationYears,
       )
+      const proposed = isAmended(app) ? parseFloat(app.amountAmended!) : null
       return (
         <div className="flex flex-col">
           <span
@@ -512,10 +522,19 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
           >
             {fmtAmount(app.amountRequested)}
           </span>
-          {perYear && (
-            <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
-              {perYear}
+          {/* A proposal takes the second line when there is one: it is the figure the
+              board is weighing, and the per-year split is on the application. Read-only
+              here; it is changed on the shortlist or the application. */}
+          {proposed !== null ? (
+            <span className="font-display text-label tabular-nums" style={{ color: C.brand }}>
+              Proposed {fmtMoney(proposed)}
             </span>
+          ) : (
+            perYear && (
+              <span className="font-display text-label tabular-nums" style={{ color: C.sub }}>
+                {perYear}
+              </span>
+            )
           )}
         </div>
       )

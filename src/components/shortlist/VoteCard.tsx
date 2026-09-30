@@ -8,6 +8,7 @@ import {
   CheckmarkCircle02Icon,
   ClipboardCheckIcon,
   Message01Icon,
+  PencilEdit02Icon,
 } from '@hugeicons/core-free-icons'
 import { castVote } from '../../server/fns/comments'
 import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/custodianScore'
@@ -22,6 +23,9 @@ import { majorityOf } from '../../lib/voting'
 import { withAlpha } from '../BarMeter'
 import { CommentsDialog } from './CommentsDialog'
 import { decidedAmount } from '../../lib/amountRequested'
+import { amendmentDelta } from '../../lib/amendedAmount'
+import { setAmendedAmount } from '../../server/fns/applications'
+import { AmountDialog } from '../AmountDialog'
 
 /**
  * One member of the voting board: every current trustee, plus any admin the foundation
@@ -57,8 +61,16 @@ export type VoteCardApplication = {
   deprivationContext: DeprivationResult | null
   dueDiligenceStatus: string
   proposedImpactQuantity: string | null
-  /** What this ask draws from the round this financial year — resolved server-side. */
+  /** What this grant draws from the round this financial year — resolved server-side, of
+   *  the proposed amount where there is one. */
   firstYearAmount: number
+  firstYearIsSuggested: boolean
+  /** An officer's proposal (`applications.amount_amended`), or null = the ask. */
+  amountAmended: string | null
+  /** The amount that would be awarded: the proposal, else the ask. */
+  effectiveAmount: number
+  /** Votes by the current board cast before the amount last changed. They stand. */
+  votesBeforeChange: number
   roundProgramme: {
     grantDurationYears: number | null
     programme: { name: string; impactUnit: string | null; impactUnitLabel: string | null } | null
@@ -371,6 +383,7 @@ export function VoteCard({
   userRole,
   iVote,
   allowAdminVoting,
+  amountContext,
 }: {
   app: VoteCardApplication
   voters: ShortlistVoter[]
@@ -379,12 +392,19 @@ export function VoteCard({
   /** Does the signed-in user hold a vote of their own? `holdsAVote`, resolved by the route. */
   iVote: boolean
   allowAdminVoting: boolean
+  /** What the amount dialog needs from the screen: the year, the ceiling, what is left. */
+  amountContext: {
+    financialYearLabel: string
+    enforced: boolean
+    budgetRemaining: number | null
+  }
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showComments, setShowComments] = useState(false)
   const [changing, setChanging] = useState(false)
+  const [editingAmount, setEditingAmount] = useState(false)
   const [justCast, setJustCast] = useState<
     Record<string, { vote: 'yes' | 'no'; proxied: boolean }>
   >({})
@@ -414,6 +434,8 @@ export function VoteCard({
   // just voting (see `castVote`, where it leaves `recordedByUserId` null).
   const canVoteAsSelf = iVote
   const canVoteForTrustees = isAdmin && allowAdminVoting
+  // Officers amend the figure; trustees say what they think of it in the discussion.
+  const canPropose = isAdmin && app.amountRequested !== null
 
   // Votes cast from this card that the server has ACCEPTED but the loader has not
   // brought back yet. `castVote` resolving is the vote being true; `router.invalidate()`
@@ -446,7 +468,11 @@ export function VoteCard({
   const detail = app.custodianScoreDetail
   const scored = app.custodianScoreStatus === 'scored' && app.custodianScore !== null
   const programme = app.roundProgramme?.programme
-  const amount = decidedAmount(app.amountRequested)
+  // The amount that would be AWARDED heads the card: it is what the board is voting on.
+  // The ask stays beside it wherever the two differ.
+  const amount = app.effectiveAmount
+  const requested = decidedAmount(app.amountRequested)
+  const amended = app.amountAmended !== null && Math.abs(amount - requested) >= 0.005
   const years = app.roundProgramme?.grantDurationYears ?? null
   // Resolved server-side (stated, else the ask divided by the duration) so the card and
   // the budget meter above it cannot apply different rules to the same grant.
@@ -562,6 +588,22 @@ export function VoteCard({
                   grant is single-year the two are equal, there is nothing to flip, and the
                   per-year line stays the more useful thing to say. */}
               <div className="font-display text-heading font-medium" style={{ color: C.ink }}>
+                {canPropose && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingAmount(true)}
+                    aria-label={`Change the amount to award ${app.organisationName}`}
+                    title="Change the amount to award"
+                    className="mr-1.5 inline-flex size-6 items-center justify-center rounded-chip align-middle hover:bg-grey-100 print:hidden"
+                  >
+                    <HugeiconsIcon
+                      icon={PencilEdit02Icon}
+                      size={14}
+                      color={C.sub}
+                      strokeWidth={1.8}
+                    />
+                  </button>
+                )}
                 {fmtMoney(multiYear ? firstYear : amount)}
                 {/* "this year" rides WITH the figure rather than captioning it from the
                     line below. At a glance the eye takes the big number and moves on, and
@@ -579,8 +621,23 @@ export function VoteCard({
                   ? `${fmtMoney(amount)} ${
                       years && years > 1 ? `over ${years} years` : 'total commitment'
                     }`
-                  : (fmtPerYear(amount, years) ?? 'requested')}
+                  : (fmtPerYear(amount, years) ?? (amended ? 'proposed' : 'requested'))}
               </div>
+              {/* The ask, and how far the proposal is from it, only where they differ: an
+                  unamended card reads exactly as it always has. */}
+              {amended && (
+                <div className="mt-1 flex items-center justify-end gap-1.5">
+                  <span className="font-display text-label" style={{ color: C.faint }}>
+                    Requested {fmtMoney(requested)}
+                  </span>
+                  <span
+                    className="whitespace-nowrap rounded-pill px-2 font-display text-micro font-medium leading-5"
+                    style={{ backgroundColor: C.wash, color: C.sub }}
+                  >
+                    {amendmentDelta(amount, requested)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -694,6 +751,14 @@ export function VoteCard({
               {tally.voted} of {tally.voterCount} voted
             </span>
           </div>
+          {/* Votes stand when the amount changes; the board is told which were cast on a
+              different figure, and the count falls as those members vote again. */}
+          {app.votesBeforeChange > 0 && (
+            <p className="-mt-1.5 font-display text-label leading-snug" style={{ color: C.amber }}>
+              {app.votesBeforeChange === 1 ? '1 vote was' : `${app.votesBeforeChange} votes were`}{' '}
+              cast before the amount changed
+            </p>
+          )}
 
           {voters.length === 0 ? (
             <p className="font-display text-label leading-relaxed" style={{ color: C.sub }}>
@@ -835,6 +900,36 @@ export function VoteCard({
           </TextLink>
         </div>
       </div>
+
+      {canPropose && (
+        <AmountDialog
+          open={editingAmount}
+          onClose={() => setEditingAmount(false)}
+          onConfirm={async (change) => {
+            if (!change.changed) return
+            await setAmendedAmount({
+              data: {
+                id: app.id,
+                amount: change.amount,
+                firstYearAmount: change.firstYearAmount,
+                note: change.note || undefined,
+              },
+            })
+            await router.invalidate()
+          }}
+          mode="edit"
+          organisationName={app.organisationName}
+          amountRequested={requested}
+          amountAmended={app.amountAmended === null ? null : parseFloat(app.amountAmended)}
+          firstYear={firstYear}
+          firstYearIsSuggested={app.firstYearIsSuggested}
+          durationYears={years}
+          financialYearLabel={amountContext.financialYearLabel}
+          budgetRemaining={amountContext.budgetRemaining}
+          enforced={amountContext.enforced}
+          votesCast={app.votes.length}
+        />
+      )}
 
       {showComments && (
         <CommentsDialog

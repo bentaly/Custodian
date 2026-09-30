@@ -12,6 +12,7 @@ import {
   BanknoteIcon,
   BanknoteXIcon,
   UserSwitchIcon,
+  Coins01Icon,
   TaskDone01Icon,
   ArrowRight01Icon,
 } from '@hugeicons/core-free-icons'
@@ -407,6 +408,7 @@ const LATELY_ICON: Record<FeedAction, IconSvgElement> = {
   grant_payment_recorded: BanknoteIcon,
   grant_payment_reversed: BanknoteXIcon,
   application_vote_recorded_by_admin: UserSwitchIcon,
+  application_amount_proposed: Coins01Icon,
   grant_report_reviewed: TaskDone01Icon,
 }
 

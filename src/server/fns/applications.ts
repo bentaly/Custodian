@@ -18,12 +18,16 @@ import {
   type SQLWrapper,
 } from 'drizzle-orm'
 import { getDb } from '../db'
-import { decidedAmount } from '../../lib/amountRequested'
+import { decidedAmount, effectiveAmount } from '../../lib/amountRequested'
+import { amendmentComment, planAmendment } from '../../lib/amendedAmount'
+import { fmtMoney } from '../../lib/format'
+import { currentVoterOf } from '../members'
 import {
   applications,
   roundProgrammes,
   programmes,
   applicationVotes,
+  applicationComments,
   users,
   awards,
   awardInstalments,
@@ -308,6 +312,18 @@ export const getApplication = createServerFn({ method: 'GET' })
           .filter((a) => a.value !== '')
       : null
 
+    const [votesRow] = await getDb()
+      .select({ n: count() })
+      .from(applicationVotes)
+      .innerJoin(users, eq(users.id, applicationVotes.userId))
+      .where(
+        and(
+          eq(applicationVotes.applicationId, application.id),
+          currentVoterOf(application.roundProgramme.programme.clientId),
+        ),
+      )
+    const votesCast = votesRow?.n ?? 0
+
     const isAdmin = user.role === 'admin' || user.role === 'superadmin'
     // Why an admin cannot edit it (votes cast, or awarded), for the greyed pencil's tooltip.
     const editLocked = isAdmin ? await editLockReason(application) : null
@@ -359,7 +375,7 @@ export const getApplication = createServerFn({ method: 'GET' })
         application.amountRequested === null
           ? null
           : resolveFirstYearAmount({
-              amountRequested: parseFloat(application.amountRequested),
+              amountRequested: effectiveAmount(application)!,
               firstYearAmount:
                 application.firstYearAmount === null
                   ? null
@@ -371,9 +387,13 @@ export const getApplication = createServerFn({ method: 'GET' })
         application.amountRequested === null
           ? null
           : suggestFirstYearAmount(
-              parseFloat(application.amountRequested),
+              effectiveAmount(application)!,
               application.roundProgramme.grantDurationYears,
             ),
+      /** The amount that would be awarded: the proposal, else the ask. Null with no ask. */
+      effectiveAmount: effectiveAmount(application),
+      /** Votes the current board has cast, for the amount dialog to say they stand. */
+      votesCast,
       /** True while nobody has overridden the suggestion. */
       firstYearIsSuggested: application.firstYearAmount === null,
       // A foundation with no profile row has never opened the setting, so it gets the
@@ -497,7 +517,8 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
         .select({
           roundProgrammeId: applications.roundProgrammeId,
           awarded: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} = 'awarded' THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), 0)`,
-          shortlisted: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} = 'shortlisted' THEN ${applications.amountRequested} ELSE 0 END), 0)`,
+          // At the amount the foundation PROPOSES, which is what the shortlist meter counts.
+          shortlisted: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} = 'shortlisted' THEN COALESCE(${applications.amountAmended}, ${applications.amountRequested}) ELSE 0 END), 0)`,
           awardedCount: sql<number>`CAST(COUNT(*) FILTER (WHERE ${applications.status} = 'awarded') AS integer)`,
           shortlistedCount: sql<number>`CAST(COUNT(*) FILTER (WHERE ${applications.status} = 'shortlisted') AS integer)`,
         })
@@ -616,8 +637,11 @@ export const updateApplicationStatus = createServerFn({ method: 'POST' })
           : app.firstYearAmount === null
             ? null
             : parseFloat(app.firstYearAmount)
+      // Of the amount the foundation PROPOSES to award, which is the amount the meter
+      // counts: an application that fits at its proposed amount but not at its ask can be
+      // shortlisted, which is half the point of proposing one.
       const drawdown = resolveFirstYearAmount({
-        amountRequested: parseFloat(app.amountRequested),
+        amountRequested: effectiveAmount(app)!,
         firstYearAmount: firstYear,
         grantDurationYears: app.roundProgramme.grantDurationYears,
       })
@@ -727,7 +751,7 @@ export const setFirstYearAmount = createServerFn({ method: 'POST' })
 
     const app = await getDb().query.applications.findFirst({
       where: (a, { eq }) => eq(a.id, data.id),
-      columns: { status: true, amountRequested: true },
+      columns: { status: true, amountRequested: true, amountAmended: true },
       with: { roundProgramme: { columns: { grantDurationYears: true } } },
     })
     if (!app) throw notFoundError()
@@ -742,9 +766,10 @@ export const setFirstYearAmount = createServerFn({ method: 'POST' })
     if (app.amountRequested === null) {
       throw conflict('Fill in the amount requested first.')
     }
-    const requested = decidedAmount(app.amountRequested)
+    // A share of the amount that would be AWARDED, which is the proposal where there is one.
+    const requested = effectiveAmount(app)!
     if (data.amount !== null && data.amount > requested) {
-      throw conflict('That is more than the application is asking for.')
+      throw conflict('That is more than the whole grant.')
     }
 
     const [updated] = await getDb()
@@ -761,6 +786,159 @@ export const setFirstYearAmount = createServerFn({ method: 'POST' })
         grantDurationYears: app.roundProgramme.grantDurationYears,
       }),
       firstYearIsSuggested: data.amount === null,
+    }
+  })
+
+/**
+ * Propose awarding a different amount from the one asked for, optionally with this year's
+ * share of it. The rules are `planAmendment` (`src/lib/amendedAmount.ts`); this adds the
+ * IO and the budget ceiling.
+ *
+ * - Admins only. Trustees say what they think in the discussion; the officer amends.
+ * - Refused once awarded (`awards.amount_awarded` is the record from then on, as with
+ *   `first_year_amount`), once declined (there is nothing to fund), and while the ask
+ *   itself is missing (there is nothing to propose against).
+ * - Where the foundation enforces its round budget and the application is shortlisted,
+ *   a change that raises its draw on the round past the budget is refused. Lowering is
+ *   never refused, however full the round: refusing it would keep the round MORE over.
+ * - A changed amount stamps `amount_amended_at`, writes one audit row and posts a comment
+ *   as the admin (with their reason), in ONE batch with the update, so the discussion can
+ *   never miss a change the card shows. Votes are left exactly as they are.
+ */
+export const setAmendedAmount = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      id: z.uuid(),
+      /** `null` = back to the amount requested. */
+      amount: z.number().positive().max(1_000_000_000).nullable(),
+      /** Omitted = keep the stated share if it still fits; `null` = the suggestion. */
+      firstYearAmount: z.number().min(0).max(1_000_000_000).nullable().optional(),
+      /** Appended to the automatic comment. */
+      note: z.string().max(2000).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    await assertApplicationAccess(user, data.id)
+    const db = getDb()
+
+    const app = await db.query.applications.findFirst({
+      where: (a, { eq }) => eq(a.id, data.id),
+      columns: {
+        id: true,
+        status: true,
+        amountRequested: true,
+        amountAmended: true,
+        firstYearAmount: true,
+        roundProgrammeId: true,
+      },
+      with: {
+        roundProgramme: {
+          columns: { budget: true, grantDurationYears: true },
+          with: { programme: { columns: { clientId: true } } },
+        },
+      },
+    })
+    if (!app) throw notFoundError()
+    if (app.status === 'awarded') {
+      throw conflict('This grant has been awarded, so the award now says how much it is.')
+    }
+    if (app.status === 'declined') {
+      throw conflict('This application has been declined. Move it back to review first.')
+    }
+    if (app.amountRequested === null) {
+      throw conflict('Fill in the amount requested first.')
+    }
+
+    const requested = parseFloat(app.amountRequested)
+    const plan = planAmendment({
+      requested,
+      currentAmended: app.amountAmended === null ? null : parseFloat(app.amountAmended),
+      currentFirstYear: app.firstYearAmount === null ? null : parseFloat(app.firstYearAmount),
+      grantDurationYears: app.roundProgramme.grantDurationYears,
+      amount: data.amount,
+      firstYearAmount: data.firstYearAmount,
+    })
+    if ('refused' in plan) throw conflict(plan.refused)
+
+    // The ceiling, on the same figure as `updateApplicationStatus` and the meter. Only a
+    // SHORTLISTED application draws on the round; before that a proposal is a statement.
+    const budget = app.roundProgramme.budget ? parseFloat(app.roundProgramme.budget) : null
+    if (
+      app.status === 'shortlisted' &&
+      budget !== null &&
+      plan.drawdownAfter > plan.drawdownBefore + 0.005
+    ) {
+      const profile = await db.query.clientProfiles.findFirst({
+        where: (p, { eq }) => eq(p.clientId, app.roundProgramme.programme.clientId),
+        columns: { enforceRoundBudget: true, financialYearEndMonth: true },
+      })
+      if (profile?.enforceRoundBudget) {
+        const endMonth = profile.financialYearEndMonth ?? DEFAULT_FY_END_MONTH
+        const spend = await roundProgrammeSpend(db, [app.roundProgrammeId], {
+          excludeApplicationId: app.id,
+          financialYearEndMonth: endMonth,
+        })
+        const committed = spentThisYear(spend.get(app.roundProgrammeId))
+        if (committed + plan.drawdownAfter > budget + 0.005) {
+          const fy = await roundProgrammeYear(db, app.roundProgrammeId, endMonth)
+          const remaining = Math.max(0, budget - committed)
+          throw conflict(
+            `That takes the round over its budget: ${fmtMoney(remaining)} is left in ${fy.label} for this application, and it would draw ${fmtMoney(plan.drawdownAfter)}.`,
+          )
+        }
+      }
+    }
+
+    const from = app.amountAmended === null ? requested : parseFloat(app.amountAmended)
+    const update = db
+      .update(applications)
+      .set({
+        amountAmended: plan.amended === null ? null : String(plan.amended),
+        firstYearAmount: plan.firstYear === null ? null : String(plan.firstYear),
+        ...(plan.amountChanged ? { amountAmendedAt: new Date() } : {}),
+      })
+      .where(eq(applications.id, app.id))
+    if (plan.amountChanged) {
+      await db.batch([
+        update,
+        db.insert(applicationComments).values({
+          applicationId: app.id,
+          userId: user.id,
+          body: amendmentComment(from, plan.effective, requested, data.note),
+        }),
+      ])
+      await recordAudit({
+        actorUserId: user.id,
+        action: 'application_amount_proposed',
+        applicationId: app.id,
+        metadata: { from, to: plan.amended, requested },
+      })
+    } else {
+      await update
+    }
+
+    // Votes on the board as it stands, all of which now predate the figure on screen.
+    const [votes] = plan.amountChanged
+      ? await db
+          .select({ n: count() })
+          .from(applicationVotes)
+          .innerJoin(users, eq(users.id, applicationVotes.userId))
+          .where(
+            and(
+              eq(applicationVotes.applicationId, app.id),
+              currentVoterOf(app.roundProgramme.programme.clientId),
+            ),
+          )
+      : [{ n: 0 }]
+
+    return {
+      id: app.id,
+      amountAmended: plan.amended,
+      effectiveAmount: plan.effective,
+      firstYearAmount: plan.drawdownAfter,
+      firstYearIsSuggested: plan.firstYear === null,
+      votesBeforeChange: votes?.n ?? 0,
     }
   })
 

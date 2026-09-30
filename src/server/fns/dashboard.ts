@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { and, eq, ne, count, inArray, sql, isNotNull, desc } from 'drizzle-orm'
 import { getDb } from '../db'
-import { decidedAmount } from '../../lib/amountRequested'
+import { effectiveAmount } from '../../lib/amountRequested'
 import {
   applications,
   rounds,
@@ -217,6 +217,7 @@ export async function dashboardData(
         id: applications.id,
         organisationName: applications.organisationName,
         amountRequested: applications.amountRequested,
+        amountAmended: applications.amountAmended,
         score: applications.custodianScore,
         // The voting board only, on both sides of the majority. This is a FILTER rather
         // than a WHERE (the join is optional, so a shortlisted application with no votes
@@ -534,7 +535,7 @@ export async function dashboardData(
           .select({
             roundId: roundProgrammes.roundId,
             budget: sql<string>`COALESCE(SUM(${roundProgrammes.budget}), '0')`,
-            committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), '0')`,
+            committed: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} IN ('shortlisted','awarded') THEN COALESCE(${awards.amountAwarded}, ${applications.amountAmended}, ${applications.amountRequested}) ELSE 0 END), '0')`,
           })
           .from(roundProgrammes)
           .leftJoin(applications, eq(applications.roundProgrammeId, roundProgrammes.id))
@@ -677,7 +678,8 @@ export async function dashboardData(
     .map((r) => ({
       id: r.id,
       organisationName: r.organisationName,
-      amountRequested: decidedAmount(r.amountRequested),
+      // What would be awarded: the proposal where an officer made one, else the ask.
+      amount: effectiveAmount(r) ?? 0,
       score: r.score,
       yesVotes: Number(r.yesVotes),
       iVoted: Number(r.myVote) > 0,
@@ -699,7 +701,7 @@ export async function dashboardData(
     ? [...spend.values()]
         .filter((sp) => !rpScope || rpScope.includes(sp.roundProgrammeId))
         .reduce((s, sp) => s + sp.proposedThisYear, 0)
-    : shortlist.reduce((s, a) => s + a.amountRequested, 0)
+    : shortlist.reduce((s, a) => s + a.amount, 0)
 
   const reportsOverdue = reportRows.filter((r) => r.dueDate! < todayIso)
   const reportsDueSoon = reportRows.filter((r) => r.dueDate! >= todayIso && r.dueDate! <= soonIso)

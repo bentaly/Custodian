@@ -7,6 +7,8 @@ import {
   ArrowDown01Icon,
   ArrowUp01Icon,
   Coins01Icon,
+  CoinsSwapIcon,
+  PencilEdit01Icon,
   UserGroupIcon,
   UserGroup02Icon,
   Building02Icon,
@@ -20,7 +22,7 @@ import {
 import {
   getApplication,
   rerunDueDiligence,
-  setFirstYearAmount,
+  setAmendedAmount,
   updateApplicationStatus,
 } from '../../server/fns/applications'
 import { ApplicationSubmissionDialog } from '../../components/ApplicationSubmissionDialog'
@@ -38,7 +40,8 @@ import { rescore } from '../../server/fns/applicationEdits'
 import { RefreshLink } from '../../components/RefreshLink'
 import { isEditableField, type EditableField } from '../../lib/applicationEdit'
 import { isUnnamedOrganisation } from '../../lib/organisationName'
-import { FirstYearDialog } from '../../components/FirstYearDialog'
+import { AmountDialog, type AmountChange } from '../../components/AmountDialog'
+import { amendmentPercent } from '../../lib/amendedAmount'
 import { CommentsSection } from '../../components/CommentsSection'
 import { ProgressBar } from '../../components/ProgressBar'
 import { BarMeter, withAlpha } from '../../components/BarMeter'
@@ -108,10 +111,12 @@ const C = {
 // RENDER: a tint is a place in the row, so moving a card means moving its tint too.
 const KPI = {
   amount: KPI_TINTS.violet,
-  area: KPI_TINTS.green,
-  income: KPI_TINTS.amber,
-  reserves: KPI_TINTS.pink,
-  community: KPI_TINTS.sky,
+  proposed: KPI_TINTS.green,
+  area: KPI_TINTS.amber,
+  income: KPI_TINTS.pink,
+  reserves: KPI_TINTS.sky,
+  // Six cards, five tints: the row starts the list again rather than inventing a sixth.
+  community: KPI_TINTS.violet,
 }
 
 // ─── Formatting ──────────────────────────────────────────────────────────────────
@@ -432,8 +437,10 @@ function ApplicationDetail() {
   const [declining, setDeclining] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submissionOpen, setSubmissionOpen] = useState(false)
-  const [firstYearOpen, setFirstYearOpen] = useState(false)
-  const [firstYearMode, setFirstYearMode] = useState<'shortlist' | 'edit'>('shortlist')
+  // The amount dialog: the proposed award and this year's share of it, asked when
+  // shortlisting against an enforced budget and offered on the Amount proposed card.
+  const [amountOpen, setAmountOpen] = useState(false)
+  const [amountMode, setAmountMode] = useState<'shortlist' | 'edit'>('shortlist')
   // What the last edit did ("Saved. The AI assessment is being re-run."), shown above
   // the body until the next one or a reload.
   // What the last edit did ("Saved. The AI assessment is running now."), shown above the
@@ -469,6 +476,18 @@ function ApplicationDetail() {
   const committedThisYear = application.roundProgrammeCommittedThisYear
   const amountRequested =
     application.amountRequested === null ? null : parseFloat(application.amountRequested)
+  // What would be awarded: the officer's proposal where there is one, else the ask.
+  const amountAmended =
+    application.amountAmended === null ? null : parseFloat(application.amountAmended)
+  const effective = application.effectiveAmount
+  // A proposal can be made from arrival until a decision is final: not once declined
+  // (nothing to fund) or awarded (the award is the record). Not locked by votes, unlike
+  // the fields' pencils: changing the figure after the board has talked is the point.
+  const canPropose =
+    (user.role === 'admin' || user.role === 'superadmin') &&
+    amountRequested !== null &&
+    application.status !== 'awarded' &&
+    application.status !== 'declined'
   const firstYear = application.firstYearAmount
   const fyLabel = application.roundFinancialYear.label
   const budgetRemaining = budget === null ? null : budget - committedThisYear
@@ -541,10 +560,10 @@ function ApplicationDetail() {
     application.proposedImpactQuantity != null
       ? parseFloat(application.proposedImpactQuantity)
       : null
+  // Of the amount that would be AWARDED, so a proposal moves it: the cost of each
+  // beneficiary is a question about the foundation's money, not the applicant's ask.
   const costPerBeneficiary =
-    proposedImpact && proposedImpact > 0 && amountRequested != null
-      ? amountRequested / proposedImpact
-      : null
+    proposedImpact && proposedImpact > 0 && effective != null ? effective / proposedImpact : null
 
   // What this submission never captured. A field that didn't map leaves a null column,
   // indistinguishable from a question the foundation never asked — so the feature it
@@ -766,18 +785,35 @@ function ApplicationDetail() {
         updateApplicationStatus({ data: { id: application.id, status: 'for_review' } }),
       )
     }
-    if (!application.enforceRoundBudget) return confirmShortlist(null)
-    setFirstYearMode('shortlist')
-    setFirstYearOpen(true)
+    if (!application.enforceRoundBudget) {
+      return act(setShortlisting, () =>
+        updateApplicationStatus({ data: { id: application.id, status: 'shortlisted' } }),
+      )
+    }
+    setAmountMode('shortlist')
+    setAmountOpen(true)
   }
-  const confirmShortlist = (firstYearAmount: number | null) =>
-    act(setShortlisting, () =>
-      updateApplicationStatus({
-        data: { id: application.id, status: 'shortlisted', firstYearAmount },
-      }),
-    )
-  const saveFirstYear = (amount: number | null) =>
-    act(setShortlisting, () => setFirstYearAmount({ data: { id: application.id, amount } }))
+  /**
+   * The dialog's answer. A change is written first (`setAmendedAmount`, which posts its
+   * comment and audit row), then shortlisting runs its own ceiling on the stored figures.
+   * Errors are thrown back to the dialog so it stays open and says what went wrong.
+   */
+  async function confirmAmount(change: AmountChange) {
+    if (change.changed) {
+      await setAmendedAmount({
+        data: {
+          id: application.id,
+          amount: change.amount,
+          firstYearAmount: change.firstYearAmount,
+          note: change.note || undefined,
+        },
+      })
+    }
+    if (amountMode === 'shortlist') {
+      await updateApplicationStatus({ data: { id: application.id, status: 'shortlisted' } })
+    }
+    await router.invalidate()
+  }
   const handleDecline = () =>
     act(setDeclining, () =>
       updateApplicationStatus({
@@ -1435,7 +1471,7 @@ function ApplicationDetail() {
         </Panel>
 
         {/* KPI cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 [&>*]:min-w-0">
           <EditableSlot
             canEdit={canEdit}
             lockedReason={application.editLocked}
@@ -1500,7 +1536,17 @@ function ApplicationDetail() {
                 ) : isShortlisted || !application.firstYearIsSuggested ? (
                   // What it draws this year. Corrected through the card's own pencil,
                   // beside the ask it is a share of, rather than a link of its own.
-                  `${fmtMoney(firstYear ?? 0)} in ${fyLabel}`
+                  // Of the PROPOSAL where there is one, which this card's own figure is not,
+                  // so the line says whose share it is.
+                  // Once a proposal exists, this year's draw is ITS share and is stated on
+                  // the proposal's card; this card goes back to describing the ask.
+                  amountAmended !== null ? (
+                    (fmtPerYear(amountRequested, rp.grantDurationYears) ??
+                    fmtDuration(rp.grantDurationYears) ??
+                    'As submitted')
+                  ) : (
+                    `${fmtMoney(firstYear ?? 0)} in ${fyLabel}`
+                  )
                 ) : (
                   <>
                     {fmtPerYear(amountRequested, rp.grantDurationYears) ??
@@ -1511,6 +1557,67 @@ function ApplicationDetail() {
               }
             />
           </EditableSlot>
+          {/* The amount the foundation would AWARD, where an officer proposed a different
+              one. Its own card with its own control rather than a second field on the
+              amount card's pencil: that pencil corrects what the applicant asked for and
+              locks once a trustee has voted, while a proposal is the foundation's figure
+              and is expected to change AFTER the board has discussed it. */}
+          {/* The pencil sits in the corner on hover or focus, as every editable card's
+              does (`EditableSlot`), and opens the amount dialog rather than editing in
+              place: the proposal comes with this year's share and a reason. */}
+          <div className="group relative">
+            <MiniKpi
+              tint={KPI.proposed}
+              icon={CoinsSwapIcon}
+              label="Amount proposed"
+              value={
+                amountAmended === null || amountRequested === null ? (
+                  '--'
+                ) : (
+                  <>
+                    {fmtMoney(amountAmended)}
+                    <span className="ml-1.5 text-label font-normal" style={{ color: C.sub }}>
+                      {amendmentPercent(amountAmended, amountRequested)}
+                    </span>
+                  </>
+                )
+              }
+              sub={
+                amountAmended !== null && amountRequested !== null
+                  ? // What it draws this year where that is a share of it, else how far it
+                    // is from the ask in pounds (the percentage rides with the figure).
+                    firstYear !== null && Math.abs(firstYear - amountAmended) >= 0.005
+                    ? `${fmtMoney(firstYear)} in ${fyLabel}`
+                    : `${fmtMoney(Math.abs(amountAmended - amountRequested))} ${amountAmended < amountRequested ? 'below' : 'above'} the ask`
+                  : isAwarded
+                    ? 'The award says what was given'
+                    : 'As requested'
+              }
+            />
+            {canPropose && (
+              <button
+                type="button"
+                aria-label={
+                  amountAmended === null
+                    ? 'Propose a different amount'
+                    : 'Change the proposed amount'
+                }
+                title={
+                  amountAmended === null
+                    ? 'Propose a different amount'
+                    : 'Change the proposed amount'
+                }
+                onClick={() => {
+                  setAmountMode('edit')
+                  setAmountOpen(true)
+                }}
+                className="absolute right-2.5 top-2.5 z-20 inline-flex size-7 items-center justify-center rounded-chip border bg-white opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
+                style={{ borderColor: C.line, color: C.body }}
+              >
+                <HugeiconsIcon icon={PencilEdit01Icon} size={14} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
           {/* Beneficiaries and cost-per-beneficiary are one card, not two: the second
               is the first divided into the amount already in the card beside it, so as
               separate cards it read as a new fact when it is the same one restated.
@@ -2006,22 +2113,27 @@ function ApplicationDetail() {
         )}
       </Dialog>
 
-      {/* Only with an amount: there is no year's share of an ask nobody has stated, and
-          Shortlist is unavailable until there is one. */}
+      {/* Only with an amount: there is nothing to propose against, or divide, without
+          one, and Shortlist is unavailable until there is. */}
       {amountRequested !== null && (
-        <FirstYearDialog
-          open={firstYearOpen}
-          onClose={() => setFirstYearOpen(false)}
-          onConfirm={firstYearMode === 'shortlist' ? confirmShortlist : saveFirstYear}
-          mode={firstYearMode}
+        <AmountDialog
+          open={amountOpen}
+          onClose={() => setAmountOpen(false)}
+          onConfirm={confirmAmount}
+          mode={amountMode}
           organisationName={application.organisationName}
           amountRequested={amountRequested}
-          suggested={application.firstYearSuggested ?? 0}
-          current={firstYear ?? 0}
+          amountAmended={amountAmended}
+          firstYear={firstYear ?? 0}
+          firstYearIsSuggested={application.firstYearIsSuggested}
           durationYears={rp.grantDurationYears}
           financialYearLabel={fyLabel}
-          budgetRemaining={budgetRemaining}
+          // Only where the answer draws on the round: when shortlisting, or once it is
+          // shortlisted. Before that a proposal is a statement, and the ceiling is not
+          // applied to it (nor, therefore, said).
+          budgetRemaining={amountMode === 'shortlist' || isShortlisted ? budgetRemaining : null}
           enforced={application.enforceRoundBudget}
+          votesCast={application.votesCast}
         />
       )}
 

@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
-import { decidedAmount } from '../../lib/amountRequested'
+import { effectiveAmount } from '../../lib/amountRequested'
 import {
   applicationComments,
   applicationVotes,
@@ -74,6 +74,7 @@ export async function shortlistData(
       items: [],
       voters: [],
       allowAdminVoting: false,
+      enforceRoundBudget: false,
       budgets: [],
       // Null rather than a default-derived year: there is no budget card to caption when
       // nothing is shortlisted, and inventing a year from the default end month would be
@@ -128,6 +129,7 @@ export async function shortlistData(
           userId: applicationVotes.userId,
           vote: applicationVotes.vote,
           recordedByUserId: applicationVotes.recordedByUserId,
+          updatedAt: applicationVotes.updatedAt,
         })
         .from(applicationVotes)
         .where(inArray(applicationVotes.applicationId, appIds)),
@@ -152,7 +154,12 @@ export async function shortlistData(
     const voterIds = new Set(voters.map((v) => v.id))
     const votesByApp = new Map<
       string,
-      Array<{ userId: string; vote: 'yes' | 'no'; recordedByUserId: string | null }>
+      Array<{
+        userId: string
+        vote: 'yes' | 'no'
+        recordedByUserId: string | null
+        updatedAt: Date
+      }>
     >()
     for (const v of voteRows) {
       // Only the current voting board counts towards the majority. A vote left behind
@@ -160,7 +167,12 @@ export async function shortlistData(
       // in the table but must not tip a decision.
       if (!voterIds.has(v.userId)) continue
       const list = votesByApp.get(v.applicationId) ?? []
-      list.push({ userId: v.userId, vote: v.vote, recordedByUserId: v.recordedByUserId })
+      list.push({
+        userId: v.userId,
+        vote: v.vote,
+        recordedByUserId: v.recordedByUserId,
+        updatedAt: v.updatedAt,
+      })
       votesByApp.set(v.applicationId, list)
     }
     const commentsByApp = new Map(commentRows.map((r) => [r.applicationId, r.comments]))
@@ -170,9 +182,19 @@ export async function shortlistData(
       const votes = votesByApp.get(a.id) ?? []
       const yesVotes = votes.filter((v) => v.vote === 'yes').length
       const noVotes = votes.length - yesVotes
+      const amount = effectiveAmount(a) ?? 0
+      // Votes cast (or last changed) before the amount on the card was set: they stand,
+      // and the card says so. A trustee who votes again drops out of the count.
+      const amendedAt = a.amountAmendedAt
+      const votesBeforeChange = amendedAt
+        ? votes.filter((v) => v.updatedAt.getTime() < amendedAt.getTime()).length
+        : 0
       return {
         ...a,
-        votes,
+        votes: votes.map(({ updatedAt: _, ...v }) => v),
+        /** The amount that would be awarded: the proposal, else the ask. */
+        effectiveAmount: amount,
+        votesBeforeChange,
         yesVotes,
         noVotes,
         commentCount: commentsByApp.get(a.id) ?? 0,
@@ -181,7 +203,7 @@ export async function shortlistData(
         // see its whole size, and the board reading the budget meter must see what it
         // costs this year, and neither figure substitutes for the other.
         firstYearAmount: resolveFirstYearAmount({
-          amountRequested: decidedAmount(a.amountRequested),
+          amountRequested: amount,
           firstYearAmount: a.firstYearAmount === null ? null : parseFloat(a.firstYearAmount),
           grantDurationYears: a.roundProgramme.grantDurationYears,
         }),
@@ -224,6 +246,10 @@ export async function shortlistData(
               committedFull: s?.awardedFull ?? 0,
               /** The whole value of what this shortlist would commit, for context. */
               proposedFull: s?.proposedFull ?? 0,
+              /** This year's cash had every shortlisted application been funded as asked. */
+              requested: s?.requestedThisYear ?? 0,
+              /** The whole of those asks. */
+              requestedFull: s?.requestedFull ?? 0,
             },
           ]
         }),
@@ -234,6 +260,8 @@ export async function shortlistData(
       items: decorated,
       voters,
       allowAdminVoting: profile?.allowAdminVoting ?? false,
+      /** Whether the round budget is a ceiling, for the amount dialog to say and enforce. */
+      enforceRoundBudget: profile?.enforceRoundBudget ?? false,
       budgets,
       /** The year the round budgets above are being drawn from, for the card's caption. */
       financialYear: fy,

@@ -203,8 +203,17 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
     width: 'sm:w-[11%]',
     cellClassName: 'tabular-nums',
     cell: (c) => (
-      <span className="font-display text-body font-medium" style={{ color: C.ink }}>
-        {fmtMoney(c.amountRequested)}
+      // The amount to be awarded (the shortlist's proposal, else the ask), with the ask
+      // beneath it where the two differ.
+      <span className="flex flex-col">
+        <span className="font-display text-body font-medium" style={{ color: C.ink }}>
+          {fmtMoney(c.proposedAmount)}
+        </span>
+        {Math.abs(c.proposedAmount - c.amountRequested) >= 0.005 && (
+          <span className="font-display text-label font-normal" style={{ color: C.sub }}>
+            Requested {fmtMoney(c.amountRequested)}
+          </span>
+        )}
       </span>
     ),
   },

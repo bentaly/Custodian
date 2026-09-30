@@ -78,6 +78,16 @@ describe('auditDetail', () => {
     ).toBe('Approved · on behalf of Jane Smith')
   })
 
+  it('gives both sides of a proposed amount, and the ask', () => {
+    expect(
+      auditDetail('application_amount_proposed', { from: 50000, to: 35000, requested: 50000 }),
+    ).toContain('£50,000 → £35,000')
+    // `to` null is back to the ask.
+    expect(
+      auditDetail('application_amount_proposed', { from: 35000, to: null, requested: 50000 }),
+    ).toContain('£35,000 → £50,000')
+  })
+
   it('keeps a deleted comment readable, and truncates a long one', () => {
     expect(auditDetail('application_comment_deleted', { body: 'Concerned about the budget' })).toBe(
       '“Concerned about the budget”',

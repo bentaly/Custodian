@@ -201,6 +201,7 @@ Traps:
 - **rounds** ↔ **programmes** via **round_programmes** (budget, grant duration, impact unit per
   pairing); applications hang off a round-programme
 - **applications** — one row per submission; responses/budget lines in jsonb, plus AI columns.
+  `amount_amended` is the foundation's proposed award (see "Multi-year grants").
   **`themes`** is the application's subset of `programmes.tags`, and it is what EVERY theme
   column, pill and Insights "by theme" reads — never the programme's list. See custodianScore
 - **application_comments** / **application_votes** — discussion + trustee voting (majority gates awards)
@@ -330,6 +331,21 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   be cleared there, because a stale figure would silently become the drawdown next time; it is
   shown on the card now, so no longer silent. Shortlisting without a figure keeps the stated one.
   `grant_duration_years` is a display hint, NOT an input to `buildSchedule` — do not treat it as one.
+- **`applications.amount_amended` is the amount the foundation PROPOSES to award** (2026-09-30,
+  Notion "Amended grant amounts on the shortlist"), above or below the ask; NULL = the ask.
+  Everything counting shortlisted money reads `effectiveAmount` (`lib/amountRequested.ts`):
+  `roundProgrammeSpend` (so the meter AND the ceiling), the first-year share (a share of the
+  proposal), the dashboard's committed meter, the award wizard's pre-fill, cost per
+  beneficiary. Anything labelled "ask" / "requested" stays on `amount_requested`. Set only
+  through `setAmendedAmount` (admins; refused once declined or awarded; `planAmendment` in
+  `lib/amendedAmount.ts` is the rule), which writes it with the first-year share in one update
+  because a shrinking whole can orphan a stated part, and posts a comment as the admin plus an
+  `application_amount_proposed` audit row. **Votes are never reset**: `amount_amended_at`
+  against `application_votes.updated_at` tells the card which votes predate the figure.
+  ONE dialog (`AmountDialog`) asks both figures, from the shortlist card, the application's
+  Amount proposed card, and the enforced-budget shortlist step. **Not an `EditableSlot`
+  field on purpose**: those lock once a trustee has voted, and a proposal is expected to
+  change after the board has talked. The Applications list shows it read-only.
 - **Once an award exists none of that is read.** `roundProgrammeSpend`
   (`src/server/applications/roundSpend.ts`) reads the award's real instalments, and it is the
   **single** source for the shortlist meter, the `enforce_round_budget` ceiling and the Rounds
