@@ -377,7 +377,9 @@ function ShortlistPage() {
                 programme would offer "All" and that programme, which are the same list. */}
             {programmeOptions.length > 1 && (
               // Not printed: the pack's heading names the programme in words.
-              <div className="print:hidden">
+              // A flex row, not a plain block: the pill's menu is at least as wide as
+              // the pill's own box, and as a block child that box was the whole card.
+              <div className="flex print:hidden">
                 <SelectPill
                   size="sm"
                   ariaLabel="Programme"
