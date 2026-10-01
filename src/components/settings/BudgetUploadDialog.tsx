@@ -118,9 +118,19 @@ export function BudgetUploadDialog(props: Props) {
   async function handleFile(file: File) {
     setBusy('upload')
     setError('')
+    // Outside the `try` below so the `catch` can tell a file we refused, whose message
+    // was written for the person reading it, from anything else going wrong.
+    const { readBudgetWorkbook, BudgetWorkbookError } =
+      await import('../../lib/budgetUpload/workbook').catch(() => ({
+        readBudgetWorkbook: null,
+        BudgetWorkbookError: null,
+      }))
+    if (!readBudgetWorkbook || !BudgetWorkbookError) {
+      setError('The upload could not start. Refresh the page and try again.')
+      setBusy(null)
+      return
+    }
     try {
-      const { readBudgetWorkbook, BudgetWorkbookError } =
-        await import('../../lib/budgetUpload/workbook')
       const read = await readBudgetWorkbook(file)
       // A template made for another foundation would bring its programme names here.
       if (read.fingerprint && read.fingerprint.clientId !== props.clientId) {
@@ -151,7 +161,14 @@ export function BudgetUploadDialog(props: Props) {
             : null,
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read that file.')
+      // Anything we did not throw ourselves is still a file this screen could not make
+      // sense of, and that is what the person needs to hear: a bare "Cannot read
+      // properties of undefined" reads as Custodian being broken, when the fix is theirs.
+      setError(
+        e instanceof BudgetWorkbookError
+          ? e.message
+          : 'That spreadsheet is not in the budget format, so it could not be read. Download the budget template from this screen, copy your figures into it, and upload that.',
+      )
     } finally {
       setBusy(null)
       if (fileInput.current) fileInput.current.value = ''

@@ -407,7 +407,7 @@ function Summary({ data }: { data: Data }) {
       <tr className="border-t font-medium" style={{ borderColor: C.line, color: C.ink }}>
         <th scope="row" className={`${footLabel} font-medium`}>
           {/* Income is a line in the table but never in this sum, so say which total it is. */}
-          {summary.income ? 'Total money out' : 'Total'}
+          {summary.income ? 'Total expenditure' : 'Total'}
         </th>
         <td className={footCell}>{fmtExact(out.actual + out.stillToPay)}</td>
         <td className={footCell}>{fmtExact(out.projected)}</td>

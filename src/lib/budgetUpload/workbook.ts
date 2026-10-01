@@ -331,7 +331,7 @@ export async function readBudgetWorkbook(file: File): Promise<BudgetRead> {
     await wb.xlsx.load(await file.arrayBuffer())
   } catch {
     throw new BudgetWorkbookError(
-      'That file could not be opened as an Excel workbook. Save it as .xlsx and try again.',
+      'That file is not an Excel workbook, so it could not be read. Download the budget template from this screen, fill it in, and upload it as .xlsx.',
     )
   }
 
@@ -387,7 +387,7 @@ export async function readBudgetWorkbook(file: File): Promise<BudgetRead> {
       if (!ws) continue
       if (!has(headersOf(ws), [...needs])) {
         throw new BudgetWorkbookError(
-          `The ${ws.name} sheet is missing its ${needs.length === 3 ? 'Line, Type or Amount for the year' : 'Line or Amount for the year'} column. Download a fresh template and copy your figures into it.`,
+          `That spreadsheet is not in the budget format: the ${ws.name} sheet is missing its ${needs.length === 3 ? 'Line, Type or Amount for the year' : 'Line or Amount for the year'} column. Download a fresh template from this screen and copy your figures into it.`,
         )
       }
       rows.push(...rowsOf(ws, forceIncome))
@@ -400,7 +400,7 @@ export async function readBudgetWorkbook(file: File): Promise<BudgetRead> {
   )
   if (!sheet) {
     throw new BudgetWorkbookError(
-      'No sheet in that workbook has the Line, Type and Amount for the year columns. Download the template from this screen and fill that in instead.',
+      'That spreadsheet is not in the budget format: no sheet in it has the Line, Type and Amount for the year columns. Download the budget template from this screen, copy your figures into it, and upload that.',
     )
   }
   return { fingerprint, rows: rowsOf(sheet, false) }
