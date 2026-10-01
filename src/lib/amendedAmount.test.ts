@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { amendmentComment, amendmentDelta, planAmendment } from './amendedAmount'
+import { amendmentDelta, planAmendment } from './amendedAmount'
 import { effectiveAmount, isAmended } from './amountRequested'
 
 const base = {
@@ -103,20 +103,6 @@ describe('planAmendment', () => {
       firstYearAmount: 30_000,
     })
     expect(plan).toMatchObject({ amountChanged: false, firstYear: 30_000 })
-  })
-})
-
-describe('amendmentComment', () => {
-  it('says what changed, against the ask, with the reason beneath', () => {
-    expect(amendmentComment(50_000, 35_000, 50_000)).toBe(
-      'Proposed £35,000 instead of the £50,000 requested.',
-    )
-    expect(amendmentComment(35_000, 30_000, 50_000, '  Trustees want a smaller pilot. ')).toBe(
-      'Proposed amount changed from £35,000 to £30,000 (£50,000 requested).\n\nTrustees want a smaller pilot.',
-    )
-    expect(amendmentComment(35_000, 50_000, 50_000)).toBe(
-      'Proposed amount set back to the £50,000 requested.',
-    )
   })
 })
 

@@ -4,6 +4,8 @@ import { and, count, desc, eq, gte, inArray, lte, isNotNull } from 'drizzle-orm'
 import { getDb } from '../db'
 import { auditLog, applications, users } from '../../../drizzle/schema'
 import { requireRole } from '../session'
+import { assertApplicationAccess } from '../scope'
+import { applicationActivity } from '../applicationActivity'
 import { actionsInCategory, auditDetail, auditSubject, type AuditAction } from '../../lib/audit'
 
 // The Activity screen: the whole audit log for one foundation, filtered and paged.
@@ -140,3 +142,19 @@ export const listActivityActors = createServerFn({ method: 'GET' }).handler(asyn
     .filter((r): r is { id: string; name: string } => Boolean(r.id))
     .sort((a, b) => a.name.localeCompare(b.name))
 })
+
+/**
+ * One application's own activity, for the Activity tab beside its comments.
+ *
+ * Admins only, like the rest of this file; the tab is not drawn for anybody else, and
+ * this is the boundary that makes that true. A server fn of its own rather than part of
+ * `getApplication`, because the same tab opens from the shortlist's comment button, where
+ * no application has been loaded.
+ */
+export const listApplicationActivity = createServerFn({ method: 'GET' })
+  .validator(z.object({ applicationId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const user = await requireRole('superadmin', 'admin')
+    await assertApplicationAccess(user, data.applicationId)
+    return applicationActivity(data.applicationId)
+  })

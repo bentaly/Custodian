@@ -444,8 +444,6 @@ function ApplicationDetail() {
   // shortlisting against an enforced budget and offered on the Amount proposed card.
   const [amountOpen, setAmountOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<'shortlist' | 'edit'>('shortlist')
-  // A changed amount posts a comment; bumping this makes the thread fetch it.
-  const [commentsKey, setCommentsKey] = useState(0)
   // What the last edit did ("Saved. The AI assessment is being re-run."), shown above
   // the body until the next one or a reload.
   // What the last edit did ("Saved. The AI assessment is running now."), shown above the
@@ -812,7 +810,6 @@ function ApplicationDetail() {
           note: change.note || undefined,
         },
       })
-      setCommentsKey((k) => k + 1)
     }
     if (amountMode === 'shortlist') {
       await updateApplicationStatus({ data: { id: application.id, status: 'shortlisted' } })
@@ -2043,13 +2040,15 @@ function ApplicationDetail() {
           </Panel>
         )}
 
-        {/* Comments */}
+        {/* Comments, and for admins the activity record on a tab beside them */}
         <Panel label="Comments">
           <CommentsSection
             applicationId={application.id}
             userId={user.id}
             userRole={user.role}
-            reloadKey={commentsKey}
+            // The loader's own object: new after every save on this screen, which is
+            // exactly when the Activity tab has something new to show.
+            activityKey={application}
           />
         </Panel>
       </div>

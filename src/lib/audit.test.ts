@@ -88,6 +88,17 @@ describe('auditDetail', () => {
     ).toContain('£35,000 → £50,000')
   })
 
+  it('carries the reason given for a proposed amount', () => {
+    expect(
+      auditDetail('application_amount_proposed', {
+        from: 50000,
+        to: 35000,
+        requested: 50000,
+        note: 'Trustees want a smaller pilot.',
+      }),
+    ).toContain('“Trustees want a smaller pilot.”')
+  })
+
   it('keeps a deleted comment readable, and truncates a long one', () => {
     expect(auditDetail('application_comment_deleted', { body: 'Concerned about the budget' })).toBe(
       '“Concerned about the budget”',

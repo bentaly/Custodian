@@ -14,7 +14,7 @@ export type AmountChange = {
   /** `undefined` = the person did not touch this year's share (the server keeps a stated
    *  one that still fits); `null` = the suggestion; a number = what they typed. */
   firstYearAmount: number | null | undefined
-  /** A reason, appended to the comment the change posts in the discussion. */
+  /** A reason, recorded with the change and shown in the application's Activity. */
   note: string
   /** Whether anything differs from what is stored, so a caller can skip the write. */
   changed: boolean
@@ -37,7 +37,7 @@ export type AmountChange = {
  * The amount always. This year's share only where it can differ from the amount (a
  * multi-year round, or a share somebody already stated): for a single-year grant the two
  * are the same number and asking twice is noise. A reason only once the amount has
- * changed, since that is what posts a comment. The remaining round budget whenever there
+ * changed, since that is what is recorded. The remaining round budget whenever there
  * is one, because the question somebody changing a figure is asking is "does it fit".
  */
 export function AmountDialog({
@@ -258,7 +258,7 @@ export function AmountDialog({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               disabled={busy}
-              placeholder="Added to the discussion with the change"
+              placeholder="Recorded with the change, for admins to see"
             />
           </div>
         )}

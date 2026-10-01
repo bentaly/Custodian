@@ -445,9 +445,13 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
         return typeof v === 'number' ? `£${v.toLocaleString('en-GB')}` : null
       }
       const requested = pounds('requested')
+      // The reason given with the change, where there was one. Clipped here, for a
+      // table cell; the application's own Activity section shows it whole.
+      const note = str(metadata, 'note')
       parts.push(
         change(pounds('from') ?? requested, pounds('to') ?? requested),
         requested ? `requested ${requested}` : null,
+        note ? `“${note.length > 120 ? `${note.slice(0, 119)}…` : note}”` : null,
       )
       break
     }

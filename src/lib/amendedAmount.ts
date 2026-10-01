@@ -121,25 +121,6 @@ export function planAmendment(input: AmendmentInput): AmendmentPlan | { refused:
   }
 }
 
-/**
- * The comment a change posts in the application's discussion, as the admin who made it.
- * Plain words and no em dash: trustees read it in the thread beside their own comments.
- */
-export function amendmentComment(
-  from: number,
-  to: number,
-  requested: number,
-  note?: string | null,
-): string {
-  const line = same(to, requested)
-    ? `Proposed amount set back to the ${fmtMoney(requested)} requested.`
-    : same(from, requested)
-      ? `Proposed ${fmtMoney(to)} instead of the ${fmtMoney(requested)} requested.`
-      : `Proposed amount changed from ${fmtMoney(from)} to ${fmtMoney(to)} (${fmtMoney(requested)} requested).`
-  const reason = note?.trim()
-  return reason ? `${line}\n\n${reason}` : line
-}
-
 /** "−£15,000 (−30%)" / "+£10,000 (+33%)": the change from the ask, for a pill or sub-line. */
 export function amendmentDelta(effective: number, requested: number): string {
   const diff = effective - requested

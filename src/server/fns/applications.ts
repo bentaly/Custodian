@@ -19,7 +19,7 @@ import {
 } from 'drizzle-orm'
 import { getDb } from '../db'
 import { decidedAmount, effectiveAmount } from '../../lib/amountRequested'
-import { amendmentComment, planAmendment } from '../../lib/amendedAmount'
+import { planAmendment } from '../../lib/amendedAmount'
 import { fmtMoney } from '../../lib/format'
 import { currentVoterOf } from '../members'
 import {
@@ -27,7 +27,6 @@ import {
   roundProgrammes,
   programmes,
   applicationVotes,
-  applicationComments,
   users,
   awards,
   awardInstalments,
@@ -899,23 +898,19 @@ export const setAmendedAmount = createServerFn({ method: 'POST' })
         ...(plan.amountChanged ? { amountAmendedAt: new Date() } : {}),
       })
       .where(eq(applications.id, app.id))
+    await update
     if (plan.amountChanged) {
-      await db.batch([
-        update,
-        db.insert(applicationComments).values({
-          applicationId: app.id,
-          userId: user.id,
-          body: amendmentComment(from, plan.effective, requested, data.note),
-        }),
-      ])
+      // The record of the change, with the reason given for it. It used to post a
+      // comment in the discussion as well (until 2026-10-01), which read as the admin
+      // speaking when the app had written it, and counted as a comment on the vote card.
+      // The application's Activity section is where it is read now.
+      const note = data.note?.trim()
       await recordAudit({
         actorUserId: user.id,
         action: 'application_amount_proposed',
         applicationId: app.id,
-        metadata: { from, to: plan.amended, requested },
+        metadata: { from, to: plan.amended, requested, ...(note ? { note } : {}) },
       })
-    } else {
-      await update
     }
 
     // Votes on the board as it stands, all of which now predate the figure on screen.

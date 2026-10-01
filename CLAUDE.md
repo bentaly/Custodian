@@ -339,8 +339,12 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   beneficiary. Anything labelled "ask" / "requested" stays on `amount_requested`. Set only
   through `setAmendedAmount` (admins; refused once declined or awarded; `planAmendment` in
   `lib/amendedAmount.ts` is the rule), which writes it with the first-year share in one update
-  because a shrinking whole can orphan a stated part, and posts a comment as the admin plus an
-  `application_amount_proposed` audit row. **Votes are never reset**: `amount_amended_at`
+  because a shrinking whole can orphan a stated part, and writes an
+  `application_amount_proposed` audit row carrying the reason given (`note`). It posted a
+  comment in the discussion too until 2026-10-01; that read as the admin speaking and counted
+  on the vote card, so the record is now read on the **Activity tab** beside the comments
+  (`CommentsSection`, one component for the application page AND the shortlist's comment
+  dialog; `listApplicationActivity`, admins only, comments left out; anybody else sees no tabs). **Votes are never reset**: `amount_amended_at`
   against `application_votes.updated_at` tells the card which votes predate the figure.
   ONE dialog (`AmountDialog`) asks both figures, from the shortlist card, the application's
   Amount proposed card, and the enforced-budget shortlist step. **Not an `EditableSlot`
