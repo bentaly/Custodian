@@ -4,6 +4,8 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Alert02Icon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
   CancelCircleIcon,
   CheckmarkCircle02Icon,
   ClipboardCheckIcon,
@@ -13,9 +15,10 @@ import {
 import { castVote } from '../../server/fns/comments'
 import { CRITERION_DEFINITIONS, type CustodianScoreDetail } from '../../lib/custodianScore'
 import type { DeprivationResult } from '../../lib/deprivation/types'
+import type { OrganisationProfile } from '../../lib/dueDiligence/types'
 import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import { fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
+import { fmtMoney, fmtPerYear } from '../../lib/format'
 import { Avatar, ErrorNote, TextLink, initials } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
@@ -47,7 +50,6 @@ export type VoteCardApplication = {
   id: string
   organisationName: string
   amountRequested: string | null
-  externalApplicationId: string | null
   charityNumber: string | null
   companyNumber: string | null
   deliveryArea: string | null
@@ -60,6 +62,10 @@ export type VoteCardApplication = {
   deprivationContext: DeprivationResult | null
   dueDiligenceStatus: string
   proposedImpactQuantity: string | null
+  /** The applicant's own figure, from the form. The only source there is for it. */
+  unrestrictedReserves: string | null
+  /** The register's filed figures; `latestIncome` is what the card prints. */
+  organisationProfile: OrganisationProfile | null
   /** What this grant draws from the round this financial year — resolved server-side, of
    *  the proposed amount where there is one. */
   firstYearAmount: number
@@ -383,8 +389,11 @@ export function VoteCard({
   iVote,
   allowAdminVoting,
   amountContext,
+  programmeColour,
 }: {
   app: VoteCardApplication
+  /** The programme's own colour, as the Proposed spend panel above the cards draws it. */
+  programmeColour?: string
   voters: ShortlistVoter[]
   userId: string
   userRole: string
@@ -404,6 +413,9 @@ export function VoteCard({
   const [showComments, setShowComments] = useState(false)
   const [changing, setChanging] = useState(false)
   const [editingAmount, setEditingAmount] = useState(false)
+  // Closed until asked for: a card is read for the ask, the assessment and the vote, and
+  // a list of caveats open on every one of ten cards is most of the screen.
+  const [flagsOpen, setFlagsOpen] = useState(false)
   const [justCast, setJustCast] = useState<
     Record<string, { vote: 'yes' | 'no'; proxied: boolean }>
   >({})
@@ -486,9 +498,9 @@ export function VoteCard({
   // Narrow on the payload's own discriminant rather than the denormalised status
   // column, so the fields we read are guaranteed present by the type.
   const deprivation = app.deprivationContext?.status === 'resolved' ? app.deprivationContext : null
-  const subline = [deliveryAreaLabel(app), fmtRef(app.externalApplicationId)]
-    .filter(Boolean)
-    .join(' · ')
+  // The area only. The foundation's reference used to follow it, and a board has no use
+  // for one: it is on the application, a click away, for whoever does.
+  const subline = deliveryAreaLabel(app) ?? ''
 
   const flags = detail?.flags ?? []
 
@@ -496,24 +508,30 @@ export function VoteCard({
   // clear and wrong the moment it is not: a board must not approve a grant to a charity
   // the registry flagged without the flag being on the screen they approve it from. So
   // it appears in the meta strip only when it has something to say.
+  // `warning` says nothing here (2026-10-01): it is the commonest status by far (a late
+  // filing, a recent trustee change), so "Due diligence warnings" sat on most cards and
+  // told the board nothing it could act on. The detail is on the application.
   const ddNote =
-    app.dueDiligenceStatus === 'warning'
-      ? 'Due diligence warnings'
-      : app.dueDiligenceStatus === 'blocked'
-        ? 'Due diligence blocked'
-        : app.dueDiligenceStatus === 'review'
-          ? 'Due diligence needs a manual check'
-          : app.dueDiligenceStatus === 'no_registration'
-            ? // Said plainly rather than as "not run": the board is about to vote, and
-              // "no register to check" is a fact about the applicant they should weigh,
-              // not a job somebody forgot to do.
-              'No charity or company number, so not screened'
-            : app.dueDiligenceStatus === 'pending'
-              ? 'Due diligence not run'
-              : null
+    app.dueDiligenceStatus === 'blocked'
+      ? 'Due diligence blocked'
+      : app.dueDiligenceStatus === 'review'
+        ? 'Due diligence needs a manual check'
+        : app.dueDiligenceStatus === 'no_registration'
+          ? // Said plainly rather than as "not run": the board is about to vote, and
+            // "no register to check" is a fact about the applicant they should weigh,
+            // not a job somebody forgot to do.
+            'No charity or company number, so not screened'
+          : app.dueDiligenceStatus === 'pending'
+            ? 'Due diligence not run'
+            : null
 
   // Figure and unit are separated so the figure can carry the weight (Figma 765:3377):
   // what a board scans this strip for is the numbers, not the words between them.
+  // The size of the organisation asking, beside the size of the ask. Income is the
+  // register's last filed year; reserves are the applicant's own figure from the form.
+  // Each is simply left out where there is none, as the others on this strip are.
+  const income = app.organisationProfile?.latestIncome ?? null
+  const reserves = app.unrestrictedReserves != null ? parseFloat(app.unrestrictedReserves) : null
   const meta = [
     impact !== null
       ? { value: impact.toLocaleString('en-GB'), label: unitLabel.toLowerCase() }
@@ -522,6 +540,8 @@ export function VoteCard({
     deprivation
       ? { value: `IMD ${formatDecileRange(deprivation).toLowerCase()}`, label: '' }
       : null,
+    income !== null ? { value: fmtMoney(income), label: 'income (last filed year)' } : null,
+    reserves !== null ? { value: fmtMoney(reserves), label: 'unrestricted reserves' } : null,
   ].filter((m) => m !== null)
 
   async function handleVote(vote: 'yes' | 'no', onBehalfOf?: string) {
@@ -543,11 +563,16 @@ export function VoteCard({
   }
 
   return (
-    <div className="rounded-card border bg-white" style={{ borderColor: C.line }}>
+    // Kept whole on paper where it fits on a sheet: a card split across two pages has
+    // its votes on one and what was voted on on the other.
+    <div
+      className="rounded-card border bg-white print:break-inside-avoid"
+      style={{ borderColor: C.line }}
+    >
       <div className="flex flex-col lg:flex-row">
         {/* ── The application ── */}
         <div className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <div
               className="flex size-10 shrink-0 items-center justify-center rounded-chip"
               style={{ backgroundColor: C.wash }}
@@ -556,24 +581,48 @@ export function VoteCard({
                 {initials(app.organisationName)}
               </span>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-2">
+            {/* Named as every list names a grantee (`ui/OrganisationCell`): the name, and
+                one line of facts beneath, the pair sitting level with the monogram. The
+                facts are where the application sits: its programme, behind the swatch it
+                wears on the Proposed spend panel above (where the eye has just learnt the
+                colours), and its area. The decision is the card's one pill, because it is
+                the card's status, and stands beside the pair rather than on the name's
+                line, where its height pushed the two lines off the monogram. */}
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+              <div className="min-w-0">
                 <Link
                   to="/applications/$applicationId"
                   params={{ applicationId: app.id }}
-                  className="font-display text-title font-medium hover:underline"
+                  className="block truncate font-display text-title leading-tight font-medium hover:underline"
                   style={{ color: C.ink }}
                 >
                   {app.organisationName}
                 </Link>
-                <span className="truncate font-display text-label" style={{ color: C.sub }}>
-                  {subline}
-                </span>
+                {(programme?.name || subline) && (
+                  <div
+                    className="mt-0.5 flex min-w-0 items-center gap-1.5 font-display text-label"
+                    style={{ color: C.sub }}
+                  >
+                    {programme?.name && (
+                      <>
+                        {programmeColour && (
+                          <span
+                            aria-hidden
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: programmeColour }}
+                          />
+                        )}
+                        <span className="truncate">{programme.name}</span>
+                      </>
+                    )}
+                    {programme?.name && subline && <span aria-hidden>·</span>}
+                    {subline && <span className="truncate">{subline}</span>}
+                  </div>
+                )}
               </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                {programme?.name && <Pill tone="grey">{programme.name}</Pill>}
+              <span className="shrink-0">
                 <DecisionPill tally={tally} />
-              </div>
+              </span>
             </div>
             <div className="shrink-0 text-right">
               {/* THIS YEAR leads, the whole commitment sits under it. Every other figure
@@ -655,15 +704,35 @@ export function VoteCard({
 
           {flags.length > 0 && (
             <div className="rounded-control px-3.5 py-2.5" style={{ backgroundColor: C.amberWash }}>
-              <div className="flex items-center gap-1.5">
+              {/* The heading is the toggle. The count stays on it either way, so a closed
+                  panel still says how much there is to read. */}
+              <button
+                type="button"
+                onClick={() => setFlagsOpen((open) => !open)}
+                aria-expanded={flagsOpen}
+                className="flex w-full items-center gap-1.5 text-left"
+              >
                 <HugeiconsIcon icon={Alert02Icon} size={14} color={C.amber} strokeWidth={1.8} />
                 <span className="font-display text-label font-medium" style={{ color: C.amber }}>
                   {flags.length === 1 ? 'One thing to check' : `${flags.length} things to check`}
                 </span>
-              </div>
+                <span className="ml-auto print:hidden">
+                  <HugeiconsIcon
+                    icon={flagsOpen ? ArrowUp01Icon : ArrowDown01Icon}
+                    size={14}
+                    color={C.amber}
+                    strokeWidth={1.8}
+                  />
+                </span>
+              </button>
               {/* Numbered, so the board can say "the second one" across the table. A lone
-                  flag gets no "1." under a heading that already says "One thing". */}
-              <ol className={`mt-1.5 space-y-1 ${flags.length > 1 ? 'list-decimal pl-5' : ''}`}>
+                  flag gets no "1." under a heading that already says "One thing".
+                  Always open in print: a PDF has nothing to press. */}
+              <ol
+                className={`mt-1.5 space-y-1 print:block ${flagsOpen ? '' : 'hidden'} ${
+                  flags.length > 1 ? 'list-decimal pl-5' : ''
+                }`}
+              >
                 {flags.map((f, i) => (
                   <li
                     key={i}
@@ -763,7 +832,9 @@ export function VoteCard({
               </Link>
             </p>
           ) : (
-            <div className="flex flex-col gap-2">
+            // Across the sheet on paper: at print width the roster sits under the
+            // application rather than beside it, and one name per line wasted the row.
+            <div className="flex flex-col gap-2 print:grid print:grid-cols-2 print:gap-x-8">
               {voters.map((t) => {
                 const vote = voteMap.get(t.id)
                 return (
@@ -840,35 +911,42 @@ export function VoteCard({
             </div>
           )}
 
-          {canVoteAsSelf && myVote !== undefined && !changing && (
-            <div
-              className="flex flex-col items-center gap-1 rounded-control py-3"
-              style={{ backgroundColor: myVote === 'yes' ? C.brandBg : C.dangerWash }}
-            >
-              <span
-                className="flex items-center gap-1.5 font-display text-label font-medium"
-                style={{ color: myVote === 'yes' ? C.brand : C.danger }}
+          {canVoteAsSelf &&
+            myVote !== undefined &&
+            !changing && (
+              // Not printed, like the line below it: both speak to whoever is signed in,
+              // and the pack is read by the whole board. The roster already says it.
+              <div
+                className="flex flex-col items-center gap-1 rounded-control py-3 print:hidden"
+                style={{ backgroundColor: myVote === 'yes' ? C.brandBg : C.dangerWash }}
               >
-                <HugeiconsIcon
-                  icon={myVote === 'yes' ? CheckmarkCircle02Icon : CancelCircleIcon}
-                  size={14}
-                  strokeWidth={1.8}
-                />
-                You {myVote === 'yes' ? 'approved' : 'declined'} this application
-              </span>
-              <button
-                type="button"
-                onClick={() => setChanging(true)}
-                className="font-display text-label font-medium underline"
-                style={{ color: myVote === 'yes' ? C.brand : C.danger }}
-              >
-                Change vote
-              </button>
-            </div>
-          )}
+                <span
+                  className="flex items-center gap-1.5 font-display text-label font-medium"
+                  style={{ color: myVote === 'yes' ? C.brand : C.danger }}
+                >
+                  <HugeiconsIcon
+                    icon={myVote === 'yes' ? CheckmarkCircle02Icon : CancelCircleIcon}
+                    size={14}
+                    strokeWidth={1.8}
+                  />
+                  You {myVote === 'yes' ? 'approved' : 'declined'} this application
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setChanging(true)}
+                  className="font-display text-label font-medium underline"
+                  style={{ color: myVote === 'yes' ? C.brand : C.danger }}
+                >
+                  Change vote
+                </button>
+              </div>
+            )}
 
           {canVoteForTrustees && (
-            <p className="font-display text-label leading-snug" style={{ color: C.sub }}>
+            <p
+              className="font-display text-label leading-snug print:hidden"
+              style={{ color: C.sub }}
+            >
               {canVoteAsSelf
                 ? 'You hold a vote, and can record the other members’ votes on their behalf.'
                 : 'You are recording votes on trustees’ behalf.'}
@@ -885,7 +963,7 @@ export function VoteCard({
           <TextLink
             to="/applications/$applicationId"
             params={{ applicationId: app.id }}
-            className="mt-auto pt-1 text-center text-body"
+            className="mt-auto pt-1 text-center text-body print:hidden"
           >
             View Application details →
           </TextLink>

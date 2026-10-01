@@ -313,6 +313,28 @@
   }
 }
 
+/* ─── Print ──────────────────────────────────────────────────────────────────
+   What a screen needs so that "print" (which is also "save as PDF") gives a document
+   rather than a photograph of the app. The shell hides its own chrome and unpins
+   itself (`_authenticated.tsx`); this is the part no element can say for itself.
+
+   `print-color-adjust: exact` because browsers drop background colours on paper by
+   default, and here the backgrounds carry meaning: a status pill is its tint, a
+   budget meter is nothing but two fills. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  html,
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 /* ─── Measure ────────────────────────────────────────────────────────────────
    Prose is capped at a reading measure rather than run to the width of whatever
    container it happens to sit in. On a wide screen a settings description or an

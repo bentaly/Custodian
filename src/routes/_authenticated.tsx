@@ -54,11 +54,15 @@ function AuthenticatedLayout() {
   useEffect(() => setNavOpen(false), [pathname])
 
   return (
-    <div className="flex h-screen flex-col">
+    // On paper the shell lets go: pinned to the viewport with the page scrolling inside
+    // `<main>`, a print stopped at the bottom of the first sheet whatever the screen
+    // held. The `print:` classes here unpin it, and the chrome (banner, sidebar,
+    // header) prints nowhere, so any screen prints as its content and all of it.
+    <div className="flex h-screen flex-col print:block print:h-auto">
       <ImpersonationBanner />
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 print:block">
         <Sidebar mobileOpen={navOpen} onClose={() => setNavOpen(false)} role={user.role} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col print:block">
           <AppHeader user={user} rounds={rounds} onOpenNav={() => setNavOpen(true)} />
           {/* 16px all round at every width — the design's page gutter (Figma 126:31899).
 
@@ -71,7 +75,7 @@ function AuthenticatedLayout() {
               stay in step. */}
           <main
             data-scroll-restoration-id={APP_SCROLL_ID}
-            className="flex-1 overflow-y-auto bg-white p-4"
+            className="flex-1 overflow-y-auto bg-white p-4 print:overflow-visible print:p-0"
           >
             <Outlet />
           </main>
@@ -95,7 +99,7 @@ function ImpersonationBanner() {
   }
 
   return (
-    <div className="flex items-center justify-center gap-3 bg-warning px-4 py-2 text-body text-white">
+    <div className="flex items-center justify-center gap-3 bg-warning px-4 py-2 text-body text-white print:hidden">
       <span>
         Impersonating <span className="font-medium">{data?.user?.email}</span>
       </span>

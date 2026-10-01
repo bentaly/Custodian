@@ -48,6 +48,8 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
   { value: 'csv', label: 'CSV (.csv)' },
 ]
 
+const PDF_OPTION = { value: 'pdf', label: 'PDF (.pdf)' }
+
 /**
  * `ExportButton` for a screen that offers both formats: the same button, opening a
  * choice of file. Built on `Listbox` with no value, like the Applications bulk-status
@@ -60,8 +62,16 @@ export function ExportMenu({
   label = 'Export',
   busyLabel = 'Exporting…',
   size = 'md',
+  onPdf,
 }: {
   onExport: (format: ExportFormat) => void
+  /**
+   * Offers "PDF (.pdf)" as the FIRST choice, for a screen whose export is a document to
+   * read before it is a table to sort (the Shortlist's board pack). Its own callback
+   * rather than a third `ExportFormat`: a PDF is the screen printed, not the table
+   * written out, so `downloadTable` has nothing to do with it.
+   */
+  onPdf?: () => void
   busy?: boolean
   disabled?: boolean
   label?: string
@@ -71,9 +81,9 @@ export function ExportMenu({
   return (
     <Listbox
       className="shrink-0"
-      options={FORMAT_OPTIONS}
+      options={onPdf ? [PDF_OPTION, ...FORMAT_OPTIONS] : FORMAT_OPTIONS}
       value={undefined}
-      onChange={(v) => onExport(v as ExportFormat)}
+      onChange={(v) => (v === PDF_OPTION.value ? onPdf?.() : onExport(v as ExportFormat))}
       ariaLabel="Export format"
       disabled={busy || disabled}
       renderTrigger={({ props }) => (

@@ -375,7 +375,7 @@ export function AppHeader({
   const orgName = user.clientName ?? 'Custodian Platform'
 
   return (
-    <header className="relative flex h-[74px] shrink-0 items-center justify-between gap-2 border-b border-grey-200 bg-white px-3 sm:gap-4 sm:px-4">
+    <header className="relative flex h-[74px] shrink-0 items-center justify-between gap-2 border-b border-grey-200 bg-white px-3 sm:gap-4 sm:px-4 print:hidden">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"

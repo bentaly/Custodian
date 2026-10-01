@@ -142,7 +142,7 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="hidden w-64 shrink-0 flex-col bg-background lg:flex">
+      <aside className="hidden w-64 shrink-0 flex-col bg-background lg:flex print:hidden">
         <div className="flex h-[74px] items-center gap-2 border-b border-grey-200 px-4">
           <LogoMark />
           <span className="text-heading font-semibold text-grey-900">Custodian</span>
@@ -151,7 +151,7 @@ export function Sidebar({
       </aside>
 
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 lg:hidden ${
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 lg:hidden print:hidden ${
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={onClose}
@@ -166,7 +166,7 @@ export function Sidebar({
         // tab order while closed — `aria-hidden` alone would still let a keyboard
         // user tab into off-screen links.
         inert={!mobileOpen}
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out lg:hidden print:hidden ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

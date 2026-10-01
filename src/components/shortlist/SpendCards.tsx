@@ -68,7 +68,7 @@ export function ProposedSpend({
 
   return (
     <div
-      className="flex min-w-0 flex-col rounded-card border bg-white p-4"
+      className="flex min-w-0 flex-col rounded-card border bg-white p-4 print:break-inside-avoid"
       style={{ borderColor: C.line }}
     >
       {/* The whole heading is the control, so the hit area is the width of the card
