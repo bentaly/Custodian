@@ -20,6 +20,8 @@
 //     budget it counts against and which themes it can have), and is not built
 //   - the applicant's prose (their answers, their description of themselves): that is
 //     the applicant speaking, and the assessment reads it
+//   - the unrestricted reserves: the applicant's own statement of their finances, and
+//     the only source there is for it, so it stays as they gave it
 //   - anything derived (score, decile, due diligence): change the input and it re-runs
 //   - anything at all once a grant has been awarded: the award letter was written from
 //     these figures
@@ -38,7 +40,6 @@ export const EDITABLE_FIELDS = [
   'companyNumber',
   'amountRequested',
   'proposedImpactQuantity',
-  'unrestrictedReserves',
   'deliveryArea',
   'bankName',
   'bankAccountName',
@@ -54,11 +55,7 @@ export function isEditableField(key: string): key is EditableField {
 }
 
 /** Stored as numbers; everything else is text. */
-const NUMERIC_FIELDS = new Set<EditableField>([
-  'amountRequested',
-  'proposedImpactQuantity',
-  'unrestrictedReserves',
-])
+const NUMERIC_FIELDS = new Set<EditableField>(['amountRequested', 'proposedImpactQuantity'])
 
 export function isNumericField(field: EditableField): boolean {
   return NUMERIC_FIELDS.has(field)
@@ -103,7 +100,6 @@ export function looksLike(field: EditableField, raw: string): boolean {
   if (!v) return false
   switch (field) {
     case 'amountRequested':
-    case 'unrestrictedReserves':
     case 'proposedImpactQuantity':
       // A figure somewhere in a short answer ("58k across three years" counts; a
       // paragraph that mentions "two estates" does not).

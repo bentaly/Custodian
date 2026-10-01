@@ -104,6 +104,10 @@ describe('setField', () => {
     expect(EDITABLE_FIELDS).not.toContain('externalApplicationId' as never)
     expect(EDITABLE_FIELDS).not.toContain('programmeName' as never)
   })
+
+  it('never offers the unrestricted reserves for editing', () => {
+    expect(EDITABLE_FIELDS).not.toContain('unrestrictedReserves' as never)
+  })
 })
 
 describe('moveAnswer', () => {

@@ -613,7 +613,6 @@ function ApplicationDetail() {
     companyNumber: application.companyNumber,
     amountRequested: application.amountRequested,
     proposedImpactQuantity: application.proposedImpactQuantity,
-    unrestrictedReserves: application.unrestrictedReserves,
     deliveryArea: application.deliveryArea,
     bankName: application.bankName,
     bankAccountName: application.bankAccountName,
@@ -898,7 +897,13 @@ function ApplicationDetail() {
                   <HeaderButton
                     tone="plain"
                     icon={Mail01Icon}
-                    href={`mailto:${encodeURIComponent(application.applicantEmail)}?subject=${encodeURIComponent(
+                    // The "@" is left as it is: encoded to %40 it is still a legal
+                    // address, but some mail clients (Outlook among them) do not decode
+                    // it and open a draft to nobody they can send to.
+                    href={`mailto:${encodeURIComponent(application.applicantEmail.trim()).replace(
+                      /%40/g,
+                      '@',
+                    )}?subject=${encodeURIComponent(
                       `Your application to ${clientName ?? 'us'}${
                         application.externalApplicationId
                           ? ` (${application.externalApplicationId})`
@@ -1680,58 +1685,48 @@ function ApplicationDetail() {
               API, see `OrganisationProfile.unrestrictedReserves`). It stood empty on
               every application until the form question became a canonical field, and it
               is still shown when empty so a foundation that doesn't ask can see what
-              asking would buy them. */}
-          <EditableSlot
-            canEdit={canEdit}
-            lockedReason={application.editLocked}
-            label="Edit unrestricted reserves"
-            applicationId={application.id}
-            fields={['unrestrictedReserves']}
-            values={editValues}
-            onSaved={onSaved}
-            onChooseAnswer={chooseAnswer}
-          >
-            <MiniKpi
-              tint={KPI.reserves}
-              icon={SafeBoxIcon}
-              label="Unrestricted reserves"
-              value={
-                orgReserves != null
-                  ? withMark(
-                      <CompactMoney amount={orgReserves} label="Exact reserves" />,
-                      'unrestrictedReserves',
-                    )
-                  : '--'
-              }
-              sub={
-                <>
-                  {orgReserves != null ? (
-                    reserveMonths != null && orgSpend != null ? (
-                      // The two figures come from different places and different dates
-                      // (the form now, the register's last filed year), and the divisor
-                      // is TOTAL spending because the register does not split out
-                      // unrestricted. A bare "~3 months" hides all of that.
-                      <Tooltip
-                        label="How months of spend is worked out"
-                        trigger={`~${reserveMonths} months' spend`}
-                      >
-                        {fmtMoney(orgReserves)} unrestricted reserves
-                        {reservesFromApplication ? ' (stated on the form)' : ''}, against{' '}
-                        {fmtMoney(orgSpend)} total spending
-                        {orgPeriodEnd ? ` in the year to ${orgPeriodEnd}` : ''} (Charity Commission
-                        register). Total spending includes restricted funds, so this errs on the low
-                        side.
-                      </Tooltip>
-                    ) : (
-                      'as stated'
-                    )
+              asking would buy them. Not editable: it is the applicant's own statement
+              of their finances, so it reads as they gave it. */}
+          <MiniKpi
+            tint={KPI.reserves}
+            icon={SafeBoxIcon}
+            label="Unrestricted reserves"
+            value={
+              orgReserves != null
+                ? withMark(
+                    <CompactMoney amount={orgReserves} label="Exact reserves" />,
+                    'unrestrictedReserves',
+                  )
+                : '--'
+            }
+            sub={
+              <>
+                {orgReserves != null ? (
+                  reserveMonths != null && orgSpend != null ? (
+                    // The two figures come from different places and different dates
+                    // (the form now, the register's last filed year), and the divisor
+                    // is TOTAL spending because the register does not split out
+                    // unrestricted. A bare "~3 months" hides all of that.
+                    <Tooltip
+                      label="How months of spend is worked out"
+                      trigger={`~${reserveMonths} months' spend`}
+                    >
+                      {fmtMoney(orgReserves)} unrestricted reserves
+                      {reservesFromApplication ? ' (stated on the form)' : ''}, against{' '}
+                      {fmtMoney(orgSpend)} total spending
+                      {orgPeriodEnd ? ` in the year to ${orgPeriodEnd}` : ''} (Charity Commission
+                      register). Total spending includes restricted funds, so this errs on the low
+                      side.
+                    </Tooltip>
                   ) : (
-                    'not captured'
-                  )}{' '}
-                </>
-              }
-            />
-          </EditableSlot>
+                    'as stated'
+                  )
+                ) : (
+                  'not captured'
+                )}{' '}
+              </>
+            }
+          />
           {/* The deprivation panel that used to sit in the sidebar. Edited through the
               delivery area it is measured from: a vague area ("the North") is the most
               common reason there is no decile, and the person reading usually knows
