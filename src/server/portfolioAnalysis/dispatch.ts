@@ -45,6 +45,8 @@ export interface ClientCensus {
   clientId: string
   clientName: string
   fingerprint: string
+  /** Every award, cancelled included. Zero means there is nothing to summarise. */
+  awardCount: number
 }
 
 /**
@@ -126,6 +128,7 @@ export async function takeCensus(
     return {
       clientId: t.id,
       clientName: t.name,
+      awardCount: a?.total ?? 0,
       fingerprint: [
         `a${a?.total ?? 0}`,
         `x${a?.cancelled ?? 0}`,
@@ -182,7 +185,12 @@ export async function planDispatch(
     return {
       ...c,
       previousFingerprint: previous,
-      stale: opts.force === true || previous !== c.fingerprint,
+      // A client with no awards is never stale. `generatePortfolioAnalysis` answers
+      // `no_grants` for it and writes no row, so there is never a fingerprint to
+      // match and it was dispatched on every tick for good: three empty tenants on
+      // prod were twelve queue messages a day, each one a chance to meet a slow Neon
+      // wake-up and report a timeout for work that had nothing to do.
+      stale: opts.force === true || (c.awardCount > 0 && previous !== c.fingerprint),
     }
   })
 }
