@@ -27,8 +27,8 @@ describe('the vocabulary is complete', () => {
   })
 
   it('puts every action in exactly one category', () => {
-    const grouped = (['decisions', 'money', 'reporting', 'access'] as const).flatMap((c) =>
-      actionsInCategory(c),
+    const grouped = (['decisions', 'comments', 'money', 'reporting', 'access'] as const).flatMap(
+      (c) => actionsInCategory(c),
     )
     expect(grouped.sort()).toEqual([...ALL_ACTIONS].sort())
   })

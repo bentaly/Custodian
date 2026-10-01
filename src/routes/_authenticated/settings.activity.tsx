@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { listActivity, listActivityActors } from '../../server/fns/activity'
 import type { ActivityRow } from '../../server/fns/activity'
 import {
@@ -44,6 +44,7 @@ const CATEGORY_OPTIONS = (Object.keys(CATEGORY_LABELS) as AuditCategory[]).map((
 
 function Activity() {
   const { first, actors } = Route.useLoaderData()
+  const navigate = Route.useNavigate()
 
   const [rows, setRows] = useState(first)
   const [page, setPage] = useState(1)
@@ -123,11 +124,24 @@ function Activity() {
       id: 'at',
       header: 'When',
       width: 'sm:w-[17%]',
-      cell: (r) => (
-        <span className="font-display text-body whitespace-nowrap" style={{ color: C.sub }}>
-          {fmtDateTime(r.at) ?? '--'}
-        </span>
-      ),
+      // Two lines, the day over the time. On one line "2 November 2026 at 22:16 UTC" is
+      // wider than the column at most window sizes, and a fixed-layout table does not
+      // grow the column to fit: the time ran on under the name beside it.
+      cell: (r) => {
+        const [day, time] = (fmtDateTime(r.at) ?? '--').split(' at ')
+        return (
+          <span className="flex flex-col font-display whitespace-nowrap">
+            <span className="truncate text-body" style={{ color: C.sub }}>
+              {day}
+            </span>
+            {time && (
+              <span className="text-label" style={{ color: C.faint }}>
+                {time}
+              </span>
+            )}
+          </span>
+        )
+      },
     },
     {
       id: 'actor',
@@ -147,9 +161,23 @@ function Activity() {
       cell: (r) => (
         <span className="font-display text-body" style={{ color: C.sub }}>
           {ACTION_VERB[r.action]}{' '}
-          <span style={{ color: C.ink }} className="font-medium">
-            {r.subject ?? '--'}
-          </span>
+          {/* A real link as well as a clickable row, so the entry can be reached from the
+              keyboard and opened in a new tab. */}
+          {r.applicationId ? (
+            <Link
+              to="/applications/$applicationId"
+              params={{ applicationId: r.applicationId }}
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium hover:underline"
+              style={{ color: C.ink }}
+            >
+              {r.subject ?? '--'}
+            </Link>
+          ) : (
+            <span style={{ color: C.ink }} className="font-medium">
+              {r.subject ?? '--'}
+            </span>
+          )}
         </span>
       ),
     },
@@ -172,7 +200,7 @@ function Activity() {
   return (
     <SettingsPage
       title="Activity"
-      description="Every action anyone has taken in Custodian, newest first. Nothing here can be edited or removed. An entry is only ever added, including when the thing it describes is deleted."
+      description="Every action anyone has taken in Custodian, newest first. Select an entry about an application to open it. Nothing here can be edited or removed. An entry is only ever added, including when the thing it describes is deleted."
     >
       <div className="flex flex-wrap items-center gap-2">
         <SelectPill
@@ -214,6 +242,17 @@ function Activity() {
           columns={columns}
           rows={rows.items}
           rowKey={(r) => r.id}
+          // An entry about an application opens it (and the grant it became is one step
+          // up from there). An access or budget entry concerns no application, so there
+          // is nowhere for it to go and its row must not look as if there were.
+          onRowClick={(r) => {
+            if (r.applicationId)
+              void navigate({
+                to: '/applications/$applicationId',
+                params: { applicationId: r.applicationId },
+              })
+          }}
+          rowClassName={(r) => (r.applicationId ? '' : '!cursor-default')}
           empty={
             rows.total === 0 && !Object.keys(filters).length
               ? 'Nothing has happened yet.'

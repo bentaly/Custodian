@@ -202,16 +202,21 @@ export type FeedAction = (typeof FEED_ACTIONS)[number]
 // ways in two places is the drift this module exists to prevent.
 
 /**
- * The four kinds of thing that happen, used to group the Activity screen's filter.
+ * The five kinds of thing that happen, used to group the Activity screen's filter.
  *
  * Grouped by what a person is looking FOR, not by which table was written: somebody
  * arrives asking "what happened to the money" or "who was let in", and neither question
  * follows the schema. Every action has exactly one category, enforced by the `Record`.
+ *
+ * Comments are their own category rather than a kind of decision: "what did the board
+ * say about this" is asked on its own, and under Decisions the answer was scattered
+ * among every shortlisting, edit and award.
  */
-export type AuditCategory = 'decisions' | 'money' | 'reporting' | 'access'
+export type AuditCategory = 'decisions' | 'comments' | 'money' | 'reporting' | 'access'
 
 export const CATEGORY_LABELS: Record<AuditCategory, string> = {
   decisions: 'Decisions',
+  comments: 'Comments',
   money: 'Money',
   reporting: 'Reporting',
   access: 'Access',
@@ -221,8 +226,8 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   application_awarded: 'decisions',
   application_declined: 'decisions',
   application_shortlisted: 'decisions',
-  application_commented: 'decisions',
-  application_comment_deleted: 'decisions',
+  application_commented: 'comments',
+  application_comment_deleted: 'comments',
   application_registration_set: 'decisions',
   application_vote_recorded_by_admin: 'decisions',
   application_edited: 'decisions',

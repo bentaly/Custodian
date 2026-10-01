@@ -20,7 +20,7 @@ export const ActivityFiltersSchema = z.object({
   // 10_000 is the export's reach — the whole filtered set in one file, since a
   // compliance file holding 25 of 4,000 rows would be worse than none.
   pageSize: z.number().int().min(1).max(10_000).default(25),
-  category: z.enum(['decisions', 'money', 'reporting', 'access']).optional(),
+  category: z.enum(['decisions', 'comments', 'money', 'reporting', 'access']).optional(),
   actorUserId: z.string().optional(),
   from: z.string().regex(ISO_DATE).optional(),
   to: z.string().regex(ISO_DATE).optional(),
