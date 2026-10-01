@@ -11,6 +11,7 @@ import { LogoMark } from './ui/LogoMark'
 import { ExternalTextLink, TextLink } from './ui/TextLink'
 import { cn } from './ui/cn'
 import { AREA_ICON } from './Sidebar'
+import { MAILTO_LINK, mailtoHref } from '../lib/mailto'
 
 /**
  * Split layout for the signed-out screens: brand panel one side, form the other.
@@ -163,7 +164,11 @@ export function InviteOnlyNote() {
           ·
         </span>
         <ExternalTextLink
-          href={`mailto:${INTEREST_EMAIL}?subject=${encodeURIComponent('Register interest in Custodian')}&body=${encodeURIComponent(INTEREST_BODY)}`}
+          href={mailtoHref(INTEREST_EMAIL, {
+            subject: 'Register interest in Custodian',
+            body: INTEREST_BODY,
+          })}
+          {...MAILTO_LINK}
         >
           Register interest
         </ExternalTextLink>

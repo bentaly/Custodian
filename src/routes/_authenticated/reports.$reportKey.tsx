@@ -49,6 +49,7 @@ import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
 import { formatDecileRange } from '../../lib/deprivation/types'
 import { impactPhrase } from '../../lib/impactUnits'
 import { againstProposal, grantTimeline, impactToDate } from '../../lib/reportTimeline'
+import { MAILTO_LINK, mailtoHref } from '../../lib/mailto'
 
 export const Route = createFileRoute('/_authenticated/reports/$reportKey')({
   // Not this screen's state — the LIST's, carried in by the row that was clicked so the
@@ -220,11 +221,12 @@ function ReportDetail() {
                 trigger={
                   <AnchorButton
                     icon={Mail01Icon}
-                    href={`mailto:${encodeURIComponent(report.applicantEmail)}?subject=${encodeURIComponent(
-                      `${report.label} for your grant${
+                    href={mailtoHref(report.applicantEmail, {
+                      subject: `${report.label} for your grant${
                         report.reference ? ` (${report.reference})` : ''
                       }`,
-                    )}`}
+                    })}
+                    {...MAILTO_LINK}
                   >
                     Email grantee
                   </AnchorButton>

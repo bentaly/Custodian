@@ -20,6 +20,7 @@ import { fmtDate, fmtExact, fmtRef, penceInput } from '../lib/format'
 import { messageFor } from '../lib/errors'
 import { localTodayIso } from '../lib/schedule'
 import { AREA_ICON } from './Sidebar'
+import { MAILTO_LINK, mailtoHref } from '../lib/mailto'
 
 // The payment panel (Figma 672:25886) — one grant's money in a dialog over the Finance
 // list, replacing the old `/finance/$awardId` detail screen. Three sections, in the
@@ -183,7 +184,8 @@ function EmailGrantee({ grant }: { grant: FinanceGrant }) {
         trigger={
           <ExternalTextLink
             className="inline-flex items-center gap-1.5 text-body"
-            href={`mailto:${encodeURIComponent(grant.applicantEmail)}?subject=${encodeURIComponent(subject)}`}
+            href={mailtoHref(grant.applicantEmail, { subject })}
+            {...MAILTO_LINK}
           >
             {/* The same mark "email this organisation" wears on the application and
                 report screens — `currentColor` so it is the link's brand, and 16px,

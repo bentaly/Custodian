@@ -78,6 +78,7 @@ import {
   charityRegisterUrl,
   type DueDiligenceCheckRecord,
 } from '../../lib/dueDiligence'
+import { MAILTO_LINK, mailtoHref } from '../../lib/mailto'
 import { fieldGaps, missingRegistrationNumber } from '../../lib/fieldMapping/gaps'
 import { useRemembered } from '../../lib/useRemembered'
 import type { DeprivationContext } from '../../lib/deprivation/types'
@@ -375,6 +376,8 @@ function HeaderButton({
     return (
       <a
         href={href}
+        // Every `href` this takes is a mailto; see `lib/mailto` for why a new tab.
+        {...MAILTO_LINK}
         {...described}
         className="inline-flex h-10 shrink-0 items-center gap-2 rounded-control border px-4 font-display text-body font-medium"
         style={style}
@@ -897,19 +900,13 @@ function ApplicationDetail() {
                   <HeaderButton
                     tone="plain"
                     icon={Mail01Icon}
-                    // The "@" is left as it is: encoded to %40 it is still a legal
-                    // address, but some mail clients (Outlook among them) do not decode
-                    // it and open a draft to nobody they can send to.
-                    href={`mailto:${encodeURIComponent(application.applicantEmail.trim()).replace(
-                      /%40/g,
-                      '@',
-                    )}?subject=${encodeURIComponent(
-                      `Your application to ${clientName ?? 'us'}${
+                    href={mailtoHref(application.applicantEmail, {
+                      subject: `Your application to ${clientName ?? 'us'}${
                         application.externalApplicationId
                           ? ` (${application.externalApplicationId})`
                           : ''
                       }`,
-                    )}`}
+                    })}
                   >
                     Email applicant
                   </HeaderButton>
