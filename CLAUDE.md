@@ -367,6 +367,11 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   is the dashboard's pipeline sense of the word), and prints the full commitment on a second line
   wherever the two differ — that figure is what the Awards register shows, so dropping it would
   read as half the money going missing.
+  **The Applications card was the last** (2026-10-02): `getRoundBudgetSummary` summed the
+  whole ask itself, so Arete's four two-year grants read "£30k committed of £15k" on a
+  round that was exactly spent. Its money now comes from `roundProgrammeSpend` too (the
+  counts are still its own), with the full term stated underneath, and Set up awards'
+  "left in round" reads the same rows.
 - **Every round belongs to exactly ONE financial year** (`src/lib/roundYear.ts`), and its
   budget is metered against that year rather than whichever is current — otherwise a round's
   meter drifts every 1 April as instalments fall inside a window that moved on without it.

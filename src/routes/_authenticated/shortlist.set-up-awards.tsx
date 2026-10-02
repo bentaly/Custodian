@@ -371,6 +371,8 @@ function SetUpAwards() {
   const totalAsk = candidates.items.reduce((s, c) => s + c.amountRequested, 0)
 
   // What is left of the round to commit: its budgets, less what it has already awarded.
+  // Both in this year's cash (`getRoundBudgetSummary`), so a two-year grant takes its
+  // first year's instalments out of the round rather than its whole value.
   const budgetTotal = budget.reduce((s, b) => s + (b.budget ?? 0), 0)
   const awardedTotal = budget.reduce((s, b) => s + b.awarded, 0)
   const leftInRound = budgetTotal - awardedTotal

@@ -511,18 +511,31 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
     // Committed money split into its two tiers: awarded (a real grant) vs shortlisted
     // (still awaiting decision). The round-budget dominos bar renders them as separate
     // opacity bands, so they can't stay lumped into a single "committed" figure.
-    const [committedRows, countRows, themeRows] = await Promise.all([
+    //
+    // The MONEY is this year's cash and comes from `roundProgrammeSpend`, because that is
+    // what `round_programmes.budget` counts (see "Multi-year grants" in CLAUDE.md) and
+    // that module is the one place that measures against it. This summed the whole ask
+    // itself until 2026-10-02, the last meter to do so: a round of four two-year grants
+    // read "£30k committed of £15k" here while the Shortlist screen, the dashboard and
+    // the Rounds card all said the round was exactly spent. Only the counts are ours.
+    const [spend, countedRows, countRows, themeRows] = await Promise.all([
+      getDb()
+        .query.clientProfiles.findFirst({
+          where: (p, { eq }) => eq(p.clientId, rps[0]!.programme.clientId),
+          columns: { financialYearEndMonth: true },
+        })
+        .then((profile) =>
+          roundProgrammeSpend(getDb(), rpIds, {
+            financialYearEndMonth: profile?.financialYearEndMonth ?? DEFAULT_FY_END_MONTH,
+          }),
+        ),
       getDb()
         .select({
           roundProgrammeId: applications.roundProgrammeId,
-          awarded: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} = 'awarded' THEN COALESCE(${awards.amountAwarded}, ${applications.amountRequested}) ELSE 0 END), 0)`,
-          // At the amount the foundation PROPOSES, which is what the shortlist meter counts.
-          shortlisted: sql<string>`COALESCE(SUM(CASE WHEN ${applications.status} = 'shortlisted' THEN COALESCE(${applications.amountAmended}, ${applications.amountRequested}) ELSE 0 END), 0)`,
           awardedCount: sql<number>`CAST(COUNT(*) FILTER (WHERE ${applications.status} = 'awarded') AS integer)`,
           shortlistedCount: sql<number>`CAST(COUNT(*) FILTER (WHERE ${applications.status} = 'shortlisted') AS integer)`,
         })
         .from(applications)
-        .leftJoin(awards, eq(awards.applicationId, applications.id))
         .where(
           and(
             inArray(applications.roundProgrammeId, rpIds),
@@ -561,13 +574,14 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
       themeCountsByRpId.set(r.roundProgrammeId, counts)
     }
 
-    const byRpId = new Map(committedRows.map((r) => [r.roundProgrammeId, r]))
+    const byRpId = new Map(countedRows.map((r) => [r.roundProgrammeId, r]))
     const countByRpId = new Map(countRows.map((r) => [r.roundProgrammeId, r.total]))
 
     return rps.map((rp) => {
       const row = byRpId.get(rp.id)
-      const awarded = row ? parseFloat(row.awarded) : 0
-      const shortlisted = row ? parseFloat(row.shortlisted) : 0
+      const s = spend.get(rp.id)
+      const awarded = s?.awardedThisYear ?? 0
+      const shortlisted = s?.proposedThisYear ?? 0
       return {
         roundProgrammeId: rp.id,
         programmeId: rp.programmeId,
@@ -576,9 +590,13 @@ export const getRoundBudgetSummary = createServerFn({ method: 'GET' })
         /** Applications in this programme carrying each theme. */
         themeCounts: themeCountsByRpId.get(rp.id) ?? {},
         budget: rp.budget ? parseFloat(rp.budget) : null,
+        /** This year's cash from grants awarded here: what the budget is measured in. */
         awarded,
+        /** This year's cash from the shortlist, at the amount the foundation proposes. */
         shortlisted,
         committed: awarded + shortlisted,
+        /** The whole value of both, for the card to state beside them. Never metered. */
+        committedFull: (s?.awardedFull ?? 0) + (s?.proposedFull ?? 0),
         awardedCount: row?.awardedCount ?? 0,
         shortlistedCount: row?.shortlistedCount ?? 0,
         total: countByRpId.get(rp.id) ?? 0,

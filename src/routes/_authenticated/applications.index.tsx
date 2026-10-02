@@ -242,6 +242,12 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
   const awardedCount = rows.reduce((s, r) => s + r.awardedCount, 0)
   const shortlistedCount = rows.reduce((s, r) => s + r.shortlistedCount, 0)
   const committed = totalAwarded + totalShortlisted
+  // Every figure on this card is THIS YEAR'S cash, because the budget is (see
+  // `getRoundBudgetSummary`). A round of multi-year grants commits more than that, and
+  // the whole promise is what the Awards register and each row's Amount column print,
+  // so it is stated underneath wherever the two differ rather than dropped.
+  const committedFull = rows.reduce((s, r) => s + r.committedFull, 0)
+  const multiYear = committedFull - committed >= 0.005
 
   // A programme with no budget set is measured against what it gave — see
   // `round_programmes.budget`. Every round the onboarding import creates arrives that
@@ -321,6 +327,12 @@ function BudgetCard({ rows, title }: { rows: BudgetRow[]; title: string }) {
             label="unallocated"
           />
         </div>
+
+        {multiYear && (
+          <p className="font-display text-label" style={{ color: C.sub }}>
+            This year's share of {fmtAmount(committedFull)} committed over the full term.
+          </p>
+        )}
 
         {/* Why the figure it is measured against is the figure it committed. Without
             this the card reads as a budget somebody chose and happened to spend to the
