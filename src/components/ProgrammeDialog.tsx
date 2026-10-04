@@ -45,6 +45,7 @@ export function ProgrammeDialog({
   draft,
   suggestions,
   takenColours = {},
+  showEoiSwitch = false,
   onClose,
   onSaved,
 }: {
@@ -55,6 +56,8 @@ export function ProgrammeDialog({
   suggestions: string[]
   /** hex → the OTHER programme using it, so the picker can say so without forbidding it. */
   takenColours?: Record<string, string>
+  /** Offer "Takes expressions of interest": only where the `sourcing` feature is on. */
+  showEoiSwitch?: boolean
   onClose: () => void
   onSaved: () => void
 }) {
@@ -66,6 +69,7 @@ export function ProgrammeDialog({
       draft={draft}
       suggestions={suggestions}
       takenColours={takenColours}
+      showEoiSwitch={showEoiSwitch}
       onClose={onClose}
       onSaved={onSaved}
     />
@@ -78,12 +82,14 @@ function ProgrammeDialogForm({
   draft,
   suggestions,
   takenColours,
+  showEoiSwitch,
   onClose,
   onSaved,
 }: {
   draft: ProgrammeDraft
   suggestions: string[]
   takenColours: Record<string, string>
+  showEoiSwitch: boolean
   onClose: () => void
   onSaved: () => void
 }) {
@@ -147,7 +153,8 @@ function ProgrammeDialogForm({
           impactUnit,
           impactUnitLabel: impactUnitLabel.trim() || null,
           colour,
-          acceptsEois,
+          // Not sent where the switch is not offered, so a save leaves the column alone.
+          ...(showEoiSwitch ? { acceptsEois } : {}),
         },
       })
       onSaved()
@@ -266,23 +273,25 @@ function ProgrammeDialogForm({
 
         {/* What offers the EOI tab on Applications. Refuses nothing: an EOI sent for a
             programme with this off still lands, and is read like any other. */}
-        <div className="flex items-start justify-between gap-4 border-t border-grey-200 pt-4">
-          <div>
-            <p className="font-display text-body font-medium text-grey-900">
-              Takes expressions of interest
-            </p>
-            <p id="programme-eoi-help" className="mt-1 font-display text-label text-grey-500">
-              A shorter first-stage form before a full application. They appear beside Applications,
-              and you invite the ones you want to apply.
-            </p>
+        {showEoiSwitch && (
+          <div className="flex items-start justify-between gap-4 border-t border-grey-200 pt-4">
+            <div>
+              <p className="font-display text-body font-medium text-grey-900">
+                Takes expressions of interest
+              </p>
+              <p id="programme-eoi-help" className="mt-1 font-display text-label text-grey-500">
+                A shorter first-stage form before a full application. They appear beside
+                Applications, and you invite the ones you want to apply.
+              </p>
+            </div>
+            <Toggle
+              checked={acceptsEois}
+              onChange={setAcceptsEois}
+              label="Takes expressions of interest"
+              describedBy="programme-eoi-help"
+            />
           </div>
-          <Toggle
-            checked={acceptsEois}
-            onChange={setAcceptsEois}
-            label="Takes expressions of interest"
-            describedBy="programme-eoi-help"
-          />
-        </div>
+        )}
       </form>
     </Dialog>
   )

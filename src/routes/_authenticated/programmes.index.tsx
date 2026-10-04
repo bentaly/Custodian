@@ -139,6 +139,9 @@ function Programmes() {
         draft={draft}
         suggestions={clientTags}
         takenColours={takenColoursExcluding(draft?.id)}
+        // The EOI switch is part of the `sourcing` feature (`lib/features.ts`), which is
+        // not on production yet.
+        showEoiSwitch={user.features.sourcing}
         onClose={() => setDraft(undefined)}
         onSaved={() => {
           setDraft(undefined)

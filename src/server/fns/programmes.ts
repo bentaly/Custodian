@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { programmes } from '../../../drizzle/schema'
 import { requireAuthUser, requireRole } from '../session'
+import { features } from '../features'
 import { assertClientAccess } from '../scope'
 import { SaveProgrammeSchema } from '../../lib/validators/programme'
 import { nextProgrammeColour, normaliseColour } from '../../lib/programmeColours'
@@ -67,8 +68,11 @@ export const saveProgramme = createServerFn({ method: 'POST' })
       // Only meaningful for 'other'; cleared otherwise so a unit changed away from
       // "Other…" cannot leave a stale phrase behind to resurface if it changes back.
       impactUnitLabel: data.impactUnit === 'other' ? (data.impactUnitLabel?.trim() ?? null) : null,
-      // Written only when sent: see `SaveProgrammeSchema`.
-      ...(data.acceptsEois !== undefined ? { acceptsEois: data.acceptsEois } : {}),
+      // Written only when sent (see `SaveProgrammeSchema`), and only where the `sourcing`
+      // feature is on: on production the switch does not exist yet.
+      ...(data.acceptsEois !== undefined && features().sourcing
+        ? { acceptsEois: data.acceptsEois }
+        : {}),
     }
 
     if (data.id) {
