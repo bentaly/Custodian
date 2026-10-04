@@ -1,0 +1,1 @@
+ALTER TABLE "programmes" ADD COLUMN "accepts_eois" boolean DEFAULT false NOT NULL;

@@ -21,6 +21,7 @@ import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
+import { Route as AuthenticatedPartnershipsRouteImport } from './routes/_authenticated/partnerships'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedProgrammesRouteImport } from './routes/_authenticated/programmes'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -30,6 +31,7 @@ import { Route as AuthenticatedShortlistRouteImport } from './routes/_authentica
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as ApiApplyRouteImport } from './routes/api/apply'
 import { Route as ApiDigestUnsubscribeRouteImport } from './routes/api/digest-unsubscribe'
+import { Route as ApiEoiRouteImport } from './routes/api/eoi'
 import { Route as ApiRoundsRouteImport } from './routes/api/rounds'
 import { Route as ApiSubmitReportRouteImport } from './routes/api/submit-report'
 import { Route as AuthenticatedApplicationsIndexRouteImport } from './routes/_authenticated/applications.index'
@@ -38,6 +40,8 @@ import { Route as AuthenticatedAwardsIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAwardsAwardIdRouteImport } from './routes/_authenticated/awards.$awardId'
 import { Route as AuthenticatedFinanceIndexRouteImport } from './routes/_authenticated/finance.index'
 import { Route as AuthenticatedFinanceBalanceRouteImport } from './routes/_authenticated/finance.balance'
+import { Route as AuthenticatedPartnershipsIndexRouteImport } from './routes/_authenticated/partnerships.index'
+import { Route as AuthenticatedPartnershipsPartnershipIdRouteImport } from './routes/_authenticated/partnerships.$partnershipId'
 import { Route as AuthenticatedProgrammesIndexRouteImport } from './routes/_authenticated/programmes.index'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
 import { Route as AuthenticatedReportsReportKeyRouteImport } from './routes/_authenticated/reports.$reportKey'
@@ -71,9 +75,12 @@ import { Route as ApiCronPortfolioAnalysisRouteImport } from './routes/api/cron.
 import { Route as ApiCronReportsDigestRouteImport } from './routes/api/cron.reports-digest'
 import { Route as ApiInternalPipelineRouteImport } from './routes/api/internal.pipeline'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
+import { Route as AuthenticatedApplicationsEoisIndexRouteImport } from './routes/_authenticated/applications.eois.index'
+import { Route as AuthenticatedApplicationsEoisEoiIdRouteImport } from './routes/_authenticated/applications.eois.$eoiId'
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
 import { Route as ApiAdminReportIngestsIdRouteImport } from './routes/api/admin.report-ingests.$id'
+import { Route as ApiWebhooksTypeformEoiTokenRouteImport } from './routes/api/webhooks.typeform-eoi.$token'
 import { Route as ApiWebhooksTypeformReportTokenRouteImport } from './routes/api/webhooks.typeform-report.$token'
 import { Route as ApiWebhooksTypeformTokenRouteImport } from './routes/api/webhooks.typeform.$token'
 import { Route as ApiAdminIngestsIdReprocessRouteImport } from './routes/api/admin.ingests.$id.reprocess'
@@ -141,6 +148,12 @@ const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
   path: '/insights',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPartnershipsRoute =
+  AuthenticatedPartnershipsRouteImport.update({
+    id: '/partnerships',
+    path: '/partnerships',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -184,6 +197,11 @@ const ApiApplyRoute = ApiApplyRouteImport.update({
 const ApiDigestUnsubscribeRoute = ApiDigestUnsubscribeRouteImport.update({
   id: '/api/digest-unsubscribe',
   path: '/api/digest-unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEoiRoute = ApiEoiRouteImport.update({
+  id: '/api/eoi',
+  path: '/api/eoi',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRoundsRoute = ApiRoundsRouteImport.update({
@@ -231,6 +249,18 @@ const AuthenticatedFinanceBalanceRoute =
     id: '/balance',
     path: '/balance',
     getParentRoute: () => AuthenticatedFinanceRoute,
+  } as any)
+const AuthenticatedPartnershipsIndexRoute =
+  AuthenticatedPartnershipsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedPartnershipsRoute,
+  } as any)
+const AuthenticatedPartnershipsPartnershipIdRoute =
+  AuthenticatedPartnershipsPartnershipIdRouteImport.update({
+    id: '/$partnershipId',
+    path: '/$partnershipId',
+    getParentRoute: () => AuthenticatedPartnershipsRoute,
   } as any)
 const AuthenticatedProgrammesIndexRoute =
   AuthenticatedProgrammesIndexRouteImport.update({
@@ -418,6 +448,18 @@ const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
   path: '/api/round/$roundId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedApplicationsEoisIndexRoute =
+  AuthenticatedApplicationsEoisIndexRouteImport.update({
+    id: '/eois/',
+    path: '/eois/',
+    getParentRoute: () => AuthenticatedApplicationsRoute,
+  } as any)
+const AuthenticatedApplicationsEoisEoiIdRoute =
+  AuthenticatedApplicationsEoisEoiIdRouteImport.update({
+    id: '/eois/$eoiId',
+    path: '/eois/$eoiId',
+    getParentRoute: () => AuthenticatedApplicationsRoute,
+  } as any)
 const ApiAdminIngestsIdRoute = ApiAdminIngestsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -433,6 +475,12 @@ const ApiAdminReportIngestsIdRoute = ApiAdminReportIngestsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAdminReportIngestsRoute,
 } as any)
+const ApiWebhooksTypeformEoiTokenRoute =
+  ApiWebhooksTypeformEoiTokenRouteImport.update({
+    id: '/api/webhooks/typeform-eoi/$token',
+    path: '/api/webhooks/typeform-eoi/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWebhooksTypeformReportTokenRoute =
   ApiWebhooksTypeformReportTokenRouteImport.update({
     id: '/api/webhooks/typeform-report/$token',
@@ -482,6 +530,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/insights': typeof AuthenticatedInsightsRoute
+  '/partnerships': typeof AuthenticatedPartnershipsRouteWithChildren
   '/profile': typeof AuthenticatedProfileRoute
   '/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -491,11 +540,13 @@ export interface FileRoutesByFullPath {
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/api/digest-unsubscribe': typeof ApiDigestUnsubscribeRoute
+  '/api/eoi': typeof ApiEoiRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/finance/balance': typeof AuthenticatedFinanceBalanceRoute
+  '/partnerships/$partnershipId': typeof AuthenticatedPartnershipsPartnershipIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -527,16 +578,20 @@ export interface FileRoutesByFullPath {
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/awards/': typeof AuthenticatedAwardsIndexRoute
   '/finance/': typeof AuthenticatedFinanceIndexRoute
+  '/partnerships/': typeof AuthenticatedPartnershipsIndexRoute
   '/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/rounds/': typeof AuthenticatedRoundsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/shortlist/': typeof AuthenticatedShortlistIndexRoute
+  '/applications/eois/$eoiId': typeof AuthenticatedApplicationsEoisEoiIdRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/typeform-eoi/$token': typeof ApiWebhooksTypeformEoiTokenRoute
   '/api/webhooks/typeform-report/$token': typeof ApiWebhooksTypeformReportTokenRoute
   '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
+  '/applications/eois/': typeof AuthenticatedApplicationsEoisIndexRoute
   '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/reprocess': typeof ApiAdminReportIngestsIdReprocessRoute
@@ -555,11 +610,13 @@ export interface FileRoutesByTo {
   '/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/api/digest-unsubscribe': typeof ApiDigestUnsubscribeRoute
+  '/api/eoi': typeof ApiEoiRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/finance/balance': typeof AuthenticatedFinanceBalanceRoute
+  '/partnerships/$partnershipId': typeof AuthenticatedPartnershipsPartnershipIdRoute
   '/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -591,16 +648,20 @@ export interface FileRoutesByTo {
   '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/awards': typeof AuthenticatedAwardsIndexRoute
   '/finance': typeof AuthenticatedFinanceIndexRoute
+  '/partnerships': typeof AuthenticatedPartnershipsIndexRoute
   '/programmes': typeof AuthenticatedProgrammesIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/rounds': typeof AuthenticatedRoundsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/shortlist': typeof AuthenticatedShortlistIndexRoute
+  '/applications/eois/$eoiId': typeof AuthenticatedApplicationsEoisEoiIdRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/typeform-eoi/$token': typeof ApiWebhooksTypeformEoiTokenRoute
   '/api/webhooks/typeform-report/$token': typeof ApiWebhooksTypeformReportTokenRoute
   '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
+  '/applications/eois': typeof AuthenticatedApplicationsEoisIndexRoute
   '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/reprocess': typeof ApiAdminReportIngestsIdReprocessRoute
@@ -620,6 +681,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/finance': typeof AuthenticatedFinanceRouteWithChildren
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
+  '/_authenticated/partnerships': typeof AuthenticatedPartnershipsRouteWithChildren
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/programmes': typeof AuthenticatedProgrammesRouteWithChildren
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -629,11 +691,13 @@ export interface FileRoutesById {
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/apply': typeof ApiApplyRoute
   '/api/digest-unsubscribe': typeof ApiDigestUnsubscribeRoute
+  '/api/eoi': typeof ApiEoiRoute
   '/api/rounds': typeof ApiRoundsRoute
   '/api/submit-report': typeof ApiSubmitReportRoute
   '/_authenticated/applications/$applicationId': typeof AuthenticatedApplicationsApplicationIdRoute
   '/_authenticated/awards/$awardId': typeof AuthenticatedAwardsAwardIdRoute
   '/_authenticated/finance/balance': typeof AuthenticatedFinanceBalanceRoute
+  '/_authenticated/partnerships/$partnershipId': typeof AuthenticatedPartnershipsPartnershipIdRoute
   '/_authenticated/reports/$reportKey': typeof AuthenticatedReportsReportKeyRoute
   '/_authenticated/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -665,16 +729,20 @@ export interface FileRoutesById {
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/awards/': typeof AuthenticatedAwardsIndexRoute
   '/_authenticated/finance/': typeof AuthenticatedFinanceIndexRoute
+  '/_authenticated/partnerships/': typeof AuthenticatedPartnershipsIndexRoute
   '/_authenticated/programmes/': typeof AuthenticatedProgrammesIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/rounds/': typeof AuthenticatedRoundsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/shortlist/': typeof AuthenticatedShortlistIndexRoute
+  '/_authenticated/applications/eois/$eoiId': typeof AuthenticatedApplicationsEoisEoiIdRoute
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/typeform-eoi/$token': typeof ApiWebhooksTypeformEoiTokenRoute
   '/api/webhooks/typeform-report/$token': typeof ApiWebhooksTypeformReportTokenRoute
   '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
+  '/_authenticated/applications/eois/': typeof AuthenticatedApplicationsEoisIndexRoute
   '/api/admin/ingests/$id/reprocess': typeof ApiAdminIngestsIdReprocessRoute
   '/api/admin/ingests/$id/resolve': typeof ApiAdminIngestsIdResolveRoute
   '/api/admin/report-ingests/$id/reprocess': typeof ApiAdminReportIngestsIdReprocessRoute
@@ -694,6 +762,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/finance'
     | '/insights'
+    | '/partnerships'
     | '/profile'
     | '/programmes'
     | '/reports'
@@ -703,11 +772,13 @@ export interface FileRouteTypes {
     | '/users'
     | '/api/apply'
     | '/api/digest-unsubscribe'
+    | '/api/eoi'
     | '/api/rounds'
     | '/api/submit-report'
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/finance/balance'
+    | '/partnerships/$partnershipId'
     | '/reports/$reportKey'
     | '/settings/activity'
     | '/settings/api-keys'
@@ -739,16 +810,20 @@ export interface FileRouteTypes {
     | '/applications/'
     | '/awards/'
     | '/finance/'
+    | '/partnerships/'
     | '/programmes/'
     | '/reports/'
     | '/rounds/'
     | '/settings/'
     | '/shortlist/'
+    | '/applications/eois/$eoiId'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/typeform-eoi/$token'
     | '/api/webhooks/typeform-report/$token'
     | '/api/webhooks/typeform/$token'
+    | '/applications/eois/'
     | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/reprocess'
@@ -767,11 +842,13 @@ export interface FileRouteTypes {
     | '/users'
     | '/api/apply'
     | '/api/digest-unsubscribe'
+    | '/api/eoi'
     | '/api/rounds'
     | '/api/submit-report'
     | '/applications/$applicationId'
     | '/awards/$awardId'
     | '/finance/balance'
+    | '/partnerships/$partnershipId'
     | '/reports/$reportKey'
     | '/settings/activity'
     | '/settings/api-keys'
@@ -803,16 +880,20 @@ export interface FileRouteTypes {
     | '/applications'
     | '/awards'
     | '/finance'
+    | '/partnerships'
     | '/programmes'
     | '/reports'
     | '/rounds'
     | '/settings'
     | '/shortlist'
+    | '/applications/eois/$eoiId'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/typeform-eoi/$token'
     | '/api/webhooks/typeform-report/$token'
     | '/api/webhooks/typeform/$token'
+    | '/applications/eois'
     | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/reprocess'
@@ -831,6 +912,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/finance'
     | '/_authenticated/insights'
+    | '/_authenticated/partnerships'
     | '/_authenticated/profile'
     | '/_authenticated/programmes'
     | '/_authenticated/reports'
@@ -840,11 +922,13 @@ export interface FileRouteTypes {
     | '/_authenticated/users'
     | '/api/apply'
     | '/api/digest-unsubscribe'
+    | '/api/eoi'
     | '/api/rounds'
     | '/api/submit-report'
     | '/_authenticated/applications/$applicationId'
     | '/_authenticated/awards/$awardId'
     | '/_authenticated/finance/balance'
+    | '/_authenticated/partnerships/$partnershipId'
     | '/_authenticated/reports/$reportKey'
     | '/_authenticated/settings/activity'
     | '/_authenticated/settings/api-keys'
@@ -876,16 +960,20 @@ export interface FileRouteTypes {
     | '/_authenticated/applications/'
     | '/_authenticated/awards/'
     | '/_authenticated/finance/'
+    | '/_authenticated/partnerships/'
     | '/_authenticated/programmes/'
     | '/_authenticated/reports/'
     | '/_authenticated/rounds/'
     | '/_authenticated/settings/'
     | '/_authenticated/shortlist/'
+    | '/_authenticated/applications/eois/$eoiId'
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/typeform-eoi/$token'
     | '/api/webhooks/typeform-report/$token'
     | '/api/webhooks/typeform/$token'
+    | '/_authenticated/applications/eois/'
     | '/api/admin/ingests/$id/reprocess'
     | '/api/admin/ingests/$id/resolve'
     | '/api/admin/report-ingests/$id/reprocess'
@@ -902,6 +990,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   ApiApplyRoute: typeof ApiApplyRoute
   ApiDigestUnsubscribeRoute: typeof ApiDigestUnsubscribeRoute
+  ApiEoiRoute: typeof ApiEoiRoute
   ApiRoundsRoute: typeof ApiRoundsRoute
   ApiSubmitReportRoute: typeof ApiSubmitReportRoute
   ApiAdminAwardsRoute: typeof ApiAdminAwardsRoute
@@ -920,6 +1009,7 @@ export interface RootRouteChildren {
   ApiCronReportsDigestRoute: typeof ApiCronReportsDigestRoute
   ApiInternalPipelineRoute: typeof ApiInternalPipelineRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
+  ApiWebhooksTypeformEoiTokenRoute: typeof ApiWebhooksTypeformEoiTokenRoute
   ApiWebhooksTypeformReportTokenRoute: typeof ApiWebhooksTypeformReportTokenRoute
   ApiWebhooksTypeformTokenRoute: typeof ApiWebhooksTypeformTokenRoute
 }
@@ -1010,6 +1100,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInsightsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/partnerships': {
+      id: '/_authenticated/partnerships'
+      path: '/partnerships'
+      fullPath: '/partnerships'
+      preLoaderRoute: typeof AuthenticatedPartnershipsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -1073,6 +1170,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDigestUnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/eoi': {
+      id: '/api/eoi'
+      path: '/api/eoi'
+      fullPath: '/api/eoi'
+      preLoaderRoute: typeof ApiEoiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/rounds': {
       id: '/api/rounds'
       path: '/api/rounds'
@@ -1128,6 +1232,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/finance/balance'
       preLoaderRoute: typeof AuthenticatedFinanceBalanceRouteImport
       parentRoute: typeof AuthenticatedFinanceRoute
+    }
+    '/_authenticated/partnerships/': {
+      id: '/_authenticated/partnerships/'
+      path: '/'
+      fullPath: '/partnerships/'
+      preLoaderRoute: typeof AuthenticatedPartnershipsIndexRouteImport
+      parentRoute: typeof AuthenticatedPartnershipsRoute
+    }
+    '/_authenticated/partnerships/$partnershipId': {
+      id: '/_authenticated/partnerships/$partnershipId'
+      path: '/$partnershipId'
+      fullPath: '/partnerships/$partnershipId'
+      preLoaderRoute: typeof AuthenticatedPartnershipsPartnershipIdRouteImport
+      parentRoute: typeof AuthenticatedPartnershipsRoute
     }
     '/_authenticated/programmes/': {
       id: '/_authenticated/programmes/'
@@ -1360,6 +1478,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRoundRoundIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/applications/eois/': {
+      id: '/_authenticated/applications/eois/'
+      path: '/eois'
+      fullPath: '/applications/eois/'
+      preLoaderRoute: typeof AuthenticatedApplicationsEoisIndexRouteImport
+      parentRoute: typeof AuthenticatedApplicationsRoute
+    }
+    '/_authenticated/applications/eois/$eoiId': {
+      id: '/_authenticated/applications/eois/$eoiId'
+      path: '/eois/$eoiId'
+      fullPath: '/applications/eois/$eoiId'
+      preLoaderRoute: typeof AuthenticatedApplicationsEoisEoiIdRouteImport
+      parentRoute: typeof AuthenticatedApplicationsRoute
+    }
     '/api/admin/ingests/$id': {
       id: '/api/admin/ingests/$id'
       path: '/$id'
@@ -1380,6 +1512,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/admin/report-ingests/$id'
       preLoaderRoute: typeof ApiAdminReportIngestsIdRouteImport
       parentRoute: typeof ApiAdminReportIngestsRoute
+    }
+    '/api/webhooks/typeform-eoi/$token': {
+      id: '/api/webhooks/typeform-eoi/$token'
+      path: '/api/webhooks/typeform-eoi/$token'
+      fullPath: '/api/webhooks/typeform-eoi/$token'
+      preLoaderRoute: typeof ApiWebhooksTypeformEoiTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/webhooks/typeform-report/$token': {
       id: '/api/webhooks/typeform-report/$token'
@@ -1429,6 +1568,8 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedApplicationsRouteChildren {
   AuthenticatedApplicationsApplicationIdRoute: typeof AuthenticatedApplicationsApplicationIdRoute
   AuthenticatedApplicationsIndexRoute: typeof AuthenticatedApplicationsIndexRoute
+  AuthenticatedApplicationsEoisEoiIdRoute: typeof AuthenticatedApplicationsEoisEoiIdRoute
+  AuthenticatedApplicationsEoisIndexRoute: typeof AuthenticatedApplicationsEoisIndexRoute
 }
 
 const AuthenticatedApplicationsRouteChildren: AuthenticatedApplicationsRouteChildren =
@@ -1436,6 +1577,10 @@ const AuthenticatedApplicationsRouteChildren: AuthenticatedApplicationsRouteChil
     AuthenticatedApplicationsApplicationIdRoute:
       AuthenticatedApplicationsApplicationIdRoute,
     AuthenticatedApplicationsIndexRoute: AuthenticatedApplicationsIndexRoute,
+    AuthenticatedApplicationsEoisEoiIdRoute:
+      AuthenticatedApplicationsEoisEoiIdRoute,
+    AuthenticatedApplicationsEoisIndexRoute:
+      AuthenticatedApplicationsEoisIndexRoute,
   }
 
 const AuthenticatedApplicationsRouteWithChildren =
@@ -1468,6 +1613,23 @@ const AuthenticatedFinanceRouteChildren: AuthenticatedFinanceRouteChildren = {
 
 const AuthenticatedFinanceRouteWithChildren =
   AuthenticatedFinanceRoute._addFileChildren(AuthenticatedFinanceRouteChildren)
+
+interface AuthenticatedPartnershipsRouteChildren {
+  AuthenticatedPartnershipsPartnershipIdRoute: typeof AuthenticatedPartnershipsPartnershipIdRoute
+  AuthenticatedPartnershipsIndexRoute: typeof AuthenticatedPartnershipsIndexRoute
+}
+
+const AuthenticatedPartnershipsRouteChildren: AuthenticatedPartnershipsRouteChildren =
+  {
+    AuthenticatedPartnershipsPartnershipIdRoute:
+      AuthenticatedPartnershipsPartnershipIdRoute,
+    AuthenticatedPartnershipsIndexRoute: AuthenticatedPartnershipsIndexRoute,
+  }
+
+const AuthenticatedPartnershipsRouteWithChildren =
+  AuthenticatedPartnershipsRoute._addFileChildren(
+    AuthenticatedPartnershipsRouteChildren,
+  )
 
 interface AuthenticatedProgrammesRouteChildren {
   AuthenticatedProgrammesIndexRoute: typeof AuthenticatedProgrammesIndexRoute
@@ -1565,6 +1727,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRouteWithChildren
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
+  AuthenticatedPartnershipsRoute: typeof AuthenticatedPartnershipsRouteWithChildren
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedProgrammesRoute: typeof AuthenticatedProgrammesRouteWithChildren
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
@@ -1580,6 +1743,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinanceRoute: AuthenticatedFinanceRouteWithChildren,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
+  AuthenticatedPartnershipsRoute: AuthenticatedPartnershipsRouteWithChildren,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedProgrammesRoute: AuthenticatedProgrammesRouteWithChildren,
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
@@ -1669,6 +1833,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   ApiApplyRoute: ApiApplyRoute,
   ApiDigestUnsubscribeRoute: ApiDigestUnsubscribeRoute,
+  ApiEoiRoute: ApiEoiRoute,
   ApiRoundsRoute: ApiRoundsRoute,
   ApiSubmitReportRoute: ApiSubmitReportRoute,
   ApiAdminAwardsRoute: ApiAdminAwardsRoute,
@@ -1687,6 +1852,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronReportsDigestRoute: ApiCronReportsDigestRoute,
   ApiInternalPipelineRoute: ApiInternalPipelineRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
+  ApiWebhooksTypeformEoiTokenRoute: ApiWebhooksTypeformEoiTokenRoute,
   ApiWebhooksTypeformReportTokenRoute: ApiWebhooksTypeformReportTokenRoute,
   ApiWebhooksTypeformTokenRoute: ApiWebhooksTypeformTokenRoute,
 }

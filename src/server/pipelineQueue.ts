@@ -26,6 +26,9 @@ export type PipelineMessage =
   | { kind: 'ingest'; ingestId: string }
   | { kind: 'report_ingest'; ingestId: string }
   | { kind: 'score'; applicationId: string }
+  // The same assessment for a sourced partner, which has no application to score. See
+  // `partnerships/score.ts`.
+  | { kind: 'partnership_score'; partnershipId: string }
   // One report's AI analysis, queued rather than run inside a person's request (a report
   // attached from the Reports screen, or re-run). See `reports/analyse.ts`.
   | { kind: 'report_analysis'; reportId: string }

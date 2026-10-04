@@ -15,6 +15,7 @@ import { bearerAuthorised, unauthorised } from '../../server/internalAuth'
 import { processIngest } from '../../server/fieldMapping/ingest'
 import { processReportIngest } from '../../server/reportMapping/ingest'
 import { scoreApplication } from '../../server/applications/score'
+import { scorePartnership } from '../../server/partnerships/score'
 import { applyAnswer } from '../../server/applications/edit'
 import { analyseReport } from '../../server/reports/analyse'
 import { sendStoredDeclineLetter } from '../../server/declineLetter'
@@ -70,6 +71,11 @@ export const Route = createFileRoute('/api/internal/pipeline')({
             }
             case 'score': {
               const result = await scoreApplication(message.applicationId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'partnership_score': {
+              // A partnership no longer `queued` answers 200 without a second model call.
+              const result = await scorePartnership(message.partnershipId)
               return json({ ok: true, result }, 200)
             }
             case 'decline_letter': {

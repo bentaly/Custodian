@@ -45,23 +45,25 @@ function maskKey(kind: KeyKind, last4: string) {
 // the alternative is telling somebody to assemble a URL by hand from a secret they can
 // only see once. Built from the live origin so staging and local dev are right too.
 //
-// One token, TWO addresses: the token says which foundation, the address says whether
-// the form is an application form or a report form. Both are shown at once because the
-// token is shown once; a foundation with both forms uses one token for each or both.
+// One token, THREE addresses: the token says which foundation, the address says whether
+// the form is an application form, a report form or an expression of interest form. All
+// are shown at once because the token is shown once; a foundation uses whichever it has.
 function webhookUrls(token: string) {
   const origin = typeof window === 'undefined' ? '' : window.location.origin
   return {
     application: `${origin}/api/webhooks/typeform/${token}`,
     report: `${origin}/api/webhooks/typeform-report/${token}`,
+    eoi: `${origin}/api/webhooks/typeform-eoi/${token}`,
   }
 }
 
 type Revealed =
   | { kind: 'secret'; key: string }
-  | { kind: 'webhook'; application: string; report: string }
+  | { kind: 'webhook'; application: string; report: string; eoi: string }
 
 function ApiKeys() {
   const router = useRouter()
+  const { features } = Route.useRouteContext().user
   const { apiKeys } = Route.useLoaderData()
   // Same paged contract as every other table, from the loaded set — see
   // `settings/team` for why the page number stays out of the URL here.
@@ -222,13 +224,19 @@ function ApiKeys() {
                 copied={copied === newSecret.report}
                 onCopy={copy}
               />
+              {/* Behind the `sourcing` flag (`lib/features.ts`): the address 404s
+                  on production until expressions of interest ship there. */}
+              {features.sourcing && (
+                <RevealedValue
+                  label="For an expression of interest form"
+                  value={newSecret.eoi}
+                  copied={copied === newSecret.eoi}
+                  onCopy={copy}
+                />
+              )}
             </>
           ) : (
-            <RevealedValue
-              value={newSecret.key}
-              copied={copied === newSecret.key}
-              onCopy={copy}
-            />
+            <RevealedValue value={newSecret.key} copied={copied === newSecret.key} onCopy={copy} />
           )}
         </div>
       )}

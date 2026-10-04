@@ -13,6 +13,7 @@ import {
   type LookupResult,
 } from '../../lib/fieldMapping'
 import { parseBudgetBreakdown } from '../../lib/budget'
+import { inviteRefKey } from '../../lib/sourcing/inviteRef'
 
 const CANONICAL_KEY_SET = new Set<string>(CANONICAL_KEYS)
 
@@ -63,8 +64,11 @@ export function computeResponses(
       .map((r) => r?.sourceKey)
       .filter((k): k is string => Boolean(k) && k !== PROVIDED),
   )
+  // The invitation reference is plumbing the form handed back, not something the
+  // applicant said (`lib/sourcing/inviteRef.ts`), so it is not one of their answers.
+  const refKey = inviteRefKey(payload)
   return orderedKeys(payload, fieldOrder)
-    .filter((k) => !used.has(k) && !CANONICAL_KEY_SET.has(k))
+    .filter((k) => !used.has(k) && !CANONICAL_KEY_SET.has(k) && k !== refKey)
     .map((k) => ({ label: k, value: toStringValue(payload[k]) }))
     .filter((r) => r.value)
 }
@@ -266,7 +270,8 @@ export function assembleApplication(
   const failing = [...new Set(first.error.issues.map((i) => String(i.path[0] ?? '')))]
   const droppable = failing.filter(
     (k): k is CanonicalFieldKey =>
-      CANONICAL_KEY_SET.has(k) && CANONICAL_FIELD_BY_KEY[k as CanonicalFieldKey].tier !== 'required',
+      CANONICAL_KEY_SET.has(k) &&
+      CANONICAL_FIELD_BY_KEY[k as CanonicalFieldKey].tier !== 'required',
   )
   if (droppable.length !== failing.length) return { parsed: first, unreadable: [] }
   for (const k of droppable) candidate[k] = undefined

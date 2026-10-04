@@ -127,6 +127,7 @@ function Programmes() {
                 impactUnit: programme.impactUnit ?? DEFAULT_IMPACT_UNIT,
                 impactUnitLabel: programme.impactUnitLabel ?? '',
                 colour: colours[i]!,
+                acceptsEois: programme.acceptsEois,
               })
             }
           />

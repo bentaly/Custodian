@@ -1,12 +1,7 @@
 import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { IconSvgElement } from '@hugeicons/react'
-import {
-  AiMagicIcon,
-  HeartHandshakeIcon,
-  Shield01Icon,
-  StarAward02Icon,
-} from '@hugeicons/core-free-icons'
+import { AiMagicIcon, Shield01Icon, StarAward02Icon } from '@hugeicons/core-free-icons'
 import { LogoMark } from './ui/LogoMark'
 import { ExternalTextLink, TextLink } from './ui/TextLink'
 import { cn } from './ui/cn'
@@ -35,9 +30,7 @@ import { MAILTO_LINK, mailtoHref } from '../lib/mailto'
  *
  * Each stage is marked with the AREA icon of the screen it becomes once you are signed
  * in — read from `AREA_ICON` rather than picked here, so the promise on this page and
- * the rail behind it can never drift apart. Partnerships is the exception: the screen
- * does not exist yet, so its glyph comes straight from the design that will introduce
- * it (Figma 709:55, `heart-handshake`) & is NOT added to the rail.
+ * the rail behind it can never drift apart.
  *
  * DOM order is the lifecycle order — it is what a screen reader & a keyboard get.
  * `place` then puts each one at its clock position, which is why every stage names its
@@ -52,7 +45,7 @@ const STAGES = [
   },
   {
     title: 'Partnerships',
-    icon: HeartHandshakeIcon,
+    icon: AREA_ICON['/partnerships']!,
     body: 'Sourced grantees screened by AI for alignment & due diligence.',
     place: 'md:col-start-3 md:row-start-2 md:justify-self-start',
   },
@@ -378,7 +371,6 @@ export function AuthShell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </div>
-
       </aside>
     </div>
   )

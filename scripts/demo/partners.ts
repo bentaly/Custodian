@@ -12,7 +12,7 @@
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../../src/server/db'
-import { partnerships, partnershipEvents, programmes, users } from '../../drizzle/schema'
+import { eois, partnerships, partnershipEvents, programmes, users } from '../../drizzle/schema'
 import { daysAgo, done, requireDemoClient, runScript, step } from './lib/shared'
 import type { PartnershipStatus } from '../../src/lib/partnerships/status'
 
@@ -215,12 +215,26 @@ runScript('demo:partners', async () => {
 
   step('Clearing the previous pipeline')
   // `partnership_events` cascades from the partnership, so one delete is the lot.
+  // Their EOIs first: deleting a partnership only nulls the link, and a re-run would
+  // otherwise leave last time's submissions behind as orphaned open-call EOIs.
+  await db.delete(eois).where(eq(eois.clientId, client.id))
   await db.delete(partnerships).where(eq(partnerships.clientId, client.id))
 
   const progs = await db.query.programmes.findMany({
     where: eq(programmes.clientId, client.id),
     columns: { id: true, name: true },
+    // The most recent round each programme is funded in, which is what a partner is
+    // logged against (`partnerships.round_programme_id`).
+    with: {
+      roundProgrammes: {
+        columns: { id: true, createdAt: true },
+        orderBy: (rp, { desc }) => [desc(rp.createdAt)],
+        limit: 1,
+      },
+    },
   })
+  const roundProgrammeId = (name: string | null) =>
+    progs.find((p) => p.name === name)?.roundProgrammes[0]?.id ?? null
   const programmeId = (name: string | null) =>
     name ? (progs.find((p) => p.name === name)?.id ?? null) : null
 
@@ -245,18 +259,38 @@ runScript('demo:partners', async () => {
       companyNumber: seed.companyNumber ?? null,
       source: seed.source,
       programmeId: programmeId(seed.programme),
+      roundProgrammeId: roundProgrammeId(seed.programme),
+      deliveryArea: seed.location,
       tags: seed.tags,
       contactName: seed.contactName ?? null,
       contactEmail: seed.contactEmail ?? null,
       status: seed.status,
       amountSought: seed.amountSought === undefined ? null : String(seed.amountSought),
-      eoiResponses: seed.eoi ?? null,
       eoiReceivedAt: seed.eoiDaysAgo === undefined ? null : daysAgo(seed.eoiDaysAgo),
       archivedAt: seed.archived ? daysAgo(seed.archived.daysAgo) : null,
       archiveNote: seed.archived?.note ?? null,
       createdAt: logged,
       updatedAt: logged,
     })
+
+    // The expression of interest itself lives in `eois`, pointing back at the
+    // partnership, exactly as one arriving through `/api/eoi` would.
+    if (seed.eoi) {
+      const received = daysAgo(seed.eoiDaysAgo ?? 0)
+      await db.insert(eois).values({
+        clientId: client.id,
+        programmeId: programmeId(seed.programme),
+        partnershipId: id,
+        organisationName: seed.name,
+        contactEmail: seed.contactEmail ?? null,
+        charityNumber: seed.charityNumber ?? null,
+        companyNumber: seed.companyNumber ?? null,
+        responses: seed.eoi,
+        rawPayload: Object.fromEntries(seed.eoi.map((r) => [r.label, r.value])),
+        createdAt: received,
+        updatedAt: received,
+      })
+    }
 
     await db.insert(partnershipEvents).values(
       seed.history.map(([days, body, kind]) => ({

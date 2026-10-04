@@ -8,7 +8,7 @@ import {
   ChartAverageIcon,
   CheckListIcon,
   DashboardSquare01Icon,
-  HandshakeIcon,
+  HeartHandshakeIcon,
   MailOpenLoveIcon,
   NoteIcon,
   Settings02Icon,
@@ -17,6 +17,7 @@ import {
 import { LogoMark } from './ui/LogoMark'
 import { FOOT_BAR_HEIGHT } from './ui/tokens'
 import { canSeePayments } from '../lib/roles'
+import { NO_FEATURES, type Features } from '../lib/features'
 
 // Values lifted directly from the Figma sidebar (node 126:31796). #637083 = Gray/500,
 // #E4E7EC = Gray/200, #141C24 = Gray/900 — the real design variables, so matching them
@@ -30,22 +31,17 @@ const itemClass =
 // Icons are the ones named on the Figma rail (126:31806) — `note`, `wallet-03`,
 // `audit-02`, `chart-average` — not lookalikes. Shortlist and Awards are ours:
 // the design's rail is an older IA (Partnerships / Review / Giving) with no
-// counterpart for them. They are also the app's area icons everywhere else — see
+// counterpart for them. Partnerships wears the glyph the design introduces it with
+// (Figma 709:55, `heart-handshake`). They are also the app's area icons everywhere else — see
 // `AREA_ICON` below.
 export const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardSquare01Icon },
-  // PARTNERSHIPS IS PARKED, not dropped — the feature is built but not ready to be
-  // used, so it is out of the rail and out of the route tree. Its route files are
-  // `src/routes/_authenticated/-partnerships*.tsx`: the leading `-` is TanStack's
-  // `routeFileIgnorePrefix`, so the generator skips them and `/partnerships` 404s,
-  // while everything under `src/lib/partnerships`, `src/components/partnerships` and
-  // `src/server/fns/partnerships.ts` stays compiled and tested. To bring it back, drop
-  // the three `-` prefixes and uncomment the line below.
-  //
-  // It belongs upstream of Applications, because that is where it sits in the work: a
-  // partnership is a conversation with an organisation that has not applied yet, and
-  // the pipeline hands over the moment one does. The rail reads in lifecycle order.
-  // { to: '/partnerships', label: 'Partnerships', icon: HandshakeIcon },
+  // Upstream of Applications, because that is where it sits in the work: a partnership
+  // is a conversation with an organisation that has not applied yet, and the pipeline
+  // hands over the moment one does. The rail reads in lifecycle order. Expressions of
+  // interest deliberately have NO entry of their own: they are the front half of the
+  // Applications story and live there as a tab (`components/applications/ApplicationsTabs`).
+  { to: '/partnerships', label: 'Partnerships', icon: HeartHandshakeIcon },
   { to: '/applications', label: 'Applications', icon: NoteIcon, search: { roundId: undefined } },
   { to: '/shortlist', label: 'Shortlist', icon: CheckListIcon, search: { roundId: undefined } },
   { to: '/finance', label: 'Finance', icon: Wallet03Icon },
@@ -77,8 +73,23 @@ export const AREA_ICON: Record<string, IconSvgElement> = Object.fromEntries(
 // one exception, and not a cosmetic one: it is the payment schedule and a grantee's
 // bank details, which a trustee has no business in (`canSeePayments`). Offering a link
 // that redirects away is worse than not offering it.
-function NavBody({ onNavigate, role }: { onNavigate?: () => void; role: string }) {
-  const items = NAV.filter((item) => item.to !== '/finance' || canSeePayments(role))
+function NavBody({
+  onNavigate,
+  role,
+  features,
+}: {
+  onNavigate?: () => void
+  role: string
+  features: Features
+}) {
+  // Partnerships is behind the `sourcing` flag (`lib/features.ts`): live on staging,
+  // not yet on production. The server refuses it there regardless; this just stops
+  // the rail offering a door that 404s.
+  const items = NAV.filter(
+    (item) =>
+      (item.to !== '/finance' || canSeePayments(role)) &&
+      (item.to !== '/partnerships' || features.sourcing),
+  )
   return (
     <>
       <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
@@ -120,10 +131,13 @@ export function Sidebar({
   mobileOpen,
   onClose,
   role,
+  features = NO_FEATURES,
 }: {
   mobileOpen: boolean
   onClose: () => void
   role: string
+  /** Flagged features this deployment runs, off the signed-in user (`lib/features.ts`). */
+  features?: Features
 }) {
   // Escape closes, and the page behind must not scroll under the drawer.
   useEffect(() => {
@@ -147,7 +161,7 @@ export function Sidebar({
           <LogoMark />
           <span className="text-heading font-semibold text-grey-900">Custodian</span>
         </div>
-        <NavBody role={role} />
+        <NavBody role={role} features={features} />
       </aside>
 
       <div
@@ -182,7 +196,7 @@ export function Sidebar({
             <HugeiconsIcon icon={Cancel01Icon} className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
-        <NavBody onNavigate={onClose} role={role} />
+        <NavBody onNavigate={onClose} role={role} features={features} />
       </aside>
     </>
   )

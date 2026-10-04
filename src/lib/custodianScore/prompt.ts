@@ -266,6 +266,33 @@ export function buildUserPrompt(input: CustodianScoreInput): string {
   // against each other — which is the whole point of holding both.
   const register = registerSection(input.organisationProfile)
 
+  // A sourced partner, not an application. Said in the USER turn so the system prompt
+  // (the cached rubric) stays byte-identical for every call. The framing does two jobs:
+  // it stops the absence of a form reading as a thin application, and it stops the
+  // foundation's own note being read as the organisation's claim about itself.
+  if (input.sourced) {
+    return `# Funder mission
+${mission}
+
+# Programme: ${input.programmeName}
+Goal: ${goal}${description ? `\nDescription: ${description}` : ''}${themeList}
+
+# Prospective partner (sourced by the funder, NOT an application)
+The funder approached or was introduced to this organisation and is deciding whether to take it further. Nobody has filled in an application form. What follows is the funder's own staff note of what a grant might be for, alongside the public register's record of the organisation. Wherever your instructions say "the application" or "the applicant", read this record and this organisation.
+
+Score the same criteria, with these adjustments, because the evidence is of a different kind:
+- The proposed purpose was written by the funder's staff. Treat it as a description of the idea, not as the organisation's own evidence, and do not credit or penalise its prose.
+- There is no budget and there are no form answers. That is not an omission by the organisation. Score budget quality only on whether the proposed value is proportionate to the organisation's filed scale and to the outcomes described, and say in the rationale that no budget has been seen.
+- Where a criterion cannot be judged from what is here, score it in the middle of the range and say plainly that it is not yet evidenced, rather than scoring it low. This assessment is a first screen, to be tested by a conversation or an application.
+- Lean on the register's filed figures for track record and delivery risk: they are the only evidence here that nobody wrote for this purpose.
+
+Organisation: ${input.organisationName}
+Grant value proposed: £${input.amountRequested.toLocaleString('en-GB')}${fields ? `\n${fields}` : ''}${register}
+
+## The funder's note on what the grant would be for
+${responses || '(nothing recorded)'}`
+  }
+
   return `# Funder mission
 ${mission}
 

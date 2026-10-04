@@ -3,7 +3,9 @@ import { useState } from 'react'
 import {
   Alert02Icon,
   ArchiveIcon,
-  CheckmarkCircle02Icon,
+  CheckListIcon,
+  Mail01Icon,
+  MailSend01Icon,
   NoteIcon,
   PencilEdit02Icon,
   SearchList01Icon,
@@ -12,10 +14,20 @@ import {
   actOnPartnership,
   addPartnershipNote,
   getPartnership,
+  linkPartnershipApplication,
+  rerunPartnershipAssessment,
   screenPartnership,
+  sendPartnershipEmail,
   setPartnershipArchived,
 } from '../../server/fns/partnerships'
-import { listClientTags, listProgrammes } from '../../server/fns/programmes'
+import { listProgrammes } from '../../server/fns/programmes'
+import { listMyRounds } from '../../server/fns/rounds'
+import { OutreachDialog } from '../../components/sourcing/OutreachDialog'
+import { AssessmentPanel } from '../../components/sourcing/AssessmentPanel'
+import { ProgressDialog } from '../../components/partnerships/ProgressDialog'
+import type { OutreachKind } from '../../lib/sourcing/outreach'
+import { impactUnitLabel } from '../../lib/impactUnits'
+import { EOI_STATUS_META } from '../../lib/eois/status'
 import { orNotFound } from '../../lib/loader'
 import {
   ActionMenu,
@@ -40,10 +52,11 @@ import {
 import { DD_LABEL, DD_TONE_HEX } from '../../components/partnerships/dueDiligenceTone'
 import { CHECK_DEFINITIONS } from '../../lib/dueDiligence'
 import { parsePartnershipsSearch } from '../../lib/listSearch'
-import { fmtAmount, fmtDate, fmtRef } from '../../lib/format'
+import { fmtAmount, fmtDate } from '../../lib/format'
 import { useAction } from '../../lib/useAction'
 import { messageFor } from '../../lib/errors'
 import {
+  assessmentGaps,
   canScreen,
   PARTNERSHIP_ACTION_META,
   PARTNERSHIP_STATUS_META,
@@ -64,8 +77,9 @@ import {
 // comments, votes, screening results, a schedule, a history.
 //
 // A partnership accrues. It carries a relationship history that grows for months, a
-// due diligence result that arrives from two external registers, an EOI submission, and
-// eventually a link to the application it produced. Three further things settle it:
+// due diligence result that arrives from two external registers, an AI assessment, a
+// link to any expression of interest they sent, and eventually a link to the application
+// it produced. Three further things settle it:
 //
 //   • **It needs a URL.** "Have a look at Settlefield before Thursday" is the message
 //     an admin sends a trustee about this screen, and a drawer has no address. The whole
@@ -87,12 +101,14 @@ export const Route = createFileRoute('/_authenticated/partnerships/$partnershipI
   // back arrow returns to the pipeline as it was read. See `lib/listSearch`.
   validateSearch: parsePartnershipsSearch,
   loader: async ({ params }) => {
-    const [partnership, programmes, clientTags] = await Promise.all([
+    const [partnership, programmes, rounds] = await Promise.all([
       orNotFound(getPartnership({ data: { id: params.partnershipId } })),
+      // For the programme's forms and impact unit.
       listProgrammes(),
-      listClientTags(),
+      // For the edit dialog's round and programme.
+      listMyRounds(),
     ])
-    return { partnership, programmes, clientTags }
+    return { partnership, programmes, rounds }
   },
   component: PartnershipDetail,
 })
@@ -103,16 +119,18 @@ const STATUS_HEX: Record<string, string> = {
   eoi_received: C.warning,
   invited: C.success,
   declined: C.danger,
+  applied: C.success,
 }
 
 /**
- * A TICK on the two "mark as" actions, not an envelope. An envelope beside "Mark EOI as
- * sent" reads as a send button — which is the promise this screen no longer makes, and
- * made once too often (see `run`).
+ * The two invitations wear an envelope because they open the email they send. That is a
+ * promise this screen keeps now: the status moves only once the message has gone, or
+ * once the admin says they sent it themselves (see `run`).
  */
 const ACTION_ICON: Record<PartnershipAction, typeof Alert02Icon> = {
-  issue_eoi: CheckmarkCircle02Icon,
-  invite: CheckmarkCircle02Icon,
+  issue_eoi: MailSend01Icon,
+  invite: MailSend01Icon,
+  shortlist: CheckListIcon,
   decline: Alert02Icon,
   reopen: NoteIcon,
 }
@@ -120,7 +138,7 @@ const ACTION_ICON: Record<PartnershipAction, typeof Alert02Icon> = {
 function PartnershipDetail() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
-  const { partnership, programmes, clientTags } = Route.useLoaderData()
+  const { partnership, programmes, rounds } = Route.useLoaderData()
   const listSearch = Route.useSearch()
   const canManage = ['superadmin', 'admin'].includes(user.role)
 
@@ -128,19 +146,30 @@ function PartnershipDetail() {
   const [confirm, setConfirm] = useState<PartnershipAction | undefined>()
   const [archiving, setArchiving] = useState(false)
   const [note, setNote] = useState('')
+  const [emailing, setEmailing] = useState<OutreachKind | undefined>()
+  const [progressing, setProgressing] = useState(false)
 
   const act = useAction(actOnPartnership)
   const screen = useAction(screenPartnership)
   const archive = useAction(setPartnershipArchived)
   const postNote = useAction(addPartnershipNote)
+  const assess = useAction(rerunPartnershipAssessment)
+  const link = useAction(linkPartnershipApplication)
+
+  // The programme as the list has it, for its forms and its impact unit: the record's
+  // own join carries only what the header prints.
+  const programme = programmes.find((p) => p.id === partnership.programmeId)
+  const gaps = assessmentGaps(partnership)
 
   const meta = PARTNERSHIP_STATUS_META[partnership.status]
   const screenable = canScreen(partnership.charityNumber, partnership.companyNumber)
 
+  const where = partnership.roundProgramme
+    ? `${partnership.programme?.name ?? 'Programme'}, ${partnership.roundProgramme.round.name}`
+    : null
   const subline = [
-    partnership.organisationType,
-    partnership.location,
-    fmtRef(partnership.reference),
+    where ?? 'No round chosen',
+    partnership.deliveryArea,
     partnership.source,
     `Logged ${fmtDate(partnership.createdAt)}`,
   ]
@@ -154,29 +183,26 @@ function PartnershipDetail() {
   /**
    * Moving the pipeline along.
    *
-   * **Custodian sends nothing here, and nothing here pretends it did.** These buttons
-   * used to open the admin's mail client on a `mailto:` and move the status in the same
-   * gesture — which meant closing the draft without sending still left the record
-   * saying "an expression-of-interest form has gone out". A `mailto:` is handed to the
-   * operating system and never reports back: no success, no failure, no callback. There
-   * is no version of that flow in which the app can know.
-   *
-   * So the verbs are "Mark … as sent" and "Mark as invited", and pressing one is the
-   * ADMIN's statement that they did it — the same kind of fact as "introduced by James
-   * Hartley at the May board dinner", which is what every other entry in this module's
-   * history already is. `finance_digest_sends` states the underlying rule: a record of
-   * a send is a receipt, written when something is known to have gone, never a claim
-   * written in the hope that it did.
-   *
-   * If Custodian ever does send the EOI — a hosted form emailed through Resend, as
-   * award letters go — that becomes a real receipt (`sent`/`failed` on the row) and
-   * this collapses back to one click that has earned its wording.
+   * The two invitations open the email dialog rather than moving anything: the status
+   * changes when Custodian has sent the message, or when the admin presses "I've sent it
+   * myself" in that dialog, which is this function. A status never moves on the strength
+   * of a draft somebody may have closed. "Progress to shortlist" opens its own dialog,
+   * because it has to be put in a round. The rest are decisions taken here.
    */
-  async function run(action: PartnershipAction) {
+  async function run(action: Exclude<PartnershipAction, 'shortlist'>) {
     const result = await act.run({ data: { id: partnership.id, action } })
-    if (!result) return
+    if (!result) throw act.error ?? new Error('That did not work. Try again.')
     setConfirm(undefined)
+    setEmailing(undefined)
     await refresh()
+  }
+
+  function start(action: PartnershipAction) {
+    if (action === 'issue_eoi') return setEmailing('eoi_invite')
+    if (action === 'invite') return setEmailing('apply_invite')
+    if (action === 'shortlist') return setProgressing(true)
+    if (PARTNERSHIP_ACTION_META[action].destructive) return setConfirm(action)
+    void run(action).catch(() => {})
   }
 
   return (
@@ -195,30 +221,37 @@ function PartnershipDetail() {
           canManage &&
           !partnership.archivedAt && (
             <>
-              {meta.actions.map((action, i) => {
-                const a = PARTNERSHIP_ACTION_META[action]
-                return (
-                  <Button
-                    key={action}
-                    // Destructive is checked FIRST, not after the position. On an
-                    // invited partnership the only remaining move is "Not pursuing",
-                    // which made it index 0 and drew closing a relationship as the
-                    // solid green primary button on the screen.
-                    variant={a.destructive ? 'dangerGhost' : i === 0 ? 'primary' : 'secondary'}
-                    icon={ACTION_ICON[action]}
-                    disabled={act.pending}
-                    // Declining is the one move that closes a relationship somebody
-                    // spent effort on, so it asks first. The rest are reversible by
-                    // their own opposite and are not worth a dialog.
-                    onClick={() => (a.destructive ? setConfirm(action) : run(action))}
-                  >
-                    {a.label}
-                  </Button>
-                )
-              })}
+              {meta.actions
+                // Not offered without a round: an application cannot exist outside one,
+                // and the round is where its budget comes from. Rows logged before the
+                // round was required say so on the progress panel instead.
+                .filter((action) => action !== 'shortlist' || !!partnership.roundProgrammeId)
+                .map((action, i) => {
+                  const a = PARTNERSHIP_ACTION_META[action]
+                  return (
+                    <Button
+                      key={action}
+                      // Destructive is checked FIRST, not after the position. On an
+                      // invited partnership the only remaining move is "Not pursuing",
+                      // which made it index 0 and drew closing a relationship as the
+                      // solid green primary button on the screen.
+                      variant={a.destructive ? 'dangerGhost' : i === 0 ? 'primary' : 'secondary'}
+                      icon={ACTION_ICON[action]}
+                      disabled={act.pending}
+                      onClick={() => start(action)}
+                    >
+                      {a.label}
+                    </Button>
+                  )
+                })}
               <ActionMenu
                 label={`Actions for ${partnership.organisationName}`}
                 actions={[
+                  {
+                    label: 'Email them',
+                    icon: Mail01Icon,
+                    onSelect: () => setEmailing('message'),
+                  },
                   {
                     label: 'Edit details',
                     icon: PencilEdit02Icon,
@@ -248,6 +281,8 @@ function PartnershipDetail() {
 
       <ErrorNote error={act.error} />
       <ErrorNote error={screen.error} />
+      <ErrorNote error={assess.error} />
+      <ErrorNote error={link.error} />
 
       {partnership.archivedAt && (
         <Panel label="Archive" className="border-warning/30 bg-warning/5">
@@ -287,40 +322,139 @@ function PartnershipDetail() {
             {meta.description}
           </p>
 
-          {partnership.eoiResponses && partnership.eoiResponses.length > 0 && (
-            <Panel label="Expression of interest">
-              <PanelTitle
-                right={
-                  partnership.eoiReceivedAt ? (
-                    <span className="font-display text-label" style={{ color: C.sub }}>
-                      Received {fmtDate(partnership.eoiReceivedAt)}
-                    </span>
-                  ) : undefined
+          {/* The ask, such as it is: what the grant would be for and how much, in the
+              foundation's own words. The same two facts an application leads with, and
+              labelled "proposed" because nobody outside this building has agreed to
+              either. */}
+          <Panel label="Proposed grant">
+            <PanelTitle>Proposed grant</PanelTitle>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <KeyFact
+                label="Grant value proposed"
+                value={partnership.amountSought ? fmtAmount(partnership.amountSought) : '--'}
+                sub={partnership.amountSought ? 'Not a commitment' : undefined}
+              />
+              <KeyFact
+                label="Proposed impact"
+                value={
+                  partnership.proposedImpactQuantity
+                    ? `${Number(partnership.proposedImpactQuantity).toLocaleString('en-GB')} ${impactUnitLabel(programme?.impactUnit, programme?.impactUnitLabel).toLowerCase()}`
+                    : '--'
                 }
-              >
-                Expression of interest
-              </PanelTitle>
-              {/* The same `{label, value}` shape an application's responses use, drawn
-                  the same way — a foundation reading both should not have to learn two
-                  layouts for the same thing. */}
-              <dl className="flex flex-col gap-4">
-                {partnership.eoiResponses.map((r, i) => (
-                  <div key={i}>
-                    <dt
-                      className="font-display text-label uppercase tracking-wide"
-                      style={{ color: C.faint }}
-                    >
-                      {r.label}
-                    </dt>
-                    <dd
-                      className="mt-1 whitespace-pre-wrap font-display text-body"
-                      style={{ color: C.body }}
-                    >
-                      {r.value}
-                    </dd>
-                  </div>
+              />
+              <KeyFact label="Delivery area" value={partnership.deliveryArea ?? '--'} />
+            </div>
+            <p
+              className="mt-4 whitespace-pre-wrap font-display text-body"
+              style={{ color: partnership.proposedPurpose ? C.body : C.sub }}
+            >
+              {partnership.proposedPurpose ?? 'No purpose recorded yet.'}
+            </p>
+            {/* A row logged before the round was required. Said here, beside the facts
+                the shortlist would be built from, rather than as a missing button. */}
+            {!partnership.roundProgrammeId && !partnership.applicationId && (
+              <p className="mt-3 font-display text-label" style={{ color: C.warning }}>
+                No round chosen yet, so this partner cannot be taken to the shortlist. Choose one
+                under Edit details.
+              </p>
+            )}
+          </Panel>
+
+          <AssessmentPanel
+            status={partnership.custodianScoreStatus}
+            score={partnership.custodianScore}
+            detail={partnership.custodianScoreDetail}
+            gaps={gaps}
+            canManage={canManage && !partnership.archivedAt && !partnership.applicationId}
+            running={assess.pending}
+            onRefresh={refresh}
+            onRerun={async () => {
+              const ok = await assess.run({ data: { id: partnership.id } })
+              if (ok) await refresh()
+            }}
+          />
+
+          {/* What the register says they are. The figures were filed with a regulator;
+              the description was written by the charity for that regulator, and says so. */}
+          {partnership.organisationProfile && (
+            <Panel label="From the charity register">
+              <PanelTitle>From the charity register</PanelTitle>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <KeyFact
+                  label="Income"
+                  value={
+                    partnership.organisationProfile.latestIncome != null
+                      ? fmtAmount(partnership.organisationProfile.latestIncome)
+                      : '--'
+                  }
+                  sub={
+                    partnership.organisationProfile.financialPeriodEnd
+                      ? `Year to ${fmtDate(partnership.organisationProfile.financialPeriodEnd)}`
+                      : undefined
+                  }
+                />
+                <KeyFact
+                  label="Expenditure"
+                  value={
+                    partnership.organisationProfile.latestExpenditure != null
+                      ? fmtAmount(partnership.organisationProfile.latestExpenditure)
+                      : '--'
+                  }
+                />
+                <KeyFact
+                  label="Employees"
+                  value={partnership.organisationProfile.employees?.toLocaleString('en-GB') ?? '--'}
+                />
+                <KeyFact
+                  label="Registered"
+                  value={
+                    partnership.organisationProfile.registeredSince
+                      ? fmtDate(partnership.organisationProfile.registeredSince)
+                      : '--'
+                  }
+                />
+              </div>
+              {partnership.organisationProfile.activities && (
+                <p className="mt-4 font-display text-body" style={{ color: C.body }}>
+                  {partnership.organisationProfile.activities}
+                </p>
+              )}
+            </Panel>
+          )}
+
+          {/* Have we met them before. Numbers only (see `partnerships/history.ts`), so
+              this is silent for an organisation with neither number rather than guessing
+              from a name. */}
+          {(partnership.history.awards.length > 0 ||
+            partnership.history.partnerships.length > 0) && (
+            <Panel label="What you already know">
+              <PanelTitle>What you already know</PanelTitle>
+              <ul className="flex flex-col gap-2">
+                {partnership.history.awards.map((award) => (
+                  <li key={award.id} className="font-display text-body" style={{ color: C.body }}>
+                    <TextLink to="/awards/$awardId" params={{ awardId: award.id }}>
+                      {fmtAmount(award.amountAwarded)} awarded
+                    </TextLink>{' '}
+                    in {new Date(award.decidedAt).getFullYear()}, {award.programmeName}
+                    {award.status === 'cancelled' ? ' (cancelled)' : ''}
+                  </li>
                 ))}
-              </dl>
+                {partnership.history.partnerships.map((other) => (
+                  <li key={other.id} className="font-display text-body" style={{ color: C.body }}>
+                    <TextLink
+                      to="/partnerships/$partnershipId"
+                      params={{ partnershipId: other.id }}
+                    >
+                      Logged before
+                    </TextLink>{' '}
+                    on {fmtDate(other.createdAt)}:{' '}
+                    {other.archivedAt
+                      ? 'archived'
+                      : PARTNERSHIP_STATUS_META[other.status].label.toLowerCase()}
+                    {other.source ? `, ${other.source}` : ''}
+                  </li>
+                ))}
+              </ul>
             </Panel>
           )}
 
@@ -396,23 +530,11 @@ function PartnershipDetail() {
           <Panel label="Details">
             <PanelTitle>Details</PanelTitle>
             <div className="grid grid-cols-2 gap-4">
-              <KeyFact label="Programme" value={partnership.programme?.name ?? 'Not decided'} />
+              <KeyFact label="Round" value={partnership.roundProgramme?.round.name ?? '--'} />
+              <KeyFact label="Programme" value={partnership.programme?.name ?? '--'} />
               <KeyFact label="Source" value={partnership.source ?? '--'} />
               <KeyFact label="Charity no." value={partnership.charityNumber ?? '--'} />
               <KeyFact label="Company no." value={partnership.companyNumber ?? '--'} />
-              <KeyFact label="Contact" value={partnership.contactName ?? '--'} />
-              {/* "Indicative", every time it is printed. Nothing in Finance, the annual
-                  budget or any meter reads this figure — it is what somebody said over
-                  coffee, and the money rule (CLAUDE.md) is that a conversation is not
-                  money committed. Labelling it anything shorter is how it ends up in a
-                  total. */}
-              <KeyFact
-                label="Indicative ask"
-                value={
-                  partnership.amountSought ? fmtAmount(partnership.amountSought) : 'Not discussed'
-                }
-                sub={partnership.amountSought ? 'Not a commitment' : undefined}
-              />
             </div>
             {/* Full width, not a `sub` under the contact's name: in a 320px column an
                 address wraps to an ellipsis at about the "@", which is the half that
@@ -440,7 +562,7 @@ function PartnershipDetail() {
                   className="font-display text-label uppercase tracking-wide"
                   style={{ color: C.faint }}
                 >
-                  Themes
+                  Themes, from the assessment
                 </p>
                 <div className="mt-1.5">
                   <TruncatedList
@@ -557,9 +679,27 @@ function PartnershipDetail() {
             )}
           </Panel>
 
-          {/* Where the pipeline hands over. Once an invited organisation applies, the
-              application is the record of the ask and this stops moving — so the last
-              thing the screen says is what it turned into. */}
+          {/* Their expression of interest. The submission itself lives with every other
+              EOI, on Applications; this is only the way through to it. */}
+          {partnership.eois.length > 0 && (
+            <Panel label="Expression of interest">
+              <PanelTitle>Expression of interest</PanelTitle>
+              <ul className="flex flex-col gap-2">
+                {partnership.eois.map((eoi) => (
+                  <li key={eoi.id} className="font-display text-body" style={{ color: C.body }}>
+                    <TextLink to="/applications/eois/$eoiId" params={{ eoiId: eoi.id }}>
+                      Received {fmtDate(eoi.createdAt)}
+                    </TextLink>{' '}
+                    · {EOI_STATUS_META[eoi.status].label.toLowerCase()}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
+          {/* Where the pipeline hands over. Once there is an application it is the
+              record of the ask and this stops moving, so the last thing the screen says
+              is what it turned into. */}
           {partnership.application && (
             <Panel label="What this became">
               <PanelTitle>What this became</PanelTitle>
@@ -568,26 +708,105 @@ function PartnershipDetail() {
                   to="/applications/$applicationId"
                   params={{ applicationId: partnership.application.id }}
                 >
-                  {partnership.application.organisationName}
+                  The application
                 </TextLink>{' '}
-                applied.
+                carries on from here.
               </p>
             </Panel>
           )}
+
+          {/* The link is made by itself when their form hands the reference back. When
+              it did not, an application with the same registration number is probably
+              theirs, and an admin can say so. Offered, never assumed. */}
+          {canManage &&
+            !partnership.application &&
+            partnership.applicationCandidates.length > 0 && (
+              <Panel label="Is this their application?">
+                <PanelTitle>Is this their application?</PanelTitle>
+                <ul className="flex flex-col gap-3">
+                  {partnership.applicationCandidates.map((candidate) => (
+                    <li key={candidate.id} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <TextLink
+                          to="/applications/$applicationId"
+                          params={{ applicationId: candidate.id }}
+                        >
+                          {candidate.organisationName}
+                        </TextLink>
+                        <p className="font-display text-label" style={{ color: C.faint }}>
+                          {candidate.programmeName} · {fmtDate(candidate.createdAt)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={link.pending}
+                        onClick={async () => {
+                          const ok = await link.run({
+                            data: { id: partnership.id, applicationId: candidate.id },
+                          })
+                          if (ok) await refresh()
+                        }}
+                      >
+                        Link
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
         </div>
       </div>
 
       <PartnershipDialog
         open={draft !== undefined}
         draft={draft}
-        programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
-        themeSuggestions={clientTags}
+        rounds={rounds}
         onClose={() => setDraft(undefined)}
         onSaved={async () => {
           setDraft(undefined)
           await refresh()
         }}
       />
+
+      {emailing && (
+        <OutreachDialog
+          key={emailing}
+          kind={emailing}
+          organisationName={partnership.organisationName}
+          defaultTo={partnership.contactEmail}
+          contactName={null}
+          programmeName={partnership.programme?.name ?? null}
+          sender={partnership.sender}
+          onClose={() => setEmailing(undefined)}
+          onSend={async (values) => {
+            await sendPartnershipEmail({
+              data: { id: partnership.id, kind: emailing, ...values },
+            })
+            setEmailing(undefined)
+            await refresh()
+          }}
+          // Already at that stage means this is a chase, and there is nothing to mark.
+          onMarkSent={
+            emailing === 'message' ||
+            !meta.actions.includes(emailing === 'eoi_invite' ? 'issue_eoi' : 'invite')
+              ? undefined
+              : () => run(emailing === 'eoi_invite' ? 'issue_eoi' : 'invite')
+          }
+        />
+      )}
+
+      {progressing && (
+        <ProgressDialog
+          partnership={partnership}
+          where={where ?? ''}
+          onClose={() => setProgressing(false)}
+          onDone={async () => {
+            setProgressing(false)
+            await refresh()
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirm !== undefined}
@@ -597,7 +816,9 @@ function PartnershipDetail() {
         busy={act.pending}
         error={act.error ? messageFor(act.error) : undefined}
         onCancel={() => setConfirm(undefined)}
-        onConfirm={() => confirm && run(confirm)}
+        onConfirm={() => {
+          if (confirm && confirm !== 'shortlist') void run(confirm).catch(() => {})
+        }}
       >
         <p>
           {partnership.organisationName} moves out of the live pipeline and the decision is written
@@ -634,17 +855,15 @@ function toDraft(p: Awaited<ReturnType<typeof getPartnership>>): PartnershipDraf
   return {
     id: p.id,
     organisationName: p.organisationName,
-    reference: p.reference ?? '',
-    organisationType: p.organisationType ?? '',
-    location: p.location ?? '',
     charityNumber: p.charityNumber ?? '',
     companyNumber: p.companyNumber ?? '',
     source: p.source ?? '',
-    programmeId: p.programmeId ?? '',
-    tags: p.tags ?? [],
-    contactName: p.contactName ?? '',
+    roundProgrammeId: p.roundProgrammeId ?? '',
+    deliveryArea: p.deliveryArea ?? '',
     contactEmail: p.contactEmail ?? '',
     amountSought: p.amountSought ?? '',
+    proposedPurpose: p.proposedPurpose ?? '',
+    proposedImpactQuantity: p.proposedImpactQuantity ?? '',
     note: '',
   }
 }

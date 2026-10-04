@@ -43,6 +43,7 @@ import {
 } from '../../lib/fieldMapping'
 import type { ResolveInput } from '../../lib/validators/ingest'
 import { referenceTaken } from '../ingestDedupe'
+import { linkInvitedApplication } from '../sourcing/link'
 
 export type ResolveResult =
   | {
@@ -364,6 +365,9 @@ export async function resolveIngest(
   })
   const applicationId = created.application?.id
   if (!applicationId) return { ok: false, error: 'round_programme_missing' }
+
+  // The same hand-over the automatic path makes: see `sourcing/link.ts`.
+  await linkInvitedApplication(ingest.clientId, ingest.rawPayload, applicationId)
 
   return { ok: true, applicationId }
 }

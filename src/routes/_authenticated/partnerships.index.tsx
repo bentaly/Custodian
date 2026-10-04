@@ -2,7 +2,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Add01Icon, ArchiveIcon, ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { listPartnerships, PARTNERSHIPS_DEFAULT_SORT } from '../../server/fns/partnerships'
-import { listClientTags, listProgrammes } from '../../server/fns/programmes'
+import { listMyRounds } from '../../server/fns/rounds'
 import {
   Button,
   Card,
@@ -26,7 +26,6 @@ import {
   emptyPartnershipDraft,
   type PartnershipDraft,
 } from '../../components/partnerships/PartnershipDialog'
-import { fmtRef } from '../../lib/format'
 import {
   parsePartnershipsSearch,
   type PartnershipsSearch,
@@ -58,11 +57,12 @@ import { DD_LABEL, DD_TONE_HEX } from '../../components/partnerships/dueDiligenc
 // a row is in; the tab says whether it needs you. `lib/partnerships/status` holds the
 // mapping, and the server counts from the same table.
 //
-// **There is no money on this screen, and that is deliberate.** The prototype put a
+// **There is no budget on this screen, and that is deliberate.** The prototype put a
 // programme budget meter across the top, filled from committed grants. Finance and the
 // annual budget panel already answer that question and are pinned to each other by the
 // money rule (CLAUDE.md); a third bar drawn from a third query is precisely how the
-// 2026-08-27 discrepancy happened. A pipeline is counted in conversations.
+// 2026-08-27 discrepancy happened. A pipeline is counted in conversations, and the value
+// proposed for a partner is shown on its own record and summed nowhere.
 //
 // Clicking a row opens `/partnerships/$partnershipId` — a page, not a drawer. See that
 // file for why.
@@ -84,12 +84,8 @@ export const Route = createFileRoute('/_authenticated/partnerships/')({
     page: search.page,
   }),
   loader: async ({ deps }) => {
-    const [list, programmes, clientTags] = await Promise.all([
-      listPartnerships({ data: deps }),
-      listProgrammes(),
-      listClientTags(),
-    ])
-    return { ...list, programmes, clientTags }
+    const [list, rounds] = await Promise.all([listPartnerships({ data: deps }), listMyRounds()])
+    return { ...list, rounds }
   },
   component: PartnershipsPage,
 })
@@ -105,6 +101,7 @@ const STATUS_HEX: Record<PartnershipStatus, string> = {
   eoi_received: 'var(--color-warning)',
   invited: 'var(--color-success)',
   declined: 'var(--color-danger)',
+  applied: 'var(--color-success)',
 }
 
 const COLUMNS: TableColumn<PartnershipItem>[] = [
@@ -113,12 +110,15 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     sortable: true,
     header: 'Organisation',
     // The house identity cell, as Applications and Reports draw it: monogram, name, and
-    // a subline of the facts that tell two similarly-named charities apart. The
-    // foundation's own reference sits last, in the same place it does on every other
-    // list, so a row can be tied back to their systems without opening it.
+    // a subline of the facts that tell two similarly-named charities apart: the
+    // registration number, and where the work would be.
     cell: (item) => {
       const subline =
-        [item.organisationType, item.location, fmtRef(item.reference)]
+        [
+          item.charityNumber ? `Charity ${item.charityNumber}` : null,
+          item.companyNumber && !item.charityNumber ? `Company ${item.companyNumber}` : null,
+          item.deliveryArea,
+        ]
           .filter(Boolean)
           .join(' · ') || '--'
       return (
@@ -164,7 +164,11 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
       // ordinary state of a new prospect, not a gap in the data, and the faint grey says
       // so without inviting anyone to go and fix it.
       <TruncatedText
-        text={item.programme?.name ?? 'Not decided'}
+        text={
+          item.programme
+            ? `${item.programme.name}${item.roundProgramme ? ` · ${item.roundProgramme.round.name}` : ''}`
+            : 'Not decided'
+        }
         label="Programme"
         className={`font-display text-body ${item.programme ? 'text-grey-500' : 'text-grey-400'}`}
       />
@@ -248,17 +252,8 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
 function PartnershipsPage() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
-  const {
-    items,
-    total,
-    pageSize,
-    tabCounts,
-    portfolio,
-    archivedCount,
-    facets,
-    programmes,
-    clientTags,
-  } = Route.useLoaderData()
+  const { items, total, pageSize, tabCounts, portfolio, archivedCount, facets, rounds } =
+    Route.useLoaderData()
   const navigate = Route.useNavigate()
   const {
     tab: tabParam,
@@ -390,7 +385,7 @@ function PartnershipsPage() {
             <SearchInput
               value={q}
               onChange={(next) => setFilter({ q: next })}
-              placeholder="Search name, reference or place…"
+              placeholder="Search name, number or area…"
               ariaLabel="Search partnerships"
               className="sm:w-72"
             />
@@ -447,7 +442,7 @@ function PartnershipsPage() {
                     {archived
                       ? 'Archiving a partner keeps their history and takes them out of the pipeline.'
                       : tab === 'to_action'
-                        ? 'Organisations you are talking to appear here before they apply. Log one when a trustee makes an introduction.'
+                        ? 'Organisations you are approaching appear here before they apply. Log one with its charity number and Custodian screens it.'
                         : 'Try another tab, or clear the filters.'}
                   </p>
                 </EmptyState>
@@ -473,8 +468,7 @@ function PartnershipsPage() {
       <PartnershipDialog
         open={draft !== undefined}
         draft={draft}
-        programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
-        themeSuggestions={clientTags}
+        rounds={rounds}
         onClose={() => setDraft(undefined)}
         // Straight onto the record: a prospect is logged in order to be screened and
         // decided about, and dropping the person back on the list would make them find

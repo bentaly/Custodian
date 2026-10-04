@@ -5,7 +5,7 @@ import { DEFAULT_IMPACT_UNIT, IMPACT_UNITS, IMPACT_UNIT_BY_KEY } from '../lib/im
 import { nextProgrammeColour } from '../lib/programmeColours'
 import { TagInput } from './TagInput'
 import { RichTextEditor } from './RichTextEditor'
-import { Button, ColourPicker, Dialog, Input, Label, Select } from './ui'
+import { Button, ColourPicker, Dialog, Input, Label, Select, Toggle } from './ui'
 
 // Create or edit a programme (Figma 710:2815). The twin of `RoundDialog`, and for the
 // same reason: a programme is a name, some themes, a unit and a statement of what it
@@ -21,6 +21,8 @@ export type ProgrammeDraft = {
   impactUnit: string
   impactUnitLabel: string
   colour: string
+  /** Takes an expression of interest before a full application. */
+  acceptsEois: boolean
 }
 
 /**
@@ -35,6 +37,7 @@ export const emptyProgrammeDraft = (taken: Array<string | null>): ProgrammeDraft
   impactUnit: DEFAULT_IMPACT_UNIT,
   impactUnitLabel: '',
   colour: nextProgrammeColour(taken),
+  acceptsEois: false,
 })
 
 export function ProgrammeDialog({
@@ -91,6 +94,7 @@ function ProgrammeDialogForm({
   const [impactUnit, setImpactUnit] = useState(draft.impactUnit)
   const [impactUnitLabel, setImpactUnitLabel] = useState(draft.impactUnitLabel)
   const [colour, setColour] = useState(draft.colour)
+  const [acceptsEois, setAcceptsEois] = useState(draft.acceptsEois)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   // A theme typed into the box but never turned into a chip. Clicking Save blurs the
@@ -119,6 +123,7 @@ function ProgrammeDialogForm({
     impactUnit !== draft.impactUnit ||
     impactUnitLabel.trim() !== draft.impactUnitLabel.trim() ||
     colour !== draft.colour ||
+    acceptsEois !== draft.acceptsEois ||
     tags.length !== draft.tags.length ||
     tags.some((t, i) => t !== draft.tags[i]) ||
     pendingTag.trim() !== ''
@@ -142,6 +147,7 @@ function ProgrammeDialogForm({
           impactUnit,
           impactUnitLabel: impactUnitLabel.trim() || null,
           colour,
+          acceptsEois,
         },
       })
       onSaved()
@@ -256,6 +262,26 @@ function ProgrammeDialogForm({
             to score the applications, so include as much detail as you think is useful.
           </p>
           <RichTextEditor key={draft.id ?? 'new'} defaultValue={goal} onChange={setGoal} />
+        </div>
+
+        {/* What offers the EOI tab on Applications. Refuses nothing: an EOI sent for a
+            programme with this off still lands, and is read like any other. */}
+        <div className="flex items-start justify-between gap-4 border-t border-grey-200 pt-4">
+          <div>
+            <p className="font-display text-body font-medium text-grey-900">
+              Takes expressions of interest
+            </p>
+            <p id="programme-eoi-help" className="mt-1 font-display text-label text-grey-500">
+              A shorter first-stage form before a full application. They appear beside Applications,
+              and you invite the ones you want to apply.
+            </p>
+          </div>
+          <Toggle
+            checked={acceptsEois}
+            onChange={setAcceptsEois}
+            label="Takes expressions of interest"
+            describedBy="programme-eoi-help"
+          />
         </div>
       </form>
     </Dialog>

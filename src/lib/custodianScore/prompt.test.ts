@@ -459,3 +459,35 @@ describe('buildUserPrompt — proposed impact and duration', () => {
     expect(prompt).not.toContain('Maximum grant')
   })
 })
+
+describe('buildUserPrompt — a sourced partner', () => {
+  const sourced: CustodianScoreInput = {
+    ...base,
+    sourced: true,
+    deliveryArea: null,
+    responses: [{ label: 'Proposed purpose', value: 'Core costs for the Saturday club.' }],
+  }
+
+  // The same six criteria, but the model must be told nobody filled in a form. Left as
+  // "the application", silence on a budget reads as costs an applicant failed to justify.
+  it('says it is not an application, and whose words the purpose is', () => {
+    const prompt = buildUserPrompt(sourced)
+    expect(prompt).toContain('NOT an application')
+    expect(prompt).toContain('Grant value proposed: £25,000')
+    expect(prompt).toContain('Core costs for the Saturday club.')
+    expect(prompt).not.toContain('Amount requested')
+    expect(prompt).not.toContain('## Application responses')
+  })
+
+  it('still gives the funder context the score is anchored to', () => {
+    const prompt = buildUserPrompt(sourced)
+    expect(prompt).toContain('Tackling youth disadvantage')
+    expect(prompt).toContain('# Programme: Youth Futures')
+  })
+
+  // The system prompt is the cached rubric: it must not vary with what is being scored.
+  it('leaves an application prompt exactly as it was', () => {
+    expect(buildUserPrompt(base)).toContain('# Application')
+    expect(buildUserPrompt(base)).not.toContain('Prospective partner')
+  })
+})

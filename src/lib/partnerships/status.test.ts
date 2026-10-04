@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assessmentGaps,
   canTransition,
   PARTNERSHIP_ACTION_META,
   PARTNERSHIP_STATUS_META,
@@ -58,6 +59,23 @@ describe('the partnership pipeline', () => {
     expect(statusesForTab('awaiting').sort()).toEqual(
       (['eoi_issued', 'invited'] as PartnershipStatus[]).sort(),
     )
-    expect(statusesForTab('closed')).toEqual(['declined'])
+    expect(statusesForTab('closed').sort()).toEqual(
+      (['applied', 'declined'] as PartnershipStatus[]).sort(),
+    )
+  })
+
+  // Once an application exists it owns the story. A move offered from `applied` would
+  // be a second status for the same grant on a second screen.
+  it('offers nothing once there is an application', () => {
+    expect(PARTNERSHIP_STATUS_META.applied.actions).toEqual([])
+  })
+
+  it('names what the assessment is waiting for', () => {
+    expect(assessmentGaps({ programmeId: null, amountSought: null, proposedPurpose: ' ' })).toEqual(
+      ['a programme', 'a proposed grant value', 'a proposed purpose'],
+    )
+    expect(
+      assessmentGaps({ programmeId: 'p', amountSought: '25000', proposedPurpose: 'Core costs' }),
+    ).toEqual([])
   })
 })

@@ -200,4 +200,13 @@ export interface CustodianScoreInput {
   grantDurationYears: number | null | undefined
   /** The applicant's answers to the dynamic form questions. */
   responses: Array<{ label: string; value: string }> | null | undefined
+  /**
+   * Set when this is not an application at all but a PARTNER the foundation sourced:
+   * staff logged the organisation, a proposed value and a proposed purpose, and nobody
+   * filled in a form. The same six criteria are scored so the result sits on one scale
+   * with applications (and can be carried onto one), but the user prompt says plainly
+   * what the model is looking at. Without that, "the application is silent" marks a
+   * record down for answers nobody was ever asked for.
+   */
+  sourced?: boolean
 }

@@ -61,7 +61,12 @@ function AuthenticatedLayout() {
     <div className="flex h-screen flex-col print:block print:h-auto">
       <ImpersonationBanner />
       <div className="flex min-h-0 flex-1 print:block">
-        <Sidebar mobileOpen={navOpen} onClose={() => setNavOpen(false)} role={user.role} />
+        <Sidebar
+          mobileOpen={navOpen}
+          onClose={() => setNavOpen(false)}
+          role={user.role}
+          features={user.features}
+        />
         <div className="flex min-w-0 flex-1 flex-col print:block">
           <AppHeader user={user} rounds={rounds} onOpenNav={() => setNavOpen(true)} />
           {/* 16px all round at every width — the design's page gutter (Figma 126:31899).

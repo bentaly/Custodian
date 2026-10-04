@@ -67,6 +67,8 @@ export const saveProgramme = createServerFn({ method: 'POST' })
       // Only meaningful for 'other'; cleared otherwise so a unit changed away from
       // "Other…" cannot leave a stale phrase behind to resurface if it changes back.
       impactUnitLabel: data.impactUnit === 'other' ? (data.impactUnitLabel?.trim() ?? null) : null,
+      // Written only when sent: see `SaveProgrammeSchema`.
+      ...(data.acceptsEois !== undefined ? { acceptsEois: data.acceptsEois } : {}),
     }
 
     if (data.id) {

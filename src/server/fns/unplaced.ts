@@ -9,6 +9,7 @@
 // it arrived, so one that came in while no round was open stays in the admin app too.
 
 import { referenceTaken } from '../ingestDedupe'
+import { linkInvitedApplication } from '../sourcing/link'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
@@ -171,6 +172,7 @@ export const placeSubmission = createServerFn({ method: 'POST' })
     })
     const applicationId = created.application?.id
     if (!applicationId) throw conflict('The submission could not be placed. Try again.')
+    await linkInvitedApplication(ingest.clientId, ingest.rawPayload, applicationId)
 
     if (parsed.data.amountRequested != null) {
       await enqueue({ kind: 'score', applicationId }, () => scoreApplication(applicationId))

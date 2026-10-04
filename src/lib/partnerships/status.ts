@@ -19,6 +19,7 @@ export const PARTNERSHIP_STATUSES = [
   'eoi_received',
   'invited',
   'declined',
+  'applied',
 ] as const
 
 export type PartnershipStatus = (typeof PARTNERSHIP_STATUSES)[number]
@@ -34,7 +35,13 @@ export type PartnershipStatus = (typeof PARTNERSHIP_STATUSES)[number]
  */
 export type PartnershipWaitingOn = 'us' | 'them' | 'closed'
 
-export type PartnershipAction = 'issue_eoi' | 'invite' | 'decline' | 'reopen'
+/**
+ * `shortlist` is the odd one out: it is not a status change `actOnPartnership` can make,
+ * because it has to create an application in a round somebody picks. It is listed here
+ * so the same table decides where the button is offered, and `progressPartnership`
+ * re-checks it with `canTransition` like any other move.
+ */
+export type PartnershipAction = 'issue_eoi' | 'invite' | 'shortlist' | 'decline' | 'reopen'
 
 type StatusMeta = {
   label: string
@@ -53,29 +60,31 @@ export const PARTNERSHIP_STATUS_META: Record<PartnershipStatus, StatusMeta> = {
     description: 'Logged, and nobody has decided anything yet.',
     waitingOn: 'us',
     tone: 'neutral',
-    actions: ['issue_eoi', 'invite', 'decline'],
+    actions: ['issue_eoi', 'invite', 'shortlist', 'decline'],
   },
   eoi_issued: {
     label: 'EOI sent',
-    description: 'Recorded as sent. Waiting on them to answer.',
+    description: 'They have been asked for an expression of interest. Waiting on them to answer.',
     waitingOn: 'them',
     tone: 'info',
     // No `issue_eoi`: it has been issued. Re-sending is a chase, which belongs on the
     // contact rather than in the pipeline's list of moves.
-    actions: ['invite', 'decline'],
+    actions: ['invite', 'shortlist', 'decline'],
   },
   eoi_received: {
     label: 'EOI received',
     description: 'They have answered. Waiting on you to read it and decide.',
     waitingOn: 'us',
     tone: 'warning',
-    actions: ['invite', 'decline'],
+    actions: ['invite', 'shortlist', 'decline'],
   },
   invited: {
     label: 'Invited to apply',
-    description: 'Recorded as invited. Waiting on their application.',
+    description: 'They have been invited to apply. Waiting on their application.',
     waitingOn: 'them',
-    actions: ['decline'],
+    // Still offered here: an organisation invited to fill in a form that staff then
+    // decide to vouch for directly is an ordinary change of mind.
+    actions: ['shortlist', 'decline'],
     tone: 'success',
   },
   declined: {
@@ -85,6 +94,16 @@ export const PARTNERSHIP_STATUS_META: Record<PartnershipStatus, StatusMeta> = {
     tone: 'danger',
     actions: ['reopen'],
   },
+  applied: {
+    label: 'Applied',
+    description:
+      'There is an application now, and it carries the story from here. Nothing further happens on this record.',
+    waitingOn: 'closed',
+    tone: 'success',
+    // None, on purpose. The application has its own status, votes and decision; a move
+    // here would be a second answer to a question that screen already owns.
+    actions: [],
+  },
 }
 
 /**
@@ -92,26 +111,25 @@ export const PARTNERSHIP_STATUS_META: Record<PartnershipStatus, StatusMeta> = {
  * pressed. Both live here so the history cannot describe an action differently from the
  * button that caused it.
  *
- * **The two correspondence actions say "Mark … as", and the wording is load-bearing.**
- * Custodian does not send the EOI form or the invitation — the admin does, from their
- * own address, so the reply lands in their inbox. These buttons used to open a
- * `mailto:` and move the status in one gesture, which meant closing the draft without
- * sending still left the record asserting that a form "has gone out". A `mailto:` is
- * handed to the operating system and never reports back, so the app cannot ever know.
+ * **The two correspondence actions can happen two ways, and the history tells them
+ * apart.** Custodian can email the link itself (`sendPartnershipEmail`): the status moves
+ * only after Resend has accepted the message, and the line reads "Custodian emailed …",
+ * a receipt. Or the admin sends it from their own inbox and says so ("I've sent it
+ * myself", `actOnPartnership`): that line reads "Marked … as sent", their statement.
  *
- * "Mark as" is therefore not hedging, it is the accurate verb: pressing it is the
- * ADMIN stating what they did, which is the same kind of fact as every other entry in
- * this module's history ("introduced by James Hartley at the May board dinner"). It
- * also leaves room for the real thing — if Custodian ever sends the EOI through Resend
- * as it sends award letters, that line will read "sent by Custodian" and be visibly a
- * different claim sitting in the same timeline.
+ * These buttons once opened a `mailto:` and moved the status in one gesture, which meant
+ * closing the draft without sending still left the record asserting that a form "has
+ * gone out". A `mailto:` is handed to the operating system and never reports back. So a
+ * status never moves on the strength of a draft: either we sent it and know, or a person
+ * states that they did.
  */
 export const PARTNERSHIP_ACTION_META: Record<
   PartnershipAction,
   { label: string; /** Resulting status. */ to: PartnershipStatus; destructive?: boolean }
 > = {
-  issue_eoi: { label: 'Mark EOI as sent', to: 'eoi_issued' },
-  invite: { label: 'Mark as invited', to: 'invited' },
+  issue_eoi: { label: 'Invite to submit an EOI', to: 'eoi_issued' },
+  invite: { label: 'Invite to apply', to: 'invited' },
+  shortlist: { label: 'Progress to shortlist', to: 'applied' },
   decline: { label: 'Not pursuing', to: 'declined', destructive: true },
   reopen: { label: 'Reopen', to: 'prospective' },
 }
@@ -174,6 +192,23 @@ export function statusesForTab(tab: PartnershipTab): PartnershipStatus[] {
  * and offers the only fix (adding a number), exactly as an application's does. See
  * `DueDiligenceStatus` for why that is its own status rather than a flavour of `review`.
  */
+/**
+ * What the AI assessment still needs before it can run, in the words the screen prints.
+ * Empty means it can. The three are what the prompt is built from: the programme is the
+ * yardstick, and a value and a purpose are the whole of the "ask" a sourced partner has.
+ */
+export function assessmentGaps(p: {
+  programmeId: string | null
+  amountSought: string | number | null
+  proposedPurpose: string | null
+}): string[] {
+  return [
+    p.programmeId ? null : 'a programme',
+    p.amountSought != null && Number(p.amountSought) > 0 ? null : 'a proposed grant value',
+    p.proposedPurpose?.trim() ? null : 'a proposed purpose',
+  ].filter((g): g is string => g !== null)
+}
+
 export function canScreen(charityNumber: string | null, companyNumber: string | null): boolean {
   return Boolean(charityNumber?.trim() || companyNumber?.trim())
 }

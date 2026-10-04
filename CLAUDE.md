@@ -218,6 +218,11 @@ Traps:
 - **audit_log** — human actions with actor; feeds the dashboard "Lately" feed
 - **invitations** — token-based invitation flow
 - **api_keys** — per-client secret keys gating `/api/apply`
+- **partnerships** + **partnership_events** — an organisation the foundation is SOURCING, before
+  there is an application, and its relationship history. Hangs off the client, not a round.
+  See "Partnerships and expressions of interest"
+- **eois** — a first-stage submission, lighter than an application; `partnership_id` when a
+  sourced partner sent it, `application_id` once it led to one
 - **import_batches** — onboarding data import, makes it reversible
 - **annual_budgets** + **annual_budget_lines** — a year's grant-making plan; a line's NULL
   `programme_id` is a cost or income line (`kind`), which carries a `frequency` (monthly,
@@ -615,9 +620,11 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
   you set an address and nothing else, so the credential travels in the PATH. That is a second
   `api_keys.kind` (`webhook`, prefix `cust_wh_…`), and `resolveToken` makes the kind part of the
   LOOKUP so a leaked webhook URL can never be replayed as a Bearer header. Answers **200**, not
-  202 — Typeform's delivery log is read by a person. **One token, two addresses**
-  (2026-09-29): `/api/webhooks/typeform-report/<token>` is the report twin, and Settings → API
-  keys shows both when a webhook token is made. Before it, a report form had no direct way in,
+  202 — Typeform's delivery log is read by a person. **One token, three addresses**:
+  `/api/webhooks/typeform-report/<token>` is the report twin (2026-09-29) and
+  `/api/webhooks/typeform-eoi/<token>` the expression of interest one (2026-10-02, with
+  `POST /api/eoi` as its Bearer twin); Settings → API keys shows all three when a webhook
+  token is made. Before it, a report form had no direct way in,
   and pasting the only address into one turned every report into an application.
 - **Envelopes are flattened at the decode boundary** (`src/lib/submissionEnvelope`), by SHAPE not
   by route, so nothing downstream knows they exist. Three keys are synthesised because a form
@@ -681,6 +688,75 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
 - **Legacy**: budget links captured during the Make period are dead URLs (Typeform's Responses API
   returns a bearer-authed path; the raw webhook returns the openable one). If another platform
   hands back an unreachable URL, re-derive that from the stored payload — never store it as a column.
+
+## Partnerships and expressions of interest
+
+Two things that happen BEFORE an application, built 2026-10-02 from the Notion concepts of
+23 Sep and cut down on 2026-10-04. `/partnerships` is in the rail (upstream of Applications);
+EOIs are a tab INSIDE Applications (`ApplicationsTabs`), never a nav entry.
+
+- **Staging only, behind the `sourcing` flag** (`lib/features.ts`, `server/features.ts`): on
+  everywhere except production, decided at runtime from `SENTRY_ENVIRONMENT` because both
+  Workers run one build. Every server fn and both EOI endpoints refuse with a 404
+  (`requireFeature`); the rail, the route guards (`partnerships.tsx`, both `applications.eois`
+  routes), the Applications tab and the EOI webhook address on Settings only hide the door.
+  The flags ride on `getMe`, so they cost no request. To ship, delete the key and follow the
+  type errors.
+- **Four routes to an application, and the log form asks only for what they need.**
+  (1) partnership straight to the shortlist; (2) partnership, invited to apply, their
+  application; (3) EOI straight to the shortlist; (4) EOI, their application. On 2 and 4 the
+  applicant's form supplies everything again, so a partnership field earns its place only by
+  feeding the screening or by being something route 1's application cannot do without.
+  **Required**: a charity OR company number, the name (from the register), the round and
+  programme (`round_programme_id`; `programme_id` is derived from it), the value proposed and
+  the purpose proposed. **Optional**: source, delivery area, proposed impact (the whole
+  grant's, not annual), contact email, notes. `location`, `organisation_type`, `reference`,
+  `contact_name` and `eoi_responses` are no longer read or written and are to be dropped in
+  a later push. Themes are not typed: the assessment picks them from the programme's list.
+- **Tenancy is `client_id` on the row, for both.** Neither has a round-programme to scope by
+  (a partnership's is a CHOICE, not where it lives). Every read filters on it directly; every
+  write re-checks with `assertClientAccess`. Reads are open to every role; writes are admin-only.
+- **Neither moves money.** `amount_sought` ("Grant value proposed") and `eois.amount_indicative`
+  are read by no total, meter or budget. The only way in is by becoming an application.
+- **Both stop at the application.** Each ends at `applied` (an application exists, by
+  invitation or directly) or `declined`, and points at `application_id`. Neither grows a
+  `shortlisted` or `awarded`.
+- **Two things called "EOI", kept apart in code.** `partnership_status`'s `eoi_issued` /
+  `eoi_received` say where a SOURCED relationship has got to; `eois` / `eoi_status` /
+  `lib/eois` are the submission. All EOIs live in `eois`; the partnership is only told one
+  arrived. **`programmes.accepts_eois`** (a switch in the programme dialog, plain yes/no) is
+  what offers the EOI tab: shown whenever a live programme has it on, empty or not. It refuses
+  nothing, and it picks an EOI's programme when exactly one programme has it on.
+- **Logging starts with the number** (`lookupOrganisation`): the register's name fills the
+  form, and `organisationHistory` (`server/partnerships/history.ts`) says whether they are
+  already in the pipeline or were funded before. Numbers only, never names.
+- **Screening is inline on save, the assessment is on the queue** (`partnership_score`,
+  `server/partnerships/score.ts`): the SAME `runCustodianScore` and six criteria, so it is on
+  one scale and carries onto a route 1 application, with `sourced: true` telling the model it
+  is reading staff's note and the register (said in the user turn, so the cached system prompt
+  is unchanged). Its inputs are all required, so it always runs; it re-runs only on request.
+- **Routes 1 and 3 share `sourcedApplicationValues`** (`server/sourcing/application.ts`),
+  which resolves the delivery area there and then: once trustees vote an application's details
+  lock, so an area missing at the shortlist could never reach the Insights map. Route 1 carries
+  the partnership's due diligence and assessment; route 3 screens now and scores the EOI's own
+  answers on the ordinary prompt. Both write at `for_review` and the dialog then calls
+  `updateApplicationStatus`, which owns the budget ceiling. Bank details come later, in Finance.
+- **Custodian hosts no forms and stores no form addresses.** An invitation's send dialog asks
+  for the link each time and the server adds `custodian_ref` (`p_<partnership>` or
+  `e_<eoi>`, `lib/sourcing/inviteRef.ts`; the fragment for Typeform, a query parameter
+  otherwise). A form that hands it back (a Typeform hidden field) is linked by
+  `linkInvitedApplication` (`server/sourcing/link.ts`) from all three places an application is
+  created; best-effort, tenant-scoped, first one wins. Otherwise the partnership offers "Is this
+  their application?" on the same registration number.
+- **A status moves on a receipt or a statement, never on a draft.** The send fns move it only
+  after Resend accepts ("Custodian emailed ..."); "I've sent it myself" is `actOnPartnership`.
+  Declining an EOI emails nobody.
+- **An EOI is never held** (`lib/eois/decode.ts`, `server/eois/receive.ts`): no required field,
+  no AI, no queue. Taught mappings and the dictionary first, then two EOI-only fallbacks the
+  application pipeline leaves to its AI (the one answer that is an email address; a question
+  about money with one figure). Every answer is kept in order; an exact re-send creates nothing.
+- Not built: an `applications.source` column and the import's sourced-vs-reactive split, a
+  decline letter for EOIs, EOIs in `/settings/submissions`' docs, tenancy itests for either table.
 
 ## Canonical field tiers
 
@@ -1348,10 +1424,8 @@ layer that sees **every** response — SSR pages, server functions, public API r
 - **A leading `-` parks a route.** `routeFileIgnorePrefix` defaults to `-`, so the generator
   skips the file and the URL 404s; `tsconfig.json` excludes `src/routes/**/-*` to match, because
   `createFileRoute` is typed against the generated tree and cannot compile without it. Only the
-  route shell is set aside — everything it imports stays built, checked and tested. **Partnerships
-  is parked this way** (`-partnerships*.tsx`, plus a commented-out `NAV` entry in `Sidebar.tsx`):
-  the feature is finished but not ready to be used. Unpark it by dropping the three prefixes and
-  uncommenting the nav line.
+  route shell is set aside — everything it imports stays built, checked and tested. Nothing is
+  parked today; Partnerships was until 2026-10-02.
 
 Structural decisions worth knowing before adding a screen:
 

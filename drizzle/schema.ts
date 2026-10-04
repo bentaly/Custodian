@@ -199,6 +199,10 @@ export const partnershipStatusEnum = pgEnum('partnership_status', [
   'eoi_received',
   'invited',
   'declined',
+  // Handed over: an application exists (they applied, or staff took them straight to
+  // the shortlist). Still not `shortlisted` / `awarded`: this says only THAT the
+  // application has the story now, never where the application has got to.
+  'applied',
 ])
 
 /**
@@ -223,6 +227,32 @@ export const partnershipEventKindEnum = pgEnum('partnership_event_kind', [
   'due_diligence_run',
   'archived',
   'unarchived',
+  // An email Custodian SENT (a receipt, written after Resend accepted it), as opposed to
+  // the `eoi_issued` / `invited` an admin records as having sent themselves.
+  'emailed',
+  // Taken straight to the shortlist by staff, with no form in between.
+  'shortlisted',
+  // The application the invitation produced has arrived.
+  'applied',
+])
+
+/**
+ * Where an expression of interest has got to. Three states, and it stops there for the
+ * reason `partnershipStatusEnum` stops at `invited`: once an application exists it is the
+ * record of the ask, and `eois.application_id` points at it.
+ *
+ * NOT to be confused with `partnership_status`'s `eoi_issued` / `eoi_received`, which are
+ * a PARTNERSHIP's states (staff asked a sourced prospect to express interest). This is
+ * the submission itself, whoever prompted it.
+ */
+export const eoiStatusEnum = pgEnum('eoi_status', [
+  'submitted',
+  'invited_to_apply',
+  'declined',
+  // An application exists: they applied after an invitation, or staff took the EOI
+  // straight to the shortlist. Like `partnership_status.applied`, it says THAT, never
+  // where the application has got to.
+  'applied',
 ])
 
 // ─── Business tables ──────────────────────────────────────────────────────────
@@ -423,6 +453,11 @@ export const programmes = pgTable(
     // Free-text PLURAL noun phrase when impactUnit = 'other', e.g. "hectares of
     // peatland restored". Used verbatim for display and extraction; never inflected.
     impactUnitLabel: text('impact_unit_label'),
+    // Does this programme take an expression of interest before a full application? A
+    // plain yes/no (not off / preferred / required): it decides whether the EOI tab is
+    // offered on Applications, and refuses nothing. Added in 0107, dropped in 0108 and
+    // back in 0109: the review went one way and then the other.
+    acceptsEois: boolean('accepts_eois').notNull().default(false),
     // See `rounds.archived_at` — same rule: a programme with grants against it stays,
     // because its awards reference it through `round_programmes` for the budget they
     // were judged against.
@@ -1938,10 +1973,15 @@ export const partnerships = pgTable(
     // the interesting values are the ones outside any list we would write, and nothing
     // branches on it.
     organisationType: text('organisation_type'),
-    // Where the organisation is, as a person would say it — "Leeds", "North Yorkshire".
-    // NOT a delivery area: there is no funded project yet, so there is nothing to
-    // resolve a deprivation decile against. Deliberately not wired to `lib/deprivation`.
+    // DEPRECATED with `organisation_type`, `reference` and `contact_name`: no longer
+    // read or written since the log form was cut down to what a screen or an
+    // application needs (2026-10-04). Where they are based fed nothing; where the work
+    // would happen is `delivery_area`. To be dropped in a later push.
     location: text('location'),
+    // Where the funded work would happen, as on an application (`applications.geography`).
+    // Resolved to a deprivation reading for the assessment and again when the partner is
+    // taken straight to the shortlist, which is what puts the grant on the Insights map.
+    deliveryArea: text('delivery_area'),
     // Registration numbers, which is what makes due diligence possible this early. Both
     // nullable, and both meaning the same thing as on an application: a CIO has only a
     // charity number, a CIC only a company number, some have both.
@@ -1951,9 +1991,18 @@ export const partnerships = pgTable(
     // "Conference". A foundation's answer to "is our pipeline coming from anywhere but
     // the board's address book?", which is the reason this column exists at all.
     source: text('source'),
+    // The round and programme the partner would be funded from. Required by the log
+    // form since 2026-10-04 (nullable for rows older than that): the programme is what
+    // the assessment is judged against, and the round is where "Progress to shortlist"
+    // puts the application, so it is decided once, here. `programme_id` is kept in step
+    // with it on every save, for the list's programme filter.
+    roundProgrammeId: uuid('round_programme_id').references(() => roundProgrammes.id, {
+      onDelete: 'set null',
+    }),
     programmeId: uuid('programme_id').references(() => programmes.id, {
       onDelete: 'set null',
     }),
+    // Chosen by the assessment from the programme's own themes, not typed.
     tags: jsonb('tags').$type<string[]>(),
     contactName: text('contact_name'),
     contactEmail: text('contact_email'),
@@ -1964,12 +2013,31 @@ export const partnerships = pgTable(
     // aspiration in a conversation is not money committed, and the money rule
     // (see CLAUDE.md) would be broken the moment one did.
     amountSought: numeric('amount_sought'),
-    // What the organisation said when asked. Held as the same `{label, value}` shape
-    // `applications.responses` uses, so the EOI answers render through the same
-    // component as an application's — a foundation reading both should not have to
-    // learn two layouts for the same thing.
+    // What the grant would be FOR, in the foundation's own words, typed when the partner
+    // is logged. Deliberately not called `grantPurpose`: on an application that name is
+    // the model's one-sentence summary, and this is a person's.
+    proposedPurpose: text('proposed_purpose'),
+    // The impact the GRANT would have, in the programme's impact unit: the whole award,
+    // not a year of it. The same meaning as `applications.proposed_impact_quantity`,
+    // which it becomes if the partner is taken straight to the shortlist.
+    proposedImpactQuantity: numeric('proposed_impact_quantity'),
+    // DEPRECATED, no longer read or written: every expression of interest lands in
+    // `eois` now, and a second copy here had no rule for which was right. Kept for one
+    // push (expand/contract) and to be dropped in the next.
     eoiResponses: jsonb('eoi_responses').$type<Array<{ label: string; value: string }>>(),
+    // When their EOI arrived. A date for the pipeline to sort and print, not a copy of
+    // the submission, which is the `eois` row pointing back at this partnership.
     eoiReceivedAt: timestamp('eoi_received_at'),
+    // The AI assessment, in the same four columns and on the same six criteria as an
+    // application's, so the two are quoted on one scale and the result can be carried
+    // onto the application when a partner goes straight to the shortlist. `waiting`
+    // means it needs a programme, a proposed value and a proposed purpose first.
+    custodianScoreStatus: custodianScoreStatusEnum('custodian_score_status')
+      .notNull()
+      .default('waiting'),
+    custodianScore: integer('custodian_score'),
+    custodianScoreDetail: jsonb('custodian_score_detail').$type<CustodianScoreDetail>(),
+    custodianScoredAt: timestamp('custodian_scored_at'),
     // Due diligence, in the same four columns and with the same meanings as on an
     // application (`runDueDiligence` writes both). Screening a prospect before anyone
     // spends an afternoon on them is most of the point of logging one, and the answer
@@ -2035,6 +2103,76 @@ export const partnershipEvents = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('partnership_events_partnership_idx').on(t.partnershipId, t.occurredAt)],
+)
+
+// ─── Expressions of interest ─────────────────────────────────────────────────
+
+/**
+ * A first-stage submission: lighter than an application, and sent BEFORE one.
+ *
+ * Its own table rather than a thin `applications` row, for the reason partnerships stop
+ * at `invited`: one row must not stand for two stages of completeness. An EOI rarely
+ * carries a firm amount, never a budget or bank details, and has no round to sit in, and
+ * everything that counts money counts `applications`.
+ *
+ * It arrives the way an application does (the foundation's own form, posted to
+ * `/api/eoi` or the Typeform twin) but nothing HOLDS it: there is no required field. What
+ * could be read is on the columns, and every answer is in `responses` in the sender's
+ * order. An unrecognised programme is simply no programme, set on the screen.
+ *
+ * Both funnels land here. An open-call EOI has no `partnership_id`; one a sourced partner
+ * was invited to send carries it (from `custodian_ref` on the link), and the partnership
+ * is moved to `eoi_received` so its pipeline shows the fact. The submission lives here
+ * only.
+ *
+ * Tenancy is `client_id` on the row, as on `partnerships`: there is no round-programme
+ * for `visibleRoundProgrammeIds` to scope.
+ */
+export const eois = pgTable(
+  'eois',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    programmeId: uuid('programme_id').references(() => programmes.id, { onDelete: 'set null' }),
+    partnershipId: uuid('partnership_id').references(() => partnerships.id, {
+      onDelete: 'set null',
+    }),
+    organisationName: text('organisation_name').notNull(),
+    // The sender's own reference for the submission (Typeform's response token, or
+    // whatever their form calls it). Never minted by us.
+    reference: text('reference'),
+    contactEmail: text('contact_email'),
+    charityNumber: text('charity_number'),
+    companyNumber: text('company_number'),
+    // What they said they might ask for, if they said. Not a commitment and read by no
+    // total: the same standing as `partnerships.amount_sought`.
+    amountIndicative: numeric('amount_indicative'),
+    // Every answer, in the order it was asked (jsonb would reorder an object, so the
+    // order is fixed by making it an array at the decode boundary).
+    responses: jsonb('responses').$type<Array<{ label: string; value: string }>>().notNull(),
+    // As received. Also what an exact re-send is recognised by.
+    rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>().notNull(),
+    status: eoiStatusEnum('status').notNull().default('submitted'),
+    // What the invitation produced. `set null`: deleting an application must not erase
+    // the expression of interest that led to it.
+    applicationId: uuid('application_id').references(() => applications.id, {
+      onDelete: 'set null',
+    }),
+    decidedAt: timestamp('decided_at'),
+    decidedByUserId: text('decided_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    decisionNote: text('decision_note'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('eois_client_status_idx').on(t.clientId, t.status),
+    index('eois_partnership_idx').on(t.partnershipId),
+    index('eois_application_idx').on(t.applicationId),
+  ],
 )
 
 // ─── Insight analyses ────────────────────────────────────────────────────────
@@ -2313,12 +2451,31 @@ export const auditLogRelations = relations(auditLog, ({ one }) => ({
 export const partnershipsRelations = relations(partnerships, ({ one, many }) => ({
   client: one(clients, { fields: [partnerships.clientId], references: [clients.id] }),
   programme: one(programmes, { fields: [partnerships.programmeId], references: [programmes.id] }),
+  roundProgramme: one(roundProgrammes, {
+    fields: [partnerships.roundProgrammeId],
+    references: [roundProgrammes.id],
+  }),
   application: one(applications, {
     fields: [partnerships.applicationId],
     references: [applications.id],
   }),
   createdBy: one(users, { fields: [partnerships.createdByUserId], references: [users.id] }),
   events: many(partnershipEvents),
+  eois: many(eois),
+}))
+
+export const eoisRelations = relations(eois, ({ one }) => ({
+  client: one(clients, { fields: [eois.clientId], references: [clients.id] }),
+  programme: one(programmes, { fields: [eois.programmeId], references: [programmes.id] }),
+  partnership: one(partnerships, {
+    fields: [eois.partnershipId],
+    references: [partnerships.id],
+  }),
+  application: one(applications, {
+    fields: [eois.applicationId],
+    references: [applications.id],
+  }),
+  decidedBy: one(users, { fields: [eois.decidedByUserId], references: [users.id] }),
 }))
 
 export const partnershipEventsRelations = relations(partnershipEvents, ({ one }) => ({

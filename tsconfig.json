@@ -23,7 +23,7 @@
   // tsc must skip them too: `createFileRoute('/_authenticated/partnerships')` is typed
   // against the generated tree, so a route that is not in it cannot compile. Everything
   // those files IMPORT (lib/, components/, server/fns/) stays in the build and keeps
-  // being checked and tested; only the three route shells are set aside. Partnerships is
-  // the current occupant — see the note in `components/Sidebar.tsx`.
+  // being checked and tested; only the route shells are set aside. Nothing is parked at
+  // the moment (Partnerships was, until October 2026).
   "exclude": ["src/routes/**/-*"]
 }

@@ -30,6 +30,11 @@ export const SaveProgrammeSchema = z
      * choose a colour before they have said what the programme is.
      */
     colour: z.string().regex(PROGRAMME_COLOUR_PATTERN, 'Pick a colour').nullable(),
+    /**
+     * Takes an expression of interest before a full application. Optional on the wire so
+     * a caller that predates it leaves the column alone rather than switching it off.
+     */
+    acceptsEois: z.boolean().optional(),
   })
   .refine((p) => p.impactUnit !== 'other' || (p.impactUnitLabel?.trim() ?? '') !== '', {
     // Without this, picking "Other…" and typing nothing silently falls back to "People"

@@ -52,6 +52,7 @@ import { CreateApplicationSchema } from '../../lib/validators/application'
 import { scoreApplication } from '../applications/score'
 import { enqueue } from '../pipelineQueue'
 import { reportFault } from '../faults'
+import { linkInvitedApplication } from '../sourcing/link'
 import { earlierIdenticalApplication, referenceTaken, resentNote } from '../ingestDedupe'
 
 const AI_CONFIDENCE_THRESHOLD = 0.85
@@ -259,7 +260,8 @@ export async function processIngest(
   // answers (an exact copy was absorbed at step 0): a correction or a clash, and not
   // ours to guess. Held, and explained by the `reference_taken` blocker.
   const reference = resolved.externalApplicationId?.value ?? null
-  const clash = status !== 'needs_review' && reference ? await referenceTaken(clientId, reference) : null
+  const clash =
+    status !== 'needs_review' && reference ? await referenceTaken(clientId, reference) : null
   if (clash) status = 'needs_review'
 
   // 7. Promote (create the application, with due diligence + deprivation) or hold.
@@ -323,6 +325,10 @@ export async function processIngest(
       ['submission-held', ingestId],
     )
   }
+
+  // An application that came from an invitation says so in a `custodian_ref` field;
+  // point the partnership or EOI at it. Never throws. See `sourcing/link.ts`.
+  if (applicationId) await linkInvitedApplication(clientId, payload, applicationId)
 
   // Ask for the score only once the application and its ingest row are committed, so
   // a message can never point at a row that does not exist yet. Not at all when the

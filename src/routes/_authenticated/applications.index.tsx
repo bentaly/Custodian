@@ -16,6 +16,8 @@ import {
   updateApplicationStatus,
 } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
+import { getEoiNav } from '../../server/fns/eois'
+import { ApplicationsTabs } from '../../components/applications/ApplicationsTabs'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { APPLICATIONS_DEFAULT_SORT } from '../../server/fns/applications'
@@ -115,7 +117,7 @@ export const Route = createFileRoute('/_authenticated/applications/')({
         })
     }
 
-    const [applicationsData, budgetSummary] = await Promise.all([
+    const [applicationsData, budgetSummary, eoiNav] = await Promise.all([
       listApplications({
         data: {
           page: deps.page ?? 1,
@@ -133,8 +135,11 @@ export const Route = createFileRoute('/_authenticated/applications/')({
         },
       }),
       roundId ? getRoundBudgetSummary({ data: { roundId } }) : Promise.resolve([]),
+      // Whether this foundation takes expressions of interest, which decides whether the
+      // screen shows its tab pair at all. See `ApplicationsTabs`.
+      getEoiNav(),
     ])
-    return { ...applicationsData, rounds, budgetSummary }
+    return { ...applicationsData, rounds, budgetSummary, eoiNav }
   },
   component: ApplicationsList,
 })
@@ -681,7 +686,7 @@ function ApplicationsList() {
   const search = Route.useSearch()
   const { roundId, programmeId, status, scoreBand, tag, q, from, to, sortBy, sortDir, page } =
     search
-  const { items, total, rounds, budgetSummary } = Route.useLoaderData()
+  const { items, total, rounds, budgetSummary, eoiNav } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
 
   // The ONLY thing selecting rows does here is bulk `updateApplicationStatus`, which is
@@ -947,15 +952,22 @@ function ApplicationsList() {
               selected. Beside the programme pill it read as "email this programme's
               applicants", which is the one thing it must not be mistaken for.
               Primary, because on a closed round it is the screen's whole purpose. */}
-          {canSendDeclines && (
-            <div className="ml-auto">
-              <Button
-                icon={MailSend01Icon}
-                iconPosition="right"
-                onClick={() => setDecliningOpen(true)}
-              >
-                Send decline letters
-              </Button>
+          {/* The right-hand cluster reads outwards, as on Shortlist and Finance: this
+              screen's own action first, then the pair that switches screens. */}
+          {(canSendDeclines || eoiNav.enabled) && (
+            <div className="ml-auto flex flex-wrap items-center gap-3">
+              {canSendDeclines && (
+                <Button
+                  icon={MailSend01Icon}
+                  iconPosition="right"
+                  onClick={() => setDecliningOpen(true)}
+                >
+                  Send decline letters
+                </Button>
+              )}
+              {eoiNav.enabled && (
+                <ApplicationsTabs tab="applications" eoisToReview={eoiNav.toReview} />
+              )}
             </div>
           )}
         </div>
