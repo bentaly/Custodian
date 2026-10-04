@@ -493,3 +493,32 @@ export const progressEoi = createServerFn({ method: 'POST' })
     await enqueue({ kind: 'score', applicationId }, () => scoreApplication(applicationId))
     return { applicationId }
   })
+
+/**
+ * Every expression of interest for one programme, with its answers, for the CSV export.
+ * The whole programme on every tab, as the applications export takes the whole programme
+ * regardless of the filters: an export is the record, not the view.
+ */
+export const exportEois = createServerFn({ method: 'GET' })
+  .validator(z.object({ programmeId: z.uuid() }))
+  .handler(async ({ data }) => {
+    requireFeature('sourcing')
+    const user = await requireAuthUser()
+    if (!user.clientId) return []
+    return getDb().query.eois.findMany({
+      where: and(eq(eois.clientId, user.clientId), eq(eois.programmeId, data.programmeId)),
+      columns: {
+        organisationName: true,
+        reference: true,
+        charityNumber: true,
+        companyNumber: true,
+        contactEmail: true,
+        amountIndicative: true,
+        status: true,
+        partnershipId: true,
+        createdAt: true,
+        responses: true,
+      },
+      orderBy: [desc(eois.createdAt)],
+    })
+  })

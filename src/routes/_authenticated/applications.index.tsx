@@ -16,7 +16,9 @@ import {
   updateApplicationStatus,
 } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
-import { getEoiNav, listEois } from '../../server/fns/eois'
+import { exportEois, getEoiNav, listEois } from '../../server/fns/eois'
+import { eoiExportColumns } from '../../lib/eois/export'
+import { toCsv } from '../../lib/spreadsheetExport'
 import { EoiList } from '../../components/eois/EoiList'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus } from '../../lib/roundStatus'
@@ -216,7 +218,11 @@ function exportCsv(items: AppItem[], filename: string) {
       .map(esc)
       .join(','),
   )
-  const csv = [headers.join(','), ...rows].join('\n')
+  downloadText([headers.join(','), ...rows].join('\n'), filename)
+}
+
+/** Hand a CSV to the browser as a download. */
+function downloadText(csv: string, filename: string) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -951,6 +957,26 @@ function ApplicationsList() {
   const [decliningOpen, setDecliningOpen] = useState(false)
   const canSendDeclines = canSetStatus && roundStatus === 'closed' && !!roundId
 
+  // The programme's expressions of interest, every tab, with one column per question
+  // their form asked (`lib/eois/export.ts`).
+  async function handleEoiExport() {
+    if (!programmeId) return
+    setExporting(true)
+    try {
+      const rows = await exportEois({ data: { programmeId } })
+      const name =
+        budgetSummary.find((r) => r.programmeId === programmeId)?.programmeName ?? 'programme'
+      downloadText(
+        toCsv(eoiExportColumns(rows), rows),
+        `expressions-of-interest-${name}.csv`.replace(/\s+/g, '-'),
+      )
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not export expressions of interest')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   async function handleExport() {
     setExporting(true)
     try {
@@ -1044,25 +1070,26 @@ function ApplicationsList() {
               applications, or the whole round on "All". That is why it is in the card
               and the decline button is not — one is scoped to what you are looking at,
               the other to the round. */}
-          {/* Applications or expressions of interest, for THIS programme: an EOI belongs
-              to a programme, so the switch sits beside the pill that names it. Only on a
-              programme that takes EOIs. */}
-          {eoisOffered && (
-            <Tabs<'applications' | 'eois'>
-              ariaLabel="Applications or expressions of interest"
-              value={showingEois ? 'eois' : 'applications'}
-              onChange={setView}
-              items={[
-                { id: 'applications', label: 'Applications' },
-                { id: 'eois', label: 'EOIs', count: eoisWaiting },
-              ]}
-            />
-          )}
-          {!showingEois && (
-            <div className="ml-auto">
-              <ExportButton onClick={handleExport} busy={exporting} />
-            </div>
-          )}
+          {/* The switch between the two views, then the export at the end of the row,
+              in the same place whichever view is showing. */}
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            {/* Applications or expressions of interest, for THIS programme: an EOI
+                belongs to the programme the pill names, so the switch follows it. Only
+                on a programme that takes EOIs. */}
+            {eoisOffered && (
+              <Tabs<'applications' | 'eois'>
+                ariaLabel="Applications or expressions of interest"
+                value={showingEois ? 'eois' : 'applications'}
+                onChange={setView}
+                items={[
+                  { id: 'applications', label: 'Applications' },
+                  { id: 'eois', label: 'EOIs', count: eoisWaiting },
+                ]}
+              />
+            )}
+            {/* The export follows the view: the programme's applications, or its EOIs. */}
+            <ExportButton onClick={showingEois ? handleEoiExport : handleExport} busy={exporting} />
+          </div>
         </div>
 
         {showingEois && eoiList ? (
