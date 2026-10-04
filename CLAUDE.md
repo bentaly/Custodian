@@ -693,7 +693,9 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
 
 Two things that happen BEFORE an application, built 2026-10-02 from the Notion concepts of
 23 Sep and cut down on 2026-10-04. `/partnerships` is in the rail (upstream of Applications);
-EOIs are a tab INSIDE Applications (`ApplicationsTabs`), never a nav entry.
+EOIs live INSIDE the Applications card, never in the nav: an Applications | EOIs switch beside
+the programme pill (`?view=eois`, `components/eois/EoiList`), drawn only for a programme with
+`accepts_eois` on. The old `/applications/eois` address redirects there.
 
 - **Staging only, behind the `sourcing` flag** (`lib/features.ts`, `server/features.ts`): on
   everywhere except production, decided at runtime from `SENTRY_ENVIRONMENT` because both
@@ -724,8 +726,8 @@ EOIs are a tab INSIDE Applications (`ApplicationsTabs`), never a nav entry.
 - **Two things called "EOI", kept apart in code.** `partnership_status`'s `eoi_issued` /
   `eoi_received` say where a SOURCED relationship has got to; `eois` / `eoi_status` /
   `lib/eois` are the submission. All EOIs live in `eois`; the partnership is only told one
-  arrived. **`programmes.accepts_eois`** (a switch in the programme dialog, plain yes/no) is
-  what offers the EOI tab: shown whenever a live programme has it on, empty or not. It refuses
+  arrived. **`programmes.accepts_eois`** (a switch in the programme dialog, plain yes/no,
+  itself behind the flag) is what offers that programme's EOI switch, empty or not. It refuses
   nothing, and it picks an EOI's programme when exactly one programme has it on.
 - **Logging starts with the number** (`lookupOrganisation`): the register's name fills the
   form, and `organisationHistory` (`server/partnerships/history.ts`) says whether they are

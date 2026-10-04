@@ -19,7 +19,7 @@ import {
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { OutreachDialog } from '../../components/sourcing/OutreachDialog'
-import { parseEoisSearch } from '../../lib/listSearch'
+import { parseApplicationsSearch } from '../../lib/listSearch'
 import { fmtAmount, fmtDate, fmtRef } from '../../lib/format'
 import { useAction } from '../../lib/useAction'
 import { messageFor } from '../../lib/errors'
@@ -40,8 +40,8 @@ import { EOI_STATUS_META, type EoiStatus } from '../../lib/eois/status'
 // one's job a stage early, on a fraction of the evidence.
 
 export const Route = createFileRoute('/_authenticated/applications/eois/$eoiId')({
-  // The LIST's state, carried in so the back arrow returns to it as it was read.
-  validateSearch: parseEoisSearch,
+  // The Applications card's state, carried in so the back arrow returns to it as read.
+  validateSearch: parseApplicationsSearch,
   // Behind the `sourcing` flag, as Partnerships is: see `routes/_authenticated/partnerships.tsx`.
   beforeLoad: ({ context }) => {
     if (!context.user.features.sourcing) throw notFound()
@@ -111,8 +111,14 @@ function EoiDetail() {
   return (
     <div className="flex flex-col gap-4">
       <DetailHeader
-        backTo="/applications/eois"
-        backSearch={listSearch}
+        // Back to the Applications card on its EOI view, for the programme it was opened
+        // from (or this EOI's own programme when it was opened from somewhere else).
+        backTo="/applications"
+        backSearch={{
+          ...listSearch,
+          programmeId: listSearch.programmeId ?? eoi.programmeId ?? undefined,
+          view: 'eois',
+        }}
         backLabel="Back to expressions of interest"
         name={eoi.organisationName}
         subline={subline}

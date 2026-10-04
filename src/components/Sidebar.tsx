@@ -39,8 +39,8 @@ export const NAV = [
   // Upstream of Applications, because that is where it sits in the work: a partnership
   // is a conversation with an organisation that has not applied yet, and the pipeline
   // hands over the moment one does. The rail reads in lifecycle order. Expressions of
-  // interest deliberately have NO entry of their own: they are the front half of the
-  // Applications story and live there as a tab (`components/applications/ApplicationsTabs`).
+  // interest deliberately have NO entry of their own: they belong to a programme, and
+  // live in the Applications card behind a switch beside its programme pill (`EoiList`).
   { to: '/partnerships', label: 'Partnerships', icon: HeartHandshakeIcon },
   { to: '/applications', label: 'Applications', icon: NoteIcon, search: { roundId: undefined } },
   { to: '/shortlist', label: 'Shortlist', icon: CheckListIcon, search: { roundId: undefined } },

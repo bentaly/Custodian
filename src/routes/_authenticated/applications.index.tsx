@@ -16,8 +16,8 @@ import {
   updateApplicationStatus,
 } from '../../server/fns/applications'
 import { listMyRounds } from '../../server/fns/rounds'
-import { getEoiNav } from '../../server/fns/eois'
-import { ApplicationsTabs } from '../../components/applications/ApplicationsTabs'
+import { getEoiNav, listEois } from '../../server/fns/eois'
+import { EoiList } from '../../components/eois/EoiList'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { APPLICATIONS_DEFAULT_SORT } from '../../server/fns/applications'
@@ -48,6 +48,7 @@ import {
   FilterRow,
   SearchInput,
   StatusPill,
+  Tabs,
   RoundSelect,
   SelectPill,
   Tooltip,
@@ -94,6 +95,8 @@ export const Route = createFileRoute('/_authenticated/applications/')({
     sortBy: search.sortBy,
     sortDir: search.sortDir,
     page: search.page,
+    view: search.view,
+    eoiTab: search.eoiTab,
   }),
   loader: async ({ deps }) => {
     const rounds = await listMyRounds()
@@ -117,7 +120,11 @@ export const Route = createFileRoute('/_authenticated/applications/')({
         })
     }
 
-    const [applicationsData, budgetSummary, eoiNav] = await Promise.all([
+    // The card's EOI view (`EoiList`) is one programme's expressions of interest. Read
+    // only when asked for, and only for a programme; the screen falls back to
+    // applications if that programme turns out not to take EOIs.
+    const eoiView = deps.view === 'eois' && !!deps.programmeId
+    const [applicationsData, budgetSummary, eoiNav, eoiList] = await Promise.all([
       listApplications({
         data: {
           page: deps.page ?? 1,
@@ -135,11 +142,20 @@ export const Route = createFileRoute('/_authenticated/applications/')({
         },
       }),
       roundId ? getRoundBudgetSummary({ data: { roundId } }) : Promise.resolve([]),
-      // Whether this foundation takes expressions of interest, which decides whether the
-      // screen shows its tab pair at all. See `ApplicationsTabs`.
+      // Which programmes take expressions of interest: where the card offers its switch.
       getEoiNav(),
+      eoiView
+        ? listEois({
+            data: {
+              tab: deps.eoiTab ?? 'to_review',
+              programmeId: [deps.programmeId!],
+              q: deps.q,
+              page: deps.page,
+            },
+          })
+        : Promise.resolve(null),
     ])
-    return { ...applicationsData, rounds, budgetSummary, eoiNav }
+    return { ...applicationsData, rounds, budgetSummary, eoiNav, eoiList }
   },
   component: ApplicationsList,
 })
@@ -684,9 +700,22 @@ function ApplicationsList() {
   const navigate = useNavigate({ from: '/applications/' })
   const router = useRouter()
   const search = Route.useSearch()
-  const { roundId, programmeId, status, scoreBand, tag, q, from, to, sortBy, sortDir, page } =
-    search
-  const { items, total, rounds, budgetSummary, eoiNav } = Route.useLoaderData()
+  const {
+    roundId,
+    programmeId,
+    status,
+    scoreBand,
+    tag,
+    q,
+    from,
+    to,
+    sortBy,
+    sortDir,
+    page,
+    view,
+    eoiTab,
+  } = search
+  const { items, total, rounds, budgetSummary, eoiNav, eoiList } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
 
   // The ONLY thing selecting rows does here is bulk `updateApplicationStatus`, which is
@@ -810,6 +839,23 @@ function ApplicationsList() {
       }),
     })
   }
+  // The card's EOI switch (`EoiList`). Offered only for a programme that takes EOIs; a
+  // URL asking for EOIs on one that does not simply shows its applications.
+  const eoisOffered = !!programmeId && eoiNav.acceptingProgrammeIds.includes(programmeId)
+  const showingEois = view === 'eois' && eoisOffered && eoiList !== null
+  const eoisWaiting = programmeId ? (eoiNav.toReviewByProgramme[programmeId] ?? 0) : 0
+  // Each side keeps its own filters, so a switch starts the other one fresh: a search
+  // typed for an organisation's application is not a search of its EOIs.
+  function setView(next: 'applications' | 'eois') {
+    navigate({
+      search: (prev) => ({
+        roundId: prev.roundId,
+        programmeId: prev.programmeId,
+        view: next === 'eois' ? ('eois' as const) : undefined,
+      }),
+    })
+  }
+
   function setProgramme(id: string | undefined) {
     navigate({ search: (prev) => ({ ...prev, programmeId: id, page: undefined }) })
   }
@@ -954,20 +1000,15 @@ function ApplicationsList() {
               Primary, because on a closed round it is the screen's whole purpose. */}
           {/* The right-hand cluster reads outwards, as on Shortlist and Finance: this
               screen's own action first, then the pair that switches screens. */}
-          {(canSendDeclines || eoiNav.enabled) && (
-            <div className="ml-auto flex flex-wrap items-center gap-3">
-              {canSendDeclines && (
-                <Button
-                  icon={MailSend01Icon}
-                  iconPosition="right"
-                  onClick={() => setDecliningOpen(true)}
-                >
-                  Send decline letters
-                </Button>
-              )}
-              {eoiNav.enabled && (
-                <ApplicationsTabs tab="applications" eoisToReview={eoiNav.toReview} />
-              )}
+          {canSendDeclines && (
+            <div className="ml-auto">
+              <Button
+                icon={MailSend01Icon}
+                iconPosition="right"
+                onClick={() => setDecliningOpen(true)}
+              >
+                Send decline letters
+              </Button>
             </div>
           )}
         </div>
@@ -1003,129 +1044,184 @@ function ApplicationsList() {
               applications, or the whole round on "All". That is why it is in the card
               and the decline button is not — one is scoped to what you are looking at,
               the other to the round. */}
-          <div className="ml-auto">
-            <ExportButton onClick={handleExport} busy={exporting} />
-          </div>
+          {/* Applications or expressions of interest, for THIS programme: an EOI belongs
+              to a programme, so the switch sits beside the pill that names it. Only on a
+              programme that takes EOIs. */}
+          {eoisOffered && (
+            <Tabs<'applications' | 'eois'>
+              ariaLabel="Applications or expressions of interest"
+              value={showingEois ? 'eois' : 'applications'}
+              onChange={setView}
+              items={[
+                { id: 'applications', label: 'Applications' },
+                { id: 'eois', label: 'EOIs', count: eoisWaiting },
+              ]}
+            />
+          )}
+          {!showingEois && (
+            <div className="ml-auto">
+              <ExportButton onClick={handleExport} busy={exporting} />
+            </div>
+          )}
         </div>
 
-        {/* Budget for the selected programme */}
-        {scopedBudget.length > 0 && <BudgetCard rows={scopedBudget} title={budgetTitle} />}
-
-        {/* Filters — the shared row, in the shared order, with search on its right
-            (see `ui/FilterRow`). Programme is the exception that sits above rather than
-            in it: on this screen it is the browsing axis the budget card and the export
-            are scoped to, not one narrowing among several. */}
-        <FilterRow
-          search={
-            <SearchInput
-              value={q}
-              onChange={(next) =>
-                navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
-              }
-              placeholder="Search organisation or ID…"
-            />
-          }
-        >
-          <FilterPill
-            label="Status"
-            plural="statuses"
-            value={status}
-            options={APPLICATION_STATUS_OPTIONS}
-            onChange={setStatus}
-          />
-          <FilterPill label="Theme" plural="themes" value={tag} options={tags} onChange={setTag} />
-          <FilterPill
-            label="AI score"
-            plural="scores"
-            value={scoreBand}
-            options={SCORE_BAND_OPTIONS}
-            onChange={setScoreBand}
-          />
-          <DateRangePicker
-            value={{ from, to }}
-            onChange={(next) =>
+        {showingEois && eoiList ? (
+          <EoiList
+            data={eoiList}
+            tab={eoiTab ?? 'to_review'}
+            q={q}
+            listSearch={search}
+            onTab={(next) =>
               navigate({
-                search: (prev) => ({ ...prev, from: next.from, to: next.to, page: undefined }),
+                search: (prev) => ({
+                  ...prev,
+                  eoiTab: next === 'decided' ? ('decided' as const) : undefined,
+                  page: undefined,
+                }),
               })
             }
-            allLabel="Any date"
-          />
-        </FilterRow>
-
-        <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
-          <DataTable
-            columns={APPLICATION_COLUMNS}
-            rows={items}
-            rowKey={(app) => app.id}
-            onRowClick={(app) =>
+            onSearch={(next) =>
+              navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
+            }
+            onPage={(p) =>
+              navigate({ search: (prev) => ({ ...prev, page: p > 1 ? p : undefined }) })
+            }
+            onOpen={(eoiId) =>
               navigate({
-                to: '/applications/$applicationId',
-                params: { applicationId: app.id },
-                // Same as the organisation link above: clicking the row and clicking the
-                // name must land on the same URL, filters included.
+                to: '/applications/eois/$eoiId',
+                params: { eoiId },
                 search: (prev) => prev,
               })
             }
-            // Never `undefined`: with no explicit sort the list IS ordered — by the
-            // server's default — so the header shows that column's arrow rather than
-            // implying the rows arrived in no order at all.
-            sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : APPLICATIONS_DEFAULT_SORT}
-            onSort={(id) => setSort(id as SortKey)}
-            selection={
-              canSetStatus
-                ? {
-                    isSelected: (app) => selected.has(app.id),
-                    toggle: (app) => toggleOne(app.id),
-                    allSelected,
-                    someSelected,
-                    toggleAll,
+          />
+        ) : (
+          <>
+            {/* Budget for the selected programme */}
+            {scopedBudget.length > 0 && <BudgetCard rows={scopedBudget} title={budgetTitle} />}
+
+            {/* Filters — the shared row, in the shared order, with search on its right
+            (see `ui/FilterRow`). Programme is the exception that sits above rather than
+            in it: on this screen it is the browsing axis the budget card and the export
+            are scoped to, not one narrowing among several. */}
+            <FilterRow
+              search={
+                <SearchInput
+                  value={q}
+                  onChange={(next) =>
+                    navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }) })
                   }
-                : undefined
-            }
-            empty={
-              <div className="p-4">
-                <EmptyState>
-                  <p className="font-display text-body" style={{ color: C.sub }}>
-                    No applications match these filters.
-                  </p>
-                </EmptyState>
-              </div>
-            }
-          />
-        </div>
+                  placeholder="Search organisation or ID…"
+                />
+              }
+            >
+              <FilterPill
+                label="Status"
+                plural="statuses"
+                value={status}
+                options={APPLICATION_STATUS_OPTIONS}
+                onChange={setStatus}
+              />
+              <FilterPill
+                label="Theme"
+                plural="themes"
+                value={tag}
+                options={tags}
+                onChange={setTag}
+              />
+              <FilterPill
+                label="AI score"
+                plural="scores"
+                value={scoreBand}
+                options={SCORE_BAND_OPTIONS}
+                onChange={setScoreBand}
+              />
+              <DateRangePicker
+                value={{ from, to }}
+                onChange={(next) =>
+                  navigate({
+                    search: (prev) => ({ ...prev, from: next.from, to: next.to, page: undefined }),
+                  })
+                }
+                allLabel="Any date"
+              />
+            </FilterRow>
 
-        {/* Selection toolbar — sits under the table, beside the rows it acts on */}
-        {selected.size > 0 && (
-          <div
-            className="flex flex-wrap items-center justify-between gap-3 rounded-chip p-2"
-            style={{ backgroundColor: C.bar }}
-          >
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setSelected(new Set())}
-                className="flex h-8 shrink-0 items-center gap-1 rounded-chip bg-white/10 pl-1.5 pr-2 font-display text-body font-medium text-white"
-              >
-                <HugeiconsIcon icon={Cancel01Icon} size={16} color="#fff" />
-                Clear
-              </button>
-              <span className="font-display text-label font-medium" style={{ color: C.mint }}>
-                {selected.size} selected · {fmtAmount(combinedAsk)} combined ask
-              </span>
+            <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
+              <DataTable
+                columns={APPLICATION_COLUMNS}
+                rows={items}
+                rowKey={(app) => app.id}
+                onRowClick={(app) =>
+                  navigate({
+                    to: '/applications/$applicationId',
+                    params: { applicationId: app.id },
+                    // Same as the organisation link above: clicking the row and clicking the
+                    // name must land on the same URL, filters included.
+                    search: (prev) => prev,
+                  })
+                }
+                // Never `undefined`: with no explicit sort the list IS ordered — by the
+                // server's default — so the header shows that column's arrow rather than
+                // implying the rows arrived in no order at all.
+                sort={sortBy ? { by: sortBy, dir: sortDir ?? 'asc' } : APPLICATIONS_DEFAULT_SORT}
+                onSort={(id) => setSort(id as SortKey)}
+                selection={
+                  canSetStatus
+                    ? {
+                        isSelected: (app) => selected.has(app.id),
+                        toggle: (app) => toggleOne(app.id),
+                        allSelected,
+                        someSelected,
+                        toggleAll,
+                      }
+                    : undefined
+                }
+                empty={
+                  <div className="p-4">
+                    <EmptyState>
+                      <p className="font-display text-body" style={{ color: C.sub }}>
+                        No applications match these filters.
+                      </p>
+                    </EmptyState>
+                  </div>
+                }
+              />
             </div>
-            <BulkStatusMenu busy={busy} onPick={bulkSetStatus} />
-          </div>
-        )}
 
-        {total > 0 && (
-          <Pagination
-            page={currentPage}
-            pageCount={pageCount}
-            shown={items.length}
-            total={total}
-            noun="applications"
-            onChange={goToPage}
-          />
+            {/* Selection toolbar — sits under the table, beside the rows it acts on */}
+            {selected.size > 0 && (
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 rounded-chip p-2"
+                style={{ backgroundColor: C.bar }}
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(new Set())}
+                    className="flex h-8 shrink-0 items-center gap-1 rounded-chip bg-white/10 pl-1.5 pr-2 font-display text-body font-medium text-white"
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} size={16} color="#fff" />
+                    Clear
+                  </button>
+                  <span className="font-display text-label font-medium" style={{ color: C.mint }}>
+                    {selected.size} selected · {fmtAmount(combinedAsk)} combined ask
+                  </span>
+                </div>
+                <BulkStatusMenu busy={busy} onPick={bulkSetStatus} />
+              </div>
+            )}
+
+            {total > 0 && (
+              <Pagination
+                page={currentPage}
+                pageCount={pageCount}
+                shown={items.length}
+                total={total}
+                noun="applications"
+                onChange={goToPage}
+              />
+            )}
+          </>
         )}
       </div>
 

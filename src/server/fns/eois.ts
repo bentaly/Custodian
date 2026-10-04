@@ -54,22 +54,27 @@ import {
 // decision that matters is made later, on the application it may lead to.
 
 /**
- * Does this foundation use EOIs, and how many are waiting?
+ * Which programmes take EOIs, and how many are waiting in each.
  *
- * Decides whether Applications offers its EOI tab: shown whenever a live programme is
- * switched on to take them (`programmes.accepts_eois`), empty or not, so a foundation
- * that has just set up its form can see where they will arrive.
+ * Decides where Applications offers its EOI switch: beside the programme pill, for a
+ * live programme switched on to take them (`programmes.accepts_eois`), empty or not, so
+ * a foundation that has just set up its form can see where they will arrive. The count
+ * on the switch is that programme's EOIs still to read.
  */
 export const getEoiNav = createServerFn({ method: 'GET' }).handler(async () => {
+  const none = {
+    acceptingProgrammeIds: [] as string[],
+    toReviewByProgramme: {} as Record<string, number>,
+  }
   // Asked by Applications on every deployment, so it answers "not in use" rather than
   // refusing where the feature is off.
-  if (!features().sourcing) return { enabled: false, toReview: 0 }
+  if (!features().sourcing) return none
   const user = await requireAuthUser()
-  if (!user.clientId) return { enabled: false, toReview: 0 }
+  if (!user.clientId) return none
   const db = getDb()
-  const [programmeRows, waiting] = await Promise.all([
+  const [accepting, waiting] = await Promise.all([
     db
-      .select({ n: count() })
+      .select({ id: programmes.id })
       .from(programmes)
       .where(
         and(
@@ -79,13 +84,16 @@ export const getEoiNav = createServerFn({ method: 'GET' }).handler(async () => {
         ),
       ),
     db
-      .select({ n: count() })
+      .select({ programmeId: eois.programmeId, n: count() })
       .from(eois)
-      .where(and(eq(eois.clientId, user.clientId), eq(eois.status, 'submitted'))),
+      .where(and(eq(eois.clientId, user.clientId), eq(eois.status, 'submitted')))
+      .groupBy(eois.programmeId),
   ])
   return {
-    enabled: (programmeRows[0]?.n ?? 0) > 0,
-    toReview: waiting[0]?.n ?? 0,
+    acceptingProgrammeIds: accepting.map((r) => r.id),
+    toReviewByProgramme: Object.fromEntries(
+      waiting.filter((r) => r.programmeId).map((r) => [r.programmeId!, r.n]),
+    ) as Record<string, number>,
   }
 })
 

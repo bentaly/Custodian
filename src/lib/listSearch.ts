@@ -108,10 +108,19 @@ export type ApplicationsSearch = {
   sortBy?: ApplicationsSortKey
   sortDir?: SortDir
   page?: number
+  /**
+   * The card's switch: the selected programme's applications (absent) or its
+   * expressions of interest. `q` and `page` are shared, and reset on every switch.
+   */
+  view?: 'eois'
+  /** The EOI list's tab: `to_review` is the default and carries no value. */
+  eoiTab?: 'decided'
 }
 
 export function parseApplicationsSearch(search: Record<string, unknown>): ApplicationsSearch {
   return {
+    view: oneOf(['eois'] as const, search.view),
+    eoiTab: oneOf(['decided'] as const, search.eoiTab),
     roundId: text(search.roundId),
     programmeId: text(search.programmeId),
     status: oneOfList(ApplicationStatus.options, search.status),
@@ -299,27 +308,6 @@ export function parsePartnershipsSearch(search: Record<string, unknown>): Partne
     archived: search.archived === true || search.archived === 'true' ? true : undefined,
     sortBy: oneOf(PARTNERSHIPS_SORT_KEYS, search.sortBy),
     sortDir: sortDir(search.sortDir),
-    page: pageNo(search.page),
-  }
-}
-
-// ─── Expressions of interest ─────────────────────────────────────────────────────
-
-export type EoisTab = 'to_review' | 'decided'
-
-export type EoisSearch = {
-  tab?: EoisTab
-  programmeId?: string[]
-  q?: string
-  page?: number
-}
-
-export function parseEoisSearch(search: Record<string, unknown>): EoisSearch {
-  return {
-    // `to_review` is the default and carries no value, as every list's first tab does.
-    tab: oneOf(['decided'] as const, search.tab),
-    programmeId: textList(search.programmeId),
-    q: text(search.q),
     page: pageNo(search.page),
   }
 }
