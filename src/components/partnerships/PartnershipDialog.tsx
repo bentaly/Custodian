@@ -268,7 +268,7 @@ function PartnershipDialogForm({
               id="p-charity"
               value={form.charityNumber}
               onChange={(e) => set('charityNumber', e.target.value)}
-              placeholder="1180432"
+              placeholder="Enter charity number"
               autoFocus={!editing}
             />
           </div>
@@ -278,7 +278,7 @@ function PartnershipDialogForm({
               id="p-company"
               value={form.companyNumber}
               onChange={(e) => set('companyNumber', e.target.value)}
-              placeholder="08234567"
+              placeholder="Enter company number"
             />
           </div>
           <Button
@@ -299,7 +299,7 @@ function PartnershipDialogForm({
             id="p-name"
             value={form.organisationName}
             onChange={(e) => set('organisationName', e.target.value)}
-            placeholder="Filled in from the register"
+            placeholder="Enter organisation name"
             required
           />
         </div>
@@ -312,7 +312,7 @@ function PartnershipDialogForm({
               options={options}
               value={form.roundProgrammeId || undefined}
               onChange={(v) => set('roundProgrammeId', v)}
-              placeholder="Choose…"
+              placeholder="Select round and programme"
             />
           </div>
           <div className="flex-1">
@@ -322,7 +322,7 @@ function PartnershipDialogForm({
               options={SOURCES.map((s) => ({ value: s, label: s }))}
               value={form.source || undefined}
               onChange={(v) => set('source', v)}
-              placeholder="Select…"
+              placeholder="Select source"
             />
           </div>
         </div>
@@ -345,6 +345,7 @@ function PartnershipDialogForm({
               label="Grant value proposed"
               value={form.amountSought}
               onChange={(v) => set('amountSought', v)}
+              placeholder="Enter amount"
             />
           </div>
           <div className="flex-1">
@@ -356,7 +357,7 @@ function PartnershipDialogForm({
               inputMode="numeric"
               value={form.proposedImpactQuantity}
               onChange={(e) => set('proposedImpactQuantity', e.target.value)}
-              placeholder={`Number of ${unit}`}
+              placeholder={`Enter number of ${unit}`}
             />
           </div>
         </div>
@@ -368,7 +369,7 @@ function PartnershipDialogForm({
             rows={3}
             value={form.proposedPurpose}
             onChange={(e) => set('proposedPurpose', e.target.value)}
-            placeholder="What the grant would pay for, in a sentence or two"
+            placeholder="Enter what the grant would pay for"
           />
           <p className="mt-1.5 font-display text-label text-grey-500">
             Custodian assesses them against your giving strategy and the programme on this.
@@ -391,7 +392,7 @@ function PartnershipDialogForm({
               type="email"
               value={form.contactEmail}
               onChange={(e) => set('contactEmail', e.target.value)}
-              placeholder="name@organisation.org.uk"
+              placeholder="Enter contact email"
             />
           </div>
         </div>
@@ -404,7 +405,7 @@ function PartnershipDialogForm({
               rows={3}
               value={form.note}
               onChange={(e) => set('note', e.target.value)}
-              placeholder="Introduced by James Hartley at the May board dinner…"
+              placeholder="Enter how the relationship came about"
             />
             <p className="mt-1.5 font-display text-label text-grey-500">
               The first line of the relationship history. Everything that happens after this is
