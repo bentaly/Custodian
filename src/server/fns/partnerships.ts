@@ -40,6 +40,7 @@ import {
 import {
   assessmentGaps,
   canTransition,
+  PARTNERSHIP_STATUSES,
   PARTNERSHIP_ACTION_META,
   PARTNERSHIP_STATUS_META,
   PARTNERSHIP_TAB_IDS,
@@ -79,6 +80,7 @@ export const PARTNERSHIP_SORT_KEYS = [
   'source',
   'status',
   'dueDiligence',
+  'score',
   'logged',
 ] as const
 export type PartnershipSortKey = (typeof PARTNERSHIP_SORT_KEYS)[number]
@@ -86,6 +88,9 @@ export type PartnershipSortKey = (typeof PARTNERSHIP_SORT_KEYS)[number]
 const FiltersSchema = z
   .object({
     tab: z.enum(PARTNERSHIP_TAB_IDS as [PartnershipTab, ...PartnershipTab[]]).optional(),
+    // The list's Status pill. Absent (with no tab) is every live partnership, which is
+    // what the screen shows since its tabs went (feedback, 2026-10-05).
+    status: z.array(z.enum(PARTNERSHIP_STATUSES)).min(1).max(10).optional(),
     // Every pill takes several values, OR'd within one — see `lib/filterSelection`.
     programmeId: z.array(z.string()).min(1).max(500).optional(),
     source: z.array(z.string()).min(1).max(500).optional(),
@@ -155,7 +160,7 @@ export const listPartnerships = createServerFn({ method: 'GET' })
     if (!user.clientId) return empty
 
     const db = getDb()
-    const tab: PartnershipTab = filters.tab ?? 'to_action'
+    const tab: PartnershipTab | undefined = filters.tab
     const archived = filters.archived === true
 
     // The tenancy filter, and the archive line. Both are on every query below,
@@ -191,9 +196,12 @@ export const listPartnerships = createServerFn({ method: 'GET' })
     // this the default tab ("To action") is applied to a set of rows that by definition
     // have nobody waiting on them, and the archive renders empty under a header
     // stating how many things are in it.
-    const where = archived
-      ? baseWhere
-      : and(baseWhere, inArray(partnerships.status, statusesForTab(tab)))
+    const where = and(
+      archived || !tab
+        ? baseWhere
+        : and(baseWhere, inArray(partnerships.status, statusesForTab(tab))),
+      filters.status ? inArray(partnerships.status, filters.status) : undefined,
+    )
 
     const dir = filters.sortDir === 'asc' ? 'ASC' : 'DESC'
     const sortExpr = (() => {
@@ -204,6 +212,9 @@ export const listPartnerships = createServerFn({ method: 'GET' })
           return sql`lower(${partnerships.source}) ${sql.raw(dir)} NULLS LAST`
         case 'logged':
           return sql`${partnerships.createdAt} ${sql.raw(dir)}`
+        // Unscored rows last either way, as on Applications.
+        case 'score':
+          return sql`${partnerships.custodianScore} ${sql.raw(dir)} NULLS LAST`
         // Pipeline order, not alphabetical: a status column sorted A–Z puts "Declined"
         // above "EOI received", which is the opposite of useful.
         case 'status':

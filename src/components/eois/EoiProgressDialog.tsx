@@ -7,6 +7,7 @@ import { Button, Dialog, Input, Label, MoneyInput, Select, TextLink, Textarea } 
 import { C } from '../ui/tokens'
 import { AreaInput } from '../applications/edit/AreaInput'
 import type { PartnershipRound } from '../partnerships/PartnershipDialog'
+import { purposeAnswer } from '../../lib/eois/decode'
 
 // An expression of interest straight to the shortlist (route 3): the foundation has read
 // enough and will fund it without a full application.
@@ -33,6 +34,8 @@ export function EoiProgressDialog({
     contactEmail: string | null
     /** The partnership's own round-programme, when a sourced partner sent this. */
     partnershipRoundProgrammeId: string | null
+    /** Their answers, for a grant purpose to start from when the form asked for one. */
+    responses: Array<{ label: string; value: string }>
   }
   rounds: PartnershipRound[]
   onClose: () => void
@@ -59,7 +62,7 @@ export function EoiProgressDialog({
     eoi.partnershipRoundProgrammeId ?? options[0]?.value ?? '',
   )
   const [amount, setAmount] = useState(eoi.amountIndicative ?? '')
-  const [purpose, setPurpose] = useState('')
+  const [purpose, setPurpose] = useState(() => purposeAnswer(eoi.responses) ?? '')
   const [deliveryArea, setDeliveryArea] = useState('')
   const [email, setEmail] = useState(eoi.contactEmail ?? '')
   const [busy, setBusy] = useState(false)

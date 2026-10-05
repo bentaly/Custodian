@@ -715,6 +715,10 @@ the programme pill (`?view=eois`, `components/eois/EoiList`), drawn only for a p
   grant's, not annual), contact email, notes. `location`, `organisation_type`, `reference`,
   `contact_name` and `eoi_responses` were dropped in `0110`. Themes are not typed: the
   assessment picks them from the programme's list.
+- **Lists have no tabs** (feedback, 2026-10-05): Partnerships and the EOI view both filter by
+  a Status pill like Applications. The Partnerships list draws AI score and due diligence with
+  the Applications cells (`components/applications/cells.tsx`), and the log form asks for the
+  programme and the round as two fields, stored as the one round-programme.
 - **Tenancy is `client_id` on the row, for both.** Neither has a round-programme to scope by
   (a partnership's is a CHOICE, not where it lives). Every read filters on it directly; every
   write re-checks with `assertClientAccess`. Reads are open to every role; writes are admin-only.

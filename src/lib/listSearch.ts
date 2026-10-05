@@ -25,6 +25,8 @@
 // parsers total — never throw on a hand-edited or stale URL, degrade to the default.
 
 import { ApplicationStatus, ScoreBand } from './validators/application'
+import { PARTNERSHIP_STATUSES, type PartnershipStatus } from './partnerships/status'
+import { EOI_STATUSES, type EoiStatus } from './eois/status'
 
 export type SortDir = 'asc' | 'desc'
 
@@ -113,14 +115,14 @@ export type ApplicationsSearch = {
    * expressions of interest. `q` and `page` are shared, and reset on every switch.
    */
   view?: 'eois'
-  /** The EOI list's tab: `to_review` is the default and carries no value. */
-  eoiTab?: 'decided'
+  /** The EOI view's Status pill. Its own key: an EOI's statuses are not an application's. */
+  eoiStatus?: EoiStatus[]
 }
 
 export function parseApplicationsSearch(search: Record<string, unknown>): ApplicationsSearch {
   return {
     view: oneOf(['eois'] as const, search.view),
-    eoiTab: oneOf(['decided'] as const, search.eoiTab),
+    eoiStatus: oneOfList(EOI_STATUSES, search.eoiStatus),
     roundId: text(search.roundId),
     programmeId: text(search.programmeId),
     status: oneOfList(ApplicationStatus.options, search.status),
@@ -268,6 +270,7 @@ export type PartnershipsSortKey =
   | 'source'
   | 'status'
   | 'dueDiligence'
+  | 'score'
   | 'logged'
 
 export const PARTNERSHIPS_SORT_KEYS: PartnershipsSortKey[] = [
@@ -276,11 +279,13 @@ export const PARTNERSHIPS_SORT_KEYS: PartnershipsSortKey[] = [
   'source',
   'status',
   'dueDiligence',
+  'score',
   'logged',
 ]
 
 export type PartnershipsSearch = {
   tab?: PartnershipsTab
+  status?: PartnershipStatus[]
   programmeId?: string[]
   source?: string[]
   tag?: string[]
@@ -298,6 +303,7 @@ export function parsePartnershipsSearch(search: Record<string, unknown>): Partne
     // first tab does. It is also the only tab that is WORK, so landing anywhere else
     // would be answering a question nobody asked.
     tab: oneOf(['awaiting', 'closed'] as const, search.tab),
+    status: oneOfList(PARTNERSHIP_STATUSES, search.status),
     programmeId: textList(search.programmeId),
     source: textList(search.source),
     tag: textList(search.tag),

@@ -127,7 +127,7 @@ export const PARTNERSHIP_ACTION_META: Record<
   PartnershipAction,
   { label: string; /** Resulting status. */ to: PartnershipStatus; destructive?: boolean }
 > = {
-  issue_eoi: { label: 'Invite to submit an EOI', to: 'eoi_issued' },
+  issue_eoi: { label: 'Request EOI', to: 'eoi_issued' },
   invite: { label: 'Invite to apply', to: 'invited' },
   shortlist: { label: 'Progress to shortlist', to: 'applied' },
   decline: { label: 'Not pursuing', to: 'declined', destructive: true },

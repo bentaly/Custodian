@@ -163,3 +163,18 @@ export function decodeEoi(
     responses,
   }
 }
+
+/**
+ * The answer that says what the grant would be FOR, when the form asked. EOI forms ask it
+ * in many words ("What would you like funding for?", "Purpose of the grant") and many do
+ * not ask at all, so this is a suggestion to prefill, never a column: the person taking
+ * the EOI to the shortlist reads it and can rewrite it. Null when no question fits.
+ */
+const PURPOSE_QUESTION =
+  /\b(purpose|funding for|grant for|money for|grant be used|use the (grant|funding|money)|what would you like to do)\b/i
+
+export function purposeAnswer(responses: Array<{ label: string; value: string }>): string | null {
+  return (
+    responses.find((r) => PURPOSE_QUESTION.test(r.label) && r.value.trim())?.value.trim() ?? null
+  )
+}

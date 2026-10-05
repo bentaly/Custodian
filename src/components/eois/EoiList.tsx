@@ -2,19 +2,20 @@ import { Link } from '@tanstack/react-router'
 import type { listEois } from '../../server/fns/eois'
 import {
   DataTable,
+  DateRangePicker,
   DateText,
   EmptyState,
+  FilterPill,
   FilterRow,
   OrganisationCell,
   Pagination,
   SearchInput,
   StatusPill,
-  Tabs,
   type TableColumn,
 } from '../ui'
 import { C } from '../ui/tokens'
 import { fmtAmount, fmtRef } from '../../lib/format'
-import { EOI_STATUS_META, EOI_TABS, type EoiStatus, type EoiTab } from '../../lib/eois/status'
+import { EOI_STATUSES, EOI_STATUS_META, type EoiStatus } from '../../lib/eois/status'
 
 // The expressions of interest for ONE programme, drawn inside the Applications card when
 // its switch is on "EOIs" (option A of the placement review, 2026-10-04).
@@ -110,20 +111,25 @@ function columns(listSearch: Record<string, unknown>): TableColumn<EoiItem>[] {
 
 export function EoiList({
   data,
-  tab,
+  status,
   q,
+  dates,
   listSearch,
-  onTab,
+  onStatus,
+  onDates,
   onSearch,
   onPage,
   onOpen,
 }: {
   data: Awaited<ReturnType<typeof listEois>>
-  tab: EoiTab
+  status: EoiStatus[] | undefined
   q: string | undefined
+  /** The received-date window, shared with the applications view's. */
+  dates: { from?: string; to?: string }
   /** The Applications search, carried onto an EOI so its back arrow returns here. */
   listSearch: Record<string, unknown>
-  onTab: (tab: EoiTab) => void
+  onStatus: (status: EoiStatus[] | undefined) => void
+  onDates: (dates: { from?: string; to?: string }) => void
   onSearch: (q: string | undefined) => void
   onPage: (page: number) => void
   onOpen: (id: string) => void
@@ -141,12 +147,16 @@ export function EoiList({
           />
         }
       >
-        <Tabs<EoiTab>
-          ariaLabel="Expressions of interest"
-          value={tab}
-          onChange={onTab}
-          items={EOI_TABS.map((t) => ({ id: t.id, label: t.label, count: data.tabCounts[t.id] }))}
+        {/* The Applications filter row's shape (feedback, 2026-10-05): Status, then the
+            date. Theme and AI score wait on whether EOIs are assessed at all. */}
+        <FilterPill
+          label="Status"
+          plural="statuses"
+          value={status}
+          options={EOI_STATUSES.map((s) => ({ value: s, label: EOI_STATUS_META[s].label }))}
+          onChange={(v) => onStatus(v as EoiStatus[] | undefined)}
         />
+        <DateRangePicker value={dates} onChange={onDates} allLabel="Any date" />
       </FilterRow>
 
       <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
@@ -159,11 +169,11 @@ export function EoiList({
             <div className="p-4">
               <EmptyState>
                 <p className="font-display text-body" style={{ color: C.sub }}>
-                  {tab === 'to_review'
-                    ? 'No expressions of interest waiting for this programme.'
-                    : 'Nothing decided yet for this programme.'}
+                  {status || dates.from || dates.to || q
+                    ? 'No expressions of interest match these filters.'
+                    : 'No expressions of interest for this programme yet.'}
                 </p>
-                {tab === 'to_review' && (
+                {!status && !dates.from && !dates.to && !q && (
                   <p className="mt-1 font-display text-label" style={{ color: C.faint }}>
                     They arrive from your own form. The address to send them to is under Settings,
                     API keys.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeEoi, pickEoiProgramme, type EoiProgramme } from './decode'
+import { decodeEoi, pickEoiProgramme, purposeAnswer, type EoiProgramme } from './decode'
 
 const PROGRAMMES: EoiProgramme[] = [
   { id: 'youth', name: 'Youth Fund' },
@@ -108,5 +108,27 @@ describe('placing an EOI in a programme', () => {
   it('says nothing rather than choose between two', () => {
     expect(pickEoiProgramme([], 'Tell us about your idea', PROGRAMMES)).toBeNull()
     expect(pickEoiProgramme([], 'Youth Fund or Community & Place', PROGRAMMES)).toBeNull()
+  })
+})
+
+describe('suggesting a grant purpose', () => {
+  // Some EOI forms ask what the money is for and some do not; when one does, the
+  // shortlist dialog starts from their words rather than a blank box.
+  it('finds the answer to a question about what the funding is for', () => {
+    expect(
+      purposeAnswer([
+        { label: 'Organisation name', value: 'Ladder Lane' },
+        { label: 'What would you like funding for?', value: 'A youth employability course.' },
+      ]),
+    ).toBe('A youth employability course.')
+    expect(purposeAnswer([{ label: 'Purpose of the grant', value: 'Core costs' }])).toBe(
+      'Core costs',
+    )
+  })
+
+  it('suggests nothing when the form did not ask', () => {
+    expect(purposeAnswer([{ label: 'Tell us about you', value: 'We run a youth club.' }])).toBe(
+      null,
+    )
   })
 })

@@ -1,7 +1,7 @@
 import { badRequest, conflict, forbidden, notFoundError } from '../../lib/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, isNull, lt } from 'drizzle-orm'
 import { getDb } from '../db'
 import { features, requireFeature } from '../features'
 import { searchAny } from '../searchTerm'
@@ -27,6 +27,7 @@ import { canTransition } from '../../lib/partnerships/status'
 import {
   canDecideEoi,
   EOI_ACTION_TO,
+  EOI_STATUSES,
   EOI_STATUS_META,
   EOI_TABS,
   type EoiStatus,
@@ -100,6 +101,17 @@ export const getEoiNav = createServerFn({ method: 'GET' }).handler(async () => {
 const FiltersSchema = z
   .object({
     tab: z.enum(['to_review', 'decided']).optional(),
+    // The Status pill and received-date window, as on Applications (feedback,
+    // 2026-10-05). With neither and no tab, every EOI.
+    status: z.array(z.enum(EOI_STATUSES)).min(1).max(10).optional(),
+    from: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    to: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     programmeId: z.array(z.string()).min(1).max(500).optional(),
     q: z.string().optional(),
     page: z.number().int().positive().optional(),
@@ -133,7 +145,7 @@ export const listEois = createServerFn({ method: 'GET' })
     requireFeature('sourcing')
     const user = await requireAuthUser()
     const filters = data ?? {}
-    const tab: EoiTab = filters.tab ?? 'to_review'
+    const tab: EoiTab | undefined = filters.tab
     if (!user.clientId) {
       return {
         items: [] as EoiRow[],
@@ -152,8 +164,16 @@ export const listEois = createServerFn({ method: 'GET' })
       anyOf(eois.programmeId, filters.programmeId),
       searchAny(filters.q, eois.organisationName, eois.reference, eois.contactEmail),
     )
-    const statuses = EOI_TABS.find((t) => t.id === tab)!.statuses
-    const where = and(baseWhere, inArray(eois.status, statuses))
+    const where = and(
+      baseWhere,
+      tab ? inArray(eois.status, EOI_TABS.find((t) => t.id === tab)!.statuses) : undefined,
+      filters.status ? inArray(eois.status, filters.status) : undefined,
+      // Inclusive days, read in UTC like the Applications window.
+      filters.from ? gte(eois.createdAt, new Date(`${filters.from}T00:00:00Z`)) : undefined,
+      filters.to
+        ? lt(eois.createdAt, new Date(new Date(`${filters.to}T00:00:00Z`).getTime() + 86_400_000))
+        : undefined,
+    )
     const page = clampPage(filters.page, Number.MAX_SAFE_INTEGER)
 
     const [rows, totals, statusRows, facetRows] = await Promise.all([

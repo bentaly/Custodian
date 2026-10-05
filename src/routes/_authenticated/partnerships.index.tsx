@@ -15,7 +15,6 @@ import {
   FilterRow,
   SearchInput,
   StatusPill,
-  Tabs,
   TruncatedList,
   TruncatedText,
   type TableColumn,
@@ -30,15 +29,14 @@ import {
   parsePartnershipsSearch,
   type PartnershipsSearch,
   type PartnershipsSortKey as SortKey,
-  type PartnershipsTab as Tab,
   type SortDir,
 } from '../../lib/listSearch'
 import {
   PARTNERSHIP_STATUS_META,
-  PARTNERSHIP_TABS,
+  PARTNERSHIP_STATUSES,
   type PartnershipStatus,
 } from '../../lib/partnerships/status'
-import { DD_LABEL, DD_TONE_HEX } from '../../components/partnerships/dueDiligenceTone'
+import { AiScoreCell, DueDiligenceCell } from '../../components/applications/cells'
 
 // ─── Partnerships: the pipeline before an application ────────────────────────
 //
@@ -73,7 +71,7 @@ export const Route = createFileRoute('/_authenticated/partnerships/')({
   // `lib/listSearch`.
   validateSearch: parsePartnershipsSearch,
   loaderDeps: ({ search }) => ({
-    tab: search.tab,
+    status: search.status,
     programmeId: search.programmeId,
     source: search.source,
     tag: search.tag,
@@ -164,13 +162,23 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
       // ordinary state of a new prospect, not a gap in the data, and the faint grey says
       // so without inviting anyone to go and fix it.
       <TruncatedText
-        text={
-          item.programme
-            ? `${item.programme.name}${item.roundProgramme ? ` · ${item.roundProgramme.round.name}` : ''}`
-            : 'Not decided'
-        }
+        text={item.programme?.name ?? 'Not decided'}
         label="Programme"
         className={`font-display text-body ${item.programme ? 'text-grey-500' : 'text-grey-400'}`}
+      />
+    ),
+  },
+  {
+    // The round they would be funded from, chosen when they were logged.
+    id: 'round',
+    hideBelow: 'lg',
+    header: 'Round',
+    width: 'sm:w-[12%]',
+    cell: (item) => (
+      <TruncatedText
+        text={item.roundProgramme?.round.name ?? '--'}
+        label="Round"
+        className={`font-display text-body ${item.roundProgramme ? 'text-grey-500' : 'text-grey-400'}`}
       />
     ),
   },
@@ -222,17 +230,23 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     ),
   },
   {
+    // The same bar and figure as Applications: one score, one scale, drawn one way.
+    id: 'score',
+    sortable: true,
+    hideBelow: 'md',
+    header: 'AI score',
+    width: 'sm:w-[9%]',
+    cell: (item) => <AiScoreCell status={item.custodianScoreStatus} score={item.custodianScore} />,
+  },
+  {
+    // The Applications mark, so a result reads the same on both screens.
     id: 'dueDiligence',
     sortable: true,
     hideBelow: 'md',
     header: 'Due diligence',
-    width: 'sm:w-[12%]',
-    cell: (item) => (
-      <StatusPill
-        label={DD_LABEL[item.dueDiligenceStatus]}
-        colour={DD_TONE_HEX[item.dueDiligenceStatus]}
-      />
-    ),
+    width: 'sm:w-[9%]',
+    stopRowClick: true,
+    cell: (item) => <DueDiligenceCell status={item.dueDiligenceStatus} />,
   },
   {
     id: 'logged',
@@ -252,40 +266,15 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
 function PartnershipsPage() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
-  const { items, total, pageSize, tabCounts, portfolio, archivedCount, facets, rounds } =
-    Route.useLoaderData()
+  const { items, total, pageSize, portfolio, archivedCount, facets, rounds } = Route.useLoaderData()
   const navigate = Route.useNavigate()
-  const {
-    tab: tabParam,
-    programmeId,
-    source,
-    tag,
-    q,
-    archived,
-    sortBy,
-    sortDir,
-    page,
-  } = Route.useSearch()
-  const tab: Tab = tabParam ?? 'to_action'
+  const { status, programmeId, source, tag, q, archived, sortBy, sortDir, page } = Route.useSearch()
   const canManage = ['superadmin', 'admin'].includes(user.role)
 
   const [draft, setDraft] = useState<PartnershipDraft | undefined>()
 
   const currentPage = page ?? 1
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
-
-  // Switching tab always starts at page 1 — page 3 of one tab is not page 3 of another.
-  // The sort DOES survive it here, unlike Reports: all three tabs draw the same columns
-  // off the same table, so an ordering set on one is meaningful on the next.
-  function setTab(next: Tab) {
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        tab: next === 'to_action' ? undefined : next,
-        page: undefined,
-      }),
-    })
-  }
 
   // Every filter change returns to page 1 — page 3 of the old result set is a different
   // set of organisations, and landing there silently is disorienting.
@@ -362,35 +351,30 @@ function PartnershipsPage() {
       </div>
 
       <Card className="flex flex-col gap-4 p-4">
-        {/* Hidden in the archive: "whose move is it" has one answer there, and it is
-            nobody's. */}
-        {!archived && (
-          <Tabs
-            ariaLabel="Whose move it is"
-            value={tab}
-            onChange={setTab}
-            items={PARTNERSHIP_TABS.map((t) => ({
-              id: t.id,
-              label: t.label,
-              count: tabCounts[t.id],
-            }))}
-          />
-        )}
-
         {/* The shared filter row, in the shared order, with search on its right
-            (`ui/FilterRow`). Status is absent because the tabs are it — at the level this
-            screen cares about. */}
+            (`ui/FilterRow`). The whose-move tabs went (feedback, 2026-10-05); Status is a
+            pill like any other, and with nothing ticked the list is every live partner. */}
         <FilterRow
           search={
             <SearchInput
               value={q}
               onChange={(next) => setFilter({ q: next })}
-              placeholder="Search name, number or area…"
+              placeholder="Search organisation or charity number"
               ariaLabel="Search partnerships"
               className="sm:w-72"
             />
           }
         >
+          <FilterPill
+            label="Status"
+            plural="statuses"
+            value={status}
+            options={PARTNERSHIP_STATUSES.map((s) => ({
+              value: s,
+              label: PARTNERSHIP_STATUS_META[s].label,
+            }))}
+            onChange={(v) => setFilter({ status: v as PartnershipStatus[] | undefined })}
+          />
           <FilterPill
             label="Programme"
             plural="programmes"
@@ -434,16 +418,12 @@ function PartnershipsPage() {
               <div className="p-4">
                 <EmptyState>
                   <p className="text-body text-grey-500">
-                    {archived
-                      ? 'Nothing archived.'
-                      : (PARTNERSHIP_TABS.find((t) => t.id === tab)?.empty ?? 'Nothing here.')}
+                    {archived ? 'Nothing archived.' : 'No partners match these filters.'}
                   </p>
                   <p className="mt-1 text-label text-grey-400">
                     {archived
                       ? 'Archiving a partner keeps their history and takes them out of the pipeline.'
-                      : tab === 'to_action'
-                        ? 'Organisations you are approaching appear here before they apply. Log one with its charity number and Custodian screens it.'
-                        : 'Try another tab, or clear the filters.'}
+                      : 'Organisations you are proactively considering appear here before they apply. Log one with its charity number and Custodian screens it.'}
                   </p>
                 </EmptyState>
               </div>

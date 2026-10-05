@@ -5,7 +5,17 @@ import { fmtAmount, fmtDate } from '../../lib/format'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { getRoundStatus, ROUND_STATUS_LABELS } from '../../lib/roundStatus'
 import { PARTNERSHIP_STATUS_META } from '../../lib/partnerships/status'
-import { Button, Dialog, Input, Label, MoneyInput, Select, TextLink, Textarea } from '../ui'
+import {
+  Button,
+  Dialog,
+  Input,
+  Label,
+  MoneyInput,
+  Select,
+  TextLink,
+  Textarea,
+  Tooltip,
+} from '../ui'
 import { C } from '../ui/tokens'
 import { AreaInput } from '../applications/edit/AreaInput'
 
@@ -142,22 +152,37 @@ function PartnershipDialogForm({
   const set = <K extends keyof PartnershipDraft>(key: K, value: PartnershipDraft[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
 
-  // Every round-programme pairing, open and upcoming rounds first: a prospect is usually
+  // Programme and round are asked separately (feedback, 2026-10-05) and stored as the
+  // one round-programme they name. Every programme funded in at least one round, then
+  // the rounds that programme is in, open and upcoming first: a prospect is usually
   // being lined up for a round that has not happened yet.
-  const options = useMemo(() => {
+  const pairings = useMemo(() => {
     const order = { open: 0, upcoming: 1, closed: 2 } as const
     return rounds
       .map((round) => ({ round, status: getRoundStatus(round) }))
       .sort((a, b) => order[a.status] - order[b.status])
       .flatMap(({ round, status }) =>
         round.roundProgrammes.map((rp) => ({
-          value: rp.id,
-          label: `${round.name} · ${rp.programme.name} (${ROUND_STATUS_LABELS[status].toLowerCase()})`,
+          id: rp.id,
           programme: rp.programme,
+          roundLabel: `${round.name} (${ROUND_STATUS_LABELS[status].toLowerCase()})`,
         })),
       )
   }, [rounds])
-  const programme = options.find((o) => o.value === form.roundProgrammeId)?.programme
+  const programmeOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const p of pairings) seen.set(p.programme.id, p.programme.name)
+    return [...seen]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [pairings])
+  const [programmeId, setProgrammeId] = useState(
+    () => pairings.find((p) => p.id === draft.roundProgrammeId)?.programme.id ?? '',
+  )
+  const roundOptions = pairings
+    .filter((p) => p.programme.id === programmeId)
+    .map((p) => ({ value: p.id, label: p.roundLabel }))
+  const programme = pairings.find((p) => p.programme.id === programmeId)?.programme
   const unit = impactUnitLabel(programme?.impactUnit, programme?.impactUnitLabel).toLowerCase()
 
   const hasNumber = !!(form.charityNumber.trim() || form.companyNumber.trim())
@@ -239,7 +264,7 @@ function PartnershipDialogForm({
       description={
         editing
           ? 'The organisation, and the grant you have in mind for them.'
-          : 'An organisation you are approaching, before there is an application. Start with their charity or company number.'
+          : 'An organisation you are proactively considering to fund.'
       }
       onClose={onClose}
       busy={saving}
@@ -247,10 +272,7 @@ function PartnershipDialogForm({
       footer={
         <div className="flex flex-col gap-3">
           {error && <p className="font-display text-body text-danger">{error}</p>}
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-display text-label" style={{ color: C.sub }}>
-              {complete ? '' : 'A number, the round, a value and a purpose are needed.'}
-            </span>
+          <div className="flex justify-end">
             <Button type="submit" form={FORM_ID} disabled={saving || !complete}>
               {saving ? 'Saving…' : editing ? 'Save changes' : 'Log partner'}
             </Button>
@@ -305,34 +327,52 @@ function PartnershipDialogForm({
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="flex-[2]">
-            <Label htmlFor="p-round">Round and programme</Label>
+          <div className="flex-1">
+            <Label htmlFor="p-programme">Programme</Label>
             <Select
-              id="p-round"
-              options={options}
-              value={form.roundProgrammeId || undefined}
-              onChange={(v) => set('roundProgrammeId', v)}
-              placeholder="Select round and programme"
+              id="p-programme"
+              options={programmeOptions}
+              value={programmeId || undefined}
+              onChange={(v) => {
+                setProgrammeId(v)
+                // The round belongs to the programme: picking another clears it, unless
+                // the new programme is in only one round, which is then the answer.
+                const only = pairings.filter((p) => p.programme.id === v)
+                set('roundProgrammeId', only.length === 1 ? only[0]!.id : '')
+              }}
+              placeholder="Select programme"
             />
           </div>
           <div className="flex-1">
-            <Label htmlFor="p-source">Source of the relationship</Label>
+            <Label htmlFor="p-round">Round</Label>
             <Select
-              id="p-source"
-              options={SOURCES.map((s) => ({ value: s, label: s }))}
-              value={form.source || undefined}
-              onChange={(v) => set('source', v)}
-              placeholder="Select source"
+              id="p-round"
+              options={roundOptions}
+              value={form.roundProgrammeId || undefined}
+              onChange={(v) => set('roundProgrammeId', v)}
+              placeholder={programmeId ? 'Select round' : 'Select a programme first'}
+              disabled={!programmeId}
             />
           </div>
         </div>
-        {options.length === 0 && (
+        {pairings.length === 0 && (
           <p className="-mt-2 font-display text-label" style={{ color: C.warning }}>
             There are no rounds yet. A partner is logged against the round you would fund them from,
             so create one under <TextLink to="/rounds">Rounds</TextLink> first (an upcoming round is
             fine).
           </p>
         )}
+
+        <div>
+          <Label htmlFor="p-source">Source of the relationship</Label>
+          <Select
+            id="p-source"
+            options={SOURCES.map((s) => ({ value: s, label: s }))}
+            value={form.source || undefined}
+            onChange={(v) => set('source', v)}
+            placeholder="Select source"
+          />
+        </div>
 
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="flex-1">
@@ -351,7 +391,15 @@ function PartnershipDialogForm({
           <div className="flex-1">
             {/* The whole grant's impact, not a year of it: the same figure an
                 application states as its proposed impact. */}
-            <Label htmlFor="p-impact">Proposed impact</Label>
+            <Label htmlFor="p-impact">
+              <span className="inline-flex items-center gap-1">
+                Proposed impact
+                <Tooltip label="About proposed impact">
+                  Counted in the programme's own unit of impact, set on the programme. For{' '}
+                  {programme ? programme.name : 'this programme'} that is {unit}.
+                </Tooltip>
+              </span>
+            </Label>
             <Input
               id="p-impact"
               inputMode="numeric"
@@ -405,12 +453,7 @@ function PartnershipDialogForm({
               rows={3}
               value={form.note}
               onChange={(e) => set('note', e.target.value)}
-              placeholder="Enter how the relationship came about"
             />
-            <p className="mt-1.5 font-display text-label text-grey-500">
-              The first line of the relationship history. Everything that happens after this is
-              added to it.
-            </p>
           </div>
         )}
       </form>
