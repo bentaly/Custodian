@@ -1964,20 +1964,6 @@ export const partnerships = pgTable(
       .notNull()
       .references(() => clients.id, { onDelete: 'cascade' }),
     organisationName: text('organisation_name').notNull(),
-    // The foundation's OWN reference for this relationship, if they keep one (the
-    // prototype's "PTR-001"). Theirs to set and theirs to shape — we never mint one,
-    // for the same reason `applications.external_application_id` is never minted: a
-    // reference we invented would look like theirs and match nothing in their systems.
-    reference: text('reference'),
-    // "Registered charity", "CIC", "Community group". Free text rather than an enum:
-    // the interesting values are the ones outside any list we would write, and nothing
-    // branches on it.
-    organisationType: text('organisation_type'),
-    // DEPRECATED with `organisation_type`, `reference` and `contact_name`: no longer
-    // read or written since the log form was cut down to what a screen or an
-    // application needs (2026-10-04). Where they are based fed nothing; where the work
-    // would happen is `delivery_area`. To be dropped in a later push.
-    location: text('location'),
     // Where the funded work would happen, as on an application (`applications.geography`).
     // Resolved to a deprivation reading for the assessment and again when the partner is
     // taken straight to the shortlist, which is what puts the grant on the Insights map.
@@ -2004,7 +1990,6 @@ export const partnerships = pgTable(
     }),
     // Chosen by the assessment from the programme's own themes, not typed.
     tags: jsonb('tags').$type<string[]>(),
-    contactName: text('contact_name'),
     contactEmail: text('contact_email'),
     status: partnershipStatusEnum('status').notNull().default('prospective'),
     // What they have said they are after, if they have said. Nullable and NOT a
@@ -2021,10 +2006,6 @@ export const partnerships = pgTable(
     // not a year of it. The same meaning as `applications.proposed_impact_quantity`,
     // which it becomes if the partner is taken straight to the shortlist.
     proposedImpactQuantity: numeric('proposed_impact_quantity'),
-    // DEPRECATED, no longer read or written: every expression of interest lands in
-    // `eois` now, and a second copy here had no rule for which was right. Kept for one
-    // push (expand/contract) and to be dropped in the next.
-    eoiResponses: jsonb('eoi_responses').$type<Array<{ label: string; value: string }>>(),
     // When their EOI arrived. A date for the pipeline to sort and print, not a copy of
     // the submission, which is the `eois` row pointing back at this partnership.
     eoiReceivedAt: timestamp('eoi_received_at'),

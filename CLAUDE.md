@@ -713,8 +713,8 @@ the programme pill (`?view=eois`, `components/eois/EoiList`), drawn only for a p
   programme (`round_programme_id`; `programme_id` is derived from it), the value proposed and
   the purpose proposed. **Optional**: source, delivery area, proposed impact (the whole
   grant's, not annual), contact email, notes. `location`, `organisation_type`, `reference`,
-  `contact_name` and `eoi_responses` are no longer read or written and are to be dropped in
-  a later push. Themes are not typed: the assessment picks them from the programme's list.
+  `contact_name` and `eoi_responses` were dropped in `0110`. Themes are not typed: the
+  assessment picks them from the programme's list.
 - **Tenancy is `client_id` on the row, for both.** Neither has a round-programme to scope by
   (a partnership's is a CHOICE, not where it lives). Every read filters on it directly; every
   write re-checks with `assertClientAccess`. Reads are open to every role; writes are admin-only.
