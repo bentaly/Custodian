@@ -898,10 +898,12 @@ function ApplicationsList() {
               selected. Beside the programme pill it read as "email this programme's
               applicants", which is the one thing it must not be mistaken for.
               Primary, because on a closed round it is the screen's whole purpose. */}
-          {/* The right-hand cluster reads outwards, as on Shortlist and Finance: this
-              screen's own action first, then the pair that switches screens. */}
-          {canSendDeclines && (
-            <div className="ml-auto">
+          {/* The right-hand cluster reads outwards, as on Shortlist: the round's action,
+              then the export, then the switch between this screen's two views. The
+              export and the switch both follow the programme picked in the card below:
+              that programme's applications, or its EOIs. */}
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            {canSendDeclines && (
               <Button
                 icon={MailSend01Icon}
                 iconPosition="right"
@@ -909,8 +911,21 @@ function ApplicationsList() {
               >
                 Send decline letters
               </Button>
-            </div>
-          )}
+            )}
+            <ExportButton onClick={showingEois ? handleEoiExport : handleExport} busy={exporting} />
+            {/* Only on a programme that takes EOIs: an EOI belongs to a programme. */}
+            {eoisOffered && (
+              <Tabs<'applications' | 'eois'>
+                ariaLabel="Applications or expressions of interest"
+                value={showingEois ? 'eois' : 'applications'}
+                onChange={setView}
+                items={[
+                  { id: 'applications', label: 'Applications' },
+                  { id: 'eois', label: 'EOIs', count: eoisWaiting },
+                ]}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -940,30 +955,6 @@ function ApplicationsList() {
               onChange={(v) => setProgramme(v || undefined)}
             />
           )}
-          {/* The export follows the programme pill it sits beside: a programme's
-              applications, or the whole round on "All". That is why it is in the card
-              and the decline button is not — one is scoped to what you are looking at,
-              the other to the round. */}
-          {/* The switch between the two views, then the export at the end of the row,
-              in the same place whichever view is showing. */}
-          <div className="ml-auto flex flex-wrap items-center gap-3">
-            {/* Applications or expressions of interest, for THIS programme: an EOI
-                belongs to the programme the pill names, so the switch follows it. Only
-                on a programme that takes EOIs. */}
-            {eoisOffered && (
-              <Tabs<'applications' | 'eois'>
-                ariaLabel="Applications or expressions of interest"
-                value={showingEois ? 'eois' : 'applications'}
-                onChange={setView}
-                items={[
-                  { id: 'applications', label: 'Applications' },
-                  { id: 'eois', label: 'EOIs', count: eoisWaiting },
-                ]}
-              />
-            )}
-            {/* The export follows the view: the programme's applications, or its EOIs. */}
-            <ExportButton onClick={showingEois ? handleEoiExport : handleExport} busy={exporting} />
-          </div>
         </div>
 
         {showingEois && eoiList ? (
