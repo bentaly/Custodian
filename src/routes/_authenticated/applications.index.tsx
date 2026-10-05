@@ -385,8 +385,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       // The ref is LABELLED (`Ref A-1234`) rather than bare: read after a charity type
       // and a region, an unlabelled code is taken for one more of them. Same wording as
       // search, and as the sublines this fact now carries on Awards, Finance and Reports.
-      const subline =
-        [type, area, fmtRef(app.externalApplicationId)].filter(Boolean).join(' · ') || '--'
+      const subline = [area, fmtRef(app.externalApplicationId)].filter(Boolean).join(' · ') || '--'
       return (
         <OrganisationCell
           name={app.organisationName}
@@ -912,7 +911,13 @@ function ApplicationsList() {
                 Send decline letters
               </Button>
             )}
-            <ExportButton onClick={showingEois ? handleEoiExport : handleExport} busy={exporting} />
+            <ExportButton
+              // Matches Shortlist's: small, so it sits level with the switch beside it.
+              size="sm"
+              label="Export"
+              onClick={showingEois ? handleEoiExport : handleExport}
+              busy={exporting}
+            />
             {/* Only on a programme that takes EOIs: an EOI belongs to a programme. */}
             {eoisOffered && (
               <Tabs<'applications' | 'eois'>
