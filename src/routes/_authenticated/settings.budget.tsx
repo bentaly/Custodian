@@ -583,11 +583,10 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             heading carries the label, but a foundation that has stepped back a year is
             about to type figures into a year that is not the current one, and "2025/26"
             alone does not say that loudly enough. */}
-        {offset !== 0 && (
+        {offset < 0 && (
           <p className="-mt-1 font-display text-label" style={{ color: C.amber }}>
-            {offset < 0
-              ? `You are editing a past year. Finance reports ${data.financialYear.label} against these figures, so changing them here changes the record.`
-              : `You are setting next year's budget before it starts. Nothing reports against it until ${data.financialYear.label} begins.`}
+            You are editing a past year. Finance reports {data.financialYear.label} against these
+            figures, so changing them here changes the record.
           </p>
         )}
         {/* A budget that already lives in a spreadsheet should not have to be retyped. The

@@ -173,7 +173,7 @@ export function AwardLetterForm({ settings }: { settings: AwardLetterSettings })
           The letter
         </PanelTitle>
         <p className="-mt-2 font-display text-body leading-relaxed" style={{ color: C.sub }}>
-          Write it as you would write a letter. Anything in double braces is filled in per award.
+          Anything in double braces is filled in per award.
         </p>
         <Textarea
           value={template}
@@ -229,8 +229,9 @@ export function AwardLetterForm({ settings }: { settings: AwardLetterSettings })
           Conditions of grant
         </PanelTitle>
         <p className="-mt-2 font-display text-body leading-relaxed" style={{ color: C.sub }}>
-          Attached to every award letter, in this order. You can switch them off for a particular
-          batch, and add a condition to a single grant, during award set-up.
+          Attached to every award letter, in this order. The standard grant award conditions below
+          are editable. Conditions are set when awards are set up in Custodian, and sent with the
+          grant award. You are able to remove and add bespoke conditions there too.
         </p>
         <div className="mt-3 flex flex-col gap-2">
           {conditions.map((c, i) => (
@@ -288,7 +289,7 @@ export function AwardLetterForm({ settings }: { settings: AwardLetterSettings })
       <Panel label="Preview">
         <PanelTitle>Preview</PanelTitle>
         <p className="-mt-2 mb-3 font-display text-body" style={{ color: C.sub }}>
-          A worked example, with a made-up grant filled in.
+          An example grant award letter including standard conditions.
         </p>
         <div className="rounded-card border p-4" style={{ borderColor: C.line }}>
           <div

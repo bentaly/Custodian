@@ -5,7 +5,7 @@ import { saveRound } from '../server/fns/rounds'
 import { messageFor } from '../lib/errors'
 import { roundYearOptions } from '../lib/roundYear'
 import { DEFAULT_FY_END_MONTH } from '../lib/financialYear'
-import { Button, DateField, Dialog, Input, Label, MoneyInput, Select, TOKENS, Tooltip } from './ui'
+import { Button, DateField, Dialog, Input, Label, MoneyInput, Select, Tooltip } from './ui'
 
 // Create or edit a funding round — the whole thing, in one dialog (Figma 674:32922).
 // This replaced a separate `/rounds/$roundId` detail screen: a round is a name, two
@@ -257,11 +257,6 @@ function RoundDialogForm({
               label: `${y.label} (${YEAR_RELATION[y.relation]})`,
             }))}
           />
-          <p className="font-display text-label" style={{ color: TOKENS.faint }}>
-            A round&rsquo;s budget is a slice of one year&rsquo;s giving, so pick the year the money
-            will actually leave the account. Usually the year the round closes, or the next one if
-            you decide at the very end of a year.
-          </p>
         </div>
 
         <fieldset className="flex flex-col gap-3">

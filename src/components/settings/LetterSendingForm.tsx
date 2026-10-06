@@ -70,8 +70,8 @@ export function LetterSendingForm({
     <Panel label="How your letters are sent">
       <PanelTitle>How your letters are sent</PanelTitle>
       <p className="-mt-2 mb-4 font-display text-body leading-relaxed" style={{ color: C.sub }}>
-        Both letters below go out under your foundation’s name, and replies to either come back to
-        you.
+        Both letters below are sent under your foundation’s name, and replies reach you at the
+        address set below.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -83,9 +83,7 @@ export function LetterSendingForm({
             placeholder={foundationName || 'Your foundation'}
           />
           <p className={hintClass}>
-            Shown as the sender. The email itself is sent by Custodian’s mail service. Mail
-            providers check the sending domain against its DNS records, so a letter claiming to come
-            from your own domain would be treated as forged and land in spam.
+            Shown as the sender. The email itself is sent by Custodian’s mail service.
           </p>
         </div>
         <div>
@@ -106,9 +104,6 @@ export function LetterSendingForm({
               Enter a valid email address, like grants@yourfoundation.org.
             </p>
           )}
-          <p className={hintClass}>
-            Where a reply lands. Set this, or replies come back to Custodian rather than to you.
-          </p>
         </div>
       </div>
       {/* Save at the foot, bottom right: it comes after the fields it saves. */}

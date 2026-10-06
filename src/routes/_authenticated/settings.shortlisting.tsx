@@ -34,16 +34,9 @@ function Shortlisting() {
   const { profile, members } = Route.useLoaderData()
 
   return (
-    <SettingsPage
-      title="Shortlisting and voting"
-      description="The rules an application passes on its way from the shortlist to an award."
-    >
+    <SettingsPage title="Shortlisting and voting">
       <Panel label="Round budgets">
         <PanelTitle>Round budgets</PanelTitle>
-        <p className="mb-4 font-display text-body leading-relaxed text-grey-500">
-          Each programme in a round carries a budget. This is what that figure does when you
-          shortlist against it.
-        </p>
         {/* Both halves are stated, because the setting has no neutral position: off is
             a policy too, and a switch described only by what turning it on does leaves
             a foundation guessing what it is choosing by leaving it alone. */}
@@ -100,8 +93,7 @@ function VotingBoard({
     >
       {voters.length === 0 ? (
         <p className="font-display text-body leading-relaxed" style={{ color: C.ink }}>
-          Nobody holds a vote yet, so no application can be approved. Trustees vote as soon as they
-          join.
+          Nobody holds a vote yet, so no application can be approved.
         </p>
       ) : (
         <p className="font-display text-body leading-relaxed" style={{ color: C.ink }}>
