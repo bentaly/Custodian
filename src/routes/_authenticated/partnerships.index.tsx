@@ -107,6 +107,10 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     id: 'organisation',
     sortable: true,
     header: 'Organisation',
+    // No width of its own: it takes what the others leave, which they keep to about
+    // 28% between eight columns so a name like "British Heart Foundation" fits. They
+    // summed to 93% once, and the name read "Bri…".
+    //
     // The house identity cell, as Applications and Reports draw it: monogram, name, and
     // a subline of the facts that tell two similarly-named charities apart: the
     // registration number, and where the work would be.
@@ -156,7 +160,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     sortable: true,
     hideBelow: 'lg',
     header: 'Programme',
-    width: 'sm:w-[14%]',
+    width: 'sm:w-[11%]',
     cell: (item) => (
       // "Not decided yet" rather than an em-dash: on this table a blank programme is the
       // ordinary state of a new prospect, not a gap in the data, and the faint grey says
@@ -173,7 +177,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     id: 'round',
     hideBelow: 'lg',
     header: 'Round',
-    width: 'sm:w-[12%]',
+    width: 'sm:w-[9%]',
     cell: (item) => (
       <TruncatedText
         text={item.roundProgramme?.round.name ?? '--'}
@@ -189,7 +193,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     id: 'theme',
     hideBelow: 'xl',
     header: 'Theme',
-    width: 'sm:w-[13%]',
+    width: 'sm:w-[11%]',
     cell: (item) => (
       <TruncatedList
         items={item.tags ?? []}
@@ -208,7 +212,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Source',
-    width: 'sm:w-[13%]',
+    width: 'sm:w-[10%]',
     cell: (item) => (
       <TruncatedText
         text={item.source ?? '--'}
@@ -221,7 +225,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     id: 'status',
     sortable: true,
     header: 'Status',
-    width: 'sm:w-[13%]',
+    width: 'sm:w-[10%]',
     cell: (item) => (
       <StatusPill
         label={PARTNERSHIP_STATUS_META[item.status].label}
@@ -235,7 +239,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     sortable: true,
     hideBelow: 'md',
     header: 'AI score',
-    width: 'sm:w-[9%]',
+    width: 'sm:w-[8%]',
     cell: (item) => <AiScoreCell status={item.custodianScoreStatus} score={item.custodianScore} />,
   },
   {
@@ -244,7 +248,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     sortable: true,
     hideBelow: 'md',
     header: 'Due diligence',
-    width: 'sm:w-[9%]',
+    width: 'sm:w-[7%]',
     stopRowClick: true,
     cell: (item) => <DueDiligenceCell status={item.dueDiligenceStatus} />,
   },
@@ -253,7 +257,7 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     sortable: true,
     hideBelow: 'xl',
     header: 'Logged',
-    width: 'sm:w-[10%]',
+    width: 'sm:w-[8%]',
     cell: (item) => (
       <DateText
         value={item.createdAt}
