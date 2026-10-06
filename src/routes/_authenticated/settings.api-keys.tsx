@@ -209,7 +209,7 @@ function ApiKeys() {
             <>
               <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
                 Paste the address for the kind of form into that form's webhook settings. In
-                Typeform, Connect → Webhooks → Add a webhook. Both addresses contain the key, so
+                Typeform, Connect → Webhooks → Add a webhook. Every address contains the key, so
                 treat them like one.
               </p>
               <RevealedValue
@@ -239,6 +239,23 @@ function ApiKeys() {
             <RevealedValue value={newSecret.key} copied={copied === newSecret.key} onCopy={copy} />
           )}
         </div>
+      )}
+
+      {/* How an invitation's link finds its way back. Here, with the addresses a form
+          is connected by, rather than in every send dialog: it is set up once, on the
+          foundation's own form, by whoever builds it. Moved out of the dialog on
+          2026-10-06. */}
+      {features.sourcing && (
+        <Panel label="Invitations from Partnerships and EOIs">
+          <PanelTitle>Invitations from Partnerships and expressions of interest</PanelTitle>
+          <p className="font-display text-body" style={{ color: C.sub }}>
+            When Custodian emails an invitation to apply or to send an expression of interest, it
+            adds a reference to the link to your form. Give your form a hidden field called{' '}
+            <code className="font-mono">custodian_ref</code> and what comes back is tied to the
+            partnership or expression of interest that prompted it. Without it, submissions still
+            arrive and can be linked by hand.
+          </p>
+        </Panel>
       )}
 
       <Panel label="Generate a key">

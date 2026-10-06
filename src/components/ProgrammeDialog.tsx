@@ -56,7 +56,7 @@ export function ProgrammeDialog({
   suggestions: string[]
   /** hex → the OTHER programme using it, so the picker can say so without forbidding it. */
   takenColours?: Record<string, string>
-  /** Offer "Takes expressions of interest": only where the `sourcing` feature is on. */
+  /** Offer "Receives expressions of interest": only where the `sourcing` feature is on. */
   showEoiSwitch?: boolean
   onClose: () => void
   onSaved: () => void
@@ -277,17 +277,19 @@ function ProgrammeDialogForm({
           <div className="flex items-start justify-between gap-4 border-t border-grey-200 pt-4">
             <div>
               <p className="font-display text-body font-medium text-grey-900">
-                Takes expressions of interest
+                Receives expressions of interest
               </p>
               <p id="programme-eoi-help" className="mt-1 font-display text-label text-grey-500">
-                A shorter first-stage form before a full application. They appear beside
-                Applications, and you invite the ones you want to apply.
+                This programme opens with a shorter Expression of Interest (EOI) stage ahead of full
+                applications. EOIs appear in their own tab, alongside full applications where
+                relevant. From an EOI submission, you can invite the applicant to submit a full
+                application or fast-track them straight to the shortlist stage.
               </p>
             </div>
             <Toggle
               checked={acceptsEois}
               onChange={setAcceptsEois}
-              label="Takes expressions of interest"
+              label="Receives expressions of interest"
               describedBy="programme-eoi-help"
             />
           </div>

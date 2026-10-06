@@ -103,8 +103,8 @@ export function EoiProgressDialog({
   return (
     <Dialog
       open
-      title="Progress to shortlist"
-      description={`${eoi.organisationName} goes straight to the shortlist without a full application. Their answers to the expression of interest come with them.`}
+      title="Shortlist"
+      description={`${eoi.organisationName} will be shortlisted without a full application. Their answers to the expression of interest come with them.`}
       onClose={onClose}
       busy={busy}
       size="lg"

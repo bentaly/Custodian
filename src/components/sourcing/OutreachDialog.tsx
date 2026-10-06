@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import { messageFor } from '../../lib/errors'
-import {
-  defaultOutreach,
-  outreachNeedsLink,
-  OUTREACH_LINK_LABEL,
-  type OutreachKind,
-} from '../../lib/sourcing/outreach'
+import { defaultOutreach, outreachNeedsLink, type OutreachKind } from '../../lib/sourcing/outreach'
 import { Button, Dialog, Input, Label, Textarea } from '../ui'
 import { C } from '../ui/tokens'
 
@@ -165,11 +160,6 @@ export function OutreachDialog({
               onChange={(e) => setFormUrl(e.target.value)}
               placeholder="https://"
             />
-            <p className="mt-1.5 font-display text-label" style={{ color: C.sub }}>
-              Added under the email as “{OUTREACH_LINK_LABEL[kind]}”, with a reference on it so
-              their form comes back to this record. Your form needs a hidden field called{' '}
-              <code className="font-mono">custodian_ref</code> for that to work.
-            </p>
           </div>
         )}
         <p

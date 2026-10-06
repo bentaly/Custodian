@@ -232,7 +232,7 @@ function PartnershipDetail() {
                     <Button
                       key={action}
                       // Destructive is checked FIRST, not after the position. On an
-                      // invited partnership the only remaining move is "Not pursuing",
+                      // invited partnership the only remaining move is closing it,
                       // which made it index 0 and drew closing a relationship as the
                       // solid green primary button on the screen.
                       variant={a.destructive ? 'dangerGhost' : i === 0 ? 'primary' : 'secondary'}
@@ -810,8 +810,8 @@ function PartnershipDetail() {
 
       <ConfirmDialog
         open={confirm !== undefined}
-        title="Not pursuing this partnership?"
-        confirmLabel="Not pursuing"
+        title="Close this partnership?"
+        confirmLabel="Close"
         busyLabel="Closing…"
         busy={act.pending}
         error={act.error ? messageFor(act.error) : undefined}

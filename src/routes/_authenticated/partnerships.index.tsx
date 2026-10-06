@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { fmtAmount } from '../../lib/format'
 import { useState } from 'react'
 import { Add01Icon, ArchiveIcon, ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { listPartnerships, PARTNERSHIPS_DEFAULT_SORT } from '../../server/fns/partnerships'
@@ -108,18 +109,21 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     sortable: true,
     header: 'Organisation',
     // No width of its own: it takes what the others leave, which they keep to about
-    // 28% between eight columns so a name like "British Heart Foundation" fits. They
+    // 28% between them so a name like "British Heart Foundation" fits. They
     // summed to 93% once, and the name read "Bri…".
     //
     // The house identity cell, as Applications and Reports draw it: monogram, name, and
     // a subline of the facts that tell two similarly-named charities apart: the
-    // registration number, and where the work would be.
+    // registration number, where the work would be, and how the relationship started.
     cell: (item) => {
       const subline =
         [
           item.charityNumber ? `Charity ${item.charityNumber}` : null,
           item.companyNumber && !item.charityNumber ? `Company ${item.companyNumber}` : null,
           item.deliveryArea,
+          // Source lives here since it lost its column (2026-10-06): its filter pill
+          // stays, and a pill must leave a visible mark on the rows it keeps.
+          item.source,
         ]
           .filter(Boolean)
           .join(' · ') || '--'
@@ -156,6 +160,20 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     },
   },
   {
+    // The round they would be funded from, chosen when they were logged.
+    id: 'round',
+    hideBelow: 'lg',
+    header: 'Round',
+    width: 'sm:w-[9%]',
+    cell: (item) => (
+      <TruncatedText
+        text={item.roundProgramme?.round.name ?? '--'}
+        label="Round"
+        className={`font-display text-body ${item.roundProgramme ? 'text-grey-500' : 'text-grey-400'}`}
+      />
+    ),
+  },
+  {
     id: 'programme',
     sortable: true,
     hideBelow: 'lg',
@@ -173,17 +191,17 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     ),
   },
   {
-    // The round they would be funded from, chosen when they were logged.
-    id: 'round',
-    hideBelow: 'lg',
-    header: 'Round',
-    width: 'sm:w-[9%]',
+    // The grant value proposed. Not a commitment and summed nowhere (see the module
+    // comment): a figure per row, never a total.
+    id: 'amount',
+    sortable: true,
+    hideBelow: 'md',
+    header: 'Amount',
+    width: 'sm:w-[8%]',
     cell: (item) => (
-      <TruncatedText
-        text={item.roundProgramme?.round.name ?? '--'}
-        label="Round"
-        className={`font-display text-body ${item.roundProgramme ? 'text-grey-500' : 'text-grey-400'}`}
-      />
+      <span className="whitespace-nowrap font-display text-body text-grey-500">
+        {item.amountSought ? fmtAmount(item.amountSought) : '--'}
+      </span>
     ),
   },
   {
@@ -205,19 +223,15 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     ),
   },
   {
-    // The column that earns its place on this screen and no other: it is the only
-    // measure a foundation has of whether its pipeline reaches past the board's own
-    // address book.
-    id: 'source',
+    id: 'logged',
     sortable: true,
     hideBelow: 'xl',
-    header: 'Source',
-    width: 'sm:w-[10%]',
+    header: 'Logged',
+    width: 'sm:w-[8%]',
     cell: (item) => (
-      <TruncatedText
-        text={item.source ?? '--'}
-        label="Source"
-        className={`font-display text-body ${item.source ? 'text-grey-500' : 'text-grey-400'}`}
+      <DateText
+        value={item.createdAt}
+        className="whitespace-nowrap font-display text-body text-grey-500"
       />
     ),
   },
@@ -251,19 +265,6 @@ const COLUMNS: TableColumn<PartnershipItem>[] = [
     width: 'sm:w-[7%]',
     stopRowClick: true,
     cell: (item) => <DueDiligenceCell status={item.dueDiligenceStatus} />,
-  },
-  {
-    id: 'logged',
-    sortable: true,
-    hideBelow: 'xl',
-    header: 'Logged',
-    width: 'sm:w-[8%]',
-    cell: (item) => (
-      <DateText
-        value={item.createdAt}
-        className="whitespace-nowrap font-display text-body text-grey-500"
-      />
-    ),
   },
 ]
 

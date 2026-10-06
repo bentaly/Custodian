@@ -88,7 +88,9 @@ export const PARTNERSHIP_STATUS_META: Record<PartnershipStatus, StatusMeta> = {
     tone: 'success',
   },
   declined: {
-    label: 'Not pursuing',
+    // "Not pursuing" until 2026-10-06; "Closed" reads as the end of a conversation
+    // without saying anything about the organisation. Reopening is the way back.
+    label: 'Closed',
     description: 'Closed. Reopening puts them back at the top of the pipeline.',
     waitingOn: 'closed',
     tone: 'danger',
@@ -129,8 +131,8 @@ export const PARTNERSHIP_ACTION_META: Record<
 > = {
   issue_eoi: { label: 'Request EOI', to: 'eoi_issued' },
   invite: { label: 'Invite to apply', to: 'invited' },
-  shortlist: { label: 'Progress to shortlist', to: 'applied' },
-  decline: { label: 'Not pursuing', to: 'declined', destructive: true },
+  shortlist: { label: 'Shortlist', to: 'applied' },
+  decline: { label: 'Close', to: 'declined', destructive: true },
   reopen: { label: 'Reopen', to: 'prospective' },
 }
 

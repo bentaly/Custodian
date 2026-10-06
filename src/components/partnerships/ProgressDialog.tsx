@@ -60,8 +60,8 @@ export function ProgressDialog({
   return (
     <Dialog
       open
-      title="Progress to shortlist"
-      description={`${partnership.organisationName} goes straight to the shortlist for ${where}. No form is sent and nobody is emailed.`}
+      title="Shortlist"
+      description={`${partnership.organisationName} will be shortlisted for ${where}. No form is sent and nobody is emailed.`}
       onClose={onClose}
       busy={busy}
       footer={

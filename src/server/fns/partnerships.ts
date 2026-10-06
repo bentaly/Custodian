@@ -81,6 +81,7 @@ export const PARTNERSHIP_SORT_KEYS = [
   'status',
   'dueDiligence',
   'score',
+  'amount',
   'logged',
 ] as const
 export type PartnershipSortKey = (typeof PARTNERSHIP_SORT_KEYS)[number]
@@ -215,6 +216,8 @@ export const listPartnerships = createServerFn({ method: 'GET' })
         // Unscored rows last either way, as on Applications.
         case 'score':
           return sql`${partnerships.custodianScore} ${sql.raw(dir)} NULLS LAST`
+        case 'amount':
+          return sql`${partnerships.amountSought} ${sql.raw(dir)} NULLS LAST`
         // Pipeline order, not alphabetical: a status column sorted A–Z puts "Declined"
         // above "EOI received", which is the opposite of useful.
         case 'status':
@@ -680,7 +683,7 @@ export const actOnPartnership = createServerFn({ method: 'POST' })
     const sentence = {
       issue_eoi: 'Marked the expression of interest form as sent.',
       invite: 'Marked as invited to submit a full application.',
-      decline: 'Closed, not pursuing.',
+      decline: 'Closed.',
       reopen: 'Reopened, back to prospective.',
     }[action]
 

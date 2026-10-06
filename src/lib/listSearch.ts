@@ -271,6 +271,7 @@ export type PartnershipsSortKey =
   | 'status'
   | 'dueDiligence'
   | 'score'
+  | 'amount'
   | 'logged'
 
 export const PARTNERSHIPS_SORT_KEYS: PartnershipsSortKey[] = [
@@ -280,6 +281,7 @@ export const PARTNERSHIPS_SORT_KEYS: PartnershipsSortKey[] = [
   'status',
   'dueDiligence',
   'score',
+  'amount',
   'logged',
 ]
 

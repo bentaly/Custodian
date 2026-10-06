@@ -137,7 +137,7 @@ function EoiDetail() {
                   icon={CheckListIcon}
                   onClick={() => setProgressing(true)}
                 >
-                  Progress to shortlist
+                  Shortlist
                 </Button>
               )}
               {/* Already invited: the same dialog, as a chase. */}
