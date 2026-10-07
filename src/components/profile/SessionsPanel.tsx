@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { authClient } from '../../lib/auth-client'
 import { fmtDate } from '../../lib/format'
-import { Button, ErrorNote, Panel, PanelTitle } from '../ui'
+import { Button, ErrorNote, Panel, PanelTitle, toast } from '../ui'
 import { C } from '../ui/tokens'
 
 type Session = {
@@ -39,6 +39,9 @@ export function SessionsPanel({
         setError(err.message ?? 'Could not sign out your other devices.')
         return
       }
+      toast(
+        others === 1 ? 'Signed out of 1 other device' : `Signed out of ${others} other devices`,
+      )
       onChanged()
     } finally {
       setBusy(false)

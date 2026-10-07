@@ -25,7 +25,9 @@ import {
   StepMarker,
   type PillTabItem,
   type TimelineMarker,
+  toast,
 } from '../ui'
+import { messageFor } from '../../lib/errors'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C } from '../ui/tokens'
 import { fmtDate, fmtExact, penceInput } from '../../lib/format'
@@ -416,7 +418,11 @@ function MarkPaidButton({ id }: { id: string }) {
     setBusy(true)
     try {
       await setInstalmentPaid({ data: { id, paid: true } })
+      toast('Instalment marked as paid')
       await router.invalidate()
+    } catch (err) {
+      // Finance must never be left believing a payment was recorded when it was not.
+      toast.error(`The payment was not recorded. ${messageFor(err)}`)
     } finally {
       setBusy(false)
     }

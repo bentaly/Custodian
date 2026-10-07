@@ -126,6 +126,8 @@ function GlobalSearch({
   const containerRef = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
+  // A failed search must not read as "nothing matches".
+  const [failed, setFailed] = useState(false)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [active, setActive] = useState(0)
@@ -172,11 +174,16 @@ function GlobalSearch({
         const res = await globalSearch({ data: { q } })
         if (id === reqId.current) {
           setResults(res)
+          setFailed(false)
           setActive(0)
           setOpen(true)
         }
       } catch {
-        if (id === reqId.current) setResults([])
+        if (id === reqId.current) {
+          setResults([])
+          setFailed(true)
+          setOpen(true)
+        }
       } finally {
         if (id === reqId.current) setLoading(false)
       }
@@ -263,7 +270,9 @@ function GlobalSearch({
         >
           {ordered.length === 0 && !loading && (
             <p className="px-4 py-6 text-center text-body text-grey-400">
-              No results for “{query.trim()}”
+              {failed
+                ? 'Search is not working right now. Try again in a moment.'
+                : `No results for “${query.trim()}”`}
             </p>
           )}
           {GROUPS.map((group) => {

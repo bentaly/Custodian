@@ -23,6 +23,7 @@ import {
   Card,
   EmptyState,
   Pagination,
+  toast,
 } from '../../components/ui'
 import { messageFor } from '../../lib/errors'
 import { fmtDate, fmtExact } from '../../lib/format'
@@ -247,7 +248,13 @@ function RoundRowCard({
     setArchiving(true)
     try {
       await setRoundArchived({ data: { id: round.id, archived: !round.archivedAt } })
+      toast(`${round.name} ${round.archivedAt ? 'restored' : 'archived'}`)
       router.invalidate()
+    } catch (err) {
+      // A menu item has nowhere inline to say it failed, so it says so here.
+      toast.error(
+        `Could not ${round.archivedAt ? 'restore' : 'archive'} ${round.name}. ${messageFor(err)}`,
+      )
     } finally {
       setArchiving(false)
     }

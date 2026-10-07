@@ -14,7 +14,16 @@ import {
 } from '../../components/ProgrammeDialog'
 import { getRoundStatus } from '../../lib/roundStatus'
 import { impactUnitLabel, DEFAULT_IMPACT_UNIT } from '../../lib/impactUnits'
-import { ActionMenu, Badge, Breadcrumb, Button, Card, EmptyState } from '../../components/ui'
+import {
+  ActionMenu,
+  Badge,
+  Breadcrumb,
+  Button,
+  Card,
+  EmptyState,
+  toast,
+} from '../../components/ui'
+import { messageFor } from '../../lib/errors'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 
 export const Route = createFileRoute('/_authenticated/programmes/')({
@@ -173,7 +182,13 @@ function ProgrammeCard({
     setArchiving(true)
     try {
       await setProgrammeArchived({ data: { id: programme.id, archived: !programme.archivedAt } })
+      toast(`${programme.name} ${programme.archivedAt ? 'restored' : 'archived'}`)
       router.invalidate()
+    } catch (err) {
+      // A menu item has nowhere inline to say it failed, so it says so here.
+      toast.error(
+        `Could not ${programme.archivedAt ? 'restore' : 'archive'} ${programme.name}. ${messageFor(err)}`,
+      )
     } finally {
       setArchiving(false)
     }

@@ -42,7 +42,9 @@ import {
   Tooltip,
   useClamp,
   type TimelineStep,
+  toast,
 } from '../../components/ui'
+import { messageFor } from '../../lib/errors'
 import { C } from '../../components/ui/tokens'
 import { AREA_ICON } from '../../components/Sidebar'
 import { fmtDate, fmtMoney, fmtRef } from '../../lib/format'
@@ -121,6 +123,8 @@ function ReportDetail() {
     try {
       await markReportReviewed({ data: { id: s.id, reviewed: !isReviewed } })
       await router.invalidate()
+    } catch (err) {
+      toast.error(`Could not update the review. ${messageFor(err)}`)
     } finally {
       setReviewing(false)
     }

@@ -28,6 +28,7 @@ import {
   TruncatedText,
   formatDateRange,
   useReveal,
+  toast,
 } from '../../components/ui'
 import { Donut, type DonutSlice } from '../../components/charts/Donut'
 import { GivingArea, type GivingPoint } from '../../components/charts/GivingArea'
@@ -1215,6 +1216,8 @@ function InsightsPage() {
           year: 'numeric',
         }),
       })
+    } catch {
+      toast.error('The PDF could not be made. Try again, or narrow the filters first.')
     } finally {
       setExporting(false)
     }

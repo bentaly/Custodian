@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { authClient } from '../../lib/auth-client'
-import { Button, ErrorNote, Input, Label, Panel, PanelTitle } from '../ui'
+import { Button, ErrorNote, Input, Label, Panel, PanelTitle, toast } from '../ui'
 import { CodeInput } from '../ui/CodeInput'
 import { C } from '../ui/tokens'
 
@@ -40,7 +40,6 @@ export function PasswordPanel({
   const [codeSent, setCodeSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
 
   function reset() {
     setCurrent('')
@@ -53,7 +52,6 @@ export function PasswordPanel({
     e.preventDefault()
     setBusy(true)
     setError('')
-    setNotice('')
     try {
       const { error: err } = await authClient.changePassword({
         currentPassword: current,
@@ -65,7 +63,7 @@ export function PasswordPanel({
         return
       }
       reset()
-      setNotice('Password changed. You have been signed out everywhere else.')
+      toast('Password changed. You have been signed out everywhere else.')
       onChanged()
     } finally {
       setBusy(false)
@@ -75,7 +73,6 @@ export function PasswordPanel({
   async function handleSendCode() {
     setBusy(true)
     setError('')
-    setNotice('')
     try {
       const { error: err } = await authClient.emailOtp.requestPasswordReset({ email })
       if (err) {
@@ -103,7 +100,7 @@ export function PasswordPanel({
         return
       }
       reset()
-      setNotice('Password set. You can now sign in with your email address and password.')
+      toast('Password set. You can now sign in with your email and password.')
       onChanged()
     } finally {
       setBusy(false)
@@ -198,15 +195,6 @@ export function PasswordPanel({
             </Button>
           </div>
         </form>
-      )}
-
-      {notice && (
-        <p
-          className="mt-3 rounded-chip border px-3 py-2 font-display text-body"
-          style={{ borderColor: C.brandBorder, backgroundColor: C.brandBg, color: C.brand }}
-        >
-          {notice}
-        </p>
       )}
     </Panel>
   )

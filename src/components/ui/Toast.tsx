@@ -1,23 +1,38 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import {
+  Alert02Icon,
+  Cancel01Icon,
+  InformationCircleIcon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons'
 import { C } from './tokens'
 
 /**
- * Confirmation that something the user did has worked: "Giving strategy saved".
+ * A short message in the top right: "Giving strategy saved".
  *
- * Success only. A failure stays an `ErrorNote` beside the control that failed, because
- * the user has to act on it and a toast disappears. A toast is for the case where the
- * screen otherwise gives no sign anything happened, which is what a foundation reported
- * on the giving strategy: a Save button whose label flickered for two seconds read as
- * a button that did nothing.
+ * Built for the case where the screen otherwise gives no sign anything happened, which is
+ * what a foundation reported on the giving strategy: a Save button whose label flickered
+ * for two seconds read as a button that did nothing.
  *
- * Call `toast('…')` from anywhere; `<Toaster />` is mounted once, in the authenticated
- * shell. A module-level store rather than a context, so a server-fn handler deep in a
- * dialog does not need a provider threaded down to it.
+ * Three tones, chosen against the "Custodian Toast Styles" artifact (2026-10-07):
+ *
+ *   • `toast(…)` / `toast.success(…)` — Mint (Brand Secondary). Something worked.
+ *   • `toast.info(…)` — Paper (white). Neutral news that is neither good nor bad.
+ *   • `toast.error(…)` — Danger. Something failed and there is no control to put the
+ *     message beside: a background send, an action from a menu that has since closed.
+ *     A failure on a FORM still belongs in an `ErrorNote` beside the control, because
+ *     the user has to act on it there. An error toast also stays until it is dismissed,
+ *     since a failure that vanishes after three seconds may never have been read.
+ *
+ * Call it from anywhere; `<Toaster />` is mounted once, in the authenticated shell. A
+ * module-level store rather than a context, so a server-fn handler deep in a dialog does
+ * not need a provider threaded down to it.
  */
 
-type ToastItem = { id: number; message: string }
+export type ToastTone = 'success' | 'info' | 'error'
+
+type ToastItem = { id: number; message: string; tone: ToastTone }
 
 const DURATION_MS = 3500
 
@@ -34,13 +49,19 @@ function dismiss(id: number) {
   emit()
 }
 
-export function toast(message: string) {
+function show(message: string, tone: ToastTone) {
   const id = nextId++
   // The newest on top, and at most three: a burst of saves should not build a tower.
-  items = [{ id, message }, ...items].slice(0, 3)
+  items = [{ id, message, tone }, ...items].slice(0, 3)
   emit()
-  setTimeout(() => dismiss(id), DURATION_MS)
+  if (tone !== 'error') setTimeout(() => dismiss(id), DURATION_MS)
 }
+
+export const toast = Object.assign((message: string) => show(message, 'success'), {
+  success: (message: string) => show(message, 'success'),
+  info: (message: string) => show(message, 'info'),
+  error: (message: string) => show(message, 'error'),
+})
 
 function subscribe(listener: () => void) {
   listeners.add(listener)
@@ -65,6 +86,35 @@ export function Toaster() {
   )
 }
 
+/** The card's colours. The backgrounds are OPAQUE (mixed with white, not alpha), since a
+ *  toast sits over whatever the page has under it. */
+const TONE: Record<
+  ToastTone,
+  { icon: typeof Tick02Icon; iconColour: string; bg: string; border: string; close: string }
+> = {
+  success: {
+    icon: Tick02Icon,
+    iconColour: C.brand,
+    bg: 'var(--color-brand-secondary)',
+    border: 'color-mix(in srgb, var(--color-brand) 22%, transparent)',
+    close: 'color-mix(in srgb, var(--color-brand) 60%, var(--color-grey-500))',
+  },
+  info: {
+    icon: InformationCircleIcon,
+    iconColour: C.sub,
+    bg: C.white,
+    border: C.line,
+    close: C.faint,
+  },
+  error: {
+    icon: Alert02Icon,
+    iconColour: 'var(--color-danger)',
+    bg: 'color-mix(in srgb, var(--color-danger) 8%, white)',
+    border: 'color-mix(in srgb, var(--color-danger) 25%, transparent)',
+    close: 'var(--color-danger)',
+  },
+}
+
 function ToastCard({ item }: { item: ToastItem }) {
   // Mounted at rest, then moved in, so the card slides rather than appearing.
   const [shown, setShown] = useState(false)
@@ -72,20 +122,22 @@ function ToastCard({ item }: { item: ToastItem }) {
     const frame = requestAnimationFrame(() => setShown(true))
     return () => cancelAnimationFrame(frame)
   }, [])
+  const tone = TONE[item.tone]
 
   return (
     <div
-      role="status"
-      className={`pointer-events-auto flex items-start gap-2 rounded-card border bg-white px-3 py-2.5 font-display text-body shadow-lg transition duration-200 ${
+      // An error interrupts; anything else waits its turn.
+      role={item.tone === 'error' ? 'alert' : 'status'}
+      className={`pointer-events-auto flex items-start gap-2 rounded-card border px-3 py-2.5 font-display text-body shadow-lg transition duration-200 ${
         shown ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'
       }`}
-      style={{ borderColor: C.line, color: C.ink }}
+      style={{ backgroundColor: tone.bg, borderColor: tone.border, color: C.ink }}
     >
       <HugeiconsIcon
-        icon={Tick02Icon}
+        icon={tone.icon}
         size={16}
         strokeWidth={2}
-        color={C.success}
+        color={tone.iconColour}
         className="mt-0.5 shrink-0"
       />
       <span className="flex-1">{item.message}</span>
@@ -94,7 +146,7 @@ function ToastCard({ item }: { item: ToastItem }) {
         onClick={() => dismiss(item.id)}
         aria-label="Dismiss"
         className="mt-0.5 shrink-0 rounded-chip hover:opacity-70"
-        style={{ color: C.faint }}
+        style={{ color: tone.close }}
       >
         <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={2} />
       </button>
