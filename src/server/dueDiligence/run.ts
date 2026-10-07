@@ -7,6 +7,7 @@
 import {
   charityChecks,
   companyChecks,
+  companyProfile,
   computeStatus,
   grantHistoryChecks,
   oscrChecks,
@@ -72,9 +73,10 @@ export interface DueDiligenceResult {
   /**
    * What the register says the applicant IS — read on the same calls the checks are
    * derived from, so it costs one extra request rather than a second screening run.
-   * `null` whenever there is nothing to read it from: no charity number, a Scottish
-   * charity (OSCR publishes no equivalent), a company-only applicant, or the register
-   * being unreachable. A caller stores it verbatim; nothing screens on it.
+   * `null` whenever there is nothing to read it from: no number at all, a Scottish
+   * charity with no company number (OSCR publishes no equivalent), or the register
+   * being unreachable. A company that is not a registered charity gets the Companies
+   * House profile (`companyProfile`), which states what it is but carries no figures. A caller stores it verbatim; nothing screens on it.
    */
   profile: OrganisationProfile | null
 }
@@ -170,11 +172,17 @@ export async function runDueDiligence(
   // be dual-registered, e.g. a charitable company or a CIC with charity status).
   if (companyNumber) {
     try {
-      const [raw, filings] = await Promise.all([
+      // The officers call is for the profile alone, so it is only made where the
+      // profile will be the company's: a charity's own profile wins, being the one
+      // with figures in it.
+      const wantProfile = !profile
+      const [raw, filings, officers] = await Promise.all([
         fetchers.companiesHouse(companyNumber),
         fetchers.companiesHouseFilingHistory(companyNumber),
+        wantProfile ? fetchers.companiesHouseOfficers(companyNumber) : Promise.resolve(null),
       ])
       checks.push(...companyChecks(normalizeCompany(raw, filings), ctx))
+      if (wantProfile) profile = companyProfile(raw, officers, checkedAt)
     } catch {
       primaryFailed = true
     }

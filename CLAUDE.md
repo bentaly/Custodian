@@ -471,6 +471,12 @@ design rationale; this list is a map, not a summary.
 - **dueDiligence** — registry checks against Charity Commission + Companies House. Returns
   **`no_registration`** (its own status, not `review`, so it stays out of the dashboard flag count)
   when there is no number to screen.
+  It also writes the application's **organisation profile** (the Organisation details box): the
+  Charity Commission's for a charity, and since 2026-10-07 **Companies House's for a company that
+  is not one** (a CIC, mostly; `lib/dueDiligence/companyProfile.ts`). That register publishes no
+  income, spend or description, so a company profile carries type, incorporation, SIC "nature of
+  business", last accounts and directors instead, and the score prompt gives it its own section
+  that says why the figures are absent. A charity's profile wins for a dual-registered applicant.
 - **deprivation** — delivery-area → IMD decile. Three layers, each doing what only it can:
   **Google Geocoding** (free text → a place, a coordinate, and `types` saying what KIND of thing
   it matched), **postcodes.io** (postcode → LSOA code; coordinate → ward/LAD/region GSS codes —

@@ -100,8 +100,15 @@ export type CheckKey =
  * This one is written to the application row and read by the UI; nothing screens on it.
  */
 export interface OrganisationProfile {
-  /** Which register this was read from. Only the Charity Commission supplies it today. */
-  source: 'charity_commission'
+  /**
+   * Which register this was read from. The Charity Commission wherever the applicant
+   * is a charity on it; Companies House for a company that is not (a CIC, typically),
+   * since 2026-10-07. A Companies House profile leaves every charity-only field null
+   * (activities, income, expenditure, staff, volunteers, trustees, charity type) and
+   * fills the `company…` fields below instead: the register publishes no figures and
+   * no description, only what the company is and whether it is keeping up its filings.
+   */
+  source: 'charity_commission' | 'companies_house'
   /**
    * The charity's own prose description of what it does, from the annual return
    * (`charityoverview.activities`). This is the "who are these people" line — it is
@@ -151,5 +158,20 @@ export interface OrganisationProfile {
    * without linking to it, and the next screening fills it in.
    */
   organisationNumber: number | null
+  /** Companies House only: the company number, which is what its register URLs take. */
+  companyNumber?: string | null
+  /** Companies House only, in words: "Community interest company (limited by guarantee)". */
+  companyType?: string | null
+  /** Companies House only: `active`, `dissolved`, `liquidation`… as the register says. */
+  companyStatus?: string | null
+  /** Companies House only: the SIC descriptions, in the register's order. */
+  natureOfBusiness?: string[]
+  /** Companies House only: the end of the period the last filed accounts cover. */
+  lastAccountsMadeUpTo?: string | null
+  /** Companies House only, in words: "Micro-entity", "Total exemption full"… */
+  lastAccountsType?: string | null
+  accountsOverdue?: boolean | null
+  /** Companies House only: current directors. Null when the officers call failed. */
+  directorCount?: number | null
   fetchedAt: string
 }

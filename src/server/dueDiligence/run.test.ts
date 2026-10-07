@@ -18,6 +18,7 @@ function stubFetchers(overrides: Partial<DueDiligenceFetchers> = {}): DueDiligen
     oscr: vi.fn(notCalled),
     companiesHouse: vi.fn(notCalled),
     companiesHouseFilingHistory: vi.fn(notCalled),
+    companiesHouseOfficers: vi.fn(async () => null),
     threeSixtyGiving: vi.fn(async () => null),
     ...overrides,
   }
@@ -113,6 +114,43 @@ describe('runDueDiligence routing', () => {
     )
     expect(companiesHouse).toHaveBeenCalledOnce()
     expect(res.status).toBe('clear')
+    // A company that is not a charity: the profile is the register's, figures and all
+    // left null. (The stub has no company_number, so: no profile.)
+    expect(res.profile).toBeNull()
+  })
+
+  it("gives a company-only applicant Companies House's profile", async () => {
+    const companiesHouse = vi.fn(async () => ({
+      company_number: '12240451',
+      company_name: 'EVOLVING MINDSET CIC',
+      company_status: 'active',
+      date_of_creation: '2019-10-02',
+      type: 'private-limited-guarant-nsc',
+      subtype: 'community-interest-company',
+      sic_codes: ['85600'],
+      accounts: { overdue: false },
+      confirmation_statement: { overdue: false },
+    }))
+    const companiesHouseOfficers = vi.fn(async () => ({ total_results: 0, items: [] }))
+    const res = await runDueDiligence(
+      {
+        charityNumber: undefined,
+        companyNumber: '12240451',
+        organisationName: null,
+        amountRequested: 1000,
+      },
+      {
+        fetchers: stubFetchers({
+          companiesHouse,
+          companiesHouseFilingHistory: vi.fn(async () => ({ items: [] })),
+          companiesHouseOfficers,
+        }),
+        now: NOW,
+      },
+    )
+    expect(res.profile?.source).toBe('companies_house')
+    expect(res.profile?.companyType).toBe('Community interest company (limited by guarantee)')
+    expect(companiesHouseOfficers).toHaveBeenCalledOnce()
   })
 
   it('screens both registers for a dual-registered (charity + company) applicant', async () => {

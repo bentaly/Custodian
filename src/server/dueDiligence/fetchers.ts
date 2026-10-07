@@ -18,6 +18,8 @@ export interface DueDiligenceFetchers {
   oscr(regNumber: string): Promise<unknown>
   companiesHouse(regNumber: string): Promise<Record<string, unknown> | null>
   companiesHouseFilingHistory(regNumber: string): Promise<Record<string, unknown> | null>
+  /** For the director count on the profile only; nothing screens on it, so it never throws. */
+  companiesHouseOfficers(regNumber: string): Promise<Record<string, unknown> | null>
   threeSixtyGiving(orgId: string): Promise<Record<string, unknown> | null>
 }
 
@@ -106,6 +108,21 @@ export const liveFetchers: DueDiligenceFetchers = {
     try {
       const data = await getJson(
         `https://api.company-information.service.gov.uk/company/${encodeURIComponent(regNumber)}/filing-history`,
+        { Authorization: `Basic ${basicAuth}` },
+      )
+      return data as Record<string, unknown> | null
+    } catch {
+      return null
+    }
+  },
+
+  async companiesHouseOfficers(regNumber) {
+    const key = process.env['COMPANIES_HOUSE_KEY']
+    if (!key) return null
+    const basicAuth = Buffer.from(`${key}:`).toString('base64')
+    try {
+      const data = await getJson(
+        `https://api.company-information.service.gov.uk/company/${encodeURIComponent(regNumber)}/officers?items_per_page=100`,
         { Authorization: `Basic ${basicAuth}` },
       )
       return data as Record<string, unknown> | null

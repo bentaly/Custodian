@@ -491,3 +491,42 @@ describe('buildUserPrompt — a sourced partner', () => {
     expect(buildUserPrompt(base)).not.toContain('Prospective partner')
   })
 })
+
+describe('buildUserPrompt — Companies House', () => {
+  const profile = {
+    source: 'companies_house' as const,
+    activities: null,
+    latestIncome: null,
+    latestExpenditure: null,
+    financialPeriodEnd: null,
+    employees: null,
+    volunteers: null,
+    trusteeCount: null,
+    registeredSince: '2019-10-02',
+    charityType: null,
+    unrestrictedReserves: null,
+    organisationNumber: null,
+    companyNumber: '12240451',
+    companyType: 'Community interest company (limited by guarantee)',
+    companyStatus: 'active',
+    natureOfBusiness: ['Educational support services'],
+    lastAccountsMadeUpTo: '2025-10-31',
+    lastAccountsType: 'Total exemption full',
+    accountsOverdue: false,
+    directorCount: 4,
+    fetchedAt: '2026-10-07T09:00:00.000Z',
+  }
+
+  // The system prompt's rules about "the charity register" are about FILED FIGURES.
+  // A company has none, so it must not borrow that heading, and the section says why
+  // the figures are missing rather than letting the model read it as a thin record.
+  it('is its own section, and never calls itself the charity register', () => {
+    const prompt = buildUserPrompt({ ...base, organisationProfile: profile })
+    expect(prompt).toContain('## What Companies House records')
+    expect(prompt).not.toContain('What the charity register records')
+    expect(prompt).toContain('Company type: Community interest company (limited by guarantee)')
+    expect(prompt).toContain('Nature of business: Educational support services')
+    expect(prompt).toContain('Directors: 4')
+    expect(prompt).toContain('says nothing about the applicant')
+  })
+})

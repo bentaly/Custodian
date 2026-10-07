@@ -125,6 +125,43 @@ function deprivationLine(result: DeprivationResult | null | undefined): string |
 }
 
 /**
+ * Companies House's record of a company that is not a registered charity (a CIC,
+ * mostly). Its own heading, never "the charity register", because the system prompt's
+ * rules about FILED FIGURES are about that section and this one has none: Companies
+ * House publishes no income, expenditure or description. Said in the section itself,
+ * so the model does not read the missing figures as a thin track record, and kept in
+ * the user turn so the cached system prompt is unchanged.
+ */
+function companiesHouseSection(profile: OrganisationProfile): string {
+  const lines = [
+    ['Company type', profile.companyType],
+    ['Incorporated', profile.registeredSince],
+    ['Status', profile.companyStatus],
+    ['Nature of business', profile.natureOfBusiness?.join('; ')],
+    [
+      'Last accounts filed',
+      profile.lastAccountsMadeUpTo
+        ? `for the period ending ${profile.lastAccountsMadeUpTo}${profile.lastAccountsType ? ` (${profile.lastAccountsType})` : ''}`
+        : null,
+    ],
+    [
+      'Accounts overdue',
+      profile.accountsOverdue == null ? null : profile.accountsOverdue ? 'yes' : 'no',
+    ],
+    ['Directors', profile.directorCount?.toLocaleString('en-GB')],
+  ]
+    .filter(([, v]) => typeof v === 'string' && v.trim())
+    .map(([label, v]) => `${label}: ${v}`)
+  if (!lines.length) return ''
+  return (
+    `\n\n## What Companies House records\n` +
+    `Read from the public companies register, not from this application. Companies House publishes ` +
+    `no income, expenditure or description of activities for a company, so none appears here; that ` +
+    `absence says nothing about the applicant's scale or track record.\n${lines.join('\n')}`
+  )
+}
+
+/**
  * The register's record of the applicant, as its own section.
  *
  * Its own heading and an explicit provenance line, rather than more entries in the
@@ -135,6 +172,7 @@ function deprivationLine(result: DeprivationResult | null | undefined): string |
  */
 function registerSection(profile: OrganisationProfile | null | undefined): string {
   if (!profile) return ''
+  if (profile.source === 'companies_house') return companiesHouseSection(profile)
   const money = (n: number | null) => (n != null ? formatPounds(n) : null)
   const period = profile.financialPeriodEnd
     ? ` (accounting period ending ${profile.financialPeriodEnd})`

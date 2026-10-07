@@ -376,50 +376,98 @@ function PartnershipDetail() {
 
           {/* What the register says they are. The figures were filed with a regulator;
               the description was written by the charity for that regulator, and says so. */}
-          {partnership.organisationProfile && (
-            <Panel label="From the charity register">
-              <PanelTitle>From the charity register</PanelTitle>
+          {partnership.organisationProfile?.source === 'companies_house' ? (
+            // A company that is not a registered charity: what Companies House records,
+            // which is what the company is and its filings, never figures.
+            <Panel label="From Companies House">
+              <PanelTitle>From Companies House</PanelTitle>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <KeyFact
-                  label="Income"
-                  value={
-                    partnership.organisationProfile.latestIncome != null
-                      ? fmtAmount(partnership.organisationProfile.latestIncome)
-                      : '--'
-                  }
-                  sub={
-                    partnership.organisationProfile.financialPeriodEnd
-                      ? `Year to ${fmtDate(partnership.organisationProfile.financialPeriodEnd)}`
-                      : undefined
-                  }
+                  label="Company type"
+                  value={partnership.organisationProfile.companyType ?? '--'}
                 />
                 <KeyFact
-                  label="Expenditure"
-                  value={
-                    partnership.organisationProfile.latestExpenditure != null
-                      ? fmtAmount(partnership.organisationProfile.latestExpenditure)
-                      : '--'
-                  }
-                />
-                <KeyFact
-                  label="Employees"
-                  value={partnership.organisationProfile.employees?.toLocaleString('en-GB') ?? '--'}
-                />
-                <KeyFact
-                  label="Registered"
+                  label="Incorporated"
                   value={
                     partnership.organisationProfile.registeredSince
                       ? fmtDate(partnership.organisationProfile.registeredSince)
                       : '--'
                   }
                 />
+                <KeyFact
+                  label="Directors"
+                  value={
+                    partnership.organisationProfile.directorCount?.toLocaleString('en-GB') ?? '--'
+                  }
+                />
+                <KeyFact
+                  label="Last accounts filed"
+                  value={
+                    partnership.organisationProfile.lastAccountsMadeUpTo
+                      ? `Year to ${fmtDate(partnership.organisationProfile.lastAccountsMadeUpTo)}`
+                      : '--'
+                  }
+                  sub={
+                    partnership.organisationProfile.accountsOverdue
+                      ? 'Next accounts overdue'
+                      : (partnership.organisationProfile.lastAccountsType ?? undefined)
+                  }
+                />
               </div>
-              {partnership.organisationProfile.activities && (
+              {!!partnership.organisationProfile.natureOfBusiness?.length && (
                 <p className="mt-4 font-display text-body" style={{ color: C.body }}>
-                  {partnership.organisationProfile.activities}
+                  Nature of business: {partnership.organisationProfile.natureOfBusiness.join('; ')}
                 </p>
               )}
             </Panel>
+          ) : (
+            partnership.organisationProfile && (
+              <Panel label="From the charity register">
+                <PanelTitle>From the charity register</PanelTitle>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <KeyFact
+                    label="Income"
+                    value={
+                      partnership.organisationProfile.latestIncome != null
+                        ? fmtAmount(partnership.organisationProfile.latestIncome)
+                        : '--'
+                    }
+                    sub={
+                      partnership.organisationProfile.financialPeriodEnd
+                        ? `Year to ${fmtDate(partnership.organisationProfile.financialPeriodEnd)}`
+                        : undefined
+                    }
+                  />
+                  <KeyFact
+                    label="Expenditure"
+                    value={
+                      partnership.organisationProfile.latestExpenditure != null
+                        ? fmtAmount(partnership.organisationProfile.latestExpenditure)
+                        : '--'
+                    }
+                  />
+                  <KeyFact
+                    label="Employees"
+                    value={
+                      partnership.organisationProfile.employees?.toLocaleString('en-GB') ?? '--'
+                    }
+                  />
+                  <KeyFact
+                    label="Registered"
+                    value={
+                      partnership.organisationProfile.registeredSince
+                        ? fmtDate(partnership.organisationProfile.registeredSince)
+                        : '--'
+                    }
+                  />
+                </div>
+                {partnership.organisationProfile.activities && (
+                  <p className="mt-4 font-display text-body" style={{ color: C.body }}>
+                    {partnership.organisationProfile.activities}
+                  </p>
+                )}
+              </Panel>
+            )
           )}
 
           {/* Have we met them before. Numbers only (see `partnerships/history.ts`), so

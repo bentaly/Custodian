@@ -76,6 +76,7 @@ import { impactUnitLabel, impactUnitSingular } from '../../lib/impactUnits'
 import {
   CHECK_DEFINITIONS,
   charityRegisterUrl,
+  companiesHouseUrl,
   type DueDiligenceCheckRecord,
 } from '../../lib/dueDiligence'
 import { MAILTO_LINK, mailtoHref } from '../../lib/mailto'
@@ -176,13 +177,14 @@ function Disclosure({
  */
 function RegisterCredit({ url, children }: { url: string | null; children: React.ReactNode }) {
   if (!url) return <>{children}</>
+  const register = String(children)
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
       className="underline underline-offset-2"
-      title="Open this entry on the Charity Commission register"
+      title={`Open this entry on the ${register} register`}
     >
       {children}
     </a>
@@ -683,9 +685,16 @@ function ApplicationDetail() {
   // applicant. That distinction is stated rather than left as an em dash, because a
   // blank figure and an unasked question must never look the same.
   const orgProfile = (application.organisationProfile as OrganisationProfile | null) ?? null
+  // A company that is not a registered charity (a CIC, mostly) has the Companies House
+  // profile instead: what kind of company, since when, its nature of business and its
+  // filings, and none of the figures, which that register does not publish.
+  const fromCompaniesHouse = orgProfile?.source === 'companies_house'
+  const registerName = fromCompaniesHouse ? 'Companies House' : 'Charity Commission'
   // Null until this application has been screened since the organisation number
   // started being captured — the credit line then names the register without linking.
-  const registerUrl = charityRegisterUrl(orgProfile?.organisationNumber)
+  const registerUrl = fromCompaniesHouse
+    ? companiesHouseUrl(orgProfile?.companyNumber)
+    : charityRegisterUrl(orgProfile?.organisationNumber)
   // Who they are, in the applicant's own words, where the foundation's form asked. It
   // DISPLACES the register's activity summary rather than sitting beside it: both
   // answer the same question, and printing two descriptions of one charity leaves a
@@ -733,9 +742,10 @@ function ApplicationDetail() {
   const orgRegistered =
     [
       orgProfile?.registeredSince
-        ? `Registered ${new Date(orgProfile.registeredSince).getFullYear()}`
+        ? // The cell is labelled Incorporated for a company, so the year stands alone.
+          `${fromCompaniesHouse ? '' : 'Registered '}${new Date(orgProfile.registeredSince).getFullYear()}`
         : null,
-      orgProfile?.charityType,
+      orgProfile?.charityType ?? orgProfile?.companyType,
     ]
       .filter(Boolean)
       .join(' · ') || null
@@ -747,9 +757,23 @@ function ApplicationDetail() {
       orgProfile?.volunteers != null
         ? `${orgProfile.volunteers.toLocaleString('en-GB')} volunteers`
         : null,
+      orgProfile?.directorCount != null
+        ? `${orgProfile.directorCount} director${orgProfile.directorCount === 1 ? '' : 's'}`
+        : null,
     ]
       .filter(Boolean)
       .join(' · ') || null
+  // Companies House's own two facts: the last accounts filed, and what the company does
+  // in the register's words (SIC descriptions). The accounts cell is how a reader sees
+  // a company is keeping up, which is the register's real use on a CIC.
+  const orgAccounts = orgProfile?.lastAccountsMadeUpTo
+    ? [`Year to ${fmtDate(orgProfile.lastAccountsMadeUpTo)}`, orgProfile.lastAccountsType]
+        .filter(Boolean)
+        .join(' · ')
+    : null
+  const orgNature = orgProfile?.natureOfBusiness?.length
+    ? orgProfile.natureOfBusiness.join('; ')
+    : null
 
   // Why there is no profile, in the applicant's own terms. Screening that has not run
   // yet is not the same as an applicant there is nothing to screen — and neither is the
@@ -763,7 +787,9 @@ function ApplicationDetail() {
       ? application.dueDiligenceCheckedAt
         ? "The register checks ran before Custodian kept the register's own figures, so there is nothing to show for this application yet."
         : 'Not read yet. The register checks have not run for this application.'
-      : 'Companies House publishes no income or activity summary, so there is nothing to show for a company-only applicant.'
+      : application.dueDiligenceCheckedAt
+        ? "The register checks ran before Custodian kept Companies House's own details, so there is nothing to show for this application yet."
+        : 'Not read yet. The register checks have not run for this application.'
 
   async function act(setBusy: (b: boolean) => void, fn: () => Promise<unknown>) {
     setError(null)
@@ -1243,8 +1269,8 @@ function ApplicationDetail() {
                           'From the application'
                         ) : (
                           <>
-                            <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> ·
-                            read {fmtDate(orgProfile!.fetchedAt)}
+                            <RegisterCredit url={registerUrl}>{registerName}</RegisterCredit> · read{' '}
+                            {fmtDate(orgProfile!.fetchedAt)}
                           </>
                         )}
                       </p>
@@ -1270,7 +1296,11 @@ function ApplicationDetail() {
                     </p>
                   ) : (
                     <p className="mt-2 font-display text-body" style={{ color: C.sub }}>
-                      {orgProfile ? 'The register holds no activity summary.' : orgAbsence}
+                      {fromCompaniesHouse
+                        ? 'Companies House holds no description of what a company does. Its nature of business is below.'
+                        : orgProfile
+                          ? 'The register holds no activity summary.'
+                          : orgAbsence}
                     </p>
                   )}
 
@@ -1283,7 +1313,13 @@ function ApplicationDetail() {
                             <CompactMoney amount={orgIncome} label="Exact income" />
                           ) : null
                         }
-                        empty={noRegistrationNumber ? 'no charity number' : 'not captured'}
+                        empty={
+                          fromCompaniesHouse
+                            ? 'not published by Companies House'
+                            : noRegistrationNumber
+                              ? 'no charity number'
+                              : 'not captured'
+                        }
                         note={orgPeriodEnd ? `year to ${orgPeriodEnd}` : null}
                       />
                       {/* The one cell in here the register cannot fill: no Charity
@@ -1313,8 +1349,26 @@ function ApplicationDetail() {
                             .join(' · ') || null
                         }
                       />
-                      {orgRegistered && <Fact label="Registered" value={orgRegistered} />}
+                      {orgRegistered && (
+                        <Fact
+                          label={fromCompaniesHouse ? 'Incorporated' : 'Registered'}
+                          value={orgRegistered}
+                        />
+                      )}
                       {orgPeople && <Fact label="People" value={orgPeople} />}
+                      {fromCompaniesHouse && (
+                        <Fact
+                          label="Last accounts filed"
+                          value={orgAccounts}
+                          empty="none filed yet"
+                          note={orgProfile.accountsOverdue ? 'next accounts overdue' : null}
+                        />
+                      )}
+                      {orgNature && (
+                        <div className="col-span-2">
+                          <Fact label="Nature of business" value={orgNature} />
+                        </div>
+                      )}
                     </dl>
                   )}
 
@@ -1328,7 +1382,7 @@ function ApplicationDetail() {
                       style={{ color: C.faint }}
                     >
                       Facts from the{' '}
-                      <RegisterCredit url={registerUrl}>Charity Commission</RegisterCredit> · read{' '}
+                      <RegisterCredit url={registerUrl}>{registerName}</RegisterCredit> · read{' '}
                       {fmtDate(orgProfile.fetchedAt)}
                     </p>
                   )}
@@ -1972,9 +2026,8 @@ function ApplicationDetail() {
           <Panel label="Not captured">
             <PanelTitle>Not captured</PanelTitle>
             <p className="mb-2.5 font-display text-body" style={{ color: C.sub }}>
-              This submission didn't include the following, or included them in a form that
-              couldn't be read, so the features that use them are unavailable on this
-              application.
+              This submission didn't include the following, or included them in a form that couldn't
+              be read, so the features that use them are unavailable on this application.
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {[
