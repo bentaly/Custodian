@@ -65,3 +65,33 @@ export function pickFocusRound<
     })
   )
 }
+
+/**
+ * The rounds a round pill offers (Applications, Shortlist, Set up awards), in the order
+ * it lists them: open rounds first, most recently opened on top, then closed ones, most
+ * recently CLOSED on top. Upcoming rounds are left out — nothing has arrived in them.
+ *
+ * The first entry is the screen's default round, and is `pickFocusRound` over the same
+ * rounds, so the pill's top row and the dashboard's focus round always agree. The three
+ * screens each sorted on `openedAt` alone until 2026-10-07, which made the default a
+ * coin toss between rounds opening on the same day: Montirex runs two that opened on
+ * 1 May, and Applications landed on the one that closed in May rather than August.
+ */
+export function selectableRounds<
+  T extends {
+    openedAt: Date | string | null | undefined
+    closedAt: Date | string | null | undefined
+  },
+>(rounds: readonly T[]): T[] {
+  const time = (d: Date | string | null | undefined) => (d ? new Date(d).getTime() : -Infinity)
+  const rank = (r: T) => (getRoundStatus(r) === 'open' ? 1 : 0)
+  return rounds
+    .filter((r) => getRoundStatus(r) !== 'upcoming')
+    .sort(
+      (a, b) =>
+        rank(b) - rank(a) ||
+        (rank(a) === 1
+          ? time(b.openedAt) - time(a.openedAt) || time(b.closedAt) - time(a.closedAt)
+          : time(b.closedAt) - time(a.closedAt) || time(b.openedAt) - time(a.openedAt)),
+    )
+}

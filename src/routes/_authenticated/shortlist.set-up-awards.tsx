@@ -22,7 +22,7 @@ import { listMyRounds } from '../../server/fns/rounds'
 import { myRoundsForFallback } from '../../lib/myRounds'
 import { AwardWizard } from '../../components/shortlist/AwardWizard'
 import { ShortlistHeader } from '../../components/shortlist/ShortlistHeader'
-import { getRoundStatus } from '../../lib/roundStatus'
+import { selectableRounds } from '../../lib/roundStatus'
 import {
   DataTable,
   EmptyState,
@@ -60,19 +60,6 @@ type SetUpAwardsSearch = {
   /** The Grants awarded table filters separately — see the note by its pill. */
   awardedProgramme?: string[]
   page?: number
-}
-
-/** Rounds a shortlist can exist in — matches the To vote screen's list exactly. */
-function selectableRounds<
-  T extends { openedAt: Date | string | null; closedAt: Date | string | null },
->(rounds: T[]): T[] {
-  return rounds
-    .filter((r) => getRoundStatus(r) !== 'upcoming')
-    .sort((a, b) => {
-      const aT = a.openedAt ? new Date(a.openedAt).getTime() : 0
-      const bT = b.openedAt ? new Date(b.openedAt).getTime() : 0
-      return bT - aT
-    })
 }
 
 export const Route = createFileRoute('/_authenticated/shortlist/set-up-awards')({

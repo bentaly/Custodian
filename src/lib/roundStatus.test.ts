@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getRoundStatus, pickFocusRound } from './roundStatus'
+import { getRoundStatus, pickFocusRound, selectableRounds } from './roundStatus'
 
 const day = 86_400_000
 const at = (offsetDays: number) => new Date(Date.now() + offsetDays * day)
@@ -74,5 +74,33 @@ describe('pickFocusRound', () => {
   it('falls back to a dateless round only when it is all there is', () => {
     expect(pickFocusRound([round('draft', null, null)])?.name).toBe('draft')
     expect(pickFocusRound([])).toBeNull()
+  })
+})
+
+describe('selectableRounds', () => {
+  // Montirex, 2026-10-07: two rounds opened the same day; the tie went to whichever
+  // was created last, which was the one that closed three months earlier.
+  it('breaks a shared opening date on the later close', () => {
+    const opened = at(-150)
+    const names = selectableRounds([
+      round('break-the-wall', opened, at(-120)),
+      round('gamechangers', opened, at(-30)),
+    ]).map((r) => r.name)
+    expect(names).toEqual(['gamechangers', 'break-the-wall'])
+  })
+
+  it('leaves upcoming rounds out and puts the open one first', () => {
+    const names = selectableRounds([
+      round('next', at(30), at(60)),
+      round('short', at(-40), at(-35)),
+      round('long', at(-90), at(-2)),
+      round('open', at(-100), at(20)),
+    ]).map((r) => r.name)
+    expect(names).toEqual(['open', 'long', 'short'])
+  })
+
+  it('opens on the round pickFocusRound focuses', () => {
+    const rounds = [round('a', at(-60), at(-10)), round('b', at(-30), at(-20))]
+    expect(selectableRounds(rounds)[0]).toBe(pickFocusRound(rounds))
   })
 })

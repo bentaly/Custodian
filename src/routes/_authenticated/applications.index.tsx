@@ -13,7 +13,7 @@ import { eoiExportColumns } from '../../lib/eois/export'
 import { toCsv } from '../../lib/spreadsheetExport'
 import { EoiList } from '../../components/eois/EoiList'
 import type { DueDiligenceStatus } from '../../lib/dueDiligence'
-import { getRoundStatus } from '../../lib/roundStatus'
+import { getRoundStatus, selectableRounds } from '../../lib/roundStatus'
 import { APPLICATIONS_DEFAULT_SORT } from '../../server/fns/applications'
 import {
   APPLICATION_STATUS_OPTIONS,
@@ -96,16 +96,10 @@ export const Route = createFileRoute('/_authenticated/applications/')({
   loader: async ({ deps }) => {
     const rounds = await listMyRounds()
 
-    // Default to the most recent non-upcoming round when no roundId is in the URL
+    // Default to the open round, else the most recently closed, when no roundId is in the URL
     let roundId = deps.roundId
     if (!roundId) {
-      const candidate = rounds
-        .filter((r) => getRoundStatus(r) !== 'upcoming')
-        .sort((a, b) => {
-          const aT = a.openedAt ? new Date(a.openedAt).getTime() : 0
-          const bT = b.openedAt ? new Date(b.openedAt).getTime() : 0
-          return bT - aT
-        })[0]
+      const candidate = selectableRounds(rounds)[0]
       // Preserve any other filters (q from the header search, status, etc.) —
       // only the missing roundId is being filled in.
       if (candidate)
@@ -612,13 +606,7 @@ function ApplicationsList() {
     setSelected(new Set())
   }, [roundId, programmeId, status, scoreBand, tag, q, from, to, page])
 
-  const visibleRounds = rounds
-    .filter((r) => getRoundStatus(r) !== 'upcoming')
-    .sort((a, b) => {
-      const aT = a.openedAt ? new Date(a.openedAt).getTime() : 0
-      const bT = b.openedAt ? new Date(b.openedAt).getTime() : 0
-      return bT - aT
-    })
+  const visibleRounds = selectableRounds(rounds)
 
   const selectedRound = rounds.find((r) => r.id === roundId)
   const roundStatus = selectedRound ? getRoundStatus(selectedRound) : null

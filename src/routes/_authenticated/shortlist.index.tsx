@@ -6,7 +6,7 @@ import { myRoundsForFallback } from '../../lib/myRounds'
 import { VoteCard, type ShortlistVoter } from '../../components/shortlist/VoteCard'
 import { ShortlistHeader } from '../../components/shortlist/ShortlistHeader'
 import { ProposedSpend } from '../../components/shortlist/SpendCards'
-import { getRoundStatus } from '../../lib/roundStatus'
+import { selectableRounds } from '../../lib/roundStatus'
 import { holdsAVote } from '../../lib/voting'
 import {
   EmptyState,
@@ -26,19 +26,6 @@ import { majorityOf } from '../../lib/voting'
 import { decidedAmount } from '../../lib/amountRequested'
 
 const PAGE_SIZE = 10
-
-/** Rounds a shortlist can exist in — an upcoming round has nothing shortlisted yet. */
-function selectableRounds<
-  T extends { openedAt: Date | string | null; closedAt: Date | string | null },
->(rounds: T[]): T[] {
-  return rounds
-    .filter((r) => getRoundStatus(r) !== 'upcoming')
-    .sort((a, b) => {
-      const aT = a.openedAt ? new Date(a.openedAt).getTime() : 0
-      const bT = b.openedAt ? new Date(b.openedAt).getTime() : 0
-      return bT - aT
-    })
-}
 
 export const Route = createFileRoute('/_authenticated/shortlist/')({
   // The page is in the URL, as it is on every other list: a board reads this screen in
