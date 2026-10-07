@@ -26,6 +26,7 @@ import {
   Panel,
   RelatedLink,
   ThemePills,
+  toast,
   useClamp,
 } from '../../components/ui'
 import { C, bandForScore } from '../../components/ui/tokens'
@@ -622,6 +623,7 @@ function AwardLetterCard({ award, onRead }: { award: AwardData; onRead: () => vo
       await resendAwardLetter({ data: { awardId: award.id } })
       await router.invalidate()
       setConfirming(false)
+      toast(`Award letter sent to ${letter?.recipientEmail ?? 'the grantee'}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The letter could not be sent')
     } finally {

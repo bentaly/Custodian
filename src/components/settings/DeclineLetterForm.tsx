@@ -13,7 +13,16 @@ import {
   updateDeclineLetterSettings,
 } from '../../server/fns/declineLetters'
 import { AwardLetterPreview } from '../AwardLetterPreview'
-import { Button, Input, Label, Panel, PanelTitle, Textarea, UnsavedChangesGuard } from '../ui'
+import {
+  Button,
+  Input,
+  Label,
+  Panel,
+  PanelTitle,
+  Textarea,
+  UnsavedChangesGuard,
+  toast,
+} from '../ui'
 import { SettingsSaveBar } from './SettingsSaveBar'
 import { C } from '../ui/tokens'
 import {
@@ -43,7 +52,6 @@ export function DeclineLetterForm({ settings }: { settings: DeclineLetterSetting
   const [template, setTemplate] = useState(settings?.template ?? DEFAULT_DECLINE_LETTER_TEMPLATE)
   const [signatory, setSignatory] = useState(settings?.signatory ?? '')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [tokensOpen, setTokensOpen] = useRemembered('decline-letter.tokens', false)
 
@@ -79,12 +87,10 @@ export function DeclineLetterForm({ settings }: { settings: DeclineLetterSetting
   async function handleSave() {
     setSaving(true)
     setError('')
-    setSaved(false)
     try {
       await updateDeclineLetterSettings({ data: payload })
       setBaseline(payload)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      toast('Decline letter saved')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
     } finally {
@@ -187,13 +193,7 @@ export function DeclineLetterForm({ settings }: { settings: DeclineLetterSetting
         </div>
       </Panel>
 
-      <SettingsSaveBar
-        onSave={handleSave}
-        saving={saving}
-        saved={saved}
-        dirty={dirty}
-        error={error}
-      />
+      <SettingsSaveBar onSave={handleSave} saving={saving} dirty={dirty} error={error} />
       <UnsavedChangesGuard dirty={dirty} what="your decline letter template" />
     </div>
   )

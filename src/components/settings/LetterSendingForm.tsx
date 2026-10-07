@@ -13,7 +13,16 @@
 import { useState } from 'react'
 import { updateAwardLetterSettings } from '../../server/fns/awardSetup'
 import { AwardLetterSettingsSchema } from '../../lib/validators/awardSetup'
-import { Button, ErrorNote, Input, Label, Panel, PanelTitle, UnsavedChangesGuard } from '../ui'
+import {
+  Button,
+  ErrorNote,
+  Input,
+  Label,
+  Panel,
+  PanelTitle,
+  UnsavedChangesGuard,
+  toast,
+} from '../ui'
 import { C } from '../ui/tokens'
 
 const hintClass = 'mt-1.5 font-display text-label text-grey-500'
@@ -30,7 +39,6 @@ export function LetterSendingForm({
   const [senderName, setSenderName] = useState(initialSenderName ?? '')
   const [replyTo, setReplyTo] = useState(initialReplyTo ?? '')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [replyToTouched, setReplyToTouched] = useState(false)
 
@@ -51,14 +59,12 @@ export function LetterSendingForm({
   async function handleSave() {
     setSaving(true)
     setError('')
-    setSaved(false)
     try {
       // Only these two keys go in the payload, so saving here can never touch either
       // letter's template (`updateAwardLetterSettings` writes only what it is sent).
       await updateAwardLetterSettings({ data: payload })
       setBaseline(payload)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      toast('Sender name and reply-to saved')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
     } finally {
@@ -119,7 +125,7 @@ export function LetterSendingForm({
           onClick={handleSave}
           disabled={saving || !dirty || replyToInvalid}
         >
-          {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+          {saving ? 'Saving…' : 'Save'}
         </Button>
       </div>
       <UnsavedChangesGuard dirty={dirty} what="your sender name and reply-to address" />

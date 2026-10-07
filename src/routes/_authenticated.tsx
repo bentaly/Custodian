@@ -7,6 +7,7 @@ import { listRoundDates } from '../server/fns/rounds'
 import { authClient } from '../lib/auth-client'
 import { Sidebar } from '../components/Sidebar'
 import { AppHeader } from '../components/AppHeader'
+import { Toaster } from '../components/ui'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location }) => {
@@ -86,6 +87,7 @@ function AuthenticatedLayout() {
           </main>
         </div>
       </div>
+      <Toaster />
     </div>
   )
 }

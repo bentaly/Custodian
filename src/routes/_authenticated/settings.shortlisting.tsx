@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { getClientProfile, upsertClientProfile } from '../../server/fns/clients'
 import { listClientUsers } from '../../server/fns/users'
-import { ErrorNote, Panel, PanelTitle, Toggle } from '../../components/ui'
+import { ErrorNote, Panel, PanelTitle, Toggle, toast } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
 import { C } from '../../components/ui/tokens'
 import { fmtList } from '../../lib/format'
@@ -42,6 +42,7 @@ function Shortlisting() {
             a foundation guessing what it is choosing by leaving it alone. */}
         <SettingSwitch
           field="enforceRoundBudget"
+          name="Round budget limit"
           initial={profile?.enforceRoundBudget ?? false}
           title="Stop shortlisting once a programme’s budget is committed"
           explainer="When enabled, an application that would take a programme past its budget for the round cannot be shortlisted, and the button reads “Budget full”. When off, the budget is a target rather than a limit: you can shortlist beyond it, and the shortlist’s proposed spend says how far over the round has gone."
@@ -61,6 +62,7 @@ function Shortlisting() {
         <VotingBoard members={members} />
         <SettingSwitch
           field="allowAdminVoting"
+          name="Votes recorded by admins"
           initial={profile?.allowAdminVoting ?? false}
           title="Allow admins to record votes on behalf of trustees"
           explainer="When enabled, admins can record yes/no votes for any trustee on an application, which is useful when a trustee sends their decision outside the platform. It is separate from holding a vote of their own."
@@ -122,11 +124,14 @@ function VotingBoard({
 
 function SettingSwitch({
   field,
+  name,
   initial,
   title,
   explainer,
 }: {
   field: SwitchField
+  /** What the confirmation calls it: the title is a sentence, too long for a toast. */
+  name: string
   initial: boolean
   title: string
   explainer: string
@@ -143,6 +148,7 @@ function SettingSwitch({
     setError('')
     try {
       await upsertClientProfile({ data: { [field]: next } })
+      toast(`${name} switched ${next ? 'on' : 'off'}`)
     } catch {
       setEnabled(!next) // revert on failure
       setError('Failed to save')

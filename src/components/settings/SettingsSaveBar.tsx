@@ -28,13 +28,11 @@ import { C, FOOT_BAR_HEIGHT } from '../ui/tokens'
 export function SettingsSaveBar({
   onSave,
   saving,
-  saved,
   dirty,
   error,
 }: {
   onSave: () => void
   saving: boolean
-  saved: boolean
   dirty: boolean
   error: string
 }) {
@@ -44,7 +42,7 @@ export function SettingsSaveBar({
       style={{ borderColor: C.line }}
     >
       <Button onClick={onSave} disabled={saving || !dirty}>
-        {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+        {saving ? 'Saving…' : 'Save'}
       </Button>
       {dirty && !saving && (
         <span className="font-display text-label" style={{ color: C.sub }}>

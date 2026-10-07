@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { getClientProfile, upsertClientProfile } from '../../server/fns/clients'
-import { Button, ErrorNote, Panel, UnsavedChangesGuard } from '../../components/ui'
+import { Button, ErrorNote, Panel, UnsavedChangesGuard, toast } from '../../components/ui'
 import { RichTextEditor } from '../../components/RichTextEditor'
 import { SettingsPage } from '../../components/SettingsPage'
 
@@ -24,7 +24,6 @@ function GivingStrategy() {
   // warning about work that was safely written.
   const [baseline, setBaseline] = useState(initial)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
   const dirty = markdown !== baseline
@@ -32,12 +31,10 @@ function GivingStrategy() {
   async function handleSave() {
     setSaving(true)
     setError('')
-    setSaved(false)
     try {
       await upsertClientProfile({ data: { missionStatement: markdown } })
       setBaseline(markdown)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      toast('Giving strategy saved')
     } catch {
       setError('Failed to save')
     } finally {
@@ -72,10 +69,14 @@ function GivingStrategy() {
           copy of that component with a heading row bolted on, and the two had drifted. */}
       <Panel label="Giving strategy">
         <RichTextEditor defaultValue={initial} onChange={setMarkdown} minHeight="240px" headings />
-        <ErrorNote error={error} className="mt-3" />
-        <Button onClick={handleSave} disabled={saving || !dirty} className="mt-3">
-          {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
-        </Button>
+        {/* Save at the foot, bottom right: it comes after the fields it saves, as on
+            the letters screen. */}
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+          <ErrorNote error={error} className="mr-auto" />
+          <Button onClick={handleSave} disabled={saving || !dirty}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
       </Panel>
       <UnsavedChangesGuard dirty={dirty} what="your giving strategy" />
     </SettingsPage>

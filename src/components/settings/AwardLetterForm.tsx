@@ -15,7 +15,16 @@ import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { useRemembered } from '../../lib/useRemembered'
 import { getAwardLetterSettings, updateAwardLetterSettings } from '../../server/fns/awardSetup'
 import { AwardLetterPreview } from '../AwardLetterPreview'
-import { Button, Input, Label, Panel, PanelTitle, Textarea, UnsavedChangesGuard } from '../ui'
+import {
+  Button,
+  Input,
+  Label,
+  Panel,
+  PanelTitle,
+  Textarea,
+  UnsavedChangesGuard,
+  toast,
+} from '../ui'
 import { SettingsSaveBar } from './SettingsSaveBar'
 import { C } from '../ui/tokens'
 import {
@@ -70,7 +79,6 @@ export function AwardLetterForm({ settings }: { settings: AwardLetterSettings })
   const [signatory, setSignatory] = useState(settings?.signatory ?? '')
   const [newCondition, setNewCondition] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   // Remembered: the token reference is a crib sheet, and someone editing their letter
   // over several sittings should not have to re-open it each time. A native <details>
@@ -119,15 +127,13 @@ export function AwardLetterForm({ settings }: { settings: AwardLetterSettings })
   async function handleSave() {
     setSaving(true)
     setError('')
-    setSaved(false)
     try {
       // Writing null where the editor matches the built-in keeps the foundation on the
       // default rather than freezing today's wording into their row — they then pick up
       // improvements to it instead of drifting silently behind.
       await updateAwardLetterSettings({ data: payload })
       setBaseline(payload)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      toast('Award letter saved')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
     } finally {
@@ -302,13 +308,7 @@ export function AwardLetterForm({ settings }: { settings: AwardLetterSettings })
         </div>
       </Panel>
 
-      <SettingsSaveBar
-        onSave={handleSave}
-        saving={saving}
-        saved={saved}
-        dirty={dirty}
-        error={error}
-      />
+      <SettingsSaveBar onSave={handleSave} saving={saving} dirty={dirty} error={error} />
       <UnsavedChangesGuard dirty={dirty} what="your award letter template" />
     </div>
   )

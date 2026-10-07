@@ -22,6 +22,7 @@ import {
   PanelTitle,
   Select,
   type TableColumn,
+  toast,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { paginate } from '../../lib/pagination'
@@ -50,17 +51,6 @@ const cellSub = 'font-display text-body text-grey-500'
 const messageOf = (err: unknown, fallback: string) =>
   err instanceof Error && err.message ? err.message : fallback
 
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="mt-3 rounded-chip border px-3 py-2 font-display text-body"
-      style={{ borderColor: C.brandBorder, backgroundColor: C.brandBg, color: C.brand }}
-    >
-      {children}
-    </p>
-  )
-}
-
 function Team() {
   const router = useRouter()
   const { user } = Route.useRouteContext()
@@ -73,10 +63,8 @@ function Team() {
   const [inviteRole, setInviteRole] = useState<InviteRole>('trustee')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
-  const [inviteSent, setInviteSent] = useState(false)
 
   // ── Member actions ─────────────────────────────────────────────────────────
-  const [memberNotice, setMemberNotice] = useState('')
   const [roleTarget, setRoleTarget] = useState<Member | null>(null)
   const [nextRole, setNextRole] = useState<InviteRole>('trustee')
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null)
@@ -85,7 +73,6 @@ function Team() {
   const [memberError, setMemberError] = useState('')
 
   // ── Invitation actions ─────────────────────────────────────────────────────
-  const [inviteNotice, setInviteNotice] = useState('')
   const [inviteActionError, setInviteActionError] = useState('')
   const [revokeTarget, setRevokeTarget] = useState<Invite | null>(null)
   const [inviteBusy, setInviteBusy] = useState(false)
@@ -93,13 +80,12 @@ function Team() {
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
     setInviteError('')
-    setInviteSent(false)
     setInviting(true)
     try {
       await createInvitation({ data: { email: inviteEmail, role: inviteRole } })
       setInviteEmail('')
       setInviteRole('trustee')
-      setInviteSent(true)
+      toast(`Invitation sent to ${inviteEmail}`)
       router.invalidate()
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Failed to send invitation')
@@ -110,7 +96,6 @@ function Team() {
 
   function openRole(m: Member) {
     setMemberError('')
-    setMemberNotice('')
     setNextRole(
       (INVITABLE_ROLES.some((r) => r.value === m.role) ? m.role : 'trustee') as InviteRole,
     )
@@ -119,13 +104,11 @@ function Team() {
 
   function openRemove(m: Member) {
     setMemberError('')
-    setMemberNotice('')
     setRemoveTarget(m)
   }
 
   function openVote(m: Member) {
     setMemberError('')
-    setMemberNotice('')
     setVoteTarget(m)
   }
 
@@ -144,10 +127,10 @@ function Team() {
     setMemberError('')
     try {
       await setMemberVoteOnApplications({ data: { userId: voteTarget.id, votes } })
-      setMemberNotice(
+      toast(
         votes
-          ? `${voteTarget.name} now votes on applications.`
-          : `${voteTarget.name} no longer votes on applications.`,
+          ? `${voteTarget.name} now votes on applications`
+          : `${voteTarget.name} no longer votes on applications`,
       )
       setVoteTarget(null)
       // The signed-in identity is cached in the browser for five minutes
@@ -169,7 +152,7 @@ function Team() {
     setMemberError('')
     try {
       await setMemberRole({ data: { userId: roleTarget.id, role: nextRole } })
-      setMemberNotice(`${roleTarget.name} is now ${ROLE_LABELS[nextRole]?.toLowerCase()}.`)
+      toast(`${roleTarget.name} is now ${ROLE_LABELS[nextRole]?.toLowerCase()}`)
       setRoleTarget(null)
       router.invalidate()
     } catch (err) {
@@ -185,7 +168,7 @@ function Team() {
     setMemberError('')
     try {
       await removeMember({ data: { userId: removeTarget.id } })
-      setMemberNotice(`${removeTarget.name} has been removed from the team.`)
+      toast(`${removeTarget.name} has been removed from the team`)
       setRemoveTarget(null)
       router.invalidate()
     } catch (err) {
@@ -197,11 +180,10 @@ function Team() {
 
   async function handleResend(inv: Invite) {
     setInviteBusy(true)
-    setInviteNotice('')
     setInviteActionError('')
     try {
       await resendInvitation({ data: { invitationId: inv.id } })
-      setInviteNotice(`Invitation sent again to ${inv.email}. The earlier link no longer works.`)
+      toast(`Invitation sent again to ${inv.email}. The earlier link no longer works.`)
       router.invalidate()
     } catch (err) {
       setInviteActionError(messageOf(err, 'Could not resend that invitation.'))
@@ -216,7 +198,7 @@ function Team() {
     setInviteActionError('')
     try {
       await revokeInvitation({ data: { invitationId: revokeTarget.id } })
-      setInviteNotice(`Invitation for ${revokeTarget.email} cancelled.`)
+      toast(`Invitation for ${revokeTarget.email} cancelled`)
       setRevokeTarget(null)
       router.invalidate()
     } catch (err) {
@@ -394,7 +376,6 @@ function Team() {
         <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
           <DataTable rows={memberPage.items} rowKey={(m) => m.id} columns={memberColumns} />
         </div>
-        {memberNotice && <Notice>{memberNotice}</Notice>}
         <div className="mt-4">
           <Pagination
             page={memberPage.page}
@@ -438,19 +419,15 @@ function Team() {
             </Button>
           </form>
           <ErrorNote error={inviteError} className="mt-3" />
-          {inviteSent && <Notice>Invitation sent.</Notice>}
         </Panel>
       )}
 
-      {isAdmin && (invites.length > 0 || inviteNotice) && (
+      {isAdmin && invites.length > 0 && (
         <Panel label="Pending invitations">
           <PanelTitle>Pending invitations</PanelTitle>
-          {invites.length > 0 && (
-            <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
-              <DataTable rows={invites} rowKey={(inv) => inv.id} columns={inviteColumns} />
-            </div>
-          )}
-          {inviteNotice && <Notice>{inviteNotice}</Notice>}
+          <div className="overflow-hidden rounded-control border" style={{ borderColor: C.line }}>
+            <DataTable rows={invites} rowKey={(inv) => inv.id} columns={inviteColumns} />
+          </div>
           {!revokeTarget && <ErrorNote error={inviteActionError} className="mt-3" />}
         </Panel>
       )}

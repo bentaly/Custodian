@@ -28,6 +28,7 @@ import {
   Select,
   TOKENS as C,
   UnsavedChangesGuard,
+  toast,
 } from '../../components/ui'
 import { SettingsPage } from '../../components/SettingsPage'
 import { canSeePayments } from '../../lib/roles'
@@ -249,7 +250,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   )
   const [endMonth, setEndMonth] = useState(data.financialYearEndMonth)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
@@ -407,7 +407,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
         ...timed.filter((r) => r.kind === 'income'),
       ]
     })
-    setSaved(false)
   }
 
   /** The form as it stands, for the template to be prefilled with. */
@@ -424,7 +423,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
 
   const patch = (key: string, next: Partial<Row>) => {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...next } : r)))
-    setSaved(false)
   }
 
   /**
@@ -438,6 +436,7 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
     setError('')
     try {
       await saveFinancialYearEndMonth({ data: { month } })
+      toast('Financial year end saved')
       // The whole page is derived from the year, so it reloads rather than trying to
       // re-derive dates in the browser and drifting from what the server would say.
       await router.invalidate()
@@ -450,7 +449,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
   async function handleSave() {
     setSaving(true)
     setError('')
-    setSaved(false)
     try {
       await saveAnnualBudget({
         data: {
@@ -473,8 +471,11 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             })),
         },
       })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      toast(
+        removing
+          ? `${data.financialYear.label} budget removed`
+          : `${data.financialYear.label} budget saved`,
+      )
       await router.invalidate()
     } catch (e) {
       setError(messageFor(e))
@@ -792,7 +793,6 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
                 aria-label="Contingency, as a percentage of the grant budget"
                 onChange={(e) => {
                   setContingency(e.target.value)
-                  setSaved(false)
                 }}
               />
             </div>
@@ -885,11 +885,9 @@ function AnnualBudgetYear({ data }: { data: Awaited<ReturnType<typeof getAnnualB
             ? removing
               ? 'Removing…'
               : 'Saving…'
-            : saved
-              ? 'Saved'
-              : removing
-                ? 'Remove budget'
-                : 'Save budget'}
+            : removing
+              ? 'Remove budget'
+              : 'Save budget'}
         </Button>
         {/* Saving IS confirming the year's figures, so the screen says who last did it. */}
         {data.lastSaved && (

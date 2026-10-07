@@ -31,6 +31,7 @@ import {
   PanelTitle,
   TextLink,
   Toggle,
+  toast,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { longerTimeout } from '../../lib/requestTimeout'
@@ -143,7 +144,6 @@ function Profile() {
   const router = useRouter()
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
   // ── Email preferences ────────────────────────────────────────────────────────
@@ -159,6 +159,7 @@ function Profile() {
     setDigestError('')
     try {
       await setWeeklyFinanceDigest({ data: { enabled: next } })
+      toast(next ? 'Weekly payment digest switched on' : 'Weekly payment digest switched off')
     } catch {
       setDigest(!next)
       setDigestError('Could not save that. Try again.')
@@ -180,6 +181,7 @@ function Profile() {
     setReportsDigestError('')
     try {
       await setWeeklyReportsDigest({ data: { enabled: next } })
+      toast(next ? 'Weekly reports digest switched on' : 'Weekly reports digest switched off')
     } catch {
       setReportsDigest(!next)
       setReportsDigestError('Could not save that. Try again.')
@@ -198,6 +200,7 @@ function Profile() {
     setAwardAlertsError('')
     try {
       await setAwardNotifications({ data: { enabled: next } })
+      toast(next ? 'New grant alerts switched on' : 'New grant alerts switched off')
     } catch {
       setAwardAlerts(!next)
       setAwardAlertsError('Could not save that. Try again.')
@@ -316,15 +319,13 @@ function Profile() {
     if (name === user.name) return
     setSaving(true)
     setError('')
-    setSaved(false)
 
     const { error: updateError } = await authClient.updateUser({ name })
     setSaving(false)
     if (updateError) {
       setError(updateError.message ?? 'Failed to update name')
     } else {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      toast('Name saved')
       // The header carries the name too — and, with no photo, its initials.
       await refreshIdentity(router)
     }
@@ -428,7 +429,7 @@ function Profile() {
           <ErrorNote error={error} />
           <div>
             <Button type="submit" disabled={saving || name === user.name}>
-              {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
+              {saving ? 'Saving…' : 'Save changes'}
             </Button>
           </div>
         </form>
