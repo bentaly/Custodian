@@ -194,9 +194,40 @@ export const listApplications = createServerFn({ method: 'GET' })
         : [sortExpr, desc(applications.submittedAt)]
 
     const [items, totals, statusRows] = await Promise.all([
+      // Only what a row draws (and the CSV export writes). Selecting the whole row
+      // shipped every application's answers, score detail and submitted fields to a
+      // table that shows none of them: a page of 25 for a foundation with long forms
+      // came to ~700KB, and parsing then re-serialising it took the Worker past its CPU
+      // limit (Cloudflare 1102 on /applications, The Montirex Foundation, 2026-10-06).
       getDb().query.applications.findMany({
         where,
-        with: { roundProgramme: { with: { programme: { with: { client: true } } } } },
+        columns: {
+          id: true,
+          organisationName: true,
+          externalApplicationId: true,
+          charityNumber: true,
+          companyNumber: true,
+          importBatchId: true,
+          amountRequested: true,
+          amountAmended: true,
+          themes: true,
+          submittedAt: true,
+          status: true,
+          custodianScore: true,
+          custodianScoreStatus: true,
+          dueDiligenceStatus: true,
+          // `deliveryAreaLabel`'s inputs. The deprivation context is small (~300 bytes).
+          deliveryLadName: true,
+          deliveryRegion: true,
+          deliveryArea: true,
+          deprivationContext: true,
+        },
+        with: {
+          roundProgramme: {
+            columns: { grantDurationYears: true },
+            with: { programme: { columns: { name: true } } },
+          },
+        },
         orderBy,
         offset: (page - 1) * pageSize,
         limit: pageSize,
