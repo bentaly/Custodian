@@ -146,3 +146,55 @@ export function useQueues() {
 
   return { snapshot: cache, buckets: bucketise(cache), loading, error, reload }
 }
+
+// ─── Done (history), a page at a time ───────────────────────────────────────
+
+/** Must match `DONE_PAGE_SIZE` in the main app's `src/server/admin/http.ts`. */
+const DONE_PAGE_SIZE = 50
+
+/**
+ * A queue's Done tab. `complete` grows by every submission ever received, payload and
+ * all, so the endpoint serves it 50 at a time, newest first, and older pages are
+ * fetched only when asked for. A full page means there may be more.
+ * Fetched lazily: nothing is read until the tab is first opened (`enabled`).
+ */
+export function useDonePages<T>(path: string, enabled: boolean) {
+  const [rows, setRows] = useState<T[] | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchPage = useCallback(
+    (offset: number) =>
+      adminGet<T[]>(`${path}?status=complete&offset=${offset}`).then((page) => {
+        setRows((prev) => (offset === 0 ? page : [...(prev ?? []), ...page]))
+        setHasMore(page.length >= DONE_PAGE_SIZE)
+      }),
+    [path],
+  )
+
+  useEffect(() => {
+    if (!enabled || rows) return
+    setError(null)
+    fetchPage(0).catch((e: Error) => setError(e.message))
+  }, [enabled, rows, fetchPage])
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true)
+    try {
+      await fetchPage(rows?.length ?? 0)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [fetchPage, rows])
+
+  /** Drop what is loaded; the next render with `enabled` reads page one again. */
+  const reset = useCallback(() => setRows(null), [])
+
+  /** For the tab's count: "50+" while older ones are still unread. */
+  const countLabel = rows === null ? undefined : `${rows.length}${hasMore ? '+' : ''}`
+
+  return { rows, hasMore, loadingMore, error, loadMore, reset, countLabel }
+}

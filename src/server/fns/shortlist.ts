@@ -51,6 +51,41 @@ export const listShortlist = createServerFn({ method: 'GET' })
   })
 
 /**
+ * What a vote card draws, named column by column because the rows are spread into the
+ * response whole. Selecting the full row sent every trustee the grantee's BANK DETAILS
+ * (withheld from them everywhere else, `canSeePayments`) and every application's
+ * answers, submitted fields and register checks, none of which a card shows: a
+ * shortlist of long forms is the payload that took /applications past the Worker's CPU
+ * limit on 2026-10-06. Named rather than excluded, so a column added to `applications`
+ * later cannot reach a trustee without somebody choosing to send it.
+ */
+const SHORTLIST_COLUMNS = {
+  id: true,
+  roundProgrammeId: true,
+  organisationName: true,
+  externalApplicationId: true,
+  amountRequested: true,
+  amountAmended: true,
+  amountAmendedAt: true,
+  firstYearAmount: true,
+  status: true,
+  charityNumber: true,
+  companyNumber: true,
+  deliveryArea: true,
+  deliveryRegion: true,
+  deliveryLadName: true,
+  deprivationContext: true,
+  custodianScore: true,
+  custodianScoreStatus: true,
+  custodianScoreDetail: true,
+  grantPurpose: true,
+  dueDiligenceStatus: true,
+  proposedImpactQuantity: true,
+  unrestrictedReserves: true,
+  organisationProfile: true,
+} as const
+
+/**
  * The shortlist, as a plain function of (connection, tenant, caller's client) — the
  * same seam Finance, Awards and Reports have, so everything below the auth check runs
  * without a session.
@@ -93,6 +128,7 @@ export async function shortlistData(
           eq(a.status, 'shortlisted'),
           roundProgrammeIds ? inArray(a.roundProgrammeId, roundProgrammeIds) : undefined,
         ),
+      columns: SHORTLIST_COLUMNS,
       with: { roundProgramme: { with: { programme: true, round: true } } },
       orderBy: (a, { desc, asc }) => [desc(a.custodianScore), asc(a.organisationName)],
     })

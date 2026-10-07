@@ -34,7 +34,7 @@ import {
   type CanonicalField,
   type IngestRow,
 } from './api'
-import { useQueues } from './queues'
+import { useDonePages, useQueues } from './queues'
 import {
   Action,
   BlockerPanel,
@@ -61,14 +61,9 @@ export function ReviewQueue({
 
   // `complete` rows are history and are not in the shared active snapshot — fetched
   // only when someone asks to look at them.
-  const [done, setDone] = useState<IngestRow[] | null>(null)
-  const [doneError, setDoneError] = useState<string | null>(null)
-  useEffect(() => {
-    if (focus !== 'done' || done) return
-    adminGet<IngestRow[]>('/api/admin/ingests?status=complete')
-      .then(setDone)
-      .catch((e: Error) => setDoneError(e.message))
-  }, [focus, done])
+  const history = useDonePages<IngestRow>('/api/admin/ingests', focus === 'done')
+  const done = history.rows
+  const doneError = history.error
 
   const active = snapshot?.applications ?? []
   const filters: Array<{ key: QueueFocus; label: string; rows: IngestRow[]; blurb: string }> = [
@@ -136,7 +131,7 @@ export function ReviewQueue({
       <div className="mb-4 flex flex-wrap gap-1.5">
         {filters.map((f) => {
           const selected = f.key === current.key
-          const count = f.key === 'done' ? done?.length : f.rows.length
+          const count = f.key === 'done' ? history.countLabel : f.rows.length
           return (
             <button
               key={f.key}
@@ -196,12 +191,19 @@ export function ReviewQueue({
             row={row}
             canonicalFields={canonicalFields}
             onChanged={() => {
-              setDone(null)
+              history.reset()
               reload()
             }}
           />
         ))}
       </div>
+      {focus === 'done' && history.hasMore && (
+        <div className="mt-4 flex justify-center">
+          <Button onClick={history.loadMore} busy={history.loadingMore} busyLabel="Loading">
+            Load older
+          </Button>
+        </div>
+      )}
     </Page>
   )
 }

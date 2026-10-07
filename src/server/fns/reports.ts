@@ -469,26 +469,6 @@ function toReportRow(r: ArrivedRow) {
     submittedAt: r.submittedAt,
     status: r.status as ReceivedStatus,
     imported: r.imported,
-    submission: {
-      id: r.key,
-      submittedAt: r.submittedAt,
-      impactSummary: r.impactSummary,
-      challenges: r.challenges,
-      lessons: r.lessons,
-      analysisStatus: r.analysisStatus,
-      aiSummary: r.aiSummary,
-      aiChallenges: r.aiChallenges,
-      aiLessons: r.aiLessons,
-      applicationAlignment: r.applicationAlignment,
-      programmeAlignment: r.programmeAlignment,
-      impactQuantity: r.impactQuantity,
-      impactQuantitySource: r.impactQuantitySource,
-      impactQuantityQuote: r.impactQuantityQuote,
-      impactUnitLabel: r.impactUnitLabel,
-      reviewedAt: r.reviewedAt,
-      reviewedBy: r.reviewedBy,
-      flags: (r.flags as string[] | null) ?? [],
-    },
   }
 }
 

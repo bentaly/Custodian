@@ -110,35 +110,9 @@ export function arrivedQuery(db: Db, clientId: string) {
         sql<string>`case when ${reports.reviewedAt} is null then 'received' else 'reviewed' end`.as(
           'status',
         ),
-      // The submission itself, column by column. The jsonb `analysis_detail` never
-      // crosses the wire whole — only the flags array the screen reads — because the
-      // server-fn serializer rejects loosely-typed jsonb.
-      impactSummary: sql<string | null>`${reports.impactSummary}`.as('impact_summary'),
-      challenges: sql<string | null>`${reports.challenges}`.as('challenges'),
-      lessons: sql<string | null>`${reports.lessons}`.as('lessons'),
-      analysisStatus: sql<string | null>`${reports.analysisStatus}`.as('analysis_status'),
-      aiSummary: sql<string | null>`${reports.aiSummary}`.as('ai_summary'),
-      aiChallenges: sql<string | null>`${reports.aiChallenges}`.as('ai_challenges'),
-      aiLessons: sql<string | null>`${reports.aiLessons}`.as('ai_lessons'),
-      applicationAlignment: sql<string | null>`${reports.applicationAlignment}`.as(
-        'application_alignment',
-      ),
-      programmeAlignment: sql<string | null>`${reports.programmeAlignment}`.as(
-        'programme_alignment',
-      ),
-      impactQuantity: sql<number | null>`${reports.impactQuantity}`.as('impact_quantity'),
-      impactQuantitySource: sql<string | null>`${reports.impactQuantitySource}`.as(
-        'impact_quantity_source',
-      ),
-      impactQuantityQuote: sql<string | null>`${reports.impactQuantityQuote}`.as(
-        'impact_quantity_quote',
-      ),
-      impactUnitLabel: sql<string | null>`${reports.impactUnitLabel}`.as('impact_unit_label'),
-      reviewedAt: sql<
-        string | null
-      >`to_char(${reports.reviewedAt}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`.as('reviewed_at'),
-      reviewedBy: sql<string | null>`${reports.reviewedBy}`.as('reviewed_by'),
-      flags: sql<string[]>`coalesce(${reports.analysisDetail} -> 'flags', '[]'::jsonb)`.as('flags'),
+      // No narrative, analysis or impact columns: the library lists reports and the
+      // report's own screen (`getReport`) reads them. They rode along on every row
+      // until 2026-10-07, unread, on the list that pages the most text in the app.
     })
     .from(reports)
     .innerJoin(awards, eq(awards.id, reports.awardId))

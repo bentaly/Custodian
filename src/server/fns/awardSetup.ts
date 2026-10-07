@@ -87,6 +87,28 @@ export async function awardCandidatesData(
           eq(a.status, 'shortlisted'),
           roundProgrammeIds ? inArray(a.roundProgrammeId, roundProgrammeIds) : undefined,
         ),
+      // What the candidate rows below are built from, and nothing else: the whole row
+      // carried every shortlisted application's answers and score detail into the Worker
+      // to be thrown away (see `SHORTLIST_COLUMNS` in `fns/shortlist.ts`).
+      columns: {
+        id: true,
+        organisationName: true,
+        applicantEmail: true,
+        amountRequested: true,
+        amountAmended: true,
+        externalApplicationId: true,
+        charityNumber: true,
+        companyNumber: true,
+        custodianScore: true,
+        custodianScoreStatus: true,
+        grantPurpose: true,
+        themes: true,
+        // `deliveryAreaLabel`'s inputs.
+        deliveryLadName: true,
+        deliveryRegion: true,
+        deliveryArea: true,
+        deprivationContext: true,
+      },
       with: { roundProgramme: { with: { programme: true, round: true } } },
       orderBy: (a, { desc }) => [desc(a.amountRequested)],
     })

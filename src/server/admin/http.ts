@@ -51,3 +51,22 @@ export function adminActor(request: Request): string | null {
   const actor = request.headers.get('x-admin-actor')?.trim()
   return actor ? actor : null
 }
+
+/** How many finished submissions one page of a queue's Done tab holds. */
+export const DONE_PAGE_SIZE = 50
+
+/**
+ * The page of a queue listing to read. Only `complete` is paged: it is the one status
+ * that is history rather than work, so it grows by every submission ever received and
+ * was read whole, payloads and all, on every visit to Done. The active statuses empty
+ * as they are worked and are read whole because the sidebar counts them.
+ * `limit`/`offset` arrive from the admin app; anything unreadable falls back to page 1.
+ */
+export function donePage(
+  url: URL,
+  status: string | null,
+): { limit: number | undefined; offset: number | undefined } {
+  if (status !== 'complete') return { limit: undefined, offset: undefined }
+  const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') ?? '', 10) || 0)
+  return { limit: DONE_PAGE_SIZE, offset }
+}

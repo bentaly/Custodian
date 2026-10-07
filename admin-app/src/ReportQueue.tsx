@@ -22,7 +22,7 @@ import {
   type GrantOption,
   type ReportIngestRow,
 } from './api'
-import { useQueues } from './queues'
+import { useDonePages, useQueues } from './queues'
 import {
   Action,
   BlockerPanel,
@@ -47,14 +47,9 @@ export function ReportQueue({
   const { buckets, snapshot, loading, error, reload } = useQueues()
   const canonicalFields = useReportCanonicalFields()
 
-  const [done, setDone] = useState<ReportIngestRow[] | null>(null)
-  const [doneError, setDoneError] = useState<string | null>(null)
-  useEffect(() => {
-    if (focus !== 'done' || done) return
-    adminGet<ReportIngestRow[]>('/api/admin/report-ingests?status=complete')
-      .then(setDone)
-      .catch((e: Error) => setDoneError(e.message))
-  }, [focus, done])
+  const history = useDonePages<ReportIngestRow>('/api/admin/report-ingests', focus === 'done')
+  const done = history.rows
+  const doneError = history.error
 
   const filters: Array<{ key: QueueFocus; label: string; rows: ReportIngestRow[]; blurb: string }> =
     [
@@ -119,7 +114,7 @@ export function ReportQueue({
       <div className="mb-4 flex flex-wrap gap-1.5">
         {filters.map((f) => {
           const selected = f.key === current.key
-          const count = f.key === 'done' ? done?.length : f.rows.length
+          const count = f.key === 'done' ? history.countLabel : f.rows.length
           return (
             <button
               key={f.key}
@@ -172,12 +167,19 @@ export function ReportQueue({
             row={row}
             canonicalFields={canonicalFields}
             onChanged={() => {
-              setDone(null)
+              history.reset()
               reload()
             }}
           />
         ))}
       </div>
+      {focus === 'done' && history.hasMore && (
+        <div className="mt-4 flex justify-center">
+          <Button onClick={history.loadMore} busy={history.loadingMore} busyLabel="Loading">
+            Load older
+          </Button>
+        </div>
+      )}
     </Page>
   )
 }

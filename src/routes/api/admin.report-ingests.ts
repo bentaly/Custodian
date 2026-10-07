@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../../server/db'
 import { reportIngests } from '../../../drizzle/schema'
-import { adminJson, adminOptions, requireAdminToken } from '../../server/admin/http'
+import { adminJson, adminOptions, donePage, requireAdminToken } from '../../server/admin/http'
 import { diagnoseReportIngests } from '../../server/reportMapping/diagnose'
 import { autoMappingsForReportIngests } from '../../server/fieldMapping/provenance'
 
@@ -16,9 +16,11 @@ export const Route = createFileRoute('/api/admin/report-ingests')({
         const denied = requireAdminToken(request)
         if (denied) return denied
 
-        const statusParam = new URL(request.url).searchParams.get('status')
+        const url = new URL(request.url)
+        const statusParam = url.searchParams.get('status')
         const status = statusParam && STATUSES.has(statusParam) ? statusParam : null
 
+        const page = donePage(url, status)
         const rows = await getDb().query.reportIngests.findMany({
           where: status
             ? eq(
@@ -26,8 +28,10 @@ export const Route = createFileRoute('/api/admin/report-ingests')({
                 status as 'received' | 'needs_review' | 'ai_proposed' | 'complete',
               )
             : undefined,
-          orderBy: (i, { desc }) => [desc(i.createdAt)],
+          orderBy: (i, { desc }) => [desc(i.createdAt), desc(i.id)],
           with: { client: { columns: { id: true, name: true } } },
+          limit: page.limit,
+          offset: page.offset,
         })
 
         // See admin.ingests.ts — each row explains why it is held, and which of its
