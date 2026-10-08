@@ -17,16 +17,20 @@
 // platform is passed through untouched, which is the ordinary case.
 
 import { flattenTypeform, isTypeformEnvelope } from './typeform'
+import { flattenFormstack, isFormstackEnvelope } from './formstack'
 
-export { flattenTypeform, isTypeformEnvelope }
+export { flattenTypeform, isTypeformEnvelope, flattenFormstack, isFormstackEnvelope }
 
-export type EnvelopePlatform = 'typeform'
+export type EnvelopePlatform = 'typeform' | 'formstack'
 
 const READERS: {
   platform: EnvelopePlatform
   matches: (body: Record<string, unknown>) => boolean
   flatten: (body: Record<string, unknown>) => Record<string, unknown> | null
-}[] = [{ platform: 'typeform', matches: isTypeformEnvelope, flatten: flattenTypeform }]
+}[] = [
+  { platform: 'typeform', matches: isTypeformEnvelope, flatten: flattenTypeform },
+  { platform: 'formstack', matches: isFormstackEnvelope, flatten: flattenFormstack },
+]
 
 export type ReadEnvelopeResult = {
   platform: EnvelopePlatform

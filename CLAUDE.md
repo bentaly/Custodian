@@ -626,16 +626,25 @@ object"; real validation runs downstream on `CreateApplicationSchema`.
   you set an address and nothing else, so the credential travels in the PATH. That is a second
   `api_keys.kind` (`webhook`, prefix `cust_wh_…`), and `resolveToken` makes the kind part of the
   LOOKUP so a leaked webhook URL can never be replayed as a Bearer header. Answers **200**, not
-  202 — Typeform's delivery log is read by a person. **One token, three addresses**:
+  202 — Typeform's delivery log is read by a person.
+  **One token, three addresses**:
   `/api/webhooks/typeform-report/<token>` is the report twin (2026-09-29) and
   `/api/webhooks/typeform-eoi/<token>` the expression of interest one (2026-10-02, with
   `POST /api/eoi` as its Bearer twin); Settings → API keys shows all three when a webhook
   token is made. Before it, a report form had no direct way in,
   and pasting the only address into one turned every report into an application.
+- **Formstack has the same pair of routes** (`/api/webhooks/formstack[-report]/<token>`, same
+  token kind; no EOI address yet) for the same reason: no custom headers. All of them share one door,
+  `server/webhookIntake.ts`; the platform in the path is only for the person pasting it.
+  Formstack echoes its Shared Secret in the BODY as `HandshakeKey`, which the reader drops so it
+  never reaches `raw_payload`. Its delivery names the form only by numeric `FormID`, so the
+  programme comes from the form itself: a hidden field named exactly `programmeName` (a payload
+  key equal to a canonical key resolves with no mapping, `applyLookupOver`) or a taught question.
 - **Envelopes are flattened at the decode boundary** (`src/lib/submissionEnvelope`), by SHAPE not
   by route, so nothing downstream knows they exist. Three keys are synthesised because a form
-  cannot supply them (`Submission ID`, `Form name`, `Submitted at`) but they do NOT count toward
-  "did anything arrive" — an answerless Typeform test delivery must 400. It did not until
+  cannot supply them (`Submission ID`, `Form name`, `Submitted at`; Formstack's reader gives
+  `Submission ID` and `Form ID`) but they do NOT count toward "did anything arrive" — an
+  answerless Typeform or Formstack test delivery must 400. It did not until
   2026-09-29: an envelope that flattened to nothing fell back to ITSELF and was saved with
   `event_id` / `form_response` as its answers. `isEnvelope` tells "an empty envelope" from "not
   an envelope"; `submissionPayload.test.ts` pins it.

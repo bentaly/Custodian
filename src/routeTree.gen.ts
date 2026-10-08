@@ -80,6 +80,8 @@ import { Route as AuthenticatedApplicationsEoisEoiIdRouteImport } from './routes
 import { Route as ApiAdminIngestsIdRouteImport } from './routes/api/admin.ingests.$id'
 import { Route as ApiAdminMappingsIdRouteImport } from './routes/api/admin.mappings.$id'
 import { Route as ApiAdminReportIngestsIdRouteImport } from './routes/api/admin.report-ingests.$id'
+import { Route as ApiWebhooksFormstackReportTokenRouteImport } from './routes/api/webhooks.formstack-report.$token'
+import { Route as ApiWebhooksFormstackTokenRouteImport } from './routes/api/webhooks.formstack.$token'
 import { Route as ApiWebhooksTypeformEoiTokenRouteImport } from './routes/api/webhooks.typeform-eoi.$token'
 import { Route as ApiWebhooksTypeformReportTokenRouteImport } from './routes/api/webhooks.typeform-report.$token'
 import { Route as ApiWebhooksTypeformTokenRouteImport } from './routes/api/webhooks.typeform.$token'
@@ -475,6 +477,18 @@ const ApiAdminReportIngestsIdRoute = ApiAdminReportIngestsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAdminReportIngestsRoute,
 } as any)
+const ApiWebhooksFormstackReportTokenRoute =
+  ApiWebhooksFormstackReportTokenRouteImport.update({
+    id: '/api/webhooks/formstack-report/$token',
+    path: '/api/webhooks/formstack-report/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiWebhooksFormstackTokenRoute =
+  ApiWebhooksFormstackTokenRouteImport.update({
+    id: '/api/webhooks/formstack/$token',
+    path: '/api/webhooks/formstack/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWebhooksTypeformEoiTokenRoute =
   ApiWebhooksTypeformEoiTokenRouteImport.update({
     id: '/api/webhooks/typeform-eoi/$token',
@@ -588,6 +602,8 @@ export interface FileRoutesByFullPath {
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/formstack-report/$token': typeof ApiWebhooksFormstackReportTokenRoute
+  '/api/webhooks/formstack/$token': typeof ApiWebhooksFormstackTokenRoute
   '/api/webhooks/typeform-eoi/$token': typeof ApiWebhooksTypeformEoiTokenRoute
   '/api/webhooks/typeform-report/$token': typeof ApiWebhooksTypeformReportTokenRoute
   '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
@@ -658,6 +674,8 @@ export interface FileRoutesByTo {
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/formstack-report/$token': typeof ApiWebhooksFormstackReportTokenRoute
+  '/api/webhooks/formstack/$token': typeof ApiWebhooksFormstackTokenRoute
   '/api/webhooks/typeform-eoi/$token': typeof ApiWebhooksTypeformEoiTokenRoute
   '/api/webhooks/typeform-report/$token': typeof ApiWebhooksTypeformReportTokenRoute
   '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
@@ -739,6 +757,8 @@ export interface FileRoutesById {
   '/api/admin/ingests/$id': typeof ApiAdminIngestsIdRouteWithChildren
   '/api/admin/mappings/$id': typeof ApiAdminMappingsIdRoute
   '/api/admin/report-ingests/$id': typeof ApiAdminReportIngestsIdRouteWithChildren
+  '/api/webhooks/formstack-report/$token': typeof ApiWebhooksFormstackReportTokenRoute
+  '/api/webhooks/formstack/$token': typeof ApiWebhooksFormstackTokenRoute
   '/api/webhooks/typeform-eoi/$token': typeof ApiWebhooksTypeformEoiTokenRoute
   '/api/webhooks/typeform-report/$token': typeof ApiWebhooksTypeformReportTokenRoute
   '/api/webhooks/typeform/$token': typeof ApiWebhooksTypeformTokenRoute
@@ -820,6 +840,8 @@ export interface FileRouteTypes {
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/formstack-report/$token'
+    | '/api/webhooks/formstack/$token'
     | '/api/webhooks/typeform-eoi/$token'
     | '/api/webhooks/typeform-report/$token'
     | '/api/webhooks/typeform/$token'
@@ -890,6 +912,8 @@ export interface FileRouteTypes {
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/formstack-report/$token'
+    | '/api/webhooks/formstack/$token'
     | '/api/webhooks/typeform-eoi/$token'
     | '/api/webhooks/typeform-report/$token'
     | '/api/webhooks/typeform/$token'
@@ -970,6 +994,8 @@ export interface FileRouteTypes {
     | '/api/admin/ingests/$id'
     | '/api/admin/mappings/$id'
     | '/api/admin/report-ingests/$id'
+    | '/api/webhooks/formstack-report/$token'
+    | '/api/webhooks/formstack/$token'
     | '/api/webhooks/typeform-eoi/$token'
     | '/api/webhooks/typeform-report/$token'
     | '/api/webhooks/typeform/$token'
@@ -1009,6 +1035,8 @@ export interface RootRouteChildren {
   ApiCronReportsDigestRoute: typeof ApiCronReportsDigestRoute
   ApiInternalPipelineRoute: typeof ApiInternalPipelineRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
+  ApiWebhooksFormstackReportTokenRoute: typeof ApiWebhooksFormstackReportTokenRoute
+  ApiWebhooksFormstackTokenRoute: typeof ApiWebhooksFormstackTokenRoute
   ApiWebhooksTypeformEoiTokenRoute: typeof ApiWebhooksTypeformEoiTokenRoute
   ApiWebhooksTypeformReportTokenRoute: typeof ApiWebhooksTypeformReportTokenRoute
   ApiWebhooksTypeformTokenRoute: typeof ApiWebhooksTypeformTokenRoute
@@ -1513,6 +1541,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminReportIngestsIdRouteImport
       parentRoute: typeof ApiAdminReportIngestsRoute
     }
+    '/api/webhooks/formstack-report/$token': {
+      id: '/api/webhooks/formstack-report/$token'
+      path: '/api/webhooks/formstack-report/$token'
+      fullPath: '/api/webhooks/formstack-report/$token'
+      preLoaderRoute: typeof ApiWebhooksFormstackReportTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/formstack/$token': {
+      id: '/api/webhooks/formstack/$token'
+      path: '/api/webhooks/formstack/$token'
+      fullPath: '/api/webhooks/formstack/$token'
+      preLoaderRoute: typeof ApiWebhooksFormstackTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/typeform-eoi/$token': {
       id: '/api/webhooks/typeform-eoi/$token'
       path: '/api/webhooks/typeform-eoi/$token'
@@ -1852,6 +1894,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronReportsDigestRoute: ApiCronReportsDigestRoute,
   ApiInternalPipelineRoute: ApiInternalPipelineRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
+  ApiWebhooksFormstackReportTokenRoute: ApiWebhooksFormstackReportTokenRoute,
+  ApiWebhooksFormstackTokenRoute: ApiWebhooksFormstackTokenRoute,
   ApiWebhooksTypeformEoiTokenRoute: ApiWebhooksTypeformEoiTokenRoute,
   ApiWebhooksTypeformReportTokenRoute: ApiWebhooksTypeformReportTokenRoute,
   ApiWebhooksTypeformTokenRoute: ApiWebhooksTypeformTokenRoute,

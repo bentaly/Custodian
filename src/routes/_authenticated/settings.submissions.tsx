@@ -158,21 +158,34 @@ function Submissions() {
           style={{ color: C.body }}
         >
           <p>
-            If your applications or grant reports already come in through a form builder, you do
-            not need to build any of the above. Generate a webhook on{' '}
+            If your applications or grant reports already come in through a form builder, you do not
+            need to build any of the above. Generate a webhook on{' '}
             <span className="font-medium text-grey-900">API keys</span> (choosing{' '}
             <span className="font-medium text-grey-900">A form platform</span>). You get two
-            addresses: one for an <span className="font-medium text-grey-900">application form</span>{' '}
-            and one for a <span className="font-medium text-grey-900">grant report form</span>.
-            Paste the right one into that form's webhook settings. In Typeform that is{' '}
-            <span className="font-medium text-grey-900">Connect → Webhooks → Add a webhook</span>.
-            Nothing else to configure, and no field mapping to do up front. The two differ only in
-            what they create, so an application form on the report address would file its
-            applications as reports: check which one you pasted.
+            addresses: one for an{' '}
+            <span className="font-medium text-grey-900">application form</span> and one for a{' '}
+            <span className="font-medium text-grey-900">grant report form</span>. Paste the right
+            one into that form's webhook settings. In Typeform that is{' '}
+            <span className="font-medium text-grey-900">Connect → Webhooks → Add a webhook</span>;
+            in Formstack, the form's{' '}
+            <span className="font-medium text-grey-900">
+              Settings → Emails & Actions → Add Webhook
+            </span>
+            , with the content type set to JSON. Nothing else to configure, and no field mapping to
+            do up front. The two differ only in what they create, so an application form on the
+            report address would file its applications as reports: check which one you pasted.
           </p>
           <p>
-            A report form should carry your application reference so each report finds its grant
-            by itself. Typeform can do this with a{' '}
+            An application form needs to say which programme it is for. The surest way is a{' '}
+            <span className="font-medium text-grey-900">hidden field</span> called{' '}
+            <Code>programmeName</Code> whose value is the programme's name exactly as it appears in
+            Custodian, which is read with no setting up at all. A question asking the applicant
+            works too, once we have matched it. Formstack in particular needs one or the other,
+            because it does not tell us the name of the form.
+          </p>
+          <p>
+            A report form should carry your application reference so each report finds its grant by
+            itself. Typeform and Formstack can both do this with a{' '}
             <span className="font-medium text-grey-900">hidden field</span> filled in from the link
             you send each grantee. Without it we match on the charity number, and a report neither
             can place waits on the Reports screen for you to choose its grant.

@@ -48,18 +48,45 @@ function maskKey(kind: KeyKind, last4: string) {
 // One token, THREE addresses: the token says which foundation, the address says whether
 // the form is an application form, a report form or an expression of interest form. All
 // are shown at once because the token is shown once; a foundation uses whichever it has.
-function webhookUrls(token: string) {
+//
+// The PLATFORM is chosen only to print addresses with its name in. The token is the
+// same kind for every platform and the server reads the delivery by its shape, so
+// nothing is stored about it. Expressions of interest have a Typeform address only.
+type Platform = 'typeform' | 'formstack'
+
+const PLATFORM_LABEL: Record<Platform, string> = {
+  typeform: 'Typeform',
+  formstack: 'Formstack',
+}
+
+// Where the address goes, in the platform's own words.
+const PLATFORM_WHERE: Record<Platform, string> = {
+  typeform: 'In Typeform, Connect → Webhooks → Add a webhook.',
+  formstack:
+    "In Formstack, the form's Settings → Emails & Actions → Add Webhook, with the content type set to JSON. Leave the shared secret blank: the address is the key.",
+}
+
+function webhookUrls(platform: Platform, token: string) {
   const origin = typeof window === 'undefined' ? '' : window.location.origin
   return {
-    application: `${origin}/api/webhooks/typeform/${token}`,
-    report: `${origin}/api/webhooks/typeform-report/${token}`,
-    eoi: `${origin}/api/webhooks/typeform-eoi/${token}`,
+    application: `${origin}/api/webhooks/${platform}/${token}`,
+    report: `${origin}/api/webhooks/${platform}-report/${token}`,
+    eoi: platform === 'typeform' ? `${origin}/api/webhooks/typeform-eoi/${token}` : null,
   }
 }
 
 type Revealed =
   | { kind: 'secret'; key: string }
-  | { kind: 'webhook'; application: string; report: string; eoi: string }
+  | {
+      kind: 'webhook'
+      platform: Platform
+      application: string
+      report: string
+      eoi: string | null
+    }
+
+// What the "Where it will be used" select offers: our own server, or a platform.
+type KeyUse = 'secret' | Platform
 
 function ApiKeys() {
   const router = useRouter()
@@ -70,7 +97,8 @@ function ApiKeys() {
   const [page, setPage] = useState(1)
   const keyPage = paginate(apiKeys, page)
   const [name, setName] = useState('')
-  const [kind, setKind] = useState<KeyKind>('secret')
+  const [use, setUse] = useState<KeyUse>('secret')
+  const kind: KeyKind = use === 'secret' ? 'secret' : 'webhook'
   const [creating, setCreating] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -85,9 +113,9 @@ function ApiKeys() {
     try {
       const created = await createApiKey({ data: { name, kind } })
       setNewSecret(
-        kind === 'webhook'
-          ? { kind: 'webhook', ...webhookUrls(created.key) }
-          : { kind: 'secret', key: created.key },
+        use === 'secret'
+          ? { kind: 'secret', key: created.key }
+          : { kind: 'webhook', platform: use, ...webhookUrls(use, created.key) },
       )
       setName('')
       router.invalidate()
@@ -208,9 +236,9 @@ function ApiKeys() {
           {newSecret.kind === 'webhook' ? (
             <>
               <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
-                Paste the address for the kind of form into that form's webhook settings. In
-                Typeform, Connect → Webhooks → Add a webhook. Every address contains the key, so
-                treat them like one.
+                Paste the address for the kind of form into that form's webhook settings.{' '}
+                {PLATFORM_WHERE[newSecret.platform]} Every address contains the key, so treat them
+                like one.
               </p>
               <RevealedValue
                 label="For an application form"
@@ -226,7 +254,7 @@ function ApiKeys() {
               />
               {/* Behind the `sourcing` flag (`lib/features.ts`): the address 404s
                   on production until expressions of interest ship there. */}
-              {features.sourcing && (
+              {features.sourcing && newSecret.eoi && (
                 <RevealedValue
                   label="For an expression of interest form"
                   value={newSecret.eoi}
@@ -277,11 +305,12 @@ function ApiKeys() {
             <Label htmlFor="key-kind">Where it will be used</Label>
             <Select
               id="key-kind"
-              value={kind}
-              onChange={(value) => setKind(value as KeyKind)}
+              value={use}
+              onChange={(value) => setUse(value as KeyUse)}
               options={[
                 { value: 'secret', label: 'Your own server or integration' },
-                { value: 'webhook', label: 'A form platform (Typeform)' },
+                { value: 'typeform', label: `A form platform (${PLATFORM_LABEL.typeform})` },
+                { value: 'formstack', label: `A form platform (${PLATFORM_LABEL.formstack})` },
               ]}
             />
           </div>
