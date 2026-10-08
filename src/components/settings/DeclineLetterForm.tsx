@@ -180,7 +180,7 @@ export function DeclineLetterForm({ settings }: { settings: DeclineLetterSetting
       <Panel label="Preview">
         <PanelTitle>Preview</PanelTitle>
         <p className="-mt-2 mb-3 font-display text-body" style={{ color: C.sub }}>
-          A worked example, with a made-up application filled in.
+          An example decline letter.
         </p>
         <div className="rounded-card border p-4" style={{ borderColor: C.line }}>
           <div
