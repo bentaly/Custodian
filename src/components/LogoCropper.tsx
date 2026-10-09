@@ -64,17 +64,6 @@ export function LogoCropper({
     setZoom(next)
   }
 
-  /** The three places a logo usually goes, as one click rather than a careful drag. */
-  function align(where: 'left' | 'centre' | 'right') {
-    const x =
-      where === 'left'
-        ? 0
-        : where === 'right'
-          ? FRAME_WIDTH - displayWidth
-          : (FRAME_WIDTH - displayWidth) / 2
-    setOffset((o) => clamp(x, o.y, displayWidth, displayHeight))
-  }
-
   const drag = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
   function handlePointerDown(e: React.PointerEvent) {
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -146,21 +135,6 @@ export function LogoCropper({
           className="flex-1 accent-brand"
         />
       </label>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-label text-grey-500">Align</span>
-        {(['left', 'centre', 'right'] as const).map((where) => (
-          <Button
-            key={where}
-            type="button"
-            variant="ghost"
-            onClick={() => align(where)}
-            disabled={busy}
-          >
-            {where === 'left' ? 'Left' : where === 'right' ? 'Right' : 'Centre'}
-          </Button>
-        ))}
-      </div>
 
       <p className="mt-2 text-label text-grey-500">
         Drag the logo to position it, and zoom in to trim any empty space around it.
