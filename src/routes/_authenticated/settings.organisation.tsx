@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { invalidateCurrentUser } from '../../lib/currentUser'
 import { longerTimeout } from '../../lib/requestTimeout'
-import { LogoError, prepareLogo } from '../../lib/logo'
+import { LogoError, cropLogo, loadLogoSource, type LogoCrop, type LogoSource } from '../../lib/logo'
 import { removeOrganisationLogo, updateOrganisationLogo } from '../../server/fns/logo'
 import { Button, ErrorNote, Panel, PanelTitle, initials, toast } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { SettingsPage } from '../../components/SettingsPage'
+import { LogoCropper } from '../../components/LogoCropper'
 
 // Who the foundation is, as Custodian presents it: today its name and its logo. The logo
 // replaces the monogram in the header and heads every letter the foundation sends (award
@@ -37,20 +38,58 @@ function OrganisationDetails() {
     await router.invalidate()
   }
 
+  // The logo being positioned, between choosing a file and saving it.
+  const [source, setSource] = useState<LogoSource | null>(null)
+  function closeCropper() {
+    setSource((s) => {
+      s?.release()
+      return null
+    })
+  }
+  // Free the preview URL if the page is left mid-positioning.
+  useEffect(() => () => source?.release(), [source])
+
+  async function open(file: File) {
+    setError('')
+    try {
+      closeCropper()
+      setSource(await loadLogoSource(file))
+    } catch (err) {
+      setError(err instanceof LogoError ? err.message : 'Could not read that image.')
+    }
+  }
+
   async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     // Cleared so picking the same file again after an error still fires a change.
     e.target.value = ''
-    if (!file) return
+    if (file) await open(file)
+  }
+
+  // Moving the logo already saved: the stored frame is opened as the file, so nobody
+  // has to find the original again to nudge it left.
+  async function handleReposition() {
+    if (!logo) return
+    try {
+      const blob = await (await fetch(logo)).blob()
+      await open(new File([blob], 'logo.png', { type: blob.type || 'image/png' }))
+    } catch {
+      setError('Could not open the current logo.')
+    }
+  }
+
+  async function handleConfirm(crop: LogoCrop) {
+    if (!source) return
     setBusy(true)
     setError('')
     try {
-      const prepared = await prepareLogo(file)
+      const prepared = await cropLogo(source, crop)
       const { logoUrl } = await updateOrganisationLogo({
         data: prepared,
         headers: longerTimeout(60_000),
       })
       setLogo(logoUrl)
+      closeCropper()
       await refreshIdentity()
       toast('Logo saved')
     } catch (err) {
@@ -122,9 +161,19 @@ function OrganisationDetails() {
                 {busy ? 'Saving…' : logo ? 'Change logo' : 'Upload logo'}
               </Button>
               {logo && (
-                <Button type="button" variant="ghost" onClick={handleRemove} disabled={busy}>
-                  Remove
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleReposition}
+                    disabled={busy || source !== null}
+                  >
+                    Reposition
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={handleRemove} disabled={busy}>
+                    Remove
+                  </Button>
+                </>
               )}
             </div>
             <p className="mt-1.5 font-display text-label" style={{ color: C.sub }}>
@@ -141,6 +190,16 @@ function OrganisationDetails() {
           />
         </div>
         <ErrorNote error={error} className="mt-3" />
+        {source && (
+          <div className="mt-4">
+            <LogoCropper
+              source={source}
+              busy={busy}
+              onCancel={closeCropper}
+              onConfirm={handleConfirm}
+            />
+          </div>
+        )}
       </Panel>
     </SettingsPage>
   )

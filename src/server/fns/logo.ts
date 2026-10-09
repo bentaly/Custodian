@@ -5,12 +5,7 @@ import { getDb } from '../db'
 import { clientLogos, clients } from '../../../drizzle/schema'
 import { requireRole } from '../session'
 import { conflict } from '../../lib/errors'
-import {
-  LOGO_MAX_HEIGHT,
-  LOGO_MAX_WIDTH,
-  LOGO_MIME_TYPE,
-  MAX_LOGO_ENCODED_BYTES,
-} from '../../lib/logo'
+import { LOGO_HEIGHT, LOGO_MIME_TYPE, LOGO_WIDTH, MAX_LOGO_ENCODED_BYTES } from '../../lib/logo'
 import { logoUrl } from '../logo'
 
 // The foundation's logo: the bytes to `client_logos`, the URL that serves them to
@@ -50,8 +45,8 @@ export const updateOrganisationLogo = createServerFn({ method: 'POST' })
   .validator(
     z.object({
       dataBase64: z.string().min(1).max(MAX_LOGO_ENCODED_BYTES),
-      width: z.number().int().min(1).max(LOGO_MAX_WIDTH),
-      height: z.number().int().min(1).max(LOGO_MAX_HEIGHT),
+      width: z.number().int().min(1).max(LOGO_WIDTH),
+      height: z.number().int().min(1).max(LOGO_HEIGHT),
     }),
   )
   .handler(async ({ data }) => {

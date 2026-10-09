@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { letterHtml } from './letterHtml'
-import { fitLogo, LOGO_MAX_HEIGHT, LOGO_MAX_WIDTH } from './logo'
+import { clampAxis, containScale } from './logo'
 
 const logo = {
   url: 'https://custodian.fund/api/logo/abc?v=1',
@@ -32,13 +32,20 @@ describe('letterHtml with a logo', () => {
   })
 })
 
-describe('fitLogo', () => {
-  it('fits a wordmark and a square inside the box at their own proportions', () => {
-    expect(fitLogo(2000, 500)).toEqual({ width: LOGO_MAX_WIDTH, height: 120 })
-    expect(fitLogo(1000, 1000)).toEqual({ width: LOGO_MAX_HEIGHT, height: LOGO_MAX_HEIGHT })
+describe('logo positioning', () => {
+  it('starts with the whole logo inside the frame, at its own proportions', () => {
+    expect(containScale(2000, 500, 360, 120)).toBeCloseTo(0.18) // a wordmark, width-bound
+    expect(containScale(1000, 1000, 360, 120)).toBeCloseTo(0.12) // a square, height-bound
   })
 
-  it('never enlarges a small logo', () => {
-    expect(fitLogo(120, 40)).toEqual({ width: 120, height: 40 })
+  it('keeps a logo smaller than the frame wholly inside it', () => {
+    expect(clampAxis(-10, 120, 360)).toBe(0)
+    expect(clampAxis(300, 120, 360)).toBe(240)
+    expect(clampAxis(100, 120, 360)).toBe(100)
+  })
+
+  it('keeps a zoomed logo covering the frame rather than pushed out of view', () => {
+    expect(clampAxis(20, 500, 360)).toBe(0)
+    expect(clampAxis(-200, 500, 360)).toBe(-140)
   })
 })
