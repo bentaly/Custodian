@@ -1,11 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, count, eq, inArray } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, notInArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import { effectiveAmount } from '../../lib/amountRequested'
 import {
   applicationComments,
   applicationVotes,
+  auditLog,
   roundProgrammes,
   users,
 } from '../../../drizzle/schema'
@@ -15,6 +16,7 @@ import { roundProgrammeSpend, roundProgrammeYear } from '../applications/roundSp
 import { DEFAULT_FY_END_MONTH, type FinancialYear } from '../../lib/financialYear'
 import { isSuggestedFirstYear, resolveFirstYearAmount } from '../../lib/multiYear'
 import { currentVoterOf } from '../members'
+import { actionsInCategory } from '../../lib/audit'
 
 /**
  * Everything the Shortlist screen renders, in one call: the applications awaiting a
@@ -63,6 +65,9 @@ const SHORTLIST_COLUMNS = {
   id: true,
   roundProgrammeId: true,
   organisationName: true,
+  // Whole, not a preview: the card prints it under a three-line clamp that opens in
+  // place. One answer per card, unlike the full forms this list is guarding against.
+  organisationSummary: true,
   externalApplicationId: true,
   amountRequested: true,
   amountAmended: true,
@@ -159,7 +164,7 @@ export async function shortlistData(
     // round, so in practice there is one; a superadmin looking across rounds gets the first.
     const fy = await roundProgrammeYear(db, roundProgrammeIdsInPlay[0]!, endMonth)
 
-    const [voteRows, voters, profile, commentRows] = await Promise.all([
+    const [voteRows, voters, profile, commentRows, latestRows, activityRows] = await Promise.all([
       db
         .select({
           applicationId: applicationVotes.applicationId,
@@ -186,6 +191,38 @@ export async function shortlistData(
         .from(applicationComments)
         .where(inArray(applicationComments.applicationId, appIds))
         .groupBy(applicationComments.applicationId),
+      // The newest remark on each card, previewed above the button that opens the
+      // thread. One row per application (DISTINCT ON), never the whole discussion.
+      db
+        .selectDistinctOn([applicationComments.applicationId], {
+          applicationId: applicationComments.applicationId,
+          body: applicationComments.body,
+          createdAt: applicationComments.createdAt,
+          userId: users.id,
+          name: users.name,
+          image: users.image,
+        })
+        .from(applicationComments)
+        .innerJoin(users, eq(applicationComments.userId, users.id))
+        .where(inArray(applicationComments.applicationId, appIds))
+        .orderBy(applicationComments.applicationId, desc(applicationComments.createdAt)),
+      // The Activity half of the card's split button, counted as `applicationActivity`
+      // lists it for everyone: comments are their own half, and money is withheld from a
+      // trustee there. A shortlisted application has no award, so it has no money rows
+      // either and leaving them out changes nobody's count.
+      db
+        .select({ applicationId: auditLog.applicationId, entries: count() })
+        .from(auditLog)
+        .where(
+          and(
+            inArray(auditLog.applicationId, appIds),
+            notInArray(auditLog.action, [
+              ...actionsInCategory('comments'),
+              ...actionsInCategory('money'),
+            ]),
+          ),
+        )
+        .groupBy(auditLog.applicationId),
     ])
 
     const voterIds = new Set(voters.map((v) => v.id))
@@ -213,6 +250,19 @@ export async function shortlistData(
       votesByApp.set(v.applicationId, list)
     }
     const commentsByApp = new Map(commentRows.map((r) => [r.applicationId, r.comments]))
+    const latestByApp = new Map(
+      latestRows.map((r) => [
+        r.applicationId,
+        {
+          body: r.body,
+          createdAt: r.createdAt,
+          user: { id: r.userId, name: r.name, image: r.image },
+        },
+      ]),
+    )
+    const activityByApp = new Map(
+      activityRows.flatMap((r) => (r.applicationId ? [[r.applicationId, r.entries] as const] : [])),
+    )
 
     const voterCount = voters.length
     const decorated = items.map((a) => {
@@ -235,6 +285,8 @@ export async function shortlistData(
         yesVotes,
         noVotes,
         commentCount: commentsByApp.get(a.id) ?? 0,
+        latestComment: latestByApp.get(a.id) ?? null,
+        activityCount: activityByApp.get(a.id) ?? 0,
         // What this ask draws from the round this year, and whether anyone has said so.
         // On the card beside the full ask: a trustee agreeing to a three-year grant must
         // see its whole size, and the board reading the budget meter must see what it

@@ -28,11 +28,14 @@ const LIMIT = 200
  * Comments are left out: the discussion is its own section on the same screen, and
  * listing "commented" beside the comment itself says everything twice.
  *
- * The caller has already established that the user may see the application, and that
- * they are an admin: the audit log is admin-only wherever it is shown.
+ * The caller has already established that the user may see the application. This is
+ * the one slice of the audit log every role reads (the board votes on what changed,
+ * an amount above all), so `withMoney` is false for anybody `canSeePayments` refuses:
+ * bank details and payments are withheld from a trustee here as on every other read.
  */
 export async function applicationActivity(
   applicationId: string,
+  { withMoney }: { withMoney: boolean },
 ): Promise<ApplicationActivityRow[]> {
   const rows = await getDb()
     .select({
@@ -48,7 +51,10 @@ export async function applicationActivity(
     .where(
       and(
         eq(auditLog.applicationId, applicationId),
-        notInArray(auditLog.action, actionsInCategory('comments')),
+        notInArray(auditLog.action, [
+          ...actionsInCategory('comments'),
+          ...(withMoney ? [] : actionsInCategory('money')),
+        ]),
       ),
     )
     .orderBy(desc(auditLog.createdAt))

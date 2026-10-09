@@ -18,11 +18,13 @@ import { C as TOKENS } from './ui/tokens'
 // implementations of one thread, drawn differently depending on which door you came
 // through.
 //
-// For an admin it carries a second tab, Activity: what people have DONE to the
-// application (shortlisted it, proposed a different amount and why, edited a field),
-// as distinct from what they have said about it. The two are never mixed: a comment is
-// not listed as activity, and nothing the app records is posted as a comment. Anybody
-// else sees no tabs at all, only the discussion.
+// It carries a second tab, Activity: what people have DONE to the application
+// (shortlisted it, proposed a different amount and why, edited a field), as distinct
+// from what they have said about it. The two are never mixed: a comment is not listed
+// as activity, and nothing the app records is posted as a comment. Every role sees it
+// (since 2026-10-09; it was admins only), because a trustee voting on an amount that
+// moved is the reader who most needs to know why; money entries are withheld from a
+// trustee by the server.
 
 type Comment = {
   id: string
@@ -58,6 +60,7 @@ export function CommentsSection({
   userRole,
   onChanged,
   activityKey,
+  initialTab = 'comments',
 }: {
   applicationId: string
   userId: string
@@ -70,8 +73,10 @@ export function CommentsSection({
    * value here makes it read again.
    */
   activityKey?: unknown
+  /** Which tab opens first: the shortlist card's split button opens either. */
+  initialTab?: 'comments' | 'activity'
 }) {
-  const [tab, setTab] = useState<'comments' | 'activity'>('comments')
+  const [tab, setTab] = useState<'comments' | 'activity'>(initialTab)
   const [activity, setActivity] = useState<ApplicationActivityRow[] | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
@@ -110,7 +115,6 @@ export function CommentsSection({
   // behind it. A failure leaves the tab without a count and its list saying so; it must
   // not take the discussion down with it.
   useEffect(() => {
-    if (!isAdmin) return
     let live = true
     listApplicationActivity({ data: { applicationId } })
       .then((rows) => live && setActivity(rows))
@@ -118,7 +122,7 @@ export function CommentsSection({
     return () => {
       live = false
     }
-  }, [applicationId, isAdmin, activityKey])
+  }, [applicationId, activityKey])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -175,28 +179,15 @@ export function CommentsSection({
 
   return (
     <div className="flex flex-col gap-4">
-      {isAdmin ? (
-        <Tabs<'comments' | 'activity'>
-          ariaLabel="Comments and activity"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { id: 'comments', label: 'Comments', count: loading ? undefined : comments.length },
-            { id: 'activity', label: 'Activity', count: activity?.length },
-          ]}
-        />
-      ) : (
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-title font-medium" style={{ color: C.ink }}>
-            Comments
-          </h2>
-          {!loading && comments.length > 0 && (
-            <span className="font-display text-label" style={{ color: C.sub }}>
-              {comments.length} comment{comments.length !== 1 ? 's' : ''} in total
-            </span>
-          )}
-        </div>
-      )}
+      <Tabs<'comments' | 'activity'>
+        ariaLabel="Comments and activity"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'comments', label: 'Comments', count: loading ? undefined : comments.length },
+          { id: 'activity', label: 'Activity', count: activity?.length },
+        ]}
+      />
 
       {tab === 'activity' ? (
         <ActivityList activity={activity} />

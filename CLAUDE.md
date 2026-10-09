@@ -362,7 +362,10 @@ rule; every figure in the round chain is cash, and the accounts total is the one
   comment in the discussion too until 2026-10-01; that read as the admin speaking and counted
   on the vote card, so the record is now read on the **Activity tab** beside the comments
   (`CommentsSection`, one component for the application page AND the shortlist's comment
-  dialog; `listApplicationActivity`, admins only, comments left out; anybody else sees no tabs). **Votes are never reset**: `amount_amended_at`
+  dialog; `listApplicationActivity`, comments left out). **Every role reads Activity** since 2026-10-09,
+  because a trustee voting on a moved amount needs the reason; money entries are withheld from
+  whoever `canSeePayments` refuses. The shortlist card previews the latest comment above a split
+  Comments | Activity button, and strikes the ask through beside a proposal. **Votes are never reset**: `amount_amended_at`
   against `application_votes.updated_at` tells the card which votes predate the figure.
   ONE dialog (`AmountDialog`) asks both figures, from the shortlist card, the application's
   Amount proposed card, and the enforced-budget shortlist step. **Not an `EditableSlot`

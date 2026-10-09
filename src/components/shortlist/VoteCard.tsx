@@ -9,6 +9,7 @@ import {
   CancelCircleIcon,
   CheckmarkCircle02Icon,
   ClipboardCheckIcon,
+  HistoryIcon,
   Message01Icon,
   PencilEdit02Icon,
 } from '@hugeicons/core-free-icons'
@@ -18,8 +19,8 @@ import type { DeprivationResult } from '../../lib/deprivation/types'
 import type { OrganisationProfile } from '../../lib/dueDiligence/types'
 import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import { fmtExact, fmtMoney, fmtPerYear } from '../../lib/format'
-import { Avatar, ErrorNote, TextLink, initials } from '../ui'
+import { fmtExact, fmtMoney, fmtPerYear, fmtSince } from '../../lib/format'
+import { Avatar, ErrorNote, TextLink, initials, useClamp } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
 import { majorityOf } from '../../lib/voting'
@@ -49,6 +50,8 @@ const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<
 export type VoteCardApplication = {
   id: string
   organisationName: string
+  /** The applicant's own description; the register's `activities` stands in for it. */
+  organisationSummary: string | null
   amountRequested: string | null
   charityNumber: string | null
   companyNumber: string | null
@@ -90,6 +93,14 @@ export type VoteCardApplication = {
   hasMajority: boolean
   oneVoteShort: boolean
   commentCount: number
+  /** The newest remark, previewed above the split button; null = no discussion yet. */
+  latestComment: {
+    body: string
+    createdAt: string | Date
+    user: { id: string; name: string; image: string | null }
+  } | null
+  /** What `applicationActivity` would list for a trustee: no comments, no money. */
+  activityCount: number
 }
 
 /**
@@ -379,6 +390,74 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * A section of the card's prose, painted three lines deep (`useClamp`). Ten cards of
+ * full answers was most of the screen; a trustee reads three lines of each and opens the
+ * one they are unsure about. The HEADING is the control, its chevron right beside the
+ * word: the chevron this replaced sat at the far end of the heading line, a long way from
+ * where reading starts, and was missed. The text opens it too, for the mouse. Unclamped
+ * on paper, where there is nothing to press.
+ */
+function ClampedSection({
+  label,
+  text,
+  toggleLabel,
+  assessment = false,
+}: {
+  label: string
+  text: string
+  toggleLabel: string
+  /** The AI's words, set off by the brand rule as before. */
+  assessment?: boolean
+}) {
+  const clamp = useClamp(text, 3)
+  const expandable = clamp.clipped || clamp.open
+  return (
+    <div>
+      {expandable ? (
+        <button
+          type="button"
+          onClick={clamp.toggle}
+          aria-expanded={clamp.open}
+          title={clamp.open ? 'Show less' : toggleLabel}
+          className="flex items-center gap-1 font-display text-label font-medium hover:underline print:pointer-events-none"
+          style={{ color: C.brand }}
+        >
+          {label}
+          <span className="print:hidden">
+            <HugeiconsIcon
+              icon={clamp.open ? ArrowUp01Icon : ArrowDown01Icon}
+              size={14}
+              strokeWidth={1.8}
+            />
+          </span>
+        </button>
+      ) : (
+        <SectionLabel>{label}</SectionLabel>
+      )}
+      {/* A click that ends a text selection is somebody copying a line, not asking to
+          toggle. */}
+      <p
+        ref={clamp.ref}
+        onClick={
+          expandable
+            ? () => {
+                if (window.getSelection()?.toString()) return
+                clamp.toggle()
+              }
+            : undefined
+        }
+        className={`mt-1 font-display text-body leading-relaxed whitespace-pre-line print:line-clamp-none ${
+          assessment ? 'border-l-2 pl-3' : ''
+        } ${expandable ? 'cursor-pointer' : ''} ${clamp.className ?? ''}`}
+        style={{ color: C.body, borderColor: assessment ? C.brand : undefined }}
+      >
+        {text}
+      </p>
+    </div>
+  )
+}
+
+/**
  * One shortlisted application, as a board member meets it (Figma 765:3270): what is
  * being asked for, what the model made of it, and where the vote stands — with the vote
  * controls in the same card, so deciding never means leaving the list.
@@ -412,7 +491,7 @@ export function VoteCard({
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showComments, setShowComments] = useState(false)
+  const [showComments, setShowComments] = useState<'comments' | 'activity' | null>(null)
   const [changing, setChanging] = useState(false)
   const [editingAmount, setEditingAmount] = useState(false)
   // Closed until asked for: a card is read for the ask, the assessment and the vote, and
@@ -505,6 +584,8 @@ export function VoteCard({
   const subline = deliveryAreaLabel(app) ?? ''
 
   const flags = detail?.flags ?? []
+  const orgSummary =
+    app.organisationSummary?.trim() || app.organisationProfile?.activities?.trim() || null
 
   // The comps drop due diligence from this card entirely, which is right while it is
   // clear and wrong the moment it is not: a board must not approve a grant to a charity
@@ -680,35 +761,44 @@ export function VoteCard({
                     }`
                   : (fmtPerYear(amount, years) ?? (amended ? null : 'requested'))}
                 {/* The ask, on the same line and only where the proposal differs from it:
-                    an unamended card reads exactly as it always has. Bracketed after a
-                    term or yearly figure; alone on a single-year grant, which has neither. */}
-                {amended &&
-                  (multiYear || fmtPerYear(amount, years)
-                    ? ` (${fmtMoney(requested)} requested)`
-                    : `${fmtMoney(requested)} requested`)}
+                    an unamended card reads exactly as it always has. Struck through,
+                    because it is the figure the proposal replaced; who changed it and
+                    why is the Activity half of the button in the vote column. */}
+                {amended && (
+                  <>
+                    {multiYear || fmtPerYear(amount, years) ? ' · asked ' : 'asked '}
+                    <s>{fmtMoney(requested)}</s>
+                  </>
+                )}
               </div>
             </div>
           </div>
 
+          {/* Who they are, before what they want: the applicant's own description,
+              else the Charity Commission's (a company's register entry has none). */}
+          {orgSummary && (
+            <ClampedSection
+              label="Organisation summary"
+              text={orgSummary}
+              toggleLabel="Read the full organisation summary"
+            />
+          )}
+
           {app.grantPurpose && (
-            <div>
-              <SectionLabel>Grant purpose</SectionLabel>
-              <p className="mt-1 font-display text-body leading-relaxed" style={{ color: C.body }}>
-                {app.grantPurpose}
-              </p>
-            </div>
+            <ClampedSection
+              label="Grant purpose"
+              text={app.grantPurpose}
+              toggleLabel="Read the full purpose"
+            />
           )}
 
           {detail?.summary && (
-            <div>
-              <SectionLabel>AI assessment</SectionLabel>
-              <p
-                className="mt-1 border-l-2 pl-3 font-display text-body leading-relaxed"
-                style={{ color: C.body, borderColor: C.brand }}
-              >
-                {detail.summary}
-              </p>
-            </div>
+            <ClampedSection
+              label="AI assessment"
+              text={detail.summary}
+              toggleLabel="Read the full assessment"
+              assessment
+            />
           )}
 
           {flags.length > 0 && (
@@ -880,20 +970,70 @@ export function VoteCard({
             </div>
           )}
 
-          {/* The comps put a bare comment box here. It is replaced by the count, which
-              opens the thread — see `CommentsDialog` on why writing into a discussion
-              you cannot read is the one thing this control must not be. */}
-          <button
-            type="button"
-            onClick={() => setShowComments(true)}
-            className="flex h-8 items-center justify-center gap-1.5 rounded-control border bg-white font-display text-label font-medium transition-colors hover:bg-grey-50 print:hidden"
-            style={{ borderColor: C.line, color: C.ink }}
+          {/* The comps put a bare comment box here. It is replaced by the latest remark
+              and a split button that opens the thread on either tab — see
+              `CommentsDialog` on why writing into a discussion you cannot read is the one
+              thing this control must not be. Activity is the other half because a change
+              to the amount is news to a board that has half voted on it. */}
+          <div
+            className="flex flex-col overflow-hidden rounded-control border print:hidden"
+            style={{ borderColor: C.line }}
           >
-            <HugeiconsIcon icon={Message01Icon} size={14} color={C.sub} strokeWidth={1.8} />
-            {app.commentCount === 0
-              ? 'Add a comment'
-              : `${app.commentCount} comment${app.commentCount === 1 ? '' : 's'}`}
-          </button>
+            {app.latestComment && (
+              <button
+                type="button"
+                onClick={() => setShowComments('comments')}
+                className="flex flex-col gap-1 border-b px-3 py-2.5 text-left transition-colors hover:bg-grey-50"
+                style={{ borderColor: C.line }}
+              >
+                <span className="flex min-w-0 items-center gap-1.5 font-display text-label">
+                  <Avatar
+                    name={app.latestComment.user.name}
+                    image={app.latestComment.user.image}
+                    size={20}
+                  />
+                  <span className="min-w-0 truncate font-medium" style={{ color: C.ink }}>
+                    {app.latestComment.user.name}
+                  </span>
+                  <span className="ml-auto shrink-0" style={{ color: C.faint }}>
+                    {fmtSince(app.latestComment.createdAt)}
+                  </span>
+                </span>
+                <span
+                  className="line-clamp-2 font-display text-label leading-snug"
+                  style={{ color: C.body }}
+                >
+                  {app.latestComment.body}
+                </span>
+              </button>
+            )}
+            <div className="flex">
+              <button
+                type="button"
+                onClick={() => setShowComments('comments')}
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 font-display text-label font-medium transition-colors hover:bg-grey-50"
+                style={{ color: C.ink }}
+              >
+                <HugeiconsIcon icon={Message01Icon} size={14} color={C.sub} strokeWidth={1.8} />
+                {app.commentCount === 0
+                  ? 'Add a comment'
+                  : `${app.commentCount} comment${app.commentCount === 1 ? '' : 's'}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowComments('activity')}
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 border-l font-display text-label font-medium transition-colors hover:bg-grey-50"
+                style={{ borderColor: C.line, color: C.ink }}
+              >
+                {/* The glyph Settings' Activity tile wears, so the two read as one thing. */}
+                <HugeiconsIcon icon={HistoryIcon} size={14} color={C.sub} strokeWidth={1.8} />
+                Activity
+                {app.activityCount > 0 && (
+                  <span style={{ color: C.faint }}>{app.activityCount}</span>
+                )}
+              </button>
+            </div>
+          </div>
 
           {canVoteAsSelf && (myVote === undefined || changing) && (
             <div className="flex flex-col gap-2 print:hidden">
@@ -1015,7 +1155,8 @@ export function VoteCard({
           organisationName={app.organisationName}
           userId={userId}
           userRole={userRole}
-          onClose={() => setShowComments(false)}
+          initialTab={showComments}
+          onClose={() => setShowComments(null)}
           onChanged={() => router.invalidate()}
         />
       )}

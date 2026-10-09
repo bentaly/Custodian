@@ -6,6 +6,7 @@ import { auditLog, applications, users } from '../../../drizzle/schema'
 import { requireRole } from '../session'
 import { assertApplicationAccess } from '../scope'
 import { applicationActivity } from '../applicationActivity'
+import { canSeePayments } from '../../lib/roles'
 import { actionsInCategory, auditDetail, auditSubject, type AuditAction } from '../../lib/audit'
 
 // The Activity screen: the whole audit log for one foundation, filtered and paged.
@@ -146,15 +147,16 @@ export const listActivityActors = createServerFn({ method: 'GET' }).handler(asyn
 /**
  * One application's own activity, for the Activity tab beside its comments.
  *
- * Admins only, like the rest of this file; the tab is not drawn for anybody else, and
- * this is the boundary that makes that true. A server fn of its own rather than part of
- * `getApplication`, because the same tab opens from the shortlist's comment button, where
- * no application has been loaded.
+ * The one fn in this file that is NOT admins only: a trustee voting on the shortlist
+ * needs to see that the amount changed and why, so every role reads it, with money
+ * withheld from those `canSeePayments` refuses. A server fn of its own rather than part
+ * of `getApplication`, because the same tab opens from the shortlist card, where no
+ * application has been loaded.
  */
 export const listApplicationActivity = createServerFn({ method: 'GET' })
   .validator(z.object({ applicationId: z.uuid() }))
   .handler(async ({ data }) => {
-    const user = await requireRole('superadmin', 'admin')
+    const user = await requireRole('superadmin', 'admin', 'trustee', 'finance')
     await assertApplicationAccess(user, data.applicationId)
-    return applicationActivity(data.applicationId)
+    return applicationActivity(data.applicationId, { withMoney: canSeePayments(user.role) })
   })

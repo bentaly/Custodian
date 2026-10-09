@@ -11,8 +11,9 @@ import { CommentsSection } from '../CommentsSection'
 //
 // It is the SAME component as the application screen's (`CommentsSection`), not a second
 // drawing of the same thread: this used to be its own implementation, which is how the
-// two came to look different and how a change to one (the Activity tab an admin now
-// gets) would have had to be made twice. This file is only the frame around it.
+// two came to look different and how a change to one (the Activity tab) would have had
+// to be made twice. This file is only the frame around it. The card's split button opens
+// it on either tab.
 
 export function CommentsDialog({
   applicationId,
@@ -21,6 +22,7 @@ export function CommentsDialog({
   userRole,
   onClose,
   onChanged,
+  initialTab,
 }: {
   applicationId: string
   organisationName: string
@@ -30,6 +32,7 @@ export function CommentsDialog({
   onClose: () => void
   /** Fired after a comment lands or goes, so the card's count can catch up. */
   onChanged: () => void
+  initialTab?: 'comments' | 'activity'
 }) {
   return (
     <Dialog
@@ -49,6 +52,7 @@ export function CommentsDialog({
         userId={userId}
         userRole={userRole}
         onChanged={onChanged}
+        initialTab={initialTab}
       />
     </Dialog>
   )
