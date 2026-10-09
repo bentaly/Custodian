@@ -12,7 +12,7 @@ export {
 export { Panel, PanelTitle, KeyFact, HeaderPill, DetailHeader } from './Detail'
 export { CardTitle, DetailRow, Dot, ThemePill, ThemePills } from './DetailCard'
 export { Input, Textarea, Select, Label, FIELD_SURFACE } from './fields'
-export { BulletTextarea, BulletText } from './BulletTextarea'
+export { RichNote } from './RichNote'
 export { MoneyInput } from './MoneyInput'
 export { CompactMoney } from './CompactMoney'
 export { Listbox, ListboxPanel, MultiListbox, type ListboxOption } from './Listbox'

@@ -5,8 +5,7 @@ import type { ApplicationActivityRow } from '../server/applicationActivity'
 import { ACTION_LABEL } from '../lib/audit'
 import { fmtDateTime, fmtSince } from '../lib/format'
 import { messageFor } from '../lib/errors'
-import { BulletText, Button, Tabs } from './ui'
-import { hasBullets } from '../lib/bulletText'
+import { Button, RichNote, Tabs } from './ui'
 import { C as TOKENS } from './ui/tokens'
 
 // Figma node 435:42458 — the full-width comment panel on the application detail
@@ -368,17 +367,12 @@ function ActivityList({ activity }: { activity: ApplicationActivityRow[] | null 
             <span className="font-medium">{ACTION_LABEL[entry.action]}</span>
             {entry.detail && <span style={{ color: C.sub }}> · {entry.detail}</span>}
           </p>
-          {entry.note &&
-            (hasBullets(entry.note) ? (
-              // A list in quotation marks reads as a typo, so a bulleted reason drops them.
-              <div className="font-display text-body" style={{ color: C.body }}>
-                <BulletText text={entry.note} />
-              </div>
-            ) : (
-              <p className="whitespace-pre-wrap font-display text-body" style={{ color: C.body }}>
-                “{entry.note}”
-              </p>
-            ))}
+          {entry.note && (
+            // Quoted when it is one paragraph; a list in quotation marks reads as a typo.
+            <div className="font-display text-body" style={{ color: C.body }}>
+              <RichNote text={entry.note} quoted />
+            </div>
+          )}
           <p className="font-display text-label" style={{ color: C.faint }}>
             {entry.actorName ?? 'Someone since removed'} · {fmtDateTime(entry.at) ?? '--'}
           </p>

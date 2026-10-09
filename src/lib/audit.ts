@@ -8,6 +8,7 @@
 // import a module that pulls `getDb` into the browser bundle.
 
 import { ROLE_LABELS } from './roles'
+import { noteAsPlainText } from './richNote'
 
 /**
  * Every human action the platform records.
@@ -447,7 +448,8 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
       const requested = pounds('requested')
       // The reason given with the change, where there was one. Clipped here, for a
       // table cell; the application's own Activity section shows it whole.
-      const note = str(metadata, 'note')
+      const raw = str(metadata, 'note')
+      const note = raw ? noteAsPlainText(raw) : null
       parts.push(
         change(pounds('from') ?? requested, pounds('to') ?? requested),
         requested ? `requested ${requested}` : null,

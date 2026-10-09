@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from './ui/Button'
 import { Dialog } from './ui/Dialog'
 import { Label } from './ui/fields'
-import { BulletTextarea } from './ui/BulletTextarea'
+import { RichTextEditor } from './RichTextEditor'
 import { MoneyInput } from './ui/MoneyInput'
 import { C } from './ui/tokens'
 import { fmtMoney } from '../lib/format'
@@ -252,13 +252,14 @@ export function AmountDialog({
 
         {amountChanged && !amountInvalid && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="amount-note">Reason (optional)</Label>
-            <BulletTextarea
-              id="amount-note"
-              rows={4}
-              value={note}
-              onValueChange={setNote}
+            <Label>Reason (optional)</Label>
+            <RichTextEditor
+              compact
+              defaultValue={note}
+              onChange={setNote}
               disabled={busy}
+              minHeight="96px"
+              ariaLabel="Reason (optional)"
               placeholder="Recorded with the change, for admins to see"
             />
           </div>
