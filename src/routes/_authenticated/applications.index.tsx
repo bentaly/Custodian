@@ -152,15 +152,6 @@ export const Route = createFileRoute('/_authenticated/applications/')({
   component: ApplicationsList,
 })
 
-// ─── Formatting ──────────────────────────────────────────────────────────────────
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '--'
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
-}
-
 // Application status → pill colour. Colours follow the Figma table (amber in review,
 // green shortlisted, brand-green awarded, red declined). The *label* is not repeated
 // here — it comes from `applicationStatusLabel`, so the pill and the filter that
