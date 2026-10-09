@@ -10,6 +10,7 @@ import {
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
 import { anyOf, anyTag } from '../filterSql'
+import { organisationSummarySql } from '../organisationSummary'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
 import { UNSCHEDULED_REPORT_LABEL } from '../../lib/reportLabel'
 
@@ -61,6 +62,8 @@ function grantColumns() {
     awardId: sql<string>`${awards.id}`.as('award_id'),
     applicationId: sql<string>`${applications.id}`.as('application_id'),
     organisationName: sql<string>`${applications.organisationName}`.as('organisation_name'),
+    /** For the tooltip on the name. See `organisationSummarySql`. */
+    organisationSummary: organisationSummarySql(applications).as('organisation_summary'),
     /** The foundation's own reference for the grant — the row's subtext, as elsewhere. */
     externalApplicationId: sql<string | null>`${applications.externalApplicationId}`.as(
       'external_application_id',

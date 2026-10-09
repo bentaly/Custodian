@@ -32,7 +32,7 @@ import {
   StatusPill,
   TruncatedList,
   TruncatedText,
-  initials,
+  OrganisationCell,
   CompactMoney,
   type TableColumn,
 } from '../../components/ui'
@@ -142,29 +142,6 @@ function AiScoreCell({ status, score }: { status: string; score: number | null }
   )
 }
 
-function OrganisationCell({ name, subline }: { name: string; subline: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className="flex size-10 shrink-0 items-center justify-center rounded-chip"
-        style={{ backgroundColor: C.wash }}
-      >
-        <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
-          {initials(name)}
-        </span>
-      </div>
-      <div className="min-w-0">
-        <p className="truncate font-display text-body font-medium" style={{ color: C.ink }}>
-          {name}
-        </p>
-        <p className="truncate font-display text-label" style={{ color: C.sub }}>
-          {subline || '--'}
-        </p>
-      </div>
-    </div>
-  )
-}
-
 // No trailing arrow column: the whole row opens the flow, so a chevron would be a
 // second affordance for the same click.
 const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
@@ -174,6 +151,7 @@ const CANDIDATE_COLUMNS: TableColumn<AwardCandidate>[] = [
     cell: (c) => (
       <OrganisationCell
         name={c.organisationName}
+        summary={c.organisationSummary}
         subline={[
           c.charityNumber ? 'Reg. charity' : c.companyNumber ? 'Company' : null,
           c.deliveryArea,
@@ -259,6 +237,7 @@ const AWARDED_COLUMNS: TableColumn<AwardedRow>[] = [
     cell: (a) => (
       <OrganisationCell
         name={a.organisationName}
+        summary={a.organisationSummary}
         subline={[a.programmeName, a.deliveryArea].filter(Boolean).join(' · ')}
       />
     ),

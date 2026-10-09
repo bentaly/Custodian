@@ -83,7 +83,7 @@ import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/type
 import type { OrganisationProfile } from '../../lib/dueDiligence'
 import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
-import { fmtDate, fmtDuration, fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
+import { fmtDate, fmtDuration, fmtExact, fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { colourSeries } from '../../lib/programmeColours'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import {
@@ -1601,7 +1601,7 @@ function ApplicationDetail() {
               sub={
                 <>
                   {proposedImpact != null
-                    ? `${unitLabel.toLowerCase()}${costPerBeneficiary != null ? ` · ${fmtMoney(costPerBeneficiary)} each` : ''}`
+                    ? `${unitLabel.toLowerCase()}${costPerBeneficiary != null ? ` · ${fmtExact(costPerBeneficiary)} each` : ''}`
                     : 'not stated'}{' '}
                 </>
               }

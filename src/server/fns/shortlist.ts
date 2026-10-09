@@ -11,6 +11,7 @@ import {
 } from '../../../drizzle/schema'
 import { requireAuthUser } from '../session'
 import { intersectScope, visibleRoundProgrammeIds } from '../scope'
+import { organisationSummarySql } from '../organisationSummary'
 import { roundProgrammeSpend, roundProgrammeYear } from '../applications/roundSpend'
 import { DEFAULT_FY_END_MONTH, type FinancialYear } from '../../lib/financialYear'
 import { isSuggestedFirstYear, resolveFirstYearAmount } from '../../lib/multiYear'
@@ -129,6 +130,11 @@ export async function shortlistData(
           roundProgrammeIds ? inArray(a.roundProgrammeId, roundProgrammeIds) : undefined,
         ),
       columns: SHORTLIST_COLUMNS,
+      // The preview, not the column: an applicant's own description runs to thousands of
+      // characters, and the card only shows it in the name's tooltip.
+      extras: (t) => ({
+        organisationSummary: organisationSummarySql(t).as('organisation_summary_preview'),
+      }),
       with: { roundProgramme: { with: { programme: true, round: true } } },
       orderBy: (a, { desc, asc }) => [desc(a.custodianScore), asc(a.organisationName)],
     })

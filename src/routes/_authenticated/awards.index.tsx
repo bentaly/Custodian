@@ -97,6 +97,7 @@ const AWARD_COLUMNS: TableColumn<AwardItem>[] = [
     cell: (g) => (
       <OrganisationCell
         name={g.organisationName}
+        summary={g.organisationSummary}
         subline={fmtRef(g.externalApplicationId)}
         imported={g.imported}
         wrapName={(content, className) => (

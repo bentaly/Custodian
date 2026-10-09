@@ -10,6 +10,7 @@ import {
 import { NO_LOCATION, NO_REGION, type DeliveryPlaceKind } from '../../lib/deprivation/types'
 import type { getDb } from '../db'
 import { searchAny } from '../searchTerm'
+import { organisationSummarySql } from '../organisationSummary'
 import { anyOf, anyOfOrNull, anyTag } from '../filterSql'
 
 /**
@@ -87,6 +88,8 @@ export function grantsQuery(db: Db, scope: string[] | undefined) {
       awardId: sql<string>`${awards.id}`.as('award_id'),
       applicationId: sql<string>`${applications.id}`.as('application_id'),
       organisationName: sql<string>`${applications.organisationName}`.as('organisation_name'),
+      /** For the tooltip on the name. See `organisationSummarySql`. */
+      organisationSummary: organisationSummarySql(applications).as('organisation_summary'),
       /** The foundation's own reference for the application this grant came from. */
       externalApplicationId: sql<string | null>`${applications.externalApplicationId}`.as(
         'external_application_id',

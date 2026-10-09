@@ -5,6 +5,8 @@ import { initials } from './Avatar'
 import { TruncatedText } from './TruncatedText'
 import { Tooltip } from './Tooltip'
 import { C } from './tokens'
+import { cn } from './cn'
+import { summaryPreview } from '../../lib/organisationSummary'
 
 /**
  * The grantee, as every list screen names one: a monogram, the organisation, and one
@@ -24,17 +26,27 @@ import { C } from './tokens'
  * Truncation is `TruncatedText`, so a clipped name hands the rest over on hover instead
  * of ending in an ellipsis that leads nowhere. The name was plain `truncate` on all
  * three screens: a long charity name simply stopped, with no way to read the end of it.
+ *
+ * **Hovering the name says who they are** where there is a `summary`: the applicant's
+ * own description, else the register's (`server/organisationSummary`). That tooltip
+ * names the organisation in full above the description, so it takes over from
+ * `TruncatedText`'s rather than sitting inside it: two tooltips on one name would open
+ * together. Without a summary (an imported grant, a form that never asked) the name
+ * behaves exactly as before.
  */
 export function OrganisationCell({
   name,
   subline,
   imported = false,
+  summary,
   wrapName,
 }: {
   name: string
   /** The identifying line beneath. Falls back to `--` when there is nothing to say. */
   subline?: string | null
   imported?: boolean
+  /** Who the organisation is, for the tooltip on its name. Cut down for display here. */
+  summary?: string | null
   /**
    * Wraps the name in this screen's link, where it has one. Given the class the name
    * expects so a caller cannot accidentally drop the truncation. Finance has no link:
@@ -43,7 +55,13 @@ export function OrganisationCell({
   wrapName?: (content: ReactNode, className: string) => ReactNode
 }) {
   const nameClass = 'block min-w-0 font-display text-body font-medium'
-  const label = <TruncatedText text={name} label="Organisation" className={nameClass} />
+  const about = summaryPreview(summary)
+  const label = about ? (
+    <span className={cn(nameClass, 'truncate')}>{name}</span>
+  ) : (
+    <TruncatedText text={name} label="Organisation" className={nameClass} />
+  )
+  const named = wrapName ? wrapName(label, nameClass) : label
 
   return (
     <div className="flex items-center gap-2">
@@ -82,7 +100,15 @@ export function OrganisationCell({
         )}
       </div>
       <div className="min-w-0">
-        {wrapName ? wrapName(label, nameClass) : label}
+        {about ? (
+          // A link already takes focus and names itself; only a bare name needs the
+          // focusable wrapper.
+          <AboutOrganisation name={name} summary={about} control={!!wrapName}>
+            {named}
+          </AboutOrganisation>
+        ) : (
+          named
+        )}
         <TruncatedText
           text={subline || '--'}
           label="Reference"
@@ -90,5 +116,39 @@ export function OrganisationCell({
         />
       </div>
     </div>
+  )
+}
+
+/**
+ * The name's tooltip on its own, for a screen that names a grantee without the list
+ * cell (the shortlist's vote card). Renders `children` untouched when there is nothing
+ * to say about them.
+ */
+export function AboutOrganisation({
+  name,
+  summary,
+  control = false,
+  children,
+}: {
+  name: string
+  summary: string | null | undefined
+  /** `children` is a link or button, which keeps its own tab stop. See `Tooltip`. */
+  control?: boolean
+  children: ReactNode
+}) {
+  const about = summaryPreview(summary)
+  if (!about) return <>{children}</>
+  return (
+    <Tooltip
+      label={`About ${name}`}
+      control={control}
+      trigger={children}
+      className="block min-w-0"
+      triggerClassName="block min-w-0 w-full cursor-default rounded-chip focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden"
+      maxWidth={320}
+    >
+      <span className="block font-medium text-grey-900">{name}</span>
+      <span className="mt-0.5 block">{about}</span>
+    </Tooltip>
   )
 }

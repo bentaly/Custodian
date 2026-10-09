@@ -9,6 +9,7 @@ import {
 } from '../../../drizzle/schema'
 import type { getDb } from '../db'
 import { searchAny } from '../searchTerm'
+import { organisationSummarySql } from '../organisationSummary'
 import { anyOf, anyTag } from '../filterSql'
 import { DUE_SOON_DAYS, addDaysIso, todayIso } from '../../lib/schedule'
 
@@ -152,6 +153,8 @@ export function grantsQuery(db: Db, scope: string[] | null, dates: FinanceDates)
       awardId: sql<string>`${awards.id}`.as('award_id'),
       applicationId: sql<string>`${applications.id}`.as('application_id'),
       organisationName: sql<string>`${applications.organisationName}`.as('organisation_name'),
+      /** For the tooltip on the name. See `organisationSummarySql`. */
+      organisationSummary: organisationSummarySql(applications).as('organisation_summary'),
       /** The foundation's own reference — the row's subtext, and a column in the export. */
       externalApplicationId: sql<string | null>`${applications.externalApplicationId}`.as(
         'external_application_id',
@@ -310,6 +313,7 @@ export function paymentsQuery(db: Db, g: GrantsQuery, { today, soonCutoff }: Fin
       awardId: sql<string>`${grantsCol('award_id')}`.as('award_id'),
       applicationId: g.applicationId,
       organisationName: g.organisationName,
+      organisationSummary: g.organisationSummary,
       externalApplicationId: g.externalApplicationId,
       programmeId: g.programmeId,
       programmeName: g.programmeName,

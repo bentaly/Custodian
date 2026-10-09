@@ -18,8 +18,8 @@ import type { DeprivationResult } from '../../lib/deprivation/types'
 import type { OrganisationProfile } from '../../lib/dueDiligence/types'
 import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
-import { fmtMoney, fmtPerYear } from '../../lib/format'
-import { Avatar, ErrorNote, TextLink, initials } from '../ui'
+import { fmtExact, fmtMoney, fmtPerYear } from '../../lib/format'
+import { AboutOrganisation, Avatar, ErrorNote, TextLink, initials } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
 import { majorityOf } from '../../lib/voting'
@@ -49,6 +49,8 @@ const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<
 export type VoteCardApplication = {
   id: string
   organisationName: string
+  /** The name tooltip's description, already cut to a preview by the server. */
+  organisationSummary: string | null
   amountRequested: string | null
   charityNumber: string | null
   companyNumber: string | null
@@ -536,7 +538,7 @@ export function VoteCard({
     impact !== null
       ? { value: impact.toLocaleString('en-GB'), label: unitLabel.toLowerCase() }
       : null,
-    costPerUnit !== null ? { value: fmtMoney(costPerUnit), label: 'each' } : null,
+    costPerUnit !== null ? { value: fmtExact(costPerUnit), label: 'each' } : null,
     deprivation
       ? { value: `IMD ${formatDecileRange(deprivation).toLowerCase()}`, label: '' }
       : null,
@@ -590,14 +592,22 @@ export function VoteCard({
                 line, where its height pushed the two lines off the monogram. */}
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
               <div className="min-w-0">
-                <Link
-                  to="/applications/$applicationId"
-                  params={{ applicationId: app.id }}
-                  className="block truncate font-display text-title leading-tight font-medium hover:underline"
-                  style={{ color: C.ink }}
+                {/* The name's tooltip says who they are, as on every list: the applicant's
+                    own description, else the register's. */}
+                <AboutOrganisation
+                  name={app.organisationName}
+                  summary={app.organisationSummary}
+                  control
                 >
-                  {app.organisationName}
-                </Link>
+                  <Link
+                    to="/applications/$applicationId"
+                    params={{ applicationId: app.id }}
+                    className="block truncate font-display text-title leading-tight font-medium hover:underline"
+                    style={{ color: C.ink }}
+                  >
+                    {app.organisationName}
+                  </Link>
+                </AboutOrganisation>
                 {(programme?.name || subline) && (
                   <div
                     className="mt-0.5 flex min-w-0 items-center gap-1.5 font-display text-label"
@@ -714,7 +724,7 @@ export function VoteCard({
               >
                 <HugeiconsIcon icon={Alert02Icon} size={14} color={C.amber} strokeWidth={1.8} />
                 <span className="font-display text-label font-medium" style={{ color: C.amber }}>
-                  {flags.length === 1 ? 'One thing to check' : `${flags.length} things to check`}
+                  {flags.length === 1 ? 'One point of note' : `${flags.length} points of note`}
                 </span>
                 <span className="ml-auto print:hidden">
                   <HugeiconsIcon

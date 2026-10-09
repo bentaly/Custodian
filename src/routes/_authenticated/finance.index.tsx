@@ -223,7 +223,14 @@ const ORGANISATION: TableColumn<FinanceRow> = {
   cell: (g) => {
     const subline = [paymentLabel(g), fmtRef(g.externalApplicationId)].filter(Boolean).join(' · ')
     // No link: a row here opens the payment dialog, so the whole row is the target.
-    return <OrganisationCell name={g.organisationName} subline={subline} imported={g.imported} />
+    return (
+      <OrganisationCell
+        name={g.organisationName}
+        summary={g.organisationSummary}
+        subline={subline}
+        imported={g.imported}
+      />
+    )
   },
 }
 

@@ -384,6 +384,7 @@ const APPLICATION_COLUMNS: TableColumn<AppRow>[] = [
       return (
         <OrganisationCell
           name={app.organisationName}
+          summary={app.organisationSummary}
           subline={subline}
           imported={app.importBatchId !== null}
           wrapName={(content, className) => (
