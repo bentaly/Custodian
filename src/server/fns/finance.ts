@@ -562,7 +562,6 @@ function toPaymentRow(r: PaymentRow, includeBankDetails: boolean) {
     awardId: r.awardId,
     applicationId: r.applicationId,
     organisationName: r.organisationName,
-    organisationSummary: r.organisationSummary,
     externalApplicationId: r.externalApplicationId,
     programmeId: r.programmeId,
     programmeName: r.programmeName,

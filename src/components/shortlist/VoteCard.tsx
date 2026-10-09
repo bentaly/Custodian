@@ -19,7 +19,7 @@ import type { OrganisationProfile } from '../../lib/dueDiligence/types'
 import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/types'
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { fmtExact, fmtMoney, fmtPerYear } from '../../lib/format'
-import { AboutOrganisation, Avatar, ErrorNote, TextLink, initials } from '../ui'
+import { Avatar, ErrorNote, TextLink, initials } from '../ui'
 import { POPOVER_LAYER, useAnchoredPopover, useDismiss } from '../ui/popover'
 import { C, bandForScore } from '../ui/tokens'
 import { majorityOf } from '../../lib/voting'
@@ -49,8 +49,6 @@ const CRITERION_KEYS = Object.keys(CRITERION_DEFINITIONS) as Array<
 export type VoteCardApplication = {
   id: string
   organisationName: string
-  /** The name tooltip's description, already cut to a preview by the server. */
-  organisationSummary: string | null
   amountRequested: string | null
   charityNumber: string | null
   companyNumber: string | null
@@ -601,22 +599,14 @@ export function VoteCard({
                 line, where its height pushed the two lines off the monogram. */}
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
               <div className="min-w-0">
-                {/* The name's tooltip says who they are, as on every list: the applicant's
-                    own description, else the register's. */}
-                <AboutOrganisation
-                  name={app.organisationName}
-                  summary={app.organisationSummary}
-                  control
+                <Link
+                  to="/applications/$applicationId"
+                  params={{ applicationId: app.id }}
+                  className="block truncate font-display text-title leading-tight font-medium hover:underline"
+                  style={{ color: C.ink }}
                 >
-                  <Link
-                    to="/applications/$applicationId"
-                    params={{ applicationId: app.id }}
-                    className="block truncate font-display text-title leading-tight font-medium hover:underline"
-                    style={{ color: C.ink }}
-                  >
-                    {app.organisationName}
-                  </Link>
-                </AboutOrganisation>
+                  {app.organisationName}
+                </Link>
                 {(programme?.name || subline) && (
                   <div
                     className="mt-0.5 flex min-w-0 items-center gap-1.5 font-display text-label"
@@ -733,7 +723,7 @@ export function VoteCard({
               >
                 <HugeiconsIcon icon={Alert02Icon} size={14} color={C.amber} strokeWidth={1.8} />
                 <span className="font-display text-label font-medium" style={{ color: C.amber }}>
-                  {flags.length === 1 ? 'One point of note' : `${flags.length} points of note`}
+                  {flags.length === 1 ? 'One thing to check' : `${flags.length} things to check`}
                 </span>
                 <span className="ml-auto print:hidden">
                   <HugeiconsIcon

@@ -64,7 +64,6 @@ export function Tooltip({
   triggerClassName,
   control = false,
   disabled = false,
-  maxWidth = MAX_WIDTH,
 }: {
   /**
    * Accessible name for the trigger, e.g. "About max per award". Ignored when
@@ -106,11 +105,6 @@ export function Tooltip({
    * control remounted under the keyboard loses its focus.
    */
   disabled?: boolean
-  /**
-   * Raises the ceiling for a bubble that holds a paragraph rather than a sentence (an
-   * organisation's description), which at 224px runs a dozen lines deep.
-   */
-  maxWidth?: number
 }) {
   const [wanted, setOpen] = useState(false)
   const open = wanted && !disabled
@@ -241,7 +235,7 @@ export function Tooltip({
             role="tooltip"
             className="pointer-events-none fixed z-[100] block w-max rounded-chip border border-grey-200 bg-white px-3 py-2 font-display text-label leading-snug font-normal text-grey-700 shadow-lg"
             style={{
-              maxWidth,
+              maxWidth: MAX_WIDTH,
               // Rendered before it has been measured so the measurement is possible at
               // all; hidden until then so it is never seen in the top-left corner.
               top: pos?.top ?? 0,

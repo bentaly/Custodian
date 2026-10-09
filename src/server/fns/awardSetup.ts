@@ -6,7 +6,6 @@ import { getDb } from '../db'
 import { letterLogo } from '../logo'
 import { decidedAmount, effectiveAmount } from '../../lib/amountRequested'
 import { isUnnamedOrganisation } from '../../lib/organisationName'
-import { organisationSummarySql } from '../organisationSummary'
 import {
   applicationVotes,
   applications,
@@ -111,9 +110,6 @@ export async function awardCandidatesData(
         deliveryArea: true,
         deprivationContext: true,
       },
-      extras: (t) => ({
-        organisationSummary: organisationSummarySql(t).as('organisation_summary_preview'),
-      }),
       with: { roundProgramme: { with: { programme: true, round: true } } },
       orderBy: (a, { desc }) => [desc(a.amountRequested)],
     })
@@ -154,7 +150,6 @@ export async function awardCandidatesData(
       .map((a) => ({
         id: a.id,
         organisationName: a.organisationName,
-        organisationSummary: a.organisationSummary,
         applicantEmail: a.applicantEmail,
         amountRequested: decidedAmount(a.amountRequested),
         // What the award is pre-filled with: the amount an officer proposed at the
@@ -188,8 +183,6 @@ export async function awardCandidatesData(
 export type AwardCandidate = {
   id: string
   organisationName: string
-  /** For the tooltip on the name: see `organisationSummarySql`. */
-  organisationSummary: string | null
   applicantEmail: string | null
   amountRequested: number
   /** The proposal where one was made, else the ask (`effectiveAmount`). */

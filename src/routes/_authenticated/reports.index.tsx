@@ -21,6 +21,7 @@ import {
   SearchInput,
   Horizon,
   OrganisationCell,
+  initials,
   Pagination,
   StatusPill,
   Tabs,
@@ -125,7 +126,6 @@ const REPORT_COLUMNS: TableColumn<ReportItem>[] = [
       return (
         <OrganisationCell
           name={item.organisationName}
-          summary={item.organisationSummary}
           subline={subline}
           /* The report was recorded as received by the onboarding import: no narrative,
              no analysis, because nothing was ever sent to us. Same mark and same reason
@@ -252,24 +252,32 @@ const AWAITING_COLUMNS: TableColumn<AwaitingItem>[] = [
     sortable: true,
     header: 'Organisation',
     cell: (item) => (
-      <OrganisationCell
-        name={item.organisationName}
-        summary={item.organisationSummary}
-        subline={fmtRef(item.externalApplicationId) ?? '--'}
-        wrapName={(content, className) => (
+      <div className="flex items-center gap-2">
+        <div
+          className="flex size-10 shrink-0 items-center justify-center rounded-chip"
+          style={{ backgroundColor: C.wash }}
+        >
+          <span className="font-display text-body font-semibold" style={{ color: C.ink }}>
+            {initials(item.organisationName)}
+          </span>
+        </div>
+        <div className="min-w-0">
           <Link
             to="/reports/$reportKey"
             params={{ reportKey: item.key }}
             /* As the row click — see the awaiting column above. */
             search={(prev) => parseReportsSearch(prev)}
             onClick={(e) => e.stopPropagation()}
-            className={`${className} hover:underline`}
+            className="block truncate font-display text-body font-medium hover:underline"
             style={{ color: C.ink }}
           >
-            {content}
+            {item.organisationName}
           </Link>
-        )}
-      />
+          <p className="truncate font-display text-label" style={{ color: C.sub }}>
+            {fmtRef(item.externalApplicationId) ?? '--'}
+          </p>
+        </div>
+      </div>
     ),
   },
   {

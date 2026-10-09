@@ -43,7 +43,6 @@ import { editLockReason, namingIsAllowed, rerunBlocker } from '../applications/e
 import { recordRegisterName } from '../applications/create'
 import { isUnnamedOrganisation, tidyRegisteredName } from '../../lib/organisationName'
 import { searchAny } from '../searchTerm'
-import { organisationSummarySql } from '../organisationSummary'
 import { anyOf, anyTag } from '../filterSql'
 import { roundProgrammeSpend, roundProgrammeYear, spentThisYear } from '../applications/roundSpend'
 import { DEFAULT_FY_END_MONTH } from '../../lib/financialYear'
@@ -223,9 +222,6 @@ export const listApplications = createServerFn({ method: 'GET' })
           deliveryArea: true,
           deprivationContext: true,
         },
-        extras: (t) => ({
-          organisationSummary: organisationSummarySql(t).as('organisation_summary_preview'),
-        }),
         with: {
           roundProgramme: {
             columns: { grantDurationYears: true },
@@ -1318,7 +1314,6 @@ function toAwardRow(r: AwardGrantRow) {
     awardId: r.awardId,
     applicationId: r.applicationId,
     organisationName: r.organisationName,
-    organisationSummary: r.organisationSummary,
     externalApplicationId: r.externalApplicationId,
     programmeName: r.programmeName,
     programmeColour: r.programmeColour,
