@@ -16,6 +16,7 @@ import {
 import { enqueue } from '../pipelineQueue'
 import { scoreApplication } from '../applications/score'
 import { sourcedApplicationValues } from '../sourcing/application'
+import { loadEoiLetterContext } from './eoiLetters'
 import { requireAuthUser, requireRole } from '../session'
 import { assertClientAccess } from '../scope'
 import { facetBy, type FacetOption } from '../../lib/facets'
@@ -232,18 +233,29 @@ export const getEoi = createServerFn({ method: 'GET' })
     if (!row) throw notFoundError()
     assertClientAccess(user, row.clientId)
 
-    const client = await db.query.clients.findFirst({
-      where: (c, { eq }) => eq(c.id, row.clientId),
-      columns: { name: true },
-      with: { profile: { columns: { awardLetterSenderName: true, awardLetterReplyTo: true } } },
-    })
+    const [letters, letter, profile] = await Promise.all([
+      loadEoiLetterContext(row.clientId),
+      db.query.eoiDeclineLetters.findFirst({
+        where: (l, { eq }) => eq(l.eoiId, row.id),
+        columns: { status: true, sentAt: true, failureReason: true, recipientEmail: true },
+      }),
+      db.query.clientProfiles.findFirst({
+        where: (p, { eq }) => eq(p.clientId, row.clientId),
+        columns: { financialYearEndMonth: true },
+      }),
+    ])
     return {
       ...row,
       sender: {
-        foundationName: client?.name ?? '',
-        senderName: client?.profile?.awardLetterSenderName ?? client?.name ?? null,
-        replyTo: client?.profile?.awardLetterReplyTo ?? null,
+        foundationName: letters.foundationName,
+        senderName: letters.senderName,
+        replyTo: letters.replyTo,
       },
+      // The invitation's starting text, from Settings → Letters (`lib/eoiLetters`).
+      invite: { template: letters.inviteTemplate, signatory: letters.signatory },
+      declineLetter: letter ?? null,
+      // For "Of which in 2026/27" on the shortlist dialog: the round's year needs it.
+      financialYearEndMonth: profile?.financialYearEndMonth ?? null,
     }
   })
 
@@ -262,11 +274,12 @@ function stale(status: EoiStatus) {
 }
 
 /**
- * Not taking an EOI forward, or putting one back to review.
+ * Declining an EOI, or putting one back to review.
  *
- * **Nobody is emailed.** Telling an organisation its EOI was unsuccessful is a letter
- * with the same standing as a decline letter, and there is no template or batch for it
- * yet; a status change must not become a message to a third party by the back door.
+ * **Nobody is emailed.** Telling an organisation its EOI was declined is a letter with
+ * the same standing as a decline letter, and it goes out in a batch from the EOI list
+ * (`fns/eoiLetters.ts`) when the foundation is ready; a status change must not become a
+ * message to a third party by the back door.
  */
 export const decideEoi = createServerFn({ method: 'POST' })
   .validator(DecideEoiSchema)
@@ -442,6 +455,9 @@ export const progressEoi = createServerFn({ method: 'POST' })
     assertClientAccess(user, roundProgramme.programme.clientId)
     if (roundProgramme.programme.clientId !== existing.clientId) throw forbidden()
 
+    if (data.firstYearAmount != null && data.firstYearAmount > data.amount + 0.005) {
+      throw badRequest('This year’s share cannot be more than the whole grant.')
+    }
     const applicationId = crypto.randomUUID()
     const values = await sourcedApplicationValues(applicationId, {
       roundProgrammeId: roundProgramme.id,
@@ -450,8 +466,10 @@ export const progressEoi = createServerFn({ method: 'POST' })
       charityNumber: existing.charityNumber,
       companyNumber: existing.companyNumber,
       amount: data.amount,
+      firstYearAmount: data.firstYearAmount ?? null,
       purpose: data.purpose,
-      proposedImpactQuantity: null,
+      proposedImpactQuantity: data.proposedImpactQuantity ?? null,
+      unrestrictedReserves: data.unrestrictedReserves ?? null,
       deliveryArea: data.deliveryArea,
       responses: [
         {

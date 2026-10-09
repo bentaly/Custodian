@@ -39,6 +39,7 @@ export function OutreachDialog({
   contactName,
   programmeName,
   sender,
+  start: startOverride,
   onSend,
   onMarkSent,
   onClose,
@@ -49,18 +50,23 @@ export function OutreachDialog({
   contactName: string | null
   programmeName: string | null
   sender: { foundationName: string; senderName: string | null; replyTo: string | null }
+  /** The starting subject and text, where a foundation has written its own in Settings
+   *  (the EOI invitation). Otherwise the built-in wording for this kind. */
+  start?: { subject: string; body: string }
   /** Rejects with the reason when the email could not be sent. */
   onSend: (values: OutreachValues) => Promise<void>
   /** Record that it was sent some other way. Absent for a plain message. */
   onMarkSent?: () => Promise<void>
   onClose: () => void
 }) {
-  const start = defaultOutreach(kind, {
-    foundationName: sender.foundationName,
-    programmeName,
-    contactName,
-    senderName: sender.senderName,
-  })
+  const start =
+    startOverride ??
+    defaultOutreach(kind, {
+      foundationName: sender.foundationName,
+      programmeName,
+      contactName,
+      senderName: sender.senderName,
+    })
   const needsLink = outreachNeedsLink(kind)
   const [to, setTo] = useState(defaultTo ?? '')
   const [subject, setSubject] = useState(start.subject)

@@ -19,6 +19,7 @@ import { scorePartnership } from '../../server/partnerships/score'
 import { applyAnswer } from '../../server/applications/edit'
 import { analyseReport } from '../../server/reports/analyse'
 import { sendStoredDeclineLetter } from '../../server/declineLetter'
+import { sendStoredEoiDeclineLetter } from '../../server/eoiDeclineLetter'
 import { resolveApplicationDeprivation } from '../../server/applications/deprivation'
 import { screenApplication } from '../../server/applications/dueDiligence'
 import { generatePortfolioAnalysis } from '../../server/portfolioAnalysis/generate'
@@ -85,6 +86,11 @@ export const Route = createFileRoute('/api/internal/pipeline')({
               // throwing: Resend rejecting an address will reject it three more times,
               // and the dialog shows a failed letter for a human to deal with.
               const result = await sendStoredDeclineLetter(message.letterId)
+              return json({ ok: true, result }, 200)
+            }
+            case 'eoi_decline_letter': {
+              // The decline letter's rules exactly: a sent row answers 200 unsent.
+              const result = await sendStoredEoiDeclineLetter(message.letterId)
               return json({ ok: true, result }, 200)
             }
             case 'import_derive': {

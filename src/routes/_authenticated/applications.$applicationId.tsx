@@ -4,8 +4,6 @@ import { parseApplicationsSearch } from '../../lib/listSearch'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
   Coins01Icon,
   CoinsSwapIcon,
   PencilEdit01Icon,
@@ -17,7 +15,6 @@ import {
   File01Icon,
   Mail01Icon,
   Alert02Icon,
-  Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import {
   getApplication,
@@ -74,7 +71,6 @@ import {
 import { applicationStatusLabel } from '../../lib/validators/application'
 import { impactUnitLabel, impactUnitSingular } from '../../lib/impactUnits'
 import {
-  CHECK_DEFINITIONS,
   charityRegisterUrl,
   companiesHouseUrl,
   type DueDiligenceCheckRecord,
@@ -90,6 +86,12 @@ import { budgetDocumentName } from '../../lib/budget/link'
 import { fmtDate, fmtDuration, fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { colourSeries } from '../../lib/programmeColours'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
+import {
+  Disclosure,
+  DueDiligenceChecks,
+  Fact,
+  RegisterCredit,
+} from '../../components/detail/OrganisationParts'
 
 export const Route = createFileRoute('/_authenticated/applications/$applicationId')({
   // This screen has no search state of its own. What it validates is the LIST's — round,
@@ -126,119 +128,6 @@ const KPI = {
 // to take first + last word where the applications table takes the first two, so the same
 // organisation wore two different monograms on the row and the page it opened.)
 // ─── Primitives ──────────────────────────────────────────────────────────────────
-
-/**
- * The "show the rest" control this screen uses twice — under the score's flags and
- * under the due diligence checks. One component, because they sit a screen apart and
- * had already drifted into two different things (an underlined bare `<button>` and
- * nothing at all).
- *
- * A `Button`, not a hand-rolled `<button>`: `secondary` gives it the app's control
- * chrome, so a thing you click looks like a thing you click. The chevron turns over,
- * which is the only part of the state a glance actually reads.
- *
- * Not what the organisation summary uses. That one opens a paragraph inside a card
- * sitting BESIDE the grant purpose, where a full-width button costs a row of height the
- * layout does not have — so it wears `ClampToggle`, a chevron on the heading itself.
- */
-function Disclosure({
-  open,
-  onToggle,
-  showLabel,
-  hideLabel,
-}: {
-  open: boolean
-  onToggle: () => void
-  showLabel: string
-  hideLabel: string
-}) {
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      icon={open ? ArrowUp01Icon : ArrowDown01Icon}
-      iconPosition="right"
-      onClick={onToggle}
-      aria-expanded={open}
-    >
-      {open ? hideLabel : showLabel}
-    </Button>
-  )
-}
-
-/**
- * The register's credit line, as a link to the entry itself where we can address one.
- *
- * The facts under it are a dated snapshot of a public record, so the officer reading
- * them should be one click from the record. `url` is null for a charity screened
- * before the organisation number was captured (the register's URLs take that, not the
- * charity number) — then this states the source and links nowhere, which is the honest
- * answer rather than a guessed URL that 404s in front of a foundation.
- */
-function RegisterCredit({ url, children }: { url: string | null; children: React.ReactNode }) {
-  if (!url) return <>{children}</>
-  const register = String(children)
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline underline-offset-2"
-      title={`Open this entry on the ${register} register`}
-    >
-      {children}
-    </a>
-  )
-}
-
-/**
- * One cell of the organisation panel's fact grid: a label, a figure, and optionally the
- * period or ratio that figure only means something with.
- *
- * `empty` is the load-bearing prop. A missing figure here is never an em dash, because
- * on this panel a dash is ambiguous in the one way the whole ingest design exists to
- * prevent: "£0 of reserves", "the register does not publish it" and "we never asked"
- * are three different facts about a charity, and only one of them is a reason to worry.
- * So the caller states which, and it is set in the muted weight so it never reads as a
- * value. See `fieldGaps` for the same rule applied to the application's own fields.
- */
-function Fact({
-  label,
-  value,
-  empty,
-  note,
-}: {
-  label: string
-  /** `null` means we do not have it — say why in `empty`. A node, not a string, so a
-   *  rounded figure can bring its own exact-value tooltip (`CompactMoney`). */
-  value: React.ReactNode
-  /** What to print instead, in the reader's terms. Defaults to a dash only because a
-   *  few cells are omitted entirely when empty and never reach this. */
-  empty?: string
-  /** The qualifier that makes the figure true — "year to 31 Mar 2025", "~9 months'
-   *  spend". A bare £1.4m reads as today's, and the register is routinely 12-18 months
-   *  behind. */
-  note?: string | null
-}) {
-  return (
-    <div>
-      <dt className="font-display text-label" style={{ color: C.sub }}>
-        {label}
-      </dt>
-      <dd
-        className={`mt-0.5 font-display text-body ${value ? 'font-medium' : ''}`}
-        style={{ color: value ? C.ink : C.faint }}
-      >
-        {value ?? empty ?? '--'}
-      </dd>
-      {value && note && (
-        <dd className="font-display text-label" style={{ color: C.sub }}>
-          {note}
-        </dd>
-      )}
-    </div>
-  )
-}
 
 /**
  * The way out of the one dead end due diligence has: an application with no
@@ -436,7 +325,6 @@ function ApplicationDetail() {
   // Remembered across reloads: a reviewer who works with the passed checks open should
   // not re-open them every morning. Keyed on the PANEL, never on the application —
   // per-row keys would accumulate one per application ever opened and never be cleared.
-  const [showAllDd, setShowAllDd] = useRemembered('application.dd-passed', false)
   const [showAllFlags, setShowAllFlags] = useRemembered('application.flags-all', false)
   const [shortlisting, setShortlisting] = useState(false)
   const [declining, setDeclining] = useState(false)
@@ -537,8 +425,6 @@ function ApplicationDetail() {
   // is somewhere among them. So passed checks are collapsed by default and anything
   // that is NOT a pass (a failure, or a check that couldn't be verified) always shows:
   // hiding a flag behind a toggle is the one thing this panel must never do.
-  const passedDdCount = ddRecords.filter((r) => r.result === 'pass').length
-  const visibleDdRecords = showAllDd ? ddRecords : ddRecords.filter((r) => r.result !== 'pass')
 
   const deprivation = application.deprivationContext as DeprivationContext | null
   const depResolved = application.deprivationStatus === 'resolved' && deprivation != null
@@ -1939,72 +1825,7 @@ function ApplicationDetail() {
             Due diligence checks
           </PanelTitle>
           {ddRecords.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              {visibleDdRecords.map((r, i) => {
-                const def = CHECK_DEFINITIONS[r.key]
-                const ok = r.result === 'pass'
-                const failed = r.result === 'fail'
-                const colour = ok ? C.brand : failed ? C.danger : C.faint
-                return (
-                  <div
-                    key={i}
-                    className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-chip p-3"
-                    style={{ backgroundColor: C.wash }}
-                  >
-                    <span
-                      className="shrink-0 font-display text-label font-medium"
-                      style={{ color: failed ? C.danger : C.ink700 }}
-                    >
-                      {def?.label ?? r.key}
-                    </span>
-                    {/* The outcome side wraps; it does not shrink the label. A 360Giving
-                        prior-funding line names three grants and runs to hundreds of
-                        characters, and `shrink-0` here squeezed "Prior funding history"
-                        into three lines while the detail still ran off the card. */}
-                    <span
-                      className="flex min-w-[12rem] flex-1 items-start justify-end gap-1.5 font-display text-label font-medium"
-                      style={{ color: colour }}
-                    >
-                      {/* A warning leads with its icon — it is the thing to notice, and
-                          the eye should meet it before the sentence. A tick is only the
-                          confirmation of what the line already says, so it follows. */}
-                      {failed && (
-                        <HugeiconsIcon
-                          icon={Alert02Icon}
-                          size={16}
-                          color={colour}
-                          className="mt-px shrink-0"
-                        />
-                      )}
-                      {/* A pass with no detail used to read "Clear", which says only that
-                          the check ran. The definition says what it confirmed. */}
-                      <span className="min-w-0 break-words text-right">
-                        {r.detail ??
-                          (ok ? (def?.passSummary ?? 'Clear') : failed ? 'Flagged' : 'Unverified')}
-                      </span>
-                      {!failed && (
-                        <HugeiconsIcon
-                          icon={Tick01Icon}
-                          size={16}
-                          color={colour}
-                          className="mt-px shrink-0"
-                        />
-                      )}
-                    </span>
-                  </div>
-                )
-              })}
-              {passedDdCount > 0 && (
-                <div className="pt-1">
-                  <Disclosure
-                    open={showAllDd}
-                    onToggle={() => setShowAllDd(!showAllDd)}
-                    showLabel={`Show ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
-                    hideLabel={`Hide ${passedDdCount} passed ${passedDdCount === 1 ? 'check' : 'checks'}`}
-                  />
-                </div>
-              )}
-            </div>
+            <DueDiligenceChecks records={ddRecords} rememberAs="application.dd-passed" />
           ) : noRegistrationNumber ? (
             // "Not screened yet" reads as pending. When there is no registration
             // number it isn't pending — there is nothing to screen against, and no

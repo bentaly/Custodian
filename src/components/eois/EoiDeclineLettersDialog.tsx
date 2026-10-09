@@ -1,47 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  Alert02Icon,
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  CheckmarkCircle02Icon,
-  MailOpen01Icon,
-} from '@hugeicons/core-free-icons'
-import { getDeclineBatch, sendDeclineLetters } from '../../server/fns/declineLetters'
-import { planDeclineBatch, renderDeclineLetter } from '../../lib/declineLetter'
+import { ArrowDown01Icon, ArrowUp01Icon, CheckmarkCircle02Icon } from '@hugeicons/core-free-icons'
+import { getEoiDeclineBatch, sendEoiDeclineLetters } from '../../server/fns/eoiLetters'
+import { planDeclineBatch } from '../../lib/declineLetter'
+import { renderEoiDecline } from '../../lib/eoiLetters'
 import { LetterCarousel } from '../LetterCarousel'
+import { Note } from '../applications/DeclineLettersDialog'
 import { Button, Dialog, ErrorNote } from '../ui'
 import { C } from '../ui/tokens'
 import { fmtDate } from '../../lib/format'
 
-type Batch = Awaited<ReturnType<typeof getDeclineBatch>>
+type Batch = Awaited<ReturnType<typeof getEoiDeclineBatch>>
 type Recipient = Batch['recipients'][number]
 
 /**
- * "Send decline letters" — the last act of a funding round.
+ * "Send decline letters" for one programme's expressions of interest.
  *
- * The dialog is a summary first and a control second, because the thing it does cannot
- * be undone: it emails third parties, under the foundation's name, to say no. So it
- * answers, in this order, the four questions an admin has before pressing it —
- *
- *   who is about to be emailed,          (the list, with the letter they will receive)
- *   who has already been told,           (so a second press is not a mystery)
- *   who cannot be reached,               (no contact email — a loose end for a human)
- *   and what is not decided yet.         (still in review: NOT in this batch, ever)
- *
- * The last of those is the reason the dialog exists rather than a confirm prompt. A
- * round can be closed with applications still unread, and those applicants are waiting
- * on an answer that this button will never send them.
+ * `DeclineLettersDialog`'s twin, built on the same rule (`planDeclineBatch`) so the count
+ * on the button is the count that goes out. Declining an EOI emails nobody; this is
+ * where the foundation tells them, once, when it is ready. What it does not have is the
+ * round's "still in review" warning in the same words: an EOI still to review is simply
+ * not decided yet, and the count is stated so nobody mistakes the batch for everyone.
  */
-export function DeclineLettersDialog({
+export function EoiDeclineLettersDialog({
   open,
-  roundId,
+  programmeId,
   onClose,
   onSent,
 }: {
   open: boolean
-  roundId: string
+  programmeId: string
   onClose: () => void
   onSent: () => void
 }) {
@@ -53,9 +42,6 @@ export function DeclineLettersDialog({
   const [previewIndex, setPreviewIndex] = useState(0)
   const [result, setResult] = useState<{ sent: number; withoutEmail: number } | null>(null)
 
-  // Loaded on open rather than with the screen: it is a handful of queries nobody needs
-  // until they ask, and re-reading each time is what makes the already-notified count
-  // right when the dialog is opened a second time.
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -63,25 +49,16 @@ export function DeclineLettersDialog({
     setError('')
     setResult(null)
     setPreviewIndex(0)
-    getDeclineBatch({ data: { roundId } })
+    getEoiDeclineBatch({ data: { programmeId } })
       .then((b) => !cancelled && setBatch(b))
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [open, roundId])
+  }, [open, programmeId])
 
-  // The same rule the server applies when it writes (`planDeclineBatch`), so the count
-  // on the button is the count that actually goes out.
-  const {
-    toNotify,
-    alreadyNotified,
-    unnamed,
-    unreachable,
-    addressAlreadyWritten,
-    duplicateInBatch,
-  } = useMemo(
+  const plan = useMemo(
     () =>
       planDeclineBatch({
         candidates: batch?.recipients ?? [],
@@ -89,25 +66,26 @@ export function DeclineLettersDialog({
       }),
     [batch],
   )
-
+  const {
+    toNotify,
+    alreadyNotified,
+    unnamed,
+    unreachable,
+    addressAlreadyWritten,
+    duplicateInBatch,
+  } = plan
   const settings = batch?.settings ?? null
 
-  /** The letter this organisation would receive — the same renderer the server stores. */
   function letterFor(r: Recipient) {
-    return renderDeclineLetter({
-      input: {
+    return renderEoiDecline(
+      {
         organisationName: r.organisationName,
         foundationName: settings?.foundationName ?? 'Your Foundation',
-        programmeName: r.programmeName,
-        roundName: batch?.roundName ?? null,
-        reference: r.reference,
-        amountRequested: r.amountRequested,
-        signatory: null,
-        issuedAt: new Date(),
+        programmeName: batch?.programmeName ?? null,
+        signatory: settings?.signatory ?? null,
       },
-      settings: settings?.settings ?? null,
-      awardSignatory: settings?.awardSignatory ?? null,
-    })
+      settings?.declineTemplate,
+    )
   }
 
   async function handleSend() {
@@ -115,8 +93,8 @@ export function DeclineLettersDialog({
     setSending(true)
     setError('')
     try {
-      const res = await sendDeclineLetters({
-        data: { roundId, applicationIds: toNotify.map((r) => r.applicationId) },
+      const res = await sendEoiDeclineLetters({
+        data: { programmeId, eoiIds: toNotify.map((r) => r.eoiId) },
       })
       setResult({ sent: res.sent, withoutEmail: res.withoutEmail })
       onSent()
@@ -127,7 +105,7 @@ export function DeclineLettersDialog({
     }
   }
 
-  const nothingToDo = !loading && toNotify.length === 0
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
 
   return (
     <Dialog
@@ -135,8 +113,8 @@ export function DeclineLettersDialog({
       title="Send decline letters"
       description={
         batch
-          ? `The unsuccessful applicants in ${batch.roundName}.`
-          : 'The unsuccessful applicants in this round.'
+          ? `The declined expressions of interest for ${batch.programmeName}.`
+          : 'The declined expressions of interest for this programme.'
       }
       onClose={onClose}
       busy={sending}
@@ -149,7 +127,7 @@ export function DeclineLettersDialog({
               {result ? 'Done' : 'Cancel'}
             </Button>
             {!result && (
-              <Button onClick={handleSend} disabled={sending || nothingToDo}>
+              <Button onClick={handleSend} disabled={sending || loading || toNotify.length === 0}>
                 {sending
                   ? 'Sending…'
                   : toNotify.length === 1
@@ -180,8 +158,8 @@ export function DeclineLettersDialog({
                 : `${result.sent} letters are on their way`}
             </p>
             <p className="mt-1 font-display text-label leading-relaxed" style={{ color: C.sub }}>
-              They are sent one at a time in the background, so they will not all arrive at once.
-              Anything that fails to send is kept and shown here next time you open this.
+              They are sent one at a time in the background. Anything that fails to send is kept and
+              shown on the expression of interest.
             </p>
           </div>
         </div>
@@ -189,7 +167,6 @@ export function DeclineLettersDialog({
 
       {batch && !result && (
         <div className="flex flex-col gap-4">
-          {/* ── Who is being emailed ── */}
           <div className="overflow-hidden rounded-card border" style={{ borderColor: C.line }}>
             <div
               className="flex items-center justify-between gap-3 px-4 py-3"
@@ -205,12 +182,11 @@ export function DeclineLettersDialog({
                 {toNotify.length}
               </span>
             </div>
-
             {toNotify.length > 0 ? (
               <ul className="max-h-56 overflow-y-auto">
                 {toNotify.map((r, i) => (
                   <li
-                    key={r.applicationId}
+                    key={r.eoiId}
                     className="flex items-center justify-between gap-3 px-4 py-2.5"
                     style={{ borderTop: i > 0 ? `1px solid ${C.line}` : undefined }}
                   >
@@ -231,65 +207,63 @@ export function DeclineLettersDialog({
               </ul>
             ) : (
               <p className="px-4 py-3 font-display text-body" style={{ color: C.sub }}>
-                {/* Say WHICH kind of nothing this is. "No letters to send" over a round
-                    with twelve declined applications reads as a bug unless the reason
-                    is on screen, and the reason is one of three different things. */}
-                {(batch.recipients ?? []).length === 0
-                  ? 'Nobody in this round has been declined yet.'
+                {batch.recipients.length === 0
+                  ? 'Nothing for this programme has been declined yet.'
                   : alreadyNotified.length + addressAlreadyWritten.length > 0
-                    ? 'Everybody declined in this round has already had a letter.'
+                    ? 'Everybody declined here has already had a letter.'
                     : 'Nobody left to write to. See below.'}
               </p>
             )}
           </div>
 
-          {/* ── The three things that are true but not in the batch ── */}
-          {batch.stillInReview > 0 && (
+          {batch.stillToReview > 0 && (
             <Note tone="warning">
               <strong style={{ color: C.ink }}>
-                {batch.stillInReview === 1
-                  ? '1 application in this round is still in review'
-                  : `${batch.stillInReview} applications in this round are still in review`}
+                {plural(
+                  batch.stillToReview,
+                  '1 expression of interest is still to review',
+                  `${batch.stillToReview} expressions of interest are still to review`,
+                )}
               </strong>
-              . No decision has been recorded, so {batch.stillInReview === 1 ? 'it is' : 'they are'}{' '}
-              not in this batch. Decline {batch.stillInReview === 1 ? 'it' : 'them'} first if you
-              mean to tell {batch.stillInReview === 1 ? 'them' : 'them'} too.
+              , so {plural(batch.stillToReview, 'it is', 'they are')} not in this batch. Decline{' '}
+              {plural(batch.stillToReview, 'it', 'them')} first to tell them too.
             </Note>
           )}
-
           {unnamed.length > 0 && (
             <Note tone="warning">
               <strong style={{ color: C.ink }}>
-                {unnamed.length === 1
-                  ? '1 application has no organisation name'
-                  : `${unnamed.length} applications have no organisation name`}
+                {plural(
+                  unnamed.length,
+                  '1 has no organisation name',
+                  `${unnamed.length} have no organisation name`,
+                )}
               </strong>
-              : {unnamed.map((r) => r.organisationName).join(', ')}. No letter is written to them,
-              since it would open with that reference. Add the name on the application, then send
-              again.
+              : {unnamed.map((r) => r.organisationName).join(', ')}. No letter is written to them.
             </Note>
           )}
-
           {unreachable.length > 0 && (
             <Note tone="warning">
               <strong style={{ color: C.ink }}>
-                {unreachable.length === 1
-                  ? '1 organisation has no contact email'
-                  : `${unreachable.length} organisations have no contact email`}
+                {plural(
+                  unreachable.length,
+                  '1 organisation has no contact email',
+                  `${unreachable.length} organisations have no contact email`,
+                )}
               </strong>
               : {unreachable.map((r) => r.organisationName).join(', ')}. Their letter is written and
-              kept, but cannot be sent until an address is on the application.
+              kept, but cannot be sent without an address.
             </Note>
           )}
-
           {addressAlreadyWritten.length > 0 && (
             <Note tone="quiet">
               <strong style={{ color: C.ink }}>
-                {addressAlreadyWritten.length === 1
-                  ? '1 address has already had a decline letter'
-                  : `${addressAlreadyWritten.length} addresses have already had a decline letter`}
+                {plural(
+                  addressAlreadyWritten.length,
+                  '1 address has already had an EOI decline letter',
+                  `${addressAlreadyWritten.length} addresses have already had an EOI decline letter`,
+                )}
               </strong>
-              . No address is ever written to twice.{' '}
+              . No address is written to twice.{' '}
               {addressAlreadyWritten
                 .map((r) =>
                   [
@@ -304,45 +278,39 @@ export function DeclineLettersDialog({
               .
             </Note>
           )}
-
           {duplicateInBatch.length > 0 && (
             <Note tone="quiet">
               <strong style={{ color: C.ink }}>
-                {duplicateInBatch.length === 1
-                  ? '1 application shares an address with another in this round'
-                  : `${duplicateInBatch.length} applications share an address with another in this round`}
+                {plural(
+                  duplicateInBatch.length,
+                  '1 shares an address with another here',
+                  `${duplicateInBatch.length} share an address with another here`,
+                )}
               </strong>
               : {duplicateInBatch.map((r) => r.organisationName).join(', ')}. One letter goes to
-              each address, not one per application.
+              each address.
             </Note>
           )}
-
           {alreadyNotified.length > 0 && (
             <Note tone="quiet">
               <strong style={{ color: C.ink }}>
-                {alreadyNotified.length === 1
-                  ? '1 organisation has already been told'
-                  : `${alreadyNotified.length} organisations have already been told`}
+                {plural(
+                  alreadyNotified.length,
+                  '1 organisation has already been told',
+                  `${alreadyNotified.length} organisations have already been told`,
+                )}
               </strong>
-              . Nobody is emailed twice.{' '}
-              {(() => {
-                const failed = alreadyNotified.filter((r) => r.letterStatus === 'failed')
-                if (failed.length === 0) return null
-                return `${failed.length} of those letters failed to send (${failed
-                  .map((r) => r.organisationName)
-                  .join(', ')}).`
-              })()}
+              . Nobody is emailed twice.
             </Note>
           )}
 
-          {/* ── The letter itself ── */}
           {toNotify.length > 0 && (
             <div>
               <div className="rounded-card border" style={{ borderColor: C.line }}>
                 <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="font-display text-body font-medium" style={{ color: C.ink }}>
-                      {settings?.settings.template
+                      {settings?.declineTemplate
                         ? 'Your decline letter'
                         : 'Standard decline letter'}
                     </div>
@@ -385,7 +353,7 @@ export function DeclineLettersDialog({
                 )}
                 <Link
                   to="/settings/letters"
-                  search={{ tab: 'decline' }}
+                  search={{ tab: 'eoi' }}
                   className="font-medium hover:underline"
                   style={{ color: C.brand }}
                 >
@@ -398,36 +366,5 @@ export function DeclineLettersDialog({
         </div>
       )}
     </Dialog>
-  )
-}
-
-/**
- * The dialog's asides. Amber where something is left undone, quiet where it is merely
- * worth knowing — the same distinction `AwardWizard` draws between a problem that gates
- * and a fact that informs.
- */
-export function Note({ tone, children }: { tone: 'warning' | 'quiet'; children: React.ReactNode }) {
-  const warning = tone === 'warning'
-  return (
-    <div
-      className="flex items-start gap-2.5 rounded-card px-4 py-3 font-display text-label leading-relaxed"
-      style={{
-        backgroundColor: warning ? C.warningWash : C.wash,
-        color: C.sub,
-      }}
-    >
-      {warning && (
-        <HugeiconsIcon icon={Alert02Icon} size={16} color={C.warning} className="mt-0.5 shrink-0" />
-      )}
-      {!warning && (
-        <HugeiconsIcon
-          icon={MailOpen01Icon}
-          size={16}
-          color={C.faint}
-          className="mt-0.5 shrink-0"
-        />
-      )}
-      <p>{children}</p>
-    </div>
   )
 }

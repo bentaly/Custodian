@@ -76,7 +76,7 @@ export function LetterSendingForm({
     <Panel label="How your letters are sent">
       <PanelTitle>How your letters are sent</PanelTitle>
       <p className="-mt-2 mb-4 font-display text-body leading-relaxed" style={{ color: C.sub }}>
-        Both letters below are sent under your foundation’s name, and replies reach you at the
+        The letters below are sent under your foundation’s name, and replies reach you at the
         address set below.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">

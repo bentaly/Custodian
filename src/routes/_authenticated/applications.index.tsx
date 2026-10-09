@@ -30,6 +30,7 @@ import { BarMeter, withAlpha } from '../../components/BarMeter'
 import { UnplacedBanner } from '../../components/applications/UnplacedBanner'
 import { AiScoreCell, DueDiligenceCell } from '../../components/applications/cells'
 import { DeclineLettersDialog } from '../../components/applications/DeclineLettersDialog'
+import { EoiDeclineLettersDialog } from '../../components/eois/EoiDeclineLettersDialog'
 import {
   DataTable,
   DateRangePicker,
@@ -816,6 +817,9 @@ function ApplicationsList() {
   // on the selection: it emails the round's declined applications, which is a fact about
   // the round rather than about whatever is on screen. See `DeclineLettersDialog`.
   const [decliningOpen, setDecliningOpen] = useState(false)
+  // On the EOI view the button is the programme's EOI decline letters instead: those
+  // belong to the programme rather than the round, and need no round to have closed.
+  const [eoiDecliningOpen, setEoiDecliningOpen] = useState(false)
   const canSendDeclines = canSetStatus && roundStatus === 'closed' && !!roundId
 
   // The programme's expressions of interest, every tab, with one column per question
@@ -890,15 +894,25 @@ function ApplicationsList() {
               export and the switch both follow the programme picked in the card below:
               that programme's applications, or its EOIs. */}
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            {canSendDeclines && (
-              <Button
-                icon={MailSend01Icon}
-                iconPosition="right"
-                onClick={() => setDecliningOpen(true)}
-              >
-                Send decline letters
-              </Button>
-            )}
+            {showingEois
+              ? canSetStatus && (
+                  <Button
+                    icon={MailSend01Icon}
+                    iconPosition="right"
+                    onClick={() => setEoiDecliningOpen(true)}
+                  >
+                    Send decline letters
+                  </Button>
+                )
+              : canSendDeclines && (
+                  <Button
+                    icon={MailSend01Icon}
+                    iconPosition="right"
+                    onClick={() => setDecliningOpen(true)}
+                  >
+                    Send decline letters
+                  </Button>
+                )}
             <ExportButton
               // Matches Shortlist's: small, so it sits level with the switch beside it.
               size="sm"
@@ -1109,6 +1123,15 @@ function ApplicationsList() {
           </>
         )}
       </div>
+
+      {showingEois && programmeId && (
+        <EoiDeclineLettersDialog
+          open={eoiDecliningOpen}
+          programmeId={programmeId}
+          onClose={() => setEoiDecliningOpen(false)}
+          onSent={() => router.invalidate()}
+        />
+      )}
 
       {roundId && (
         <DeclineLettersDialog

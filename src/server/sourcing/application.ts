@@ -35,8 +35,13 @@ export type SourcedApplicationInput = {
   charityNumber: string | null
   companyNumber: string | null
   amount: number
+  /** This financial year's share where somebody stated one; null = the suggestion
+   *  (amount ÷ the round-programme's grant duration), as everywhere else. */
+  firstYearAmount?: number | null
   purpose: string | null
   proposedImpactQuantity: string | null
+  /** The applicant's own figure: no register publishes it. */
+  unrestrictedReserves?: number | null
   deliveryArea: string | null
   /** What stands in for a form's answers, labelled as what it is. */
   responses: Array<{ label: string; value: string }>
@@ -95,6 +100,14 @@ export async function sourcedApplicationValues(
     companyNumber: input.companyNumber,
     deliveryArea: input.deliveryArea,
     amountRequested: String(input.amount),
+    firstYearAmount:
+      input.firstYearAmount === null || input.firstYearAmount === undefined
+        ? null
+        : String(input.firstYearAmount),
+    unrestrictedReserves:
+      input.unrestrictedReserves === null || input.unrestrictedReserves === undefined
+        ? null
+        : String(input.unrestrictedReserves),
     proposedImpactQuantity: input.proposedImpactQuantity,
     grantPurpose: input.purpose,
     responses: input.responses,

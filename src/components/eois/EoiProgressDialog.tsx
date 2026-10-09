@@ -3,26 +3,29 @@ import { progressEoi } from '../../server/fns/eois'
 import { updateApplicationStatus } from '../../server/fns/applications'
 import { messageFor } from '../../lib/errors'
 import { getRoundStatus, ROUND_STATUS_LABELS } from '../../lib/roundStatus'
-import { Button, Dialog, Input, Label, MoneyInput, Select, TextLink, Textarea } from '../ui'
+import { Button, Dialog, Label, Select, TextLink } from '../ui'
 import { C } from '../ui/tokens'
-import { AreaInput } from '../applications/edit/AreaInput'
-import type { PartnershipRound } from '../partnerships/PartnershipDialog'
+import type { listMyRounds } from '../../server/fns/rounds'
 import { purposeAnswer } from '../../lib/eois/decode'
+import { ShortlistFields, shortlistPayload, useShortlistFields } from '../sourcing/ShortlistFields'
 
 // An expression of interest straight to the shortlist (route 3): the foundation has read
 // enough and will fund it without a full application.
 //
 // An EOI is thinner than an application, so this asks for what the application cannot
-// do without and the EOI may not have said: the amount, what it is for, where, and an
-// address to send the award letter to. Each is prefilled from the EOI where it was
+// do without and the EOI may not have said: the same fields a partnership's "Progress to
+// shortlist" asks (`ShortlistFields`), each prefilled from the EOI where it was
 // recognised. The round is asked for unless a partnership already chose it.
 //
 // Two steps, as "Progress to shortlist" on a partnership: `progressEoi` makes the
 // application, `updateApplicationStatus` shortlists it.
 
+type Round = Awaited<ReturnType<typeof listMyRounds>>[number]
+
 export function EoiProgressDialog({
   eoi,
   rounds,
+  financialYearEndMonth,
   onClose,
   onDone,
 }: {
@@ -37,7 +40,8 @@ export function EoiProgressDialog({
     /** Their answers, for a grant purpose to start from when the form asked for one. */
     responses: Array<{ label: string; value: string }>
   }
-  rounds: PartnershipRound[]
+  rounds: Round[]
+  financialYearEndMonth: number | null
   onClose: () => void
   onDone: (applicationId: string) => void
 }) {
@@ -51,6 +55,7 @@ export function EoiProgressDialog({
           value: rp.id,
           programmeId: rp.programme.id,
           label: `${round.name} · ${rp.programme.name} (${ROUND_STATUS_LABELS[status].toLowerCase()})`,
+          roundProgramme: { ...rp, round },
         })),
       )
     // The EOI's own programme where it has one and that programme is in a round.
@@ -61,17 +66,24 @@ export function EoiProgressDialog({
   const [roundProgrammeId, setRoundProgrammeId] = useState(
     eoi.partnershipRoundProgrammeId ?? options[0]?.value ?? '',
   )
-  const [amount, setAmount] = useState(eoi.amountIndicative ?? '')
-  const [purpose, setPurpose] = useState(() => purposeAnswer(eoi.responses) ?? '')
-  const [deliveryArea, setDeliveryArea] = useState('')
-  const [email, setEmail] = useState(eoi.contactEmail ?? '')
+  const chosen =
+    rounds
+      .flatMap((round) => round.roundProgrammes.map((rp) => ({ ...rp, round })))
+      .find((rp) => rp.id === roundProgrammeId) ?? null
+
+  const form = useShortlistFields({
+    amount: eoi.amountIndicative ?? '',
+    purpose: purposeAnswer(eoi.responses) ?? '',
+    deliveryArea: '',
+    proposedImpactQuantity: '',
+    contactEmail: eoi.contactEmail ?? '',
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [stranded, setStranded] = useState<string | null>(null)
 
-  const value = Number(amount)
-  const valid =
-    roundProgrammeId !== '' && Number.isFinite(value) && value > 0 && purpose.trim() !== ''
+  const { valid: fieldsValid, data } = shortlistPayload(form, chosen?.grantDurationYears ?? null)
+  const valid = roundProgrammeId !== '' && fieldsValid
 
   async function handleConfirm() {
     if (busy || !valid) return
@@ -83,10 +95,13 @@ export function EoiProgressDialog({
         data: {
           id: eoi.id,
           roundProgrammeId,
-          amount: value,
-          purpose: purpose.trim(),
-          deliveryArea: deliveryArea.trim() || null,
-          contactEmail: email.trim() || null,
+          amount: data.amount,
+          firstYearAmount: data.firstYearAmount,
+          purpose: data.purpose,
+          deliveryArea: data.deliveryArea,
+          proposedImpactQuantity: data.proposedImpactQuantity,
+          unrestrictedReserves: data.unrestrictedReserves,
+          contactEmail: data.contactEmail,
         },
       })
       applicationId = made.applicationId
@@ -103,8 +118,12 @@ export function EoiProgressDialog({
   return (
     <Dialog
       open
-      title="Shortlist"
-      description={`${eoi.organisationName} will be shortlisted without a full application. Their answers to the expression of interest come with them.`}
+      title="Progress to shortlist"
+      description={
+        chosen
+          ? `${eoi.organisationName} will be shortlisted for ${chosen.programme.name}, ${chosen.round.name}. Their answers to the expression of interest come with them.`
+          : `${eoi.organisationName} will be shortlisted without a full application. Their answers to the expression of interest come with them.`
+      }
       onClose={onClose}
       busy={busy}
       size="lg"
@@ -153,45 +172,22 @@ export function EoiProgressDialog({
               />
             </div>
           )}
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="flex-1">
-              <Label htmlFor="ep-amount">Grant value proposed</Label>
-              <MoneyInput
-                id="ep-amount"
-                label="Grant value proposed"
-                value={amount}
-                onChange={setAmount}
-              />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="ep-area">Delivery area</Label>
-              <AreaInput id="ep-area" value={deliveryArea} onChange={setDeliveryArea} />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="ep-purpose">Grant purpose</Label>
-            <Textarea
-              id="ep-purpose"
-              rows={3}
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              placeholder="What the grant would pay for, in a sentence or two"
-            />
-          </div>
-          <div>
-            <Label htmlFor="ep-email">Contact email</Label>
-            <Input
-              id="ep-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@organisation.org.uk"
-            />
-            <p className="mt-1.5 font-display text-label" style={{ color: C.sub }}>
-              Where the award letter goes. Custodian screens them against the registers and assesses
-              their answers once it is on the shortlist.
-            </p>
-          </div>
+          <ShortlistFields
+            form={form}
+            idPrefix="ep"
+            context={{
+              roundProgramme: chosen,
+              financialYearEndMonth,
+              // Nothing has screened an EOI yet: the register is read as it is shortlisted.
+              income: null,
+              incomeNote: 'Read from the charity register when it is shortlisted.',
+            }}
+          />
+          <p className="font-display text-label" style={{ color: C.sub }}>
+            When it is shortlisted, an application is created from these details and their answers.
+            Custodian screens them against the registers and assesses it. Trustees vote on it like
+            any other.
+          </p>
         </div>
       )}
     </Dialog>

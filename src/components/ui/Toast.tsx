@@ -69,7 +69,10 @@ function subscribe(listener: () => void) {
 }
 
 const getSnapshot = () => items
-const getServerSnapshot = (): ToastItem[] => []
+// One array, not a fresh `[]` per call: React compares snapshots by identity and loops
+// on a server snapshot that changes every time it is read.
+const NO_TOASTS: ToastItem[] = []
+const getServerSnapshot = () => NO_TOASTS
 
 export function Toaster() {
   const current = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)

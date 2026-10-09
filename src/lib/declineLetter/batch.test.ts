@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { planDeclineBatch, type DeclineCandidate } from './batch'
 
-const candidate = (
-  over: Partial<DeclineCandidate> & { applicationId: string },
-): DeclineCandidate => ({
+type Candidate = DeclineCandidate & { applicationId: string }
+
+const candidate = (over: Partial<Candidate> & { applicationId: string }): Candidate => ({
   organisationName: 'Org',
   applicantEmail: 'hello@example.org',
   letterStatus: null,

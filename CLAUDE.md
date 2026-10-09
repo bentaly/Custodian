@@ -771,13 +771,23 @@ the programme pill (`?view=eois`, `components/eois/EoiList`), drawn only for a p
   their application?" on the same registration number.
 - **A status moves on a receipt or a statement, never on a draft.** The send fns move it only
   after Resend accepts ("Custodian emailed ..."); "I've sent it myself" is `actOnPartnership`.
-  Declining an EOI emails nobody.
+  Declining an EOI emails nobody: the **EOI decline letter** goes in a BATCH, from "Send
+  decline letters" on the EOI view (per programme, `fns/eoiLetters.ts`), on the decline
+  letters' rules (`planDeclineBatch`, own table `eoi_decline_letters`, queue kind
+  `eoi_decline_letter`). Both EOI letters (decline, invitation to apply) are templates on
+  Settings → Letters → Expressions of interest (`lib/eoiLetters`); the invitation's is
+  only the dialog's starting text.
+- **"Shortlist" from a partnership or an EOI asks what the application needs**
+  (`components/sourcing/ShortlistFields`), prefilled from what was logged: amount, this
+  year's share (`first_year_amount`), purpose, area, impact, reserves, email. No new
+  columns: the duration is the round-programme's, stated not asked, and income is the
+  register's, read-only.
 - **An EOI is never held** (`lib/eois/decode.ts`, `server/eois/receive.ts`): no required field,
   no AI, no queue. Taught mappings and the dictionary first, then two EOI-only fallbacks the
   application pipeline leaves to its AI (the one answer that is an email address; a question
   about money with one figure). Every answer is kept in order; an exact re-send creates nothing.
-- Not built: an `applications.source` column and the import's sourced-vs-reactive split, a
-  decline letter for EOIs, EOIs in `/settings/submissions`' docs, tenancy itests for either table.
+- Not built: an `applications.source` column and the import's sourced-vs-reactive split,
+  EOIs in `/settings/submissions`' docs, tenancy itests for either table.
 
 ## Canonical field tiers
 

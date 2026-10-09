@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SHORTLIST_FIELDS } from './shortlistFields'
 import { OUTREACH_KINDS } from '../sourcing/outreach'
 
 /**
@@ -98,9 +99,16 @@ export const SendPartnershipEmailSchema = z
  * when it was logged; the amount is confirmed here because it is the figure the round's
  * budget will be drawn on.
  */
+/**
+ * Taking a partnership straight to the shortlist (route 1). Everything the dialog asks
+ * is prefilled from what was logged and may be corrected there; the corrections are
+ * written back to the partnership as well as onto the application, so the two records
+ * say the same thing about the same grant.
+ */
 export const ProgressPartnershipSchema = z.object({
   id: z.uuid(),
   amount: z.number().positive('Enter the grant value proposed').max(1_000_000_000),
+  ...SHORTLIST_FIELDS,
 })
 
 /** Pointing a partnership at the application it turned into, by hand. */

@@ -370,13 +370,23 @@ export const getPartnership = createServerFn({ method: 'GET' })
       db.query.clients.findFirst({
         where: (c, { eq }) => eq(c.id, row.clientId),
         columns: { name: true },
-        with: { profile: { columns: { awardLetterSenderName: true, awardLetterReplyTo: true } } },
+        with: {
+          profile: {
+            columns: {
+              awardLetterSenderName: true,
+              awardLetterReplyTo: true,
+              financialYearEndMonth: true,
+            },
+          },
+        },
       }),
     ])
 
     return {
       ...row,
       history,
+      // For "Of which in 2026/27" on the shortlist dialog: the round's year needs it.
+      financialYearEndMonth: client?.profile?.financialYearEndMonth ?? null,
       eois: eoiRows,
       applicationCandidates: candidates,
       /** What an email to this partner is sent as: see `sendPartnershipEmail`. */
@@ -989,20 +999,34 @@ export const progressPartnership = createServerFn({ method: 'POST' })
     // programme's list everywhere it is read.
     const offered = new Set(roundProgramme.programme.tags ?? [])
     const themes = (existing.tags ?? []).filter((t) => offered.has(t))
-    const purpose = existing.proposedPurpose?.trim() || null
+    // What the dialog sent, else what was logged: each field is optional on the wire.
+    const purpose =
+      (data.purpose !== undefined ? data.purpose : existing.proposedPurpose)?.trim() || null
+    const deliveryArea =
+      (data.deliveryArea !== undefined ? data.deliveryArea : existing.deliveryArea)?.trim() || null
+    const impact =
+      data.proposedImpactQuantity !== undefined
+        ? data.proposedImpactQuantity
+        : existing.proposedImpactQuantity
+    const contactEmail = data.contactEmail !== undefined ? data.contactEmail : existing.contactEmail
+    if (data.firstYearAmount != null && data.firstYearAmount > data.amount + 0.005) {
+      throw badRequest('This year’s share cannot be more than the whole grant.')
+    }
     const scored = existing.custodianScoreStatus === 'scored'
 
     const applicationId = crypto.randomUUID()
     const values = await sourcedApplicationValues(applicationId, {
       roundProgrammeId: roundProgramme.id,
       organisationName: existing.organisationName,
-      contactEmail: existing.contactEmail,
+      contactEmail,
       charityNumber: existing.charityNumber,
       companyNumber: existing.companyNumber,
       amount: data.amount,
+      firstYearAmount: data.firstYearAmount ?? null,
       purpose,
-      proposedImpactQuantity: existing.proposedImpactQuantity,
-      deliveryArea: existing.deliveryArea,
+      proposedImpactQuantity: impact,
+      unrestrictedReserves: data.unrestrictedReserves ?? null,
+      deliveryArea,
       // There was no form, so there are no answers. What staff recorded is stated as
       // what it is, so the application does not read as an empty submission.
       responses: [
@@ -1041,7 +1065,12 @@ export const progressPartnership = createServerFn({ method: 'POST' })
         .set({
           applicationId,
           status: 'applied',
+          // Corrections made in the dialog, so the partnership and its application agree.
           amountSought: String(data.amount),
+          proposedPurpose: purpose,
+          deliveryArea,
+          proposedImpactQuantity: impact,
+          contactEmail,
           updatedAt: new Date(),
         })
         .where(and(eq(partnerships.id, existing.id), isNull(partnerships.applicationId))),

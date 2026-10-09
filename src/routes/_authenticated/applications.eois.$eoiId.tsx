@@ -24,6 +24,7 @@ import { fmtAmount, fmtDate, fmtRef } from '../../lib/format'
 import { useAction } from '../../lib/useAction'
 import { messageFor } from '../../lib/errors'
 import { EOI_STATUS_META, type EoiStatus } from '../../lib/eois/status'
+import { renderEoiInvite } from '../../lib/eoiLetters'
 
 // ─── One expression of interest ──────────────────────────────────────────────
 //
@@ -153,7 +154,7 @@ function EoiDetail() {
                   disabled={decide.pending}
                   onClick={() => setDeclining(true)}
                 >
-                  Not taking forward
+                  Decline
                 </Button>
               )}
               {meta.actions.includes('reopen') && (
@@ -185,8 +186,24 @@ function EoiDetail() {
           >
             {eoi.application
               ? 'Their application has arrived, and it carries the story from here.'
-              : meta.description}
+              : eoi.status === 'declined' && eoi.declineLetter
+                ? 'Declined.'
+                : meta.description}
             {eoi.decisionNote ? ` ${eoi.decisionNote}` : ''}
+            {/* Whether they have been told, once it is declined: the letter goes out in a
+                batch from the EOI list, so this is the one place it is said per EOI. */}
+            {eoi.status === 'declined' && eoi.declineLetter && (
+              <>
+                {' '}
+                {eoi.declineLetter.status === 'sent'
+                  ? `Decline letter sent${eoi.declineLetter.sentAt ? ` on ${fmtDate(eoi.declineLetter.sentAt)}` : ''}${eoi.declineLetter.recipientEmail ? ` to ${eoi.declineLetter.recipientEmail}` : ''}.`
+                  : eoi.declineLetter.status === 'failed'
+                    ? `The decline letter could not be sent${eoi.declineLetter.failureReason ? `: ${eoi.declineLetter.failureReason}` : '.'}`
+                    : eoi.declineLetter.recipientEmail
+                      ? 'The decline letter is on its way.'
+                      : 'A decline letter is written, but there is no email address to send it to.'}
+              </>
+            )}
           </p>
 
           {/* The EOI as SENT: every answer, in the wording and order of the
@@ -332,6 +349,16 @@ function EoiDetail() {
           contactName={null}
           programmeName={eoi.programme?.name ?? null}
           sender={eoi.sender}
+          // The foundation's own invitation, from Settings → Letters.
+          start={renderEoiInvite(
+            {
+              organisationName: eoi.organisationName,
+              foundationName: eoi.sender.foundationName,
+              programmeName: eoi.programme?.name ?? null,
+              signatory: eoi.invite.signatory,
+            },
+            eoi.invite.template,
+          )}
           onClose={() => setInviting(false)}
           onSend={(values) => invite(values)}
           onMarkSent={eoi.status === 'invited_to_apply' ? undefined : () => invite(null)}
@@ -345,6 +372,7 @@ function EoiDetail() {
             partnershipRoundProgrammeId: eoi.partnership?.roundProgrammeId ?? null,
           }}
           rounds={rounds}
+          financialYearEndMonth={eoi.financialYearEndMonth}
           onClose={() => setProgressing(false)}
           onDone={(applicationId) => {
             setProgressing(false)
@@ -357,9 +385,9 @@ function EoiDetail() {
 
       <ConfirmDialog
         open={declining}
-        title="Not taking this forward?"
-        confirmLabel="Not taking forward"
-        busyLabel="Closing…"
+        title="Decline this expression of interest?"
+        confirmLabel="Decline"
+        busyLabel="Declining…"
         busy={decide.pending}
         error={decide.error ? messageFor(decide.error) : undefined}
         onCancel={() => setDeclining(false)}
@@ -371,8 +399,8 @@ function EoiDetail() {
         }}
       >
         <p>
-          {eoi.organisationName} is moved to Decided. Nobody is emailed: if you want to let them
-          know, that is yours to send. You can reopen it at any time.
+          {eoi.organisationName} is moved to Declined. Nobody is emailed yet: send decline letters
+          from the expressions of interest list when you are ready. You can reopen it at any time.
         </p>
       </ConfirmDialog>
     </div>

@@ -33,8 +33,11 @@ export const EOI_STATUS_META: Record<
     actions: ['shortlist', 'decline'],
   },
   declined: {
-    label: 'Not taken forward',
-    description: 'Closed. Reopening puts it back to review.',
+    // "Declined", not "Not taken forward" (feedback, 2026-10-06): it is the word the
+    // letter that follows uses.
+    label: 'Declined',
+    description:
+      'Declined. They are told when you send decline letters from the EOI list. Reopening puts it back to review.',
     actions: ['reopen'],
   },
   applied: {

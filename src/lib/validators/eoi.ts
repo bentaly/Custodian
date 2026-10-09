@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SHORTLIST_FIELDS } from './shortlistFields'
 
 /** Closing an EOI, or putting it back to review. Inviting is its own call: it may email. */
 export const DecideEoiSchema = z.object({
@@ -47,4 +48,7 @@ export const ProgressEoiSchema = z.object({
   purpose: z.string().trim().min(1, 'Say what the grant would be for').max(4000),
   deliveryArea: z.string().trim().max(255).nullable(),
   contactEmail: z.email('Enter a valid email address').max(255).nullable(),
+  firstYearAmount: SHORTLIST_FIELDS.firstYearAmount,
+  proposedImpactQuantity: SHORTLIST_FIELDS.proposedImpactQuantity,
+  unrestrictedReserves: SHORTLIST_FIELDS.unrestrictedReserves,
 })

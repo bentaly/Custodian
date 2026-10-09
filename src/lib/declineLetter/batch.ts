@@ -14,9 +14,12 @@
 
 import { isUnnamedOrganisation } from '../organisationName'
 
-/** One application that has been declined, as the batch sees it. */
+/**
+ * One declined submission, as the batch sees it: an application, or an expression of
+ * interest (`fns/eoiLetters.ts`). The rule reads only these three fields, so each caller
+ * carries its own id on its own type.
+ */
 export type DeclineCandidate = {
-  applicationId: string
   organisationName: string
   applicantEmail: string | null
   /** This application's own letter, if it already has one. */

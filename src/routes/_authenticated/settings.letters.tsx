@@ -14,13 +14,15 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 import { getAwardLetterSettings } from '../../server/fns/awardSetup'
 import { getDeclineLetterSettings } from '../../server/fns/declineLetters'
+import { getEoiLetterSettings } from '../../server/fns/eoiLetters'
+import { EoiLetterForm } from '../../components/settings/EoiLetterForm'
 import { SettingsPage } from '../../components/SettingsPage'
 import { AwardLetterForm } from '../../components/settings/AwardLetterForm'
 import { LetterSendingForm } from '../../components/settings/LetterSendingForm'
 import { DeclineLetterForm } from '../../components/settings/DeclineLetterForm'
 import { Tabs } from '../../components/ui'
 
-const LettersSearch = z.object({ tab: z.enum(['award', 'decline']).optional() })
+const LettersSearch = z.object({ tab: z.enum(['award', 'decline', 'eoi']).optional() })
 
 export const Route = createFileRoute('/_authenticated/settings/letters')({
   validateSearch: LettersSearch,
@@ -31,19 +33,26 @@ export const Route = createFileRoute('/_authenticated/settings/letters')({
   // Both halves in one round trip. The award letter's settings are needed on the
   // decline tab too (its signatory is the decline letter's fallback, and the sending
   // identity is shared), so fetching per tab would only mean fetching most of it twice.
-  loader: async () => {
-    const [award, decline] = await Promise.all([
+  // The EOI letters only where expressions of interest exist (the `sourcing` flag): the
+  // server fn refuses elsewhere, so it is not asked.
+  loader: async ({ context }) => {
+    const [award, decline, eoi] = await Promise.all([
       getAwardLetterSettings(),
       getDeclineLetterSettings(),
+      context.user.features.sourcing ? getEoiLetterSettings() : Promise.resolve(null),
     ])
-    return { award, decline }
+    return { award, decline, eoi }
   },
   component: Letters,
 })
 
 function Letters() {
-  const { award, decline } = Route.useLoaderData()
-  const { tab = 'award' } = Route.useSearch()
+  const { award, decline, eoi } = Route.useLoaderData()
+  const { user } = Route.useRouteContext()
+  const sourcing = user.features.sourcing
+  const { tab: asked = 'award' } = Route.useSearch()
+  // A link to the EOI tab where the feature is off lands on the award letter instead.
+  const tab = asked === 'eoi' && !sourcing ? 'award' : asked
   const navigate = Route.useNavigate()
 
   return (
@@ -64,6 +73,7 @@ function Letters() {
         items={[
           { id: 'award' as const, label: 'Award letter' },
           { id: 'decline' as const, label: 'Decline letter' },
+          ...(sourcing ? [{ id: 'eoi' as const, label: 'Expressions of interest' }] : []),
         ]}
         value={tab}
         // `replace`, so paging between the two tabs doesn't fill the back button with
@@ -73,6 +83,8 @@ function Letters() {
 
       {tab === 'award' ? (
         <AwardLetterForm settings={award} />
+      ) : tab === 'eoi' ? (
+        <EoiLetterForm settings={eoi} />
       ) : (
         <DeclineLetterForm settings={decline} />
       )}

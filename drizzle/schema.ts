@@ -859,6 +859,13 @@ export const clientProfiles = pgTable('client_profiles', {
   // Sender name and reply-to are NOT duplicated here. They are facts about how the
   // foundation appears in email, not about one letter, so both letters use the
   // `award_letter_*` pair and the Letters screen edits them once.
+  // ─── Expression of interest letters ───
+  // The two letters an EOI can lead to (see src/lib/eoiLetters): telling the sender it
+  // will not go further, and inviting them to make a full application. Same NULL
+  // convention as the two above. Signed as the decline letter is, so there is no
+  // signatory column of their own.
+  eoiDeclineLetterTemplate: text('eoi_decline_letter_template'),
+  eoiInviteTemplate: text('eoi_invite_template'),
   // ─── Financial year ───
   // The MONTH the foundation's financial year ends in (1–12), which is how a
   // grant-maker states it — "our year end is 31 March" is on the front of their signed
@@ -1483,6 +1490,42 @@ export const declineLetters = pgTable(
     // every address in it, and it is the check that stops anybody being told twice.
     // Case-insensitively, because that is how the addresses are compared.
     index('decline_letters_client_email_idx').on(t.clientId, sql`lower(${t.recipientEmail})`),
+  ],
+)
+
+// ─── EOI decline letters ─────────────────────────────────────────────────────────
+// One row per expression of interest told it will not go further: the decline letter's
+// twin for the stage before an application, kept in its own table because an EOI is
+// not an application and `decline_letters.application_id` is NOT NULL. Same rules:
+// unique on the EOI so nobody is told twice, rendered and stored before the queue
+// sends it, and a `failed` row is retried rather than re-rendered.
+export const eoiDeclineLetters = pgTable(
+  'eoi_decline_letters',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    eoiId: uuid('eoi_id')
+      .notNull()
+      .unique()
+      .references(() => eois.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    subject: text('subject').notNull(),
+    bodyText: text('body_text').notNull(),
+    bodyHtml: text('body_html').notNull(),
+    status: awardLetterStatusEnum('status').notNull().default('draft'),
+    recipientEmail: text('recipient_email'),
+    replyTo: text('reply_to'),
+    senderName: text('sender_name'),
+    failureReason: text('failure_reason'),
+    sentAt: timestamp('sent_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [
+    index('eoi_decline_letters_client_email_idx').on(t.clientId, sql`lower(${t.recipientEmail})`),
   ],
 )
 

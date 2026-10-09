@@ -5,8 +5,9 @@
 // invitation to apply. The last two carry a link to the foundation's OWN form with the
 // invitation reference on it (`inviteRef.ts`).
 //
-// These are not letters in the award-letter sense. There is no template in Settings and
-// no snapshot table: each is a short note an admin reads and edits before it goes, and
+// These are not letters in the award-letter sense. There is no snapshot table (and, bar
+// the EOI invitation, whose starting text a foundation writes in Settings, see
+// `lib/eoiLetters`, no template): each is a short note an admin reads and edits before it goes, and
 // what was sent is recorded in the partnership's history (or on the EOI). What this
 // module supplies is the starting text, so nobody faces an empty box, and the one piece
 // of markup: the link, which the server adds and the admin cannot mistype.

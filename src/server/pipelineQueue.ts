@@ -36,6 +36,8 @@ export type PipelineMessage =
   // committed before this message exists, so a retry re-sends the same bytes rather
   // than re-deriving them from a template that may have moved on.
   | { kind: 'decline_letter'; letterId: string }
+  // The same, for a stored EOI decline letter (`eoi_decline_letters`).
+  | { kind: 'eoi_decline_letter'; letterId: string }
   // One foundation's Insights summary, regenerated because its portfolio moved.
   // Sent by the 3-hourly dispatcher, one message per client — never a batch job over
   // every tenant, because a single client's analysis is a whole-portfolio read plus
