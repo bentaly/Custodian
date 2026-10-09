@@ -5,7 +5,7 @@ import { getDb } from '../db'
 import { clientLogos, clients } from '../../../drizzle/schema'
 import { requireRole } from '../session'
 import { conflict } from '../../lib/errors'
-import { LOGO_HEIGHT, LOGO_MIME_TYPE, LOGO_WIDTH, MAX_LOGO_ENCODED_BYTES } from '../../lib/logo'
+import { LOGO_HEIGHT, LOGO_MIME_TYPES, LOGO_WIDTH, MAX_LOGO_ENCODED_BYTES } from '../../lib/logo'
 import { logoUrl } from '../logo'
 
 // The foundation's logo: the bytes to `client_logos`, the URL that serves them to
@@ -13,16 +13,19 @@ import { logoUrl } from '../logo'
 // at bytes never written would draw a broken image in the header and in every letter).
 // Admins only, for their own foundation: a superadmin has no foundation of their own.
 
-const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+const SIGNATURES: Record<(typeof LOGO_MIME_TYPES)[number], number[]> = {
+  'image/png': [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  'image/jpeg': [0xff, 0xd8, 0xff],
+}
 
 /**
- * The route serves these bytes publicly as `image/png`, so they must BE a PNG, whatever
- * a caller that skipped the form sent. The signature is the cheap, sufficient check.
+ * The route serves these bytes publicly under the type given, so they must BE that type,
+ * whatever a caller that skipped the form sent. The signature is the cheap, sufficient check.
  */
-function isPng(dataBase64: string): boolean {
+function matchesType(dataBase64: string, type: (typeof LOGO_MIME_TYPES)[number]): boolean {
   try {
     const head = atob(dataBase64.slice(0, 12))
-    return PNG_SIGNATURE.every((b, i) => head.charCodeAt(i) === b)
+    return SIGNATURES[type].every((b, i) => head.charCodeAt(i) === b)
   } catch {
     return false
   }
@@ -44,6 +47,7 @@ async function requireOwnFoundation() {
 export const updateOrganisationLogo = createServerFn({ method: 'POST' })
   .validator(
     z.object({
+      mimeType: z.enum(LOGO_MIME_TYPES),
       dataBase64: z.string().min(1).max(MAX_LOGO_ENCODED_BYTES),
       width: z.number().int().min(1).max(LOGO_WIDTH),
       height: z.number().int().min(1).max(LOGO_HEIGHT),
@@ -51,12 +55,14 @@ export const updateOrganisationLogo = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const { clientId } = await requireOwnFoundation()
-    if (!isPng(data.dataBase64)) throw conflict('That file is not a PNG image.')
+    if (!matchesType(data.dataBase64, data.mimeType)) {
+      throw conflict('That file is not the image it says it is.')
+    }
     const hash = await contentHash(data.dataBase64)
     const url = logoUrl(clientId, hash)
     const db = getDb()
     const values = {
-      mimeType: LOGO_MIME_TYPE,
+      mimeType: data.mimeType,
       dataBase64: data.dataBase64,
       hash,
       width: data.width,

@@ -390,7 +390,8 @@ export const userAvatars = pgTable('user_avatars', {
 // `users`: the client row is joined on every authenticated call. Same storage too
 // (base64 in text, see above). Unlike an avatar the logo is PUBLIC: it is drawn at the
 // top of the letters a foundation sends, and a mail client fetches it with no session.
-// Always PNG, prepared in the browser (`lib/logo.ts`), because Outlook shows no WebP.
+// PNG, or JPEG for a photographic one, prepared in the browser (`lib/logo.ts`): Outlook
+// shows no WebP.
 export const clientLogos = pgTable('client_logos', {
   clientId: uuid('client_id')
     .primaryKey()

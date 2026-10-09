@@ -11,21 +11,32 @@
 // part of the frame is transparent, so it sits on the white of a letter and the grey of
 // the header alike.
 //
-// Always PNG out. The logo is emailed at the top of every letter, and Outlook shows no
-// WebP; PNG is the one format every mail client draws, with transparency, and a logo is
-// flat colour, which PNG compresses well.
+// PNG out, or JPEG for a logo PNG cannot hold small. The logo is emailed at the top of
+// every letter, and Outlook shows no WebP; PNG is drawn by every mail client, with
+// transparency, and a flat-colour logo compresses well in it. A photographic one does
+// not, and is re-encoded as JPEG on white (also drawn everywhere) rather than refused.
+//
+// SIZE IS A MEASURED LIMIT. The upload is one INSERT, and `getDb()` gives every query
+// 4 seconds and never retries a write. From a laptop to the staging branch (2026-10-09)
+// a 20KB payload took 2.4s, 150KB 3.5s, and 350KB timed out, which the screen could
+// only report as "Something went wrong at our end". So the frame is stored at 2x the
+// largest it is drawn rather than 4x, and the payload is capped at `MAX_LOGO_ENCODED_BYTES`.
 
-/** The stored frame: square, and 4x the 80px it is drawn at on a letter, kept sharp. */
-export const LOGO_WIDTH = 320
-export const LOGO_HEIGHT = 320
+/** The stored frame: square, 2x the 80px it is drawn at on a letter. */
+export const LOGO_WIDTH = 160
+export const LOGO_HEIGHT = 160
 
 /** Largest file we will attempt to decode (a memory guard, as for avatars). */
 export const MAX_LOGO_SOURCE_BYTES = 10 * 1024 * 1024
 
-/** Ceiling on the encoded payload the server accepts. A real logo at this size is far under. */
-export const MAX_LOGO_ENCODED_BYTES = 512 * 1024
+/**
+ * Ceiling on the base64 payload, with the write's 4s in mind (see above). A flat logo at
+ * 160px is a few KB as PNG; a photographic one goes to JPEG well under this.
+ */
+export const MAX_LOGO_ENCODED_BYTES = 100 * 1024
 
-export const LOGO_MIME_TYPE = 'image/png'
+export const LOGO_MIME_TYPES = ['image/png', 'image/jpeg'] as const
+export type LogoMimeType = (typeof LOGO_MIME_TYPES)[number]
 
 /** How far in the user may zoom, as a multiple of "the whole logo just fits". */
 export const LOGO_MAX_ZOOM = 4
@@ -33,7 +44,12 @@ export const LOGO_MAX_ZOOM = 4
 /** Long edge of the working copy. Sharp at full zoom on the stored frame, cheap to hold. */
 const WORK_PX = 1600
 
-export type PreparedLogo = { dataBase64: string; width: number; height: number }
+export type PreparedLogo = {
+  mimeType: LogoMimeType
+  dataBase64: string
+  width: number
+  height: number
+}
 
 export class LogoError extends Error {}
 
@@ -141,13 +157,32 @@ export async function cropLogo(source: LogoSource, crop: LogoCrop): Promise<Prep
     crop.displayHeight * ratio,
   )
 
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, LOGO_MIME_TYPE))
-  if (!blob) throw new LogoError('Could not process that image.')
-  const dataBase64 = await toBase64(blob)
-  if (dataBase64.length > MAX_LOGO_ENCODED_BYTES) {
+  const png = await encode(canvas, 'image/png')
+  if (png.length <= MAX_LOGO_ENCODED_BYTES) {
+    return { mimeType: 'image/png', dataBase64: png, width: LOGO_WIDTH, height: LOGO_HEIGHT }
+  }
+
+  // Too detailed for PNG at this size: a photograph, or a logo with gradients. JPEG has
+  // no transparency, so the clear part of the frame is filled white, the letter's colour.
+  const flat = document.createElement('canvas')
+  flat.width = LOGO_WIDTH
+  flat.height = LOGO_HEIGHT
+  const fctx = flat.getContext('2d')
+  if (!fctx) throw new LogoError('Could not process that image.')
+  fctx.fillStyle = '#ffffff'
+  fctx.fillRect(0, 0, LOGO_WIDTH, LOGO_HEIGHT)
+  fctx.drawImage(canvas, 0, 0)
+  const jpeg = await encode(flat, 'image/jpeg', 0.85)
+  if (jpeg.length > MAX_LOGO_ENCODED_BYTES) {
     throw new LogoError('That logo is too detailed to store. Please choose a simpler file.')
   }
-  return { dataBase64, width: LOGO_WIDTH, height: LOGO_HEIGHT }
+  return { mimeType: 'image/jpeg', dataBase64: jpeg, width: LOGO_WIDTH, height: LOGO_HEIGHT }
+}
+
+async function encode(canvas: HTMLCanvasElement, type: LogoMimeType, quality?: number) {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
+  if (!blob || blob.type !== type) throw new LogoError('Could not process that image.')
+  return toBase64(blob)
 }
 
 async function toBase64(blob: Blob): Promise<string> {

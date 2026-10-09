@@ -196,10 +196,12 @@ Traps:
   **Removing a member ARCHIVES the row (`archived_at`), never deletes it** — votes and comments
   cascade on a deleted user and are the decision record. See `src/lib/team.ts`; the last admin
   can be neither removed nor demoted (checked again in SQL).
-- **client_logos** — a foundation's logo (Settings → Organisation details), PNG only because
-  it is emailed (Outlook shows no WebP), positioned in a square frame like a profile
-  photo (zoom and drag, `LogoCropper`) but allowed to leave the frame part-empty. `clients.logo_url` holds the
-  `/api/logo/$clientId?v=<hash>` URL, which `getAuthUser` already joins for the header. The
+- **client_logos** — a foundation's logo (Settings → Organisation details): PNG, or JPEG for a
+  photographic one, because it is emailed (Outlook shows no WebP); positioned in a square frame
+  like a profile photo (zoom and drag, `LogoCropper`) but allowed to leave it part-empty.
+  **Stored at 160px and capped at 100KB because of the write timeout**: the upload is one
+  INSERT under `getDb()`'s 4s, and from a laptop to staging 350KB timed out (`lib/logo.ts`).
+  `clients.logo_url` holds the `/api/logo/$clientId?v=<hash>` URL, which `getAuthUser` already joins for the header. The
   route is **PUBLIC** (a mail client has no session), unlike `/api/avatar`. Letters get it
   at RENDER time through `letterLogo` → `letterHtml(body, logo)`, so the stored HTML carries
   it; the route serves the current logo whatever `?v=`, so a re-send shows today's logo
