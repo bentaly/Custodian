@@ -143,6 +143,13 @@ export function buildCanonicalInput(
       ? reservesCoerced
       : undefined
 
+  // Income, read exactly as reserves are: one non-negative figure or nothing.
+  const incomeCoerced = numberOf('organisationIncome')
+  const organisationIncome =
+    incomeCoerced != null && Number.isFinite(incomeCoerced) && incomeCoerced >= 0
+      ? incomeCoerced
+      : undefined
+
   // The breakdown reaches us as a JSON string (`toStringValue` stringifies any
   // structured payload value). A value that isn't actually structured — a prose
   // budget narrative someone mapped here — must not be silently dropped: fall back
@@ -178,6 +185,7 @@ export function buildCanonicalInput(
     bankSortCode: get('bankSortCode'),
     amountRequested: amount,
     unrestrictedReserves,
+    organisationIncome,
     proposedImpactQuantity,
     budgetBreakdown: budgetBreakdown ?? undefined,
     budgetBreakdownLink: get('budgetBreakdownLink'),

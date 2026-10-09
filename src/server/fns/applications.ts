@@ -1676,6 +1676,7 @@ export const getAward = createServerFn({ method: 'GET' })
           deliveryArea: app.deliveryArea,
           amountRequested: app.amountRequested,
           unrestrictedReserves: app.unrestrictedReserves,
+          organisationIncome: app.organisationIncome,
           proposedImpactQuantity: app.proposedImpactQuantity,
           budgetBreakdown: app.budgetBreakdown,
           budgetBreakdownLink: app.budgetBreakdownLink,

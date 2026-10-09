@@ -502,6 +502,7 @@ function ApplicationDetail() {
     companyNumber: application.companyNumber,
     amountRequested: application.amountRequested,
     proposedImpactQuantity: application.proposedImpactQuantity,
+    organisationIncome: application.organisationIncome,
     deliveryArea: application.deliveryArea,
     bankName: application.bankName,
     bankAccountName: application.bankAccountName,
@@ -594,7 +595,13 @@ function ApplicationDetail() {
   // whichever description is being SHOWN, so the applicant's longer prose is clamped
   // on its own length rather than the register's.
   const activities = useClamp(orgSummary ?? orgProfile?.activities)
-  const orgIncome = orgProfile?.latestIncome ?? null
+  // The applicant's own figure first, the register's last filed year after it. A company
+  // has only the first (Companies House publishes no income), and where a charity has
+  // both, the form's is the current one while the register's can be eighteen months old.
+  const incomeFromApplication = application.organisationIncome != null
+  const orgIncome = incomeFromApplication
+    ? parseFloat(application.organisationIncome!)
+    : (orgProfile?.latestIncome ?? null)
   // The applicant's own figure, and the only one there has ever been: no Charity
   // Commission endpoint publishes reserves (verified against the live API — see
   // `OrganisationProfile.unrestrictedReserves`), so that half of the chain has always
@@ -1206,7 +1213,13 @@ function ApplicationDetail() {
                               ? 'no charity number'
                               : 'not captured'
                         }
-                        note={orgPeriodEnd ? `year to ${orgPeriodEnd}` : null}
+                        note={
+                          incomeFromApplication
+                            ? 'stated on the form'
+                            : orgPeriodEnd
+                              ? `year to ${orgPeriodEnd}`
+                              : null
+                        }
                       />
                       {/* The one cell in here the register cannot fill: no Charity
                         Commission endpoint publishes reserves at all (verified against
@@ -1611,23 +1624,46 @@ function ApplicationDetail() {
               grants officer reads together to judge whether the ask is proportionate.
               `cc_grant_vs_income` already screens exactly this ratio; the difference is
               that a check reports a verdict and this reports the figure. */}
-          <MiniKpi
-            tint={KPI.income}
-            icon={MoneyReceive01Icon}
-            label="Income (last FY)"
-            value={
-              orgIncome != null ? <CompactMoney amount={orgIncome} label="Exact income" /> : '--'
-            }
-            sub={
-              orgIncome != null
-                ? orgPeriodEnd
-                  ? `year to ${orgPeriodEnd}`
-                  : 'per the register'
-                : noRegistrationNumber
-                  ? 'no charity number'
-                  : 'not captured'
-            }
-          />
+          {/* Editable, unlike reserves beside it: a company's income exists nowhere but
+              the form, so a question the mapping never learned has to be pointable at
+              ("Choose from their answers", which can teach the mapping for the rest). */}
+          <EditableSlot
+            canEdit={canEdit}
+            lockedReason={application.editLocked}
+            label="Edit the organisation's income"
+            applicationId={application.id}
+            fields={['organisationIncome']}
+            values={editValues}
+            onSaved={onSaved}
+            onChooseAnswer={chooseAnswer}
+          >
+            <MiniKpi
+              tint={KPI.income}
+              icon={MoneyReceive01Icon}
+              label="Income (last FY)"
+              value={
+                orgIncome != null
+                  ? withMark(
+                      <CompactMoney amount={orgIncome} label="Exact income" />,
+                      'organisationIncome',
+                    )
+                  : '--'
+              }
+              sub={
+                incomeFromApplication
+                  ? 'stated on the form'
+                  : orgIncome != null
+                    ? orgPeriodEnd
+                      ? `year to ${orgPeriodEnd}`
+                      : 'per the register'
+                    : fromCompaniesHouse
+                      ? 'not published by Companies House'
+                      : noRegistrationNumber
+                        ? 'no charity number'
+                        : 'not captured'
+              }
+            />
+          </EditableSlot>
           {/* Filled only from the application form, and that is the whole story: no
               Charity Commission endpoint publishes reserves (checked against the live
               API, see `OrganisationProfile.unrestrictedReserves`). It stood empty on

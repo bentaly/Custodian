@@ -40,6 +40,7 @@ export const EDITABLE_FIELDS = [
   'companyNumber',
   'amountRequested',
   'proposedImpactQuantity',
+  'organisationIncome',
   'deliveryArea',
   'bankName',
   'bankAccountName',
@@ -55,7 +56,11 @@ export function isEditableField(key: string): key is EditableField {
 }
 
 /** Stored as numbers; everything else is text. */
-const NUMERIC_FIELDS = new Set<EditableField>(['amountRequested', 'proposedImpactQuantity'])
+const NUMERIC_FIELDS = new Set<EditableField>([
+  'amountRequested',
+  'proposedImpactQuantity',
+  'organisationIncome',
+])
 
 export function isNumericField(field: EditableField): boolean {
   return NUMERIC_FIELDS.has(field)
@@ -101,6 +106,7 @@ export function looksLike(field: EditableField, raw: string): boolean {
   switch (field) {
     case 'amountRequested':
     case 'proposedImpactQuantity':
+    case 'organisationIncome':
       // A figure somewhere in a short answer ("58k across three years" counts; a
       // paragraph that mentions "two estates" does not).
       return /\d/.test(v) && v.length <= 80
@@ -170,6 +176,7 @@ export function canonicalFromApplication(app: {
   bankSortCode: string | null
   amountRequested: string | null
   unrestrictedReserves: string | null
+  organisationIncome: string | null
   proposedImpactQuantity: string | null
   budgetBreakdown: CreateApplicationInput['budgetBreakdown'] | null
   budgetBreakdownLink: string | null
@@ -195,6 +202,7 @@ export function canonicalFromApplication(app: {
     bankSortCode: text(app.bankSortCode),
     amountRequested: num(app.amountRequested),
     unrestrictedReserves: num(app.unrestrictedReserves),
+    organisationIncome: num(app.organisationIncome),
     proposedImpactQuantity: num(app.proposedImpactQuantity),
     budgetBreakdown: app.budgetBreakdown ?? undefined,
     budgetBreakdownLink: text(app.budgetBreakdownLink),

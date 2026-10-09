@@ -86,6 +86,7 @@ export const CreateApplicationSchema = z.object({
   // already refuses a negative figure rather than storing it, and this is the boundary
   // that makes that true of every path in, not just the mapper's.
   unrestrictedReserves: z.number().min(0).max(1_000_000_000).optional(),
+  organisationIncome: z.number().min(0).max(100_000_000_000).optional(),
   // The impact the applicant proposes to achieve, in the programme's impact unit
   // (people / trees / hectares …). Optional — not every foundation collects it.
   proposedImpactQuantity: z.number().min(0).max(1_000_000_000).optional(),

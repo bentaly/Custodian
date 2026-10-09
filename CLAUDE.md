@@ -824,7 +824,11 @@ A two-state model (required / optional) shipped a real bug, so the middle tiers 
   foot of the page already states, and went. The bank trio is one gap (`EXPECTED_ALL_OF_GROUPS`):
   two of three bank details pays nobody.
 - **`optional`** — promotes and nothing is degraded, so nothing is said anywhere. The line against
-  `expected` is whether you can NAME what stops working. Today only `bankName`.
+  `expected` is whether you can NAME what stops working. Today `bankName`, and
+  `organisationIncome` (the applicant's stated total income): the register supplies a
+  charity's, so only a company goes without, and the income cells already say so. Where
+  both exist the form's figure WINS on every screen (it is current; the register's is the
+  last filed year). Editable, unlike reserves, so an unmapped question can be pointed at.
 - **A tier change alone is not enough**: `CreateApplicationSchema` gates the assembled application
   separately, so leaving `min(1)` there holds the row regardless of tier.
 

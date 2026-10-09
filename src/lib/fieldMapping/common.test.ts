@@ -65,7 +65,13 @@ describe('matchCommonKey — real form variants', () => {
     // another and the application would show a reserves number nobody stated.
     expect(matchCommonKey('Your current restricted funding reserves. (£)')).toBeNull()
     expect(matchCommonKey('Your balance at the time of application. (£)')).toBeNull()
-    expect(matchCommonKey("Your organisation's total income in the last year. (£)")).toBeNull()
+    // Total income is a field of its own now, and must land there, not as reserves.
+    expect(matchCommonKey("Your organisation's total income in the last year. (£)")).toBe(
+      'organisationIncome',
+    )
+    expect(matchCommonKey('Your organisation’s total income in the last year')).toBe(
+      'organisationIncome',
+    )
     // "Reserves" alone could be either kind, so it is left to the AI/human.
     expect(matchCommonKey('Reserves')).toBeNull()
   })

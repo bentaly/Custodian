@@ -83,6 +83,7 @@ const SHORTLIST_COLUMNS = {
   dueDiligenceStatus: true,
   proposedImpactQuantity: true,
   unrestrictedReserves: true,
+  organisationIncome: true,
   organisationProfile: true,
 } as const
 

@@ -67,6 +67,7 @@ export type CanonicalFieldKey =
   | 'applicantEmail'
   | 'amountRequested'
   | 'unrestrictedReserves'
+  | 'organisationIncome'
   | 'bankName'
   | 'bankAccountName'
   | 'bankAccountNumber'
@@ -230,6 +231,23 @@ export const CANONICAL_FIELDS: CanonicalField[] = [
       'Do NOT map RESTRICTED reserves, a bank balance, total income, total expenditure or the ' +
       'amount requested; each of those is a different figure, and three of them commonly sit ' +
       'beside this one on the same form.',
+    coerce: coerceAmount,
+  },
+  {
+    key: 'organisationIncome',
+    label: 'Organisation income',
+    // `optional`, unlike reserves: for a charity the register supplies the figure when
+    // the form does not, so nothing is lost by its absence there, and an `expected` tier
+    // would list it as "not captured" on every application at a foundation that never
+    // asks. Where it matters (a company, which Companies House publishes no income for)
+    // the income cells already say so.
+    tier: 'optional',
+    description:
+      "THE APPLICANT ORGANISATION'S TOTAL INCOME for its last year, in GBP: everything it " +
+      'received, restricted and unrestricted. A single monetary value. ' +
+      'Do NOT map reserves (restricted or unrestricted), a bank balance, expenditure, ' +
+      'turnover of a single project or the amount requested; each is a different figure, ' +
+      'and several commonly sit beside this one on the same form.',
     coerce: coerceAmount,
   },
   {

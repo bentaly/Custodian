@@ -36,7 +36,11 @@ const fieldLabel = (key: string) =>
 function money(field: string, value: string | null): string | null {
   if (value == null) return null
   if (field === 'budgetBreakdown') return budgetSummary(value)
-  if (field === 'amountRequested' || field === 'unrestrictedReserves') {
+  if (
+    field === 'amountRequested' ||
+    field === 'unrestrictedReserves' ||
+    field === 'organisationIncome'
+  ) {
     const n = Number(value)
     return Number.isFinite(n) ? `£${Math.round(n).toLocaleString('en-GB')}` : value
   }

@@ -66,7 +66,9 @@ export type VoteCardApplication = {
   proposedImpactQuantity: string | null
   /** The applicant's own figure, from the form. The only source there is for it. */
   unrestrictedReserves: string | null
-  /** The register's filed figures; `latestIncome` is what the card prints. */
+  /** The applicant's stated income, which the card prints before the register's. */
+  organisationIncome: string | null
+  /** The register's filed figures; `latestIncome` is the fallback for income. */
   organisationProfile: OrganisationProfile | null
   /** What this grant draws from the round this financial year — resolved server-side, of
    *  the proposed amount where there is one. */
@@ -532,7 +534,9 @@ export function VoteCard({
   // The size of the organisation asking, beside the size of the ask. Income is the
   // register's last filed year; reserves are the applicant's own figure from the form.
   // Each is simply left out where there is none, as the others on this strip are.
-  const income = app.organisationProfile?.latestIncome ?? null
+  // The form's figure first, as on the application: a company has no other.
+  const statedIncome = app.organisationIncome != null ? parseFloat(app.organisationIncome) : null
+  const income = statedIncome ?? app.organisationProfile?.latestIncome ?? null
   const reserves = app.unrestrictedReserves != null ? parseFloat(app.unrestrictedReserves) : null
   const meta = [
     impact !== null
@@ -542,7 +546,12 @@ export function VoteCard({
     deprivation
       ? { value: `IMD ${formatDecileRange(deprivation).toLowerCase()}`, label: '' }
       : null,
-    income !== null ? { value: fmtMoney(income), label: 'income (last filed year)' } : null,
+    income !== null
+      ? {
+          value: fmtMoney(income),
+          label: statedIncome !== null ? 'income (stated)' : 'income (last filed year)',
+        }
+      : null,
     reserves !== null ? { value: fmtMoney(reserves), label: 'unrestricted reserves' } : null,
   ].filter((m) => m !== null)
 

@@ -199,6 +199,7 @@ export async function createApplicationFromCanonical(
     amountRequested: input.amountRequested != null ? String(input.amountRequested) : null,
     unrestrictedReserves:
       input.unrestrictedReserves != null ? String(input.unrestrictedReserves) : null,
+    organisationIncome: input.organisationIncome != null ? String(input.organisationIncome) : null,
     proposedImpactQuantity:
       input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
     budgetBreakdown: input.budgetBreakdown ?? null,
@@ -423,6 +424,8 @@ export async function updateApplicationFromCanonical(
       amountRequested: input.amountRequested != null ? String(input.amountRequested) : null,
       unrestrictedReserves:
         input.unrestrictedReserves != null ? String(input.unrestrictedReserves) : null,
+      organisationIncome:
+        input.organisationIncome != null ? String(input.organisationIncome) : null,
       proposedImpactQuantity:
         input.proposedImpactQuantity != null ? String(input.proposedImpactQuantity) : null,
       budgetBreakdown: input.budgetBreakdown ?? null,

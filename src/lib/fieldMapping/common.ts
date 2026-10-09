@@ -107,6 +107,22 @@ export const COMMON_MAPPINGS: Partial<Record<CanonicalFieldKey, string[]>> = {
     'total unrestricted reserves',
     'unrestricted reserves held',
   ],
+  // Only "total income": a bare "income" could be a project's, a year's forecast or a
+  // single funder's, which is the near-miss that files one figure as another.
+  organisationIncome: [
+    'total income',
+    'organisation total income',
+    'organisations total income',
+    'your organisations total income',
+    'your organisations total income in the last year',
+    'organisations total income in the last year',
+    'total income in the last year',
+    'total income last year',
+    'total annual income',
+    'annual income',
+    'total income last financial year',
+    'income in the last financial year',
+  ],
   bankName: [
     'bank name',
     "bank's name",

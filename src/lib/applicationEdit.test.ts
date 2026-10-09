@@ -26,6 +26,7 @@ const ROW = {
   bankSortCode: null,
   amountRequested: null,
   unrestrictedReserves: '41000.00',
+  organisationIncome: '182500',
   proposedImpactQuantity: '150',
   budgetBreakdown: null,
   budgetBreakdownLink: null,
@@ -56,6 +57,12 @@ describe('strictReading', () => {
     expect(strictReading('amountRequested', '')).toBeNull()
   })
 
+  it('reads income as it reads any figure, a stated zero included', () => {
+    expect(strictReading('organisationIncome', '£182,500')).toBe('182500')
+    expect(strictReading('organisationIncome', '0')).toBe('0')
+    expect(strictReading('organisationIncome', 'about £180k')).toBeNull()
+  })
+
   it('applies the field coercion to text fields', () => {
     expect(strictReading('applicantEmail', '  Team@Example.ORG ')).toBe('team@example.org')
     expect(strictReading('deliveryArea', 'Knowsley')).toBe('Knowsley')
@@ -67,6 +74,8 @@ describe('canonicalFromApplication', () => {
     const input = canonicalFromApplication(ROW)
     expect(input.amountRequested).toBeUndefined()
     expect(input.unrestrictedReserves).toBe(41000)
+    // Carried, or an edit to any other field would write income back as nothing.
+    expect(input.organisationIncome).toBe(182500)
     expect(input.companyNumber).toBeUndefined()
     expect(CreateApplicationSchema.safeParse(input).success).toBe(true)
   })

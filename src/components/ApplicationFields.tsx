@@ -38,6 +38,7 @@ export type ApplicationFieldsData = {
   deliveryArea?: string | null
   amountRequested: string | null
   unrestrictedReserves?: string | null
+  organisationIncome?: string | null
   proposedImpactQuantity?: string | null
   budgetBreakdown?: BudgetLine[] | null
   budgetBreakdownLink?: string | null
@@ -109,6 +110,7 @@ const FALLBACK_ORDER: CanonicalFieldKey[] = [
   'applicantEmail',
   'amountRequested',
   'unrestrictedReserves',
+  'organisationIncome',
   'deliveryArea',
   'charityNumber',
   'companyNumber',
@@ -146,6 +148,8 @@ export function answerFor(
       return text(fmtAmount(application.amountRequested), true)
     case 'unrestrictedReserves':
       return text(fmtAmount(application.unrestrictedReserves))
+    case 'organisationIncome':
+      return text(fmtAmount(application.organisationIncome))
     case 'proposedImpactQuantity':
       return text(
         application.proposedImpactQuantity != null

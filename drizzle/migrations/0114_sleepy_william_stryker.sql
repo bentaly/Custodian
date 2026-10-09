@@ -1,0 +1,1 @@
+ALTER TABLE "applications" ADD COLUMN "organisation_income" numeric;

@@ -633,6 +633,14 @@ export const applications = pgTable(
     // run on what they hold", which is why it sits on the row rather than in
     // `responses`. Nullable — not every foundation asks.
     unrestrictedReserves: numeric('unrestricted_reserves'),
+    // The organisation's total income in its last year, in pounds, as STATED BY THE
+    // APPLICANT. The register's figure (`organisationProfile.latestIncome`) exists only
+    // for a charity: Companies House publishes no income for a company, so a CIC's income
+    // was blank everywhere it was shown. Where both exist this one wins, since it is the
+    // applicant's current figure and the register's is the last filed year, often
+    // eighteen months old. Editable, unlike reserves, so a form whose question was never
+    // mapped can be pointed at it. Nullable: not every foundation asks.
+    organisationIncome: numeric('organisation_income'),
     // The PROJECT budget as line items, in whole pounds. Nullable — not every
     // foundation collects one, and it is captured only when the incoming form has a
     // structured breakdown (a prose budget narrative stays in `responses`).
