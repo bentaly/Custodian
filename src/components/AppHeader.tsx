@@ -17,6 +17,7 @@ import { invalidateCurrentUser } from '../lib/currentUser'
 import { getRoundStatus } from '../lib/roundStatus'
 import { globalSearch, type SearchResult, type SearchResultType } from '../server/fns/search'
 import { Avatar, initials } from './ui'
+import { OrganisationDialog } from './OrganisationDialog'
 
 type HeaderRound = {
   id: string
@@ -30,6 +31,8 @@ type HeaderUser = {
   image?: string | null
   clientName: string | null
   clientLogo?: string | null
+  clientId?: string | null
+  role?: string
 }
 
 function daysUntil(date: Date | string) {
@@ -336,6 +339,31 @@ function GlobalSearch({
   )
 }
 
+/** The organisation chip: a button for whoever may edit the foundation, a box otherwise. */
+function OrgChip({
+  editable,
+  onClick,
+  className,
+  children,
+}: {
+  editable: boolean
+  onClick: () => void
+  className: string
+  children: React.ReactNode
+}) {
+  if (!editable) return <div className={className}>{children}</div>
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Edit your foundation's name and logo"
+      className={`${className} text-left transition-colors hover:border-grey-300 hover:bg-grey-50 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:outline-hidden`}
+    >
+      {children}
+    </button>
+  )
+}
+
 export function AppHeader({
   user,
   rounds,
@@ -349,6 +377,7 @@ export function AppHeader({
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [orgOpen, setOrgOpen] = useState(false)
   const { grey, green } = roundStatusParts(rounds)
 
   // SSR renders the Mac badge; corrected on mount for other platforms.
@@ -383,6 +412,7 @@ export function AppHeader({
   }
 
   const orgName = user.clientName ?? 'Custodian Platform'
+  const canEditOrg = !!user.clientId && (user.role === 'admin' || user.role === 'superadmin')
 
   return (
     <header className="relative flex h-[74px] shrink-0 items-center justify-between gap-2 border-b border-grey-200 bg-white px-3 sm:gap-4 sm:px-4 print:hidden">
@@ -399,9 +429,15 @@ export function AppHeader({
 
         {/* Org switcher — Figma 126:31875. Below `sm` the name is dropped and only the
             initials tile survives; the burger and search need the room more. */}
-        <div className="flex min-w-0 items-center gap-2 rounded-control border border-grey-200 bg-white p-1 sm:pr-3">
-          {/* The foundation's own logo where it has uploaded one (Settings → Organisation
-              details), in exactly the monogram's square. */}
+        {/* An admin edits the foundation's name and logo from here (`OrganisationDialog`):
+            the chip is the thing being changed. For everyone else it is a label. */}
+        <OrgChip
+          editable={canEditOrg}
+          onClick={() => setOrgOpen(true)}
+          className="flex min-w-0 items-center gap-2 rounded-control border border-grey-200 bg-white p-1 sm:pr-3"
+        >
+          {/* The foundation's own logo where it has uploaded one, in exactly the
+              monogram's square. */}
           {user.clientLogo ? (
             <img
               src={user.clientLogo}
@@ -416,7 +452,15 @@ export function AppHeader({
           <span className="hidden truncate text-body font-medium text-grey-900 sm:block">
             {orgName}
           </span>
-        </div>
+        </OrgChip>
+        {canEditOrg && orgOpen && (
+          <OrganisationDialog
+            open
+            onClose={() => setOrgOpen(false)}
+            name={user.clientName ?? ''}
+            logo={user.clientLogo ?? null}
+          />
+        )}
 
         <div className="hidden lg:block">
           <GlobalSearch isMac={isMac} />

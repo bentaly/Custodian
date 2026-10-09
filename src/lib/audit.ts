@@ -142,7 +142,7 @@ export type AuditAction =
   // Removal archives the user rather than deleting it (see `src/lib/team.ts`), and the
   // row's name survives, so their earlier entries in this log still read as theirs.
   | 'member_removed'
-  // An admin changed the foundation's own name (Settings → Organisation details). It
+  // An admin changed the foundation's own name (the header chip's dialog). It
   // signs every letter sent after it, so a trustee asking why the letters changed has
   // somewhere to look. Metadata `{ from, to }`.
   | 'organisation_renamed'

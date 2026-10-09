@@ -8,7 +8,7 @@ import { conflict } from '../../lib/errors'
 import { recordAudit } from '../audit'
 
 /**
- * An admin renames their own foundation (Settings → Organisation details).
+ * An admin renames their own foundation (`OrganisationDialog`, from the header chip).
  *
  * Nothing keys on the name: tenancy, imports and every link use the client id, so a
  * rename moves nothing but words. Letters already sent keep the name they were sent

@@ -54,7 +54,6 @@ import { Route as AuthenticatedSettingsBudgetRouteImport } from './routes/_authe
 import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
 import { Route as AuthenticatedSettingsLettersRouteImport } from './routes/_authenticated/settings.letters'
-import { Route as AuthenticatedSettingsOrganisationRouteImport } from './routes/_authenticated/settings.organisation'
 import { Route as AuthenticatedSettingsShortlistingRouteImport } from './routes/_authenticated/settings.shortlisting'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
@@ -338,12 +337,6 @@ const AuthenticatedSettingsLettersRoute =
     path: '/letters',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedSettingsOrganisationRoute =
-  AuthenticatedSettingsOrganisationRouteImport.update({
-    id: '/organisation',
-    path: '/organisation',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
 const AuthenticatedSettingsShortlistingRoute =
   AuthenticatedSettingsShortlistingRouteImport.update({
     id: '/shortlisting',
@@ -582,7 +575,6 @@ export interface FileRoutesByFullPath {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
-  '/settings/organisation': typeof AuthenticatedSettingsOrganisationRoute
   '/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -656,7 +648,6 @@ export interface FileRoutesByTo {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
-  '/settings/organisation': typeof AuthenticatedSettingsOrganisationRoute
   '/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -741,7 +732,6 @@ export interface FileRoutesById {
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/_authenticated/settings/letters': typeof AuthenticatedSettingsLettersRoute
-  '/_authenticated/settings/organisation': typeof AuthenticatedSettingsOrganisationRoute
   '/_authenticated/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -826,7 +816,6 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
-    | '/settings/organisation'
     | '/settings/shortlisting'
     | '/settings/submissions'
     | '/settings/team'
@@ -900,7 +889,6 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
-    | '/settings/organisation'
     | '/settings/shortlisting'
     | '/settings/submissions'
     | '/settings/team'
@@ -984,7 +972,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/data-import'
     | '/_authenticated/settings/giving-strategy'
     | '/_authenticated/settings/letters'
-    | '/_authenticated/settings/organisation'
     | '/_authenticated/settings/shortlisting'
     | '/_authenticated/settings/submissions'
     | '/_authenticated/settings/team'
@@ -1385,13 +1372,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsLettersRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/settings/organisation': {
-      id: '/_authenticated/settings/organisation'
-      path: '/organisation'
-      fullPath: '/settings/organisation'
-      preLoaderRoute: typeof AuthenticatedSettingsOrganisationRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
-    }
     '/_authenticated/settings/shortlisting': {
       id: '/_authenticated/settings/shortlisting'
       path: '/shortlisting'
@@ -1759,7 +1739,6 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
   AuthenticatedSettingsLettersRoute: typeof AuthenticatedSettingsLettersRoute
-  AuthenticatedSettingsOrganisationRoute: typeof AuthenticatedSettingsOrganisationRoute
   AuthenticatedSettingsShortlistingRoute: typeof AuthenticatedSettingsShortlistingRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
@@ -1775,8 +1754,6 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,
   AuthenticatedSettingsLettersRoute: AuthenticatedSettingsLettersRoute,
-  AuthenticatedSettingsOrganisationRoute:
-    AuthenticatedSettingsOrganisationRoute,
   AuthenticatedSettingsShortlistingRoute:
     AuthenticatedSettingsShortlistingRoute,
   AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,

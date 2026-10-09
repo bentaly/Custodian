@@ -7,7 +7,6 @@ import {
   Compass01Icon,
   DatabaseImportIcon,
   HistoryIcon,
-  Image01Icon,
   JudgeIcon,
   Key01Icon,
   Mail01Icon,
@@ -112,14 +111,6 @@ const GROUPS: Group[] = [
     title: 'Your organisation',
     icon: Building02Icon,
     cards: [
-      {
-        title: 'Organisation details',
-        description:
-          'Your foundation’s name and logo, shown at the top of Custodian and on every letter you send to applicants and grantees.',
-        to: '/settings/organisation',
-        icon: Image01Icon,
-        adminOnly: true,
-      },
       {
         title: 'Team members',
         description:
@@ -230,16 +221,7 @@ function StatusLine({ status }: { status: TileStatus }) {
 
 function Settings() {
   const { user } = Route.useRouteContext()
-  // The logo's line is a fact about the signed-in foundation the context already holds,
-  // so it is added here rather than costing the hub's server query a column. Grey either
-  // way: a foundation without a logo is missing nothing that works worse.
-  const statuses: SettingsStatuses = {
-    ...Route.useLoaderData(),
-    '/settings/organisation': {
-      text: user.clientLogo ? 'Logo uploaded' : 'No logo yet',
-      attention: false,
-    },
-  }
+  const statuses = Route.useLoaderData()
   const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
   // A trustee still needs to see the rounds and programmes their applications sit

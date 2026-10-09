@@ -196,7 +196,8 @@ Traps:
   **Removing a member ARCHIVES the row (`archived_at`), never deletes it** — votes and comments
   cascade on a deleted user and are the decision record. See `src/lib/team.ts`; the last admin
   can be neither removed nor demoted (checked again in SQL).
-- **client_logos** — a foundation's logo (Settings → Organisation details): PNG, or JPEG for a
+- **client_logos** — a foundation's logo, set with its name from the header chip
+  (`OrganisationDialog`, admins only; there is no Settings page for either): PNG, or JPEG for a
   photographic one, because it is emailed (Outlook shows no WebP); positioned in a square frame
   like a profile photo (zoom and drag, `LogoCropper`) but allowed to leave it part-empty.
   **Stored at 160px and capped at 100KB because of the write timeout**: the upload is one
