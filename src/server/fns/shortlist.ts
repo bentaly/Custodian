@@ -1,11 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { and, count, desc, eq, inArray, notInArray } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, notInArray } from 'drizzle-orm'
 import { getDb } from '../db'
 import { effectiveAmount } from '../../lib/amountRequested'
 import {
   applicationComments,
   applicationVotes,
+  applications,
   auditLog,
   roundProgrammes,
   users,
@@ -17,6 +18,8 @@ import { DEFAULT_FY_END_MONTH, type FinancialYear } from '../../lib/financialYea
 import { isSuggestedFirstYear, resolveFirstYearAmount } from '../../lib/multiYear'
 import { currentVoterOf } from '../members'
 import { actionsInCategory } from '../../lib/audit'
+import { applicationsActivity } from '../applicationActivity'
+import { canSeePayments } from '../../lib/roles'
 
 /**
  * Everything the Shortlist screen renders, in one call: the applications awaiting a
@@ -50,6 +53,62 @@ export const listShortlist = createServerFn({ method: 'GET' })
     // so a roundId from another client can't widen what's returned.
     const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
     return shortlistData(db, roundProgrammeIds, user.clientId)
+  })
+
+/**
+ * Every shortlisted application's comments and activity, for the spreadsheet export.
+ * Fetched only when somebody exports, since the cards load them one dialog at a time.
+ *
+ * Scoped exactly as `listShortlist` (same round, same tenant intersection), and the
+ * activity follows `listApplicationActivity`'s rule: comments left out (they are their
+ * own column) and money withheld from whoever `canSeePayments` refuses.
+ */
+export const listShortlistDiscussion = createServerFn({ method: 'GET' })
+  .validator(z.object({ roundId: z.uuid().optional() }))
+  .handler(async ({ data }) => {
+    const user = await requireAuthUser()
+    const db = getDb()
+
+    let filterIds: string[] | undefined
+    if (data.roundId) {
+      const rows = await db
+        .select({ id: roundProgrammes.id })
+        .from(roundProgrammes)
+        .where(eq(roundProgrammes.roundId, data.roundId))
+      filterIds = rows.map((r) => r.id)
+    }
+    const roundProgrammeIds = intersectScope(await visibleRoundProgrammeIds(user), filterIds)
+    if (roundProgrammeIds !== undefined && roundProgrammeIds.length === 0) {
+      return { comments: [], activity: [] }
+    }
+
+    const apps = await db
+      .select({ id: applications.id })
+      .from(applications)
+      .where(
+        and(
+          eq(applications.status, 'shortlisted'),
+          roundProgrammeIds ? inArray(applications.roundProgrammeId, roundProgrammeIds) : undefined,
+        ),
+      )
+    const appIds = apps.map((a) => a.id)
+    if (appIds.length === 0) return { comments: [], activity: [] }
+
+    const [comments, activity] = await Promise.all([
+      db
+        .select({
+          applicationId: applicationComments.applicationId,
+          body: applicationComments.body,
+          at: applicationComments.createdAt,
+          authorName: users.name,
+        })
+        .from(applicationComments)
+        .leftJoin(users, eq(applicationComments.userId, users.id))
+        .where(inArray(applicationComments.applicationId, appIds))
+        .orderBy(asc(applicationComments.createdAt)),
+      applicationsActivity(appIds, { withMoney: canSeePayments(user.role) }),
+    ])
+    return { comments, activity }
   })
 
 /**

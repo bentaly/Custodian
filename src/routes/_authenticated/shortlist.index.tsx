@@ -1,6 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
-import { listShortlist, type shortlistData } from '../../server/fns/shortlist'
+import {
+  listShortlist,
+  listShortlistDiscussion,
+  type shortlistData,
+} from '../../server/fns/shortlist'
 import { listMyRounds } from '../../server/fns/rounds'
 import { myRoundsForFallback } from '../../lib/myRounds'
 import { VoteCard, type ShortlistVoter } from '../../components/shortlist/VoteCard'
@@ -17,7 +21,9 @@ import {
   TextLink,
 } from '../../components/ui'
 import { C } from '../../components/ui/tokens'
-import { fmtDate } from '../../lib/format'
+import { fmtDate, fmtDateTime } from '../../lib/format'
+import { ACTION_LABEL } from '../../lib/audit'
+import { isSingleParagraph, noteAsPlainText } from '../../lib/richNote'
 import { resolveProgrammeColour } from '../../lib/programmeColours'
 import { downloadTable, type ExportColumn, type ExportFormat } from '../../lib/spreadsheetExport'
 import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/types'
@@ -69,6 +75,64 @@ export const Route = createFileRoute('/_authenticated/shortlist/')({
 // Off the server fn rather than the loader: `Route.useLoaderData` is typed through the
 // generated route tree, which resolves to `any` this far up the file.
 type ShortlistItem = Awaited<ReturnType<typeof shortlistData>>['items'][number]
+type Discussion = Awaited<ReturnType<typeof listShortlistDiscussion>>
+
+/** One application's comments and activity, each already written out as one cell. */
+type DiscussionCells = { comments: string; activity: string }
+
+// Excel refuses a cell over 32,767 characters (it offers to "repair" the file and
+// empties it), so a very long discussion is cut short rather than breaking the workbook.
+const CELL_LIMIT = 32_000
+
+/** Entries one per paragraph, a blank line between them, so each reads on its own. */
+function joinEntries(entries: string[]): string {
+  const text = entries.join('\n\n')
+  return text.length > CELL_LIMIT
+    ? `${text.slice(0, CELL_LIMIT)}\n\n(Cut short: the rest is on the application in Custodian.)`
+    : text
+}
+
+/**
+ * Comments oldest first and activity newest first, the order each is read in on the
+ * application, with who and when on the first line and what they said beneath.
+ */
+function discussionCells(d: Discussion): Map<string, DiscussionCells> {
+  const comments = new Map<string, string[]>()
+  for (const c of d.comments) {
+    const list = comments.get(c.applicationId) ?? []
+    list.push(`${c.authorName ?? 'Someone since removed'}, ${fmtDateTime(c.at) ?? '--'}\n${c.body}`)
+    comments.set(c.applicationId, list)
+  }
+  const activity = new Map<string, string[]>()
+  for (const a of d.activity) {
+    const list = activity.get(a.applicationId) ?? []
+    list.push(
+      [
+        `${ACTION_LABEL[a.action]}${a.detail ? `: ${a.detail}` : ''}`,
+        // Marks stripped; quoted when one paragraph, as the Activity tab does.
+        a.note
+          ? isSingleParagraph(a.note)
+            ? `"${noteAsPlainText(a.note)}"`
+            : noteAsPlainText(a.note)
+          : null,
+        `${a.actorName ?? 'Someone since removed'}, ${fmtDateTime(a.at) ?? '--'}`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    )
+    activity.set(a.applicationId, list)
+  }
+  const ids = new Set([...comments.keys(), ...activity.keys()])
+  return new Map(
+    [...ids].map((id) => [
+      id,
+      {
+        comments: joinEntries(comments.get(id) ?? []),
+        activity: joinEntries(activity.get(id) ?? []),
+      },
+    ]),
+  )
+}
 
 const DUE_DILIGENCE_WORDS: Record<string, string> = {
   clear: 'Clear',
@@ -88,7 +152,10 @@ const DUE_DILIGENCE_WORDS: Record<string, string> = {
  * cannot be filtered on. The roster is the one the cards draw (`voters`), so a vote left
  * by somebody no longer on the board is in neither.
  */
-function shortlistColumns(voters: ShortlistVoter[]): ExportColumn<ShortlistItem>[] {
+function shortlistColumns(
+  voters: ShortlistVoter[],
+  discussion: Map<string, DiscussionCells>,
+): ExportColumn<ShortlistItem>[] {
   return [
     { header: 'Organisation', width: 36, value: (a) => a.organisationName },
     { header: 'Programme', width: 28, value: (a) => a.roundProgramme.programme.name },
@@ -182,13 +249,25 @@ function shortlistColumns(voters: ShortlistVoter[]): ExportColumn<ShortlistItem>
       width: 24,
       value: (a) => DUE_DILIGENCE_WORDS[a.dueDiligenceStatus] ?? a.dueDiligenceStatus,
     },
-    { header: 'Comments', width: 10, value: (a) => a.commentCount },
+    { header: 'Number of comments', width: 12, value: (a) => a.commentCount },
     { header: 'Grant purpose', width: 60, value: (a) => a.grantPurpose },
     { header: 'AI assessment', width: 60, value: (a) => a.custodianScoreDetail?.summary },
     {
       header: 'Things to check',
       width: 60,
       value: (a) => (a.custodianScoreDetail?.flags ?? []).join('\n'),
+    },
+    {
+      header: 'Comments',
+      width: 60,
+      wrap: true,
+      value: (a) => discussion.get(a.id)?.comments,
+    },
+    {
+      header: 'Activity',
+      width: 60,
+      wrap: true,
+      value: (a) => discussion.get(a.id)?.activity,
     },
     { header: 'Reference', width: 20, value: (a) => a.externalApplicationId },
   ]
@@ -276,9 +355,12 @@ function ShortlistPage() {
     setExportError(null)
     try {
       const round = roundName
+      // Fetched here rather than with the screen: the cards open each discussion on
+      // demand, and only the file needs every one of them at once.
+      const discussion = await listShortlistDiscussion({ data: { roundId } })
       await downloadTable({
         format,
-        columns: shortlistColumns(voters),
+        columns: shortlistColumns(voters, discussionCells(discussion)),
         rows: filtered,
         filename: `shortlist-${round ?? 'export'}`.replace(/\s+/g, '-'),
         sheetName: 'Shortlist',

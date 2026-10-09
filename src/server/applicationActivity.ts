@@ -1,4 +1,4 @@
-import { and, desc, eq, notInArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, notInArray } from 'drizzle-orm'
 import { getDb } from './db'
 import { auditLog, users } from '../../drizzle/schema'
 import { actionsInCategory, auditDetail, type AuditAction } from '../lib/audit'
@@ -12,6 +12,7 @@ import { actionsInCategory, auditDetail, type AuditAction } from '../lib/audit'
  */
 export type ApplicationActivityRow = {
   id: string
+  applicationId: string
   action: AuditAction
   at: Date
   actorName: string | null
@@ -37,9 +38,23 @@ export async function applicationActivity(
   applicationId: string,
   { withMoney }: { withMoney: boolean },
 ): Promise<ApplicationActivityRow[]> {
+  return applicationsActivity([applicationId], { withMoney, limit: LIMIT })
+}
+
+/**
+ * The same for several applications in one read, for the shortlist's export. Same
+ * rules and the same order; group on `applicationId`. `limit` bounds the whole read,
+ * so a caller passing many ids should scale it.
+ */
+export async function applicationsActivity(
+  applicationIds: string[],
+  { withMoney, limit = LIMIT * applicationIds.length }: { withMoney: boolean; limit?: number },
+): Promise<ApplicationActivityRow[]> {
+  if (applicationIds.length === 0) return []
   const rows = await getDb()
     .select({
       id: auditLog.id,
+      applicationId: auditLog.applicationId,
       action: auditLog.action,
       at: auditLog.createdAt,
       actorName: users.name,
@@ -50,7 +65,7 @@ export async function applicationActivity(
     .leftJoin(users, eq(auditLog.actorUserId, users.id))
     .where(
       and(
-        eq(auditLog.applicationId, applicationId),
+        inArray(auditLog.applicationId, applicationIds),
         notInArray(auditLog.action, [
           ...actionsInCategory('comments'),
           ...(withMoney ? [] : actionsInCategory('money')),
@@ -58,12 +73,14 @@ export async function applicationActivity(
       ),
     )
     .orderBy(desc(auditLog.createdAt))
-    .limit(LIMIT)
+    .limit(limit)
 
   return rows.map((r) => {
     const note = r.metadata?.['note']
     return {
       id: r.id,
+      // Non-null: the filter is on this column.
+      applicationId: r.applicationId!,
       action: r.action,
       at: r.at,
       actorName: r.actorName,

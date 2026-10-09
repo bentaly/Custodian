@@ -17,6 +17,8 @@ export type ExportColumn<Row> = {
   kind?: 'text' | 'money' | 'date'
   /** Characters, as Excel measures a column. */
   width?: number
+  /** A cell holding several lines: wrapped in the workbook so the line breaks show. */
+  wrap?: boolean
   value: (row: Row) => string | number | null | undefined
 }
 
@@ -78,6 +80,9 @@ export async function toXlsx<Row>(
     const col = ws.getColumn(i + 1)
     if (c.kind === 'money') col.numFmt = '£#,##0.00'
     if (c.kind === 'date') col.numFmt = 'dd/mm/yyyy'
+    // Top-aligned throughout once any column wraps: a tall row otherwise leaves every
+    // other cell sitting at its foot, out of line with the start of the wrapped text.
+    if (columns.some((x) => x.wrap)) col.alignment = { vertical: 'top', wrapText: c.wrap }
   })
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } }
 
