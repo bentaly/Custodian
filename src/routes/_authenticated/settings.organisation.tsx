@@ -66,18 +66,6 @@ function OrganisationDetails() {
     if (file) await open(file)
   }
 
-  // Moving the logo already saved: the stored frame is opened as the file, so nobody
-  // has to find the original again to nudge it left.
-  async function handleReposition() {
-    if (!logo) return
-    try {
-      const blob = await (await fetch(logo)).blob()
-      await open(new File([blob], 'logo.png', { type: blob.type || 'image/png' }))
-    } catch {
-      setError('Could not open the current logo.')
-    }
-  }
-
   async function handleConfirm(crop: LogoCrop) {
     if (!source) return
     setBusy(true)
@@ -161,19 +149,9 @@ function OrganisationDetails() {
                 {busy ? 'Saving…' : logo ? 'Change logo' : 'Upload logo'}
               </Button>
               {logo && (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={handleReposition}
-                    disabled={busy || source !== null}
-                  >
-                    Reposition
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={handleRemove} disabled={busy}>
-                    Remove
-                  </Button>
-                </>
+                <Button type="button" variant="ghost" onClick={handleRemove} disabled={busy}>
+                  Remove
+                </Button>
               )}
             </div>
             <p className="mt-1.5 font-display text-label" style={{ color: C.sub }}>
