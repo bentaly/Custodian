@@ -142,6 +142,10 @@ export type AuditAction =
   // Removal archives the user rather than deleting it (see `src/lib/team.ts`), and the
   // row's name survives, so their earlier entries in this log still read as theirs.
   | 'member_removed'
+  // An admin changed the foundation's own name (Settings → Organisation details). It
+  // signs every letter sent after it, so a trustee asking why the letters changed has
+  // somewhere to look. Metadata `{ from, to }`.
+  | 'organisation_renamed'
   // A platform superadmin began acting as one of this foundation's members.
   //
   // The only row in the table whose actor is not one of the foundation's own people,
@@ -257,6 +261,7 @@ export const ACTION_CATEGORY: Record<AuditAction, AuditCategory> = {
   member_role_changed: 'access',
   member_vote_changed: 'access',
   member_removed: 'access',
+  organisation_renamed: 'access',
   impersonation_started: 'access',
   decline_letters_sent: 'decisions',
 }
@@ -310,6 +315,7 @@ export const ACTION_VERB: Record<AuditAction, string> = {
   member_role_changed: 'changed the role of',
   member_vote_changed: 'changed who votes, for',
   member_removed: 'removed',
+  organisation_renamed: 'renamed the foundation',
   impersonation_started: 'signed in as',
   decline_letters_sent: 'sent decline letters for',
 }
@@ -349,6 +355,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   member_role_changed: 'Role changed',
   member_vote_changed: 'Vote on applications changed',
   member_removed: 'Member removed',
+  organisation_renamed: 'Foundation renamed',
   impersonation_started: 'Platform sign-in as member',
   decline_letters_sent: 'Decline letters sent',
 }
@@ -594,6 +601,11 @@ export function auditDetail(action: AuditAction, metadata: Meta): string {
           : 'No longer votes on applications',
         metadata?.['self'] === true ? 'their own account' : null,
       )
+      break
+    }
+
+    case 'organisation_renamed': {
+      parts.push(change(str(metadata, 'from'), str(metadata, 'to')))
       break
     }
 

@@ -4,7 +4,18 @@ import { invalidateCurrentUser } from '../../lib/currentUser'
 import { longerTimeout } from '../../lib/requestTimeout'
 import { LogoError, cropLogo, loadLogoSource, type LogoCrop, type LogoSource } from '../../lib/logo'
 import { removeOrganisationLogo, updateOrganisationLogo } from '../../server/fns/logo'
-import { Button, ErrorNote, Panel, PanelTitle, initials, toast } from '../../components/ui'
+import { renameOrganisation } from '../../server/fns/organisation'
+import {
+  Button,
+  ErrorNote,
+  Input,
+  Label,
+  Panel,
+  PanelTitle,
+  UnsavedChangesGuard,
+  initials,
+  toast,
+} from '../../components/ui'
 import { C } from '../../components/ui/tokens'
 import { SettingsPage } from '../../components/SettingsPage'
 import { LogoCropper } from '../../components/LogoCropper'
@@ -29,6 +40,13 @@ function OrganisationDetails() {
   const [logo, setLogo] = useState<string | null>(user.clientLogo ?? null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  // The name, saved on a button like every other Settings form.
+  const [savedName, setSavedName] = useState(user.clientName ?? '')
+  const [draftName, setDraftName] = useState(user.clientName ?? '')
+  const [renaming, setRenaming] = useState(false)
+  const [nameError, setNameError] = useState('')
+  const nameDirty = draftName.trim() !== savedName && draftName.trim() !== ''
   const name = user.clientName ?? 'Your foundation'
 
   // The cached identity holds the old logo; drop it before the router reloads, or the
@@ -87,6 +105,22 @@ function OrganisationDetails() {
     }
   }
 
+  async function handleRename() {
+    setRenaming(true)
+    setNameError('')
+    try {
+      const { name: saved } = await renameOrganisation({ data: { name: draftName } })
+      setSavedName(saved)
+      setDraftName(saved)
+      await refreshIdentity()
+      toast('Name saved')
+    } catch {
+      setNameError('Could not save the name.')
+    } finally {
+      setRenaming(false)
+    }
+  }
+
   async function handleRemove() {
     setBusy(true)
     setError('')
@@ -107,14 +141,34 @@ function OrganisationDetails() {
       title="Organisation details"
       description="How your foundation appears in Custodian and on the letters it sends."
     >
-      <Panel label="Organisation">
+      <Panel label="Name">
         <PanelTitle>Name</PanelTitle>
-        <p className="font-display text-body" style={{ color: C.ink }}>
-          {name}
-        </p>
-        <p className="mt-1 font-display text-label" style={{ color: C.sub }}>
-          To change your foundation&rsquo;s name, contact us.
-        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            void handleRename()
+          }}
+          className="flex flex-col gap-1.5"
+        >
+          <Label htmlFor="organisation-name">Your foundation&rsquo;s name</Label>
+          <Input
+            id="organisation-name"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            maxLength={255}
+            disabled={renaming}
+          />
+          <p className="font-display text-label" style={{ color: C.sub }}>
+            Shown across Custodian and on every letter you send from now on. Letters already sent
+            keep the name they went out with.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
+            <ErrorNote error={nameError} className="mr-auto" />
+            <Button type="submit" disabled={renaming || !nameDirty}>
+              {renaming ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </form>
       </Panel>
 
       <Panel label="Logo">
@@ -179,6 +233,7 @@ function OrganisationDetails() {
           </div>
         )}
       </Panel>
+      <UnsavedChangesGuard dirty={nameDirty} what="your foundation's name" />
     </SettingsPage>
   )
 }

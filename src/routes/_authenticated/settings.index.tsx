@@ -115,7 +115,7 @@ const GROUPS: Group[] = [
       {
         title: 'Organisation details',
         description:
-          'Your logo, shown at the top of Custodian and on every letter you send to applicants and grantees.',
+          'Your foundation’s name and logo, shown at the top of Custodian and on every letter you send to applicants and grantees.',
         to: '/settings/organisation',
         icon: Image01Icon,
         adminOnly: true,
