@@ -266,6 +266,10 @@ export const clients = pgTable('clients', {
   // Cloudflare Access email of the Canvas operator who provisioned this foundation
   // from the admin app (forwarded via x-admin-actor). Null for any other origin.
   createdByEmail: text('created_by_email'),
+  // The foundation's logo: the URL of `/api/logo/$clientId`, hash-versioned, or NULL for
+  // none (the header falls back to the monogram). The bytes live in `client_logos`; this
+  // column is what `getAuthUser` already joins, so the header knows without asking.
+  logoUrl: text('logo_url'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -379,6 +383,26 @@ export const userAvatars = pgTable('user_avatars', {
   // Content hash, used as the `?v=` cache-buster on the avatar URL so a new upload
   // is picked up immediately despite the immutable Cache-Control on the old one.
   hash: text('hash').notNull(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// A foundation's logo, kept off `clients` for the reason `user_avatars` is kept off
+// `users`: the client row is joined on every authenticated call. Same storage too
+// (base64 in text, see above). Unlike an avatar the logo is PUBLIC: it is drawn at the
+// top of the letters a foundation sends, and a mail client fetches it with no session.
+// Always PNG, prepared in the browser (`lib/logo.ts`), because Outlook shows no WebP.
+export const clientLogos = pgTable('client_logos', {
+  clientId: uuid('client_id')
+    .primaryKey()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  mimeType: text('mime_type').notNull(),
+  dataBase64: text('data_base64').notNull(),
+  // The `?v=` on `clients.logo_url`, so a new upload is a new URL past the cache.
+  hash: text('hash').notNull(),
+  // Pixel size as stored, so a letter can state the image's width and height (email
+  // clients that block images then hold the right space rather than collapsing).
+  width: integer('width').notNull(),
+  height: integer('height').notNull(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 

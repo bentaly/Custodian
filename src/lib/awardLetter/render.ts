@@ -6,7 +6,7 @@
 // literally what the renderer will store.
 
 import { fmtDate, fmtMoney } from '../format'
-import { letterHtml } from '../letterHtml'
+import { letterHtml, type LetterLogo } from '../letterHtml'
 import {
   DEFAULT_AWARD_LETTER_SUBJECT,
   DEFAULT_AWARD_LETTER_TEMPLATE,
@@ -133,11 +133,14 @@ export function renderAwardLetter({
   settings,
   specialCondition,
   subjectTemplate = DEFAULT_AWARD_LETTER_SUBJECT,
+  logo,
 }: {
   input: AwardLetterInput
   settings: Partial<AwardLetterSettings> | null | undefined
   specialCondition?: string | null
   subjectTemplate?: string
+  /** The foundation's logo for the head of the emailed letter; absent, none. */
+  logo?: LetterLogo | null
 }): RenderedAwardLetter {
   const resolved = resolveLetterSettings(settings)
   const vars = awardLetterVars({ ...input, signatory: input.signatory ?? resolved.signatory })
@@ -150,7 +153,7 @@ export function renderAwardLetter({
   return {
     subject: renderTemplate(subjectTemplate, vars),
     bodyText,
-    bodyHtml: letterHtml(bodyText),
+    bodyHtml: letterHtml(bodyText, logo),
     conditions,
   }
 }

@@ -54,6 +54,7 @@ import { Route as AuthenticatedSettingsBudgetRouteImport } from './routes/_authe
 import { Route as AuthenticatedSettingsDataImportRouteImport } from './routes/_authenticated/settings.data-import'
 import { Route as AuthenticatedSettingsGivingStrategyRouteImport } from './routes/_authenticated/settings.giving-strategy'
 import { Route as AuthenticatedSettingsLettersRouteImport } from './routes/_authenticated/settings.letters'
+import { Route as AuthenticatedSettingsOrganisationRouteImport } from './routes/_authenticated/settings.organisation'
 import { Route as AuthenticatedSettingsShortlistingRouteImport } from './routes/_authenticated/settings.shortlisting'
 import { Route as AuthenticatedSettingsSubmissionsRouteImport } from './routes/_authenticated/settings.submissions'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
@@ -74,6 +75,7 @@ import { Route as ApiCronFinanceDigestRouteImport } from './routes/api/cron.fina
 import { Route as ApiCronPortfolioAnalysisRouteImport } from './routes/api/cron.portfolio-analysis'
 import { Route as ApiCronReportsDigestRouteImport } from './routes/api/cron.reports-digest'
 import { Route as ApiInternalPipelineRouteImport } from './routes/api/internal.pipeline'
+import { Route as ApiLogoClientIdRouteImport } from './routes/api/logo.$clientId'
 import { Route as ApiRoundRoundIdRouteImport } from './routes/api/round.$roundId'
 import { Route as AuthenticatedApplicationsEoisIndexRouteImport } from './routes/_authenticated/applications.eois.index'
 import { Route as AuthenticatedApplicationsEoisEoiIdRouteImport } from './routes/_authenticated/applications.eois.$eoiId'
@@ -336,6 +338,12 @@ const AuthenticatedSettingsLettersRoute =
     path: '/letters',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsOrganisationRoute =
+  AuthenticatedSettingsOrganisationRouteImport.update({
+    id: '/organisation',
+    path: '/organisation',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsShortlistingRoute =
   AuthenticatedSettingsShortlistingRouteImport.update({
     id: '/shortlisting',
@@ -443,6 +451,11 @@ const ApiCronReportsDigestRoute = ApiCronReportsDigestRouteImport.update({
 const ApiInternalPipelineRoute = ApiInternalPipelineRouteImport.update({
   id: '/api/internal/pipeline',
   path: '/api/internal/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLogoClientIdRoute = ApiLogoClientIdRouteImport.update({
+  id: '/api/logo/$clientId',
+  path: '/api/logo/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRoundRoundIdRoute = ApiRoundRoundIdRouteImport.update({
@@ -569,6 +582,7 @@ export interface FileRoutesByFullPath {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
+  '/settings/organisation': typeof AuthenticatedSettingsOrganisationRoute
   '/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -588,6 +602,7 @@ export interface FileRoutesByFullPath {
   '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/cron/reports-digest': typeof ApiCronReportsDigestRoute
   '/api/internal/pipeline': typeof ApiInternalPipelineRoute
+  '/api/logo/$clientId': typeof ApiLogoClientIdRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -641,6 +656,7 @@ export interface FileRoutesByTo {
   '/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/settings/letters': typeof AuthenticatedSettingsLettersRoute
+  '/settings/organisation': typeof AuthenticatedSettingsOrganisationRoute
   '/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -660,6 +676,7 @@ export interface FileRoutesByTo {
   '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/cron/reports-digest': typeof ApiCronReportsDigestRoute
   '/api/internal/pipeline': typeof ApiInternalPipelineRoute
+  '/api/logo/$clientId': typeof ApiLogoClientIdRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/applications': typeof AuthenticatedApplicationsIndexRoute
   '/awards': typeof AuthenticatedAwardsIndexRoute
@@ -724,6 +741,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/data-import': typeof AuthenticatedSettingsDataImportRoute
   '/_authenticated/settings/giving-strategy': typeof AuthenticatedSettingsGivingStrategyRoute
   '/_authenticated/settings/letters': typeof AuthenticatedSettingsLettersRoute
+  '/_authenticated/settings/organisation': typeof AuthenticatedSettingsOrganisationRoute
   '/_authenticated/settings/shortlisting': typeof AuthenticatedSettingsShortlistingRoute
   '/_authenticated/settings/submissions': typeof AuthenticatedSettingsSubmissionsRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -743,6 +761,7 @@ export interface FileRoutesById {
   '/api/cron/portfolio-analysis': typeof ApiCronPortfolioAnalysisRoute
   '/api/cron/reports-digest': typeof ApiCronReportsDigestRoute
   '/api/internal/pipeline': typeof ApiInternalPipelineRoute
+  '/api/logo/$clientId': typeof ApiLogoClientIdRoute
   '/api/round/$roundId': typeof ApiRoundRoundIdRoute
   '/_authenticated/applications/': typeof AuthenticatedApplicationsIndexRoute
   '/_authenticated/awards/': typeof AuthenticatedAwardsIndexRoute
@@ -807,6 +826,7 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
+    | '/settings/organisation'
     | '/settings/shortlisting'
     | '/settings/submissions'
     | '/settings/team'
@@ -826,6 +846,7 @@ export interface FileRouteTypes {
     | '/api/cron/portfolio-analysis'
     | '/api/cron/reports-digest'
     | '/api/internal/pipeline'
+    | '/api/logo/$clientId'
     | '/api/round/$roundId'
     | '/applications/'
     | '/awards/'
@@ -879,6 +900,7 @@ export interface FileRouteTypes {
     | '/settings/data-import'
     | '/settings/giving-strategy'
     | '/settings/letters'
+    | '/settings/organisation'
     | '/settings/shortlisting'
     | '/settings/submissions'
     | '/settings/team'
@@ -898,6 +920,7 @@ export interface FileRouteTypes {
     | '/api/cron/portfolio-analysis'
     | '/api/cron/reports-digest'
     | '/api/internal/pipeline'
+    | '/api/logo/$clientId'
     | '/api/round/$roundId'
     | '/applications'
     | '/awards'
@@ -961,6 +984,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/data-import'
     | '/_authenticated/settings/giving-strategy'
     | '/_authenticated/settings/letters'
+    | '/_authenticated/settings/organisation'
     | '/_authenticated/settings/shortlisting'
     | '/_authenticated/settings/submissions'
     | '/_authenticated/settings/team'
@@ -980,6 +1004,7 @@ export interface FileRouteTypes {
     | '/api/cron/portfolio-analysis'
     | '/api/cron/reports-digest'
     | '/api/internal/pipeline'
+    | '/api/logo/$clientId'
     | '/api/round/$roundId'
     | '/_authenticated/applications/'
     | '/_authenticated/awards/'
@@ -1034,6 +1059,7 @@ export interface RootRouteChildren {
   ApiCronPortfolioAnalysisRoute: typeof ApiCronPortfolioAnalysisRoute
   ApiCronReportsDigestRoute: typeof ApiCronReportsDigestRoute
   ApiInternalPipelineRoute: typeof ApiInternalPipelineRoute
+  ApiLogoClientIdRoute: typeof ApiLogoClientIdRoute
   ApiRoundRoundIdRoute: typeof ApiRoundRoundIdRoute
   ApiWebhooksFormstackReportTokenRoute: typeof ApiWebhooksFormstackReportTokenRoute
   ApiWebhooksFormstackTokenRoute: typeof ApiWebhooksFormstackTokenRoute
@@ -1359,6 +1385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsLettersRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/organisation': {
+      id: '/_authenticated/settings/organisation'
+      path: '/organisation'
+      fullPath: '/settings/organisation'
+      preLoaderRoute: typeof AuthenticatedSettingsOrganisationRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/shortlisting': {
       id: '/_authenticated/settings/shortlisting'
       path: '/shortlisting'
@@ -1497,6 +1530,13 @@ declare module '@tanstack/react-router' {
       path: '/api/internal/pipeline'
       fullPath: '/api/internal/pipeline'
       preLoaderRoute: typeof ApiInternalPipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/logo/$clientId': {
+      id: '/api/logo/$clientId'
+      path: '/api/logo/$clientId'
+      fullPath: '/api/logo/$clientId'
+      preLoaderRoute: typeof ApiLogoClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/round/$roundId': {
@@ -1719,6 +1759,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsDataImportRoute: typeof AuthenticatedSettingsDataImportRoute
   AuthenticatedSettingsGivingStrategyRoute: typeof AuthenticatedSettingsGivingStrategyRoute
   AuthenticatedSettingsLettersRoute: typeof AuthenticatedSettingsLettersRoute
+  AuthenticatedSettingsOrganisationRoute: typeof AuthenticatedSettingsOrganisationRoute
   AuthenticatedSettingsShortlistingRoute: typeof AuthenticatedSettingsShortlistingRoute
   AuthenticatedSettingsSubmissionsRoute: typeof AuthenticatedSettingsSubmissionsRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
@@ -1734,6 +1775,8 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsGivingStrategyRoute:
     AuthenticatedSettingsGivingStrategyRoute,
   AuthenticatedSettingsLettersRoute: AuthenticatedSettingsLettersRoute,
+  AuthenticatedSettingsOrganisationRoute:
+    AuthenticatedSettingsOrganisationRoute,
   AuthenticatedSettingsShortlistingRoute:
     AuthenticatedSettingsShortlistingRoute,
   AuthenticatedSettingsSubmissionsRoute: AuthenticatedSettingsSubmissionsRoute,
@@ -1893,6 +1936,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronPortfolioAnalysisRoute: ApiCronPortfolioAnalysisRoute,
   ApiCronReportsDigestRoute: ApiCronReportsDigestRoute,
   ApiInternalPipelineRoute: ApiInternalPipelineRoute,
+  ApiLogoClientIdRoute: ApiLogoClientIdRoute,
   ApiRoundRoundIdRoute: ApiRoundRoundIdRoute,
   ApiWebhooksFormstackReportTokenRoute: ApiWebhooksFormstackReportTokenRoute,
   ApiWebhooksFormstackTokenRoute: ApiWebhooksFormstackTokenRoute,

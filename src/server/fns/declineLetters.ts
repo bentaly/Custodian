@@ -25,6 +25,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '../db'
+import { letterLogo } from '../logo'
 import {
   applications,
   clientProfiles,
@@ -125,12 +126,14 @@ export type DeclineRecipient = {
 
 /** The client-level facts every letter in a batch shares. */
 async function loadDeclineContext(clientId: string) {
-  const [client, profile] = await Promise.all([
+  const [client, profile, logo] = await Promise.all([
     getDb().query.clients.findFirst({ where: (c, { eq }) => eq(c.id, clientId) }),
     getDb().query.clientProfiles.findFirst({ where: (p, { eq }) => eq(p.clientId, clientId) }),
+    letterLogo(clientId),
   ])
   return {
     foundationName: client?.name ?? 'the Foundation',
+    logo,
     settings: {
       template: profile?.declineLetterTemplate ?? null,
       signatory: profile?.declineLetterSignatory ?? null,
@@ -413,6 +416,7 @@ export const sendDeclineLetters = createServerFn({ method: 'POST' })
         input,
         settings: ctx.settings,
         awardSignatory: ctx.awardSignatory,
+        logo: ctx.logo,
       })
       return {
         applicationId: r.applicationId,

@@ -16,7 +16,7 @@
 // party under the foundation's name, the same reason a letter template is never markup.
 
 import { escapeHtml } from '../html'
-import { letterHtml } from '../letterHtml'
+import { letterHtml, type LetterLogo } from '../letterHtml'
 
 export const OUTREACH_KINDS = ['message', 'eoi_invite', 'apply_invite'] as const
 export type OutreachKind = (typeof OUTREACH_KINDS)[number]
@@ -77,15 +77,16 @@ export function renderOutreach(
   kind: OutreachKind,
   body: string,
   link: string | null,
+  logo?: LetterLogo | null,
 ): { text: string; html: string } {
   const text = body.trim()
-  if (kind === 'message' || !link) return { text, html: letterHtml(text) }
+  if (kind === 'message' || !link) return { text, html: letterHtml(text, logo) }
   const label = OUTREACH_LINK_LABEL[kind]
   const anchor =
     `<p style="margin:0 0 16px;line-height:1.6;font-size:14px;">` +
     `<a href="${escapeHtml(link)}" target="_blank" rel="noopener" style="color:#141C24;font-weight:600;">${escapeHtml(label)}</a>` +
     `</p>`
   // Inside the letter's own wrapper, so the link sits in the same column as the text.
-  const html = letterHtml(text).replace(/<\/div>$/, `${anchor}</div>`)
+  const html = letterHtml(text, logo).replace(/<\/div>$/, `${anchor}</div>`)
   return { text: `${text}\n\n${label}:\n${link}`, html }
 }

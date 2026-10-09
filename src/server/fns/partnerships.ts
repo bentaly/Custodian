@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '../db'
+import { letterLogo } from '../logo'
 import { requireFeature } from '../features'
 import { searchAny } from '../searchTerm'
 import { anyOf, anyTag } from '../filterSql'
@@ -897,7 +898,7 @@ export const sendPartnershipEmail = createServerFn({ method: 'POST' })
       columns: { name: true },
       with: { profile: { columns: { awardLetterSenderName: true, awardLetterReplyTo: true } } },
     })
-    const rendered = renderOutreach(data.kind, data.body, link)
+    const rendered = renderOutreach(data.kind, data.body, link, await letterLogo(existing.clientId))
     const sent = await sendAwardLetterEmail({
       to: data.to,
       senderName: client?.profile?.awardLetterSenderName ?? client?.name ?? null,

@@ -5,7 +5,7 @@
 // and what an admin approves has to be produced by the code that stores it.
 
 import { fmtDate, fmtMoney } from '../format'
-import { letterHtml } from '../letterHtml'
+import { letterHtml, type LetterLogo } from '../letterHtml'
 import { renderTemplate, type AwardLetterVars } from '../awardLetter'
 import {
   DEFAULT_DECLINE_LETTER_SUBJECT,
@@ -55,12 +55,15 @@ export function renderDeclineLetter({
   settings,
   awardSignatory,
   subjectTemplate = DEFAULT_DECLINE_LETTER_SUBJECT,
+  logo,
 }: {
   input: DeclineLetterInput
   settings: Partial<DeclineLetterSettings> | null | undefined
   /** The award letter's signatory, used when the decline letter has none of its own. */
   awardSignatory?: string | null
   subjectTemplate?: string
+  /** The foundation's logo for the head of the emailed letter; absent, none. */
+  logo?: LetterLogo | null
 }): RenderedDeclineLetter {
   const resolved = resolveDeclineSettings(settings, awardSignatory)
   const vars = declineLetterVars({ ...input, signatory: input.signatory ?? resolved.signatory })
@@ -68,6 +71,6 @@ export function renderDeclineLetter({
   return {
     subject: renderTemplate(subjectTemplate, vars),
     bodyText,
-    bodyHtml: letterHtml(bodyText),
+    bodyHtml: letterHtml(bodyText, logo),
   }
 }

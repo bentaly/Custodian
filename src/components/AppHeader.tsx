@@ -29,6 +29,7 @@ type HeaderUser = {
   name: string
   image?: string | null
   clientName: string | null
+  clientLogo?: string | null
 }
 
 function daysUntil(date: Date | string) {
@@ -399,9 +400,20 @@ export function AppHeader({
         {/* Org switcher — Figma 126:31875. Below `sm` the name is dropped and only the
             initials tile survives; the burger and search need the room more. */}
         <div className="flex min-w-0 items-center gap-2 rounded-control border border-grey-200 bg-white p-1 sm:pr-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-grey-100 text-body font-semibold text-grey-900">
-            {initials(orgName)}
-          </span>
+          {/* The foundation's own logo where it has uploaded one (Settings → Organisation
+              details), at the monogram's height and up to three times its width, since
+              a logo is a wordmark as often as a square. */}
+          {user.clientLogo ? (
+            <img
+              src={user.clientLogo}
+              alt=""
+              className="h-8 w-auto max-w-24 shrink-0 object-contain"
+            />
+          ) : (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-grey-100 text-body font-semibold text-grey-900">
+              {initials(orgName)}
+            </span>
+          )}
           <span className="hidden truncate text-body font-medium text-grey-900 sm:block">
             {orgName}
           </span>

@@ -20,7 +20,7 @@
 // all produced by the same code.
 
 import { fmtDate } from '../format'
-import { letterHtml } from '../letterHtml'
+import { letterHtml, type LetterLogo } from '../letterHtml'
 import { renderTemplate, type AwardLetterToken, type AwardLetterVars } from '../awardLetter'
 
 /** The placeholders both EOI letters understand. Rendered as the Settings documentation. */
@@ -96,13 +96,14 @@ export type RenderedEoiLetter = { subject: string; bodyText: string; bodyHtml: s
 export function renderEoiDecline(
   input: EoiLetterInput,
   template: string | null | undefined,
+  logo?: LetterLogo | null,
 ): RenderedEoiLetter {
   const v = vars(input)
   const bodyText = renderTemplate(template ?? DEFAULT_EOI_DECLINE_TEMPLATE, v)
   return {
     subject: renderTemplate(DEFAULT_EOI_DECLINE_SUBJECT, v),
     bodyText,
-    bodyHtml: letterHtml(bodyText),
+    bodyHtml: letterHtml(bodyText, logo),
   }
 }
 

@@ -131,6 +131,8 @@ export async function getAuthUser() {
           votesOnApplications: users.votesOnApplications,
           clientId: users.clientId,
           clientName: clients.name,
+          // The foundation's logo URL (a column, not the bytes), for the header chip.
+          clientLogo: clients.logoUrl,
         })
         .from(users)
         .leftJoin(clients, eq(users.clientId, clients.id))

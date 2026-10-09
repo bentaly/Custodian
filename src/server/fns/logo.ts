@@ -1,0 +1,91 @@
+import { createServerFn } from '@tanstack/react-start'
+import { z } from 'zod'
+import { eq } from 'drizzle-orm'
+import { getDb } from '../db'
+import { clientLogos, clients } from '../../../drizzle/schema'
+import { requireRole } from '../session'
+import { conflict } from '../../lib/errors'
+import {
+  LOGO_MAX_HEIGHT,
+  LOGO_MAX_WIDTH,
+  LOGO_MIME_TYPE,
+  MAX_LOGO_ENCODED_BYTES,
+} from '../../lib/logo'
+import { logoUrl } from '../logo'
+
+// The foundation's logo: the bytes to `client_logos`, the URL that serves them to
+// `clients.logo_url`, in one `db.batch` (no transactions on neon-http, and a URL pointing
+// at bytes never written would draw a broken image in the header and in every letter).
+// Admins only, for their own foundation: a superadmin has no foundation of their own.
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+/**
+ * The route serves these bytes publicly as `image/png`, so they must BE a PNG, whatever
+ * a caller that skipped the form sent. The signature is the cheap, sufficient check.
+ */
+function isPng(dataBase64: string): boolean {
+  try {
+    const head = atob(dataBase64.slice(0, 12))
+    return PNG_SIGNATURE.every((b, i) => head.charCodeAt(i) === b)
+  } catch {
+    return false
+  }
+}
+
+async function contentHash(dataBase64: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(dataBase64))
+  return Array.from(new Uint8Array(digest).subarray(0, 6))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+async function requireOwnFoundation() {
+  const user = await requireRole('admin', 'superadmin')
+  if (!user.clientId) throw conflict('A logo belongs to a foundation, and you are not in one.')
+  return { user, clientId: user.clientId }
+}
+
+export const updateOrganisationLogo = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      dataBase64: z.string().min(1).max(MAX_LOGO_ENCODED_BYTES),
+      width: z.number().int().min(1).max(LOGO_MAX_WIDTH),
+      height: z.number().int().min(1).max(LOGO_MAX_HEIGHT),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { clientId } = await requireOwnFoundation()
+    if (!isPng(data.dataBase64)) throw conflict('That file is not a PNG image.')
+    const hash = await contentHash(data.dataBase64)
+    const url = logoUrl(clientId, hash)
+    const db = getDb()
+    const values = {
+      mimeType: LOGO_MIME_TYPE,
+      dataBase64: data.dataBase64,
+      hash,
+      width: data.width,
+      height: data.height,
+    }
+    await db.batch([
+      db
+        .insert(clientLogos)
+        .values({ clientId, ...values })
+        .onConflictDoUpdate({
+          target: clientLogos.clientId,
+          set: { ...values, updatedAt: new Date() },
+        }),
+      db.update(clients).set({ logoUrl: url }).where(eq(clients.id, clientId)),
+    ])
+    return { logoUrl: url }
+  })
+
+export const removeOrganisationLogo = createServerFn({ method: 'POST' }).handler(async () => {
+  const { clientId } = await requireOwnFoundation()
+  const db = getDb()
+  await db.batch([
+    db.delete(clientLogos).where(eq(clientLogos.clientId, clientId)),
+    db.update(clients).set({ logoUrl: null }).where(eq(clients.id, clientId)),
+  ])
+  return { logoUrl: null }
+})

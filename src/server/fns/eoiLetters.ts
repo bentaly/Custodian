@@ -24,6 +24,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '../db'
+import { letterLogo } from '../logo'
 import { clientProfiles, eoiDeclineLetters, eois, programmes } from '../../../drizzle/schema'
 import { requireRole } from '../session'
 import { requireFeature } from '../features'
@@ -38,12 +39,14 @@ import { renderEoiDecline } from '../../lib/eoiLetters'
 
 /** Both templates, plus what the preview needs to sign and address them as sent. */
 export async function loadEoiLetterContext(clientId: string) {
-  const [client, profile] = await Promise.all([
+  const [client, profile, logo] = await Promise.all([
     getDb().query.clients.findFirst({ where: (c, { eq }) => eq(c.id, clientId) }),
     getDb().query.clientProfiles.findFirst({ where: (p, { eq }) => eq(p.clientId, clientId) }),
+    letterLogo(clientId),
   ])
   return {
     foundationName: client?.name ?? 'the Foundation',
+    logo,
     declineTemplate: profile?.eoiDeclineLetterTemplate ?? null,
     inviteTemplate: profile?.eoiInviteTemplate ?? null,
     // Signed as the decline letter is: its own signatory, else the award letter's.
@@ -259,6 +262,7 @@ export const sendEoiDeclineLetters = createServerFn({ method: 'POST' })
           issuedAt,
         },
         ctx.declineTemplate,
+        ctx.logo,
       )
       return {
         eoiId: r.eoiId,

@@ -14,7 +14,28 @@
 
 import { escapeHtml } from './html'
 
-export function letterHtml(bodyText: string): string {
+/**
+ * The foundation's logo at the head of a letter (`server/logo.ts`'s `letterLogo`). The
+ * URL must be absolute: a mail client resolves it against nothing.
+ */
+export type LetterLogo = { url: string; alt: string; width: number; height: number }
+
+/** The most a logo takes at the head of a letter, in CSS pixels; it is stored at 2x. */
+const LOGO_BOX = { width: 240, height: 80 }
+
+function logoHtml(logo: LetterLogo): string {
+  // Width and height stated, so a client that blocks images (Outlook, by default) holds
+  // the logo's space rather than collapsing the letter's top. Only an `https:` or
+  // `http:` URL is ever written: it comes from our own server, but this is markup going
+  // to third parties, and the rule in this file is that nothing reaches it unchecked.
+  if (!/^https?:\/\//.test(logo.url)) return ''
+  const scale = Math.min(1, LOGO_BOX.width / logo.width, LOGO_BOX.height / logo.height)
+  const w = Math.round(logo.width * scale)
+  const h = Math.round(logo.height * scale)
+  return `<p style="margin:0 0 24px;"><img src="${escapeHtml(logo.url)}" alt="${escapeHtml(logo.alt)}" width="${w}" height="${h}" style="display:block;border:0;width:${w}px;height:${h}px;" /></p>`
+}
+
+export function letterHtml(bodyText: string, logo?: LetterLogo | null): string {
   const blocks = bodyText.split(/\n{2,}/).map((block) => {
     const lines = block.split('\n').filter((l) => l.trim())
     // A run of "1. …" lines is the numbered block a template dropped in (conditions or
@@ -42,6 +63,7 @@ export function letterHtml(bodyText: string): string {
 
   return [
     '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:640px;margin:0 auto;padding:32px 24px;color:#344051;">',
+    logo ? logoHtml(logo) : '',
     blocks.join(''),
     '</div>',
   ].join('')

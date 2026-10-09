@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { and, count, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../db'
+import { letterLogo } from '../logo'
 import { decidedAmount, effectiveAmount } from '../../lib/amountRequested'
 import { isUnnamedOrganisation } from '../../lib/organisationName'
 import { organisationSummarySql } from '../organisationSummary'
@@ -266,12 +267,14 @@ export const updateAwardLetterSettings = createServerFn({ method: 'POST' })
 
 /** The client-level facts every letter in a batch shares. */
 async function loadLetterContext(clientId: string) {
-  const [client, profile] = await Promise.all([
+  const [client, profile, logo] = await Promise.all([
     getDb().query.clients.findFirst({ where: (c, { eq }) => eq(c.id, clientId) }),
     getDb().query.clientProfiles.findFirst({ where: (p, { eq }) => eq(p.clientId, clientId) }),
+    letterLogo(clientId),
   ])
   return {
     foundationName: client?.name ?? 'the Foundation',
+    logo,
     settings: {
       template: profile?.awardLetterTemplate ?? null,
       conditions: profile?.awardLetterConditions ?? null,
@@ -326,6 +329,7 @@ function letterForGrant({
     // grant — an empty list is a legitimate outcome, not a missing value.
     settings: terms.useStandardConditions ? ctx.settings : { ...ctx.settings, conditions: [] },
     specialCondition,
+    logo: ctx.logo,
   })
 }
 
