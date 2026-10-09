@@ -120,10 +120,10 @@ function OrganisationDetails() {
       <Panel label="Logo">
         <PanelTitle>Logo</PanelTitle>
         <div className="flex flex-wrap items-center gap-4">
-          {/* The logo on white, at the size a letter draws it, so what is seen here is
+          {/* The logo on white and square, as a letter draws it, so what is seen here is
               what a charity sees at the top of their letter. */}
           <div
-            className="flex h-24 w-64 shrink-0 items-center justify-center rounded-control border p-3"
+            className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-control border"
             style={{ borderColor: C.line }}
           >
             {logo ? (

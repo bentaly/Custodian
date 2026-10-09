@@ -25,11 +25,11 @@ export function AwardLetterPreview({
   return (
     <div className={`text-label leading-relaxed text-grey-700 ${className}`}>
       {user.clientLogo && (
-        // 240x80 at most, the size the emailed letter draws it.
+        // 80px square, the size the emailed letter draws it.
         <img
           src={user.clientLogo}
           alt={user.clientName ?? ''}
-          className="mb-4 h-auto max-h-20 w-auto max-w-60 object-contain"
+          className="mb-4 size-20 object-contain"
         />
       )}
       {blocks.map((block, i) => {

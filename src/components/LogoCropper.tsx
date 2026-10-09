@@ -14,12 +14,12 @@ import {
 import { Button } from './ui'
 import { C } from './ui/tokens'
 
-// Drag-to-position for a foundation's logo: `AvatarCropper`'s twin in a 3:1 frame, the
-// shape the logo is drawn in. Where the avatar must always fill its circle, a logo
+// Drag-to-position for a foundation's logo: `AvatarCropper`'s twin, in the same square
+// frame at the same size, a square being the monogram's shape it replaces. Where the avatar must always fill its circle, a logo
 // starts with all of it showing and may leave the frame partly empty (`lib/logo.ts`
 // says why), so zoom runs UP from "just fits" and dragging keeps it inside the frame.
 
-const FRAME_WIDTH = 360
+const FRAME_WIDTH = 240
 const FRAME_HEIGHT = Math.round((FRAME_WIDTH * LOGO_HEIGHT) / LOGO_WIDTH)
 
 export function LogoCropper({
@@ -44,10 +44,13 @@ export function LogoCropper({
     y: clampAxis(y, dh, FRAME_HEIGHT),
   })
 
-  // A new logo starts flush left and centred top to bottom, where a letterhead puts it.
+  // A new logo starts centred, the whole of it showing.
   useEffect(() => {
     setZoom(1)
-    setOffset({ x: 0, y: (FRAME_HEIGHT - source.height * fit) / 2 })
+    setOffset({
+      x: (FRAME_WIDTH - source.width * fit) / 2,
+      y: (FRAME_HEIGHT - source.height * fit) / 2,
+    })
     // Only on a new source; later runs would fight the dragging.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source])

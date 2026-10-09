@@ -5,15 +5,15 @@ import { clampAxis, containScale } from './logo'
 const logo = {
   url: 'https://custodian.fund/api/logo/abc?v=1',
   alt: 'The Montirex Foundation',
-  width: 480,
-  height: 120,
+  width: 320,
+  height: 320,
 }
 
 describe('letterHtml with a logo', () => {
   it('heads the letter with it, sized for the letter and named for a blocked image', () => {
     const html = letterHtml('Dear Sean’s Place,', logo)
     expect(html).toContain(
-      '<img src="https://custodian.fund/api/logo/abc?v=1" alt="The Montirex Foundation" width="240" height="60"',
+      '<img src="https://custodian.fund/api/logo/abc?v=1" alt="The Montirex Foundation" width="80" height="80"',
     )
     expect(html.indexOf('<img')).toBeLessThan(html.indexOf('Dear'))
   })

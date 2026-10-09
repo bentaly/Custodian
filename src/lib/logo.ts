@@ -2,12 +2,12 @@
 // decoded, positioned and re-encoded here, so the server stores a small fixed-format file
 // and never the original (which can carry metadata, and can be any size).
 //
-// Positioned in a 3:1 FRAME (`LogoCropper`), which is the shape it is drawn in: the
-// header chip and the head of a letter are both wide and short. Unlike an avatar the
+// Positioned in a SQUARE frame (`LogoCropper`), as a profile photo is: the logo takes
+// the monogram's place in the header, which is square. Unlike an avatar the
 // logo starts CONTAINED, the whole of it inside the frame, and may stay smaller than the
 // frame in either direction: a square mark beside empty space is a normal logo, where a
 // photo with a gap is a broken one. Zooming in trims a file's own empty margins; dragging
-// sets where it sits (most foundations want it flush left, like a letterhead). The empty
+// sets where it sits. The empty
 // part of the frame is transparent, so it sits on the white of a letter and the grey of
 // the header alike.
 //
@@ -15,9 +15,9 @@
 // WebP; PNG is the one format every mail client draws, with transparency, and a logo is
 // flat colour, which PNG compresses well.
 
-/** The stored frame: 2x the largest it is drawn (a letter's 240x80). */
-export const LOGO_WIDTH = 480
-export const LOGO_HEIGHT = 160
+/** The stored frame: square, and 4x the 80px it is drawn at on a letter, kept sharp. */
+export const LOGO_WIDTH = 320
+export const LOGO_HEIGHT = 320
 
 /** Largest file we will attempt to decode (a memory guard, as for avatars). */
 export const MAX_LOGO_SOURCE_BYTES = 10 * 1024 * 1024
@@ -79,7 +79,7 @@ export function clampAxis(offset: number, displayed: number, frame: number): num
  *
  * Through an `<img>` rather than `createImageBitmap`, because that is what draws an SVG,
  * and vector logos are common. A vector is drawn at the working size, so it stays sharp
- * at any zoom; an SVG with no intrinsic size reports 0x0 and is given a 3:1 one.
+ * at any zoom; an SVG with no intrinsic size reports 0x0 and is given a square one.
  */
 export async function loadLogoSource(file: File): Promise<LogoSource> {
   if (file.size > MAX_LOGO_SOURCE_BYTES) {

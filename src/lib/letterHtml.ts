@@ -20,8 +20,8 @@ import { escapeHtml } from './html'
  */
 export type LetterLogo = { url: string; alt: string; width: number; height: number }
 
-/** The most a logo takes at the head of a letter, in CSS pixels; it is stored at 2x. */
-const LOGO_BOX = { width: 240, height: 80 }
+/** The most a logo takes at the head of a letter, in CSS pixels; it is stored at 4x. */
+const LOGO_BOX = { width: 80, height: 80 }
 
 function logoHtml(logo: LetterLogo): string {
   // Width and height stated, so a client that blocks images (Outlook, by default) holds
