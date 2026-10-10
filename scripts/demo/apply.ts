@@ -177,6 +177,9 @@ async function replay(
     custodianScoreDetail: snap.custodianScoreDetail as never,
     custodianScoredAt: recordedAt(snap.custodianScoredAt),
     grantPurpose: snap.grantPurpose,
+    // NULL for every Wrenfield applicant today: their summaries are all short enough
+    // for the card as they are (`lib/organisationSummary.ts`).
+    organisationSummaryShort: snap.organisationSummaryShort ?? null,
     // Absent from a snapshot recorded before themes were picked per application; NULL is
     // then "not assigned", which `scripts/assign-themes.ts` fills without a re-score.
     themes: snap.themes ?? null,

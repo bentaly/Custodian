@@ -37,7 +37,7 @@ runScript('demo:snapshot', async () => {
     select a.external_application_id ref,
            a.due_diligence_status, a.due_diligence_checks, a.due_diligence_checked_at,
            a.custodian_score_status, a.custodian_score, a.custodian_score_detail,
-           a.custodian_scored_at, a.grant_purpose, a.themes,
+           a.custodian_scored_at, a.grant_purpose, a.organisation_summary_short, a.themes,
            a.deprivation_status, a.deprivation_context, a.deprivation_resolved_at,
            a.delivery_nation, a.delivery_region, a.delivery_lad_code, a.delivery_lad_name,
            a.bank_check_status
@@ -59,6 +59,7 @@ runScript('demo:snapshot', async () => {
       custodianScoreDetail: r.custodian_score_detail as ApplicationSnapshot['custodianScoreDetail'],
       custodianScoredAt: r.custodian_scored_at as string | null,
       grantPurpose: r.grant_purpose as string | null,
+      organisationSummaryShort: r.organisation_summary_short as string | null,
       themes: r.themes as string[] | null,
       deprivationStatus: r.deprivation_status as string,
       deprivationContext: r.deprivation_context as ApplicationSnapshot['deprivationContext'],

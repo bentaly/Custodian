@@ -38,6 +38,8 @@ export interface ApplicationSnapshot {
   custodianScoreDetail: Record<string, unknown> | null
   custodianScoredAt: string | null
   grantPurpose: string | null
+  /** Optional: snapshots recorded before the short organisation summary existed lack it. */
+  organisationSummaryShort?: string | null
   /** Optional: snapshots recorded before themes were assigned per application lack it. */
   themes?: string[] | null
   deprivationStatus: string
