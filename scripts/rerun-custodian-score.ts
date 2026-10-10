@@ -259,6 +259,9 @@ async function main() {
           // Kept only when the run produced one, so a failed re-score doesn't blank a
           // purpose that is already on the row.
           ...(result.grantPurpose ? { grantPurpose: result.grantPurpose } : {}),
+          ...(result.status === 'scored'
+            ? { organisationSummaryShort: result.organisationSummaryShort }
+            : {}),
           ...(result.themes ? { themes: result.themes } : {}),
         })
         .where(eq(schema.applications.id, app.id))

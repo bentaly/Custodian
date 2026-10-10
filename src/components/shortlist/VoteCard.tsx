@@ -27,6 +27,7 @@ import { majorityOf } from '../../lib/voting'
 import { withAlpha } from '../BarMeter'
 import { CommentsDialog } from './CommentsDialog'
 import { decidedAmount } from '../../lib/amountRequested'
+import { organisationSummarySource } from '../../lib/organisationSummary'
 import { setAmendedAmount } from '../../server/fns/applications'
 import { AmountDialog } from '../AmountDialog'
 
@@ -52,6 +53,8 @@ export type VoteCardApplication = {
   organisationName: string
   /** The applicant's own description; the register's `activities` stands in for it. */
   organisationSummary: string | null
+  /** One sentence of it, written by the score where the source runs past two lines. */
+  organisationSummaryShort: string | null
   amountRequested: string | null
   charityNumber: string | null
   companyNumber: string | null
@@ -401,16 +404,19 @@ function ClampedSection({
   label,
   text,
   toggleLabel,
+  full,
   assessment = false,
 }: {
   label: string
   text: string
   toggleLabel: string
+  /** The whole text, where `text` is a short version of it: opening shows this instead. */
+  full?: string
   /** The AI's words, set off by the brand rule as before. */
   assessment?: boolean
 }) {
   const clamp = useClamp(text, 3)
-  const expandable = clamp.clipped || clamp.open
+  const expandable = !!full || clamp.clipped || clamp.open
   return (
     <div>
       {expandable ? (
@@ -451,7 +457,7 @@ function ClampedSection({
         } ${expandable ? 'cursor-pointer' : ''} ${clamp.className ?? ''}`}
         style={{ color: C.body, borderColor: assessment ? C.brand : undefined }}
       >
-        {text}
+        {full && clamp.open ? full : text}
       </p>
     </div>
   )
@@ -584,8 +590,11 @@ export function VoteCard({
   const subline = deliveryAreaLabel(app) ?? ''
 
   const flags = detail?.flags ?? []
-  const orgSummary =
-    app.organisationSummary?.trim() || app.organisationProfile?.activities?.trim() || null
+  const orgSummary = organisationSummarySource(
+    app.organisationSummary,
+    app.organisationProfile?.activities,
+  )
+  const orgSummaryShort = (orgSummary && app.organisationSummaryShort?.trim()) || null
 
   // The comps drop due diligence from this card entirely, which is right while it is
   // clear and wrong the moment it is not: a board must not approve a grant to a charity
@@ -775,11 +784,13 @@ export function VoteCard({
           </div>
 
           {/* Who they are, before what they want: the applicant's own description,
-              else the Charity Commission's (a company's register entry has none). */}
+              else the Charity Commission's (a company's register entry has none). A
+              long one prints as the score's one-sentence version, opening to the whole. */}
           {orgSummary && (
             <ClampedSection
               label="Organisation summary"
-              text={orgSummary}
+              text={orgSummaryShort ?? orgSummary}
+              full={orgSummaryShort ? orgSummary : undefined}
               toggleLabel="Read the full organisation summary"
             />
           )}

@@ -121,7 +121,12 @@ export async function scoreApplication(
       custodianScoreDetail: custodian.detail,
       // A successful run's answer stands even when it is "none" (the application does not
       // say clearly what the money is for); a FAILED run keeps the purpose already there.
-      ...(custodian.status === 'scored' ? { grantPurpose: custodian.grantPurpose } : {}),
+      ...(custodian.status === 'scored'
+        ? {
+            grantPurpose: custodian.grantPurpose,
+            organisationSummaryShort: custodian.organisationSummaryShort,
+          }
+        : {}),
       // Only when the run produced them — a forced re-score that fails must not blank
       // themes that every list and filter is already reading — and never over themes a
       // person chose, which outrank the model's.

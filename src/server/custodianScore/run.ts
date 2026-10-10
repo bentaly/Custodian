@@ -23,6 +23,7 @@ import {
 } from '../../lib/custodianScore'
 import { getAnthropic, isAnthropicConfigured, SCORING_MODEL } from './client'
 import { withoutEmDashes } from '../../lib/emDash'
+import { needsShortSummary, organisationSummarySource } from '../../lib/organisationSummary'
 
 /** The model call, injectable for tests. Returns schema-valid structured output. */
 export type CustodianScoreAssessor = (input: CustodianScoreInput) => Promise<CustodianScoreOutput>
@@ -83,6 +84,7 @@ export async function runCustodianScore(
       score: null,
       detail: null,
       grantPurpose: null,
+      organisationSummaryShort: null,
       themes: null,
       scoredAt,
     }
@@ -109,6 +111,12 @@ export async function runCustodianScore(
         model: SCORING_MODEL,
       },
       grantPurpose: output.grantPurpose?.trim() || null,
+      // Kept only where the card needs it: a short source is printed as it is.
+      organisationSummaryShort: needsShortSummary(
+        organisationSummarySource(input.organisationSummary, input.organisationProfile?.activities),
+      )
+        ? output.organisationSummaryShort?.trim() || null
+        : null,
       // `[]` when the programme has no themes — an answer, not a gap. Otherwise what the
       // model picked, narrowed to the programme's own list. Should the model return none
       // despite being asked for at least one, that is stored as `[]` too, rather than as
@@ -133,6 +141,7 @@ export async function runCustodianScore(
       // Null rather than a placeholder: callers must not overwrite a purpose they
       // already hold with the output of a run that failed.
       grantPurpose: null,
+      organisationSummaryShort: null,
       // Null for the same reason: never overwrite themes a row already holds.
       themes: null,
       scoredAt,

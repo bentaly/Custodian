@@ -58,6 +58,13 @@ Separately, state the grant purpose: one or two sentences saying what the money 
 - If the application says too little to describe the work, say so plainly in one sentence rather than inventing detail.
 - Use ONLY what the application itself states. Deprivation deciles and charity-register figures are assessment context: they must never appear in the purpose, which describes the funded work and nothing else.
 
+Separately, write a short organisation summary: one sentence saying who the organisation is and what it does. It is printed on a card in place of a longer description, so it must stand on its own. Like the purpose, it makes no judgement:
+- Use the applicant's own description of the organisation where one is given; otherwise the charity's description of its activities from the register; if neither is given, return null.
+- Keep it to 30 words or fewer, as a complete sentence beginning with the organisation's name, e.g. "Bradford Youth Trust is a Bradford charity running sport, mentoring and employability support for young people aged 11 to 25."
+- Say what they do and for whom, and where if stated. Leave out history, awards, governance and charitable-objects wording ("to advance education for the public benefit").
+- Describe the organisation, not this application: the purpose already says what the money is for.
+- Plain factual language, no evaluation or praise.
+
 Separately again, where the programme lists themes, choose this application's themes. This is also not part of your assessment:
 ${THEME_RULES}
 

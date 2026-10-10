@@ -215,6 +215,7 @@ export async function createApplicationFromCanonical(
     custodianScore: custodian?.score ?? null,
     custodianScoreDetail: custodian?.detail ?? null,
     grantPurpose: custodian?.grantPurpose ?? null,
+    organisationSummaryShort: custodian?.organisationSummaryShort ?? null,
     // Null while the score is queued: themes arrive with it, and until then there is
     // nothing to show rather than the programme's whole list.
     themes: custodian?.themes ?? null,
@@ -454,7 +455,12 @@ export async function updateApplicationFromCanonical(
             // clearly what the money is for). A failed score sets the status and the
             // error detail, but must not blank a purpose an admin may already have read
             // on the shortlist — or worse, be about to award from.
-            ...(custodian.status === 'scored' ? { grantPurpose: custodian.grantPurpose } : {}),
+            ...(custodian.status === 'scored'
+              ? {
+                  grantPurpose: custodian.grantPurpose,
+                  organisationSummaryShort: custodian.organisationSummaryShort,
+                }
+              : {}),
             // Same rule for themes: a failed re-run keeps the ones already assigned, and
             // a person's choice is never replaced by the model's.
             ...(custodian.themes && !existing.themesSetBy ? { themes: custodian.themes } : {}),

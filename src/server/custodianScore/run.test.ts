@@ -42,6 +42,7 @@ function flatAssessor(
       CRITERION_ORDER.map((k) => [k, { score, rationale: `${k} rationale` }]),
     ) as any,
     grantPurpose,
+    organisationSummaryShort: 'Nature Learning Network runs outdoor learning for schools.',
     summary,
     flags,
   })
@@ -115,7 +116,13 @@ describe('runCustodianScore', () => {
 
   it('flags a missing criterion as an error rather than producing a bad composite', async () => {
     const result = await runCustodianScore(INPUT, {
-      assess: async () => ({ criteria: {} as any, grantPurpose: 'x', summary: '', flags: [] }),
+      assess: async () => ({
+        criteria: {} as any,
+        grantPurpose: 'x',
+        organisationSummaryShort: null,
+        summary: '',
+        flags: [],
+      }),
     })
     expect(result.status).toBe('error')
   })
@@ -159,5 +166,39 @@ describe('runCustodianScore', () => {
       expect(result.status).toBe('scored')
       expect(result.grantPurpose).toBeNull()
     })
+  })
+})
+
+describe('runCustodianScore — short organisation summary', () => {
+  const long = 'We are a community charity. '.repeat(10)
+
+  it('keeps it when the source is too long for the card', async () => {
+    const result = await runCustodianScore(
+      { ...INPUT, organisationSummary: long },
+      { assess: flatAssessor(7) },
+    )
+    expect(result.organisationSummaryShort).toBe(
+      'Nature Learning Network runs outdoor learning for schools.',
+    )
+  })
+
+  it("falls back to the register's activities as the source", async () => {
+    const result = await runCustodianScore(
+      {
+        ...INPUT,
+        organisationSummary: null,
+        organisationProfile: { activities: long } as any,
+      },
+      { assess: flatAssessor(7) },
+    )
+    expect(result.organisationSummaryShort).not.toBeNull()
+  })
+
+  it('drops it when the source is short enough to print as it is', async () => {
+    const result = await runCustodianScore(
+      { ...INPUT, organisationSummary: 'We run outdoor learning for schools.' },
+      { assess: flatAssessor(7) },
+    )
+    expect(result.organisationSummaryShort).toBeNull()
   })
 })

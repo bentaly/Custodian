@@ -35,6 +35,12 @@ export const CustodianScoreOutputSchema = z.object({
     .describe(
       "One or two sentences, 40 words or fewer, stating what the money would fund: who the applicant is, what they will do, for whom, where, and over what period, drawn only from the application. A statement of fact with no judgement, praise or scoring language, written as a complete sentence starting with the organisation name. Never restates the amount requested. State ONLY what the application says the money is for: never comment on the application's quality, completeness, clarity or consistency, and leave out any detail it does not give rather than saying it is missing. If the application does not describe a funded activity clearly enough to state one, return null; say why in the summary and flags instead.",
     ),
+  organisationSummaryShort: z
+    .string()
+    .nullable()
+    .describe(
+      "One sentence, 30 words or fewer, saying who the organisation is and what it does, drawn from the applicant's own description of the organisation where one is given, otherwise from the charity's description of its activities on the register. Plain fact, no judgement. Null if neither is given.",
+    ),
   summary: z
     .string()
     .describe(

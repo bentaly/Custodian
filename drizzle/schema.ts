@@ -564,6 +564,10 @@ export const applications = pgTable(
     // description stays as the fallback rather than being dropped — it is the only one
     // available for a foundation whose form never asks.
     organisationSummary: text('organisation_summary'),
+    // One sentence of the above (or, without it, of the register's activities), written
+    // by the scoring call for the shortlist card. NULL where the source is short enough
+    // to print as it is, or not scored yet. See `lib/organisationSummary.ts`.
+    organisationSummaryShort: text('organisation_summary_short'),
     // The applicant's contact email address. Required for every new application (a
     // required canonical field), but the column is nullable so it can be added without
     // backfilling existing rows.

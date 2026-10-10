@@ -127,6 +127,7 @@ const SHORTLIST_COLUMNS = {
   // Whole, not a preview: the card prints it under a three-line clamp that opens in
   // place. One answer per card, unlike the full forms this list is guarding against.
   organisationSummary: true,
+  organisationSummaryShort: true,
   externalApplicationId: true,
   amountRequested: true,
   amountAmended: true,

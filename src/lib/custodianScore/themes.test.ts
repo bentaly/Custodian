@@ -36,6 +36,7 @@ const base: CustodianScoreInput = {
 const output = (themes?: string[]) => ({
   criteria: Object.fromEntries(CRITERION_ORDER.map((k) => [k, { score: 7, rationale: 'x' }])),
   grantPurpose: 'Bradford Youth Trust will run six courses.',
+  organisationSummaryShort: null,
   summary: 'ok',
   flags: [],
   ...(themes ? { themes } : {}),

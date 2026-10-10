@@ -82,6 +82,12 @@ export interface CustodianScoreResult {
    */
   grantPurpose: string | null
   /**
+   * One sentence of the organisation summary, for the shortlist card — see
+   * `applications.organisationSummaryShort`. Outside `detail` for the same reason as
+   * `grantPurpose`. Null unless status is 'scored' AND the source is long enough to need it.
+   */
+  organisationSummaryShort: string | null
+  /**
    * The programme themes this application is about — see `applications.themes`. Outside
    * `detail` for the same reason as `grantPurpose`: it is not a judgement, and a failed
    * re-score must not blank it. Null unless status is 'scored'; `[]` only when the
