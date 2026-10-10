@@ -597,8 +597,8 @@ function ApplicationDetail() {
   // on its own length rather than the register's.
   const activities = useClamp(orgSummary ?? orgProfile?.activities)
   // The score's one-sentence version of whichever description is shown, where that runs
-  // long (`lib/organisationSummary.ts`): printed in its place, with the whole behind the
-  // same chevron.
+  // long (`lib/organisationSummary.ts`): printed in its place, and not opened to the whole,
+  // which took over the card. The applicant's own words stay in View Submission.
   const orgSummaryShort =
     (organisationSummarySource(orgSummary, orgProfile?.activities) &&
       application.organisationSummaryShort?.trim()) ||
@@ -1142,7 +1142,7 @@ function ApplicationDetail() {
                       The organisation
                     </p>
                     {orgEditField && <EditedMark field={orgEditField} edits={edits} />}
-                    {(orgSummaryShort || activities.clipped || activities.open) && (
+                    {!orgSummaryShort && activities.clipped && (
                       <ClampToggle
                         open={activities.open}
                         onToggle={activities.toggle}
@@ -1193,9 +1193,7 @@ function ApplicationDetail() {
                       className={`mt-2 font-display text-body leading-relaxed ${activities.className ?? ''}`}
                       style={{ color: C.ink }}
                     >
-                      {orgSummaryShort && !activities.open
-                        ? orgSummaryShort
-                        : (orgSummary ?? orgProfile!.activities)}
+                      {orgSummaryShort ?? orgSummary ?? orgProfile!.activities}
                     </p>
                   ) : (
                     <p className="mt-2 font-display text-body" style={{ color: C.sub }}>
