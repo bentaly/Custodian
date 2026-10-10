@@ -1190,7 +1190,7 @@ function ApplicationDetail() {
                     // when there is something behind the fold.
                     <p
                       ref={activities.ref}
-                      className={`mt-2 font-display text-body leading-relaxed ${activities.className ?? ''}`}
+                      className={`mt-2 font-display text-body leading-relaxed ${orgSummaryShort ? '' : (activities.className ?? '')}`}
                       style={{ color: C.ink }}
                     >
                       {orgSummaryShort ?? orgSummary ?? orgProfile!.activities}
