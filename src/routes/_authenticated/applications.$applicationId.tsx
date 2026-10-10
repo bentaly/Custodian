@@ -85,6 +85,7 @@ import type { BudgetLine } from '../../lib/budget/types'
 import { budgetDocumentName } from '../../lib/budget/link'
 import { fmtDate, fmtDuration, fmtExact, fmtMoney, fmtPerYear, fmtRef } from '../../lib/format'
 import { colourSeries } from '../../lib/programmeColours'
+import { organisationSummarySource } from '../../lib/organisationSummary'
 import { C as TOKENS, bandForScore } from '../../components/ui/tokens'
 import {
   Disclosure,
@@ -595,6 +596,13 @@ function ApplicationDetail() {
   // whichever description is being SHOWN, so the applicant's longer prose is clamped
   // on its own length rather than the register's.
   const activities = useClamp(orgSummary ?? orgProfile?.activities)
+  // The score's one-sentence version of whichever description is shown, where that runs
+  // long (`lib/organisationSummary.ts`): printed in its place, with the whole behind the
+  // same chevron.
+  const orgSummaryShort =
+    (organisationSummarySource(orgSummary, orgProfile?.activities) &&
+      application.organisationSummaryShort?.trim()) ||
+    null
   // The applicant's own figure first, the register's last filed year after it. A company
   // has only the first (Companies House publishes no income), and where a charity has
   // both, the form's is the current one while the register's can be eighteen months old.
@@ -1134,7 +1142,7 @@ function ApplicationDetail() {
                       The organisation
                     </p>
                     {orgEditField && <EditedMark field={orgEditField} edits={edits} />}
-                    {activities.clipped && (
+                    {(orgSummaryShort || activities.clipped || activities.open) && (
                       <ClampToggle
                         open={activities.open}
                         onToggle={activities.toggle}
@@ -1185,7 +1193,9 @@ function ApplicationDetail() {
                       className={`mt-2 font-display text-body leading-relaxed ${activities.className ?? ''}`}
                       style={{ color: C.ink }}
                     >
-                      {orgSummary ?? orgProfile!.activities}
+                      {orgSummaryShort && !activities.open
+                        ? orgSummaryShort
+                        : (orgSummary ?? orgProfile!.activities)}
                     </p>
                   ) : (
                     <p className="mt-2 font-display text-body" style={{ color: C.sub }}>
