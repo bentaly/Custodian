@@ -30,6 +30,7 @@ import { deliveryAreaLabel, formatDecileRange } from '../../lib/deprivation/type
 import { impactUnitLabel } from '../../lib/impactUnits'
 import { majorityOf } from '../../lib/voting'
 import { decidedAmount } from '../../lib/amountRequested'
+import { organisationSummarySource } from '../../lib/organisationSummary'
 
 const PAGE_SIZE = 10
 
@@ -250,6 +251,14 @@ function shortlistColumns(
       value: (a) => DUE_DILIGENCE_WORDS[a.dueDiligenceStatus] ?? a.dueDiligenceStatus,
     },
     { header: 'Number of comments', width: 12, value: (a) => a.commentCount },
+    {
+      // What the card prints: the score's one sentence where the description runs long.
+      header: 'Organisation summary',
+      width: 60,
+      value: (a) =>
+        a.organisationSummaryShort?.trim() ||
+        organisationSummarySource(a.organisationSummary, a.organisationProfile?.activities),
+    },
     { header: 'Grant purpose', width: 60, value: (a) => a.grantPurpose },
     { header: 'AI assessment', width: 60, value: (a) => a.custodianScoreDetail?.summary },
     {
