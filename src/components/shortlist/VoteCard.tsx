@@ -404,19 +404,16 @@ function ClampedSection({
   label,
   text,
   toggleLabel,
-  full,
   assessment = false,
 }: {
   label: string
   text: string
   toggleLabel: string
-  /** The whole text, where `text` is a short version of it: opening shows this instead. */
-  full?: string
   /** The AI's words, set off by the brand rule as before. */
   assessment?: boolean
 }) {
   const clamp = useClamp(text, 3)
-  const expandable = !!full || clamp.clipped || clamp.open
+  const expandable = clamp.clipped || clamp.open
   return (
     <div>
       {expandable ? (
@@ -457,7 +454,7 @@ function ClampedSection({
         } ${expandable ? 'cursor-pointer' : ''} ${clamp.className ?? ''}`}
         style={{ color: C.body, borderColor: assessment ? C.brand : undefined }}
       >
-        {full && clamp.open ? full : text}
+        {text}
       </p>
     </div>
   )
@@ -785,12 +782,12 @@ export function VoteCard({
 
           {/* Who they are, before what they want: the applicant's own description,
               else the Charity Commission's (a company's register entry has none). A
-              long one prints as the score's one-sentence version, opening to the whole. */}
+              long one prints as the score's one-sentence version and nothing more: the
+              whole is on the application, and opened here it took over the card. */}
           {orgSummary && (
             <ClampedSection
               label="Organisation summary"
               text={orgSummaryShort ?? orgSummary}
-              full={orgSummaryShort ? orgSummary : undefined}
               toggleLabel="Read the full organisation summary"
             />
           )}
